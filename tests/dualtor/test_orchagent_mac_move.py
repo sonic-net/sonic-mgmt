@@ -40,7 +40,6 @@ def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
             if callable(update_iface_func):
                 update_iface_func(dut_iface)
             ptf_iface = dut_to_ptf_intf_map[dut_iface]
-            ptf_iface_mac = ptfadapter.dataplane.ports[(0, ptf_iface)].mac()
             garp_packet = testutils.simple_arp_packet(
                 eth_src=NEW_NEIGHBOR_HWADDR,
                 hw_snd=NEW_NEIGHBOR_HWADDR,
@@ -71,9 +70,19 @@ def cleanup_arp(duthosts):
         duthost.shell("sonic-clear arp")
 
 
+@pytest.fixture(autouse=True)
+def enable_garp(duthost):
+    """Enable creating arp table entry for gratuitous ARP."""
+    vlan_intf = duthost.get_running_config_facts()["VLAN_MEMBER"].keys()[0]
+    cmd = "echo %s > /proc/sys/net/ipv4/conf/" + vlan_intf + "/arp_accept"
+    duthost.shell(cmd % 1)
+    yield
+    duthost.shell(cmd % 0)
+
+
 def test_mac_move(
     announce_new_neighbor, apply_active_state_to_orchagent,
-    conn_graph_facts, ptfadapter,
+    conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, set_crm_polling_interval,
     tbinfo, tunnel_traffic_monitor, vmhost
 ):
@@ -88,8 +97,8 @@ def test_mac_move(
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_port,
-        conn_graph_facts, exp_pkt, existing=True
+        tor, ptfhost, vmhost, tbinfo, test_port,
+        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -101,8 +110,8 @@ def test_mac_move(
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_port,
-        conn_graph_facts, exp_pkt, existing=False
+        tor, ptfhost, vmhost, tbinfo, test_port,
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -110,8 +119,8 @@ def test_mac_move(
     # standby forwarding check after fdb ageout/flush
     tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_port,
-        conn_graph_facts, exp_pkt, existing=False
+        tor, ptfhost, vmhost, tbinfo, test_port,
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -123,8 +132,8 @@ def test_mac_move(
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_port,
-        conn_graph_facts, exp_pkt, existing=True
+        tor, ptfhost, vmhost, tbinfo, test_port,
+        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -132,8 +141,8 @@ def test_mac_move(
     # active forwarding check after fdb ageout/flush
     tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_port,
-        conn_graph_facts, exp_pkt, existing=False
+        tor, ptfhost, vmhost, tbinfo, test_port,
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)

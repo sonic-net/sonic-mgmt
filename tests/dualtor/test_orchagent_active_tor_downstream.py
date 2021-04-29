@@ -55,8 +55,8 @@ def test_active_tor_remove_neighbor_downstream_active(
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send traffic to server %s from ptf t1 interface %s", server_ipv4, ptf_t1_intf)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_params["selected_port"],
-        conn_graph_facts, exp_pkt, existing=True
+        tor, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
@@ -64,8 +64,8 @@ def test_active_tor_remove_neighbor_downstream_active(
 
     logging.info("send traffic to server %s after removing neighbor entry", server_ipv4)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_params["selected_port"],
-        conn_graph_facts, exp_pkt, existing=False
+        tor, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )    # for real dualtor testbed, leave the neighbor restoration to garp service
     flush_neighbor_ct = flush_neighbor(tor, server_ipv4, restore=is_t0_mocked_dualtor)
     with crm_neighbor_checker(tor), stop_garp(ptfhost), flush_neighbor_ct, tunnel_monitor, server_traffic_monitor:
@@ -73,8 +73,8 @@ def test_active_tor_remove_neighbor_downstream_active(
 
     logging.info("send traffic to server %s after neighbor entry is restored", server_ipv4)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_params["selected_port"],
-        conn_graph_facts, exp_pkt, existing=True
+        tor, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
