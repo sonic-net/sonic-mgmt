@@ -6,8 +6,8 @@ The scope of this test plan is to verify correct hardware behavior of the Muxcab
 
 The below hardware features/properties of the Y-Cable are to be tested in this test plan. The focus is going to be on the following capabilities of the Y-Cable.
 
-- Checking the read side of the Cable and establishing the read side is one of the valid values.
-- Toggling the MUX to both the sides and ensure the mux-direction/active link side matches with the side mux is toggled to.
+- Checking the read side of the Cable and establishing the read side is one of the valid values by reading the eeprom/register spec.
+- Toggling the MUX to both the sides and ensure the mux-direction/active link side matches with the side mux is toggled to by reading the eeprom/register spec.
 - Verify that the mux-direction/active link side also complies with traffic behavior. In particular the side mux is toggled to should be the only side TOR traffic reaches the NIC side. The traffic from NIC side to TOR should be braodcasted.
 - Verify that during toggle/failover number of frames dropped is minimal or zero or whatever the vendor expectation is from Y-Cable for drop count
 - Verify that number of frames received is equal to number of frames sent in both northbound/southbound traffic flows for a predefined set period of time.
@@ -18,6 +18,7 @@ The below hardware features/properties of the Y-Cable are to be tested in this t
 - Check the fimware version is returned correctly and is one of the acceptable values suggested by vendor. The major and minor number can be qualified by a regex match with a predefined pattern
 - Ensure firmware download, upgrade and rollback works fine.
 - Check LOS/LOL fields in the cable spec and check if they are correct
+- Check Cli show muxcable status and show muxcable hwmode muxdirection are in sync
 
 These are some of the vendor specific hardware capabilities which should be tested if available.
 
@@ -138,11 +139,11 @@ sudo show muxcable berinfo <physical_port> <target>
     
     | Step | Goal | Expected results |
     |-|-|-|
-    | Mux toggle traffic validation from NIC to ToR | MUX correctly toggles | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR, use tcpdump on ports to validate traffic |
+    | Mux toggle traffic validation from NIC to ToR | MUX correctly toggles | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR, use tcpdump/scapy/counters on ports to validate traffic |
     ||||
-    | Mux toggle traffic validation from ToR to NIC | MUX correctly toggles | Verify traffic from only active ToR reaches the server; Traffic from standby ToR should not reach the server; use scapy to validate the traffic from ToR to server |
+    | Mux toggle traffic validation from ToR to NIC | MUX correctly toggles | Verify traffic from only active ToR reaches the server; Traffic from standby ToR should not reach the server; use scapy/counters to validate the traffic from ToR to server |
     ||||
-    | traffic quantity validation from server to NIC | packet count to remain same | Verify number of frames sent from server to ToR and vice-versa on active link remain same; use counters on both fanout and DUT to check that frames match |
+    | traffic quantity validation from server to NIC | packet count to remain same or no packet loss | Verify number of frames sent from server to ToR and vice-versa on active link remain same; use counters on both fanout and DUT to check that frames match |
     ||||
     | During toggle record number of frames dropped | Verify no/minimalistic packet loss during toggle/failover | Verify number of frames sent during a failover are equal to the frmaes received from ToR to server |
     ||||
