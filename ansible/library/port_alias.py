@@ -138,8 +138,7 @@ class SonicPortAliasMap():
                             num_voq_index = index
             else:
                 #added support to parse recycle port
-                if re.match('^Ethernet', line) or re.match('^Inband', line) or\
-                   re.match('^Recirc', line):
+                if re.match('^Ethernet', line) or re.match('^Recirc', line):
                     mapping = line.split()
                     name = mapping[0]
                     sysport = {}
