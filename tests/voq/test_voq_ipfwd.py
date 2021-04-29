@@ -163,6 +163,13 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
     """
     Selects ports to test by sampling the interface and port channel lists.
 
+                          ---------- DUT ----------
+                          |--- LC1 ---|--- LC2 ---|
+    VM01T3   -------------|A          |          C|------------- VM02T1
+                          |         F0|F1         |
+    VM02T3   -------------|B     LB1  |   LB2    D|------------- VM01T1
+                          |-----------|-----------|
+
     Args:
         duthosts: The duthosts fixture.
         all_cfg_facts: The config_facts for all the duts.

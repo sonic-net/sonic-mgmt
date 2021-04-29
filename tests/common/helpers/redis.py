@@ -316,7 +316,7 @@ class AsicDbCli(RedisCli):
 
     def get_hostif_table(self, refresh=False):
         """
-        Returns the a fresh hostif table if refresh is true, else returns the entry from cache.  Initializes instance
+        Returns a fresh hostif table if refresh is true, else returns the entry from cache.  Initializes instance
         table on first run.
 
         Args:

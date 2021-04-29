@@ -433,7 +433,7 @@ def get_inband_info(cfg_facts):
                 if ':' in intf_ip[0]:
                     ret['ipv6_addr'] = intf_ip[0]
                     ret['ipv6_mask'] = intf_ip[1]
-                elif ':' not in intf_ip[0]:
+                else:
                     ret['ipv4_addr'] = intf_ip[0]
                     ret['ipv4_mask'] = intf_ip[1]
     return ret
