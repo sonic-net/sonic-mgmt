@@ -119,7 +119,6 @@ def test_tgen(ixia_api,
                                             priority=int(lossless_prio),
                                             prio_dscp_map=prio_dscp_map)
 
-    flow_name = config.flows[0].name
     pkt_size = config.flows[0].size.fixed
     rate_percent = config.flows[0].rate.value
     duration_sec = config.flows[0].duration.seconds.seconds
