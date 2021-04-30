@@ -5,13 +5,12 @@ from tests.common.utilities import wait_until
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import time
 
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
-
-ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 
 def add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
     for idx in range(len(nexthop_addrs)):
@@ -26,12 +25,6 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
             ptfhost.shell("ip -6 addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
         else:
             ptfhost.shell("ip addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
-
-def count_routes(host):
-    num = host.shell(
-        'sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME),
-        verbose=True)['stdout']
-    return int(num)
 
 def generate_and_verify_traffic(duthost, ptfadapter, ip_dst, expected_ports, ipv6=False):
     if ipv6:
@@ -72,29 +65,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, prefix, nexthop_addrs, p
     add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
     try:
-        # Check the number of routes in ASIC_DB
-        start_num_route = count_routes(duthost)
-
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
-        # duthost.shell("sudo sonic-cfggen -a '{\"STATIC_ROUTE\":{\"%s\": {\"nexthop\": \"%s\"}}}' --write-to-db" % (prefix, ",".join(nexthop_addrs)))
-
-        # Wait until the route gets applied to ASIC_DB
-        def _check_num_routes(expected_num_routes):
-            # Check the number of routes in ASIC_DB
-            return count_routes(duthost) == expected_num_routes
-
-        if not wait_until(2, 0.5, _check_num_routes, start_num_route + 1):
-            pytest.fail('failed to add routes within time limit')
-
-        # Check route entries are correct
-        asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'\
-            .format(ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
-        asic_prefixes = []
-        for key in asic_route_keys:
-            json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
-            asic_prefixes.append(json.loads(json_obj)['dest'])
-        assert prefix in asic_prefixes
+        time.sleep(2)
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
