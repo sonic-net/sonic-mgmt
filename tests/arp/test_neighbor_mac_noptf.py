@@ -38,8 +38,8 @@ class TestNeighborMacNoPtf:
                 None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-	duthost.command("sudo config bgp shutdown all")
-	time.sleep(120)
+        duthost.command("sudo config bgp shutdown all")
+        time.sleep(120)
         yield
 
         logger.info("Reload Config DB")
