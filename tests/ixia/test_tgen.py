@@ -6,8 +6,9 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
-from tests.common.ixia.ixia_helpers import get_dut_port_id
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
+from tests.common.ixia.port import select_ports
+from tests.common.ixia.qos_fixtures import prio_dscp_map
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
     Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
@@ -21,84 +22,103 @@ from abstract_open_traffic_generator.result import FlowRequest
 @pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer
 
-def __gen_traffic(testbed_config,
-                  dut_hostname,
-                  dut_port,
-                  conn_data,
-                  fanout_data):
+def __gen_all_to_all_traffic(testbed_config,
+                             port_config_list,
+                             dut_hostname,
+                             conn_data,
+                             fanout_data,
+                             priority,
+                             prio_dscp_map):
 
-    tx_port_id = get_dut_port_id(dut_hostname=dut_hostname,
-                                 dut_port=dut_port,
-                                 conn_data=conn_data,
-                                 fanout_data=fanout_data)
+    flows = []
 
-    if tx_port_id is None:
-        return None
-
-    rx_port_id = (tx_port_id + 1) % len(testbed_config.devices)
-
-    """ Traffic configuraiton """
-    flow_name = 'Test Flow'
-    rate_percent = 50
+    rate_percent = 100 / (len(port_config_list) - 1)
     duration_sec = 2
     pkt_size = 1024
 
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    pattern="all to all",
+                                                    rx_port_id=0)
 
-    flow_dscp = Priority(Dscp(phb=FieldPattern(choice=[3, 4])))
-    flow = Flow(
-        name=flow_name,
-        tx_rx=TxRx(data_endpoint),
-        packet=[
-            Header(choice=EthernetHeader()),
-            Header(choice=Ipv4Header(priority=flow_dscp))
-        ],
-        size=Size(pkt_size),
-        rate=Rate('line', rate_percent),
-        duration=Duration(FixedSeconds(seconds=duration_sec,
-                                       delay=0,
-                                       delay_unit='nanoseconds'))
-    )
+    for tx_port_id in tx_port_id_list:
+        for rx_port_id in rx_port_id_list:
+            if tx_port_id == rx_port_id:
+                continue
 
-    return [flow]
+            tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+            rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+
+            tx_mac = tx_port_config.mac
+            if tx_port_config.gateway == rx_port_config.gateway and \
+               tx_port_config.prefix_len == rx_port_config.prefix_len:
+                """ If soruce and destination port are in the same subnet """
+                rx_mac = rx_port_config.mac
+            else:
+                rx_mac = tx_port_config.gateway_mac
+
+            data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
+                                     rx_port_name=testbed_config.ports[rx_port_id].name)
+
+            eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                                     dst=FieldPattern(rx_mac),
+                                     pfc_queue=FieldPattern([priority]))
+
+            ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[priority]),
+                                    ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
+            ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                                  dst=FieldPattern(rx_port_config.ip),
+                                  priority=ip_prio)
+
+            flow_name = "Flow {} -> {}".format(tx_port_id, rx_port_id)
+            flow = Flow(
+                name=flow_name,
+                tx_rx=TxRx(data_endpoint),
+                packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
+                size=Size(pkt_size),
+                rate=Rate('line', rate_percent),
+                duration=Duration(FixedSeconds(seconds=duration_sec))
+            )
+
+            flows.append(flow)
+
+    return flows
 
 
-def test_tgen(conn_graph_facts,
+def test_tgen(ixia_api,
+              ixia_testbed_config,
+              conn_graph_facts,
               fanout_graph_facts,
-              ixia_api,
-              ixia_testbed,
-              enum_dut_portname_oper_up):
+              rand_one_dut_lossless_prio,
+              prio_dscp_map):
     """
     Test if we can use Tgen API generate traffic in a testbed
 
     Args:
+        ixia_api (pytest fixture): IXIA session
+        ixia_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
-        ixia_api (pytest fixture): IXIA session
-        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
-        enum_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
+        rand_one_dut_lossless_prio (str): name of lossless priority to test
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
 
     Returns:
-        None
+        N/A
     """
 
-    words = enum_dut_portname_oper_up.split('|')
-    pytest_require(len(words) == 2, "Fail to parse port name")
+    testbed_config, port_config_list = ixia_testbed_config
+    dut_hostname, lossless_prio = rand_one_dut_lossless_prio.split('|')
 
-    dut_hostname = words[0]
-    dut_port = words[1]
+    pytest_require(len(port_config_list) >= 2, "This test requires at least 2 ports")
 
-    config = ixia_testbed
-    config.flows = __gen_traffic(testbed_config=config,
-                                 dut_hostname=dut_hostname,
-                                 dut_port=dut_port,
-                                 conn_data=conn_graph_facts,
-                                 fanout_data=fanout_graph_facts)
+    config = testbed_config
+    config.flows = __gen_all_to_all_traffic(testbed_config=testbed_config,
+                                            port_config_list=port_config_list,
+                                            dut_hostname=dut_hostname,
+                                            conn_data=conn_graph_facts,
+                                            fanout_data=fanout_graph_facts,
+                                            priority=int(lossless_prio),
+                                            prio_dscp_map=prio_dscp_map)
 
-    flow_name = config.flows[0].name
     pkt_size = config.flows[0].size.fixed
     rate_percent = config.flows[0].rate.value
     duration_sec = config.flows[0].duration.seconds.seconds
@@ -119,40 +139,47 @@ def test_tgen(conn_graph_facts,
     """ Wait for traffic to finish """
     time.sleep(duration_sec)
 
-    while True:
-        rows = ixia_api.get_flow_results(FlowRequest(flow_names=[flow_name]))
-        if len(rows) == 1 and \
-           rows[0]['name'] == flow_name and \
-           rows[0]['transmit'] == 'stopped':
-            """ Wait for counters to fully propagate """
+    attempts = 0
+    max_attempts = 20
+    all_flow_names = [flow.name for flow in config.flows]
+
+    while attempts < max_attempts:
+        rows = ixia_api.get_flow_results(FlowRequest(flow_names=all_flow_names))
+
+        """ If all the data flows have stopped """
+        transmit_states = [row['transmit'] for row in rows]
+        if len(rows) == len(all_flow_names) and\
+           list(set(transmit_states)) == ['stopped']:
             time.sleep(2)
             break
         else:
             time.sleep(1)
+            attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
-    rows = ixia_api.get_flow_results(FlowRequest(flow_names=[flow_name]))
-
-    """ Stop traffic """
+    rows = ixia_api.get_flow_results(FlowRequest(flow_names=all_flow_names))
     ixia_api.set_state(State(FlowTransmitState(state='stop')))
 
     """ Analyze traffic results """
-    pytest_assert(len(rows) == 1 and rows[0]['name'] == flow_name,
-        'Fail to get results of flow {}'.format(flow_name))
+    for row in rows:
+        flow_name = row['name']
+        rx_frames = row['frames_rx']
+        tx_frames = row['frames_tx']
 
-    row = rows[0]
-    rx_frames = row['frames_rx']
-    tx_frames = row['frames_tx']
+        pytest_assert(rx_frames == tx_frames,
+                      'packet losses for {} (Tx: {}, Rx: {})'.\
+                      format(flow_name, tx_frames, rx_frames))
 
-    pytest_assert(rx_frames == tx_frames,
-        'Unexpected packet losses (Tx: {}, Rx: {})'.format(tx_frames, rx_frames))
+        tput_bps = port_speed_gbps * 1e9 * rate_percent / 100.0
+        exp_rx_frames = tput_bps * duration_sec / 8 / pkt_size
 
-    tput_bps = port_speed_gbps * 1e9 * rate_percent / 100.0
-    exp_rx_frames = tput_bps * duration_sec / 8 / pkt_size
+        deviation_thresh = 0.05
+        ratio = float(exp_rx_frames) / rx_frames
+        deviation = abs(ratio - 1)
 
-    deviation_thresh = 0.05
-    ratio = float(exp_rx_frames) / rx_frames
-    deviation = abs(ratio - 1)
-
-    pytest_assert(deviation <= deviation_thresh,
-        'Expected / Actual # of pkts: {} / {}'.format(exp_rx_frames, rx_frames))
+        pytest_assert(deviation <= deviation_thresh,
+                      'Expected / Actual # of pkts for flow {}: {} / {}'.\
+                      format(flow_name, exp_rx_frames, rx_frames))
