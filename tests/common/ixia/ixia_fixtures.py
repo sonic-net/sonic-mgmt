@@ -194,7 +194,7 @@ def ixia_api(ixia_api_serv_ip,
 
     yield api_session
 
-    if api_session:
+    if api_session and api_session.assistant and api_session.assistant.Session:
         api_session.assistant.Session.remove()
 
 @pytest.fixture(scope = "function")
