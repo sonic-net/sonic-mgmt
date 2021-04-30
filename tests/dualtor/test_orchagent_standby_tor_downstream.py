@@ -259,7 +259,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 1: Verify Standby Forwarding")
     logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
-    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthop=[server_ipv4])
+    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[server_ipv4])
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_unselected_dut)

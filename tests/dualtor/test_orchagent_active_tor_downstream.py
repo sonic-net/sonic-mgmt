@@ -135,7 +135,6 @@ def test_downstream_ecmp_nexthops(
                 expected_uplink_ports.append(member.strip("eth"))
         logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
         logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
-        expected_packets = [exp_pkt] * len(expected_downlink_ports)
 
         ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
         port_packet_count = dict()
@@ -154,7 +153,7 @@ def test_downstream_ecmp_nexthops(
         logging.info("Received packets in ports: {}".format(str(port_packet_count)))
 
         for downlink_int in expected_downlink_ports:
-            expect_packet_num = 1000 / len(expected_downlink_ports)
+            expect_packet_num = 1000 // len(expected_downlink_ports)
             pkt_num_lo = expect_packet_num * (1.0 - 0.25)
             pkt_num_hi = expect_packet_num * (1.0 + 0.25)
             count = port_packet_count.get(downlink_int, 0)
@@ -224,5 +223,6 @@ def test_downstream_ecmp_nexthops(
 
     logging.info("Simulate nexthop3 mux state change to Active")
     interface = nexthop_interfaces[2]
+    set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[2:4])
