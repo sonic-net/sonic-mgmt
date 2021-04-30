@@ -128,6 +128,8 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
     logger.info("Populate ARP entry for dest port")
     ptfhost.command("ifconfig eth{} {}".format(setup['ptf_dst_port'], setup['vlan']['ips'][0]))
     ptfhost.command("ping {} -c 3".format(setup['vlan']['addr']))
+    # Wait 5 seconds for secondary ARP before proceeding to clear FDB
+    time.sleep(5)
 
     yield
 
