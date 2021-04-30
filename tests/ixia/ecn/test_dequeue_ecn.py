@@ -9,7 +9,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_dequeue_ecn(request,
                      ixia_api,

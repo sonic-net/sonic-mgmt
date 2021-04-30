@@ -13,7 +13,7 @@ from files.pfcwd_basic_helper import run_pfcwd_basic_test
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(ixia_api,
