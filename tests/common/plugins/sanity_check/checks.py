@@ -403,7 +403,7 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
         recover_all_directions(tor_mux_intf)
-        
+
         upper_tor_intf_mac, upper_tor_mgmt_ip = get_arp_pkt_info(upper_tor_host)
         lower_tor_intf_mac, lower_tor_mgmt_ip = get_arp_pkt_info(lower_tor_host)
 
