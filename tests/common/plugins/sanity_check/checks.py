@@ -324,7 +324,7 @@ def get_arp_pkt_info(dut):
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
+def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
                         recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
     def _check(*args, **kwargs):
@@ -342,12 +342,14 @@ def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, uppe
                     'failed_reason': '',
                     'check_item': '{} mux simulator'.format(ptf_server_intf)
                 }
-        request.getfixturevalue('run_garp_service')
-        request.getfixturevalue('run_icmp_responder')
 
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
         recover_all_directions(tor_mux_intf)
+        
+        # Stop linkmgrd to prevent it from switching over ports
+        lower_tor_host.shell('systemctl stop mux')
+        upper_tor_host.shell('systemctl stop mux')
 
         upper_tor_intf_mac, upper_tor_mgmt_ip = get_arp_pkt_info(upper_tor_host)
         lower_tor_intf_mac, lower_tor_mgmt_ip = get_arp_pkt_info(lower_tor_host)
@@ -462,7 +464,16 @@ def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, uppe
         lower_tor_host.shell("ip neigh flush all")
 
         return results
-    return _check
+
+    yield _check
+
+    cmds = [
+        'systemctl reset-failed mux',
+        'systemctl start mux'
+    ]
+
+    lower_tor_host.shell_cmds(cmds=cmds)
+    upper_tor_host.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture(scope="module")
