@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_pause_single_lossless_prio(ixia_api,
                                         ixia_testbed_config,
