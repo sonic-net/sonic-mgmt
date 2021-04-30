@@ -38,7 +38,7 @@ from nat_helpers import dut_interface_control
 from nat_helpers import get_public_ip
 import tests.common.reboot as common_reboot
 from tests.common.helpers.assertions import pytest_assert
-from conftest import nat_global_config
+from tests.nat.conftest import nat_global_config
 
 
 pytestmark = [
@@ -747,7 +747,8 @@ class TestStaticNat(object):
             interface_ip = "{} {}/{}".format(setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"],
                                              setup_data[interface_type]["vrf_conf"]["red"]["gw"],
                                              setup_data[interface_type]["vrf_conf"]["red"]["mask"])
-            dut_interface_control(duthost, "ip remove", setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"], interface_ip)
+            ifname_to_disable = setup_data[interface_type]["outer_zone_interfaces"][0]
+            dut_interface_control(duthost, "ip remove", setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
             # Check that NAT entries are not present in iptables after removing interface IP
             iptables_output = dut_nat_iptables_status(duthost)
             iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
@@ -756,7 +757,7 @@ class TestStaticNat(object):
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
             # Readd interface IP
-            dut_interface_control(duthost, "ip add", setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"], interface_ip)
+            dut_interface_control(duthost, "ip add", setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
             # Check that NAT entries are present in iptables after readding interface IP
             time.sleep(90)
             iptables_output = dut_nat_iptables_status(duthost)
@@ -824,13 +825,14 @@ class TestStaticNat(object):
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
             # Remove interface
-            dut_interface_control(duthost, "disable", setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"])
+            ifname_to_disable = setup_data[interface_type]["outer_zone_interfaces"][0]
+            dut_interface_control(duthost, "disable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
             # Check that NAT entries are still present in iptables after disabling interface
             iptables_output = dut_nat_iptables_status(duthost)
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
             # Readd interface
-            dut_interface_control(duthost, "enable", setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"])
+            dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
             # Check that NAT entries are present in iptables after enabling interface
             time.sleep(90)
             iptables_output = dut_nat_iptables_status(duthost)
@@ -1059,7 +1061,6 @@ class TestStaticNat(object):
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path, protocol_type, nat_type=nat_type)
 
         # Configure default rules for Dynamic NAT
-        nat_type = 'dynamic'
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
 
         # make sure static NAT translations are only one present

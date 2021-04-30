@@ -10,9 +10,11 @@ import ptf.packet as packet
 import ptf.testutils as testutils
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
+from jinja2 import Environment, FileSystemLoader
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
+NAT_CONF_J2_TEMPLATE = "templates/create_nat_binding.j2"
 FILES_DIR = os.path.join(BASE_DIR, 'files')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 NAT_GLOBAL_TEMPLATE = 'global_nat_table_config.j2'
@@ -299,16 +301,9 @@ def get_cli_show_nat_config_output(duthost, command):
     created ditionary with output of show nat command
     :param duthost: DUT host object
     :param command: str, command to execute
-    :return: dict, dictionary with values
+    :return: list of dict with output
     """
-    output_list = duthost.command("show nat config {}".format(command))['stdout_lines']
-    keys = [key.strip() for key in output_list[1].split("  ") if key]
-    output_dict = dict()
-    for entry in output_list[3:]:
-        values = entry.split()
-        output_dict.update({values[0]: dict(zip(keys, values))})
-
-    return output_dict
+    return duthost.show_and_parse("show nat config {}".format(command))
 
 
 def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
@@ -342,16 +337,16 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
         duthost.command("sudo config nat add static {0} {1} {2} {3} {4} -nat_type=dnat".
                         format(protocol_type.lower(), public_ip, global_port, private_ip, local_port))
     # Check that rule was applied
-    static_nat = get_cli_show_nat_config_output(duthost, "static").itervalues().next()
-    pytest_assert('dnat' == static_nat['Nat Type'], "Default NAT type was changed")
-    pytest_assert(public_ip == static_nat['Global IP'], "Global IP does not match {}".format(public_ip))
-    pytest_assert(private_ip == static_nat['Local IP'], "Local IP does not match {}".format(private_ip))
+    static_nat = get_cli_show_nat_config_output(duthost, "static")
+    pytest_assert('dnat' == static_nat[0]['nat type'], "Default NAT type was changed")
+    pytest_assert(public_ip == static_nat[0]['global ip'], "Global IP does not match {}".format(public_ip))
+    pytest_assert(private_ip == static_nat[0]['local ip'], "Local IP does not match {}".format(private_ip))
     if nat_entry == 'static_napt':
-        pytest_assert(protocol_type == static_nat['IP Protocol'], "Protocol does not match {}".format(protocol_type))
-        pytest_assert(str(global_port) == static_nat['Global Port'], "Global Port does not match {}".format(global_port))
-        pytest_assert(str(local_port) == static_nat['Local Port'], "Local Port does not match {}".format(local_port))
+        pytest_assert(protocol_type == static_nat[0]['ip protocol'], "Protocol does not match {}".format(protocol_type))
+        pytest_assert(str(global_port) == static_nat[0]['global port'], "Global Port does not match {}".format(global_port))
+        pytest_assert(str(local_port) == static_nat[0]['local port'], "Local Port does not match {}".format(local_port))
     else:
-        pytest_assert('all' == static_nat['IP Protocol'])
+        pytest_assert('all' == static_nat[0]['ip protocol'])
     nat_zones_config(duthost, setup_data, interface_type)
     # Perform TCP handshake
     if handshake:
@@ -989,17 +984,17 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
     # Set NAT configuration for test
     duthost.command("sudo config nat add pool {0} {1} {2}".format(pool_name, public_ip, port_range))
     # Check that pool configuration was applied
-    show_nat_pool = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
-    pytest_assert(pool_name == show_nat_pool['Pool Name'], "Pool name was not set to {}".format(pool_name))
-    pytest_assert(public_ip == show_nat_pool['Global IP Range'], "Global IP Range was not set to {}".format(public_ip))
-    pytest_assert(port_range == show_nat_pool['Global Port Range'], "Global Port Range was not set to {}".format(port_range))
+    show_nat_pool = get_cli_show_nat_config_output(duthost, "pool")
+    pytest_assert(pool_name == show_nat_pool[0]['pool name'], "Pool name was not set to {}".format(pool_name))
+    pytest_assert(public_ip == show_nat_pool[0]['global ip range'], "Global IP Range was not set to {}".format(public_ip))
+    pytest_assert(port_range == show_nat_pool[0]['global port range'], "Global Port Range was not set to {}".format(port_range))
     # Add bindings
     duthost.command("sudo config nat add binding {0} {1} {2}".format(binding_name, pool_name, acl_table))
     # Check that binding configuration was applied
-    show_nat_binding = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
-    pytest_assert(binding_name == show_nat_binding['Binding Name'], "Binding Name was not set to {}".format(binding_name))
-    pytest_assert(pool_name == show_nat_binding['Pool Name'], "Pool Name was not set to {}".format(pool_name))
-    pytest_assert(acl_table == show_nat_binding['Access-List'], "Access-List was not set to {}".format(acl_table))
+    show_nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
+    pytest_assert(binding_name == show_nat_binding[0]['binding name'], "Binding Name was not set to {}".format(binding_name))
+    pytest_assert(pool_name == show_nat_binding[0]['pool name'], "Pool Name was not set to {}".format(pool_name))
+    pytest_assert(acl_table == show_nat_binding[0]['access-list'], "Access-List was not set to {}".format(acl_table))
     # Apply acl table and rule
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
     # Initialize variables for NAT global table
@@ -1143,8 +1138,6 @@ def get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, db_type, pr
         direction = 'host-tor'
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         secondary_protocol = {"TCP": "UDP", "UDP": "TCP"}[protocol_type]
-        sai_nat_src_id = {"TCP": 1, "UDP": 2}[protocol_type]
-        sai_nat_dst_id = {"TCP": 2, "UDP": 1}[protocol_type]
         global_port = {"TCP": TCP_GLOBAL_PORT, "UDP": UDP_GLOBAL_PORT}[protocol_type]
         local_port = {"TCP": TCP_LOCAL_PORT, "UDP": UDP_LOCAL_PORT}[protocol_type]
         db_rules = {}
@@ -1306,3 +1299,24 @@ def get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, db_type, pr
         else:
             raise Exception('Improper db_type selected')
         return db_rules
+
+
+def write_json(duthost, json_dict, feature):
+        """
+        Write NAT config json to dut
+        :param DUT host name
+        :param json dictionary with variables used by templates
+        :param feature used to select which template should be used
+        """
+        TEMP_FILE = "{}.json".format(feature)
+        curr_dir = os.path.dirname(os.path.abspath(__file__))
+        j2_template = Environment(loader=FileSystemLoader(curr_dir), trim_blocks=True)
+        if feature == "dynamic_binding":
+            j2_temp = j2_template.get_template(NAT_CONF_J2_TEMPLATE).render(nat=json_dict)
+        else:
+            raise AttributeError("Unexpected feature {}".format(feature))
+        exec_command(duthost, ["mkdir -p {}".format(DUT_TMP_DIR)])
+        exec_command(duthost, ["echo '{j2_temp}' > {dir}/{file}".
+                     format(j2_temp=j2_temp, dir=DUT_TMP_DIR, file=TEMP_FILE)])
+        exec_command(duthost, ["sudo config load {} -y".format(DUT_TMP_DIR+"/"+TEMP_FILE)])
+        exec_command(duthost, ["rm -rf {}".format(DUT_TMP_DIR)])

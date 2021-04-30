@@ -2,7 +2,6 @@ import re
 import copy
 import time
 import random
-import logging
 
 import pytest
 
@@ -36,12 +35,9 @@ from nat_helpers import generate_and_verify_not_translated_traffic
 from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 from nat_helpers import generate_and_verify_traffic_dropped
 from nat_helpers import get_cli_show_nat_config_output
-from nat_helpers import DUT_TMP_DIR
+from nat_helpers import write_json
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
-
-logging.basicConfig(level=logging.DEBUG)
-mylogger = logging.getLogger()
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -708,7 +704,6 @@ class TestDynamicNat(object):
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_extremal_ports(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
-        mylogger.info('--- TEST STARTED ---')
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
@@ -731,18 +726,14 @@ class TestDynamicNat(object):
                               network_data.ip_src, src_port,
                               network_data.public_ip)
         # Checking numbers
-        mylogger.info('Checking translation numbers')
         output = exec_command(duthost, ['show nat translations | grep DNAPT'])['stdout']
-        mylogger.info(output)
         entries_no = [int(s) for s in output.split() if s.isdigit()]
         fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
         pytest_assert(exp_entries == entries_no[0], fail_msg)
         duthost.command("sudo sonic-clear nat translations")
-        mylogger.info('--- TEST FINISHED ---')
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_single_host(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
-        mylogger.info('--- TEST STARTED ---')
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
@@ -759,7 +750,6 @@ class TestDynamicNat(object):
         # Set timeouts to max
         duthost.command('sudo config nat set tcp-timeout 432000')
         duthost.command('sudo config nat set udp-timeout 600')
-        mylogger.info('Timeouts set to maximum value')
         # Perform series of TCP handshakes (host-tor -> leaf-tor)
         for src_port in range(scale_range[0], scale_range[1]):
             perform_handshake(ptfhost, setup_data, protocol_type, direction,
@@ -767,9 +757,7 @@ class TestDynamicNat(object):
                               network_data.ip_src, src_port,
                               network_data.public_ip)
         # Checking numbers
-        mylogger.info('Checking translation numbers')
         output = exec_command(duthost, ['show nat translations | grep DNAPT'])['stdout']
-        mylogger.info(output)
         entries_no = [int(s) for s in output.split() if s.isdigit()]
         fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
         pytest_assert(exp_entries == entries_no[0], fail_msg)
@@ -777,7 +765,6 @@ class TestDynamicNat(object):
         duthost.command('sudo config nat set tcp-timeout {}'.format(GLOBAL_TCP_NAPT_TIMEOUT))
         duthost.command('sudo config nat set udp-timeout {}'.format(GLOBAL_UDP_NAPT_TIMEOUT))
         duthost.command("sudo sonic-clear nat translations")
-        mylogger.info('--- TEST FINISHED ---')
 
     @pytest.mark.nat_dynamic
     def test_nat_dynamic_binding_remove(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
@@ -789,14 +776,14 @@ class TestDynamicNat(object):
         # Configure default rules for Dynamic NAT
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
         # Confirm that binding is added
-        output = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
-        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
+        output = get_cli_show_nat_config_output(duthost, "bindings")
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
         pattern = r"test_binding"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output['Binding Name'])
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['binding name'])
         pytest_assert(len(entries) == 1, "Binding has not been added properly, binding count: {} \n {} ; {}".format(len(entries),
-                                                                                                                    output['Binding Name'],
-                                                                                                                    nat_pools_dump['Pool Name']))
+                                                                                                                    output[0]['binding name'],
+                                                                                                                    nat_pools_dump[0]['pool name']))
         # Send TCP/UDP traffic and check
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Check that NAT entries are present in iptables after adding
@@ -819,13 +806,13 @@ class TestDynamicNat(object):
         exec_command(duthost, ["config nat remove bindings"])
         # Confirm that binding has been removed
         output = exec_command(duthost, ["show nat config bindings"])['stdout']
-        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
         pattern = r"test_binding"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
                                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 0, "Binding has not been deleted properly, binding count: {} \n {} ; {}".format(len(entries),
                                                                                                                       output,
-                                                                                                                      nat_pools_dump['Pool Name']))
+                                                                                                                      nat_pools_dump[0]['pool name']))
         # Send TCP/UDP traffic and check
         wait_timeout(protocol_type)
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
@@ -847,14 +834,14 @@ class TestDynamicNat(object):
         # Configure default rules for Dynamic NAT
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
         # Confirm that pool is added
-        output = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
-        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
+        output = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
         pattern = r"pool"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output['Pool Name'])
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['pool name'])
         pytest_assert(len(entries) == 1, "Pool has not been added properly, pool count: {} \n {} ; {}".format(len(entries),
-                                                                                                              output['Pool Name'],
-                                                                                                              nat_bindings_dump['Binding Name']))
+                                                                                                              output[0]['pool name'],
+                                                                                                              nat_bindings_dump[0]['binding name']))
         # Send TCP/UDP traffic and check
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Check that IP table rules are programmed as SNAT rules for TCP/UDP/ICMP IP protocol type
@@ -862,13 +849,13 @@ class TestDynamicNat(object):
         pattern = r"SNAT.*tcp.*\n.*SNAT.*udp.*\n.*SNAT.*icmp"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
                                             format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
-        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
-        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
         nat_translations_dump = nat_translations(duthost, show=True)
         pytest_assert(len(entries) == 1, "IP Tables rules are not properly programmed: {} \n {} \n {} \n {} \n {}".format(len(entries),
                                                                                                                           output,
-                                                                                                                          nat_pools_dump['Pool Name'],
-                                                                                                                          nat_bindings_dump['Binding Name'],
+                                                                                                                          nat_pools_dump[0]['pool name'],
+                                                                                                                          nat_bindings_dump[0]['binding name'],
                                                                                                                           nat_translations_dump))
 
     @pytest.mark.nat_dynamic
@@ -882,14 +869,14 @@ class TestDynamicNat(object):
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
 
         # Confirm that pool is added
-        output = get_cli_show_nat_config_output(duthost, "pool").itervalues().next()
-        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
+        output = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
         pattern = r"pool"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
-                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output['Pool Name'])
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['pool name'])
         pytest_assert(len(entries) == 1, "Pool has not been added properly, pool count: {} \n {} ; {}".format(len(entries),
-                                                                                                              output['Pool Name'],
-                                                                                                              nat_bindings_dump['Binding Name']))
+                                                                                                              output[0]['pool name'],
+                                                                                                              nat_bindings_dump[0]['binding name']))
         # Send TCP/UDP traffic and check
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
         # Check that NAT entries are present in iptables after adding
@@ -943,7 +930,6 @@ class TestDynamicNat(object):
         port_range = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
         acl_subnet = setup_data[interface_type]["acl_subnet"]
         public_ip = setup_data[interface_type]["public_ip"]
-        json_file_path = DUT_TMP_DIR+'/nat_dynamic.json'
 
         # Get network informations
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
@@ -958,50 +944,13 @@ class TestDynamicNat(object):
                       "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
 
         # Prepare and add configuration json file
-        exec_command(duthost, ["mkdir -p {}".format(DUT_TMP_DIR)])
-        exec_command(duthost, [""" echo '
-                        {{
-                            "NAT_POOL": {{
-                                "pool_1": {{
-                                    "nat_ip": "{public_ip}",
-                                    "nat_port": "{port_range}"
-                                }}
-                            }},
-                            "ACL_TABLE": {{
-                                "acl_table_1": {{
-                                    "stage": "INGRESS",
-                                    "type": "L3",
-                                    "policy_desc": "test_policy",
-                                    "ports": ["{inner_interface}"]
-                                }}
-                            }},
-                            "ACL_RULE": {{
-                                "acl_table_1|1": {{
-                                    "PRIORITY": "10",
-                                    "SRC_IP": "{acl_subnet}",
-                                    "PACKET_ACTION": "forward"
-                                }}
-                            }},
-                            "NAT_BINDINGS": {{
-                                "bind_1": {{
-                                    "access_list": "acl_table_1",
-                                    "nat_pool": "pool_1"
-                                }}
-                            }}
-                        }}' > {nat_json_file} """\
-                        .format(
-                            public_ip=public_ip,
-                            port_range=port_range,
-                            inner_interface=inner_interface,
-                            acl_subnet=acl_subnet,
-                            nat_json_file=json_file_path)
-                              ]
-                    )
-        # Write json to db
-        exec_command(duthost, ['sonic-cfggen -j {} --write-to-db'.format(json_file_path)])
-        # Remove temporary folders
-        exec_command(duthost, ['rm -rf {}'.format(DUT_TMP_DIR)])
-
+        nat_session = {
+            'public_ip' : public_ip,
+            'port_range' : port_range,
+            'inner_interface' : inner_interface,
+            'acl_subnet' : acl_subnet
+        }
+        write_json(duthost, nat_session, 'dynamic_binding')
         # Check iptables
         iptables_ouput = dut_nat_iptables_status(duthost)
         iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
@@ -1086,7 +1035,7 @@ class TestDynamicNat(object):
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
 
         # Remove bindings
-        nat_binding = get_cli_show_nat_config_output(duthost, "bindings").itervalues().next()
+        nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
         duthost.command("config nat remove bindings")
         # Check, if nat bindings is empty
         pytest_assert(len(get_cli_show_nat_config_output(duthost, "bindings")) == 0, "Nat bindings is not empty")
@@ -1103,8 +1052,8 @@ class TestDynamicNat(object):
 
         # Add the binding again
         acl_subnet = "empty"
-        duthost.command("sudo config nat add binding {0} {1} {2}".format(nat_binding['Binding Name'],
-                                                                         nat_binding["Pool Name"], acl_subnet))
+        duthost.command("sudo config nat add binding {0} {1} {2}".format(nat_binding[0]['binding name'],
+                                                                         nat_binding[0]["pool name"], acl_subnet))
         public_ip = setup_data[interface_type]["public_ip"]
         portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
         iptables_ouput = dut_nat_iptables_status(duthost)
