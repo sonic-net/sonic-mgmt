@@ -107,7 +107,8 @@ class SetupPfcwdFunc(object):
         """
         self.pfc_wd = dict()
         self.pfc_wd['queue_indices'] = [4]
-        if (self.seed % 2) != 0:
+        if self.two_queues:
+            # Will send traffic for (queues 4 and 3) per each port
             self.pfc_wd['queue_indices'].append(3)
         self.pfc_wd['test_pkt_count'] = 100
         self.pfc_wd['frames_number'] = 10000000000000
@@ -431,7 +432,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, fanout_graph_facts, ptfhost,
-                        duthost, localhost, fanouthosts):
+                        duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
 
@@ -455,7 +456,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.neighbors = setup_info['neighbors']
         dut_facts = self.dut.facts
         self.peer_dev_list = dict()
-        self.seed = int(datetime.datetime.today().day)
+        self.two_queues = two_queues
         self.storm_handle = dict()
         bitmask = 0
         storm_deferred = 0
@@ -520,7 +521,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, localhost, fanouthosts):
+    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts,
+                      rand_one_dut_hostname, localhost, fanouthosts, two_queues):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -546,4 +548,4 @@ class TestPfcwdWb(SetupPfcwdFunc):
         duthost = duthosts[rand_one_dut_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
-                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts)
+                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
