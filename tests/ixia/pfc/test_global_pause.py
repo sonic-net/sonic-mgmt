@@ -10,7 +10,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossles
 
 from files.helper import run_pfc_test
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_global_pause(ixia_api,
                       ixia_testbed_config,

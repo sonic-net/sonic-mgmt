@@ -10,7 +10,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
 
 from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_all_to_all(ixia_api,
