@@ -2,6 +2,8 @@ import contextlib
 import logging
 import pytest
 import random
+import ipaddress
+import scapy.all as scapyall
 
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
@@ -10,6 +12,10 @@ from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
+
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -78,3 +84,92 @@ def test_active_tor_remove_neighbor_downstream_active(
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+
+def test_downstream_ecmp_nexthops(
+    ptfadapter,
+    rand_selected_dut, tbinfo,
+    toggle_all_simulator_ports,
+    tor_mux_intfs
+    ):
+    dst_server_ipv4 = "1.1.1.2"
+    nexthops_count = 4
+    def check_nexthops_balance(downlink_ints):
+        send_packet, exp_pkt = build_packet_to_server(rand_selected_dut, ptfadapter, dst_server_ipv4)
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "src")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "dst")
+        # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
+        expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+        logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+        expected_packets = [exp_pkt] * len(expected_downlink_ports)
+
+        ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
+        # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
+        testutils.verify_each_packet_on_each_port(ptfadapter, expected_packets, ports=expected_downlink_ports)
+
+        if len(downlink_ints) < nexthops_count:
+            # Some nexthop is now connected to standby mux, and the packets will be sent towards portchanel ints
+            expected_uplink_ports = get_t1_ptf_ports(rand_selected_dut, tbinfo)
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
+            # Verify that the packets are also sent to uplinks (in case of standby MUX)
+            testutils.verify_any_packet_any_port(ptfadapter, expected_packets, ports=expected_uplink_ports)
+
+
+    set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
+    standby_tor = rand_selected_dut
+
+    iface_server_map = get_random_interfaces(standby_tor, nexthops_count)
+    interface_to_server = dict()
+    for interface, servers in iface_server_map.items():
+        interface_to_server[interface] = servers['server_ipv4'].split("/")[0]
+
+    nexthop_servers = list(interface_to_server.values())
+    nexthop_interfaces = list(interface_to_server.keys())
+
+    logging.info("Verify traffic to this route destination is distributed equally")
+
+    logging.info("Add route with four nexthops, where four muxes are active")
+    add_nexthop_routes(standby_tor, dst_server_ipv4, nexthops=nexthop_servers[0:nexthops_count])
+
+    logging.info("Verify traffic to this route destination is distributed to four server ports")
+    check_nexthops_balance(nexthop_interfaces)
+
+    ### Sequentially set four mux states to standby
+
+    logging.info("Simulate nexthop1 mux state change to Standby")
+    interface, server = interface_to_server.items()[0]
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+    logging.info("Verify traffic to this route destination is distributed to three server ports and one tunnel nexthop")
+    check_nexthops_balance(nexthop_interfaces[1:4])
+
+    logging.info("Simulate nexthop2 mux state change to Standby")
+    interface, server = interface_to_server.items()[1]
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+    logging.info("Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop")
+    check_nexthops_balance(nexthop_interfaces[2:4])
+
+    logging.info("Simulate nexthop3 mux state change to Standby")
+    interface, server = interface_to_server.items()[2]
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+    logging.info("Verify traffic to this route destination is distributed to one server port and three tunnel nexthop")
+    check_nexthops_balance(nexthop_interfaces[3:4])
+
+    logging.info("Simulate nexthop4 mux state change to Standby")
+    interface, server = interface_to_server.items()[3]
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+    logging.info("Verify traffic to this route destination is distributed to four tunnel nexthops")
+    check_nexthops_balance(nexthop_interfaces[3:4])
+
+    ### Revert two mux states to active
+
+    logging.info("Simulate nexthop4 mux state change to Active")
+    interface, server = interface_to_server.items()[3]
+    set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)
+    logging.info("Verify traffic to this route destination is distributed to one server port and three tunnel nexthop")
+    check_nexthops_balance(nexthop_interfaces[3:4])
+
+    logging.info("Simulate nexthop3 mux state change to Active")
+    interface, server = interface_to_server.items()[2]
+    logging.info("Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop")
+    check_nexthops_balance(nexthop_interfaces[2:4])

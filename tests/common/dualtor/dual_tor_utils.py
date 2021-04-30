@@ -838,3 +838,46 @@ def crm_neighbor_checker(duthost):
     logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
     if ipv4_neighbor_after != ipv4_neighbor_before:
         raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+
+
+def get_ptf_server_intf_index(tor, tbinfo, iface):
+    """Get the index of ptf ToR-facing interface on ptf."""
+    mg_facts = tor.get_extended_minigraph_facts(tbinfo)
+    return mg_facts["minigraph_ptf_indices"][iface]
+
+
+def get_random_interfaces(torhost, count):
+    server_ips = mux_cable_server_ip(torhost)
+    interfaces = [str(_) for _ in random.sample(server_ips.keys(), count)]
+    iface_server_map = {_: server_ips[_] for _ in interfaces}
+    logging.info("select DUT interface %s to test.", iface_server_map)
+    return iface_server_map
+
+
+def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
+    """
+    Add static routes to reach route_dst via nexthop.
+    The function is similar with fixture apply_dual_tor_peer_switch_route, but we can't use the fixture directly
+    """
+    logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
+    bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
+
+    ipv4_neighbors = []
+
+    for neighbor in bgp_neighbors:
+        if ipaddress.ip_address(neighbor).version == 4:
+            ipv4_neighbors.append(neighbor)
+
+    nexthop_str = ''
+    if nexthops is None:
+        for neighbor in ipv4_neighbors:
+            nexthop_str += 'nexthop via {} '.format(neighbor)
+    else:
+        for nexthop in nexthops:
+            nexthop_str += 'nexthop via {} '.format(nexthop)
+
+    # Use `ip route replace` in case a rule already exists for this IP
+    # If there are no pre-existing routes, equivalent to `ip route add`
+    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
+    standby_tor.shell(route_cmd)
+    logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
