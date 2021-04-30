@@ -2,19 +2,22 @@ import contextlib
 import logging
 import pytest
 import random
-import ipaddress
+import time
 import scapy.all as scapyall
 
+import ptf
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import dualtor_info
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import get_t1_ptf_pc_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
-from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.dual_tor_utils import get_random_interfaces
+from tests.common.dualtor.dual_tor_utils import add_nexthop_routes
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
-
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
@@ -86,6 +89,32 @@ def test_active_tor_remove_neighbor_downstream_active(
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
 
+def count_matched_packets_all_ports(test, exp_packet, ports=[], device_number=0, timeout=None):
+    """
+    Receive all packets on all specified ports and count how many expected packets were received.
+    """
+    if timeout is None:
+        timeout = ptf.ptfutils.default_timeout
+    if timeout <= 0:
+        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+
+    start_time = time.time()
+    port_packet_count = dict()
+    while True:
+        if (time.time() - start_time) > timeout:
+            break
+
+        result = testutils.dp_poll(test, device_number=device_number, timeout=timeout)
+        if isinstance(result, test.dataplane.PollSuccess):
+            if (result.port in ports and
+                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+                port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
+        else:
+            break
+
+    return port_packet_count
+
+
 def test_downstream_ecmp_nexthops(
     ptfadapter,
     rand_selected_dut, tbinfo,
@@ -100,21 +129,47 @@ def test_downstream_ecmp_nexthops(
         exp_pkt.set_do_not_care_scapy(scapyall.IP, "dst")
         # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
         expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+        expected_uplink_ports = list()
+        for members in get_t1_ptf_pc_ports(rand_selected_dut, tbinfo).values():
+            for member in members:
+                expected_uplink_ports.append(member.strip("eth"))
         logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+        logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
         expected_packets = [exp_pkt] * len(expected_downlink_ports)
 
         ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
-        # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
-        testutils.verify_each_packet_on_each_port(ptfadapter, expected_packets, ports=expected_downlink_ports)
+        port_packet_count = dict()
+        for i in range(10):
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=100)
+            # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
+            #testutils.verify_each_packet_on_each_port(ptfadapter, expected_packets, ports=expected_downlink_ports)
+            ptf_port_count = count_matched_packets_all_ports(ptfadapter,
+                                                exp_packet=exp_pkt,
+                                                ports=expected_downlink_ports,
+                                                timeout=5)
+            for ptf_idx, pkt_count in ptf_port_count.items():
+                port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
+            #logging.info("Received packet on {} port".format(expected_downlink_ports[idx]))
+
+        logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+
+        for downlink_int in expected_downlink_ports:
+            expect_packet_num = 1000 / len(expected_downlink_ports)
+            pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+            pkt_num_hi = expect_packet_num * (1.0 + 0.25)
+            count = port_packet_count.get(downlink_int, 0)
+            logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
+            if count < pkt_num_lo or count > pkt_num_hi:
+                balance = False
+                pytest_assert(balance, "Packets not evenly distributed on downlink port {}".format(downlink_int))
 
         if len(downlink_ints) < nexthops_count:
             # Some nexthop is now connected to standby mux, and the packets will be sent towards portchanel ints
-            expected_uplink_ports = get_t1_ptf_ports(rand_selected_dut, tbinfo)
-            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
             # Verify that the packets are also sent to uplinks (in case of standby MUX)
-            testutils.verify_any_packet_any_port(ptfadapter, expected_packets, ports=expected_uplink_ports)
-
+            for uplink_int in expected_uplink_ports:
+                count = port_packet_count.get(uplink_int, 0)
+                logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
+                pytest_assert(count > 0, "Packets not sent on uplink ports {}".format(uplink_int))
 
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
     standby_tor = rand_selected_dut
@@ -127,8 +182,6 @@ def test_downstream_ecmp_nexthops(
     nexthop_servers = list(interface_to_server.values())
     nexthop_interfaces = list(interface_to_server.keys())
 
-    logging.info("Verify traffic to this route destination is distributed equally")
-
     logging.info("Add route with four nexthops, where four muxes are active")
     add_nexthop_routes(standby_tor, dst_server_ipv4, nexthops=nexthop_servers[0:nexthops_count])
 
@@ -138,25 +191,25 @@ def test_downstream_ecmp_nexthops(
     ### Sequentially set four mux states to standby
 
     logging.info("Simulate nexthop1 mux state change to Standby")
-    interface, server = interface_to_server.items()[0]
+    interface = nexthop_interfaces[0]
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to three server ports and one tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[1:4])
 
     logging.info("Simulate nexthop2 mux state change to Standby")
-    interface, server = interface_to_server.items()[1]
+    interface = nexthop_interfaces[1]
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[2:4])
 
     logging.info("Simulate nexthop3 mux state change to Standby")
-    interface, server = interface_to_server.items()[2]
+    interface = nexthop_interfaces[2]
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to one server port and three tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[3:4])
 
     logging.info("Simulate nexthop4 mux state change to Standby")
-    interface, server = interface_to_server.items()[3]
+    interface = nexthop_interfaces[3]
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to four tunnel nexthops")
     check_nexthops_balance(nexthop_interfaces[3:4])
@@ -164,12 +217,12 @@ def test_downstream_ecmp_nexthops(
     ### Revert two mux states to active
 
     logging.info("Simulate nexthop4 mux state change to Active")
-    interface, server = interface_to_server.items()[3]
+    interface = nexthop_interfaces[3]
     set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)
     logging.info("Verify traffic to this route destination is distributed to one server port and three tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[3:4])
 
     logging.info("Simulate nexthop3 mux state change to Active")
-    interface, server = interface_to_server.items()[2]
+    interface = nexthop_interfaces[2]
     logging.info("Verify traffic to this route destination is distributed to two server ports and two tunnel nexthop")
     check_nexthops_balance(nexthop_interfaces[2:4])
