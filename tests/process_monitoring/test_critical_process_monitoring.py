@@ -281,7 +281,6 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
 
-        logger.info("In get Container is: {}, namespaces are: {} {} {}".format(container_name, namespace_ids, critical_process_list, critical_group_list))
         for namespace_id in namespace_ids:
             namespace_name = "host"
             container_name_in_namespace = container_name
@@ -408,7 +407,6 @@ def stop_critical_processes(duthost, containers_in_namespaces):
 
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
-        logger.info("In stop Container is: {}, namespaces are: {} Processes are: {}".format(container_name_in_namespace, namespace_ids, critical_process_list))
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
@@ -475,7 +473,6 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
-        logger.info("In ensure Container is: {}, namespaces are: {} {}".format(container_name_in_namespace, namespace_ids, critical_process_list))
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
