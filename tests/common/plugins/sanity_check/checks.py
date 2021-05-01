@@ -335,7 +335,7 @@ def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
     active_tor.shell("ip neigh flush all")
     standby_tor.shell("ip neigh flush all")
 
-    # Ping from both ToRs, expect only message from upper ToR to reach PTF
+    # Ping from both ToRs, expect only message from active ToR to reach PTF
     active_tor.shell(ping_cmd.format(tor_mux_intf, active_tor_ping_tgt_ip))
     try:
         testutils.verify_packet(ptfadapter, active_tor_exp_pkt, ptf_port_index)
@@ -442,7 +442,6 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                 failed, reason = mux_sim_check_downstream(upper_tor_host, lower_tor_host,
                     ptfadapter, upper_tor_ping_tgt_ip, lower_tor_ping_tgt_ip,
                     upper_tor_exp_pkt, lower_tor_exp_pkt, ptf_port_index, tor_mux_intf)
-
             
             if not failed:
                 failed, reason = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
@@ -466,10 +465,8 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
 
             logger.info('Finished mux simulator check')
         finally:
-            upper_tor_host.shell("ip neigh flush all")
-            lower_tor_host.shell("ip neigh flush all")
-
             cmds = [
+                'ip neigh flush all',
                 'systemctl reset-failed mux',
                 'systemctl start mux'
             ]
