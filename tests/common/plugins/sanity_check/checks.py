@@ -323,9 +323,63 @@ def get_arp_pkt_info(dut):
     return intf_mac, mgmt_ipv4
 
 
+def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
+                     active_tor_ping_tgt_ip, standby_tor_ping_tgt_ip,
+                     active_tor_exp_pkt, standby_tor_exp_pkt,
+                     ptf_port_index, tor_mux_intf):
+    failed = False
+    reason = ''
+    ping_cmd = 'ping -I {} {} -c 1 -W 1; true'
+
+    # Clear ARP tables to start in consistent state
+    active_tor.shell("ip neigh flush all")
+    standby_tor.shell("ip neigh flush all")
+
+    # Ping from both ToRs, expect only message from active ToR to reach PTF
+    active_tor.shell(ping_cmd.format(tor_mux_intf, active_tor_ping_tgt_ip))
+    try:
+        testutils.verify_packet(ptfadapter, active_tor_exp_pkt, ptf_port_index)
+    except AssertionError:
+        failed = True
+        reason = 'Packet from active ToR {} not received'.format(active_tor)
+        return failed, reason
+
+    standby_tor.shell(ping_cmd.format(tor_mux_intf, standby_tor_ping_tgt_ip))
+    try:
+        testutils.verify_no_packet(ptfadapter, standby_tor_exp_pkt, ptf_port_index)
+    except AssertionError:
+        failed = True
+        reason = 'Packet from standby ToR {} received'.format(standby_tor)
+
+    return failed, reason
+
+
+def mux_sim_check_upstream(upper_tor_host, lower_tor_host, ptfadapter,
+                           ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index):
+    # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
+    failed = False
+    reason = ''
+    upper_tor_host.shell("ip neigh flush all")
+    lower_tor_host.shell("ip neigh flush all")
+
+    testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
+
+    upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
+    lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
+    if ptf_arp_tgt_ip not in upper_tor_arp_table:
+        failed = True
+        reason = 'Packet from PTF not received on upper ToR {}'.format(upper_tor_host)
+        return failed, reason
+
+    if ptf_arp_tgt_ip not in lower_tor_arp_table:
+        failed = True
+        reason = 'Packet from PTF not received on lower ToR {}'.format(lower_tor_host)
+
+    return failed, reason
+
 @pytest.fixture(scope='module')
-def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
-                        recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
+def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
+                    recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
 
     def _check(*args, **kwargs):
         """
@@ -342,8 +396,9 @@ def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, uppe
                     'failed_reason': '',
                     'check_item': '{} mux simulator'.format(ptf_server_intf)
                 }
-        request.getfixturevalue('run_garp_service')
-        request.getfixturevalue('run_icmp_responder')
+
+        failed = False
+        reason = ''
 
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
@@ -355,7 +410,6 @@ def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, uppe
         upper_tor_ping_tgt_ip = '10.10.10.1'
         lower_tor_ping_tgt_ip = '10.10.10.2'
         ptf_arp_tgt_ip = '10.10.10.3'
-        ping_cmd = 'ping -I {} {} -c 1 -W 1; true'
 
         upper_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
                                                         eth_src=upper_tor_intf_mac,
@@ -372,98 +426,60 @@ def check_mux_simulator(request, ptf_server_intf, tor_mux_intf, ptfadapter, uppe
                                                 ip_snd=ptf_arp_tgt_ip,
                                                 arp_op=2)
 
-        # Clear ARP tables to start in consistent state
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
 
         # Run tests with upper ToR active
-        toggle_simulator_port_to_upper_tor(tor_mux_intf)
-
-        if check_simulator_read_side(tor_mux_intf) != 1:
-            results['failed'] = True
-            results['failed_reason'] = 'Unable to switch active link to upper ToR'
-            return results
-
-        # Ping from both ToRs, expect only message from upper ToR to reach PTF
-        upper_tor_host.shell(ping_cmd.format(tor_mux_intf, upper_tor_ping_tgt_ip))
         try:
-            testutils.verify_packet(ptfadapter, upper_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from active upper ToR not received'
-            return results
+            # Stop linkmgrd to prevent it from switching over ports
+            lower_tor_host.shell('systemctl stop mux')
+            upper_tor_host.shell('systemctl stop mux')
 
-        lower_tor_host.shell(ping_cmd.format(tor_mux_intf, lower_tor_ping_tgt_ip))
-        try:
-            testutils.verify_no_packet(ptfadapter, lower_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from standby lower ToR received'
-            return results
+            toggle_simulator_port_to_upper_tor(tor_mux_intf)
+            if check_simulator_read_side(tor_mux_intf) != 1:
+                failed = True
+                reason = 'Unable to switch active link to upper ToR'
 
-        # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
-        testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
+            if not failed:
+                failed, reason = mux_sim_check_downstream(upper_tor_host, lower_tor_host,
+                    ptfadapter, upper_tor_ping_tgt_ip, lower_tor_ping_tgt_ip,
+                    upper_tor_exp_pkt, lower_tor_exp_pkt, ptf_port_index, tor_mux_intf)
+            
+            if not failed:
+                failed, reason = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
+                    ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
 
-        upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        if ptf_arp_tgt_ip not in upper_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on active upper ToR'
-            return results
+            # Repeat all tests with lower ToR active
+            if not failed:
+                toggle_simulator_port_to_lower_tor(tor_mux_intf)
+                if check_simulator_read_side(tor_mux_intf) != 2:
+                    failed = True
+                    reason = 'Unable to switch active link to lower ToR'
 
-        if ptf_arp_tgt_ip not in lower_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on standby lower ToR'
-            return results
+            if not failed:
+                failed, reason = mux_sim_check_downstream(lower_tor_host, upper_tor_host,
+                    ptfadapter, lower_tor_ping_tgt_ip, upper_tor_ping_tgt_ip,
+                    lower_tor_exp_pkt, upper_tor_exp_pkt, ptf_port_index, tor_mux_intf)
 
-        # Repeat all tests with lower ToR active
-        toggle_simulator_port_to_lower_tor(tor_mux_intf)
-        if check_simulator_read_side(tor_mux_intf) != 2:
-            results['failed'] = True
-            results['failed_reason'] = 'Unable to switch active link to lower ToR'
-            return results
+            if not failed:
+                failed, reason = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
+                    ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
 
-        lower_tor_host.shell(ping_cmd.format(tor_mux_intf, lower_tor_ping_tgt_ip))
-        try:
-            testutils.verify_packet(ptfadapter, lower_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from active lower ToR not received'
-            return results
+            logger.info('Finished mux simulator check')
+        finally:
+            cmds = [
+                'ip neigh flush all',
+                'systemctl reset-failed mux',
+                'systemctl start mux'
+            ]
 
-        upper_tor_host.shell(ping_cmd.format(tor_mux_intf, upper_tor_ping_tgt_ip))
-        try:
-            testutils.verify_no_packet(ptfadapter, upper_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from standby upper ToR received'
-            return results
+            lower_tor_host.shell_cmds(cmds=cmds)
+            upper_tor_host.shell_cmds(cmds=cmds)
 
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
-        testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
-
-        upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        if ptf_arp_tgt_ip not in upper_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on standby upper ToR'
-            return results
-
-        if ptf_arp_tgt_ip not in lower_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on active lower ToR'
-            return results
-
-        logger.info('Finished mux simulator check')
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
+        results['failed'] = failed
+        results['failed_reason'] = reason
 
         return results
-    return _check
 
+    return _check
 
 @pytest.fixture(scope="module")
 def check_monit(duthosts):
