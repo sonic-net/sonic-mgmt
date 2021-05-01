@@ -1,6 +1,6 @@
 """
-Test the feature of monitoring critical processes on 201911 image (Monit)
-and 202012 image (Supervisor)
+Test the feature of monitoring critical processes on 20191130 image (Monit),
+202012 and newer images (Supervisor)
 """
 from collections import defaultdict
 import logging
@@ -70,7 +70,7 @@ def disable_and_enable_autorestart(duthost):
 
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
-    """Skips this test if the SONiC image installed on DUT was 201911 or old version.
+    """Skips this test if the SONiC image installed on DUT was 20191130.70 or old image version.
 
     Args:
         duthost: Hostname of DUT.
@@ -79,13 +79,14 @@ def check_image_version(duthost):
         None.
     """
     pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.70"))
-                   or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
-                   "Test was not supported for 20191130.70 and older image versions!")
+                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
+                   "Test is not supported for 20191130.70 and older image versions!")
 
 
+@pytest.fixture(autouse=True, scope="module")
 def update_monit_config_and_restart(duthost):
     """Decrease the monitoring interval of Monit from 1 minute to 10 seconds and restart
-    Monit service without delaying.
+    Monit service. After testing, restore the Monit configuration and restart Monit service.
 
     Args:
         duthost: Hostname of DuT.
@@ -93,39 +94,35 @@ def update_monit_config_and_restart(duthost):
     Returns:
         None.
     """
-    logger.info("Back up Monit configuration files.")
+    logger.info("Back up Monit configuration file.")
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
 
+    logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
     duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
-    logger.info("Restart the Monit service without delaying to monitor.")
+
+    logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
 
-
-def restore_monit_config_and_restart(duthost):
-    """Restore the Monit configuration and restart Monit service.
-
-    Args:
-        duthost: Hostname of DuT.
-
-    Returns:
-        None.
-    """
-    logger.info("Roll back the Monit configuration of container checker.")
+    yield 
+ 
+    #Restore the Monit configuration and restart Monit service.
+    logger.info("Restore original Monit configuration ...")
     duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
-    logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
+
+    logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
 
-
+ 
 def check_all_critical_processes_running(duthost):
-    """Determine whether all critical processes are running on a DUT.
+    """Determine whether all critical processes are running on the DUT or not.
 
     Args:
         duthost: Hostname of DUT.
 
     Returns:
         This function will return True if all critical processes are running.
-        Otherwise it will return False.
+        Otherwise return False.
     """
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
@@ -175,7 +172,7 @@ def get_critical_process_from_monit(duthost, container_name):
 
     Args:
         duthost: Hostname of DuT.
-        container_name: Name of a container.
+        container_name: Name of container.
 
     Returns:
         A list contains command lines of critical processes. Bool varaible indicates
@@ -185,7 +182,8 @@ def get_critical_process_from_monit(duthost, container_name):
     succeeded = True
 
     monit_config_file_name = "monit_" + container_name
-    file_content = duthost.shell("bash -c '[ -f /etc/monit/conf.d/{0} ] && cat /etc/monit/conf.d/{0}'".format(monit_config_file_name))
+    file_content = duthost.shell("bash -c '[ -f /etc/monit/conf.d/{0} ] && cat /etc/monit/conf.d/{0}'"
+                                .format(monit_config_file_name))
     if file_content["rc"] != 0:
         succeeded = False
         return critical_process_list, succeeded
@@ -199,8 +197,7 @@ def get_critical_process_from_monit(duthost, container_name):
 
 
 def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
-    """Generates the regex of expected alerting messages for critical processes of all containers
-    in each namespace by parsing the Monit configuration files.
+    """Generates the regex of expected alerting messages for processes in each container.
 
     Args:
         duthost: Hostname of DUT.
@@ -228,14 +225,31 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
 
             logger.info("Generating the expected alerting messages for container '{}'...".format(container_name_in_namespace))
             for critical_process in critical_process_list:
-                # Skip 'dsserve' process since it was not managed by supervisord
+                # Skip 'syncd' process on Arista platform since it was not managed by supervisord
+                # Although there is an entry showing `syncd` is managed by supervisord, the process
+                # managed by Supervisord is actually the `dsserve` not `syncd`.
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and "/usr/bin/dsserve" not in critical_process:
                     continue
 
-                logger.info("Generating the expected alerting message for process '{}' in container '{}'".format(critical_process, container_name_in_namespace))
+                # Skip 'thermalctld' and 'syseepromd' processes in PMon container 
+                # since they are set to auto-restart if exited unexpectedly.
+                # TODO: Should remove `sensord` from if statement once it is added
+                # in the 'critical_processes' file.
+                if "pmon" in container_name_in_namespace and ("thermalctld" in critical_process 
+                        or "syseepromd" in critical_process or "sensord" in critical_process):
+                    continue
+
+                # Skip 'bgpmon' process in BGP container since it is set to auto-restart if exited unexpectedly.
+                if "bgp" in container_name_in_namespace and "bgpmon" in critical_process:
+                    continue
+
+                logger.info("Generating the expected alerting message for process '{}' in container '{}'"
+                            .format(critical_process, container_name_in_namespace))
+
                 if namespace_id != DEFAULT_ASIC_ID:
-                    expected_alerting_messages.append(".*'{}' is not running.*in namespace.*{}".format(critical_process, namespace_name))
+                    expected_alerting_messages.append(".*'{}' is not running.*in namespace.*{}"
+                                                      .format(critical_process, namespace_name))
                 else:
                     expected_alerting_messages.append(".*'{}' is not running.*in {}".format(critical_process, namespace_name))
 
@@ -267,6 +281,7 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
 
+        logger.info("In get Container is: {}, namespaces are: {} {} {}".format(container_name, namespace_ids, critical_process_list, critical_group_list))
         for namespace_id in namespace_ids:
             namespace_name = "host"
             container_name_in_namespace = container_name
@@ -335,7 +350,13 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
     Returns:
         None.
     """
-    kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+    if "20191130" in duthost.os_version:
+        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
+    else:
+        # If we used the command `supervisorctl stop <proc_name>' to stop process,
+        # Supervisord will treat the exit of process as expected and will not generate 
+        # alerting message.
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
 
     # Get the exit code of 'kill' command
     exit_code = kill_cmd_result["rc"]
@@ -387,6 +408,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
 
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
+        logger.info("In stop Container is: {}, namespaces are: {} Processes are: {}".format(container_name_in_namespace, namespace_ids, critical_process_list))
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
@@ -405,7 +427,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
-                    check_and_kill_process(duthost, container_name_in_namespace, program_name,
+                    check_and_kill_process(duthost, container_name_in_namespace, critical_group + ":" + program_name,
                                            group_program_info[program_name][0],
                                            group_program_info[program_name][1])
 
@@ -453,6 +475,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
         critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name_in_namespace))
+        logger.info("In ensure Container is: {}, namespaces are: {} {}".format(container_name_in_namespace, namespace_ids, critical_process_list))
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
@@ -490,9 +513,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    if "20191130" in duthost.os_version:
-        update_monit_config_and_restart(duthost)
-
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
     bgp_neighbors = duthost.get_bgp_neighbors()
@@ -501,6 +521,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
+    # Skip 'acms' container since 'acms' process is not running on lab devices and
+    # another process `cert_converter.py' is set to auto-restart if exited.
     skip_containers.append("acms")
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
@@ -531,9 +553,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info("Executing the config reload was done!")
 
     ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if "20191130" in duthost.os_version:
-        restore_monit_config_and_restart(duthost)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the container checker!")
