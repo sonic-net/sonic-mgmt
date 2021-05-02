@@ -87,13 +87,13 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
+def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
     """
     mockers = []
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def _create_mocker(dut, mocker_name):
         """
@@ -340,7 +340,7 @@ class ThermalPolicyFileContext:
 
 
 @pytest.fixture
-def disable_thermal_policy(duthosts, rand_one_dut_hostname):
+def disable_thermal_policy(duthosts, enum_rand_one_per_hwsku_hostname):
     """Fixture to help disable thermal policy during the test. After test, it will
        automatically re-enable thermal policy. The idea here is to make thermalctld
        load a invalid policy file. To use this fixture, the test case will probably 
@@ -348,9 +348,9 @@ def disable_thermal_policy(duthosts, rand_one_dut_hostname):
 
     Args:
         duthosts DUT object representing a SONiC switch under test
-        rand_one_dut_hostname random DUT hostname
+        enum_rand_one_per_hwsku_hostname random DUT hostname
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     invalid_policy_file = os.path.join(FILES_DIR, 'invalid_format_policy.json')
     with ThermalPolicyFileContext(duthost, invalid_policy_file):
         yield
