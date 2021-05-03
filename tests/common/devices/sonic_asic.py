@@ -403,7 +403,8 @@ class SonicAsic(object):
             return port in self.ports
 
         if_db = self.show_interface(
-            command="status"
+            command="status", 
+            include_internal_intfs=True
         )["ansible_facts"]["int_status"]
 
         self.ports = set(if_db.keys())

@@ -12,6 +12,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+def skip_test_for_multi_asic(duthosts,enum_rand_one_per_hwsku_frontend_hostname ):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip('CLI command not supported')
+
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
@@ -27,7 +32,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=False)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
@@ -48,7 +53,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     logger.info('Updating common port alias names in redis db')
     for i, item in enumerate(default_interfaces):
         port_alias_new = 'TestAlias{}'.format(i)
-        asic_index = duthost.get_asic_index_for_port(item)
+        asic_index = duthost.get_port_asic_instance(item).asic_index
         port_alias_old = port_alias_facts['port_name_map'][item]
         port_alias.append(port_alias_new)
         port_name_map[item] = port_alias_new
@@ -82,7 +87,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     logger.info('Reverting the port alias name in redis db to the actual values')
     for item in default_interfaces:
-        asic_index = duthost.get_asic_index_for_port(item)
+        asic_index = duthost.get_port_asic_instance(item).asic_index
         port_alias_old = port_alias_facts['port_name_map'][item]
         db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
@@ -147,7 +152,7 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     if setup['physical_interfaces']:
         interface = sorted(setup['physical_interfaces'])[0]
-        asic_index = duthost.get_asic_index_for_port(interface)
+        asic_index = duthost.get_port_asic_instance(interface).asic_index
         interface_info['is_portchannel_member'] = False
         for item in minigraph_interfaces:
             if (item['attachto'] == interface) and (IPAddress(item['addr']).version == 4):
@@ -155,7 +160,7 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 break
     else:
         interface = sorted(setup['up_ports'])[0]
-        asic_index = duthost.get_asic_index_for_port(interface)
+        asic_index = duthost.get_port_asic_instance(interface).asic_index
         interface_info['is_portchannel_member'] = True
 
     interface_info['default'] = interface
@@ -344,9 +349,7 @@ class TestShowPriorityGroup():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        if duthost.is_multi_asic:
-            pytest.skip('CLI command not supported')
+        skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
     def test_show_priority_group_persistent_watermark_headroom(self, setup, setup_config_mode):
         """
@@ -417,9 +420,8 @@ class TestShowQueue():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        if duthost.is_multi_asic:
-            pytest.skip('CLI command not supported')
+        skip_test_for_multi_asic(
+            duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
     def test_show_queue_counters(self, setup, setup_config_mode):
         """
@@ -765,9 +767,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo,duth
     if tbinfo['topo']['type'] not in ['t1', 't2']:
         pytest.skip('Unsupported topology')
 
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-            pytest.skip('CLI command not supported')
+    skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']

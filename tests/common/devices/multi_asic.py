@@ -286,13 +286,7 @@ class MultiAsicSonicHost(object):
                 return False
 
         return True
-    
-    def get_asic_index_for_port(self, portname):
-        for asic in self.asics:
-            if asic.port_on_asic(portname):
-                return asic.asic_index
-        return None
-    
+
     def get_asic_index_for_portchannel(self, portchannel):
         for asic in self.asics:
             if asic.portchannel_on_asic(portchannel):
