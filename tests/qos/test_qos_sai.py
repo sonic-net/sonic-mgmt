@@ -45,7 +45,6 @@ class TestQosSai(QosSaiBase):
         are verified.
     """
 
-    SUPPORTED_PGSHARED_WATERMARK_SKUS = ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
     SUPPORTED_HEADROOM_SKUS = [
         'Arista-7060CX-32S-C32',
         'Celestica-DX010-C32',
@@ -512,8 +511,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["hwsku"] in self.SUPPORTED_PGSHARED_WATERMARK_SKUS:
-            pytest.skip("PG shared watermark test not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
