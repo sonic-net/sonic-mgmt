@@ -449,3 +449,15 @@ server:
     str2-acs-serv-21:
       ansible_host: 10.64.246.133
       pdu_host: pdu-118
+    str2-acs-serv-24:
+      ansible_host: 10.64.246.154
+      pdu_host: pdu-122
+    str2-acs-serv-25:
+      ansible_host: 10.64.246.155
+      pdu_host: pdu-122
+    str2-acs-serv-26:
+      ansible_host: 10.64.246.156
+      pdu_host: pdu-121
+    str2-acs-serv-27:
+      ansible_host: 10.64.246.157
+      pdu_host: pdu-121

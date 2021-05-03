@@ -6,6 +6,10 @@ str2-7260cx3-acs-root02,Ethernet5/1,str2-acs-serv-18,enp59s0f1,100000,,Trunk
 str2-7260cx3-acs-root02,Ethernet6/1,str2-acs-serv-19,enp59s0f1,100000,,Trunk
 str2-7260cx3-acs-root02,Ethernet7/1,str2-acs-serv-20,enp59s0f1,100000,,Trunk
 str2-7260cx3-acs-root02,Ethernet22/1,str2-acs-serv-21,enp59s0f1,100000,,Trunk
+str2-7260cx3-acs-root02,Ethernet24/1,str2-acs-serv-24,ens4f1,100000,,Trunk
+str2-7260cx3-acs-root02,Ethernet25/1,str2-acs-serv-25,ens4f1,100000,,Trunk
+str2-7260cx3-acs-root02,Ethernet26/1,str2-acs-serv-26,ens4f1,100000,,Trunk
+str2-7260cx3-acs-root02,Ethernet27/1,str2-acs-serv-27,ens4f1,100000,,Trunk
 str2-7260cx3-acs-root02,Ethernet12/1,str2-7260cx3-acs-8,Ethernet64/1,100000,"249-351,481-598",Trunk
 str2-7260cx3-acs-root02,Ethernet13/1,str2-7260cx3-acs-fan-06,Ethernet64/1,100000,"217-248,352,401,465,599-600,2716,2748",Trunk
 str2-7260cx3-acs-root02,Ethernet11/1,str2-7260cx3-fan-08,Ethernet64/1,100000,"353-400,402-416",Trunk

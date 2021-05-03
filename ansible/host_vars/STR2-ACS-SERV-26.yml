@@ -1,0 +1,5 @@
+mgmt_bridge: br1
+mgmt_prefixlen: 17
+mgmt_gw: 10.64.246.1
+vm_mgmt_gw: 172.16.128.1
+external_port: ens4f1
