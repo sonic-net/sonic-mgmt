@@ -14,7 +14,7 @@ from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
-from tests.common.dualtor.dual_tor_utils import add_nexthop_routes
+from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import run_garp_service
@@ -97,14 +97,6 @@ def shutdown_one_bgp_session(rand_selected_dut):
     bgp_shutdown = shutdown_random_one_bgp_session(rand_selected_dut)
     yield
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
-
-
-def remove_static_routes(standby_tor, active_tor_loopback_ip):
-    """
-    Remove static routes for active tor
-    """
-    logger.info("Removing dual ToR peer switch static route")
-    standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
 
 
 def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):

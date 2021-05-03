@@ -4,7 +4,10 @@ import pytest
 import random
 import time
 import json
+import ptf
+from scapy.all import Ether, IP
 import scapy.all as scapyall
+from ipaddress import ip_address
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 
@@ -636,6 +639,152 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                socket_recv_size=16384)
 
 
+def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip):
+    """
+    Generate a packet to server based on hash.
+    The value of field in packet is filled with random value according to hash_key
+    """
+    SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
+    base_src_mac = ptfadapter.dataplane.get_mac(0, 0)
+    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
+    ip_dst = target_server_ip
+    sport = random.randint(1, 65535) if hash_key == 'src-port' else 1234
+    dport = random.randint(1, 65535) if hash_key == 'dst-port' else 80
+    src_mac = (base_src_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_src_mac
+    dst_mac = duthost.facts["router_mac"]
+    vlan_id = random.randint(1, 4094) if hash_key == 'vlan-id' else 0
+    pkt = testutils.simple_tcp_packet(pktlen=128 if vlan_id == 0 else 132,
+                        eth_dst=dst_mac,
+                        eth_src=src_mac,
+                        dl_vlan_enable=False if vlan_id == 0 else True,
+                        vlan_vid=vlan_id,
+                        vlan_pcp=0,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        tcp_sport=sport,
+                        tcp_dport=dport,
+                        ip_ttl=64)
+    exp_pkt = mask.Mask(pkt)
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "proto")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "flags")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "frag")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "len")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "src")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "dst")
+
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "sport")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "seq")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "ack")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "reserved")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "dataofs")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "window")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "chksum")
+    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "urgptr")
+
+    return pkt, exp_pkt
+
+
+def random_ip(begin, end):
+    """
+    Generate a random IP from given ip range
+    """
+    length = int(ip_address(end)) - int(ip_address(begin))
+    return str(ip_address(begin) + random.randint(0, length))
+
+
+def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_number=0, timeout=None, count=1):
+    """
+    Receive all packets on all specified ports and count how many expected packets were received.
+    """
+    if timeout is None:
+        timeout = ptf.ptfutils.default_timeout
+    if timeout <= 0:
+        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+
+    start_time = time.time()
+    port_packet_count = dict()
+    packet_count = 0
+    while True:
+        if (time.time() - start_time) > timeout:
+            break
+
+        result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
+        if isinstance(result, ptfadapter.dataplane.PollSuccess):
+            if (result.port in ports and
+                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+                port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
+                packet_count += 1
+                if packet_count == count:
+                    return port_packet_count
+        else:
+            break
+
+    return port_packet_count
+
+
+def check_nexthops_balance(rand_selected_dut,
+    ptfadapter,
+    dst_server_ipv4,
+    tbinfo,
+    downlink_ints,
+    nexthops_count):
+    SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
+    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    #send_packet, exp_pkt = build_packet_to_server(rand_selected_dut, ptfadapter, dst_server_ipv4)
+    # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
+    expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    expected_uplink_ports = list()
+    for members in get_t1_ptf_pc_ports(rand_selected_dut, tbinfo).values():
+        for member in members:
+            expected_uplink_ports.append(int(member.strip("eth")))
+    logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+    logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
+
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
+    port_packet_count = dict()
+    base_src_mac = ptfadapter.dataplane.get_mac(0, 0)
+    for i in range(1000):
+        #ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1])
+        #send_packet[IP].src = ip_src
+        for hash_key in HASH_KEYS:
+            send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, hash_key, dst_server_ipv4)
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
+        # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
+        all_allowed_ports = expected_downlink_ports + expected_uplink_ports
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter,
+                                            exp_packet=exp_pkt,
+                                            ports=all_allowed_ports,
+                                            timeout=0.5,
+                                            count=10)
+
+        for ptf_idx, pkt_count in ptf_port_count.items():
+            port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
+
+    logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    for downlink_int in expected_downlink_ports:
+        expect_packet_num = 10000 // len(expected_downlink_ports)
+        pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+        pkt_num_hi = expect_packet_num * (1.0 + 0.25)
+        count = port_packet_count.get(downlink_int, 0)
+        logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
+        if count < pkt_num_lo or count > pkt_num_hi:
+            balance = False
+            pt_assert(balance, "Packets not evenly distributed on downlink port {}".format(downlink_int))
+
+    if len(downlink_ints) < nexthops_count:
+        # Some nexthop is now connected to standby mux, and the packets will be sent towards portchanel ints
+        # Verify that the packets are also sent to uplinks (in case of standby MUX)
+        for uplink_int in expected_uplink_ports:
+            count = port_packet_count.get(uplink_int, 0)
+            logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
+            pt_assert(count > 0, "Packets not sent on uplink ports {}".format(uplink_int))
+
+
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
     """
     @summary: Helper function for verifying upstream packets
@@ -881,3 +1030,11 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
     standby_tor.shell(route_cmd)
     logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
+
+
+def remove_static_routes(standby_tor, active_tor_loopback_ip):
+    """
+    Remove static routes for active tor
+    """
+    logger.info("Removing dual ToR peer switch static route")
+    standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
