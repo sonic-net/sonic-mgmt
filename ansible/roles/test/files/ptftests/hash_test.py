@@ -80,11 +80,15 @@ class HashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            if self.single_fib:
+                active_dut_index = 0
+            else:
+                active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
