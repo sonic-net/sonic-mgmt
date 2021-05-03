@@ -54,96 +54,80 @@ def minigraph_facts(duthosts, tbinfo):
     return duthosts.get_extended_minigraph_facts(tbinfo)
 
 
-def get_t2_fib_info(duthosts, ptfhost, all_duts_config_facts, all_duts_mg_facts):
-    # We need to first get the fib_info based on front-panel ports on all the DUTs.
-    # store a dictionary of all prefixes in the chassis, key being the prefix and value is a dictionary with key dut_index and value outgoing intf and nh
-    all_prefix_dict = {}
+def get_t2_fib_info(duthosts, all_duts_cfg_facts, all_duts_mg_facts):
+    """Get parsed FIB information from redis DB.
+
+    Args:
+        duthost (SonicHost): Object for interacting with DUT.
+        cfg_facts (dict): Configuration facts.
+                          For multi asic platforms this will be list of dicts
+        mg_facts (dict): Minigraph facts.
+
+    Returns:
+        dict: Map of prefix to PTF ports that are connected to DUT output ports.
+            {
+                '192.168.0.0/21': [],
+                '192.168.8.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                '192.168.16.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+                '20c0:c2e8:0:80::/64': [[58 59] [62 63] [66 67] [70 71]],
+                '20c1:998::/64': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+            }
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    fib_info = {}
     for dut_index, duthost in enumerate(duthosts.frontend_nodes):
-        timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-        duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
-        duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
-        with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
-            redis_dump = json.load(fp)
-            for k, v in redis_dump.items():
-                prefix = k.split(':', 1)[1]
-                ifnames = v['value']['ifname'].split(',')
-                nh = v['value']['nexthop']
+        cfg_facts = all_duts_cfg_facts[duthost.hostname]
+        mg_facts = all_duts_mg_facts[duthost.hostname]
+        for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
+            asic = duthost.asic_instance(asic_index)
 
-                if prefix not in all_prefix_dict:
-                    all_prefix_dict[prefix] = {}
-                prefix_dict = all_prefix_dict[prefix]
-                prefix_dict[dut_index] = { 'ifnames': ifnames, 'nexthop': nh }
+            asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
+            duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-    fib_infos = {}
+            po = asic_cfg_facts.get('PORTCHANNEL', {})
+            ports = asic_cfg_facts.get('PORT', {})
 
-    for prefix, prefix_info in all_prefix_dict.items():
-        for dut_index, dut_prefix_route in prefix_info.items():
-            dutname = duthosts.frontend_nodes[dut_index].hostname
-            dut_cfg_facts = all_duts_config_facts[dutname]
-            dut_mg_facts = all_duts_mg_facts[dutname]
-            po = dut_cfg_facts.get('PORTCHANNEL', {})
-            ports = dut_cfg_facts.get('PORT', {})
+            with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+                fib = json.load(fp)
+                for k, v in fib.items():
+                    skip = False
 
-            if dut_index not in fib_infos:
-                fib_infos[dut_index] = {}
-            skip = False
-            ifnames = dut_prefix_route['ifnames']
-            nh = dut_prefix_route['nexthop']
-            oports = []
-            for ifname in ifnames:
-                # There are no port-channels across the fabric, so we can add ptf ports to po's as is.
-                if po.has_key(ifname):
-                    oports.append([str(dut_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
-                elif 'Ethernet-IB' in ifname:
-                    # skip routes for the eBGP peer on the remote linecard. These get installed
+                    prefix = k.split(':', 1)[1]
+                    ifnames = v['value']['ifname'].split(',')
+                    nh = v['value']['nexthop']
+
+                    oports = []
+                    for ifname in ifnames:
+                        if po.has_key(ifname):
+                            # ignore the prefix, if the prefix nexthop is not a frontend port
+                            if 'members' in po[ifname]:
+                                if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                        else:
+                            if ports.has_key(ifname):
+                                if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                            else:
+                                logger.info("Route point to non front panel port {}:{}".format(k, v))
+                                skip = True
+
+                    # skip direct attached subnet
                     if nh == '0.0.0.0' or nh == '::' or nh == "":
                         skip = True
-                        continue
-                    for other_dut_index, other_dut_prefix_route in prefix_info.items():
-                        if other_dut_index == dut_index:
-                            continue
-                        if other_dut_index not in prefix_info:
-                            # This DUT (linecard) doesn't have this prefix.
-                            continue
-                        other_dutname = duthosts.frontend_nodes[other_dut_index].hostname
-                        other_dut_po = all_duts_config_facts[other_dutname].get('PORTCHANNEL', {})
-                        other_dut_ports = all_duts_config_facts[other_dutname].get('PORT', {})
-                        other_dut_nh = prefix_info[other_dut_index]['nexthop']
-                        if other_dut_nh == '0.0.0.0' or other_dut_nh == '::' or other_dut_nh == "":
-                            # skip routes for local interface on remote card.
-                            skip = True
-                            continue
-                        for other_dut_ifname in prefix_info[other_dut_index]['ifnames']:
-                            if 'Ethernet-IB' not in other_dut_ifname:
-                                # Other DUT has this learnt over front-end ports
-                                other_dut_mg_facts = all_duts_mg_facts[other_dutname]
-                                if other_dut_po.has_key(other_dut_ifname):
-                                    oports.append([str(other_dut_mg_facts['minigraph_ptf_indices'][x]) for x in other_dut_po[other_dut_ifname]['members']])
-                                elif other_dut_ports.has_key(ifname) and other_dut_ifname in other_dut_mg_facts['minigraph_ptf_indices']:
-                                    oports.append([str(other_dut_mg_facts['minigraph_ptf_indices'][other_dut_ifname])])
-                elif ports.has_key(ifname) and ifname in dut_mg_facts['minigraph_ptf_indices']:
-                    oports.append([str(dut_mg_facts['minigraph_ptf_indices'][ifname])])
-                else:
-                    logger.info("Route on {} points to non front panel port and non fabric port {}:{}".format(dutname, prefix, dut_prefix_route ))
-                    skip = True
 
-            # skip direct attached subnet
-            if nh == '0.0.0.0' or nh == '::' or nh == "":
-                skip = True
+                    if not skip:
+                        if prefix in fib_info:
+                            fib_info[prefix] += oports
+                        else:
+                            fib_info[prefix] = oports
 
-            if not skip:
-                fib_infos[dut_index][prefix] = oports
-            else:
-                fib_infos[dut_index][prefix] = []
-
-    # Write the file for each DUT and return the files
-    files = []
-    for dut_index, dut_fib in fib_infos.items():
-        filename = '/root/fib_info_dut{}.txt'.format(dut_index)
-        gen_fib_info_file(ptfhost, dut_fib, filename)
-        files.append(filename)
-
-    return files
+    return fib_info
 
 
 def get_fib_info(duthost, cfg_facts, mg_facts):
@@ -236,19 +220,20 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
 
 @pytest.fixture(scope='module')
 def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
+    files = []
     if tbinfo['topo']['type'] != "t2":
-        files = []
         for dut_index, duthost in enumerate(duthosts):
             fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
             filename = '/root/fib_info_dut{}.txt'.format(dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)
-
-        return files
     else:
-        return get_t2_fib_info(duthosts, ptfhost, config_facts, minigraph_facts)
+        fib_info = get_t2_fib_info(duthosts, config_facts, minigraph_facts)
+        filename = '/root/fib_info_all_duts.txt'
+        gen_fib_info_file(ptfhost, fib_info, filename)
+        files.append(filename)
 
-
+    return files
 
 @pytest.fixture(scope='module')
 def disabled_ptf_ports(tbinfo):
@@ -369,8 +354,16 @@ def ignore_ttl(duthosts):
             return True
     return False
 
+
+@pytest.fixture(scope="module")
+def single_fib_for_duts(tbinfo):
+    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
+    if tbinfo['topo']['type'] == "t2":
+        return True
+    return False
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map, ignore_ttl):
+def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -394,7 +387,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_ma
                         "ipv6": ipv6,
                         "testbed_mtu": mtu,
                         "test_balancing": test_balancing,
-                        "ignore_ttl": ignore_ttl},
+                        "ignore_ttl": ignore_ttl,
+                        "single_fib_for_duts": single_fib_for_duts},
                 log_file=log_file,
                 qlen=PTF_QLEN,
                 socket_recv_size=16384)
@@ -499,7 +493,7 @@ def ipver(request):
     return request.param
 
 
-def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map, ignore_ttl):
+def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -521,7 +515,9 @@ def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs
                     "dst_ip_range": ",".join(dst_ip_range),
                     "router_macs": router_macs,
                     "vlan_ids": VLANIDS,
-                    "ignore_ttl":ignore_ttl},
+                    "ignore_ttl":ignore_ttl,
+                    "single_fib_for_duts": single_fib_for_duts
+                   },
             log_file=log_file,
             qlen=PTF_QLEN,
             socket_recv_size=16384)
