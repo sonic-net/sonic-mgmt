@@ -126,6 +126,7 @@ def test_pfc_pause_multi_lossy_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_single_lossy_prio_reboot(ixia_api,
                                             ixia_testbed_config,
@@ -194,6 +195,7 @@ def test_pfc_pause_single_lossy_prio_reboot(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_multi_lossy_prio_reboot(ixia_api,
                                            ixia_testbed_config,
