@@ -64,7 +64,7 @@ stages:
         sed -i s/use_own_value/${username}/ ansible/veos_vtb
         echo aaa > ansible/password.txt
         parent_dir="/data/sonic-mgmt"
-        docker exec sonic-mgmt-masic bash -c "pushd $parent_dir/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut ${{ parameters.tbname }} password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg ${{ parameters.tbnam }} veos_vtb password.txt" && sleep 180
+        docker exec sonic-mgmt-masic bash -c "pushd $parent_dir/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut ${{ parameters.tbname }} password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg ${{ parameters.tbname }} veos_vtb password.txt" && sleep 180
       displayName: "Setup t1-8-lag testbed"
 
     - script: |
