@@ -73,7 +73,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout venkat_run_scripts; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout master; git stash apply\n")
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
