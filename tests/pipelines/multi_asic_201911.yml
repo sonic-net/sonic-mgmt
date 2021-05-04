@@ -11,6 +11,26 @@ pr:
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
+parameters:
+- name: dut
+  type: string
+  default: vlab-08
+- name: tbname
+  type: string
+  default: vms-kvm-four-asic-t1-lag
+- name: inventory
+  type: string
+  default: veos_vtb
+- name: testbed_file
+  type: string
+  default: vtestbed.csv
+- name: ptf_name
+  type: string
+  default: ptf_test
+- name: tbtype
+  type: string
+  default: multi-asic-t1-lag
+
 resources:
   repositories:
   - repository: sonic-mgmt
@@ -22,18 +42,8 @@ stages:
 - stage: Test
   pool: sonictest
   variables:
-  - name: dut
-    value: vlab-08
-  - name: tbname
-    value: vms-kvm-four-asic-t1-lag
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.csv
-  - name: ptf_name
-    value: ptf_test
-  - name: tbtype
-    value: multi-asic-t1-lag
+  - name: image_file_path
+    value: https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-multiasic-vs-image-201911/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz 
 
   jobs:
   - job: four_asic_vs_test 
@@ -43,7 +53,7 @@ stages:
 
     - script: |
         sudo mkdir -p /data/sonic-vm/images
-        wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-multiasic-vs-image-201911/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+        wget $(image_file_path)
         sudo cp -v ./sonic-vs.img.gz /data/sonic-vm/images/sonic-vs.img.gz
         sudo gzip -fd /data/sonic-vm/images/sonic-vs.img.gz
         username=$(id -un)
