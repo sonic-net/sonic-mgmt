@@ -334,18 +334,21 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
 
-    tunnel_key = 'TUNNEL|MuxTunnel0'
     tunnel_params = {
-        'dscp_mode': 'uniform',
-        'dst_ip': dut_loopback,
-        'ecn_mode': 'copy_from_outer',
-        'encap_ecn_mode': 'standard',
-        'ttl_mode': 'pipe',
-        'tunnel_type': 'IPINIP'
+        'TUNNEL': {
+            'MuxTunnel0': {
+                'dscp_mode': 'uniform',
+                'dst_ip': str(dut_loopback),
+                'ecn_mode': 'copy_from_outer',
+                'encap_ecn_mode': 'standard',
+                'ttl_mode': 'pipe',
+                'tunnel_type': 'IPINIP'
+            }
+        }
     }
 
-    for param, value in tunnel_params.items():
-        dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(tunnel_key, param, value))
+    dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
+    dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")
 
     return
 
