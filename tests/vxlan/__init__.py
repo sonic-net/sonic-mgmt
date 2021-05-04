@@ -50,6 +50,8 @@ def vnet_test_params(request):
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
+    params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
+    params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
     return params
 
 @pytest.fixture(scope="module")
