@@ -4,15 +4,15 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list
 
 from files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfcwd_runtime_traffic(ixia_api,
-                               ixia_testbed,
+                               ixia_testbed_config,
                                conn_graph_facts,
                                fanout_graph_facts,
                                duthosts,
@@ -25,7 +25,7 @@ def test_pfcwd_runtime_traffic(ixia_api,
 
     Args:
         ixia_api (pytest fixture): IXIA session
-        ixia_testbed (pytest fixture): L2/L3 config of a T0 testbed
+        ixia_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
@@ -42,9 +42,11 @@ def test_pfcwd_runtime_traffic(ixia_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    testbed_config, port_config_list = ixia_testbed_config
 
     run_pfcwd_runtime_traffic_test(api=ixia_api,
-                                   testbed_config=ixia_testbed,
+                                   testbed_config=testbed_config,
+                                   port_config_list=port_config_list,
                                    conn_data=conn_graph_facts,
                                    fanout_data=fanout_graph_facts,
                                    duthost=duthost,

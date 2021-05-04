@@ -430,8 +430,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
 
-        masked_discover.set_do_not_care_scapy(scapy.PADDING, "load")
-
         # Count the number of these packets received on the ports connected to our leaves
         num_expected_packets = self.num_dhcp_servers
         discover_count = testutils.count_matched_packets_all_ports(self, masked_discover, self.server_port_indices)

@@ -101,6 +101,7 @@ class FibTest(BaseTest):
          - ip_options       enable ip option header in ipv4 pkts. Default: False(disable)
          - src_vid          vlan tag id of src pkts. Default: None(untag)
          - dst_vid          vlan tag id of dst pkts. Default: None(untag)
+         - ignore_ttl:      mask the ttl field in the expected packet
         '''
         self.dataplane = ptf.dataplane_instance
 
@@ -131,6 +132,8 @@ class FibTest(BaseTest):
         self.src_ports = self.test_params.get('src_ports', None)
         if not self.src_ports:
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
+        
+        self.ignore_ttl = self.test_params.get('ignore_ttl', False)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, fib in enumerate(self.fibs):
@@ -262,14 +265,21 @@ class FibTest(BaseTest):
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
+        # mask the chksum also if masking the ttl
+        if self.ignore_ttl:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IP'].src,
                     pkt['IP'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
             .format(exp_router_mac,
                     'any',
@@ -324,6 +334,12 @@ class FibTest(BaseTest):
                                 vlan_vid=self.dst_vid or 0)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+
+        # mask the chksum also if masking the ttl
+        if self.ignore_ttl:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, pkt)
         logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\

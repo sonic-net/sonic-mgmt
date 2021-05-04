@@ -204,7 +204,7 @@ class TestbedInfo(object):
                       explicit_start=True, Dumper=IncIndentDumper)
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor)')
+        pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|tgen)')
         match = pattern.match(topo_name)
         if match == None:
             raise Exception("Unsupported testbed type - {}".format(topo_name))

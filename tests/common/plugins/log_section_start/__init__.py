@@ -26,6 +26,25 @@ LOGGER_NAME = "SectionStartLogger"
 def pytest_configure(config):
     logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
     config.pluginmanager.register(LogSectionStartPlugin(logging_plugin), "LogSectionStart")
+    logging.LogRecord = _LogRecord
+
+
+class _LogRecord(logging.LogRecord):
+    """
+    Internally used log record class to represent the event being logged.
+    This aims to add customized extra attributes to the log record to allow the
+    formatter to use.
+
+    Newly added attributes:
+
+    %(funcNamewithModule)s          combination of module and funcName as
+                                    `<module>.<funcName>`
+    For other attributes, pls refer to:
+    https://github.com/python/cpython/blob/d00a449d6d421391557393cce695795b4b66c212/Lib/logging/__init__.py#L522
+    """
+    def __init__(self, *args, **kargs):
+        super(_LogRecord, self).__init__(*args, **kargs)
+        self.funcNamewithModule = "%s.%s" % (self.module, self.funcName)
 
 
 class _SepLineFilter(logging.Filter):

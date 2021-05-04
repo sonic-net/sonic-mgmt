@@ -27,31 +27,61 @@
   become: yes
   when: docker_registry_username is defined and docker_registry_password is defined
 
-- name: Start Keysight API Server container
+- name: Deploy Keysight API Server container
   block:
-    - name: default secret_group_vars if not defined
-      set_fact:
-        secret_group_vars:
-          ixia_api_server:
-            rest_port: 443
-      when: >
-        secret_group_vars is not defined
-        or secret_group_vars.ixia_api_server is not defined
-        or secret_group_vars.ixia_api_server.rest_port is not defined
-
-    - name: Pull and start Keysight API Server container
-      docker_container:
+    - name: Get Keysight API Server container status
+      docker_container_info:
         name: apiserver
-        image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-        pull: yes
-        state: started
-        restart: no
-        published_ports: "{{ secret_group_vars.ixia_api_server.rest_port }}:443"
-        detach: True
-        capabilities:
-          - net_admin
-        privileged: yes
-      become: yes
+      register: keysight_api_server_container_status
+
+    - debug:
+        msg: "[ WARNING ] Keysight API server container is already running hence not deploying again."
+      when: >
+        keysight_api_server_container_status.exists
+        and keysight_api_server_container_status.container['State']['Status'] == 'running'
+
+    - name: Start Keysight API Server container
+      block:
+        - name: default secret_group_vars if not defined
+          set_fact:
+            secret_group_vars:
+              ixia_api_server:
+                rest_port: 443
+          when: >
+            secret_group_vars is not defined
+            or secret_group_vars.ixia_api_server is not defined
+            or secret_group_vars.ixia_api_server.rest_port is not defined
+
+        - name: Pull and start Keysight API Server container
+          docker_container:
+            name: apiserver
+            image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+            pull: yes
+            state: started
+            restart: no
+            published_ports: "{{ secret_group_vars.ixia_api_server.rest_port }}:443"
+            detach: True
+            capabilities:
+              - net_admin
+            privileged: yes
+          become: yes
+
+        - name: Bind ptf_ip to keysight_api_server
+          vm_topology:
+            cmd: "bind_keysight_api_server_ip"
+            ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+            ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+            ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+            ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+            mgmt_bridge: "{{ mgmt_bridge }}"
+            vm_names: ""
+          become: yes
+
+      when: >
+        not keysight_api_server_container_status.exists
+        or (keysight_api_server_container_status.exists
+        and keysight_api_server_container_status.container['State']['Status'] != 'running')
+
   when: container_type == "API-SERVER"
 
 

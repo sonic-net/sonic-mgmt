@@ -8,6 +8,7 @@ is not forwarded to server port or re-encapsulated to T1s.
 import logging
 import pytest
 import random
+import time
 
 from ptf import mask
 from ptf import testutils
@@ -17,8 +18,11 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.utilities import dump_scapy_packet_show_output
+
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -68,7 +72,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
         ip_ttl=255,
         inner_frame=inner_packet
     )
-    logging.info("the encapsulated packet to send:\n%s", tunnel_traffic_monitor._dump_show_str(packet))
+    logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
     return packet
 
 
@@ -111,7 +115,7 @@ def test_decap_active_tor(
     testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
     _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
     rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", tunnel_traffic_monitor._dump_show_str(rec_pkt))
+    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
     exp_ttl = encapsulated_packet[IP].payload[IP].ttl - 1
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     if rec_pkt[IP].ttl != exp_ttl:
@@ -126,6 +130,15 @@ def test_decap_standby_tor(
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
+
+    def verify_downstream_packet_to_server(ptfadapter, port, exp_pkt):
+        """Verify packet is passed downstream to server."""
+        packets = ptfadapter.dataplane.packet_queues[(0, port)]
+        for packet in packets:
+            if exp_pkt.pkt_match(packet):
+                return True
+        return False
+
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
     iface, _ = rand_selected_interface
@@ -137,5 +150,5 @@ def test_decap_standby_tor(
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=False):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
-
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
+        time.sleep(2)
+        verify_downstream_packet_to_server(ptfadapter, exp_ptf_port_index, exp_pkt)

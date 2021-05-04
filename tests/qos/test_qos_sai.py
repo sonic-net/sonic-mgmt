@@ -45,7 +45,6 @@ class TestQosSai(QosSaiBase):
         are verified.
     """
 
-    SUPPORTED_PGSHARED_WATERMARK_SKUS = ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
     SUPPORTED_HEADROOM_SKUS = [
         'Arista-7060CX-32S-C32',
         'Celestica-DX010-C32',
@@ -135,6 +134,16 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+
+        dst_port_count = set([
+            dutConfig["testPorts"]["dst_port_id"],
+            dutConfig["testPorts"]["dst_port_2_id"],
+            dutConfig["testPorts"]["dst_port_3_id"],
+        ])
+
+        if len(dst_port_count) != 3:
+            pytest.skip("PFC Xon Limit test: Need at least 3 destination ports")
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -502,8 +511,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["hwsku"] in self.SUPPORTED_PGSHARED_WATERMARK_SKUS:
-            pytest.skip("PG shared watermark test not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]

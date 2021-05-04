@@ -5,7 +5,7 @@ import re
 import yaml
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.system_utils import docker
 
@@ -161,11 +161,14 @@ class QosSaiBase:
                 size (str) size of shared headroom pool
                 None if shared headroom pool isn't enabled
         """
+        if self.isBufferInApplDb(dut_asic):
+            db = "0"
+            keystr = "BUFFER_POOL_TABLE:ingress_lossless_pool"
+        else:
+            db = "4"
+            keystr = "BUFFER_POOL|ingress_lossless_pool"
         result = dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGETALL",
-                "BUFFER_POOL|ingress_lossless_pool"
-            ]
+            argv = ["redis-cli", "-n", db, "HGETALL", keystr]
         )
         it = iter(result)
         ingressLosslessPool = dict(zip(it, it))
@@ -431,6 +434,7 @@ class QosSaiBase:
                 # The last port is used for up link from DUT switch
                 testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
             testPortIds = sorted(testPortIds)
+            pytest_require(len(testPortIds) != 0, "Skip test since no ports are available for testing")
 
             # get current DUT port IPs
             dutPortIps = {}
