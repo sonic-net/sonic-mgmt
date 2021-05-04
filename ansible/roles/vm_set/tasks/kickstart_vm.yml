@@ -46,4 +46,67 @@
     become: yes
     when: autostart|bool == true
 
-  when: not skip_this_vm
+  when: not skip_this_vm and (vm_type | lower) == "veos"
+
+- block:
+  - set_fact:
+      num_asic: "{{ hostvars[vm_name]['num_asics'] | default(1) }}"
+
+  - name: Wait until vm {{ vm_name }} is loaded
+    sonic_kickstart: telnet_port={{ serial_port }}
+              login={{ sonic_login }}
+              passwords={{ sonic_default_passwords }}
+              hostname={{ hostname }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_password={{ sonic_password }}
+              num_asic={{ num_asic }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    retries: 5
+    delay: 10
+    ignore_errors: true
+
+  - name: Destroy vm {{ vm_name }} if it hangs
+    virt: name={{ vm_name }}
+          command=destroy
+          uri=qemu:///system
+    when: kickstart_output.kickstart_code != 0
+    become: yes
+    ignore_errors: true
+
+  - name: Start vm again {{ vm_name }}
+    virt: name={{ vm_name }}
+          state=running
+          uri=qemu:///system
+    when: kickstart_output.kickstart_code != 0
+    become: yes
+    ignore_errors: true
+
+  - name: Wait until vm {{ vm_name }} is loaded
+    sonic_kickstart: telnet_port={{ serial_port }}
+              login={{ sonic_login }}
+              passwords={{ sonic_default_passwords }}
+              hostname={{ hostname }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_password={{ sonic_password }}
+              num_asic={{ num_asic }}
+    register: kickstart_output_final
+    until: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code == 0'
+    retries: 5
+    delay: 10
+    ignore_errors: true
+    when: kickstart_output.kickstart_code != 0
+
+  - name: Kickstart gives error again vm {{ vm_name }}
+    set_fact:
+      kickstart_failed_vms: "{{ kickstart_failed_vms + [vm_name] }}"
+    when: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code != 0'
+
+  - name: Set VM to autostart
+    command: "virsh autostart {{ vm_name }}"
+    become: yes
+    when: autostart|bool == true
+
+  when: not skip_this_vm and (vm_type | lower) == "vsonic"

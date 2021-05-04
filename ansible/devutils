@@ -13,15 +13,17 @@ from tabulate import tabulate
 from devutil.inv_helpers import HostManager
 from devutil.ssh_utils import SSHClient
 from devutil.task_runner import TaskRunner
+from devutil import conn_graph_helper
+
 import sys
 sys.path.append("..")
-from tests.common.connections import ConsoleHost
+from tests.common.connections.console_host import ConsoleHost
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
 
 g_inv_mgr = None
 g_task_runner = None
 g_pdu_dict = {}
-
+g_conn_graph_facts = {}
 
 def run_cmd(cmd):
     '''
@@ -34,34 +36,103 @@ def run_cmd(cmd):
     stdout, stderr = out.communicate()
     return out.returncode, stdout, stderr
 
+def get_conn_graph_facts(hosts):
+
+    global g_conn_graph_facts
+    if g_conn_graph_facts:
+        return g_conn_graph_facts
+    hostnames = hosts.keys()
+    g_conn_graph_facts = conn_graph_helper.get_conn_graph_facts(hostnames)
+    return g_conn_graph_facts
 
 def build_global_vars(concurrency, inventory):
     global g_task_runner, g_inv_mgr
     g_task_runner = TaskRunner(max_worker=concurrency)
     g_inv_mgr = HostManager(inventory)
 
-
 def retrieve_hosts(group, limit):
     global g_inv_mgr
     return g_inv_mgr.get_host_list(group, limit)
 
+def get_pdu_info_from_conn_graph(hostname):
+    """
+    Read pdu info from conn graph.
+    Returns a dict like this:
+    {'PSU1': {'Protocol': 'snmp', 'ManagementIp': '10.3.155.107', 'HwSku': 'Sentry', 'Type': 'Pdu', 'peerdevice': 'pdu-107', 'peerport': '39'},
+     'PSU2': xxx}
+    """
+    global g_inv_mgr, g_conn_graph_facts
+    results = {}
+    if hostname in g_conn_graph_facts['device_pdu_info']:
+        for pdu_idx, pdu_info in g_conn_graph_facts['device_pdu_info'][hostname].items():
+            pdu_name = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerdevice']
+            results[pdu_name] = {}
+            results[pdu_name]['ansible_host'] = pdu_info['ManagementIp']
+            results[pdu_name]['protocol'] = pdu_info['Protocol']
+            results[pdu_name]['pdu_port'] = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerport']
+            results[pdu_name].update(g_inv_mgr.get_host_vars(pdu_name))
+    return results
 
-def get_pdu_info(pdu_host):
+
+def get_pdu_info_from_inventory(attrs):
+    """
+    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph
+    """
     global g_inv_mgr, g_pdu_dict
+    pdus = {}
+    pdu_host = attrs['pdu_host'] if 'pdu_host' in attrs else None
+    if not pdu_host:
+        return (False, 'DUT has no PDU configuration')
 
     if pdu_host in g_pdu_dict:
-        return g_pdu_dict[pdu_host]
+        return (True, g_pdu_dict[pdu_host])
 
     hosts = retrieve_hosts('all', pdu_host)
-    pdus = {}
-    g_pdu_dict[pdu_host] = pdus
+    if not hosts:
+        return (False, 'PDU not found in inventory')
+
+    g_pdu_dict[pdu_host] = hosts
     for ph in pdu_host.split(','):
         if ph in hosts:
             pdu = hosts[ph]
             pdus[ph] = pdu
+    return (True, pdus)
 
-    return pdus
+def get_pdu_info(dut_hostname, attrs):
+    results = get_pdu_info_from_conn_graph(dut_hostname)
+    if results:
+        return (True, results)
+    return get_pdu_info_from_inventory(attrs)
 
+def get_console_info_from_conn_graph(hostname):
+    """
+    Read console info from conn_graph_facts.
+    """
+    console_info = {}
+    if hostname in g_conn_graph_facts['device_console_info'] and g_conn_graph_facts['device_console_info'][hostname]:
+        console_info['console_type'] = g_conn_graph_facts['device_console_info'][hostname]['Protocol']
+        console_info['console_host'] = g_conn_graph_facts['device_console_info'][hostname]['ManagementIp']
+        console_info['console_port'] = g_conn_graph_facts['device_console_link'][hostname]['ConsolePort']['peerport']
+    return console_info
+
+def get_console_info_from_inventory(attrs):
+    """
+    Read console info from inventory file. This should be a fallback of get_console_info_from_conn_graph.
+    """
+    console_info = {}
+    keys = ['console_type', 'console_host', 'console_port']
+    for k in keys:
+        if k in attrs:
+            console_info[k] = attrs[k]
+    return console_info
+
+def get_console_info(hostname, attrs):
+    console_info = get_console_info_from_conn_graph(hostname)
+    if not console_info:
+        console_info = get_console_info_from_inventory(attrs)
+    if not console_info:
+        print("Failed to get console info for {}".format(hostname))
+    return console_info
 
 def show_data_output(header, data, json_output=False):
     if json_output:
@@ -88,8 +159,9 @@ def action_ping(parameters):
     header = ['Host', 'Hostname', 'Ping result']
     data = []
     for name, vars in hosts.items():
-        cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
-        g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
+        if 'ansible_host' in vars:
+            cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
+            g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
     if parameters['json']:
         for name, result in g_task_runner.task_results():
             data.append(
@@ -125,38 +197,30 @@ def action_ssh(parameters):
 
 def action_console(parameters):
     hosts = parameters['hosts']
-    # Todo: Retrieve console vars from conn_graph_fact
-    for _, vars in hosts.items():
-        console_host = ConsoleHost(console_type=vars['console_type'],
-                                   console_host=vars['console_host'],
-                                   console_port=vars['console_port'],
+    for hostname, vars in hosts.items():
+        console_info = get_console_info(hostname, vars)
+        if not console_info:
+            continue
+        console_host = ConsoleHost(console_type=console_info['console_type'],
+                                   console_host=console_info['console_host'],
+                                   console_port=console_info['console_port'],
                                    sonic_username=vars['creds']['username'],
                                    sonic_password=vars['creds']['password'],
-                                   console_username=vars['creds']['console_user'][vars['console_type']],
-                                   console_password=vars['creds']['console_password'][vars['console_type']])
+                                   console_username=vars['creds']['console_user'][console_info['console_type']],
+                                   console_password=vars['creds']['console_password'][console_info['console_type']])
         console_host.posix_shell()
 
 
 def pdu_action_on_dut(host, attrs, action):
     ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
-    pdu_name = attrs['pdu_host'] if 'pdu_host' in attrs else None
-    if not pdu_name:
-        ret['Summary'].append('DUT has no PDU configuration')
+    succeed, pdu_info = get_pdu_info(host, attrs)
+    if not succeed:
+        ret['Summary'] = pdu_info
         return ret
-
-    pdu_list = get_pdu_info(pdu_name)
-    if not pdu_list:
-        ret['Summary'].append('PDU not found in inventory')
-        return ret
-
-    # TODO: fake graph data to force building pdu manager from inventory until
-    #       we add code to read and construct the conn_graph_facts
-    fake_graph = {'device_pdu_info': {}, 'device_pdu_links': {}}
-
-    pduman = pdu_manager_factory(host, pdu_list, fake_graph, pdu_list.values()[0])
+    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info.values()[0])
 
     if not pduman:
-        ret['Summary'].append('Failed to communicate with PDU controller {}'.format(pdu_name))
+        ret['Summary'].append('Failed to communicate with PDU controller {}'.format(pdu_info.keys()))
         return ret
 
     if action == 'off':
@@ -187,13 +251,26 @@ def action_pdu(parameters, action):
             data.append(status)
         else:
             data.append([status[x] for x in header])
-
+    
     return header, data
 
 
 def action_pdu_status(parameters):
     header, data = action_pdu(parameters, 'status')
     show_data_output(header, data, parameters['json'])
+
+
+def action_pdu_failures(parameters):
+    header, data = action_pdu(parameters, 'status')
+    failures = []
+    for entry in data:
+        if parameters['json']:
+            if any(x['output_watts'] == '0' for x in entry['PDU status']):
+                failures.append(entry)
+        else:
+            if any(x['output_watts'] == '0' for x in entry[2]):
+                failures.append(entry)
+    show_data_output(header, failures, parameters['json'])
 
 
 def action_pdu_off(parameters):
@@ -260,9 +337,9 @@ def main():
     parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
                         required=False, default=False)
     parser.add_argument('-a', '--action',
-                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, default list',
+                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, pdu_failures, default list',
                         type=str, required=False, default='list',
-                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot'])
+                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot', 'pdu_failures'])
     parser.add_argument('--cmd', help="Command to run on all hosts",
                         type=str, required=False)
     parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
@@ -284,6 +361,7 @@ def main():
         return
     build_global_vars(args.concurrency, args.inventory)
     hosts = retrieve_hosts(args.group, args.limit)
+    get_conn_graph_facts(hosts)
     actions = {'list': action_list,
                'ping': action_ping,
                'ssh': action_ssh,
@@ -293,6 +371,7 @@ def main():
                'pdu_off': action_pdu_off,
                'pdu_on': action_pdu_on,
                'pdu_reboot': action_pdu_reboot,
+               'pdu_failures': action_pdu_failures,
                }
     parameters = {'hosts': hosts,
                   'limit': args.limit,

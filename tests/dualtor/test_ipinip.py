@@ -8,14 +8,20 @@ is not forwarded to server port or re-encapsulated to T1s.
 import logging
 import pytest
 import random
+import time
 
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.utilities import dump_scapy_packet_show_output
 
 
 pytestmark = [
@@ -23,27 +29,22 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module")
-def tor(duthosts, rand_one_dut_hostname):
-    """Select a tor as test target."""
-    return duthosts[rand_one_dut_hostname]
+@pytest.fixture(scope="module", autouse=True)
+def mock_common_setup_teardown(
+    apply_mock_dual_tor_tables,
+    apply_mock_dual_tor_kernel_configs,
+    cleanup_mocked_configs,
+    request
+):
+    request.getfixturevalue("run_garp_service")
 
 
 @pytest.fixture(scope="function")
-def select_test_interface(tor):
-    """Select a random interface to test."""
-    config_facts = tor.get_running_config_facts()
-    muxcable_table = config_facts["MUX_CABLE"]
-    iface = str(random.choice(muxcable_table.keys()))
-    server_ipv4 = muxcable_table[iface]["server_ipv4"]
-    logging.info("select DUT interface %s to test.", iface)
-    return iface, server_ipv4.split("/")[0]
-
-
-@pytest.fixture(scope="function")
-def build_encapsulated_packet(select_test_interface, ptfadapter, tor, tunnel_traffic_monitor):
+def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected_dut, tunnel_traffic_monitor):
     """Build the encapsulated packet sent from T1 to ToR."""
-    _, server_ipv4 = select_test_interface
+    tor = rand_selected_dut
+    _, server_ips = rand_selected_interface
+    server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
@@ -71,7 +72,7 @@ def build_encapsulated_packet(select_test_interface, ptfadapter, tor, tunnel_tra
         ip_ttl=255,
         inner_frame=inner_packet
     )
-    logging.info("the encapsulated packet to send:\n%s", tunnel_traffic_monitor._dump_show_str(packet))
+    logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
     return packet
 
 
@@ -96,14 +97,14 @@ def build_expected_packet_to_server(encapsulated_packet):
 
 
 def test_decap_active_tor(
-    apply_mock_dual_tor_tables,
-    apply_mock_dual_tor_kernel_configs,
     apply_active_state_to_orchagent,
-    build_encapsulated_packet, select_test_interface, ptfadapter,
-    tbinfo, tor, tunnel_traffic_monitor
+    build_encapsulated_packet,
+    rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
+    tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = select_test_interface
+    iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
@@ -111,10 +112,10 @@ def test_decap_active_tor(
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=1)
+    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
     _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
     rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", tunnel_traffic_monitor._dump_show_str(rec_pkt))
+    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
     exp_ttl = encapsulated_packet[IP].payload[IP].ttl - 1
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     if rec_pkt[IP].ttl != exp_ttl:
@@ -124,14 +125,23 @@ def test_decap_active_tor(
 
 
 def test_decap_standby_tor(
-    apply_mock_dual_tor_tables,
-    apply_mock_dual_tor_kernel_configs,
     apply_standby_state_to_orchagent,
-    build_encapsulated_packet, select_test_interface, ptfadapter,
-    tbinfo, tor, tunnel_traffic_monitor
+    build_encapsulated_packet,
+    rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
+
+    def verify_downstream_packet_to_server(ptfadapter, port, exp_pkt):
+        """Verify packet is passed downstream to server."""
+        packets = ptfadapter.dataplane.packet_queues[(0, port)]
+        for packet in packets:
+            if exp_pkt.pkt_match(packet):
+                return True
+        return False
+
+    tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
-    iface, _ = select_test_interface
+    iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
@@ -139,6 +149,6 @@ def test_decap_standby_tor(
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=False):
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=1)
-
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+        time.sleep(2)
+        verify_downstream_packet_to_server(ptfadapter, exp_ptf_port_index, exp_pkt)

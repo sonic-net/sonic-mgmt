@@ -39,7 +39,7 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
     #TODO Remove this logic when minigraph facts supports namespace in multi_asic
@@ -68,7 +68,7 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
             return False
 
         # Cross check the interface SFP presence status
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             check_presence_output = dut.command(check_intf_presence_command.format(intf))
             presence_list = check_presence_output["stdout_lines"][2].split()
             assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)

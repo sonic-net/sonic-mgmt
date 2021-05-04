@@ -32,7 +32,7 @@ from tests.common.reboot import reboot
 """
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)

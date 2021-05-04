@@ -5,7 +5,7 @@ import re
 import yaml
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.system_utils import docker
 
@@ -161,11 +161,14 @@ class QosSaiBase:
                 size (str) size of shared headroom pool
                 None if shared headroom pool isn't enabled
         """
+        if self.isBufferInApplDb(dut_asic):
+            db = "0"
+            keystr = "BUFFER_POOL_TABLE:ingress_lossless_pool"
+        else:
+            db = "4"
+            keystr = "BUFFER_POOL|ingress_lossless_pool"
         result = dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGETALL",
-                "BUFFER_POOL|ingress_lossless_pool"
-            ]
+            argv = ["redis-cli", "-n", db, "HGETALL", keystr]
         )
         it = iter(result)
         ingressLosslessPool = dict(zip(it, it))
@@ -431,6 +434,7 @@ class QosSaiBase:
                 # The last port is used for up link from DUT switch
                 testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
             testPortIds = sorted(testPortIds)
+            pytest_require(len(testPortIds) != 0, "Skip test since no ports are available for testing")
 
             # get current DUT port IPs
             dutPortIps = {}
@@ -791,7 +795,7 @@ class QosSaiBase:
         elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulatePTF"
         else:
-            result = dut_asic.command(argv = ["arp", "-n"])
+            result = dut_asic.command("arp -n")
             pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
             if result["stdout"].find("incomplete") == -1:
                 saiQosTest = "sai_qos_tests.ARPpopulate"
@@ -1064,6 +1068,6 @@ class QosSaiBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-        dut_asic.command(argv = ["counterpoll", "watermark", "enable"])
-        dut_asic.command(argv = ["sleep", "20"])
-        dut_asic.command(argv = ["counterpoll", "watermark", "disable"])
+        dut_asic.command("counterpoll watermark enable")
+        dut_asic.command("sleep 20")
+        dut_asic.command("counterpoll watermark disable")

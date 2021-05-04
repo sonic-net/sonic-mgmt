@@ -93,6 +93,18 @@
 {% endif %}
         </a:Properties>
       </a:DeviceMetadata>
+{% for asic in asic_topo_config %}
+      <a:DeviceMetadata>
+        <a:Name>{{ asic }}</a:Name>
+        <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>SubRole</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ asic_topo_config[asic]['asic_type'] }}</a:Value>
+          </a:DeviceProperty>
+        </a:Properties>
+      </a:DeviceMetadata>
+{% endfor %}
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>

@@ -200,7 +200,7 @@ class TestFdbMacExpire:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def testFdbMacExpire(self, request, tbinfo, duthost, ptfhost):
+    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost):
         """
             TestFdbMacExpire Verifies FDb aging timer is respected
 
@@ -211,7 +211,7 @@ class TestFdbMacExpire:
             Args:
                 request (Fixture): pytest request object
                 tbinfo (Fixture, dict): Map containing testbed information
-                duthost (AnsibleHost): Device Under Test (DUT)
+                rand_selected_dut (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
             Returns:
@@ -226,7 +226,7 @@ class TestFdbMacExpire:
 
         testParams = {
             "testbed_type": tbinfo["topo"]["name"],
-            "router_mac": duthost.facts["router_mac"],
+            "router_mac": rand_selected_dut.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
         }
@@ -236,10 +236,10 @@ class TestFdbMacExpire:
         time.sleep(fdbAgingTime)
 
         count = 0
-        dummyMacCount = self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX)
+        dummyMacCount = self.__getFdbTableCount(rand_selected_dut, self.DUMMY_MAC_PREFIX)
         while count * self.POLLING_INTERVAL_SEC < fdbAgingTime and dummyMacCount != 0:
             time.sleep(self.POLLING_INTERVAL_SEC)
-            dummyMacCount = self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX)
+            dummyMacCount = self.__getFdbTableCount(rand_selected_dut, self.DUMMY_MAC_PREFIX)
             count += 1
             logger.info(
                 "MAC table entries count: {0}, after {1} sec".format(
