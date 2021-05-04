@@ -167,6 +167,7 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    num_asic = duthost.num_asics()
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -178,11 +179,14 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
 
-    dut_facts = collect_all_facts(duthost)
-    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-    result = verify_port_ifindex(snmp_facts, speed_snmp)
-    pytest_assert(not result, "Unexpected comparsion of SNMP: {}".format(result))
+    # TODO: Remove this check after operational status of mgmt interface
+    # is implemented for multi-asic platform
+    if num_asic == 1:
+        dut_facts = collect_all_facts(duthost)
+        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+        result = verify_port_ifindex(snmp_facts, speed_snmp)
+        pytest_assert(not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
