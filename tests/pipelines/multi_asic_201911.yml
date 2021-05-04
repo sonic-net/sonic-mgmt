@@ -18,12 +18,6 @@ parameters:
 - name: tbname
   type: string
   default: vms-kvm-four-asic-t1-lag
-- name: inventory
-  type: string
-  default: veos_vtb
-- name: testbed_file
-  type: string
-  default: vtestbed.csv
 - name: ptf_name
   type: string
   default: ptf_test
@@ -42,6 +36,10 @@ stages:
 - stage: Test
   pool: sonictest
   variables:
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.csv
   - name: image_file_path
     value: https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-multiasic-vs-image-201911/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz 
 
@@ -66,13 +64,13 @@ stages:
         sed -i s/use_own_value/${username}/ ansible/veos_vtb
         echo aaa > ansible/password.txt
         parent_dir="/data/sonic-mgmt"
-        docker exec sonic-mgmt-masic bash -c "pushd $parent_dir/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut $(tbname) password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg $(tbname) veos_vtb password.txt" && sleep 180
+        docker exec sonic-mgmt-masic bash -c "pushd $parent_dir/ansible;./testbed-cli.sh -d /data/sonic-vm -m $(inventory) -t $(testbed_file) -k ceos refresh-dut ${{ parameters.tbname }} password.txt; ./testbed-cli.sh -m $(inventory) -t $(testbed_file) deploy-mg ${{ parameters.tbnam }} veos_vtb password.txt" && sleep 180
       displayName: "Setup t1-8-lag testbed"
 
     - script: |
         # Reboot dut to ensure services are up and stable.
         echo "Reboot DUT"
-        sudo virsh reboot $(dut)
+        sudo virsh reboot ${{ parameters.dut }}
         echo "sleep"
         sleep 120
         username=$(id -un)
@@ -91,7 +89,7 @@ stages:
         tacacs/test_jit_user.py"
         CMD="cd $parent_dir/tests; \
         export ANSIBLE_CONFIG=$parent_dir/ansible ANSIBLE_LIBRARY=$parent_dir/ansible; \
-        ./run_tests.sh -c \"$tests\" -d $(dut) -f $(testbed_file) -i $(inventory) -n $(tbname) -e --disable_loganalyzer -u"
+        ./run_tests.sh -c \"$tests\" -d ${{ parameters.dut }} -f $(testbed_file) -i $(inventory) -n ${{ parameters.tbname }} -e --disable_loganalyzer -u"
         echo $CMD
         docker exec sonic-mgmt-masic bash -c "$CMD"
       displayName: "multi-asic t1-lag tests"
@@ -103,11 +101,11 @@ stages:
         if [ $virsh_version == "6.0.0" ]; then
             mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
             virsh -c qemu:///system list
-            virsh -c qemu:///system save $(dut) $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).memdmp
-            virsh -c qemu:///system dumpxml $(dut) > $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).xml
-            img=$(virsh -c qemu:///system domblklist $(dut) | grep vda | awk '{print $2}')
-            cp $img $(Build.ArtifactStagingDirectory)/kvmdump/$(dut).img
-            virsh -c qemu:///system undefine $(dut)
+            virsh -c qemu:///system save ${{ parameters.dut }} $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.memdmp
+            virsh -c qemu:///system dumpxml ${{ parameters.dut }} > $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.xml
+            img=$(virsh -c qemu:///system domblklist ${{ parameters.dut }} | grep vda | awk '{print $2}')
+            cp $img $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.img
+            virsh -c qemu:///system undefine ${{ parameters.dut }}
         fi
     
       displayName: "Collect kvmdump"
