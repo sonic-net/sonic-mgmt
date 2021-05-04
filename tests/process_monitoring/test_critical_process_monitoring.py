@@ -14,7 +14,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -286,8 +286,7 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
         if len(namespace_ids) > 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded 
-            = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -424,8 +423,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded 
-            = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -495,8 +493,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded 
-            = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
