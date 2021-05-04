@@ -287,6 +287,12 @@ class MultiAsicSonicHost(object):
 
         return True
 
+    def get_asic_index_for_portchannel(self, portchannel):
+        for asic in self.asics:
+            if asic.portchannel_on_asic(portchannel):
+                return asic.asic_index
+        return None
+
     def get_port_asic_instance(self, port):
         """
         Returns the ASIC instance to which the port belongs
