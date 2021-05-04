@@ -68,9 +68,20 @@ stages:
         username=$(id -un)
         rm -rf $(Build.ArtifactStagingDirectory)/*
         parent_dir="/data/sonic-mgmt"
+        tests="test_interfaces.py \
+        bgp/test_bgp_fact.py \
+        lldp/test_lldp.py \
+        route/test_default_route.py \
+        snmp/test_snmp_pfc_counters.py \
+        snmp/test_snmp_queue.py \
+        snmp/test_snmp_loopback.py \
+        snmp/test_snmp_default_route.py \
+        tacacs/test_rw_user.py \
+        tacacs/test_ro_user.py \
+        tacacs/test_jit_user.py"
         CMD="cd $parent_dir/tests; \
         export ANSIBLE_CONFIG=$parent_dir/ansible ANSIBLE_LIBRARY=$parent_dir/ansible; \
-        ./kvmtest.sh -en -T $(tbtype) -d $parent_dir $(tbname) $(dut)"
+        ./run_tests.sh -c \"$tests\" -d $(dut) -f $(testbed_file) -i $(inventory) -n $(tbname) -e --disable_loganalyzer -u"
         echo $CMD
         docker exec sonic-mgmt-masic bash -c "$CMD"
       displayName: "multi-asic t1-lag tests"
@@ -89,9 +100,6 @@ stages:
             virsh -c qemu:///system undefine $(dut)
         fi
     
-        docker commit $(ptf_name) docker-ptf:$(Build.BuildNumber) 
-        docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-        docker rmi docker-ptf:$(Build.BuildNumber)
       displayName: "Collect kvmdump"
       condition: failed()
     
