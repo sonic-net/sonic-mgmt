@@ -329,6 +329,7 @@ def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
                      ptf_port_index, tor_mux_intf):
     failed = False
     reason = ''
+    host = None
     ping_cmd = 'ping -I {} {} -c 1 -W 1; true'
 
     # Clear ARP tables to start in consistent state
@@ -342,7 +343,8 @@ def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
     except AssertionError:
         failed = True
         reason = 'Packet from active ToR {} not received'.format(active_tor)
-        return failed, reason
+        host = active_tor.hostname
+        return failed, reason, host
 
     standby_tor.shell(ping_cmd.format(tor_mux_intf, standby_tor_ping_tgt_ip))
     try:
@@ -350,8 +352,9 @@ def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
     except AssertionError:
         failed = True
         reason = 'Packet from standby ToR {} received'.format(standby_tor)
+        host = standby_tor.hostname
 
-    return failed, reason
+    return failed, reason, host
 
 
 def mux_sim_check_upstream(upper_tor_host, lower_tor_host, ptfadapter,
@@ -359,6 +362,7 @@ def mux_sim_check_upstream(upper_tor_host, lower_tor_host, ptfadapter,
     # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
     failed = False
     reason = ''
+    host = None
     upper_tor_host.shell("ip neigh flush all")
     lower_tor_host.shell("ip neigh flush all")
 
@@ -369,13 +373,15 @@ def mux_sim_check_upstream(upper_tor_host, lower_tor_host, ptfadapter,
     if ptf_arp_tgt_ip not in upper_tor_arp_table:
         failed = True
         reason = 'Packet from PTF not received on upper ToR {}'.format(upper_tor_host)
-        return failed, reason
+        host = upper_tor_host.hostname
+        return failed, reason, host
 
     if ptf_arp_tgt_ip not in lower_tor_arp_table:
         failed = True
         reason = 'Packet from PTF not received on lower ToR {}'.format(lower_tor_host)
+        host = lower_tor_host.hostname
 
-    return failed, reason
+    return failed, reason, host
 
 @pytest.fixture(scope='module')
 def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
@@ -394,11 +400,13 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
         results = {
                     'failed': False,
                     'failed_reason': '',
-                    'check_item': '{} mux simulator'.format(ptf_server_intf)
+                    'check_item': 'mux_simulator',
+                    'interface': ptf_server_intf
                 }
 
         failed = False
         reason = ''
+        host = None
 
         logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
         ptf_port_index = int(ptf_server_intf.replace('eth', ''))
@@ -439,12 +447,12 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                 reason = 'Unable to switch active link to upper ToR'
 
             if not failed:
-                failed, reason = mux_sim_check_downstream(upper_tor_host, lower_tor_host,
+                failed, reason, host = mux_sim_check_downstream(upper_tor_host, lower_tor_host,
                     ptfadapter, upper_tor_ping_tgt_ip, lower_tor_ping_tgt_ip,
                     upper_tor_exp_pkt, lower_tor_exp_pkt, ptf_port_index, tor_mux_intf)
             
             if not failed:
-                failed, reason = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
+                failed, reason, host = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
                     ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
 
             # Repeat all tests with lower ToR active
@@ -455,12 +463,12 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
                     reason = 'Unable to switch active link to lower ToR'
 
             if not failed:
-                failed, reason = mux_sim_check_downstream(lower_tor_host, upper_tor_host,
+                failed, reason, host = mux_sim_check_downstream(lower_tor_host, upper_tor_host,
                     ptfadapter, lower_tor_ping_tgt_ip, upper_tor_ping_tgt_ip,
                     lower_tor_exp_pkt, upper_tor_exp_pkt, ptf_port_index, tor_mux_intf)
 
             if not failed:
-                failed, reason = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
+                failed, reason, host = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
                     ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
 
             logger.info('Finished mux simulator check')
@@ -476,6 +484,8 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
 
         results['failed'] = failed
         results['failed_reason'] = reason
+        if host is not None:
+            results['host'] = host
 
         return results
 
