@@ -18,6 +18,11 @@ def pdu_controller(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     inv_mgr = duthost.host.options["inventory_manager"]
     pdu_host_list = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
+    if not pdu_host_list:
+        logging.info("No 'pdu_host' is defined in inventory file for '%s'. Unable to create pdu_controller" %
+                     duthost.hostname)
+        yield None
+        return
     pdu_hosts = {}
     for ph in pdu_host_list.split(','):
         var_list = inv_mgr.get_host(ph).get_vars()
