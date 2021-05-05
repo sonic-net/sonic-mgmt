@@ -1,9 +1,10 @@
 import time
 from math import ceil
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
@@ -59,6 +60,13 @@ def run_pfcwd_basic_test(api,
     """
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    """
+    PFC watchdog on Broadcom devices use some approximation techniques to detect
+    PFC storms, which may cause some fake alerts. Therefore, we skip test cases
+    whose trigger_pfcwd is False for Broadcom devices.
+    """
+    pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
+                   'Skip trigger_pfcwd=False test cases for Broadcom devices')
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
