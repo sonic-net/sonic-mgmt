@@ -68,7 +68,6 @@ def run_pfcwd_multi_node_test(api,
             pattern, ' or '.join(['"{}"'.format(src) for src in patterns])))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
