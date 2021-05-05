@@ -3,17 +3,18 @@ import json
 import pytest
 import os
 import re
+import logging
 from datetime import datetime
 
-import logging
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
 from .args.api_sfp_args import add_api_sfp_args
 
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+FMT = "%b %d %H:%M:%S.%f"
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
@@ -21,6 +22,7 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
     platform = duthost.facts["platform"]
     if "simx" in platform:
         pytest.skip('skipped on this platform: {}'.format(platform))
+
 
 @pytest.fixture(scope="module")
 def xcvr_skip_list(duthosts):
@@ -44,6 +46,7 @@ def xcvr_skip_list(duthosts):
 
     return intf_skip_list
 
+
 @pytest.fixture()
 def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
@@ -63,21 +66,49 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
         for port in ports:
             duthost.no_shutdown(ifname=port)
 
-def analyze_syslog(duthost, messages):
+
+def get_state_times(timestamp, state, state_times):
+    time = timestamp.strftime(FMT)
+    state_name = state.split("|")[0].strip()
+    state_status = state.split("|")[1].strip()
+    state_dict = state_times.get(state_name, {"timestamp": {}})
+    timestamps = state_dict.get("timestamp")
+    if state_status in timestamps:
+        state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
+    else:
+        # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
+        # this is useful in capturing start point. Eg., first neighbor entry, LAG ready, etc.
+        timestamps[state_status] = time
+    return {state_name: state_dict}
+
+
+def analyze_syslog(duthost, messages, result, first_occurence_times):
+    service_restart_times = dict()
     if not messages:
         logging.error("Expected messages not found in syslog")
         return None
 
-    service_restart_times = dict()
+    reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
     service_patterns = {
         "Stopping": re.compile(r'.*Stopping.*service.*'),
         "Stopped": re.compile(r'.*Stopped.*service.*'),
         "Starting": re.compile(r'.*Starting.*service.*'),
         "Started": re.compile(r'.*Started.*service.*')
     }
+    other_patterns = {
+        "PORT_INIT|Start": re.compile(r'.*swss#portsyncd.*main.*PortInitDone.*'),
+        "LAG_READY|Start": re.compile(r'.*teamd#tlm_teamd.*try_add_lag.*The LAG \'PortChannel.*\' has been added.*'),
+        "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),
+        "INIT_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to INIT VIEW.*'),
+        "APPLY_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*APPLY_VIEW.*'),
+        "APPLY_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to APPLY VIEW.*'),
+        "FINALIZER|Start":  re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
+        "FINALIZER|End":  re.compile(r'.*WARMBOOT_FINALIZER.*Finalizing warmboot.*')
+    }
 
     def service_time_check(message, status):
-        time = message.split(duthost.hostname)[0].strip()
+        time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
+        time = time.strftime(FMT)
         service_name = message.split(status + " ")[1].split()[0]
         service_dict = service_restart_times.get(service_name, {"timestamp": {}})
         timestamps = service_dict.get("timestamp")
@@ -86,14 +117,28 @@ def analyze_syslog(duthost, messages):
         timestamps[status] = time
         service_restart_times.update({service_name: service_dict})
 
+    reboot_time = "N/A"
     for message in messages:
+        if re.search(reboot_pattern, message):
+            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
+            continue
         for status, pattern in service_patterns.items():
             if re.search(pattern, message):
                 service_time_check(message, status)
+                break
+        marker_keys = other_patterns.keys()
+        for state, pattern in other_patterns.items():
+            if re.search(pattern, message):
+                timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
+                state_name = state.split("|")[0].strip()
+                if state_name + "|End" not in marker_keys:
+                    state_times = get_state_times(timestamp, state, first_occurence_times)
+                    first_occurence_times.update(state_times)
+                else:
+                    state_times = get_state_times(timestamp, state, service_restart_times)
+                    service_restart_times.update(state_times)
+                break
 
-    logging.info(json.dumps(service_restart_times, indent=4))
-
-    FMT = "%b %d %H:%M:%S.%f"
     for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
         timings["stop_time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
@@ -113,40 +158,45 @@ def analyze_syslog(duthost, messages):
         filepath = files[0]
         with open(filepath) as json_file:
             report = json.load(json_file)
-            service_restart_times.update(report)
 
-    return service_restart_times
+    result["Services"] = service_restart_times
+    result["first_occurence"] = first_occurence_times
+    result["dataplane"] = report
+    result["reboot_start"] = reboot_time
 
-def analyze_sairedis_rec(messages):
-    state_times = dict()
+    return result
+
+
+def analyze_sairedis_rec(messages, result, first_occurence_times):
+    sai_redis_state_times = dict()
     state_patterns = {
-        "sai_switch_create|Started": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
-        "sai_switch_create|Stopped": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
-        "default_route_set|Started": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
+        "sai_switch_create|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
+        "first_neighbor_entry|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*'),
+        "sai_switch_create|End": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
+        "default_route_set|Start": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
     }
-
-    FMT = "%b %d %H:%M:%S.%f"
+    marker_keys = state_patterns.keys()
     for message in messages:
         for state, pattern in state_patterns.items():
             if re.search(pattern, message):
-                state_name = state.split("|")[0].strip()
-                state_status = state.split("|")[1].strip()
-                state_dict = state_times.get(state_name, {"timestamp": {}})
-                timestamps = state_dict.get("timestamp")
-                if state_status in timestamps:
-                    state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
                 timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
-                time = timestamp.strftime(FMT)
-                timestamps[state_status] = time
-                state_times.update({state_name: state_dict})
+                state_name = state.split("|")[0].strip()
+                if state_name + "|End" not in marker_keys:
+                    state_times = get_state_times(timestamp, state, first_occurence_times)
+                    first_occurence_times.update(state_times)
+                else:
+                    state_times = get_state_times(timestamp, state, sai_redis_state_times)
+                    sai_redis_state_times.update(state_times)
 
-    for _, timings in state_times.items():
+    for _, timings in sai_redis_state_times.items():
         timestamps = timings["timestamp"]
         if "Stopped" in timestamps and "Started" in timestamps:
             timings["time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
                 datetime.strptime(timestamps["Started"], FMT)).total_seconds() \
 
-    return state_times
+    result["sairedis_state"] = sai_redis_state_times
+    result["first_occurence"] = first_occurence_times
+
 
 @pytest.fixture()
 def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
@@ -186,16 +236,21 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     result = loganalyzer.analyze(marker, fail=False)
     analyze_result = dict()
+    first_occurence_times = dict()
     for key, messages in result["expect_messages"].items():
         if "syslog" in key:
-            service_restart_times = analyze_syslog(duthost, messages)
-            if service_restart_times is not None:
-                analyze_result["Services"] = service_restart_times
-
+            analyze_syslog(duthost, messages, analyze_result, first_occurence_times)
         elif "sairedis.rec" in key:
-            state_times = analyze_sairedis_rec(messages)
-            if state_times is not None:
-                analyze_result["sairedis_state"] = state_times
+            analyze_sairedis_rec(messages, analyze_result, first_occurence_times)
+
+    for marker, time_data in analyze_result["first_occurence"].items():
+        marker_start_time = time_data.get("timestamp", {}).get("Start")
+        reboot_start_time = analyze_result["reboot_start"]
+        if reboot_start_time != "N/A" and marker_start_time:
+            time_data["time_since_reboot"] = (datetime.strptime(marker_start_time, FMT) -\
+                datetime.strptime(reboot_start_time, FMT)).total_seconds()
+        else:
+            time_data["time_since_reboot"] = "N/A"
 
     logging.info(json.dumps(analyze_result, indent=4))
     report_file_name = request.node.name + "_report.json"
