@@ -345,7 +345,7 @@ def increase_arp_cache(duthost, max_value, ip_ver, test_name):
             # Sample output: net.ipv4.neigh.default.gc_thresh1 = 1024
             cur_th = int(res["stdout"].split()[-1])
         except ValueError:
-            logger.warning("Unable to determin kernel ARP cache size: \n{}".format(res))
+            logger.warning("Unable to determine kernel ARP cache size: \n{}".format(res))
             continue
 
         if cur_th >= max_value + 100:
