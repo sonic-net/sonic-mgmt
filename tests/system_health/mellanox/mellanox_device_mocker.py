@@ -30,7 +30,8 @@ class PsuData(object):
         self.index = index
         self.name = 'PSU {}'.format(self.index)
         power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(index)
-        if self.helper._file_exist(power_status_file):
+        out = self.helper.dut.stat(path=power_status_file)
+        if out['stat']['exists']:
             self.power_on = True
         else:
             self.power_on = False
