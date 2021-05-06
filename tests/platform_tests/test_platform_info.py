@@ -85,13 +85,13 @@ def stop_pmon_sensord_task(ans_host):
 
 
 @pytest.fixture(scope="module")
-def psu_test_setup_teardown(duthosts, rand_one_dut_hostname):
+def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Sensord task will print out error msg when detect PSU offline,
               which can cause log analyzer fail the test. So stop sensord task
               before test and restart it after all test finished.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logging.info("Starting psu test setup")
     stop_pmon_sensord_task(duthost)
 
@@ -112,8 +112,8 @@ def psu_test_setup_teardown(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="function")
-def ignore_particular_error_log(request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
     loganalyzer.load_common_config()
 
@@ -278,11 +278,11 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
 
 @pytest.mark.disable_loganalyzer
-def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_factory, disable_thermal_policy):
+def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory, disable_thermal_policy):
     """
     @summary: Check output of 'show platform fan'.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Mock data and check
     mocker = mocker_factory(duthost, 'FanStatusMocker')
@@ -298,11 +298,11 @@ def test_show_platform_fanstatus_mocked(duthosts, rand_one_dut_hostname, mocker_
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
-def test_show_platform_temperature_mocked(duthosts, rand_one_dut_hostname, mocker_factory, ignore_particular_error_log):
+def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory, ignore_particular_error_log):
     """
     @summary: Check output of 'show platform temperature'
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
@@ -316,23 +316,23 @@ def test_show_platform_temperature_mocked(duthosts, rand_one_dut_hostname, mocke
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_format_json(duthosts, rand_one_dut_hostname):
+def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logging.info('Loading invalid format policy file...')
     check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_FORMAT_FILE)
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_value_json(duthosts, rand_one_dut_hostname):
+def test_thermal_control_load_invalid_value_json(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logging.info('Loading invalid value policy file...')
     check_thermal_control_load_invalid_file(duthost, THERMAL_POLICY_INVALID_VALUE_FILE)
 
@@ -418,7 +418,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     time.sleep(5)
 
     psu_under_test = None
-    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+    psu_line_pattern = get_dut_psu_line_pattern(dut)
     cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
     for line in cli_psu_status["stdout_lines"][2:]:
         psu_match = psu_line_pattern.match(line)
@@ -438,11 +438,11 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(duthosts, rand_one_dut_hostname, mocker_factory):
+def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='thermal_control')
     loganalyzer.load_common_config()
 

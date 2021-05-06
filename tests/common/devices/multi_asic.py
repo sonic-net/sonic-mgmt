@@ -234,12 +234,26 @@ class MultiAsicSonicHost(object):
                 return asic
         return None
 
+    def start_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.start_service(service, service)
+
+        for asic in self.asics:
+            asic.start_service(service)
+
     def stop_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.stop_service(service, service)
 
         for asic in self.asics:
             asic.stop_service(service)
+
+    def restart_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.restart_service(service, service)
+
+        for asic in self.asics:
+            asic.restart_service(service)
 
     def delete_container(self, service):
         if service in self._DEFAULT_SERVICES:
@@ -272,6 +286,12 @@ class MultiAsicSonicHost(object):
                 return False
 
         return True
+
+    def get_asic_index_for_portchannel(self, portchannel):
+        for asic in self.asics:
+            if asic.portchannel_on_asic(portchannel):
+                return asic.asic_index
+        return None
 
     def get_port_asic_instance(self, port):
         """

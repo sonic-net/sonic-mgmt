@@ -242,8 +242,8 @@ def test_standby_tor_remove_neighbor_downstream_standby(
     logging.info("send traffic to server %s after removing neighbor entry", server_ipv4)
     tunnel_monitor.existing = False
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, vmhost, test_params["selected_port"],
-        conn_graph_facts, exp_pkt, existing=False
+        tor, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     # for real dualtor testbed, leave the neighbor restoration to garp service
     flush_neighbor_ct = flush_neighbor(tor, server_ipv4, restore=is_t0_mocked_dualtor)
@@ -275,8 +275,8 @@ def test_downstream_standby_mux_toggle_active(
     def monitor_tunnel_and_server_traffic(torhost, expect_tunnel_traffic=True, expect_server_traffic=True):
         tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
         server_traffic_monitor = ServerTrafficMonitor(
-            torhost, vmhost, test_params["selected_port"],
-            conn_graph_facts, exp_pkt, existing=False
+            torhost, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
         tunnel_monitor.existing = expect_tunnel_traffic
         server_traffic_monitor.existing = expect_server_traffic

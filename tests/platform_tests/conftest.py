@@ -23,28 +23,29 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 @pytest.fixture(scope="module")
-def xcvr_skip_list(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts['platform']
-    hwsku = duthost.facts['hwsku']
-    f_path = os.path.join('/usr/share/sonic/device', platform, hwsku, 'hwsku.json')
-    intf_skip_list = []
-    try:
-        out = duthost.command("cat {}".format(f_path))
-        hwsku_info = json.loads(out["stdout"])
-        for int_n in hwsku_info['interfaces']:
-            if hwsku_info['interfaces'][int_n]['port_type'] == "RJ45":
-                intf_skip_list.append(int_n)
+def xcvr_skip_list(duthosts):
+    intf_skip_list = {}
+    for dut in duthosts:
+        platform = dut.facts['platform']
+        hwsku = dut.facts['hwsku']
+        f_path = os.path.join('/usr/share/sonic/device', platform, hwsku, 'hwsku.json')
+        intf_skip_list[dut.hostname] = []
+        try:
+            out = dut.command("cat {}".format(f_path))
+            hwsku_info = json.loads(out["stdout"])
+            for int_n in hwsku_info['interfaces']:
+                if hwsku_info['interfaces'][int_n]['port_type'] == "RJ45":
+                    intf_skip_list[dut.hostname].append(int_n)
 
-    except Exception:
-        # hwsku.json does not exist will return empty skip list
-        logging.debug(
-            "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
+        except Exception:
+            # hwsku.json does not exist will return empty skip list
+            logging.debug(
+                "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
 
     return intf_skip_list
 
 @pytest.fixture()
-def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
+def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     Bring up outer interfaces on the DUT.
 
@@ -52,7 +53,7 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
         request: pytest request object
         duthost: Fixture for interacting with the DUT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     if request.node.rep_call.failed:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -62,40 +63,10 @@ def bring_up_dut_interfaces(request, duthosts, rand_one_dut_hostname, tbinfo):
         for port in ports:
             duthost.no_shutdown(ifname=port)
 
-@pytest.fixture(autouse=True)
-def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
-    """
-    Advance reboot log analysis.
-    This fixture starts log analysis at the beginning of the test. At the end,
-    the collected expect messages are verified and timing of start/stop is calculated.
-
-    Args:
-        duthosts : List of DUT hosts
-        rand_one_dut_hostname: hostname of a randomly selected DUT
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot")
-    marker = loganalyzer.init()
-    loganalyzer.load_common_config()
-
-    ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
-    expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
-    ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
-    expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
-
-    loganalyzer.ignore_regex.extend(ignore_reg_exp)
-    loganalyzer.expect_regex = []
-    loganalyzer.expect_regex.extend(expect_reg_exp)
-    loganalyzer.match_regex = []
-
-    yield
-
-    result = loganalyzer.analyze(marker, fail=False)
-    messages = result["expect_messages"].values()
+def analyze_syslog(duthost, messages):
     if not messages:
         logging.error("Expected messages not found in syslog")
-        return
-    messages = messages[0]
+        return None
 
     service_restart_times = dict()
     service_patterns = {
@@ -120,7 +91,6 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
             if re.search(pattern, message):
                 service_time_check(message, status)
 
-    loganalyzer.save_extracted_log(dest="/tmp/log/syslog")
     logging.info(json.dumps(service_restart_times, indent=4))
 
     FMT = "%b %d %H:%M:%S.%f"
@@ -144,8 +114,98 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname):
         with open(filepath) as json_file:
             report = json.load(json_file)
             service_restart_times.update(report)
-    result = service_restart_times
-    logging.info(json.dumps(result, indent=4))
+
+    return service_restart_times
+
+def analyze_sairedis_rec(messages):
+    state_times = dict()
+    state_patterns = {
+        "sai_switch_create|Started": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
+        "sai_switch_create|Stopped": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
+        "default_route_set|Started": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
+    }
+
+    FMT = "%b %d %H:%M:%S.%f"
+    for message in messages:
+        for state, pattern in state_patterns.items():
+            if re.search(pattern, message):
+                state_name = state.split("|")[0].strip()
+                state_status = state.split("|")[1].strip()
+                state_dict = state_times.get(state_name, {"timestamp": {}})
+                timestamps = state_dict.get("timestamp")
+                if state_status in timestamps:
+                    state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
+                timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
+                time = timestamp.strftime(FMT)
+                timestamps[state_status] = time
+                state_times.update({state_name: state_dict})
+
+    for _, timings in state_times.items():
+        timestamps = timings["timestamp"]
+        if "Stopped" in timestamps and "Started" in timestamps:
+            timings["time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
+                datetime.strptime(timestamps["Started"], FMT)).total_seconds() \
+
+    return state_times
+
+@pytest.fixture()
+def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
+    """
+    Advance reboot log analysis.
+    This fixture starts log analysis at the beginning of the test. At the end,
+    the collected expect messages are verified and timing of start/stop is calculated.
+
+    Args:
+        duthosts : List of DUT hosts
+        rand_one_dut_hostname: hostname of a randomly selected DUT
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    # Currently, advanced reboot test would skip for kvm platform if the test has no device_type marker for vs.
+    # Doing the same skip logic in this fixture to avoid running loganalyzer without the test executed
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
+        if 'vs' not in device_marks:
+            pytest.skip('Testcase not supported for kvm')
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot", 
+                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec'})
+    marker = loganalyzer.init()
+    loganalyzer.load_common_config()
+
+    ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
+    expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
+    ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+    expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
+
+    loganalyzer.ignore_regex.extend(ignore_reg_exp)
+    loganalyzer.expect_regex = []
+    loganalyzer.expect_regex.extend(expect_reg_exp)
+    loganalyzer.match_regex = []
+
+    yield
+
+    result = loganalyzer.analyze(marker, fail=False)
+    analyze_result = dict()
+    for key, messages in result["expect_messages"].items():
+        if "syslog" in key:
+            service_restart_times = analyze_syslog(duthost, messages)
+            if service_restart_times is not None:
+                analyze_result["Services"] = service_restart_times
+
+        elif "sairedis.rec" in key:
+            state_times = analyze_sairedis_rec(messages)
+            if state_times is not None:
+                analyze_result["sairedis_state"] = state_times
+
+    logging.info(json.dumps(analyze_result, indent=4))
+    report_file_name = request.node.name + "_report.json"
+    report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+        "../logs/platform_tests/")))
+    report_file_path = report_file_dir + "/" + report_file_name
+    if not os.path.exists(report_file_dir):
+        os.makedirs(report_file_dir)
+    with open(report_file_path, 'w') as fp:
+        json.dump(analyze_result, fp, indent=4)
 
 
 def pytest_addoption(parser):
