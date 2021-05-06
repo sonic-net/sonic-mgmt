@@ -136,18 +136,20 @@ sudo show muxcable berinfo <physical_port> <target>
     | Verify that show mux status matches with show mux hwmode muxdirection | linkmgr/cable sanity | Verify both the directions match with each other |
     ||||
 
-2. Server -> Active ToR
-   Server -> Standby ToR
+2. Server -> ToR -> T1
+   T1 -> ToR -> Server
 
-    Traffic needs to be validated not reaching the server from one of the links.
+    On the upstream side, traffic needs to be validated to be broadcasted on both the 2 ends of the Y-Cable. On the downstream side the traffic needs to be only forwarded by the active link.
     
     | Step | Goal | Expected results |
     |-|-|-|
-    | Mux toggle traffic validation from NIC to ToR | MUX correctly toggles | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR, use tcpdump/scapy/counters on ports to validate traffic |
+    | traffic validation from NIC to ToR | Traffic validation | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR;Both the T1's should receive the packet from the server |
     ||||
-    | Mux toggle traffic validation from ToR to NIC | MUX correctly toggles | Verify traffic from only active ToR reaches the server; Traffic from standby ToR should not reach the server; use scapy/counters to validate the traffic from ToR to server |
+    | traffic validation from ToR to NIC | Traffic validation | Verify traffic from only active ToR reaches the server; Traffic from standby ToR should not reach the server; Server receives the packet only from active port |
     ||||
-    | traffic quantity validation from server to NIC | packet count to remain same or no packet loss | Verify number of frames sent from server to ToR and vice-versa on active link remain same; use counters on both fanout and DUT to check that frames match |
+    | Mux toggle traffic validation from ToR to NIC | MUX correctly toggles | Verify traffic from only active ToR reaches the server; Server receives packet from active port; Perform a toggle from Cli; Traffic from standby ToR should not reach the server; Server receives the packet from active port after toggle |
+    ||||
+    | traffic quantity validation from server to NIC | packet count to remain same or no packet loss | Verify number of frames sent from server to ToR and vice-versa on active link remain same; |
     ||||
     | During toggle record number of frames dropped | Verify no/minimalistic packet loss during toggle/failover | Verify number of frames sent during a failover are equal to the frmaes received from ToR to server |
     ||||
