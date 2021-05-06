@@ -183,6 +183,13 @@
     - ptf_imagename is defined
     - ptf_imagename == "docker-keysight-api-server"
 
+- name: VMs not needed in case of Keysight IxANVL
+  set_fact:
+    veos_vm_required: false
+  when:
+    - ptf_imagename is defined
+    - ptf_imagename == "docker-ptf-anvl"
+
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
         uri=qemu:///system

@@ -129,7 +129,6 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 
 cmd_debug_fname = None
 
-
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
 
