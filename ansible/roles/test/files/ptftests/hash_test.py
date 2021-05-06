@@ -80,11 +80,15 @@ class HashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            if self.single_fib:
+                active_dut_index = 0
+            else:
+                active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
@@ -190,7 +194,6 @@ class HashTest(BaseTest):
             if hash_key == 'src-mac' else base_mac
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
@@ -207,7 +210,6 @@ class HashTest(BaseTest):
                             tcp_dport=dport,
                             ip_ttl=64)
         exp_pkt = simple_tcp_packet(
-                            eth_src=exp_router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
@@ -224,7 +226,7 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
-
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         send_packet(self, src_port, pkt)
         logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={} on port {})'\
@@ -236,14 +238,21 @@ class HashTest(BaseTest):
                     dport,
                     src_port))
         logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
                     sport,
                     dport))
 
-        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+        actual_src_mac = Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
 
     def check_ipv6_route(self, hash_key, src_port, dst_port_list):
         '''
@@ -263,7 +272,6 @@ class HashTest(BaseTest):
         src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto(ipv6=True) if hash_key == "ip-proto" else None
@@ -280,7 +288,6 @@ class HashTest(BaseTest):
                                 tcp_dport=dport,
                                 ipv6_hlim=64)
         exp_pkt = simple_tcpv6_packet(
-                                eth_src=exp_router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
@@ -298,6 +305,7 @@ class HashTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         send_packet(self, src_port, pkt)
         logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={} on port {})'\
@@ -309,14 +317,21 @@ class HashTest(BaseTest):
                     dport,
                     src_port))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
                     sport,
                     dport))
 
-        return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+        actual_src_mac = Ether(rcvd_pkt).src
+        if exp_src_mac != actual_src_mac:
+            raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                            "but the src mac doesn't match, expected {}, got {}".
+                            format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+        return (rcvd_port, rcvd_pkt)
 
     def check_within_expected_range(self, actual, expected):
         '''

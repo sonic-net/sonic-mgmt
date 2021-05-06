@@ -54,6 +54,82 @@ def minigraph_facts(duthosts, tbinfo):
     return duthosts.get_extended_minigraph_facts(tbinfo)
 
 
+def get_t2_fib_info(duthosts, all_duts_cfg_facts, all_duts_mg_facts):
+    """Get parsed FIB information from redis DB.
+
+    Args:
+        duthost (SonicHost): Object for interacting with DUT.
+        cfg_facts (dict): Configuration facts.
+                          For multi asic platforms this will be list of dicts
+        mg_facts (dict): Minigraph facts.
+
+    Returns:
+        dict: Map of prefix to PTF ports that are connected to DUT output ports.
+            {
+                '192.168.0.0/21': [],
+                '192.168.8.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                '192.168.16.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+                '20c0:c2e8:0:80::/64': [[58 59] [62 63] [66 67] [70 71]],
+                '20c1:998::/64': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+            }
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    fib_info = {}
+    for dut_index, duthost in enumerate(duthosts.frontend_nodes):
+        cfg_facts = all_duts_cfg_facts[duthost.hostname]
+        mg_facts = all_duts_mg_facts[duthost.hostname]
+        for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
+            asic = duthost.asic_instance(asic_index)
+
+            asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
+            duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
+
+            po = asic_cfg_facts.get('PORTCHANNEL', {})
+            ports = asic_cfg_facts.get('PORT', {})
+
+            with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+                fib = json.load(fp)
+                for k, v in fib.items():
+                    skip = False
+
+                    prefix = k.split(':', 1)[1]
+                    ifnames = v['value']['ifname'].split(',')
+                    nh = v['value']['nexthop']
+
+                    oports = []
+                    for ifname in ifnames:
+                        if po.has_key(ifname):
+                            # ignore the prefix, if the prefix nexthop is not a frontend port
+                            if 'members' in po[ifname]:
+                                if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                        else:
+                            if ports.has_key(ifname):
+                                if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                            else:
+                                logger.info("Route point to non front panel port {}:{}".format(k, v))
+                                skip = True
+
+                    # skip direct attached subnet
+                    if nh == '0.0.0.0' or nh == '::' or nh == "":
+                        skip = True
+
+                    if not skip:
+                        if prefix in fib_info:
+                            fib_info[prefix] += oports
+                        else:
+                            fib_info[prefix] = oports
+
+    return fib_info
+
+
 def get_fib_info(duthost, cfg_facts, mg_facts):
     """Get parsed FIB information from redis DB.
 
@@ -143,16 +219,21 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
 
 
 @pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts):
+def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
     files = []
-    for dut_index, duthost in enumerate(duthosts):
-        fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
-        filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+    if tbinfo['topo']['type'] != "t2":
+        for dut_index, duthost in enumerate(duthosts):
+            fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
+            filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+            gen_fib_info_file(ptfhost, fib_info, filename)
+            files.append(filename)
+    else:
+        fib_info = get_t2_fib_info(duthosts, config_facts, minigraph_facts)
+        filename = '/root/fib_info_all_duts.txt'
         gen_fib_info_file(ptfhost, fib_info, filename)
         files.append(filename)
 
     return files
-
 
 @pytest.fixture(scope='module')
 def disabled_ptf_ports(tbinfo):
@@ -273,8 +354,16 @@ def ignore_ttl(duthosts):
             return True
     return False
 
+
+@pytest.fixture(scope="module")
+def single_fib_for_duts(tbinfo):
+    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
+    if tbinfo['topo']['type'] == "t2":
+        return True
+    return False
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map, ignore_ttl):
+def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -291,14 +380,15 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_ma
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"fib_info_files": fib_info_files[:2],  # Test at most 2 DUTs
+                params={"fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
                         "ptf_test_port_map": ptf_test_port_map,
                         "router_macs": router_macs,
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu,
                         "test_balancing": test_balancing,
-                        "ignore_ttl": ignore_ttl},
+                        "ignore_ttl": ignore_ttl,
+                        "single_fib_for_duts": single_fib_for_duts},
                 log_file=log_file,
                 qlen=PTF_QLEN,
                 socket_recv_size=16384)
@@ -403,7 +493,7 @@ def ipver(request):
     return request.param
 
 
-def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map, ignore_ttl):
+def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -418,14 +508,16 @@ def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs
             "ptftests",
             "hash_test.HashTest",
             platform_dir="ptftests",
-            params={"fib_info_files": fib_info_files[:2],   # Test at most 2 DUTs
+            params={"fib_info_files": fib_info_files[:3],   # Test at most 3 DUTs
                     "ptf_test_port_map": ptf_test_port_map,
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),
                     "router_macs": router_macs,
                     "vlan_ids": VLANIDS,
-                    "ignore_ttl":ignore_ttl},
+                    "ignore_ttl":ignore_ttl,
+                    "single_fib_for_duts": single_fib_for_duts
+                   },
             log_file=log_file,
             qlen=PTF_QLEN,
             socket_recv_size=16384)
