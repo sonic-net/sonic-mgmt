@@ -136,8 +136,10 @@ sudo show muxcable berinfo <physical_port> <target>
     | Verify that show mux status matches with show mux hwmode muxdirection | linkmgr/cable sanity | Verify both the directions match with each other |
     ||||
 
-2. Server -> ToR -> T1
-   T1 -> ToR -> Server
+2. Upstream: Server -> ToR -> T1
+
+
+   Downstream: T1 -> ToR -> Server
 
     On the upstream side, traffic needs to be validated to be broadcasted on both the 2 ends of the Y-Cable. On the downstream side the traffic needs to be only forwarded by the active link.
     
