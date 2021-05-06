@@ -6,7 +6,6 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
-import re
 import time
 
 import pytest
