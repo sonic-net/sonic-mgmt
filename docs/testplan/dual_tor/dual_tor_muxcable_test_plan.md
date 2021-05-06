@@ -35,6 +35,10 @@ These are some of the vendor specific hardware capabilities which should be test
 
 The test can be executed on a single Tor testbed with proposed configurations that has a muxcable put in a port with driver code. For Tests that require some traffic validation will need to run on a testbed which can send trafic from NIC to ToR and vice-versa.
 
+The full testbed setup is shown below:
+
+![MuxCable_Hardware_testbed_setup](img/topology_for_cable_test.jpeg)
+
 ### CLI commands:
 
 Example mux cable checking the read_side
