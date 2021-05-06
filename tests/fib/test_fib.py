@@ -200,6 +200,9 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
                         fib_info[prefix] += oports
                     else:
                         fib_info[prefix] = oports
+                # For single_asic device, add empty list for directly connected subnets
+                elif skip and not duthost.is_multi_asic:
+                    fib_info[prefix] = []
 
     return fib_info
 
