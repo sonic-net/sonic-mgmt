@@ -6,7 +6,6 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
-import re
 import time
 
 import pytest
@@ -14,6 +13,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
+from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from thermal_control_test_helper import *
 
 pytestmark = [
@@ -138,26 +138,6 @@ def get_psu_num(dut):
         pytest_assert(False, "Unable to get the number of PSUs using command '{}' with exception {}".format(cmd_num_psu, repr(e)))
 
     return psu_num
-
-
-def get_dut_psu_line_pattern(dut):
-    if "201811" in dut.os_version or "201911" in dut.os_version:
-        psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-    else:
-        """
-        Changed the pattern to match space (s+) and non-space (S+) only.
-        w+ cannot match following examples properly:
-
-        example 1:
-            PSU 1  PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
-            PSU 2  PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
-        example 2:
-            PSU 1  N/A      N/A               12.05           3.38        40.62  OK        green
-            PSU 2  N/A      N/A               12.01           4.12        49.50  OK        green
-
-        """
-        psu_line_pattern = re.compile(r"PSU\s+(\d+)\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(OK|NOT OK|NOT PRESENT)\s+(green|amber|red|off)")
-    return psu_line_pattern
 
 
 def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):

@@ -1,5 +1,4 @@
 # conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
-
 # ptfs
 ptf2-6-b,ptf2-6,ptf32,docker-ptf,vtf2-6,10.64.246.16/23,2a01:111:e210:b000::9/64,server_2,,str-s6000-acs-9,str,True,rlhui
 # vmsets
@@ -75,6 +74,7 @@ vms21-dual-t0-7260,vms21-6,dualtor-120,docker-ptf,vms21-6,10.64.246.152/23,,serv
 vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf,svc1-1,10.206.144.19/24,,server_svc_1,VM1000,svcstr-n3164-acs-1,strsvc,False,Mahesh
 vmsvc1-t1-n3164-acs-2,svc1-2,t1-64-lag,docker-ptf,svc1-2,10.206.144.20/24,,server_svc_1,VM1024,svcstr-n3164-acs-2,strsvc,False,genhwa
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,,False,superman
+ixanvl-vs-conf,anvl,ptf32,docker-ptf-anvl,ptf-unknown,10.250.0.100/24,,server_1,,vlab-01,lab,True,Test ptf ANVL SONIC VM
 vms20-t1-ixia-1,vms20-ixia-1,tgen-t1-3-lag,docker-keysight-api-server,vms20-ixia-1,10.64.246.150/23,,server_20,,msr-sn2700-dut-1,ixia,False,nejo
 vms20-t1-ixia-2,vms20-ixia-2,tgen-t1-3-lag,docker-keysight-api-server,vms20-ixia-2,10.64.246.150/23,,server_20,,msr-a7060-dut-1,ixia,False,nejo
 vms20-t0-ixia-1,vms20-ixia-3,tgen-t0-3,docker-keysight-api-server,vms20-ixia-3,10.64.246.150/23,,server_20,,msr-s6100-dut-1,ixia,False,nejo

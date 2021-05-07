@@ -993,3 +993,16 @@
   inv_name: str2
   auto_recover: 'False'
   comment: hellospytest
+
+- conf-name: ixanvl-vs-conf 
+  group-name: anvl
+  topo: ptf32
+  ptf_image_name: docker-ptf-anvl
+  ptf: ptf-unknown
+  ptf_ip: 10.250.0.100/24
+  ptf_ipv6:
+  server: server_1
+  vm_base:
+  dut:
+    - vlab-01
+  comment: Test ptf ANVL SONIC VM
