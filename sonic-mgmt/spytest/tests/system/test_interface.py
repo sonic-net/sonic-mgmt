@@ -33,18 +33,18 @@ def interface_module_hooks(request):
     st.log("Creating TG streams")
     intf_data.streams = {}
     stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create', port_handle2=intf_data.tg_ph_2,
-                                            length_mode='fixed', rate_pps=100, frame_size=intf_data.mtu1,
+                                            length_mode='fixed', rate_pps=10000, frame_size=intf_data.mtu1,
                                             l2_encap='ethernet_ii_vlan', transmit_mode='single_burst',
-                                            pkts_per_burst=100, vlan_id=intf_data.vlan_id,
+                                            pkts_per_burst=2000, vlan_id=intf_data.vlan_id,
                                             mac_src=intf_data.source_mac, mac_dst=intf_data.destination_mac,
                                             vlan="enable")
     st.log('Stream output:{}'.format(stream))
     intf_data.streams['mtu1'] = stream['stream_id']
 
     stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create', port_handle2=intf_data.tg_ph_2,
-                                            length_mode='fixed', rate_pps=100, frame_size=intf_data.mtu2,
+                                            length_mode='fixed', rate_pps=10000, frame_size=intf_data.mtu2,
                                             l2_encap='ethernet_ii_vlan', transmit_mode='single_burst',
-                                            pkts_per_burst=100, vlan_id=intf_data.vlan_id,
+                                            pkts_per_burst=2000, vlan_id=intf_data.vlan_id,
                                             mac_src=intf_data.source_mac, mac_dst=intf_data.destination_mac,
                                             vlan="enable")
     st.log('Stream output:{}'.format(stream))

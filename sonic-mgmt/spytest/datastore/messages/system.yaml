@@ -482,3 +482,8 @@ hw_watchdog_reset_fail: Failed to reset hw watchdog feature
 hw_watchdog_running_status: Failed to get running status of hw watchdog feature
 hw_watchdog_kdump_fail: Failed to get kdump collection of hw watchdog feature
 hw_watchdog_unsupported: Hw watchdog feature is unsupported
+
+#Drop_counters
+common_setup_fail: In Common_setup {} traffic failing with default agrs
+drop_counters_incremented: Passed/Packets are dropped as expected
+drop_counters_not_incremented: Received {} {} Packets and droped {} packets instead of {}  RX_OK and {} RX_drop packets
