@@ -66,10 +66,14 @@ def garp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_facts
     clear_dut_arp_cache(duthost)
 
     vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
-    garp_enable_cmd = 'redis-cli -n 4 HSET "VLAN_INTERFACE|{}" grat_arp enabled'
+    garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
+    garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
     cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
     arp_accept_vals = []
+    old_grat_arp_vals = {}
     for vlan in vlan_intfs:
+        old_grat_arp_res = duthost.shell(garp_check_cmd.format(vlan))
+        old_grat_arp_vals[vlan] = old_grat_arp_res['stdout']
         res = duthost.shell(garp_enable_cmd.format(vlan))
 
         if res['rc'] != 0:
@@ -84,14 +88,17 @@ def garp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_facts
 
     yield arp_accept_vals
 
-    garp_disable_cmd = 'redis-cli -n 4 HDEL "VLAN_INTERFACE|{}" grat_arp'
+    garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
-        res = duthost.shell(garp_disable_cmd.format(vlan))
+        old_grat_arp_val = old_grat_arp_vals[vlan]
 
-        if res['rc'] != 0:
-            pytest.fail("Unable to disable GARP for {}".format(vlan))
-        else:
-            logger.info("GARP disabled for {}".format(vlan))
+        if 'enabled' not in old_grat_arp_val:
+            res = duthost.shell(garp_disable_cmd.format(vlan))
+
+            if res['rc'] != 0:
+                pytest.fail("Unable to disable GARP for {}".format(vlan))
+            else:
+                logger.info("GARP disabled for {}".format(vlan))
 
 
 def test_arp_garp_enabled(duthosts, enum_rand_one_per_hwsku_frontend_hostname, garp_setup, setup_ptf_arp, intfs_for_test, config_facts, ptfadapter):
