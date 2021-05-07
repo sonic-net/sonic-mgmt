@@ -171,7 +171,7 @@ def analyze_syslog(duthost, messages, result, first_occurence_times):
                 datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
             timings["reboot_time"] = (datetime.strptime(timestamps["End"], FMT) -\
-            datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+                datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
     result["processing_time"].update(service_restart_times)
     result["first_occurence"] = first_occurence_times
