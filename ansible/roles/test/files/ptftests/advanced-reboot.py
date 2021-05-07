@@ -1111,10 +1111,6 @@ class ReloadTest(BaseTest):
             longest_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
         else:
             longest_downtime = "N/A"
-        if self.no_routing_stop and self.reboot_start:
-            reboot_time = (self.no_routing_stop - self.reboot_start).total_seconds()
-        else:
-            reboot_time = "0:00:00"
         if self.total_disrupt_time:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
             total_downtime = self.total_disrupt_time

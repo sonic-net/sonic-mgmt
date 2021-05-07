@@ -119,8 +119,8 @@ def analyze_syslog(duthost, messages, result, first_occurence_times):
         "INIT_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to INIT VIEW.*'),
         "APPLY_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*APPLY_VIEW.*'),
         "APPLY_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to APPLY VIEW.*'),
-        "FINALIZER|Start":  re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
-        "FINALIZER|End":  re.compile(r'.*WARMBOOT_FINALIZER.*Finalizing warmboot.*')
+        "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
+        "FINALIZER|End": re.compile(r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)")
     }
 
     def service_time_check(message, status):
@@ -296,11 +296,12 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
         "../logs/platform_tests/")))
     report_file_path = report_file_dir + "/" + report_file_name
+    summary_file_path = report_file_dir + "/" + summary_file_name
     if not os.path.exists(report_file_dir):
         os.makedirs(report_file_dir)
     with open(report_file_path, 'w') as fp:
         json.dump(analyze_result, fp, indent=4)
-    with open(summary_file_name, 'w') as fp:
+    with open(summary_file_path, 'w') as fp:
         json.dump(result_summary, fp, indent=4)
 
 
