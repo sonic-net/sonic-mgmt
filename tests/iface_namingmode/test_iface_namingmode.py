@@ -3,8 +3,9 @@ import pytest
 import re
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -12,10 +13,14 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
+PORT_TOGGLE_TIMEOUT = 30
+
 def skip_test_for_multi_asic(duthosts,enum_rand_one_per_hwsku_frontend_hostname ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
         pytest.skip('CLI command not supported')
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
@@ -665,36 +670,32 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
 
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+[\w\/]+\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        
+        def _port_status(expected_state):
+            admin_state = ""
+            show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
+            logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
+
+            line = show_intf_status['stdout'].strip()
+            if regex_int.match(line) and interface == regex_int.match(line).group(1):
+                admin_state = regex_int.match(line).group(7)
+
+            return admin_state == expected_state
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} shutdown {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-
-        wait(3)
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
-        logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
-
-        line = show_intf_status['stdout'].strip()
-        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-            admin_state = regex_int.match(line).group(7)
-
-        assert admin_state == 'down'
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+                        "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+                        "Interface {} should be admin up".format(test_intf))
 
-        wait(3)
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
-        logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
-
-        line = show_intf_status['stdout'].strip()
-        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-            admin_state = regex_int.match(line).group(7)
-
-        assert admin_state == 'up'
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
