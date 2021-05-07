@@ -85,7 +85,7 @@ FAN_NAMING_RULE = {
         "led_orange": "led_fan{}_orange"
     },
     "psu_fan": {
-        "name": "psu_{}_fan_1",
+        "name": "psu{}_fan1",
         "speed": "psu{}_fan1_speed_get",
         "power_status": "psu{}_pwr_status",
         "max_speed": "psu_fan_max",
@@ -793,6 +793,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         naming_rule = FAN_NAMING_RULE['psu_fan']
         if self.mock_helper.is_201911():
             led_color = ''
+            naming_rule['name'] = 'psu_{}_fan_1'
         else:
             led_color = 'green'
         for index in range(1, psu_count + 1):
