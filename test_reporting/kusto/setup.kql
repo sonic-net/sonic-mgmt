@@ -85,3 +85,41 @@
                                                                                   {"column":"ReportId","Properties":{"path":"$.id"}},
                                                                                   {"column":"TestbedName","Properties":{"path":"$.testbed"}},
                                                                                   {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+
+###############################################################################
+# REBOOT REPORT TABLE SETUP                                                   #
+# 1. Create a RebootTimingData table to store reboot test timings             #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+// Create table command
+////////////////////////////////////////////////////////////
+.create table ['RebootTimingData']  (['RebootTime']:string, ['RebootType']:string, ['DataplaneLongestDowntime']:string,
+                                    ['DataplaneLostPackets']:string, ['DataplaneTotalDowntime']:string, ['ProcessingTimeDefaultRouteSet']:string,
+                                    ['ProcessingTimeSaiSwitchCreate']:string, ['ProcessingTimeLagReady']:string, ['ProcessingTimeBgp']:string,
+                                    ['ProcessingTimeSyncd']:string, ['ProcessingTimeRadv']:string, ['ProcessingTimeFirstNeighborEntry']:string,
+                                    ['ProcessingTimeInitView']:string, ['ProcessingTimeFinalizer']:string, ['ProcessingTimePortInit']:string,
+                                    ['ProcessingTimeTeamd']:string, ['ProcessingTimeGbsyncd']:string, ['ProcessingTimeSwss']:string,
+                                    ['ProcessingTimeApplyView']:string)
+
+
+// Create mapping command
+////////////////////////////////////////////////////////////
+.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDatamapping' '[{"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
+                                                                                    {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
+                                                                                    {"column":"DataplaneLongestDowntime", "Properties":{"Path":"$[\'dataplane\'][\'longest_downtime\']"}},
+                                                                                    {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},
+                                                                                    {"column":"DataplaneTotalDowntime", "Properties":{"Path":"$[\'dataplane\'][\'total_downtime\']"}},
+                                                                                    {"column":"ProcessingTimeDefaultRouteSet", "Properties":{"Path":"$[\'processing_time\'][\'default_route_set\']"}},
+                                                                                    {"column":"ProcessingTimeSaiSwitchCreate", "Properties":{"Path":"$[\'processing_time\'][\'sai_switch_create\']"}},
+                                                                                    {"column":"ProcessingTimeLagReady", "Properties":{"Path":"$[\'processing_time\'][\'lag_ready\']"}},
+                                                                                    {"column":"ProcessingTimeBgp", "Properties":{"Path":"$[\'processing_time\'][\'bgp\']"}},
+                                                                                    {"column":"ProcessingTimeSyncd", "Properties":{"Path":"$[\'processing_time\'][\'syncd\']"}},
+                                                                                    {"column":"ProcessingTimeRadv", "Properties":{"Path":"$[\'processing_time\'][\'radv\']"}},
+                                                                                    {"column":"ProcessingTimeFirstNeighborEntry", "Properties":{"Path":"$[\'processing_time\'][\'first_neighbor_entry\']"}},
+                                                                                    {"column":"ProcessingTimeInitView", "Properties":{"Path":"$[\'processing_time\'][\'init_view\']"}},
+                                                                                    {"column":"ProcessingTimeFinalizer", "Properties":{"Path":"$[\'processing_time\'][\'finalizer\']"}},
+                                                                                    {"column":"ProcessingTimePortInit", "Properties":{"Path":"$[\'processing_time\'][\'port_init\']"}},
+                                                                                    {"column":"ProcessingTimeTeamd", "Properties":{"Path":"$[\'processing_time\'][\'teamd\']"}},
+                                                                                    {"column":"ProcessingTimeGbsyncd", "Properties":{"Path":"$[\'processing_time\'][\'gbsyncd\']"}},
+                                                                                    {"column":"ProcessingTimeSwss", "Properties":{"Path":"$[\'processing_time\'][\'swss\']"}},
+                                                                                    {"column":"ProcessingTimeApplyView", "Properties":{"Path":"$[\'processing_time\'][\'apply_view\']"}}]'
