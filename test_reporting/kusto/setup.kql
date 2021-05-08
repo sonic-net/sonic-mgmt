@@ -86,6 +86,24 @@
                                                                                   {"column":"TestbedName","Properties":{"path":"$.testbed"}},
                                                                                   {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
 
+
+###############################################################################
+# RAW REBOOT REPORT TABLE SETUP                                               #
+# 1. Create a RawRebootTimingData table to store reboot test timings          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+// Create table command
+////////////////////////////////////////////////////////////
+.create table ['RawRebootTimingData']  (['ProcessingTime']:dynamic, ['FirstOccurence']:dynamic, ['RebootTime']:dynamic, ['Dataplane']:dynamic)
+
+// Create mapping command
+////////////////////////////////////////////////////////////
+.create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' '[
+                                                                                {"column":"ProcessingTime", "Properties":{"Path":"$[\'processing_time\']"}},
+                                                                                {"column":"FirstOccurence", "Properties":{"Path":"$[\'first_occurence\']"}},
+                                                                                {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
+                                                                                {"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}}]'
+
 ###############################################################################
 # REBOOT REPORT TABLE SETUP                                                   #
 # 1. Create a RebootTimingData table to store reboot test timings             #
@@ -104,7 +122,7 @@
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDatamapping' '[{"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
+.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' '[{"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
                                                                                     {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
                                                                                     {"column":"DataplaneLongestDowntime", "Properties":{"Path":"$[\'dataplane\'][\'longest_downtime\']"}},
                                                                                     {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},

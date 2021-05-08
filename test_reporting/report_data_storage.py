@@ -59,7 +59,7 @@ class ReportDBConnector(ABC):
         """
 
     @abstractmethod
-    def upload_reboot_report(self, reboot_timing_dict: Dict, report_guid: str = "") -> None:
+    def upload_reboot_report(self, reboot_timing_dict: Dict, report_type: str = "", report_guid: str = "") -> None:
         """Upload reboot test report to the back-end data store.
 
         Args:
@@ -75,6 +75,7 @@ class KustoConnector(ReportDBConnector):
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
+    RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
 
     TABLE_FORMAT_LOOKUP = {
@@ -83,6 +84,7 @@ class KustoConnector(ReportDBConnector):
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
+        RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.JSON
     }
 
@@ -92,7 +94,8 @@ class KustoConnector(ReportDBConnector):
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
-        RAW_REBOT_TIMING_TABLE: "RawRebootTimingData"
+        RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
+        REBOOT_TIMING_TABLE: "RebootTimingDataMapping"
     }
 
     def __init__(self, db_name: str):
@@ -155,12 +158,15 @@ class KustoConnector(ReportDBConnector):
         pdu_status_data = {"data": pdu_output}
         self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
-    def upload_reboot_report(self, reboot_timing_dict: Dict, report_guid: str = "") -> None:
+    def upload_reboot_report(self, reboot_timing_dict: Dict, report_type: str = "", report_guid: str = "") -> None:
         reboot_timing_data = {
             "id": report_guid
         }
         reboot_timing_data.update(reboot_timing_dict)
-        self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
+        if report_type == "detailed":
+            self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
+        elif report_type == "summary":
+            self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {

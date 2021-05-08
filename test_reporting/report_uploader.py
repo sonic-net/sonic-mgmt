@@ -41,9 +41,13 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         report_guid = str(uuid.uuid4())
         for path_name in args.path_list:
             is_reboot_report = "reboot_report" in path_name
+            if "reboot_summary" in path_name:
+                report_type = "summary"
+            elif "reboot_report" in path_name:
+                report_type = "detailed"
             if is_reboot_report:
                 test_result_json = validate_json_file(path_name)
-                kusto_db.upload_reboot_report(test_result_json, report_guid)
+                kusto_db.upload_reboot_report(test_result_json, report_type, report_guid)
             else:
                 if args.json:
                     test_result_json = validate_junit_json_file(path_name)
