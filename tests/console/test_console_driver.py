@@ -14,7 +14,7 @@ def test_console_driver(duthost):
     """
     out = duthost.shell('ls /dev/ttyUSB*')['stdout']
     pytest_assert(
-        not out.contains("No such file or directory"),
+        "No such file or directory" not in out,
         "No virtual tty devices been created by console driver")
 
     ttys = set(out.split())

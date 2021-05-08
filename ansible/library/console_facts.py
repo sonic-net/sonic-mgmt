@@ -23,7 +23,7 @@ class ConsoleModule(object):
     STATUS_INDICATOR = "*"
     FLCT_ENABLED_TEXT = "Enabled"
 
-    def __init__(self, hostname, config_facts, include_remote_device_mapping = True):
+    def __init__(self, include_remote_device_mapping = True):
         self.include_remote_device_mapping = include_remote_device_mapping
         self.module = AnsibleModule(argument_spec = dict())
 
@@ -46,16 +46,17 @@ class ConsoleModule(object):
         if facts["enabled"]:
             facts["lines"] = self.get_console_lines_status()
             if self.include_remote_device_mapping:
-                facts["remote_device_mapping"] = self.build_remote_device_mapping()
+                facts["remote_device_mapping"] = self.build_remote_device_mapping(facts["lines"])
+        return facts
 
     def get_console_feature_status(self):
         """
         Retrieve console feature information
         """
-        rt, out, err = module.run_command('sonic-db-cli CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
+        rt, out, err = self.module.run_command('sonic-db-cli CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
         if rt != 0:
             self.module.fail_json("Failed to get console feature status, rt={}, out={}, err={}".format(rt, out, err))
-        return True if out.contains("yes") else False
+        return True if "yes" in out else False
 
     def get_console_lines_status(self):
         """
@@ -70,12 +71,12 @@ class ConsoleModule(object):
         cmd = "show line -b"
         rt, out, err = self.module.run_command(cmd)
         if rt != 0:
-            module.fail_json(msg = "Failed to get line information! {}".format(err))
+            self.module.fail_json(msg = "Failed to get line information! {}".format(err))
 
         # Parse show line outputs
         lines = out.splitlines()
         if len(lines) == 0:
-            module.fail_json(msg = "Failed to parse header from show line outputs")
+            self.module.fail_json(msg = "Failed to parse header from show line outputs")
             return None
 
         try:
@@ -100,22 +101,22 @@ class ConsoleModule(object):
 
                 # 3. Construct line status
                 line_status = {}
-                line_status['state'] = self.STATUS_BUSY if field[self.LINE_INDEX].contains(self.STATUS_INDICATOR) else self.STATUS_IDLE
-                line_status['baud_rate'] = int(field[self.BAUD_INDEX])
-                line_status['flow_control'] = True if field[self.FLCT_INDEX] == self.FLCT_ENABLED_TEXT else False
-                if len(field) >= self.RDEV_INDEX:
-                    line_status['remote_device'] = field[self.RDEV_INDEX]
-                result[field[self.LINE_INDEX].lstrip(self.STATUS_INDICATOR)] = line_status
+                line_status['state'] = self.STATUS_BUSY if self.STATUS_INDICATOR in fields[self.LINE_INDEX] else self.STATUS_IDLE
+                line_status['baud_rate'] = int(fields[self.BAUD_INDEX])
+                line_status['flow_control'] = True if fields[self.FLCT_INDEX] == self.FLCT_ENABLED_TEXT else False
+                if len(fields) > self.RDEV_INDEX:
+                    line_status['remote_device'] = fields[self.RDEV_INDEX]
+                result[fields[self.LINE_INDEX].lstrip(self.STATUS_INDICATOR)] = line_status
             return result
         except Exception as e:
-            module.fail_json(msg = "Failed to parse header from [{}] outputs: {}".format(cmd, str(e)))
+            self.module.fail_json(msg = "Failed to parse header from [{}] outputs: {}".format(cmd, str(e)))
 
     def build_remote_device_mapping(self, lines):
         """
         Build the mapping between remote device and line number
         """
         mapping = {}
-        for line_num, line_status in lines:
+        for line_num, line_status in lines.items():
             if "remote_device" in line_status and line_status["remote_device"]:
                 mapping[line_status["remote_device"]] = line_num
 
