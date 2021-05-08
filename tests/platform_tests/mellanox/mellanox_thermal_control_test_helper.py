@@ -85,7 +85,7 @@ FAN_NAMING_RULE = {
         "led_orange": "led_fan{}_orange"
     },
     "psu_fan": {
-        "name": "psu_{}_fan_1",
+        "name": "psu{}_fan1",
         "speed": "psu{}_fan1_speed_get",
         "power_status": "psu{}_pwr_status",
         "max_speed": "psu_fan_max",
@@ -321,8 +321,11 @@ class FanDrawerData:
     Data mocker of a FAN drawer.
     """
 
-    # FAN direction sys fs path.
-    FAN_DIR_PATH = '/run/hw-management/system/fan_dir'
+    # FAN direction sys fs path available in 201911 and later
+    FAN_DIR_PATH_ALL_FANS = '/run/hw-management/system/fan_dir'
+
+    # FAN direction sys fs path available in 202012 and later
+    FAN_DIR_PATH_PER_FAN = '/run/hw-management/thermal/fan{}_dir'
 
     def __init__(self, mock_helper, naming_rule, index):
         """
@@ -334,6 +337,10 @@ class FanDrawerData:
         self.index = index
         self.helper = mock_helper
         self.platform_data = get_platform_data(self.helper.dut)
+        if "201911" in self.helper.dut.os_version:
+            self.mock_fan_direction = self.mock_fan_direction_fan_dir_for_all_fans
+        else:
+            self.mock_fan_direction = self.mock_fan_direction_fan_dir_per_fan
         if self.platform_data['fans']['hot_swappable']:
             self.name = 'drawer{}'.format(index)
         else:
@@ -381,14 +388,35 @@ class FanDrawerData:
         else:
             self.mocked_presence = 'Present'
 
-    def mock_fan_direction(self, direction):
+    def mock_fan_direction_fan_dir_per_fan(self, direction):
         """
-        Mock direction of this FAN with given direction value.
+        Mock direction of this FAN with given direction value for the image where there is a fan_dir for each fan
         :param direction: Direction value. 1 means intake, 0 means exhaust.
         :return:
         """
         try:
-            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH))
+            _ = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index)))
+        except SysfsNotExistError as e:
+            self.mocked_direction = NOT_AVAILABLE
+            return
+
+        if direction:
+            fan_dir_value = 1
+            self.mocked_direction = 'intake'
+        else:
+            fan_dir_value = 0
+            self.mocked_direction = 'exhaust'
+
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index), fan_dir_value)
+
+    def mock_fan_direction_fan_dir_for_all_fans(self, direction):
+        """
+        Mock direction of this FAN with given direction value for the image where there is only a fan_dir for all fans
+        :param direction: Direction value. 1 means intake, 0 means exhaust.
+        :return:
+        """
+        try:
+            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH_ALL_FANS))
         except SysfsNotExistError as e:
             self.mocked_direction = NOT_AVAILABLE
             return
@@ -400,7 +428,7 @@ class FanDrawerData:
             fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
             self.mocked_direction = 'exhaust'
 
-        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH, fan_dir_bits)
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_ALL_FANS, fan_dir_bits)
 
     def get_status_led(self):
         """
@@ -793,6 +821,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         naming_rule = FAN_NAMING_RULE['psu_fan']
         if self.mock_helper.is_201911():
             led_color = ''
+            naming_rule['name'] = 'psu_{}_fan_1'
         else:
             led_color = 'green'
         for index in range(1, psu_count + 1):
