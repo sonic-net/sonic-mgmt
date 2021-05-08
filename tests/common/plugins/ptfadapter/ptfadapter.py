@@ -8,7 +8,7 @@ import ptf.mask as mask
 from ptf.base_tests import BaseTest
 from ptf.dataplane import DataPlane, DataPlanePortNN
 from tests.common.utilities import wait_until
-
+import logging
 
 class PtfAdapterNNConnectionError(Exception):
 
@@ -29,7 +29,7 @@ class PtfTestAdapter(BaseTest):
     # the number of currently established connections
     NN_STAT_CURRENT_CONNECTIONS = 201
 
-    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set):
+    def __init__(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptfhost):
         """ initialize PtfTestAdapter
         :param ptf_ip: PTF host IP
         :param ptf_nn_port: PTF nanomessage agent port
@@ -41,6 +41,7 @@ class PtfTestAdapter(BaseTest):
         super(PtfTestAdapter, self).__init__()
         self.payload_pattern = ""
         self.connected = False
+        self.ptfhost = ptfhost
         self._init_ptf_dataplane(ptf_ip, ptf_nn_port, device_num, ptf_port_set)
 
     def __enter__(self):
@@ -55,19 +56,12 @@ class PtfTestAdapter(BaseTest):
 
     def _check_ptf_nn_agent_availability(self, socket_addr):
         """Verify the nanomsg socket address exposed by ptf_nn_agent is available."""
-        # Bypass connection checker temporarily to workaround ptfadapter connection issue
-        # As per doc from nanomsg, there is no reliable interface to identify the connection status
-        # We also noticed that the connection checker was failing because reinit can't teardown the established 
-        # connection occasionally, so below checker will fail. 
-        return True
-        """
         sock = nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)
         sock.connect(socket_addr)
         try:
             return wait_until(1, 0.2, lambda:sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
         finally:
             sock.close()
-        """
 
     def _init_ptf_dataplane(self, ptf_ip, ptf_nn_port, device_num, ptf_port_set, ptf_config=None):
         """
@@ -124,6 +118,7 @@ class PtfTestAdapter(BaseTest):
             for injector in DataPlanePortNN.packet_injecters.values():
                 injector.socket.close()
             DataPlanePortNN.packet_injecters.clear()
+        
         self.connected = False
 
     def reinit(self, ptf_config=None):
@@ -134,6 +129,13 @@ class PtfTestAdapter(BaseTest):
         :param ptf_config: PTF configuration dictionary
         """
         self.kill()
+
+        # Restart ptf_nn_agent to close any TCP connection from the server side
+        logging.info("Restarting ptf_nn_agent")
+        self.ptfhost.command('supervisorctl reread')
+        self.ptfhost.command('supervisorctl update')
+        self.ptfhost.command('supervisorctl restart ptf_nn_agent')
+
         self._init_ptf_dataplane(self.ptf_ip, self.ptf_nn_port, self.device_num, self.ptf_port_set, ptf_config)
 
     def update_payload(self, pkt):
