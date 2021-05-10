@@ -294,7 +294,7 @@ cd sonic-mgmt/tests
 2. Run the following command to execute the `bgp_fact` test (including the pre/post setup steps):
 
 ```
-./run_tests.sh -n vms-kvm-t0 -d vlab01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!

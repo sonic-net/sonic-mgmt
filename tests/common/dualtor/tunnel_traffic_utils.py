@@ -3,12 +3,11 @@ import ipaddress
 import logging
 import operator
 import pytest
-import sys
 
-from io import BytesIO
 from ptf import mask, testutils
 from scapy.all import IP, Ether
 from tests.common.dualtor import dual_tor_utils
+from tests.common.utilities import dump_scapy_packet_show_output
 
 
 @pytest.fixture(scope="function")
@@ -55,16 +54,6 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             return exp_pkt
 
         @staticmethod
-        def _dump_show_str(packet):
-            """Dump packet show output to string."""
-            _stdout, sys.stdout = sys.stdout, BytesIO()
-            try:
-                packet.show()
-                return sys.stdout.getvalue()
-            finally:
-                sys.stdout = _stdout
-
-        @staticmethod
         def _check_ttl(packet):
             """Check ttl field in the packet."""
             outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
@@ -86,7 +75,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             logging.debug("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             logging.debug("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
             check_res = []
-            if outer_dscp != inner_ecn:
+            if outer_dscp != inner_dscp:
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
             if outer_ecn != inner_ecn:
                 check_res.append("outer packet ECN not same as inner packet ECN")
@@ -145,7 +134,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 self.rec_pkt = Ether(rec_pkt)
                 rec_port = self.listen_ports[port_index]
                 logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
-                logging.debug("Encapsulated packet:\n%s", self._dump_show_str(self.rec_pkt))
+                logging.debug("Encapsulated packet:\n%s", dump_scapy_packet_show_output(self.rec_pkt))
                 if not self.existing:
                     raise RuntimeError("Detected tunnel traffic from host %s." % self.standby_tor.hostname)
                 ttl_check_res = self._check_ttl(self.rec_pkt)

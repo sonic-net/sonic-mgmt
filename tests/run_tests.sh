@@ -8,11 +8,12 @@ function show_help_and_exit()
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
+    echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
+    echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
     echo "    -l <cli log>   : specify cli log level: error|warning|info|debug (default warning)"
     echo "    -m <method>    : specify test method group|individual|debug (default group)"
@@ -23,6 +24,7 @@ function show_help_and_exit()
     echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s <tests>     : specify list of tests to skip (default: none)"
+    echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
     echo "    -x             : print commands and their arguments as they are executed"
@@ -75,6 +77,7 @@ function setup_environment()
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
+    INCLUDE_FOLDERS=""
     INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
     KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
@@ -119,6 +122,14 @@ function setup_test_options()
     else
         TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
     fi
+
+    # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
+    FINAL_CASES=""
+    includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
+    for test_case in ${TEST_CASES}; do
+        FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
+    done
+    TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
@@ -184,6 +195,7 @@ function run_debug_tests()
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
+    echo "INCLUDE_FOLDERS:       ${INCLUDE_FOLDERS}"
     echo "INVENTORY:             ${INVENTORY}"
     echo "LOG_PATH:              ${LOG_PATH}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
@@ -261,7 +273,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:Ef:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -290,6 +302,9 @@ while getopts "h?a:b:c:d:e:Ef:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         i )
             INVENTORY=${OPTARG}
+            ;;
+        I )
+            INCLUDE_FOLDERS="${INCLUDE_FOLDERS} ${OPTARG}"
             ;;
         k )
             FILE_LOG_LEVEL=${OPTARG}
@@ -320,6 +335,9 @@ while getopts "h?a:b:c:d:e:Ef:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
             ;;
         s )
             SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
+            ;;
+        S )
+            SKIP_FOLDERS="${SKIP_FOLDERS} ${OPTARG}"
             ;;
         t )
             TOPOLOGY=${OPTARG}

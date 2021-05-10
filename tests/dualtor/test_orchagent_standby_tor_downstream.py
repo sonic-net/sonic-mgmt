@@ -3,10 +3,26 @@ import random
 import time
 import logging
 import ipaddress
+import contextlib
+import time
+
+from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
-from tests.common.dualtor.dual_tor_utils import dualtor_info, check_tunnel_balance, flush_neighbor
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses, run_garp_service, run_icmp_responder   # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import dualtor_info
+from tests.common.dualtor.dual_tor_utils import check_tunnel_balance
+from tests.common.dualtor.dual_tor_utils import flush_neighbor
+from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import build_packet_to_server
+from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
+
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -18,6 +34,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__file__)
+
 
 def shutdown_random_one_t1_link(dut):
     """
@@ -81,12 +98,12 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def add_loopback_routes(standby_tor, active_tor_loopback_ip):
+def add_nexthop_routes(standby_tor, route_dst, nexthop=None):
     """
-    Add static routes to reach the peer's loopback.
+    Add static routes to reach route_dst via nexthop.
     The function is similar with fixture apply_dual_tor_peer_switch_route, but we can't use the fixture directly
     """
-    logger.info("Applying dual ToR peer switch loopback route")
+    logger.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
 
     ipv4_neighbors = []
@@ -96,19 +113,24 @@ def add_loopback_routes(standby_tor, active_tor_loopback_ip):
             ipv4_neighbors.append(neighbor)
 
     nexthop_str = ''
-    for neighbor in ipv4_neighbors:
-        nexthop_str += 'nexthop via {} '.format(neighbor)
+    if nexthop is None:
+        for neighbor in ipv4_neighbors:
+            nexthop_str += 'nexthop via {} '.format(neighbor)
+    else:
+        nexthop_str += 'nexthop via {} '.format(nexthop)
 
     # Use `ip route replace` in case a rule already exists for this IP
     # If there are no pre-existing routes, equivalent to `ip route add`
-    standby_tor.shell('ip route replace {}/32 {}'.format(active_tor_loopback_ip, nexthop_str))
+    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
+    standby_tor.shell(route_cmd)
+    logger.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 
 
-def remove_loopback_routes(standby_tor, active_tor_loopback_ip):
+def remove_static_routes(standby_tor, active_tor_loopback_ip):
     """
-    Remove static routes for active tor's loopback
+    Remove static routes for active tor
     """
-    logger.info("Removing dual ToR peer switch loopback route")
+    logger.info("Removing dual ToR peer switch static route")
     standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
 
 
@@ -142,8 +164,8 @@ def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, ra
     params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     # For mocked dualtor, we should update static route manually after link recovered
     if 't0' in tbinfo['topo']['name']:
-        remove_loopback_routes(rand_selected_dut, params['active_tor_ip'])
-        add_loopback_routes(rand_selected_dut, params['active_tor_ip'])
+        remove_static_routes(rand_selected_dut, params['active_tor_ip'])
+        add_nexthop_routes(rand_selected_dut, params['active_tor_ip'])
     check_tunnel_balance(**params)
 
 
@@ -179,9 +201,107 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
     active_tor_loopback0 = params['active_tor_ip']
 
     # Remove loopback routes and verify traffic is equally distributed
-    remove_loopback_routes(rand_selected_dut, active_tor_loopback0)
+    remove_static_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
 
     # Readd loopback routes and verify traffic is equally distributed
-    add_loopback_routes(rand_selected_dut, active_tor_loopback0)
+    add_nexthop_routes(rand_selected_dut, active_tor_loopback0)
     check_tunnel_balance(**params)
+
+
+def test_standby_tor_remove_neighbor_downstream_standby(
+    conn_graph_facts, ptfadapter, ptfhost,
+    rand_selected_dut, rand_unselected_dut, tbinfo,
+    set_crm_polling_interval,
+    tunnel_traffic_monitor, vmhost
+):
+    """
+    @summary: Verify that after removing neighbor entry for a server over standby
+    ToR, the packets sent to the server will be dropped(neither passed to the server
+    or redirected to the active ToR).
+    """
+
+    @contextlib.contextmanager
+    def stop_garp(ptfhost):
+        """Temporarily stop garp service."""
+        ptfhost.shell("supervisorctl stop garp_service")
+        yield
+        ptfhost.shell("supervisorctl start garp_service")
+
+    tor = rand_selected_dut
+    test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    server_ipv4 = test_params["target_server_ip"]
+
+    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, server_ipv4)
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+    logging.info("send traffic to server %s from ptf t1 interface %s", server_ipv4, ptf_t1_intf)
+    tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+    with tunnel_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logging.info("send traffic to server %s after removing neighbor entry", server_ipv4)
+    tunnel_monitor.existing = False
+    server_traffic_monitor = ServerTrafficMonitor(
+        tor, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
+    )
+    # for real dualtor testbed, leave the neighbor restoration to garp service
+    flush_neighbor_ct = flush_neighbor(tor, server_ipv4, restore=is_t0_mocked_dualtor)
+    with crm_neighbor_checker(tor), stop_garp(ptfhost), flush_neighbor_ct, tunnel_monitor, server_traffic_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logging.info("send traffic to server %s after neighbor entry is restored", server_ipv4)
+    tunnel_monitor.existing = True
+    with crm_neighbor_checker(tor), tunnel_monitor:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+
+def test_downstream_standby_mux_toggle_active(
+    conn_graph_facts, ptfadapter, ptfhost,
+    rand_selected_dut, rand_unselected_dut, tbinfo,
+    tunnel_traffic_monitor, vmhost, toggle_all_simulator_ports,
+    tor_mux_intfs
+    ):
+    # set rand_selected_dut as standby and rand_unselected_dut to active tor
+    # params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    tor = rand_selected_dut
+    test_params = dualtor_info(ptfhost, tor, rand_unselected_dut, tbinfo)
+    server_ipv4 = test_params["target_server_ip"]
+    random_dst_ip = server_ipv4
+
+    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, random_dst_ip)
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+
+    def monitor_tunnel_and_server_traffic(torhost, expect_tunnel_traffic=True, expect_server_traffic=True):
+        tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+        server_traffic_monitor = ServerTrafficMonitor(
+            torhost, ptfhost, vmhost, tbinfo, test_params["selected_port"],
+            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
+        )
+        tunnel_monitor.existing = expect_tunnel_traffic
+        server_traffic_monitor.existing = expect_server_traffic
+        with tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+
+    logger.info("Stage 1: Verify Standby Forwarding")
+    logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
+    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthop=server_ipv4)
+    logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
+    check_tunnel_balance(**test_params)
+    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+
+    logger.info("Stage 2: Verify Active Forwarding")
+    logger.info("Step 2.1: Simulate Mux state change to active")
+    set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
+    logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
+    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_tunnel_traffic=False)
+
+    logger.info("Stage 3: Verify Standby Forwarding Again")
+    logger.info("Step 3.1: Simulate Mux state change to standby")
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
+    logger.info("Step 3.2: Verify traffic to this route dst is now redirected back to Active ToR and equally distributed")
+    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+    check_tunnel_balance(**test_params)
+
+    remove_static_routes(rand_selected_dut, random_dst_ip)

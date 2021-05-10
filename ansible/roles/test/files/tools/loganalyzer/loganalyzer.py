@@ -105,6 +105,11 @@ class AnsibleLogAnalyzer:
 
     #---------------------------------------------------------------------
 
+    def is_filename_sairedis_rec(self, file_name):
+        return "sairedis.rec" in file_name
+
+    #---------------------------------------------------------------------
+
     def create_end_marker(self):
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
@@ -313,6 +318,7 @@ class AnsibleLogAnalyzer:
 
         #-- indicates whether log analyzer currently is in the log range between start
         #-- and end marker. see analyze_file method.
+        is_sairedis_rec = self.is_filename_sairedis_rec(log_file_path)
         in_analysis_range = False
         stdin_as_input = self.is_filename_stdin(log_file_path)
         matching_lines = []
@@ -354,15 +360,19 @@ class AnsibleLogAnalyzer:
                     in_analysis_range = False
                     break
 
-            if in_analysis_range :
+            if in_analysis_range or is_sairedis_rec:
+                # Skip long logs in sairedis recording since most likely they are bulk set operations for non-default routes
+                # without much insight while they are time consuming to analyze
+                if is_sairedis_rec and len(rev_line) > 1000:
+                    continue
                 if self.line_is_expected(rev_line, expect_messages_regex):
                     expected_lines.append(rev_line)
 
                 elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
 
-        # care about the markers only if input is not stdin
-        if not stdin_as_input:
+        # care about the markers only if input is not stdin or sairedis recording
+        if not stdin_as_input and not is_sairedis_rec:
             if (not found_start_marker):
                 print 'ERROR: start marker was not found'
                 sys.exit(err_no_start_marker)

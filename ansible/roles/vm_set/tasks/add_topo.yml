@@ -19,6 +19,11 @@
     container_type: "API-SERVER"
   when: ptf_imagename is defined and ptf_imagename == "docker-keysight-api-server"
 
+- name: set "IxANVL-CONF-TESTER" container type if Keysight IxANVL is used
+  set_fact:
+    container_type: "IxANVL-CONF-TESTER"
+  when: ptf_imagename is defined and ptf_imagename == "docker-ptf-anvl"
+
 - name: Try to login into docker registry
   docker_login:
     registry_url: "{{ docker_registry_host }}"
@@ -84,6 +89,56 @@
 
   when: container_type == "API-SERVER"
 
+- name: Start Keysight IxANVL container
+  block:
+    - name: Pull and start Keysight IxANVL container
+      docker_container:
+        name: ptf_anvl
+        image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+        pull: yes
+        state: started
+        restart: no
+        detach: True
+        network_mode: none
+        capabilities:
+          - net_admin
+        privileged: yes
+      become: yes
+
+    - name: Get dut ports
+      include_tasks: get_dut_port.yml
+      loop: "{{ duts_name.split(',') }}"
+      loop_control:
+        loop_var: dut_name
+
+    - name: Create vlan ports for dut
+      include_tasks: create_dut_port.yml
+      when: external_port is defined
+      loop: "{{ duts_name.split(',') }}"
+      loop_control:
+        loop_var: dut_name
+
+    - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+      vm_topology:
+        cmd: "bind"
+        vm_names: ""
+        vm_set_name: "{{ vm_set_name }}"
+        topo: "{{ topology }}"
+        ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+        ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+        ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+        ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+        ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
+        ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
+        mgmt_bridge: "{{ mgmt_bridge }}"
+        duts_fp_ports: "{{ duts_fp_ports }}"
+        duts_mgmt_port: "{{ duts_mgmt_port }}"
+        duts_name: "{{ duts_name.split(',') }}"
+        fp_mtu: "{{ fp_mtu_size }}"
+        max_fp_num: "{{ max_fp_num }}"
+      become: yes
+
+  when: container_type == "IxANVL-CONF-TESTER"
 
 - name: Start PTF container
   block:

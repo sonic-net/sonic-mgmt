@@ -172,6 +172,14 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.interface_facts(*module_args, **complex_args)
 
+    def get_service_name(self, service):
+        if (not self.sonichost.is_multi_asic or
+            service not in self._DEFAULT_ASIC_SERVICES
+        ):
+            return service
+
+        return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
+
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
             service not in self._DEFAULT_ASIC_SERVICES
@@ -180,18 +188,25 @@ class SonicAsic(object):
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
 
+    def start_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.start_service(service_name, docker_name)
+
     def stop_service(self, service):
-        if not self.sonichost.is_multi_asic:
-            service_name = service
-            docker_name = service
-        else:
-            service_name = self._MULTI_ASIC_SERVICE_NAME.format(
-                service, self.asic_index
-            )
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
-                service, self.asic_index
-            )
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
         return self.sonichost.stop_service(service_name, docker_name)
+
+    def restart_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.restart_service(service_name, docker_name)
+
+    def reset_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.reset_service(service_name, docker_name)
 
     def delete_container(self, service):
         if self.sonichost.is_multi_asic:
@@ -259,7 +274,7 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self._ns_arg)
+        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -388,7 +403,8 @@ class SonicAsic(object):
             return port in self.ports
 
         if_db = self.show_interface(
-            command="status"
+            command="status", 
+            include_internal_intfs=True
         )["ansible_facts"]["int_status"]
 
         self.ports = set(if_db.keys())
@@ -454,3 +470,17 @@ class SonicAsic(object):
 
     def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
+
+    def port_on_asic(self, portname):
+        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
+        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if ports is not None and portname in ports:
+            return True
+        return False
+
+    def portchannel_on_asic(self, portchannel):
+        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if pcs is not None and portchannel in pcs:
+            return True
+        return False

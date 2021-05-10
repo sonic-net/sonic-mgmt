@@ -204,6 +204,7 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
     rendered = template.render(template_args)
 
     dut.copy(content=rendered, dest='/tmp/y_cable_simulator_client.py')
+    dut.shell('cp /tmp/y_cable_simulator_client.py /usr/lib/python3/dist-packages/')
     dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
     dut.shell('systemctl restart pmon')
 

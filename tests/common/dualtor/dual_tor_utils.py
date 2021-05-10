@@ -2,7 +2,9 @@ import contextlib
 import logging
 import pytest
 import random
+import time
 import json
+import scapy.all as scapyall
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 
@@ -12,6 +14,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.utilities import dump_scapy_packet_show_output
 import ipaddress
 
 from ptf import mask
@@ -591,7 +594,7 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, target_server_ip, target_server_port, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_port, ptf_portchannel_indices):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -738,6 +741,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     servers = mux_cable_server_ip(standby_tor)
     random_server_iface = random.choice(servers.keys())
 
+    res['selected_port'] = random_server_iface
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
@@ -795,3 +799,42 @@ def show_muxcable_status(duthost):
 
     return ret
 
+
+def build_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build packet and expected mask packet destinated to server."""
+    pkt_dscp = random.choice(range(0, 33))
+    pkt_ttl = random.choice(range(3, 65))
+    pkt = testutils.simple_ip_packet(
+        eth_dst=duthost.facts["router_mac"],
+        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        ip_src="1.1.1.1",
+        ip_dst=target_server_ip,
+        ip_dscp=pkt_dscp,
+        ip_ttl=pkt_ttl
+    )
+    logging.info(
+        "the packet destinated to server %s:\n%s",
+        target_server_ip,
+        dump_scapy_packet_show_output(pkt)
+    )
+    exp_pkt = mask.Mask(pkt)
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    return pkt, exp_pkt
+
+
+@contextlib.contextmanager
+def crm_neighbor_checker(duthost):
+    crm_facts_before = duthost.get_crm_facts()
+    ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
+    logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+    yield
+    time.sleep(crm_facts_before["polling_interval"])
+    crm_facts_after = duthost.get_crm_facts()
+    ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
+    logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
+    if ipv4_neighbor_after != ipv4_neighbor_before:
+        raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)

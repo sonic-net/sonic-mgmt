@@ -12,7 +12,7 @@ In case of multi-dut we need src_host_ip, src_router_ip, dst_host_ip, src_ptf_po
 to take care of that made changes in the testcase 
 '''
 
-def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, key='src'):
+def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_frontend_asic_index, key='src'):
     if not mg_facts['minigraph_portchannels']:
         pytest.fail("minigraph_portchannels is not defined")
 
@@ -21,6 +21,9 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, key='s
     up_lag = None
     for a_lag_name, a_lag_data in lag_facts['lags'].items():
         if a_lag_data['po_intf_stat'] == 'Up' and a_lag_name not in ignore_lags:
+            if enum_frontend_asic_index is not None and \
+                    int(lag_facts['lags'][a_lag_name]['po_namespace_id']) != enum_frontend_asic_index:
+                    continue
             # We found a portchannel that is up.
             up_lag = a_lag_name
             selected_lag_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][intf] for intf in a_lag_data['po_config']['ports']]
@@ -68,16 +71,17 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, ke
     return up_port, selected_port_facts
 
 @pytest.fixture(scope='function')
-def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
     facts = {}
 
     logger.info("Gathering facts on DUT ...")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     # Use the arp table to get the mac address of the host (VM's) instead of lldp_facts as that is was is used
     # by the DUT to forward traffic - regardless of lag or port.
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    switch_arptable = asichost.switch_arptable()['ansible_facts']
     used_intfs = set()
     src = None  # Name of lag or interface that is is up
     dst = None  # Name of lag or interface that is is up
@@ -85,19 +89,22 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # if minigraph_portchannel_interfaces is not empty - topology with lag - check if we have 2 lags that are 'Up'
     if mg_facts['minigraph_portchannel_interfaces']:
         # Get lag facts from the DUT to check which ag is up
-        lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
-        src, src_lag_facts = get_lag_facts(duthost, lag_facts, switch_arptable, mg_facts, used_intfs, key='src')
+        lag_facts = duthost.lag_facts(host=duthost.hostname)[
+            'ansible_facts']['lag_facts']
+        src, src_lag_facts = get_lag_facts(
+            duthost, lag_facts, switch_arptable, mg_facts, used_intfs, enum_frontend_asic_index, key='src')
         used_intfs.add(src)
         if src:
             facts.update(src_lag_facts)
             # We found a src lag, let see if we can find a dst lag
-            dst, dst_lag_facts = get_lag_facts(duthost, lag_facts, switch_arptable, mg_facts, used_intfs, key='dst')
+            dst, dst_lag_facts = get_lag_facts(
+                duthost, lag_facts, switch_arptable, mg_facts, used_intfs, enum_frontend_asic_index, key='dst')
             used_intfs.add(dst)
             facts.update(dst_lag_facts)
 
     if src is None or dst is None:
         # We didn't find 2 lags, lets check up interfaces
-        port_status = duthost.show_interface(command='status')['ansible_facts']
+        port_status = asichost.show_interface(command='status')['ansible_facts']
         if src is None:
             src, src_port_facts = get_port_facts(duthost, mg_facts, port_status, switch_arptable, used_intfs, key='src')
             used_intfs.add(src)
