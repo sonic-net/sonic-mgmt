@@ -137,12 +137,13 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
                 if ifaceinfo['Name'] == 'ManagementIp':
                     devices[devinfo['Hostname']]['ManagementIp'] = ifaceinfo['Prefix']
 
+        # add test servers and switchs
         for devname, device in devices.items():
             devtype = device['Type']
             device = json.dumps(device)
             if devtype == 'Server':
-                device_table = 'SERVER_TABLE' + ':' + devname
-                DB_SCRIPTS['add_server'](keys=[device_table], args=[device], client=pipe)
+                device_table = 'TEST_SERVER_TABLE' + ':' + devname
+                DB_SCRIPTS['add_test_server'](keys=[device_table, 'TEST_SERVER_LIST'], args=[device], client=pipe)
             else:
                 device_table = 'SWITCH_TABLE' + ':' + devname
                 DB_SCRIPTS['add_switch'](keys=[device_table, 'DUT_LIST'], args=[device], client=pipe)
@@ -158,6 +159,7 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
                     _convert_vlan_str_to_lst(ifaceinfo['vlanids'])
                 )
 
+        # add physical links
         for link in graph_xml_root.iter('DeviceInterfaceLink'):
             link = link.attrib
             sd, sp = link['StartDevice'], link['StartPort']
@@ -191,6 +193,7 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
                 client=pipe
             )
 
+        # update vlanids
         for device in vlans:
             for port in vlans[device]:
                 vlan_list_name = 'VLAN_LIST' + ':' + device + ':' + port
@@ -203,6 +206,53 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
                     client=pipe
                 )
 
+        # add console servers and console information to switchs/test servers
+        for console_server in graph_xml_root.iter('DeviceConsoleInfo'):
+            console_server = console_server.attrib
+            console_server_hostname = console_server['Hostname']
+            console_server_meta = json.dumps(console_server)
+            device_table = 'CONSOLE_SERVER_TABLE' + ':' + console_server_hostname
+            DB_SCRIPTS['add_console_server'](keys=[device_table, 'CONSOLE_SERVER_LIST'], args=[console_server_meta], client=pipe)
+
+        for console_link in graph_xml_root.iter('ConsoleLinkInfo'):
+            console_link = console_link.attrib
+            device = console_link['EndDevice']
+            if device in devices:
+                if devices[device]['Type'] == 'Server':
+                    device_table = 'TEST_SERVER_TABLE' + ':' + device
+                else:
+                    device_table = 'SWITCH_TABLE' + ':' + device
+                DB_SCRIPTS['update_console'](
+                    keys=[device_table],
+                    args=[console_link['StartDevice'], console_link['StartPort']],
+                    client=pipe
+                )
+
+        # add pdu devices and links
+        for pdu in graph_xml_root.iter('DevicePowerControlInfo'):
+            pdu = pdu.attrib
+            pdu_hostname = pdu['Hostname']
+            pdb_meta = json.dumps(pdu)
+            device_table = 'PDU_TABLE' + ':' + pdu_hostname
+            DB_SCRIPTS['add_pdu'](keys=[device_table, 'PDU_LIST'], args=[pdb_meta], client=pipe)
+
+        for link in graph_xml_root.iter('PowerControlLinkInfo'):
+            link = link.attrib
+            device = link['EndDevice']
+            psu = link['EndPort']
+            peer_meta = json.dumps(
+                {
+                    'peerdevice': link['StartDevice'],
+                    'peerport': link['StartPort']
+                }
+            )
+            psu_table = 'PSU_TABLE' + ':' + device
+            DB_SCRIPTS['update_device_psu'](
+                keys=[psu_table],
+                args=[psu, peer_meta],
+                client=pipe
+            )
+
         pipe.zadd(
             'DB_CONNECTION_GRAPH_VERSIONS',
             mapping={conn_graph_file_hash: time.time()}
@@ -212,6 +262,8 @@ def provision_connection_db(conn_graph_file_data, enforce_provision=False):
         pipe.execute()
     except Exception:
         logging.exception("Provision db failed, mark db as 'down'.")
+        DB_SCRIPTS['cleanup'](args=['*_TABLE*', '*_LIST*', '*_SET*'])
+        conn.zrem('DB_CONNECTION_GRAPH_VERSIONS', conn_graph_file_hash)
         conn.hset('DB_META', mapping={'server_state': 'down'})
         raise
     else:
