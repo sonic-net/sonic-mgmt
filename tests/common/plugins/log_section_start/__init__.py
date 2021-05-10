@@ -62,6 +62,7 @@ def _pytest_import_callback(module):
             yield res
         except Exception as detail:
             logging.exception("\n%r", detail)
+            logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
             raise
 
         # teardown, fixture will raise StopIteration
