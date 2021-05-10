@@ -5,6 +5,8 @@ r, ".* NOTICE admin: Stopped.* swss.* service.*"
 r, ".* NOTICE root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd).* service.*"
 r, ".* NOTICE root: WARMBOOT_FINALIZER : Wait for database to become ready.*"
 r, ".* NOTICE root: WARMBOOT_FINALIZER : Finalizing warmboot.*"
+r, ".* NOTICE root: WARMBOOT_FINALIZER : warmboot is not enabled.*"
+
 r, ".* NOTICE swss#portsyncd.*main: PortInitDone"
 r, ".* NOTICE teamd#tlm_teamd.*try_add_lag: The LAG 'PortChannel.*' has been added.*"
 r, ".* NOTICE swss#orchagent.*notifySyncd.*sending syncd: INIT_VIEW.*"
