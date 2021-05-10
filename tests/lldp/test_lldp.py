@@ -22,7 +22,7 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, co
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
     for k, v in lldpctl_facts['lldpctl'].items():
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
@@ -46,8 +46,7 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
 
     res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP"])['ansible_facts']
-    host_facts  = duthost.setup()['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
  
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
@@ -65,7 +64,7 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-                "0x%s" % (host_facts['ansible_eth0']['macaddress'].replace(':', ''))
+               "0x%s" % (duthost.facts['router_mac'].replace(':', ''))
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
