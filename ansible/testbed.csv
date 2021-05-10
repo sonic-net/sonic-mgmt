@@ -9,6 +9,7 @@ vms1-8,vms1-8,t1-lag,docker-ptf,vms1-8,10.64.246.43/23,,server_1,VM0160,str-msn2
 vms1-t0-3132,vms1-10,t0,docker-ptf,vms1-10,10.64.246.82/23,,server_1,VM0184,str-n3132-acs-1,str,True,Jenkins
 vms2-2-t0-2700,vms2-2,t0-56,docker-ptf,vms2-2,10.64.246.27/23,,server_2,VM0232,str-msn2700-20,str,True,weibai
 vms2-4-t0-2700,vms2-4,t0,docker-ptf,vms2-4,10.64.246.131/23,,server_2,VM0240,str-msn2700-22,str,True,stumkurv
+vms2-t1-7260-7,vms2-6,t1-64-lag,docker-ptf,vms2-6,10.64.246.79/23,,server_2,VM0244,str-7260cx3-acs-7,str,True,nejo
 vms2-5-t0-7050-1,vms2-5,t0,docker-ptf,vms2-5,10.64.247.23/23,,server_2,VM0272,str-a7050-acs-1,str,True,daall
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf,vms3-61,10.64.246.21/23,,server_3,VM0356,str-s6100-acs-1,str,True,Pavel
 vms3-4,vms3-4,t0,docker-ptf,vms3-4,10.64.246.11/23,,server_3,VM0360,str-s6000-acs-13,str,True,Renuka
@@ -23,7 +24,6 @@ vms7-t0-s6100,vms7-5,t0-64,docker-ptf,vms7-5,10.64.247.16/23,,server_7,VM0732,st
 vms7-t1-s6100,vms7-6,t1-64-lag,docker-ptf,vms7-6,10.64.247.8/23,,server_7,VM0700,str-s6100-acs-5,str,True,Jenkins
 vms7-t0-7260-1,vms7-7,t0-116,docker-ptf,vms7-7,10.64.247.17/23,2a01:111:e210:b000::6/64,server_7,VM0736,str-7260cx3-acs-1,str,True,yingxie
 vms7-t0-7260-2,vms7-8,t0-116,docker-ptf,vms7-8,10.64.247.21/23,,server_7,VM0740,str-7260cx3-acs-2,str,True,yingxie
-vms7-t0-7260-7,vms7-9,t0-64,docker-ptf,vms7-9,10.64.246.79/23,,server_7,VM0744,str-7260cx3-acs-7,str,True,nejo
 vms7-t0-s6100-4,vms7-1,t0-64,docker-ptf,vms7-1,10.64.246.80/23,,server_7,VM0748,str-s6100-acs-4,str,True,yingxie
 vms7-t0-dx010-4,vms7-11,t0,docker-ptf,vms7-11,10.64.246.59/23,,server_7,VM0756,str-dx010-acs-4,str,True,vadixit
 vms7-t0-dx010-5,vms7-12,t0,docker-ptf,vms7-12,10.64.246.117/23,,server_7,VM0760,str-dx010-acs-5,str,True,v-saidia
