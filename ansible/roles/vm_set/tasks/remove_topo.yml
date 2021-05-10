@@ -28,6 +28,7 @@
       topo: "{{ topology }}"
       vm_names: "{{ VM_hosts }}"
       vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"

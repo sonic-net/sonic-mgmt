@@ -203,18 +203,17 @@
   register: vm_list_paused
   become: true
 
+- name: Require VMs as VEOS by default
+  set_fact:
+    vm_type: "veos"
+  when: vm_type is not defined
+
+- name: Check VM type
+  fail:
+    msg: "Cannot support this VM type {{ vm_type }}"
+  when: vm_type not in supported_vm_types
+
 - block:
-
-    - name: Require VMs as VEOS by default
-      set_fact:
-        vm_type: "veos"
-      when: vm_type is not defined
-
-    - name: Check VM type
-      fail:
-        msg: "Cannot support this VM type {{ vm_type }}"
-      when: vm_type not in supported_vm_types
-
     - name: Ensure {{ root_path }} exists
       file: path={{ root_path }} state=directory
 

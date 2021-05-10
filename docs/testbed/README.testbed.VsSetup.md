@@ -139,7 +139,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m vsonic_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
@@ -171,7 +171,7 @@ VM0100 | SUCCESS => {
 ```
 For the SONiC VMs **Note:** The passwd is `password`.
 ```
-$ ansible -m ping -i vsonic_vtb server_1 -u admin -k
+$ ansible -m ping -i veos_vtb server_1 -u admin -k
 VM0102 | SUCCESS => {
         "changed": false,
                 "ping": "pong"
@@ -228,7 +228,7 @@ c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/
 ### vSONiC
 ```
 $ cd /data/sonic-mgmt/ansible
-$ ./testbed-cli.sh -t vtestbed.csv -m vsonic_vtb -k vsonic add-topo vms-kvm-sonic-t0 password.txt
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic add-topo vms-kvm-t0 password.txt
 ```
 
 ## Deploy minigraph on the DUT
@@ -236,16 +236,8 @@ Once the topology has been created, we need to give the DUT an initial configura
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
-### vEOS or cEOS
-
 ```
 $ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
-```
-
-### vSONiC
-
-```
-$ ./testbed-cli.sh -t vtestbed.csv -m vsonic_vtb deploy-mg vms-kvm-sonic-t0 vsonic_vtb password.txt
 ```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.

@@ -105,6 +105,11 @@
         - set_fact:
             base_topo: "{{ topo.split('_') | first }}"
 
+        - name: Require VMs as VEOS by default
+          set_fact:
+            vm_type: "veos"
+          when: vm_type is not defined
+
         - name: Check if it is a known topology
           fail: msg="Unknown topology {{ topo }}"
           when: base_topo not in topologies
@@ -129,38 +134,5 @@
       delegate_to: localhost
 
   roles:
-    - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
-
-- hosts: servers:&vsonic
-  gather_facts: no
-  pre_tasks:
-    - block:
-        - name: Check that variable topo is defined
-          fail: msg="Define topo variable with -e topo=something"
-          when: topo is not defined
-
-        - name: Check if it is a known topology
-          fail: msg="Unknown topology {{ topo }}"
-          when: topo not in topologies
-
-        - name: Check that variable VM_base is defined
-          fail: msg="Define VM_base variable with -e VM_base=something"
-          when: VM_base is not defined
-
-        - name: Load topo variables
-          include_vars: "vars/topo_{{ topo }}.yml"
-
-        - name: Find current server group
-          set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
-
-        - name: Extract VM names from the inventory
-          set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
-
-        - name: Generate vm list of target VMs
-          set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}
-          when: topology['VMs'] is defined
-      run_once: True
-      delegate_to: localhost
-
-  roles:
-    - { role: sonic, when: topology.VMs is defined and inventory_hostname in VM_targets } # role sonic will be executed in any case, and when will evaluate with every task
+    - { role: eos, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "veos" or vm_type == "ceos" ) } # If the vm_type is eos based, role eos will be executed in any case, and when will evaluate with every task
+    - { role: sonic, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vsonic" ) } # If the vm_type is sonic based, role sonic will be executed in any case, and when will evaluate with every task
