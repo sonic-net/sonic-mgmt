@@ -33,8 +33,8 @@ def pytest_configure(config):
     logging.LogRecord = _LogRecord
 
     postimport.register_hook(_pytest_import_callback)
-    # reload to inject custom pytest.fixture decorator
-    reload(pytest)
+    # simply replace the fixture decorator in the imported `pytest` with the mocked one
+    _pytest_import_callback(pytest)
 
 
 def _pytest_import_callback(module):
