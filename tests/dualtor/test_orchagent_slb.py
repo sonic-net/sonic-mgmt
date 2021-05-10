@@ -173,7 +173,7 @@ def test_orchagent_slb(
     bgp_neighbors, constants, conn_graph_facts,
     force_active_tor,
     upper_tor_host, lower_tor_host,
-    ptfadapter, setup_interfaces,
+    ptfadapter, ptfhost, setup_interfaces,
     toggle_all_simulator_ports_to_upper_tor, tbinfo,
     tunnel_traffic_monitor,
     vmhost
@@ -204,7 +204,7 @@ def test_orchagent_slb(
         is_server_traffic_existed = is_route_existed and is_duthost_active
         tunnel_monitor = tunnel_traffic_monitor(duthost, existing=is_tunnel_traffic_existed)
         server_traffic_monitor = ServerTrafficMonitor(
-            duthost, vmhost, connection["test_intf"],
+            duthost, ptfhost, vmhost, tbinfo, connection["test_intf"],
             conn_graph_facts, exp_pkt, existing=is_server_traffic_existed
         )
         with tunnel_monitor, server_traffic_monitor:
