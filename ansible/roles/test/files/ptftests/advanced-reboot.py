@@ -766,6 +766,8 @@ class ReloadTest(BaseTest):
         self.no_cp_replies = None
         self.upper_replies = []
         self.routing_always = False
+        self.total_disrupt_packets = None
+        self.total_disrupt_time = None
         self.ssh_jobs = []
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
@@ -1109,18 +1111,15 @@ class ReloadTest(BaseTest):
             longest_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
         else:
             longest_downtime = "N/A"
-        if self.no_routing_stop and self.reboot_start:
-            reboot_time = (self.no_routing_stop - self.reboot_start).total_seconds()
-        else:
-            reboot_time = "0:00:00"
-        if 'warm-reboot' in self.reboot_type and not self.kvm_test:
+        if self.total_disrupt_time:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
             total_downtime = self.total_disrupt_time
         else:
             total_downtime = "N/A"
         self.report["longest_downtime"] = longest_downtime
-        self.report["reboot_time"] = reboot_time
         self.report["total_downtime"] = total_downtime
+        self.report["lost_packets"] = self.total_disrupt_packets\
+            if self.total_disrupt_packets else "N/A"
         with open(self.report_file_name, 'w') as reportfile:
             json.dump(self.report, reportfile)
 
