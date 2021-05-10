@@ -51,20 +51,58 @@ HwSku                            =                                              
 ManagementIp                     =
 Type                             = "leaf_fanout"/"root_fanout"/"dev_sonic"
 ProvisionStatus                  = "not_provisioned"/"in_progress"/"provisioned"    ; provision status for "dev_sonic"
+ConsoleServer                    = FK to CONSOLE_SERVER_TABLE
+ConsolePort                      =
 ```
 * `DUT_LIST`
 ```
 ; List contains all the SONiC DUTs defined in the lab
 key                              = DUT_LIST                                         ; contains DUT names that are FK to `SWITCH_TABLE`
 ```
-* `SERVER_TABLE`
+* `TEST_SERVER_LIST`
 ```
-; Defines server metadata
-key                              = SERVER_TABLE:server_name
+; List contains all the test servers defined in the lab
+key                              = DUT_LIST                                         ; contains test server names that are FK to `TEST_SERVER_TABLE`
+```
+* `TEST_SERVER_TABLE`
+```
+; Defines test server metadata
+key                              = SERVER_TABLE:test_server_name
 ; field                          = value
 HwSku                            = "TestServ"
 ManagementIp                     =
+Type                             = "Server"
 ServerStatus                     = "active"/"down"
+```
+* `CONSOLE_SERVER_LIST`
+```
+; List contains all the console servers defined in the lab
+key                              = CONSOLE_SERVER_LIST                                         ; contains console server names that are FK to `CONSOLE_SERVER_TABLE`
+```
+* `CONSOLE_SERVER_TABLE`
+```
+; Defines console server metadata
+key                              = SERVER_TABLE:console_server_name
+; field                          = value
+HwSku                            =
+ManagementIp                     =
+Type                             = "ConsoleServer"
+Protocol                         =
+```
+* `PDU_LIST`
+```
+; List contains all the PDUs defined in the lab
+key                              = PDU_LIST                                         ; contains PDU names that are FK to `PDU_TABLE`
+```
+* `PDU_TABLE`
+```
+; Defines PDU metadata
+key                              = PDU_TABLE:pdu_hostname
+; field                          = value
+HwSku                            =
+ManagementIp                     =
+Type                             = Pdu
+Protocol                         =
 ```
 * `PORT_LIST`
 ```
@@ -96,6 +134,13 @@ key                              = VLANIDPOOL_SET
 key                              = VIRTLINK_TABLE:endport0:endport1                  ; endport0 and endport1 are FK to `PORT_TABLE
 ; field                          = value
 Status                           = "active"/"inactive"
+```
+* `PSU_TABLE`
+```
+; Stores the mappings between a switch PSUs and its peer PDU ports
+key                              = SWITCH_PDU_TABLE:<switch_name>
+; field                          = value
+PSU<1|2>                         = jsonified peer PDU port meta
 ```
 
 ## Implementation Plan
