@@ -43,17 +43,17 @@ def bgp_redistribute_route_lo(duthosts, all_cfg_facts):
     for a_host in duthosts.frontend_nodes:
         for a_asic in a_host.asics:
             asic_asn = all_cfg_facts[a_host.hostname][a_asic.asic_index]['ansible_facts']['DEVICE_METADATA']['localhost']['bgp_asn']
-
-            send_command = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv4 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            send_command_ipv6 = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv6 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            a_host.command(send_command)
-            a_host.command(send_command_ipv6)
+            loopbacks = all_cfg_facts[a_host.hostname][a_asic.asic_index]['ansible_facts']['LOOPBACK_INTERFACE']
+            for lb in loopbacks.values():
+                for addr in lb:
+                    if ":" in addr:
+                        send_command = a_asic.get_docker_cmd(
+                            "vtysh -c 'configure terminal' -c 'router bgp {asn}' -c 'address-family ipv6 unicast' -c 'network {addr}'".format(
+                                asn=asic_asn, addr=addr), "bgp")
+                    else:
+                        send_command = a_asic.get_docker_cmd(
+                            "vtysh -c 'configure terminal' -c 'router bgp {asn}' -c 'address-family ipv4 unicast' -c 'network {addr}'".format(asn=asic_asn, addr=addr), "bgp")
+                    a_host.command(send_command)
 
 
 @reset_ansible_local_tmp
