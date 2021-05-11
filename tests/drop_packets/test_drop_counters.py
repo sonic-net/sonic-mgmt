@@ -326,9 +326,6 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
-    arp_info = duthost.shell("show arp")["stdout"]
-    pytest_assert(ip_dst not in arp_info.split(), "ARP entry is not cleared")
-
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
