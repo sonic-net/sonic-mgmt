@@ -180,6 +180,7 @@ class DHCPTest(DataplaneBaseTest):
 
         if dst_mac != self.BROADCAST_MAC:
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
+            discover_packet[scapy.IP].src = self.client_ip
 
         return discover_packet
 
@@ -295,6 +296,7 @@ class DHCPTest(DataplaneBaseTest):
 
         if dst_mac != self.BROADCAST_MAC:
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
+            discover_packet[scapy.IP].src = self.client_ip
 
         return request_packet
 
