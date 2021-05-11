@@ -178,7 +178,7 @@ class DHCPTest(DataplaneBaseTest):
         discover_packet[scapy.Ether].dst = dst_mac
         discover_packet[scapy.IP].sport = src_port
 
-        if dst_mac != BROADCAST_MAC:
+        if dst_mac != self.BROADCAST_MAC:
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
 
         return discover_packet
@@ -293,7 +293,7 @@ class DHCPTest(DataplaneBaseTest):
         request_packet[scapy.Ether].dst = dst_mac
         request_packet[scapy.IP].sport = src_port
 
-        if dst_mac != BROADCAST_MAC:
+        if dst_mac != self.BROADCAST_MAC:
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
 
         return request_packet
