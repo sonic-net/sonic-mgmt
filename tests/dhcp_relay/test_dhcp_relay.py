@@ -292,12 +292,14 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
-@pytest.mark.skipif(testing_config[0] == DUAL_TOR_MODE, reason="skip the unicast mac testcase in the multi-Vlan setting")
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
     testing_mode, duthost = testing_config
+
+    if testing_mode == DUAL_TOR_MODE:
+        pytest.skip("skip the unicast mac testcase in the multi-Vlan setting")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
