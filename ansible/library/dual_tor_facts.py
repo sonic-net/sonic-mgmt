@@ -43,7 +43,7 @@ class DualTorParser:
             loopback_ips[dut]['ipv4'] = self.vm_config['DUT']['loopback']['ipv4'][dut_num]
             loopback_ips[dut]['ipv6'] = self.vm_config['DUT']['loopback']['ipv6'][dut_num] 
 
-            for loopback_num in range(1, 3): # Generate two additional loopback IPs, Loopback1 and Loopback2
+            for loopback_num in range(1, 4): # Generate two additional loopback IPs, Loopback1 and Loopback2
                 loopback_key = 'loopback{}'.format(loopback_num)
                 loopback_dict = {}
                 loopback_dict['ipv4'] = self.vm_config['DUT'][loopback_key]['ipv4'][dut_num]
