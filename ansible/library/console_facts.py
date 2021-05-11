@@ -29,7 +29,7 @@ class ConsoleModule(object):
 
     def run(self):
         """
-            Main method of the class
+        Main method of the class
         """
         self.module.exit_json(ansible_facts = {
             'console_facts' : self.get_console_facts()
@@ -64,7 +64,6 @@ class ConsoleModule(object):
         """
         fields_line_index = 1
         skip_lines = 2
-        max_fields = 6
         result = {}
 
         # We only parse configured lines
