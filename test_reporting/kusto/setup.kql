@@ -94,11 +94,12 @@
 ###############################################################################
 // Create table command
 ////////////////////////////////////////////////////////////
-.create table ['RawRebootTimingData']  (['ProcessingTime']:dynamic, ['FirstOccurence']:dynamic, ['RebootTime']:dynamic, ['Dataplane']:dynamic)
+.create table ['RawRebootTimingData']  (ReportId: string, ['ProcessingTime']:dynamic, ['FirstOccurence']:dynamic, ['RebootTime']:dynamic, ['Dataplane']:dynamic)
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
 .create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' '[
+                                                                                {"column":"ReportId","Properties":{"path":"$.id"}},
                                                                                 {"column":"ProcessingTime", "Properties":{"Path":"$[\'processing_time\']"}},
                                                                                 {"column":"FirstOccurence", "Properties":{"Path":"$[\'first_occurence\']"}},
                                                                                 {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
@@ -111,7 +112,7 @@
 ###############################################################################
 // Create table command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData']  (['RebootTime']:string, ['RebootType']:string, ['DataplaneLongestDowntime']:string,
+.create table ['RebootTimingData']  (ReportId: string, ['RebootTime']:string, ['RebootType']:string, ['DataplaneLongestDowntime']:string,
                                     ['DataplaneLostPackets']:string, ['DataplaneTotalDowntime']:string, ['ProcessingTimeDefaultRouteSet']:string,
                                     ['ProcessingTimeSaiSwitchCreate']:string, ['ProcessingTimeLagReady']:string, ['ProcessingTimeBgp']:string,
                                     ['ProcessingTimeSyncd']:string, ['ProcessingTimeRadv']:string, ['ProcessingTimeFirstNeighborEntry']:string,

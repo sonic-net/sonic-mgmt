@@ -14,6 +14,7 @@ except ImportError:
 from azure.kusto.ingest import IngestionProperties
 from azure.kusto.ingest import DataFormat
 
+from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
 
@@ -59,11 +60,12 @@ class ReportDBConnector(ABC):
         """
 
     @abstractmethod
-    def upload_reboot_report(self, reboot_timing_dict: Dict, report_type: str = "", report_guid: str = "") -> None:
+    def upload_reboot_report(self, reboot_timing_dict: Dict, path_name: str = "", report_guid: str = "") -> None:
         """Upload reboot test report to the back-end data store.
 
         Args:
             reboot_timing_dict: reboot test results stored in dictionary
+            path_name: Path 
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
 
@@ -85,7 +87,7 @@ class KustoConnector(ReportDBConnector):
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
-        REBOOT_TIMING_TABLE: DataFormat.JSON
+        REBOOT_TIMING_TABLE: DataFormat.MULTIJSON
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -158,15 +160,17 @@ class KustoConnector(ReportDBConnector):
         pdu_status_data = {"data": pdu_output}
         self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
-    def upload_reboot_report(self, reboot_timing_dict: Dict, report_type: str = "", report_guid: str = "") -> None:
+    def upload_reboot_report(self, reboot_timing_dict: Dict, path_name: str = "", report_guid: str = "") -> None:
         reboot_timing_data = {
             "id": report_guid
         }
+        reboot_timing_dict = validate_json_file(path_name)
         reboot_timing_data.update(reboot_timing_dict)
-        if report_type == "detailed":
-            self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
-        elif report_type == "summary":
+        print("Uploading {} report with contents: {}".format(path_name, reboot_timing_data))
+        if "reboot_summary" in path_name:
             self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
+        elif "reboot_report" in path_name:
+             self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
