@@ -77,16 +77,41 @@ stages:
         rm -rf $(Build.ArtifactStagingDirectory)/*
         parent_dir="/data/sonic-mgmt"
         tests="test_interfaces.py \
+        monit/test_monit_status.py \
         bgp/test_bgp_fact.py \
+        bgp/test_bgp_allow_list.py \
+        bgp/test_bgp_multipath_relax.py \
+        bgp/test_bgp_bbr.py \
+        bgp/test_bgp_bounce.py \
+        bgp/test_bgp_update_timer.py \
+        bgp/test_traffic_shift.py \
+        cacl/test_ebtables_application.py \
+        cacl/test_cacl_application.py \
+        cacl/test_cacl_function.py \
         lldp/test_lldp.py \
+        ntp/test_ntp.py \
+        pc/test_po_cleanup.py \
+        pc/test_po_update.py \
         route/test_default_route.py \
+        route/test_default_route.py \
+        snmp/test_snmp_cpu.py \
+        snmp/test_snmp_interfaces.py \
+        snmp/test_snmp_lldp.py \
         snmp/test_snmp_pfc_counters.py \
         snmp/test_snmp_queue.py \
         snmp/test_snmp_loopback.py \
         snmp/test_snmp_default_route.py \
+        syslog/test_syslog.py \
         tacacs/test_rw_user.py \
         tacacs/test_ro_user.py \
-        tacacs/test_jit_user.py"
+        tacacs/test_jit_user.py \
+        test_features.py \
+        test_procdockerstatsd.py \
+        iface_namingmode/test_iface_namingmode.py \
+        platform_tests/test_cpu_memory_usage.py \
+        bgp/test_bgpmon.py \
+        container_checker/test_container_checker.py \
+        process_monitoring/test_critical_process_monitoring.py"
         CMD="cd $parent_dir/tests; \
         export ANSIBLE_CONFIG=$parent_dir/ansible ANSIBLE_LIBRARY=$parent_dir/ansible; \
         ./run_tests.sh -c \"$tests\" -d ${{ parameters.dut }} -f $(testbed_file) -i $(inventory) -n ${{ parameters.tbname }} -e --disable_loganalyzer -u"
