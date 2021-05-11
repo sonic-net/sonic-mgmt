@@ -61,6 +61,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def common_setup_teardown(request, tbinfo):
+def common_setup_teardown(request, tbinfo, vmhost):
     if 'dualtor' in tbinfo['topo']['name']:
         request.getfixturevalue('run_garp_service')
+        vmhost.shell('systemctl restart mux-simulator')

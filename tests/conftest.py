@@ -107,6 +107,10 @@ def pytest_addoption(parser):
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    ############################
+    #  keysight ixanvl options #
+    ############################
+    parser.addoption("--testnum", action="store", default=None, type=str)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -303,6 +307,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+        return None
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:

@@ -32,6 +32,8 @@ Parameters:     fib_info - The fib_info file location
                             "1,2,3,4,5,6"
                 vlan_ip - IPv4 address of the vlan interface. Required for t0 testbed type.
                 vlan_ipv6 - IPv6 address of the vlan interface. Optional.
+                max_internal_hops: Internal hops for multi asic platforms
+                ignore_ttl: Ignore checking the ttl value
 
 '''
 
@@ -107,6 +109,15 @@ class DecapPacketTest(BaseTest):
         self.dscp_out_idx = len(self.DSCP_RANGE) / 2  # DSCP of outer layer. Set different initial dscp_in and dscp_out
         self.ttl_in_idx = 0  # TTL of inner layer.
         self.ttl_out_idx = len(self.TTL_RANGE) / 2  # TTL of outer layer. Set different initial ttl_in and ttl_out
+
+        # multi asic platforms have internal routing hops 
+        # this param will be used to set the correct ttl values for inner packet
+        # this value is zero for single asic platform
+        self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
+        if self.max_internal_hops:
+            self.TTL_RANGE = list(range(self.max_internal_hops+1, 63))
+
+        self.ignore_ttl = self.test_params.get('ignore_ttl', False)
 
         self.summary = {}
 
@@ -300,6 +311,13 @@ class DecapPacketTest(BaseTest):
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        if self.ignore_ttl:
+            if ipaddress.ip_address(unicode(dst_ip)).version == 4:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            else:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
         #send and verify the return packets
         send_packet(self, src_port, pkt)
@@ -319,18 +337,18 @@ class DecapPacketTest(BaseTest):
         """
 
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type)
-        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=64, inner_ttl=2)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=64, inner_ttl=self.max_internal_hops +2)
         if self.test_params["ttl_mode"] == "pipe":
-            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=1, inner_ttl=64)
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=self.max_internal_hops +1, inner_ttl=64)
         elif self.test_params["ttl_mode"] == "uniform":
-            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=2, inner_ttl=64)
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, outer_ttl=self.max_internal_hops +2, inner_ttl=64)
 
         self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True)
-        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=64, inner_ttl=2)
+        self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=64, inner_ttl=self.max_internal_hops +2)
         if self.test_params["ttl_mode"] == "pipe":
-            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=1, inner_ttl=64)
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=self.max_internal_hops +1, inner_ttl=64)
         elif self.test_params["ttl_mode"] == "uniform":
-            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=2, inner_ttl=64)
+            self.send_and_verify(dst_ip, expected_ports, src_port, outer_pkt_type, True, outer_ttl=self.max_internal_hops +2, inner_ttl=64)
 
     def run_encap_combination_test(self, outer_pkt_type, inner_pkt_type):
         """
