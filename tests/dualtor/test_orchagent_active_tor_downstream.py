@@ -9,7 +9,7 @@ from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
-from tests.common.dualtor.dual_tor_utils import get_random_interfaces
+from tests.common.dualtor.dual_tor_utils import get_interface_server_map
 from tests.common.dualtor.dual_tor_utils import check_nexthops_balance
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
@@ -93,7 +93,7 @@ def test_downstream_ecmp_nexthops(
     nexthops_count = 4
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
 
-    iface_server_map = get_random_interfaces(rand_selected_dut, nexthops_count)
+    iface_server_map = get_interface_server_map(rand_selected_dut, nexthops_count)
     interface_to_server = dict()
     for interface, servers in iface_server_map.items():
         interface_to_server[interface] = servers['server_ipv4'].split("/")[0]

@@ -652,12 +652,11 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     dport = random.randint(1, 65535) if hash_key == 'dst-port' else 80
     src_mac = (base_src_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_src_mac
     dst_mac = duthost.facts["router_mac"]
-    vlan_id = random.randint(1, 4094) if hash_key == 'vlan-id' else 0
-    pkt = testutils.simple_tcp_packet(pktlen=128 if vlan_id == 0 else 132,
+    pkt = testutils.simple_tcp_packet(pktlen=128,
                         eth_dst=dst_mac,
                         eth_src=src_mac,
-                        dl_vlan_enable=False if vlan_id == 0 else True,
-                        vlan_vid=vlan_id,
+                        dl_vlan_enable=False,
+                        vlan_vid=0,
                         vlan_pcp=0,
                         ip_src=ip_src,
                         ip_dst=ip_dst,
@@ -665,17 +664,18 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
                         tcp_dport=dport,
                         ip_ttl=64)
     exp_pkt = mask.Mask(pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ihl")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "proto")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "len")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "id")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "flags")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "frag")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "len")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "proto")
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
 
     exp_pkt.set_do_not_care_scapy(scapyall.TCP, "sport")
     exp_pkt.set_do_not_care_scapy(scapyall.TCP, "seq")
@@ -733,9 +733,7 @@ def check_nexthops_balance(rand_selected_dut,
     tbinfo,
     downlink_ints,
     nexthops_count):
-    SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
-    #send_packet, exp_pkt = build_packet_to_server(rand_selected_dut, ptfadapter, dst_server_ipv4)
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
@@ -747,10 +745,7 @@ def check_nexthops_balance(rand_selected_dut,
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    base_src_mac = ptfadapter.dataplane.get_mac(0, 0)
-    for i in range(1000):
-        #ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1])
-        #send_packet[IP].src = ip_src
+    for _ in range(1000):
         for hash_key in HASH_KEYS:
             send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, hash_key, dst_server_ipv4)
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
@@ -995,9 +990,10 @@ def get_ptf_server_intf_index(tor, tbinfo, iface):
     return mg_facts["minigraph_ptf_indices"][iface]
 
 
-def get_random_interfaces(torhost, count):
+def get_interface_server_map(torhost, count):
     server_ips = mux_cable_server_ip(torhost)
-    interfaces = [str(_) for _ in random.sample(server_ips.keys(), count)]
+    interfaces = [str(_) for _ in server_ips.keys()]
+    interfaces = interfaces[:count]
     iface_server_map = {_: server_ips[_] for _ in interfaces}
     logging.info("select DUT interface %s to test.", iface_server_map)
     return iface_server_map
