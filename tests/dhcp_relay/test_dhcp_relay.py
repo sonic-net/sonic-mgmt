@@ -298,7 +298,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
     """
     testing_mode, duthost = testing_config
 
-    if testing_mode == DUAL_TOR_MODE:
+    if len(dut_dhcp_relay_data) > 1:
         pytest.skip("skip the unicast mac testcase in the multi-Vlan setting")
 
     for dhcp_relay in dut_dhcp_relay_data:
