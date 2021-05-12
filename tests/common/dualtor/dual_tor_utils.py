@@ -646,7 +646,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     src_mac = ptfadapter.dataplane.get_mac(0, 0)
     ip_dst = target_server_ip
     SRC_IP_RANGE = [unicode('1.0.0.0'), unicode('200.255.255.255')]
-    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
+    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
     sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
     dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
