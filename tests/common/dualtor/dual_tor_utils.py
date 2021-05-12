@@ -7,7 +7,6 @@ import json
 import ptf
 from scapy.all import Ether, IP
 import scapy.all as scapyall
-from ipaddress import ip_address
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 
@@ -644,13 +643,12 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     Generate a packet to server based on hash.
     The value of field in packet is filled with random value according to hash_key
     """
-    SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
-    base_src_mac = ptfadapter.dataplane.get_mac(0, 0)
-    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
+    src_mac = ptfadapter.dataplane.get_mac(0, 0)
     ip_dst = target_server_ip
-    sport = random.randint(1, 65535) if hash_key == 'src-port' else 1234
-    dport = random.randint(1, 65535) if hash_key == 'dst-port' else 80
-    src_mac = (base_src_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_src_mac
+    SRC_IP_RANGE = [unicode('1.0.0.0'), unicode('200.255.255.255')]
+    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
+    sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
+    dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
     pkt = testutils.simple_tcp_packet(pktlen=128,
                         eth_dst=dst_mac,
@@ -693,8 +691,8 @@ def random_ip(begin, end):
     """
     Generate a random IP from given ip range
     """
-    length = int(ip_address(end)) - int(ip_address(begin))
-    return str(ip_address(begin) + random.randint(0, length))
+    length = int(ipaddress.ip_address(end)) - int(ipaddress.ip_address(begin))
+    return str(ipaddress.ip_address(begin) + random.randint(0, length))
 
 
 def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_number=0, timeout=None, count=1):
@@ -745,17 +743,16 @@ def check_nexthops_balance(rand_selected_dut,
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    for _ in range(1000):
-        for hash_key in HASH_KEYS:
-            send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, hash_key, dst_server_ipv4)
-            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=10)
+    for _ in range(10000):
+        send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter,
                                             exp_packet=exp_pkt,
                                             ports=all_allowed_ports,
-                                            timeout=0.5,
-                                            count=10)
+                                            timeout=0.01,
+                                            count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
