@@ -16,7 +16,6 @@ def collect_all_facts(duthost, ports_list, namespace=None):
     result = {}
     setup = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
-    ports_list = []
 
     if namespace is None or namespace == "":
         sonic_db_cmd = "sonic-db-cli"
@@ -37,9 +36,9 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             try:
                 admin = config_facts.get('PORT', {})[name]['admin_status']
             except KeyError:
-                admin = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "admin_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout_lines']
+                admin = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "admin_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout']
             result[portname].update({'adminstatus': admin})
-            oper = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout_lines']
+            oper = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout']
             result[portname].update({'operstatus': oper})
             result[portname].update({'description': config_facts.get('PORT', {})[name]['description']})
         elif name.startswith("PortChannel"):
@@ -57,11 +56,8 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             result[name].update({'mtu': str(setup[key]['mtu'])})
             result[name].update({'type': if_type})
             result[name].update({'adminstatus': config_facts.get(key_word, {})[name]['admin_status']})
-            # TODO: Remove this check after operational status of mgmt interface
-            # is implemented for multi-asic platform
-            if duthost.num_asics() == 1:
-                oper = duthost.shell('{} STATE_DB HGET "MGMT_PORT_TABLE|{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)
-                result[name].update({'operstatus': oper['stdout']})
+            oper = duthost.shell('{} STATE_DB HGET "MGMT_PORT_TABLE|{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)
+            result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
 
              
@@ -177,14 +173,17 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     for name in config_facts.get('MGMT_INTERFACE', {}):
         assert name in snmp_ifnames, "Management Interface not found in SNMP facts."
 
-    ports_list = []
-    _ = [ports_list.extend(config_facts.get(i, {}).keys())
-         for i in ['MGMT_INTERFACE']]
-    dut_facts = collect_all_facts(duthost, ports_list)
-    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-    result = verify_port_ifindex(snmp_facts, speed_snmp)
-    pytest_assert(not result, "Unexpected comparsion of SNMP: {}".format(result))
+    # TODO: Remove this check after operational status of mgmt interface
+    # is implemented for multi-asic platform
+    if duthost.num_asics() == 1:
+        ports_list = []
+        _ = [ports_list.extend(config_facts.get(i, {}).keys())
+             for i in ['MGMT_INTERFACE']]
+        dut_facts = collect_all_facts(duthost, ports_list)
+        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+        result = verify_port_ifindex(snmp_facts, speed_snmp)
+        pytest_assert(not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
@@ -193,7 +192,7 @@ def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localh
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
-    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
 
     ports_list = []
     _ = [ports_list.extend(config_facts.get(i, {}).keys())
