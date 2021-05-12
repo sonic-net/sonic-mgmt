@@ -254,7 +254,7 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
     """
     PTF's configuration reload on teardown
