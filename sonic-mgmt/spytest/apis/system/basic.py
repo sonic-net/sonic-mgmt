@@ -2637,6 +2637,13 @@ def verifyVendorPresence(transceiverOutput):
         else:
             return False
 
+def get_interface_details_redis(dut, number):
+    interface = "Ethernet{}".format(number)
+    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_INFO|{}'".format(interface)
+    print("command",command)
+    output = st.show(dut, command)
+    return output
+
 def ifconfig_eth(dut, interfacenumber):
     command = "sudo ifconfig eth{}".format(interfacenumber)
     print("command", command)
