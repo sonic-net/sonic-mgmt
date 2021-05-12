@@ -1,0 +1,41 @@
+- debug: msg="{{ vm_type }}"
+- debug: msg="{{ vm_set_name }}"
+
+- name: Load topo variables
+  include_vars: "vars/topo_{{ topo }}.yml"
+
+- name: Include server vars
+  include_vars: "{{ host_var_file }}"
+
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+
+- name: Get VM host name
+  set_fact: VM_host={{ groups[current_server] | difference(VM_list) }}
+
+- name: Generate hostname for target VM
+  set_fact: hostname={{ VM_list | extract_hostname(topology['VMs'], VM_base, inventory_hostname) }}
+  when: topology['VMs'] is defined
+
+- fail:
+    msg: "cannot find {{ inventory_hostname }} in the topology"
+  when: hostname == "hostname not found"
+
+- name: Set properties list to default value, when properties are not defined
+  set_fact: properties_list=[]
+  when: configuration is not defined or configuration[hostname] is not defined or configuration[hostname]['properties'] is not defined
+
+- name: Set properties list to values, when they're defined
+  set_fact: properties_list="{{ configuration[hostname]['properties'] }}"
+  when: configuration and configuration[hostname] and configuration[hostname]['properties'] is defined
+
+- name: Expand {{ hostname }} properties into props
+  set_fact: props="{{ configuration_properties[item] | combine(props | default({})) }}"
+  with_items: "{{ properties_list }}"
+  when: hostname in configuration and configuration_properties[item] is defined
+
+- include_tasks: vsonic.yml
+  when: vm_type == "vsonic"
