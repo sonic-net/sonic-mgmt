@@ -16,8 +16,6 @@ def collect_all_facts(duthost, ports_list, namespace=None):
     result = {}
     setup = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
-    sonic_db_cmd = "sonic-db-cli -n {} {} HGET {}{}{} {}"
-    net_opersate = "cat /sys/class/net/{}/operstate"
     ports_list = []
 
     if namespace is None or namespace == "":
