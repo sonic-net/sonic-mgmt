@@ -295,8 +295,8 @@ class DHCPTest(DataplaneBaseTest):
         request_packet[scapy.IP].sport = src_port
 
         if dst_mac != self.BROADCAST_MAC:
-            discover_packet[scapy.IP].dst = self.switch_loopback_ip
-            discover_packet[scapy.IP].src = self.client_ip
+            request_packet[scapy.IP].dst = self.switch_loopback_ip
+            request_packet[scapy.IP].src = self.client_ip
 
         return request_packet
 
