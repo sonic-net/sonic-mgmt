@@ -11,7 +11,7 @@ def test_console_driver(duthost):
     Test console driver are well installed.
     Verify ttyUSB(0-47) are presented in DUT
     """
-    out = duthost.shell('ls /dev/ttyUSB*', module_ignore_errors=True)['stdout']v
+    out = duthost.shell('ls /dev/ttyUSB*', module_ignore_errors=True)['stdout']
     ttys = set(out.split())
     pytest_assert(len(ttys) > 0, "No virtual tty devices been created by console driver")
 
