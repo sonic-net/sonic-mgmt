@@ -12,6 +12,7 @@ import apis.routing.ip as ip_obj
 from apis.system.connection import connect_to_device, ssh_disconnect, execute_command
 import re
 import datetime
+import apis.routing.ip as ipfeature
 
 
 platform_summary_data = {
