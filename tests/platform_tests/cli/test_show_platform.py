@@ -163,7 +163,10 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".format(field, duthost.hostname))
 
         for line in utility_cmd_output["stdout_lines"]:
-            pytest_assert(line in syseeprom_output, "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
+            if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
+                line_regexp = re.sub(r'\s+', '\s+', line)
+                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
+
 
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
