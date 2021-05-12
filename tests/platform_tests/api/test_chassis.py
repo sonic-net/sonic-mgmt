@@ -129,7 +129,6 @@ class TestChassisApi(PlatformApiTestBase):
         self.compare_value_with_device_facts(duthost, 'serial', serial)
 
     def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         revision = chassis.get_revision(platform_api_conn)
         pytest_assert(revision is not None, "Unable to retrieve chassis serial number")
         pytest_assert(isinstance(revision, STRING_TYPE), "Chassis serial number appears incorrect")
