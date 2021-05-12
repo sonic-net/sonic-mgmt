@@ -177,7 +177,7 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
     """
-    orch_cpu = dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
+    orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
     return int(float(orch_cpu)) < orch_cpu_threshold
 
 
