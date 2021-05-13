@@ -7,7 +7,7 @@ import logging
 from collections import OrderedDict
 from datetime import datetime
 
-from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS, SAIREDIS_MSGS, SYSLOG_MSGS
+from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
