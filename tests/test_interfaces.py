@@ -52,7 +52,7 @@ def verify_mac_address(host_facts, intfs, router_mac):
         else:
             ifname = intf['name']
 
-        pytest_assert(host_facts[ifname]['macaddress'] == router_mac, \
+        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(), \
                 "interface {} mac address {} does not match router mac {}".format(ifname, host_facts[ifname]['macaddress'], router_mac))
 
 def verify_ip_address(host_facts, intfs):
