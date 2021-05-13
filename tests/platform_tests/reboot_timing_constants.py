@@ -15,8 +15,8 @@ OTHER_PATTERNS = {
     "LAG_READY|Start": re.compile(r'.*teamd#tlm_teamd.*try_add_lag.*The LAG \'PortChannel.*\' has been added.*'),
     "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
     "FINALIZER|End": re.compile(r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),
-	"SYNCD_CREATE_SWITCH|Start": re.compile(r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
-	"SYNCD_CREATE_SWITCH|End": re.compile(r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*')
+    "SYNCD_CREATE_SWITCH|Start": re.compile(r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
+    "SYNCD_CREATE_SWITCH|End": re.compile(r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*')
 }
 
 SAIREDIS_PATTERNS = {

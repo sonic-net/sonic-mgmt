@@ -878,7 +878,7 @@ class ReloadTest(BaseTest):
         try:
             async_cpu_up.get(timeout=self.task_timeout)
             self.no_control_stop = self.cpu_state.get_state_time('up')
-            self.log("Control plane down stops %s" % str(no_control_stop))
+            self.log("Control plane down stops %s" % str(self.no_control_stop))
         except TimeoutError as e:
             port_up_signal.set()
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
