@@ -604,13 +604,21 @@ class BaseAclTest(object):
 
         return exp_pkt
 
-    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
-        """Verify that unmatched packets are dropped."""
+    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
+        """Verify that unmatched packets are dropped for ingress."""
         if stage == "egress":
-            pytest.skip("No default deny rule exists for egress ACL rules")
+            pytest.skip("Only run for ingress")
 
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+
+    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
+        """Verify that default egress rule allow all traffics"""
+        if stage == "ingress":
+            pytest.skip("Only run for egress")
+
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
 
     def test_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on source IP."""
