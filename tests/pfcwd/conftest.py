@@ -27,7 +27,7 @@ def pytest_addoption(parser):
                      help='PFC WD storm restore interval')
     parser.addoption('--fake-storm', action='store', type=bool, default=True,
                      help='Fake storm for most ports instead of using pfc gen')
-    parser.addoption('--two-queues', action='store_true', default=False,
+    parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
 
 @pytest.fixture(scope="module", autouse=True)
