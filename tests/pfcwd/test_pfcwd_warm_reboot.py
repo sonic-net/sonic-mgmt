@@ -107,7 +107,7 @@ class SetupPfcwdFunc(object):
         """
         self.pfc_wd = dict()
         self.pfc_wd['queue_indices'] = [4]
-        if self.two_queues:
+        if self.two_queues and (self.seed % 2) != 0:
             # Will send traffic for (queues 4 and 3) per each port
             self.pfc_wd['queue_indices'].append(3)
         self.pfc_wd['test_pkt_count'] = 100
@@ -456,6 +456,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.neighbors = setup_info['neighbors']
         dut_facts = self.dut.facts
         self.peer_dev_list = dict()
+        self.seed = int(datetime.datetime.today().day)
         self.two_queues = two_queues
         self.storm_handle = dict()
         bitmask = 0
