@@ -93,10 +93,15 @@ def download_artifacts(url, content_type, platform, buildid):
             print("Download error", e)
             sys.exit(1)
 
-def find_latest_build_id(branch):
+def find_latest_build_id(platform,branch):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter=succeeded&statusFilter=completed&api-version=6.0".format(branch)
+    dict = {"broadcom" : 138,
+            "barefoot" : 146,
+            "vs" : 142,
+            "mellanox" : 139,
+            "generic" : 147}
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}&resultFilter=succeeded&statusFilter=completed&api-version=6.0".format(dict[platform],branch)
 
     resp = urlopen(builds_url)
 
@@ -111,9 +116,9 @@ def main():
 
     parser = argparse.ArgumentParser(description='Download artifacts from sonic azure devops.')
     parser.add_argument('--buildid', metavar='buildid', type=int, help='build id')
-    parser.add_argument('--branch', metavar='branch', type=str, help='branch name')
+    parser.add_argument('--branch', metavar='branch', type=str, default='master', help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-            choices=['broadcom', 'mellanox', 'kvm'],
+            choices=['broadcom', 'mellanox', 'vs', 'barefoot', 'generic'],
             help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
             choices=['all', 'image'], default='image',
@@ -121,7 +126,7 @@ def main():
     args = parser.parse_args()
 
     if args.buildid is None:
-        buildid = find_latest_build_id(args.branch)
+        buildid = find_latest_build_id(args.platform,args.branch)
     else:
         buildid = int(args.buildid)
 
