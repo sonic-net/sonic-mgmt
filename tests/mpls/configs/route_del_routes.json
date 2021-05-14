@@ -1,0 +1,12 @@
+[
+    {
+        "ROUTE_TABLE:192.168.0.1": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "INTF_TABLE:Ethernet25": {
+        },
+        "OP": "DEL"
+    }
+]

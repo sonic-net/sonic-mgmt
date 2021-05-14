@@ -1,0 +1,27 @@
+[
+    {
+        "LABEL_ROUTE_TABLE:1000001": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "INTF_TABLE:Ethernet10": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "LABEL_ROUTE_TABLE:1000003": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "INTF_TABLE:Ethernet25": {
+        },
+        "OP": "DEL"
+    },
+    {
+        "ROUTE_TABLE:192.168.0.1": {
+        },
+        "OP": "DEL"
+    }
+]

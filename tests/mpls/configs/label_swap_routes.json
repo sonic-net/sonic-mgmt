@@ -1,0 +1,30 @@
+[
+    {
+        "LABEL_ROUTE_TABLE:1000001": {
+            "nexthop": "1000002+10.0.0.51",
+            "ifname": "Ethernet25",
+            "weight": "1"
+        },
+        "OP": "SET"
+    },
+    {
+        "INTF_TABLE:Ethernet10": {
+            "mpls": "enable"
+        },
+        "OP": "SET"
+    },
+    {
+        "LABEL_ROUTE_TABLE:1000003": {
+            "nexthop": "1000004+10.0.0.21",
+            "ifname": "Ethernet10",
+            "weight": "1"
+        },
+        "OP": "SET"
+    },
+    {
+        "INTF_TABLE:Ethernet25": {
+            "mpls": "enable"
+        },
+        "OP": "SET"
+    }
+]
