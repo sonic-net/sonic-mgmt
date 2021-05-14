@@ -1118,9 +1118,9 @@ class ReloadTest(BaseTest):
             dataplane_downtime = ""
         if self.total_disrupt_time:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
-            dataplane_downtime = str(self.total_disrupt_time)
+            dataplane_downtime = self.total_disrupt_time
         dataplane_report = dict()
-        dataplane_report["downtime"] = dataplane_downtime
+        dataplane_report["downtime"] = str(dataplane_downtime)
         dataplane_report["lost_packets"] = str(self.total_disrupt_packets) \
             if self.total_disrupt_packets is not None else ""
         controlplane_report = dict()
