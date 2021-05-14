@@ -190,7 +190,6 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
-    finalizer_end_time = service_restart_times.get("FINALIZER",{}).get("timestamp",{}).get("End")
     result["reboot_time"] = {
         "timestamp": {"Start": reboot_time},
     }
