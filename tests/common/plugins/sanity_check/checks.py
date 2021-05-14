@@ -438,8 +438,8 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
         # Run tests with upper ToR active
         try:
             # Stop linkmgrd to prevent it from switching over ports
-            lower_tor_host.shell('systemctl stop mux')
             upper_tor_host.shell('systemctl stop mux')
+            lower_tor_host.shell('systemctl stop mux')
 
             toggle_simulator_port_to_upper_tor(tor_mux_intf)
             if check_simulator_read_side(tor_mux_intf) != 1:
