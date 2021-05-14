@@ -14,6 +14,7 @@ from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
+from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import run_garp_service
@@ -96,42 +97,6 @@ def shutdown_one_bgp_session(rand_selected_dut):
     bgp_shutdown = shutdown_random_one_bgp_session(rand_selected_dut)
     yield
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
-
-
-def add_nexthop_routes(standby_tor, route_dst, nexthop=None):
-    """
-    Add static routes to reach route_dst via nexthop.
-    The function is similar with fixture apply_dual_tor_peer_switch_route, but we can't use the fixture directly
-    """
-    logger.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
-    bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
-
-    ipv4_neighbors = []
-
-    for neighbor in bgp_neighbors:
-        if ipaddress.ip_address(neighbor).version == 4:
-            ipv4_neighbors.append(neighbor)
-
-    nexthop_str = ''
-    if nexthop is None:
-        for neighbor in ipv4_neighbors:
-            nexthop_str += 'nexthop via {} '.format(neighbor)
-    else:
-        nexthop_str += 'nexthop via {} '.format(nexthop)
-
-    # Use `ip route replace` in case a rule already exists for this IP
-    # If there are no pre-existing routes, equivalent to `ip route add`
-    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
-    standby_tor.shell(route_cmd)
-    logger.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
-
-
-def remove_static_routes(standby_tor, active_tor_loopback_ip):
-    """
-    Remove static routes for active tor
-    """
-    logger.info("Removing dual ToR peer switch static route")
-    standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
 
 
 def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
@@ -286,7 +251,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 1: Verify Standby Forwarding")
     logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
-    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthop=server_ipv4)
+    add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[server_ipv4])
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_unselected_dut)
