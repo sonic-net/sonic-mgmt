@@ -50,7 +50,7 @@ def get_chassis(vars=None, index=0):
 
 def is_soft_tgen(vars=None):
     tg = get_chassis(vars)
-    return (tg.tg_type == "scapy")
+    return (tg and tg.tg_type == "scapy")
 
 def get_handles(vars, tg_port_list=list()):
     """

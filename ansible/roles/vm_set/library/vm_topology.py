@@ -129,7 +129,6 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 
 cmd_debug_fname = None
 
-
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
 
@@ -998,6 +997,7 @@ def main():
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
+            vm_type=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
@@ -1065,6 +1065,7 @@ def main():
                 vm_base = module.params['vm_base']
             else:
                 vm_base = None
+            vm_type = module.params['vm_type']
 
             net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
@@ -1087,7 +1088,8 @@ def main():
             if vms_exists:
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
-                net.bind_vm_backplane()
+                if vm_type != "vsonic":
+                    net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if hostif_exists:
@@ -1129,6 +1131,7 @@ def main():
                 vm_base = module.params['vm_base']
             else:
                 vm_base = None
+            vm_type = module.params['vm_type']
 
             net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
@@ -1138,7 +1141,8 @@ def main():
                         net.unbind_mgmt_port(dut_mgmt_port)
 
             if vms_exists:
-                net.unbind_vm_backplane()
+                if vm_type != "vsonic":
+                    net.unbind_vm_backplane()
                 net.unbind_fp_ports()
 
             if hostif_exists:

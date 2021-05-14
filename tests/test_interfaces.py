@@ -36,9 +36,24 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     verify_ip_address(host_facts, mg_facts['minigraph_vlan_interfaces'])
     verify_ip_address(host_facts, mg_facts['minigraph_lo_interfaces'])
 
+    router_mac = duthost.facts['router_mac']
+    verify_mac_address(host_facts, mg_facts['minigraph_portchannel_interfaces'], router_mac)
+    verify_mac_address(host_facts, mg_facts['minigraph_vlan_interfaces'], router_mac)
+    verify_mac_address(host_facts, mg_facts['minigraph_interfaces'], router_mac)
+
 def verify_port(host_facts, ports):
     for port in ports:
         pytest_assert(host_facts[port]['active'], "interface {} is not active".format(port))
+
+def verify_mac_address(host_facts, intfs, router_mac):
+    for intf in intfs:
+        if 'attachto' in intf:
+            ifname = intf['attachto']
+        else:
+            ifname = intf['name']
+
+        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(), \
+                "interface {} mac address {} does not match router mac {}".format(ifname, host_facts[ifname]['macaddress'], router_mac))
 
 def verify_ip_address(host_facts, intfs):
     for intf in intfs:
