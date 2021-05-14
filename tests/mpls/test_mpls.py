@@ -78,7 +78,7 @@ def setup(duthost, tbinfo, ptfadapter):
 
 class BaseMplsTest(object):
     """
-    Base class for MPLS rules testing.
+    Base class for MPLS testing.
     """
     __metaclass__ = ABCMeta
     
