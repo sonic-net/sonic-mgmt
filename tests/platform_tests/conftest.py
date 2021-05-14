@@ -8,7 +8,6 @@ from collections import OrderedDict
 from datetime import datetime
 
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
-
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .args.advanced_reboot_args import add_advanced_reboot_args
@@ -99,7 +98,7 @@ def get_report_summary(analyze_result, reboot_type):
             time_taken = kexec_offsets.get(entity).get("time_taken", "")
         elif entity in time_spans:
             timestamp = time_spans.get(entity).get("timestamp", {})
-            marker_start_time = timestamp.get("End") if "End" in timestamp else timestamp.get("Started")
+            marker_start_time = timestamp.get("Start") if "Start" in timestamp else timestamp.get("Started")
             if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
                 time_taken = (datetime.strptime(marker_start_time, FMT) -\
                     datetime.strptime(reboot_start_time, FMT)).total_seconds()
@@ -163,7 +162,6 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
                 state_name = state.split("|")[0].strip()
-                logging.info("MATCHED {}".format(state_name))
                 if state_name + "|End" not in OTHER_PATTERNS.keys():
                     state_times = get_state_times(timestamp, state, offset_from_kexec)
                     offset_from_kexec.update(state_times)
