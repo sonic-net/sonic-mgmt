@@ -1,0 +1,8 @@
+ACTIVE:
+Uplink->Downlink: OK
+Downlink->Uplink: Packet not received <--- need to use VLAN MAC instead of router MAC on dualtor for downlinks
+
+STANDBY:
+Uplink->Downlink: Packet not received <--- G A R P
+Downlink->Uplink: Packet received on a Downlink <--- need to use VLAN MAC instead of router MAC on dualtor for downlinks
+(the drop tests will start failing b/c the active tor will not have any ACL rules, so we need to apply the config to both)
