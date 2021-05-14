@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 
+import inspect
 import logging
 import os
 import cPickle as pickle
@@ -162,15 +163,29 @@ class FactsCache(with_metaclass(Singleton, object)):
                     .format(self._cache_location, repr(e)))
 
 
-def _get_hostname_as_zone(function, func_args, func_kargs):
-    """Default zone getter used for decorator cached."""
+def _get_default_zone(function, func_args, func_kargs):
+    """
+        Default zone getter used for decorator cached.
+        For multi asic platforms some the facts will have the namespace to get the facts for an ASIC.
+        Add the namespace to the default zone.
+    """
     hostname = None
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
-    if not hostname or not isinstance(hostname, str):
+    if not hostname or type(hostname) not in [ str, unicode ]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
-    return hostname
+    zone = hostname
+    arg_names = inspect.getargspec(function)[0]
+    if 'namespace' in arg_names:
+        try:
+            index = arg_names.index('namespace')
+            namespace = func_args[index]
+            if namespace and isinstance(namespace, str):
+                zone = "{}-{}".format(hostname,namespace)
+        except IndexError:
+            pass
+    return zone
 
 
 def cached(name, zone_getter=None, after_read=None, before_write=None):
@@ -197,7 +212,7 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
 
     def decorator(target):
         def wrapper(*args, **kargs):
-            _zone_getter = zone_getter or _get_hostname_as_zone
+            _zone_getter = zone_getter or _get_default_zone
             zone = _zone_getter(target, args, kargs)
 
             cached_facts = cache.read(zone, name)

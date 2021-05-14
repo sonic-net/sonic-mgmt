@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.utilities import wait_until
 from tests.conftest import duthost
 
 logger = logging.getLogger(__name__)
@@ -106,8 +107,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # Get the list of upstream/downstream ports
-    downstream_ports = []
-    upstream_ports = []
+    downstream_ports = defaultdict(list)
+    upstream_ports =  defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
 
@@ -115,30 +116,42 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
-            downstream_ports.append(interface)
+            downstream_ports[neighbor['namespace']].append(interface)
             downstream_port_ids.append(port_id)
         elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
-            upstream_ports.append(interface)
+            upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
 
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]
 
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
-    acl_table_ports = []
+    acl_table_ports =  defaultdict(list)
 
     if topo == "t0" or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
-        acl_table_ports += downstream_ports
+        for namespace, port in downstream_ports.iteritems():
+            acl_table_ports[namespace] += port
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += port
 
     if topo == "t0" or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        acl_table_ports += port_channels
+        for k, v in port_channels.iteritems():
+            acl_table_ports[v['namespace']].append(k)
+            # In multi-asic we need config both in host and namespace.
+            if v['namespace']:
+                acl_table_ports[''].append(k)
     else:
-        acl_table_ports += upstream_ports
+        for namespace, port in upstream_ports.iteritems():
+            acl_table_ports[namespace] += port
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += port
 
     vlan_ports = []
 
     if topo == "t0":
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname] 
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
     setup_information = {
@@ -243,6 +256,22 @@ def stage(request, duthosts, rand_one_dut_hostname):
 
     return request.param
 
+def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
+    for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+        namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
+        if op == "add":
+            logger.info("Creating ACL table: \"{}\" in namesspace {}".format(acl_table_config["table_name"], namespace))
+            sonic_host_or_asic_inst.command(
+                "config acl add table {} {} -s {} -p {}".format(
+                    acl_table_config["table_name"],
+                    acl_table_config["table_type"],
+                    acl_table_config["table_stage"],
+                    ",".join(setup["acl_table_ports"][namespace]),
+                )
+            )
+        else:
+            logger.info("Removing ACL table \"{}\" in namesspace {}".format(acl_table_config["table_name"], namespace))
+            sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
 def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_and_restore_config_db_module):
@@ -266,7 +295,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
 
     acl_table_config = {
         "table_name": table_name,
-        "table_ports": ",".join(setup["acl_table_ports"]),
+        "table_ports": ",".join(setup["acl_table_ports"]['']),
         "table_stage": stage,
         "table_type": "L3" if ip_version == "ipv4" else "L3V6"
     }
@@ -279,19 +308,11 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
         with loganalyzer:
-            logger.info("Creating ACL table: \"{}\"".format(table_name))
-            duthost.command(
-                "config acl add table {} {} -s {} -p {}".format(
-                    table_name,
-                    acl_table_config["table_type"],
-                    acl_table_config["table_stage"],
-                    acl_table_config["table_ports"]
-                )
-            )
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
     except LogAnalyzerError as err:
         # Cleanup Config DB if table creation failed
         logger.error("ACL table creation failed, attempting to clean-up...")
-        duthost.command("config acl remove table {}".format(table_name))
+        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
         raise err
 
     try:
@@ -299,9 +320,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
     finally:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
         with loganalyzer:
-            logger.info("Removing ACL table \"{}\"".format(table_name))
-            duthost.command("config acl remove table {}".format(table_name))
-
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
 
 class BaseAclTest(object):
     """Base class for testing ACL rules.
@@ -378,6 +397,9 @@ class BaseAclTest(object):
                 self.setup_rules(duthost, acl_table, ip_version)
 
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+
+            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
             logger.error("ACL rule application failed, attempting to clean-up...")
@@ -444,6 +466,22 @@ class BaseAclTest(object):
     def direction(self, request):
         """Parametrize test based on direction of traffic."""
         return request.param
+
+    def check_rule_counters(self, duthost):
+        logger.info('Wait all rule counters are ready')
+
+        return wait_until(60, 2, self.check_rule_counters_internal, duthost)
+
+    def check_rule_counters_internal(self, duthost):
+        for asic_id in duthost.get_frontend_asic_ids():
+            res = duthost.asic_instance(asic_id).command('aclshow -a')
+
+            num_of_lines = len(res['stdout'].split('\n'))
+
+            if num_of_lines <= 2 or 'N/A' in res['stdout']:
+                return False
+
+        return True
 
     def get_src_port(self, setup, direction):
         """Get a source port for the current test."""
@@ -551,22 +589,26 @@ class BaseAclTest(object):
         """Generate the expected mask for a routed packet."""
         exp_pkt = pkt.copy()
 
-        if ip_version == "ipv4":
-            exp_pkt["IP"].ttl -= 1
-        else:
-            exp_pkt["IPv6"].hlim -= 1
-
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
         exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
 
         if ip_version == "ipv4":
             exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
+            # In multi-asic we cannot determine this so ignore.
+            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        else:
+            # In multi-asic we cannot determine this so ignore.
+            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+
 
         return exp_pkt
 
-    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version):
+    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that unmatched packets are dropped."""
+        if stage == "egress":
+            pytest.skip("No default deny rule exists for egress ACL rules")
+
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 
@@ -817,7 +859,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        reboot(dut, localhost)
+        reboot(dut, localhost, wait=240)
         populate_vlan_arp_entries()
 
 

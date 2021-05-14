@@ -10,6 +10,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
+from tests.common import port_toggle
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
@@ -27,6 +28,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
@@ -39,7 +41,31 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+
 class PfcCmd(object):
+    buffer_model_initialized = False
+    buffer_model = None
+
+    @staticmethod
+    def isBufferInApplDb(asic):
+        if not PfcCmd.buffer_model_initialized:
+            PfcCmd.buffer_model = asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", "4", "hget",
+                    "DEVICE_METADATA|localhost", "buffer_model"
+                ]
+            )
+
+            PfcCmd.buffer_model_initialized = True
+            logger.info(
+                "Buffer model is {}, buffer tables will be fetched from {}".
+                    format(
+                    PfcCmd.buffer_model or "not defined",
+                    "APPL_DB" if PfcCmd.buffer_model else "CONFIG_DB"
+                )
+            )
+        return PfcCmd.buffer_model
+
     @staticmethod
     def counter_cmd(dut, queue_oid, attr):
         """
@@ -53,8 +79,13 @@ class PfcCmd(object):
         Returns:
             counter value(string)
         """
-        cmd = "redis-cli -n 2 HGET COUNTERS:{}"
-        return dut.command("{} {}".format(cmd.format(queue_oid), attr))['stdout']
+        asic = dut.get_queue_oid_asic_instance(queue_oid)
+        return asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "2", "HGET",
+                "COUNTERS:{}".format(queue_oid), attr
+            ]
+        )[0].encode("utf-8")
 
     @staticmethod
     def set_storm_status(dut, queue_oid, storm_status):
@@ -66,38 +97,33 @@ class PfcCmd(object):
             queue_oid(string) : queue oid for which the storm status needs to be set
             storm_status(string) : debug storm status (enabled/disabled)
         """
-        cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
-        dut.command(cmd.format(queue_oid, storm_status))
+        asic = dut.get_queue_oid_asic_instance(queue_oid)
+        asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "2", "HSET",
+                "COUNTERS:{}".format(queue_oid),
+                "DEBUG_STORM", storm_status
+            ]
+        )
 
     @staticmethod
-    def get_queue_oid(dut, port, queue_num):
-        """
-        Retreive queue oid
-
-        Args:
-            dut(AnsibleHost) : dut instance
-            port(string) : port name
-            queue_num(int) : queue number
-
-        Returns:
-            queue oid(string)
-        """
-        cmd = "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {}:{}".format(port, queue_num)
-        return dut.command(cmd)['stdout']
-
-    @staticmethod
-    def update_alpha(dut, profile, value):
+    def update_alpha(dut, port, profile, value):
         """
         Update dynamic threshold value in buffer profile
 
         Args:
             dut(AnsibleHost) : dut instance
+            port(string) : port name
             profile(string) : profile name
             value(int) : dynamic threshold value to update
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
-        cmd = "redis-cli -n 4 HSET {} dynamic_th {}".format(profile, value)
-        dut.command(cmd)
+        asic = dut.get_port_asic_instance(port)
+        asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", "4", "HSET", profile, "dynamic_th", value
+            ]
+        )
 
     @staticmethod
     def get_mmu_params(dut, port):
@@ -112,11 +138,30 @@ class PfcCmd(object):
             pg_profile(string), alpha(string)
         """
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
-        cmd = "redis-cli -n 4 HGET BUFFER_PG|{}|3-4 profile".format(port)
-        pg_profile = dut.command(cmd)['stdout'][1:-1]
-        cmd = "redis-cli -n 4 HGET {} dynamic_th".format(pg_profile)
-        alpha = dut.command(cmd)['stdout']
+
+        asic = dut.get_port_asic_instance(port)
+        if PfcCmd.isBufferInApplDb(asic):
+            db = "0"
+            pg_pattern = "BUFFER_PG_TABLE:{}:3-4"
+        else:
+            db = "4"
+            pg_pattern = "BUFFER_PG|{}|3-4"
+
+        pg_profile = asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", db, "HGET",
+                pg_pattern.format(port), "profile"
+            ]
+        )[0].encode("utf-8")[1:-1]
+
+        alpha = asic.run_redis_cmd(
+            argv = [
+                "redis-cli", "-n", db, "HGET", pg_profile, "dynamic_th"
+            ]
+        )[0].encode("utf-8")
+
         return pg_profile, alpha
+
 
 class PfcPktCntrs(object):
     """ PFCwd counter retrieval and verifications  """
@@ -242,7 +287,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
-        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
         """
@@ -256,7 +301,7 @@ class SetupPfcwdFunc(object):
         else:
            self.pfc_wd['queue_index'] = self.pfc_wd['queue_index'] + 1
         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
-        self.queue_oid = PfcCmd.get_queue_oid(self.dut, port, self.pfc_wd['queue_index'])
+        self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def setup_mmu_params(self, port):
         """
@@ -267,13 +312,14 @@ class SetupPfcwdFunc(object):
         """
         self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
 
-    def update_mmu_params(self, mmu_action):
+    def update_mmu_params(self, mmu_action, port):
         """
         Update dynamic threshold value
 
         Args:
             mmu_action(string): for value "change", update within -6 and 3
                                 for value "restore", set back to original threshold
+            port(string) : port name
         """
         if int(self.alpha) <= -6:
             new_alpha = -5
@@ -283,9 +329,9 @@ class SetupPfcwdFunc(object):
             new_alpha = int(self.alpha) + 1
 
         if mmu_action == "change":
-            PfcCmd.update_alpha(self.dut, self.pg_profile, new_alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha)
         elif mmu_action == "restore":
-            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
         time.sleep(2)
 
     def resolve_arp(self, vlan):
@@ -590,7 +636,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer = self.storm_detect_path(dut, port, action)
 
         if mmu_action is not None:
-            self.update_mmu_params(mmu_action)
+            self.update_mmu_params(mmu_action, port)
 
         logger.info("--- Storm restoration path for port {} ---".format(port))
         self.storm_restore_path(dut, loganalyzer, port, action)
@@ -714,6 +760,91 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop pfc storm on port {}".format(port))
                 self.storm_hndle.stop_storm()
             # restore alpha
-            PfcCmd.update_alpha(self.dut, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
+
+    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, tbinfo, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+        """
+        Test PfCWD functionality after toggling port
+
+        Test verifies the following:
+            1. Select the port and lossless queue
+            2. Start PFCWD on selected test port
+            3. Start PFC storm on selected test port and lossless queue
+            4. Verify that PFC storm is detected
+            5. Stop PFC storm on selected test port and lossless queue
+            6. Verify that PFC storm is restored
+            7. Toggle test port (put administrativelly down and then up)
+            8. Verify that PFC storm is not detected
+
+        Args:
+            request(object) : pytest request object
+            fake_storm(fixture) : Module scoped fixture for enable/disable fake storm
+            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCWD
+            fanout_graph_facts(fixture) : Fanout graph info
+            tbinfo(fixture) : Testbed info
+            ptfhost(AnsibleHost) : PTF host instance
+            duthost(AnsibleHost) : DUT instance
+            fanouthosts(AnsibleHost): Fanout instance
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        setup_info = setup_pfc_test
+        self.fanout_info = fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        self.neighbors = setup_info['neighbors']
+        dut_facts = self.dut.facts
+        self.peer_dev_list = dict()
+        self.fake_storm = fake_storm
+        self.storm_hndle = None
+        action = "dontcare"
+
+        for idx, port in enumerate(self.ports):
+             logger.info("")
+             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
+             self.setup_test_params(port, setup_info['vlan'], init=not idx)
+             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+
+             try:
+                 # Verify that PFC storm is detected and restored
+                 self.stats = PfcPktCntrs(self.dut, action)
+                 logger.info("{} on port {}".format(WD_ACTION_MSG_PFX[action], port))
+                 self.run_test(self.dut, port, action)
+
+                 # Toggle test port and verify that PFC storm is not detected
+                 loganalyzer = LogAnalyzer(ansible_host=self.dut, marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
+                 marker = loganalyzer.init()
+                 ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
+                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+                 loganalyzer.ignore_regex.extend(reg_exp)
+                 loganalyzer.expect_regex = []
+                 loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+                 loganalyzer.match_regex = []
+
+                 port_toggle(self.dut, tbinfo, ports=[port])
+
+                 logger.info("Verify that PFC storm is not detected on port {}".format(port))
+                 result = loganalyzer.analyze(marker, fail=False)
+                 if result["total"]["expected_missing_match"] == 0:
+                     pytest.fail(result)
+
+             except Exception as e:
+                 pytest.fail(str(e))
+
+             finally:
+                 if self.storm_hndle:
+                     logger.info("--- Stop PFC storm on port {}".format(port))
+                     self.storm_hndle.stop_storm()
+                 else:
+                     logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                     PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
+                 logger.info("--- Stop PFCWD ---")
+                 self.dut.command("pfcwd stop")
+

@@ -28,12 +28,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get platform facts from platform.json file
-    request.cls.chassis_facts = duthost.facts.get("chassis")
 
-@pytest.mark.usefixtures("gather_facts")
 class TestThermalApi(PlatformApiTestBase):
 
     num_thermals = None
@@ -55,33 +50,36 @@ class TestThermalApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, thermal_idx):
+    def compare_value_with_platform_facts(self, duthost, key, value, thermal_idx):
         expected_value = None
-
-        if self.chassis_facts:
-            expected_thermals = self.chassis_facts.get("thermals")
+        if duthost.facts.get("chassis").get("thermals"):
+            expected_thermals = duthost.facts.get("chassis").get("thermals")
             if expected_thermals:
                 expected_value = expected_thermals[thermal_idx].get(key)
 
         if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, thermal_idx)):
+                       "Unable to get expected value for '{}' from platform.json file for thermal {}".format(key,
+                                                                                                             thermal_idx)):
             self.expect(value == expected_value,
-                          "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, thermal_idx))
+                        "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value,
+                                                                                                 expected_value,
+                                                                                                 thermal_idx))
 
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_thermals):
             name = thermal.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                self.compare_value_with_platform_facts(duthost, 'name', name, i)
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             presence = thermal.get_presence(platform_api_conn, i)
 
@@ -91,7 +89,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             model = thermal.get_model(platform_api_conn, i)
 
@@ -100,7 +98,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             serial = thermal.get_serial(platform_api_conn, i)
 
@@ -109,7 +107,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             status = thermal.get_status(platform_api_conn, i)
 
@@ -136,7 +134,7 @@ class TestThermalApi(PlatformApiTestBase):
     # Functions to test methods defined in ThermalBase class
     #
 
-    def test_get_temperature(self, duthost, localhost, platform_api_conn):
+    def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             temperature = thermal.get_temperature(platform_api_conn, i)
 
@@ -144,7 +142,29 @@ class TestThermalApi(PlatformApiTestBase):
                 self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_low_threshold(self, duthost, localhost, platform_api_conn):
+    def test_get_minimum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        for i in range(self.num_thermals):
+            temperature = thermal.get_minimum_recorded(platform_api_conn, i)
+
+            if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
+                if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
+                    self.expect(temperature > 0 and temperature <= 100,
+                                "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        self.assert_expectations()
+
+    def test_get_maximum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        for i in range(self.num_thermals):
+            temperature = thermal.get_maximum_recorded(platform_api_conn, i)
+
+            if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
+                if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
+                    self.expect(temperature > 0 and temperature <= 100,
+                                "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        self.assert_expectations()
+
+    def test_get_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal low threshold temperature is sane
         for i in range(self.num_thermals):
             low_threshold = thermal.get_low_threshold(platform_api_conn, i)
@@ -153,7 +173,7 @@ class TestThermalApi(PlatformApiTestBase):
                 self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_high_threshold(self, duthost, localhost, platform_api_conn):
+    def test_get_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal high threshold temperature is sane
         for i in range(self.num_thermals):
             high_threshold = thermal.get_high_threshold(platform_api_conn, i)
@@ -162,7 +182,7 @@ class TestThermalApi(PlatformApiTestBase):
                 self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_low_critical_threshold(self, duthost, localhost, platform_api_conn):
+    def test_get_low_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal low critical threshold temperature is sane
         for i in range(self.num_thermals):
             low_critical_threshold = thermal.get_low_critical_threshold(platform_api_conn, i)
@@ -171,7 +191,7 @@ class TestThermalApi(PlatformApiTestBase):
                 self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_high_critical_threshold(self, duthost, localhost, platform_api_conn):
+    def test_get_high_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal high threshold temperature is sane
         for i in range(self.num_thermals):
             high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
@@ -180,7 +200,7 @@ class TestThermalApi(PlatformApiTestBase):
                 self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_set_low_threshold(self, duthost, localhost, platform_api_conn):
+    def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
             low_temperature = 20
@@ -196,7 +216,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_high_threshold(self, duthost, localhost, platform_api_conn):
+    def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
             high_temperature = 80

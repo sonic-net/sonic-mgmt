@@ -89,7 +89,7 @@ stages:
               pytest platform_tests/test_cont_warm_reboot.py \
                     --continuous_reboot_count=$CONTINUOUS_REBOOT_COUNT \
                     --continuous_reboot_delay=$CONTINUOUS_REBOOT_DELAY \
-                    --testbed=$(tbname) --host-pattern=$(tbname) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
+                    --testbed=$(tbname) --host-pattern=$(dut) --inventory=/data/sonic-mgmt/ansible/veos_vtb \
                     --testbed_file=/data/sonic-mgmt/ansible/vtestbed.csv --module-path=/data/sonic-mgmt/ansible/library \
                     --show-capture=no --log-cli-level=INFO  \
                     --image_location=$IMAGE_LOCATION --image_list=$IMAGE_LIST \
@@ -150,3 +150,4 @@ stages:
         testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
         testRunTitle: kvmtest
       condition: succeededOrFailed()
+
