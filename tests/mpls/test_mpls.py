@@ -41,7 +41,7 @@ def setup(duthost, tbinfo, ptfadapter):
     :param tbinfo: fixture provides information about testbed
     :return: dictionary with all test required information
     """
-    if tbinfo['topo']['name'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
+    if tbinfo['topo']['name'] not in ('t1'):
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
@@ -54,24 +54,17 @@ def setup(duthost, tbinfo, ptfadapter):
     # get the list of port channels
     port_channels = mg_facts['minigraph_portchannels']
 
-
-
     host_facts = duthost.setup()['ansible_facts']
 
     setup_information = {
         'eth_dst': host_facts['ansible_Ethernet10']['macaddress'],
         'duthost': duthost,
         'dut_tmp_dir': DUT_TMP_DIR,
-        'dst_ip_spine_blocked': '192.168.144.1',
     }
 
     logger.info('setup variables {}'.format(pprint.pformat(setup_information)))
 
-    # FIXME: There seems to be some issue with the initial setup of the ptfadapter, causing some of the
-    # TestBasicAcl tests to fail because the forwarded packets are not being collected. This is an
-    # attempt to mitigate that issue while we continue to investigate the root cause.
-    #
-    # Ref: GitHub Issue #2032
+    # Check for: GitHub Issue #2032
     logger.info("setting up the ptfadapter")
     ptfadapter.reinit()
 
@@ -85,35 +78,18 @@ def setup(duthost, tbinfo, ptfadapter):
 
 class BaseMplsTest(object):
     """
-    Base class for ACL rules testing.
-    Derivatives have to provide @setup_rules method to prepare DUT for ACL traffic test and
-    optionally override @teardown_rules which base implementation is simply applying empty ACL rules
-    configuration file
+    Base class for MPLS rules testing.
     """
     __metaclass__ = ABCMeta
-
-    ACL_COUNTERS_UPDATE_INTERVAL = 10  # seconds
-
+    
     @abstractmethod
-    def setup_rules(self, dut, setup, acl_table):
+    def setup_rules(self, dut, setup):
         """
         setup rules for test
         :param dut: dut host
         :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
-        host_facts = duthost.setup()['ansible_facts']
-        route_file_dir = duthost.shell('mktemp')['stdout']
-        # Copy json file to DUT
-        myFile=open('mpls/label_routes.json', 'r')
-        myLabels=myFile.read()
-        duthost.copy(content=myLabels, dest=route_file_dir, verbose=False)
-        # Apply routes with swssconfig
-        result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(route_file_dir),
-                           module_ignore_errors=True)
-        if result['rc'] != 0:
-            pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
         pass
 
     def post_setup_hook(self, dut, localhost):
@@ -126,21 +102,14 @@ class BaseMplsTest(object):
 
         pass
 
-    def teardown_rules(self, dut, setup):
+    def teardown_rules(self, setup):
         """
-        teardown ACL rules after test by applying empty configuration
-        :param dut: DUT host object
+        teardown MPLS configurations after test by applying DEL configuration
         :param setup: setup information
         :return:
         """
 
         logger.info('removing all MPLS')
-        # copy rules remove configuration
-        #dut.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=setup['dut_tmp_dir'])
-        #remove_rules_dut_path = os.path.join(setup['dut_tmp_dir'], ACL_REMOVE_RULES_FILE)
-        # remove rules
-        #logger.info('applying {}'.format(remove_rules_dut_path))
-        #dut.command('config acl update full {}'.format(remove_rules_dut_path))
         duthost = setup['duthost']
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_DEL_ROUTES), dest=setup['dut_tmp_dir'])
         label_del_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_DEL_ROUTES)
@@ -184,7 +153,7 @@ class BaseMplsTest(object):
         )
 
     def mpls_stack_packet(self, setup, ptfadapter):
-        """ create MPLS packet for testing """
+        """ create stacked MPLS packet for testing """
         return testutils.simple_mpls_packet(
             eth_dst=setup['eth_dst'],
             eth_src=ptfadapter.dataplane.get_mac(0, 10),
@@ -231,7 +200,7 @@ class BaseMplsTest(object):
         return exp_pkt
     
     def expected_mask_mpls_swap_packet(self, pkt, exp_label):
-        """ return mask for mpls packet """
+        """ return mask for mpls swap packet """
 
         exp_pkt = pkt.copy()
         exp_pkt['MPLS'].ttl -= 1
@@ -244,7 +213,7 @@ class BaseMplsTest(object):
         return exp_pkt
     
     def expected_mask_mpls_push_packet(self, pkt, exp_label):
-        """ return mask for mpls packet """
+        """ return mask for mpls push packet """
         
         exp_pkt = pkt.copy()
         exp_pkt['MPLS'].ttl = exp_pkt['IP'].ttl - 1
@@ -258,8 +227,11 @@ class BaseMplsTest(object):
         return exp_pkt
 
     def test_pop_label(self, setup, ptfadapter):
-        """ test pop label """
+        """ test for pop MPLS label """
+        
         duthost = setup['duthost']
+        
+        # Copy APP_DB config to DUT
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_POP_ROUTES), dest=setup['dut_tmp_dir'])
         label_add_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_POP_ROUTES)
 
@@ -269,13 +241,19 @@ class BaseMplsTest(object):
         if result['rc'] != 0:
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
 
+        # Create packet for sending and masked expected packet on receiving port     
         pkt = self.mpls_packet(setup, ptfadapter)
         exp_pkt = self.expected_mask_ip_packet(pkt)
 
         ptfadapter.dataplane.flush()
+        
+        # Send pkt from spine port 10
         testutils.send(ptfadapter, '10', pkt)
+        
+        # Capture and verify packets on tor port 25
         res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[25])
         
+        # Copy Delete MPLS configs to DUT after test 
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_DEL_ROUTES), dest=setup['dut_tmp_dir'])
         label_del_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_DEL_ROUTES)
 
@@ -287,8 +265,11 @@ class BaseMplsTest(object):
 
 
     def test_swap_label(self, setup, ptfadapter):
-        """ test swap label """
+        """ test for swap MPLS label """
+        
         duthost = setup['duthost']
+        
+        # Copy APP_DB config to DUT
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_SWAP_ROUTES), dest=setup['dut_tmp_dir'])
         label_add_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_SWAP_ROUTES)
 
@@ -297,15 +278,20 @@ class BaseMplsTest(object):
                            module_ignore_errors=True)
         if result['rc'] != 0:
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
-
+        
+        # Create packet for sending and masked expected packet on receiving port  
         pkt = self.mpls_packet(setup, ptfadapter)
         exp_pkt = self.expected_mask_mpls_swap_packet(pkt, 1000002)
 
         ptfadapter.dataplane.flush()
+        
+        # Send pkt from spine port 10
         testutils.send(ptfadapter, '10', pkt)
+        
+        # Capture and verify packets on tor port 25
         res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[25])
         
-
+        # Copy Delete MPLS configs to DUT after test 
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_DEL_ROUTES), dest=setup['dut_tmp_dir'])
         label_del_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_DEL_ROUTES)
 
@@ -316,8 +302,11 @@ class BaseMplsTest(object):
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
 
     def test_push_label(self, setup, ptfadapter):
-        """ test push label """
+        """ test push MPLS label """
+        
         duthost = setup['duthost']
+        
+        # Copy APP_DB config to DUT
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_PUSH_ROUTES), dest=setup['dut_tmp_dir'])
         label_add_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_PUSH_ROUTES)
 
@@ -327,7 +316,9 @@ class BaseMplsTest(object):
         if result['rc'] != 0:
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
 
+        # Create packet for sending and masked expected packet on receiving port 
         pkt = self.icmp_packet(setup, ptfadapter)
+        ## Add MPLS header in expected packet
         epkt = pkt.copy()
         pkt1 = epkt['IP']
         epkt['Ether'].type=0x8847
@@ -339,9 +330,14 @@ class BaseMplsTest(object):
         exp_pkt = self.expected_mask_mpls_push_packet(epkt, 1000001)
 
         ptfadapter.dataplane.flush()
+        
+        # Send pkt from spine port 10
         testutils.send(ptfadapter, '10', pkt)
+        
+        # Capture and verify packets on tor port 25
         res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[25])
-
+        
+        # Copy Delete MPLS configs to DUT after test
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_DEL_ROUTES), dest=setup['dut_tmp_dir'])
         label_del_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_DEL_ROUTES)
 
@@ -350,9 +346,13 @@ class BaseMplsTest(object):
                            module_ignore_errors=True)
         if result['rc'] != 0:
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
+            
     def test_swap_labelstack(self, setup, ptfadapter):
-        """ test swap label """
+        """ test swap for stack of 3 MPLS label """
+        
         duthost = setup['duthost']
+        
+        # Copy APP_DB config to DUT
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_SWAP_ROUTES), dest=setup['dut_tmp_dir'])
         label_add_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_SWAP_ROUTES)
 
@@ -362,14 +362,19 @@ class BaseMplsTest(object):
         if result['rc'] != 0:
             pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
 
+        # Create packet for sending and masked expected packet on receiving port 
         pkt = self.mpls_stack_packet(setup, ptfadapter)
         exp_pkt = self.expected_mask_mpls_swap_packet(pkt, 1000002)
 
         ptfadapter.dataplane.flush()
+        
+        # Send pkt from spine port 10
         testutils.send(ptfadapter, '10', pkt)
+        
+        # Capture and verify packets on tor port 25
         res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[25])
 
-
+        # Copy Delete MPLS configs to DUT after test
         duthost.copy(src=os.path.join(ADD_DIR, LABEL_DEL_ROUTES), dest=setup['dut_tmp_dir'])
         label_del_dut_path = os.path.join(setup['dut_tmp_dir'], LABEL_DEL_ROUTES)
 
@@ -382,16 +387,14 @@ class BaseMplsTest(object):
 
 class TestBasicMpls(BaseMplsTest):
     """
-    Basic ACL rules traffic tests.
-    Setup rules using full update, run traffic tests cases.
+    Basic MPLS traffic tests.
     """
 
-    def setup_rules(self, dut, setup, acl_table):
+    def setup_rules(self, dut, setup):
         """
         setup rules on DUT
         :param dut: dut host
         :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
         
