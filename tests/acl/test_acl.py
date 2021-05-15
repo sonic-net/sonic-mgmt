@@ -17,7 +17,7 @@ from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_icmp_responder, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
 
@@ -149,13 +149,24 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
                 acl_table_ports[''] += port
 
     vlan_ports = []
+    vlan_mac = ""
 
     if topo == "t0":
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
+        config_facts = duthost.get_running_config_facts()
+        vlan_table = config_facts["VLAN"]
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = vlan_table[vlan_name]["mac"]
+
+    dest_mac_mapping = {
+        "downlink->uplink": vlan_mac if topo == "t0" else duthost.facts["router_mac"],
+        "uplink->downlink": duthost.facts["router_mac"]
+    }
+
     setup_information = {
-        "router_mac": duthost.facts["router_mac"],
+        "destination_mac": dest_mac_mapping,
         "downstream_port_ids": downstream_port_ids,
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
@@ -503,7 +514,7 @@ class BaseAclTest(object):
 
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -516,7 +527,7 @@ class BaseAclTest(object):
                 pkt["IP"].proto = proto
         else:
             pkt = testutils.simple_tcpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -540,7 +551,7 @@ class BaseAclTest(object):
 
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -550,7 +561,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_udpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -566,7 +577,7 @@ class BaseAclTest(object):
 
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -576,7 +587,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_icmpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=setup["destination_mac"][direction],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
