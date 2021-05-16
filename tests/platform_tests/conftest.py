@@ -4,8 +4,10 @@ import pytest
 import os
 import re
 import logging
+from collections import OrderedDict
 from datetime import datetime
 
+from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .args.advanced_reboot_args import add_advanced_reboot_args
@@ -75,6 +77,8 @@ def get_state_times(timestamp, state, state_times):
     timestamps = state_dict.get("timestamp")
     if state_status in timestamps:
         state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
+        # capture last occcurence - useful in calculating events end time
+        state_dict["last_occurence"] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
         # this is useful in capturing start point. Eg., first neighbor entry, LAG ready, etc.
@@ -83,50 +87,58 @@ def get_state_times(timestamp, state, state_times):
 
 
 def get_report_summary(analyze_result, reboot_type):
-    processing_times = analyze_result.get("processing_time", {})
-    first_occurences = analyze_result.get("first_occurence", {})
-    processing_times_summary = dict()
-    for entity, time_data in processing_times.items():
-        processing_times_summary.update({entity.lower(): str(time_data["reboot_time"])})
-    for entity, time_data in first_occurences.items():
-        processing_times_summary.update({entity.lower(): str(time_data["time_since_reboot"])})
+    time_spans = analyze_result.get("time_span", {})
+    time_spans_summary = OrderedDict()
+    kexec_offsets = analyze_result.get("offset_from_kexec", {})
+    reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+    kexec_offsets_summary = OrderedDict()
+    for entity in OFFSET_ITEMS:
+        time_taken = ""
+        if entity in kexec_offsets:
+            time_taken = kexec_offsets.get(entity).get("time_taken", "")
+        elif entity in time_spans:
+            timestamp = time_spans.get(entity).get("timestamp", {})
+            marker_start_time = timestamp.get("Start") if "Start" in timestamp else timestamp.get("Started")
+            if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
+                time_taken = (datetime.strptime(marker_start_time, FMT) -\
+                    datetime.strptime(reboot_start_time, FMT)).total_seconds()
+        kexec_offsets_summary.update({entity.lower(): str(time_taken)})
+
+    for entity in TIME_SPAN_ITEMS:
+        time_taken = ""
+        if entity in time_spans:
+            time_taken = time_spans.get(entity,{}).get("time_span", "")
+        elif entity in kexec_offsets:
+            marker_first_time = kexec_offsets.get(entity).get("timestamp", {}).get("Start")
+            marker_last_time = kexec_offsets.get(entity).get("last_occurence")
+            if marker_first_time and marker_last_time:
+                time_taken = (datetime.strptime(marker_last_time, FMT) -\
+                    datetime.strptime(marker_first_time, FMT)).total_seconds()
+        time_spans_summary.update({entity.lower(): str(time_taken)})
+
     result_summary = {
         "reboot_type": reboot_type,
-        "reboot_time": str(analyze_result.get("reboot_time", {}).get("reboot_time")),
-        "dataplane": {k: str(v) for k,v in analyze_result.get("dataplane", {}).items()},
-        "processing_time": processing_times_summary
+        "dataplane": analyze_result.get("dataplane", {"downtime": "", "lost_packets": ""}),
+        "controlplane": analyze_result.get("controlplane", {"downtime": "", "arp_ping": ""}),
+        "time_span": time_spans_summary,
+        "offset_from_kexec": kexec_offsets_summary
     }
     return result_summary
 
 
-def analyze_syslog(duthost, messages, result, first_occurence_times):
+def analyze_syslog(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
     if not messages:
         logging.error("Expected messages not found in syslog")
         return None
 
     reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
-    service_patterns = {
-        "Stopping": re.compile(r'.*Stopping.*service.*'),
-        "Stopped": re.compile(r'.*Stopped.*service.*'),
-        "Starting": re.compile(r'.*Starting.*service.*'),
-        "Started": re.compile(r'.*Started.*service.*')
-    }
-    other_patterns = {
-        "PORT_INIT|Start": re.compile(r'.*swss#portsyncd.*main.*PortInitDone.*'),
-        "LAG_READY|Start": re.compile(r'.*teamd#tlm_teamd.*try_add_lag.*The LAG \'PortChannel.*\' has been added.*'),
-        "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),
-        "INIT_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to INIT VIEW.*'),
-        "APPLY_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*APPLY_VIEW.*'),
-        "APPLY_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to APPLY VIEW.*'),
-        "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
-        "FINALIZER|End": re.compile(r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)")
-    }
 
     def service_time_check(message, status):
         time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
         time = time.strftime(FMT)
         service_name = message.split(status + " ")[1].split()[0]
+        service_name = service_name.upper()
         service_dict = service_restart_times.get(service_name, {"timestamp": {}})
         timestamps = service_dict.get("timestamp")
         if status in timestamps:
@@ -136,26 +148,29 @@ def analyze_syslog(duthost, messages, result, first_occurence_times):
 
     reboot_time = "N/A"
     for message in messages:
+        # Get timestamp of reboot - Rebooting string
         if re.search(reboot_pattern, message):
             reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
             continue
-        for status, pattern in service_patterns.items():
+        # Get stopping to started timestamps for services (swss, bgp, etc)
+        for status, pattern in SERVICE_PATTERNS.items():
             if re.search(pattern, message):
                 service_time_check(message, status)
                 break
-        marker_keys = other_patterns.keys()
-        for state, pattern in other_patterns.items():
+        # Get timestamps of all other entities
+        for state, pattern in OTHER_PATTERNS.items():
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
                 state_name = state.split("|")[0].strip()
-                if state_name + "|End" not in marker_keys:
-                    state_times = get_state_times(timestamp, state, first_occurence_times)
-                    first_occurence_times.update(state_times)
+                if state_name + "|End" not in OTHER_PATTERNS.keys():
+                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
                 break
 
+    # Calculate time that services took to stop/start
     for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
         timings["stop_time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
@@ -167,42 +182,30 @@ def analyze_syslog(duthost, messages, result, first_occurence_times):
                 if "Started" in timestamps and "Starting" in timestamps else None
 
         if "Started" in timestamps and "Stopped" in timestamps:
-            timings["reboot_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
+            timings["time_span"] = (datetime.strptime(timestamps["Started"], FMT) -\
                 datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
-            timings["reboot_time"] = (datetime.strptime(timestamps["End"], FMT) -\
+            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
                 datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
-    result["processing_time"].update(service_restart_times)
-    result["first_occurence"] = first_occurence_times
-    finalizer_end_time = service_restart_times.get("FINALIZER",{}).get("timestamp",{}).get("End")
+    result["time_span"].update(service_restart_times)
+    result["offset_from_kexec"] = offset_from_kexec
     result["reboot_time"] = {
-        "timestamp": {"Start": reboot_time, "End": finalizer_end_time},
-        "reboot_time": (datetime.strptime(finalizer_end_time, FMT) -\
-            datetime.strptime(reboot_time, FMT)).total_seconds() \
-                if finalizer_end_time and reboot_time != "N/A" else "N/A"
+        "timestamp": {"Start": reboot_time},
     }
-
     return result
 
 
-def analyze_sairedis_rec(messages, result, first_occurence_times):
+def analyze_sairedis_rec(messages, result, offset_from_kexec):
     sai_redis_state_times = dict()
-    state_patterns = {
-        "sai_switch_create|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_SWITCH.*'),
-        "first_neighbor_entry|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*'),
-        "sai_switch_create|End": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
-        "default_route_set|Start": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*')
-    }
-    marker_keys = state_patterns.keys()
     for message in messages:
-        for state, pattern in state_patterns.items():
+        for state, pattern in SAIREDIS_PATTERNS.items():
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
                 state_name = state.split("|")[0].strip()
-                if state_name + "|End" not in marker_keys:
-                    state_times = get_state_times(timestamp, state, first_occurence_times)
-                    first_occurence_times.update(state_times)
+                if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
+                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, sai_redis_state_times)
                     sai_redis_state_times.update(state_times)
@@ -210,11 +213,11 @@ def analyze_sairedis_rec(messages, result, first_occurence_times):
     for _, timings in sai_redis_state_times.items():
         timestamps = timings["timestamp"]
         if "Start" in timestamps and "End" in timestamps:
-            timings["reboot_time"] = (datetime.strptime(timestamps["End"], FMT) -\
+            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
                 datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
-    result["processing_time"].update(sai_redis_state_times)
-    result["first_occurence"] = first_occurence_times
+    result["time_span"].update(sai_redis_state_times)
+    result["offset_from_kexec"] = offset_from_kexec
 
 
 def get_data_plane_report(analyze_result, reboot_type):
@@ -223,7 +226,7 @@ def get_data_plane_report(analyze_result, reboot_type):
         filepath = files[0]
         with open(filepath) as json_file:
             report = json.load(json_file)
-    analyze_result["dataplane"] = report
+    analyze_result.update(report)
 
 
 @pytest.fixture()
@@ -270,22 +273,23 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     yield
 
     result = loganalyzer.analyze(marker, fail=False)
-    analyze_result = {"processing_time": dict()}
-    first_occurence_times = dict()
+    analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
+    offset_from_kexec = dict()
+
     for key, messages in result["expect_messages"].items():
         if "syslog" in key:
-            analyze_syslog(duthost, messages, analyze_result, first_occurence_times)
+            analyze_syslog(duthost, messages, analyze_result, offset_from_kexec)
         elif "sairedis.rec" in key:
-            analyze_sairedis_rec(messages, analyze_result, first_occurence_times)
+            analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 
-    for marker, time_data in analyze_result["first_occurence"].items():
+    for marker, time_data in analyze_result["offset_from_kexec"].items():
         marker_start_time = time_data.get("timestamp", {}).get("Start")
         reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
         if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
-            time_data["time_since_reboot"] = (datetime.strptime(marker_start_time, FMT) -\
+            time_data["time_taken"] = (datetime.strptime(marker_start_time, FMT) -\
                 datetime.strptime(reboot_start_time, FMT)).total_seconds()
         else:
-            time_data["time_since_reboot"] = "N/A"
+            time_data["time_taken"] = "N/A"
 
     get_data_plane_report(analyze_result, reboot_type)
     result_summary = get_report_summary(analyze_result, reboot_type)
