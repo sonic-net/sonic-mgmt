@@ -161,10 +161,19 @@
 	cd sonic-mgmt/tests
 	```
 
-	- Run the following command to execute the `bgp_fact` test (including the pre/post setup steps):
+	- Modify `veos_vtb` inside ansible directory to set `license_server` IPv4 Address for IxANVL for `ptf_ixanvl`.
+
+	- Run the following command to execute the `ixanvl_bgp_conformance` test (including the pre/post setup steps):
 
 	```
-	./run_tests.sh -n ixanvl-vs-conf -d vlab01 -c ixia/ixanvl/test_anvl_run.py -f ../ansible/testbed.csv -i veos_vtb
+	./run_tests.sh -n ixanvl-vs-conf -d vlab-01 -c ixia/ixanvl/test_bgp_conformance.py -f ../ansible/testbed.csv -i ../ansible/veos_vtb
 	```
+    	- **Note**: The above command will try to run the whole bgp test suite. If you need to run selective test cases then use `-e` option.e.g.
+	```
+	./run_tests.sh -n ixanvl-vs-conf -d vlab-01 -c ixia/ixanvl/test_bgp_conformance.py -f ../ansible/testbed.csv -i ../ansible/veos_vtb -e "--testnum=1.1"
+	```
+	This will run test 1.1 from bgp suite.
+
+	- The run result will be saved in log file named `bgp4.log` and will be available in current directory as `bgp4.log`.
 
 	You should see 1 set of tests run and pass. You're now set up and ready to use the IxANVL testbed!
