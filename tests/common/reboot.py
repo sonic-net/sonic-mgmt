@@ -105,6 +105,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
+        if reboot_type == REBOOT_TYPE_WATCHDOG:
+            res = duthost.command('python -c \"import sonic_platform\"',module_ignore_errors=True)
+            if res['failed']:
+                reboot_command = "python3 -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\""
         if timeout == 0:
             timeout = reboot_ctrl['timeout']
         if wait == 0:
