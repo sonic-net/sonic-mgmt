@@ -16,6 +16,7 @@ from tests.common.utilities import wait_tcp_connection
 from .ixanvl_utils import emit_intf_block
 from .ixanvl_utils import emit_global_block
 from .ixanvl_utils import emit_bgp_global
+from .ixanvl_utils import delete_tmp_file
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
@@ -103,4 +104,5 @@ def test_anvl_bgp_run(duthost,
     stdout.channel.recv_exit_status()
     scp.get('/opt/Ixia/IxANVL/bgp4.log')
 
+    delete_tmp_file(ptfhost)
     ixanvl_tester.close()
