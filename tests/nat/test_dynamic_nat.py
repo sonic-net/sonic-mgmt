@@ -8,6 +8,7 @@ import pytest
 from nat_helpers import DIRECTION_PARAMS
 from nat_helpers import POOL_RANGE_START_PORT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
+from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
 from nat_helpers import POOL_RANGE_END_PORT
 from nat_helpers import TCP_GLOBAL_PORT
 from nat_helpers import configure_dynamic_nat_rule
@@ -33,9 +34,10 @@ from nat_helpers import generate_and_verify_icmp_traffic
 from nat_helpers import generate_and_verify_not_translated_traffic
 from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 from nat_helpers import generate_and_verify_traffic_dropped
+from nat_helpers import get_cli_show_nat_config_output
+from nat_helpers import write_json
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
-
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -699,3 +701,378 @@ class TestDynamicNat(object):
         # Check dynamic NAT when all NAT interfaces zones are corect
         nat_zones_config(duthost, setup_data, interface_type)
         generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type, icmp_id=POOL_RANGE_START_PORT)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_extremal_ports(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        # L4 ports to be examined
+        ex_ports = [7, 23, 65535]
+        # Port 22 is used by ssh daemon for tcp
+        if protocol_type == 'udp':
+            ex_ports.append(22)
+        exp_entries = len(ex_ports) + 1
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        # Perform series of TCP handshakes (host-tor -> leaf-tor)
+        source_port, dst_port = get_l4_default_ports(protocol_type)
+        for src_port in ex_ports:
+            perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                              network_data.ip_dst, dst_port,
+                              network_data.ip_src, src_port,
+                              network_data.public_ip)
+        # Checking numbers
+        output = exec_command(duthost, ['show nat translations | grep DNAPT'])['stdout']
+        entries_no = [int(s) for s in output.split() if s.isdigit()]
+        fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
+        pytest_assert(exp_entries == entries_no[0], fail_msg)
+        duthost.command("sudo sonic-clear nat translations")
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_single_host(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        n_c = 10
+        dst_port = get_l4_default_ports(protocol_type)[1]
+        scale_range = [dst_port, dst_port + n_c]
+        p_range_conf = "{}-{}".format(scale_range[0], scale_range[1])
+        exp_entries = scale_range[1] - scale_range[0] + 1
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, port_range=p_range_conf, default=True, handshake=True)
+        # Define network data and L4 ports
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        # Set timeouts to max
+        duthost.command('sudo config nat set tcp-timeout 432000')
+        duthost.command('sudo config nat set udp-timeout 600')
+        # Perform series of TCP handshakes (host-tor -> leaf-tor)
+        for src_port in range(scale_range[0], scale_range[1]):
+            perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                              network_data.ip_dst, dst_port,
+                              network_data.ip_src, src_port,
+                              network_data.public_ip)
+        # Checking numbers
+        output = exec_command(duthost, ['show nat translations | grep DNAPT'])['stdout']
+        entries_no = [int(s) for s in output.split() if s.isdigit()]
+        fail_msg = "Unexpected number of translations. Got {} while {} expected".format(entries_no[0], exp_entries)
+        pytest_assert(exp_entries == entries_no[0], fail_msg)
+        # Restore default config
+        duthost.command('sudo config nat set tcp-timeout {}'.format(GLOBAL_TCP_NAPT_TIMEOUT))
+        duthost.command('sudo config nat set udp-timeout {}'.format(GLOBAL_UDP_NAPT_TIMEOUT))
+        duthost.command("sudo sonic-clear nat translations")
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_binding_remove(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
+                                        protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        nat_type = 'dynamic'
+        direction = 'host-tor'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
+        # Confirm that binding is added
+        output = get_cli_show_nat_config_output(duthost, "bindings")
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
+        pattern = r"test_binding"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['binding name'])
+        pytest_assert(len(entries) == 1, "Binding has not been added properly, binding count: {} \n {} ; {}".format(len(entries),
+                                                                                                                    output[0]['binding name'],
+                                                                                                                    nat_pools_dump[0]['pool name']))
+        # Send TCP/UDP traffic and check
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+        # Check that NAT entries are present in iptables after adding
+        portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        acl_subnet = setup_data[interface_type]["acl_subnet"]
+        public_ip = setup_data[interface_type]["public_ip"]
+        iptables_output = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                  portrange)]
+                         }
+        pytest_assert(iptables_rules == iptables_output,
+                      "Unexpected iptables output for nat table")
+        # Delete NAT bindings
+        exec_command(duthost, ["config nat remove bindings"])
+        # Confirm that binding has been removed
+        output = exec_command(duthost, ["show nat config bindings"])['stdout']
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
+        pattern = r"test_binding"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        pytest_assert(len(entries) == 0, "Binding has not been deleted properly, binding count: {} \n {} ; {}".format(len(entries),
+                                                                                                                      output,
+                                                                                                                      nat_pools_dump[0]['pool name']))
+        # Send TCP/UDP traffic and check
+        wait_timeout(protocol_type)
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+        # Check that NAT entries are not present in iptables after removing binding
+        iptables_output = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": []
+                         }
+        pytest_assert(iptables_rules == iptables_output,
+                      "Unexpected iptables output for nat table")
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_iptable_snat(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
+                                      protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        nat_type = 'dynamic'
+        direction = 'host-tor'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
+        # Confirm that pool is added
+        output = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
+        pattern = r"pool"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['pool name'])
+        pytest_assert(len(entries) == 1, "Pool has not been added properly, pool count: {} \n {} ; {}".format(len(entries),
+                                                                                                              output[0]['pool name'],
+                                                                                                              nat_bindings_dump[0]['binding name']))
+        # Send TCP/UDP traffic and check
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+        # Check that IP table rules are programmed as SNAT rules for TCP/UDP/ICMP IP protocol type
+        output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
+        pattern = r"SNAT.*tcp.*\n.*SNAT.*udp.*\n.*SNAT.*icmp"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
+        nat_pools_dump = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
+        nat_translations_dump = nat_translations(duthost, show=True)
+        pytest_assert(len(entries) == 1, "IP Tables rules are not properly programmed: {} \n {} \n {} \n {} \n {}".format(len(entries),
+                                                                                                                          output,
+                                                                                                                          nat_pools_dump[0]['pool name'],
+                                                                                                                          nat_bindings_dump[0]['binding name'],
+                                                                                                                          nat_translations_dump))
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_outside_interface_delete(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
+                                                  protocol_type):
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        nat_type = 'dynamic'
+        direction = 'host-tor'
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, default=True, handshake=True)
+
+        # Confirm that pool is added
+        output = get_cli_show_nat_config_output(duthost, "pool")
+        nat_bindings_dump = get_cli_show_nat_config_output(duthost, "bindings")
+        pattern = r"pool"
+        entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type), "{0}-{1}".
+                                            format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output[0]['pool name'])
+        pytest_assert(len(entries) == 1, "Pool has not been added properly, pool count: {} \n {} ; {}".format(len(entries),
+                                                                                                              output[0]['pool name'],
+                                                                                                              nat_bindings_dump[0]['binding name']))
+        # Send TCP/UDP traffic and check
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+        # Check that NAT entries are present in iptables after adding
+        portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        acl_subnet = setup_data[interface_type]["acl_subnet"]
+        public_ip = setup_data[interface_type]["public_ip"]
+        iptables_output = dut_nat_iptables_status(duthost)
+        iptables_rules = {
+            "prerouting": [
+                'DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+            "postrouting": [
+                "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange),
+                "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange),
+                "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange)]
+            }
+        pytest_assert(iptables_rules == iptables_output,
+                      "Unexpected iptables output for nat table")
+        # Remove outside interface IP
+        interface_ip = "{} {}/{}".format(setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"],
+                                         setup_data[interface_type]["vrf_conf"]["red"]["gw"],
+                                         setup_data[interface_type]["vrf_conf"]["red"]["mask"])
+        ifname_to_disable = setup_data[interface_type]["outer_zone_interfaces"][0]
+        dut_interface_control(duthost, "ip remove", setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
+        # Check that NAT entries are not present in iptables after removing interface IP
+        iptables_output = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": []
+                         }
+        pytest_assert(iptables_rules == iptables_output,
+                      "Unexpected iptables output for nat table")
+        # Restore previous configuration
+        dut_interface_control(duthost, "ip add", setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
+        # Send TCP/UDP traffic and confirm that restoring previous configuration went well
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+        perform_handshake(ptfhost, setup_info, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_nat_pools(self, tbinfo, duthost, ptfhost, ptfadapter, setup_test_env, protocol_type):
+        # Prepare test environment
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        # Declare variables
+        direction = 'host-tor'
+        nat_type = 'dynamic'
+        inner_interface = dict(setup_data["indices_to_ports_config"])[get_src_port(setup_info, direction, interface_type)[0]]
+        port_range = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        acl_subnet = setup_data[interface_type]["acl_subnet"]
+        public_ip = setup_data[interface_type]["public_ip"]
+
+        # Get network informations
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+
+        # Check, if iptables is empty
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": []
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+
+        # Prepare and add configuration json file
+        nat_session = {
+            'public_ip' : public_ip,
+            'port_range' : port_range,
+            'inner_interface' : inner_interface,
+            'acl_subnet' : acl_subnet
+        }
+        write_json(duthost, nat_session, 'dynamic_binding')
+        # Check iptables
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 port_range),
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 port_range),
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                  port_range)]
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+        # Check traffic. Zone 1 is not configured, not NAT translations expected
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+
+        # Setup zones
+        nat_zones_config(duthost, setup_data, interface_type)
+        # Check iptables
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 port_range),
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 port_range),
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                  port_range)]
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic and check the frame
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+
+        # Wait until nat translations will expire and check one more time
+        wait_timeout(protocol_type)
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_data, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send traffic and check the frame
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+
+    @pytest.mark.nat_dynamic
+    def test_nat_dynamic_modify_bindings(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
+                                         protocol_type):
+
+        interface_type, setup_info = setup_test_env
+        setup_data = copy.deepcopy(setup_info)
+        nat_type = 'dynamic'
+        direction = 'host-tor'
+        network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type='dynamic')
+        src_port, dst_port = get_l4_default_ports(protocol_type)
+
+        # Configure default rules for Dynamic NAT
+        configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
+
+        # Check iptables
+        portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        acl_subnet = setup_data[interface_type]["acl_subnet"]
+        public_ip = setup_data[interface_type]["public_ip"]
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                 portrange),
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                                                                                                  portrange)]
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+        # Send TCP/UDP traffic and check
+        generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
+
+        # Remove bindings
+        nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
+        duthost.command("config nat remove bindings")
+        # Check, if nat bindings is empty
+        pytest_assert(len(get_cli_show_nat_config_output(duthost, "bindings")) == 0, "Nat bindings is not empty")
+        # Check, if iptables is empty
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": []
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+        wait_timeout(protocol_type)
+        # Send TCP/UDP traffic and check without NAT
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
+
+        # Add the binding again
+        acl_subnet = "empty"
+        duthost.command("sudo config nat add binding {0} {1} {2}".format(nat_binding[0]['binding name'],
+                                                                         nat_binding[0]["pool name"], acl_subnet))
+        public_ip = setup_data[interface_type]["public_ip"]
+        portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
+        iptables_ouput = dut_nat_iptables_status(duthost)
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                          "postrouting": [
+                              "SNAT tcp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                                                                                                        portrange),
+                              "SNAT udp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                                                                                                        portrange),
+                              "SNAT icmp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                                                                                                         portrange)]
+                         }
+        pytest_assert(iptables_rules == iptables_ouput,
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+
+        # Perform TCP handshake (host-tor -> leaf-tor)
+        perform_handshake(ptfhost, setup_info, protocol_type, direction,
+                          network_data.ip_dst, dst_port,
+                          network_data.ip_src, src_port,
+                          network_data.public_ip)
+        # Send TCP/UDP traffic and check without NAT
+        generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
