@@ -225,6 +225,12 @@ e07bd0245bd9        ceosimage:4.23.2F                                     "/sbin
 c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/local/bin/supe…"   7 minutes ago        Up 7 minutes                            ptf_vms6-1
 ```
 
+### vSONiC
+```
+$ cd /data/sonic-mgmt/ansible
+$ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic add-topo vms-kvm-t0 password.txt
+```
+
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
@@ -237,6 +243,8 @@ $ ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb pas
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 
 3. You should see BGP sessions up in SONiC:
+
+If neighbor devices are EOS:
 
 ```
 admin@vlab-01:~$ show ip bgp sum
@@ -252,6 +260,28 @@ Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/P
 10.0.0.63       4 64600    3204     950        0    0    0 00:00:21     1
 ```
 
+If neighbor devices are SONiC
+
+```
+admin@vlab-01:~$ show ip bgp sum
+
+IPv4 Unicast Summary:
+BGP router identifier 10.1.0.32, local AS number 65100 vrf-id 0
+BGP table version 3
+RIB entries 5, using 920 bytes of memory
+Peers 4, using 83680 KiB of memory
+Peer groups 4, using 256 bytes of memory
+
+
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+
+```
+
 ## Run a Pytest
 Now that the testbed has been fully setup and configured, let's run a simple test to make sure everything is functioning as expected.
 
@@ -264,7 +294,7 @@ cd sonic-mgmt/tests
 2. Run the following command to execute the `bgp_fact` test (including the pre/post setup steps):
 
 ```
-./run_tests.sh -n vms-kvm-t0 -d vlab01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
