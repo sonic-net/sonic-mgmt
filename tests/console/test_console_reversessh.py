@@ -1,52 +1,55 @@
 import pytest
+import pexpect
+import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from pexpect import pxssh
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_console_reversessh_connectivity(duthost):
+def test_console_reversessh_connectivity(duthost, creds):
     """
     Test reverse SSH are working as expect.
     Verify serial session is available after connect DUT via reverse SSH
     """
-    duthostvars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
-    dutip = duthostvars['ansible_host']
-    dutuser = duthostvars['ansible_user']
-    dutpass = duthostvars['ansible_password']
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    dutuser = creds['sonicadmin_user']
+    dutpass = creds['sonicadmin_password']
 
-    target_line = 1
+    target_line = '1'
 
     # Ensure the target console line is clear before testing
-    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
-    if console_facts['lines'][target_line]['state'] == "BUSY":
+    if check_target_line_status(duthost, target_line, "BUSY"):
+        logging.info("Force clear line for testing")
         duthost.shell('sudo sonic-clear line {}'.format(target_line))
 
-    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
     pytest_assert(
-        console_facts['lines'][target_line]['state'] == "IDLE",
+        check_target_line_status(duthost, target_line, "IDLE"),
         "Target line {} is busy before reverse SSH session start".format(target_line))
 
-    client = pxssh.pxssh()
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client.login(dutip, ressh_user, dutpass)
+        client = pexpect.spawn('ssh {}@{}'.format(ressh_user, dutip))
+        client.expect('[Pp]assword:')
+        client.sendline(dutpass)
 
         # Check the console line state again
-        console_facts = duthost.console_facts()['ansible_facts']['console_facts']
         pytest_assert(
-            console_facts['lines'][target_line]['state'] == "BUSY",
+            check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
-        
+
         # Send escape sequence to exit reverse SSH session
         client.sendcontrol('a')
         client.sendcontrol('x')
-    except pxssh.ExceptionPxssh as e:
+    except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT")
 
-    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
     pytest_assert(
-        console_facts['lines'][target_line]['state'] == "IDLE",
+        wait_until(10, 1, check_target_line_status, duthost, target_line, "IDLE"),
         "Target line {} is busy after exited reverse SSH session".format(target_line))
+
+def check_target_line_status(duthost, line, expect_status):
+    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
+    return console_facts['lines'][line]['state'] == expect_status
