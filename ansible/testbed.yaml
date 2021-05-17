@@ -161,7 +161,7 @@
   group-name: anvl
   topo: ptf32
   ptf_image_name: docker-ptf-anvl
-  ptf: ptf-unknown
+  ptf: ptf-ixanvl
   ptf_ip: 10.250.0.100/24
   ptf_ipv6:
   server: server_1

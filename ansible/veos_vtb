@@ -37,6 +37,12 @@ all:
         vlab-07:
     ptf:
       hosts:
+        ptf-ixanvl:
+          ansible_host: 10.250.0.100
+          ansible_hostv6: fec0::ffff:afa:2
+          ansible_user: root
+          ansible_password: ixia123
+          license_server: 10.250.0.191
         ptf-01:
           ansible_host: 10.250.0.102
           ansible_hostv6: fec0::ffff:afa:2
@@ -139,7 +145,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
+      ansible_user: subhajit
+      ansible_password: subhajit
 
 vms_1:
   hosts:

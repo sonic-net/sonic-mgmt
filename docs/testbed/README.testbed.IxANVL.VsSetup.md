@@ -4,7 +4,7 @@
  
  ### Testbed server 
  The schematic diagram below provides an overview of the setup. 
- ![](img\keysight_ixanvl_testbed_topology.png) 
+ ![](img\keysight-ixanvl-testbed-topology.png) 
  
  ### Network connections 
  - The testbed server has 1 network port: 
@@ -54,13 +54,13 @@
      > **Note** For setting up local docker registry please follow the instructions from the link: (https://docs.docker.com/registry/deploying/)
      To setup local docker registry in docker host below are the commands that need to be run:
 
-	```
-	$ docker image load < anvl_docker_image.tar
-	$ docker run -d -p 5000:5000 --restart=always --name registry registry:2
-	$ docker tag anvl_container:latest localhost:5000/docker-ptf-anvl
-	$ docker push localhost:5000/docker-ptf-anvl
+       ```
+       $ docker image load < anvl_docker_image.tar
+       $ docker run -d -p 5000:5000 --restart=always --name registry registry:2
+       $ docker tag anvl_container:latest localhost:5000/docker-ptf-anvl
+       $ docker push localhost:5000/docker-ptf-anvl
 
-	```
+       ```
      docker-ptf-anvl is the ptf-imagename in testbed.csv in sonic-mgmt/ansible
 
   - Download the sonic-vs image
@@ -68,76 +68,76 @@
 
 	- Download the sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
 
-	```
-	$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
-	```
+          ```
+          $ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+          ```
 
         - Unzip the image and move it into `~/sonic-vm/images/`
 
-	```
-	$ gzip -d sonic-vs.img.gz
-	$ mkdir -p ~/sonic-vm/images
-	$ mv sonic-vs.img ~/sonic-vm/images
-	```
+          ```
+          $ gzip -d sonic-vs.img.gz
+          $ mkdir -p ~/sonic-vm/images
+          $ mv sonic-vs.img ~/sonic-vm/images
+          ```
    - Setup sonic-mgmt docker
 	All testbed configuration steps and tests are run from a `sonic-mgmt` docker container. This container has all the necessary packages and tools for SONiC testing so that test behavior is consistent between different developers and lab setups.
 
 	Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
-	```
-	$ cd sonic-mgmt
-	$ ./setup-container.sh -n <container name> -d /data
-	```
+          ```
+          $ cd sonic-mgmt
+          $ ./setup-container.sh -n <container name> -d /data
+          ```
 
 	From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
 
 	You can enter your sonic-mgmt container with the following command:
 
-	```
-	$ docker exec -it <container name> bash
-	```
+          ```
+          $ docker exec -it <container name> bash
+          ```
 
 	You will find your sonic-mgmt directory mounted at `/data/sonic-mgmt`:
 
-	```
-	$ ls /data/sonic-mgmt/
-	LICENSE  README.md  __pycache__  ansible  docs	lgtm.yml  setup-container.sh  spytest  test_reporting  tests
-	```
+          ```
+          $ ls /data/sonic-mgmt/
+          LICENSE  README.md  __pycache__  ansible  docs	lgtm.yml  setup-container.sh  spytest  test_reporting  tests
+          ```
 
    - Setup host public key in sonic-mgmt docker
 	In order to configure the testbed on your host automatically, Ansible needs to be able to SSH into it without a password prompt. The `setup-container` script from the previous step will setup all the necessary SSH keys for you, but there are a few more modifications needed to make Ansible work:
 
 	Modify `veos_vtb` to use the user name and password (e.g. `foo`) you want to use to login to the host machine (this can be your username on the host)
 
-	```
-	foo@sonic:/data/sonic-mgmt/ansible$ git diff
-	diff --git a/ansible/veos_vtb b/ansible/veos_vtb
-	index 3e7b3c4e..edabfc40 100644
-	--- a/ansible/veos_vtb
-	+++ b/ansible/veos_vtb
-	@@ -73,7 +73,7 @@ vm_host_1:
-   	hosts:
-     	STR-ACS-VSERV-01:
-       	       ansible_host: 172.17.0.1
-	-      ansible_user: use_own_value
-	+      ansible_user: foo
-	+      ansible_password: foo
-
- 	vms_1:
-   	hosts:
-	```
+          ```
+          foo@sonic:/data/sonic-mgmt/ansible$ git diff
+          diff --git a/ansible/veos_vtb b/ansible/veos_vtb
+          index 3e7b3c4e..edabfc40 100644
+          --- a/ansible/veos_vtb
+          +++ b/ansible/veos_vtb
+          @@ -73,7 +73,7 @@ vm_host_1:
+          hosts:
+          STR-ACS-VSERV-01:
+                 ansible_host: 172.17.0.1
+          -      ansible_user: use_own_value
+          +      ansible_user: foo
+          +      ansible_password: foo
+          
+          vms_1:
+          hosts:
+          ```
 
 	Create a dummy `password.txt` file under `/data/sonic-mgmt/ansible`
-    	- **Note**: Here, `password.txt` is the Ansible Vault password file. Ansible allows users to use Ansible Vault to encrypt password files.
+         - **Note**: Here, `password.txt` is the Ansible Vault password file. Ansible allows users to use Ansible Vault to encrypt password files.
 
       	By default, the testbed scripts require a password file. If you are not using Ansible Vault, you can create a file with a dummy password (e.g. `abc`) and pass the filename to the command line. The file name and location is created and maintained by the user.
 
 	**On the host,** after doing ssh from sonic-mgmt container, run `sudo visudo` and add the following line at the end:
 
-	```
-	foo ALL=(ALL) NOPASSWD:ALL
-	```
+          ```
+	  foo ALL=(ALL) NOPASSWD:ALL
+          ```
 
 	Verify that you can login into the host (e.g. `ssh foo@172.17.0.1`) from the `sonic-mgmt` container without any password prompt.
 
@@ -146,10 +146,10 @@
    - Deploy PTF32 topology
 	Now we're finally ready to deploy the topology for our testbed! Run the following command:
 
-	```
-	$ cd /data/sonic-mgmt/ansible
-	$ ./testbed-cli.sh -t testbed.csv -m veos_vtb add-topo ixanvl-vs-conf password.txt
-	```
+        ```
+        $ cd /data/sonic-mgmt/ansible
+        $ ./testbed-cli.sh -t testbed.csv -m veos_vtb add-topo ixanvl-vs-conf password.txt
+        ```
    - Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
   
  ### Run a Pytest
@@ -157,14 +157,38 @@
 
 	- Switch over to the `tests` directory:
 
-	```
-	cd sonic-mgmt/tests
-	```
+          ```
+          cd sonic-mgmt/tests
+          ```
 
-	- Run the following command to execute the `bgp_fact` test (including the pre/post setup steps):
+	- Modify `veos_vtb` inside ansible directory to set `license_server` IPv4 Address for IxANVL for `ptf_ixanvl`.
 
-	```
-	./run_tests.sh -n ixanvl-vs-conf -d vlab01 -c ixia/ixanvl/test_anvl_run.py -f ../ansible/testbed.csv -i veos_vtb
-	```
+	- Before running the tests follow the steps as mentioned below(This is to setup IxANVL with correct vtysh scripts):
+
+		- Download `BGP4_vtysh_sonic_scripts.tar` from https://downloads.ixiacom.com/support/downloads_and_updates/eb/ANVL_Microsoft_Sonic/BGP4_vtysh_sonic_scripts.tar
+		- Untar the content in home directory of the host. It will extract to a directory `BGP4`
+
+                  ```
+                  tar xf BGP4_vtysh_sonic_scripts.tar
+                  ls -l
+                  ```
+		- Copy `BGP4` directory inside the already up ixanvl container named ptf_anvl. Use scp or docker copy. e.g.
+
+                  ```
+                  scp BGP4 root@10.250.0.100:/opt/Ixia/IxANVL/DocScript
+                  ```
+
+	- Run the following command to execute the `ixanvl_bgp_conformance` test (including the pre/post setup steps):
+
+          ```
+          ./run_tests.sh -n ixanvl-vs-conf -d vlab-01 -c ixia/ixanvl/test_bgp_conformance.py -f ../ansible/testbed.csv -i ../ansible/veos_vtb
+          ```
+          - **Note**: The above command will try to run the whole bgp test suite. If you need to run selective test cases then use `-e` option.e.g.
+          ```
+          ./run_tests.sh -n ixanvl-vs-conf -d vlab-01 -c ixia/ixanvl/test_bgp_conformance.py -f ../ansible/testbed.csv -i ../ansible/veos_vtb -e "--testnum=1.1"
+          ```
+	This will run test 1.1 from bgp suite.
+
+	- The run result will be saved in log file named `bgp4.log` and will be available in current directory as `bgp4.log`.
 
 	You should see 1 set of tests run and pass. You're now set up and ready to use the IxANVL testbed!
