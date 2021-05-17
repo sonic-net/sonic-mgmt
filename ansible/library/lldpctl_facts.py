@@ -16,6 +16,8 @@ def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
     lldp_entries = output.splitlines()
     skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
     for entry in lldp_entries:
+        if 'unknown-tlv' in entry:
+            continue
         if entry.startswith("lldp"):
             path, value = entry.strip().split("=", 1)
             path = path.split(".")
