@@ -209,7 +209,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-    elif hwsku == "msft_multi_asic_vs":
+    elif hwsku in ["msft_multi_asic_vs", "Nexus-3164"]:
         if asic_id is not None and asic_id in namespace_list['front_ns']:
             asic_offset = int(asic_id) * 16
             backplane_offset = 15
@@ -228,9 +228,6 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
                 port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku in ["Nexus-3132-GE-Q32", "Nexus-3132-GX-Q32"]:
         for i in range(1, 33):
-            port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Nexus-3164":
-        for i in range(1, 65):
             port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Celestica-DX010-C32":
         for i in range(1, 33):
