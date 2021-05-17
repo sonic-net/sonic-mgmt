@@ -4,6 +4,7 @@ import sys
 import time
 import re
 import json
+from natsort import natsorted
 
 import pytest
 
@@ -489,20 +490,21 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
         speed = m.group(1)
         cable_length = m.group(2)
         std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
-        std_profile = std_profiles_for_speed.get(cable_length)
-        if std_profile:
-            # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
-            pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff']
-                          and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
-                          "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
-        else:
-            for std_cable_len, std_profile in std_profiles_for_speed.items():
-                if int(std_cable_len[:-1]) > int(cable_length[:-1]):
-                    pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
-                                  "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
-                else:
-                    pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
-                                  "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
+        if std_profiles_for_speed:
+            std_profile = std_profiles_for_speed.get(cable_length)
+            if std_profile:
+                # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff']
+                              and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                              "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
+            else:
+                for std_cable_len, std_profile in std_profiles_for_speed.items():
+                    if int(std_cable_len[:-1]) > int(cable_length[:-1]):
+                        pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
+                                      "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
+                    else:
+                        pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
+                                      "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
 
     profiles_in_asicdb = set(duthost.shell('redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
     diff = profiles_in_asicdb - initial_profiles
@@ -643,6 +645,9 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         cable_len_to_test: To what cable length will the port's be changed
     """
     duthost = duthosts[rand_one_dut_hostname]
+    supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+    if supported_speeds and speed_to_test not in supported_speeds:
+        pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
@@ -1485,6 +1490,127 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test), module_ignore_errors=True)
         duthost.shell('config buffer profile remove {}'.format(non_default_dynamic_th_profile), module_ignore_errors=True)
         duthost.shell('config buffer profile remove {}'.format(headroom_override_profile), module_ignore_errors=True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
+
+
+def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
+    """The test case for auto negotiation enabled ports
+
+    For those ports, the speed which is taken into account for buffer calculating is no longer the configure speed but
+        - The maximum supported speed if auto negotiation is enabled and advertised-speeds is not configured
+        - The maximum advertised speed otherwise
+
+    Args:
+        port_to_test: Port to run the test
+
+    The flow of the test case:
+        1. Fetch the supported_speeds from STATE_DB. It's exposed by port auto negotiation feature when system starts.
+           Skip the test if it is not exposed.
+        2. Preparing:
+           - Configure the speed to one which is not the maximum and the cable length to 15m
+           - This is to enforce there is a new buffer profile created
+        3. Enable the port auto negotiation and then configure the advertised speed list and then disable it
+           - The maximum supported speed should be taken into account for buffer calculation after port auto negotiation enabled
+           - The maximum advertised speed should be taken after it is configured
+           - The configured speed should be taken after the port auto negotiation is disabled
+        4. Enable the port auto negotiation with the advertised speed list configured
+           - The maximum advertised speed should be taken after it is configured
+        5. Add a new PG.
+           - The maximum advertised speed should be taken in this case
+    """
+    def _get_max_speed_from_list(speed_list_str):
+        speed_list = natsorted(speed_list_str.split(','))
+        return speed_list[-1]
+
+    def _construct_speed_list_str(speed_list):
+        speed_list_str = ''
+        for speed in speed_list:
+            if speed_list_str:
+                speed_list_str += ',' + speed
+            else:
+                speed_list_str = speed
+
+        return speed_list_str
+
+    duthost = duthosts[rand_one_dut_hostname]
+    supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+    if not supported_speeds:
+        pytest.skip('No supported_speeds found for port {}, skip the test'.format(port_to_test))['stdout']
+    original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    original_cable_length = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+    original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+    if DEFAULT_OVER_SUBSCRIBE_RATIO:
+        original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+    else:
+        original_shp_size = None
+
+    max_supported_speed = _get_max_speed_from_list(supported_speeds)
+    supported_speeds_list = natsorted(supported_speeds.split(','))
+    speed_before_test = supported_speeds_list[0]
+    cable_length_to_test = '15m'
+    advertised_speeds_to_test = _construct_speed_list_str(supported_speeds_list[:-1])
+    max_advertised_speed = _get_max_speed_from_list(advertised_speeds_to_test)
+
+    initial_asic_db_profiles = fetch_initial_asic_db(duthost)
+    expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_before_test, cable_length_to_test)
+    try:
+        # Preparing: configure the speed to one which is not the maximum speed and the cable length to 15m
+        # This is to enforce there is a new buffer profile created
+        duthost.shell('config interface speed {} {}'.format(port_to_test, speed_before_test))
+        duthost.shell('config interface cable-length {} {}'.format(port_to_test, cable_length_to_test))
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        new_profile_id, pool_id = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None)
+
+        # Enable port auto negotiation first and then configure the advertised speed list
+        logging.info('Enable port auto negotiation')
+        duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
+        # Check whether the maximum supported speed is used for creating lossless profile
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_supported_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+
+        # Configure advertised speeds
+        logging.info('Update advertised speeds to {}'.format(advertised_speeds_to_test))
+        duthost.shell('config interface advertised-speeds {} {}'.format(port_to_test, advertised_speeds_to_test))
+        # Check whether the maximum advertised speed is used for creating lossless profile
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_advertised_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+
+        # Disable port auto negotiation
+        logging.info('Disable port auto negotiation')
+        duthost.shell('config interface autoneg {} disabled'.format(port_to_test))
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_before_test, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+
+        # Enable port auto negotiation with advertised speed configured
+        logging.info('Reenable port auto negotiation with advertised speeds configured')
+        duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
+        # Check whether the maximum advertised speed is used for creating lossless profile
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_advertised_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+
+        # Add new PGs. The maximum advertised speed should be used
+        logging.info('Add new PG 6')
+        duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+
+        # Update the advertised speed to all
+        logging.info('Update advertised speeds to all')
+        duthost.shell('config interface advertised-speeds {} all'.format(port_to_test))
+        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_supported_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+    finally:
+        # Clean up
+        duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_length), module_ignore_errors=True)
+        duthost.shell('config interface speed {} {}'.format(port_to_test, original_speed), module_ignore_errors=True)
+        duthost.shell('config interface advertised-speeds {} all'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface autoneg {} disabled'.format(port_to_test), module_ignore_errors=True)
         ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
