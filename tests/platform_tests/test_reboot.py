@@ -236,7 +236,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    py_res = duthost.command("python -c \"import sonic_platform\"",module_ignore_errors=True)
+    py_res = duthost.command("python -c \"import sonic_platform\"", module_ignore_errors=True)
     test_watchdog_supported = "python{} -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\"".format('3' if py_res['failed'] else '2')
 
     watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
