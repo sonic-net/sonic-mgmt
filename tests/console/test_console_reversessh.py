@@ -9,7 +9,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_console_reversessh_connectivity(duthost, creds):
+@pytest.mark.parametrize("target_line", ["1", "2"])
+def test_console_reversessh_connectivity(duthost, creds, target_line):
     """
     Test reverse SSH are working as expect.
     Verify serial session is available after connect DUT via reverse SSH
@@ -17,13 +18,6 @@ def test_console_reversessh_connectivity(duthost, creds):
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     dutuser = creds['sonicadmin_user']
     dutpass = creds['sonicadmin_password']
-
-    target_line = '1'
-
-    # Ensure the target console line is clear before testing
-    if check_target_line_status(duthost, target_line, "BUSY"):
-        logging.info("Force clear line for testing")
-        duthost.shell('sudo sonic-clear line {}'.format(target_line))
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
