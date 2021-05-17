@@ -180,7 +180,7 @@ class LogAnalyzer:
                             "unused_expected_regexp": []
                             }
         timestamp = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
-        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, timestamp))
+        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, self.ansible_host, timestamp))
         marker = marker.replace(' ', '_')
         self.ansible_loganalyzer.run_id = marker
 
