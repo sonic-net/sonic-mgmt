@@ -163,6 +163,21 @@
 
 	- Modify `veos_vtb` inside ansible directory to set `license_server` IPv4 Address for IxANVL for `ptf_ixanvl`.
 
+	- Before running the tests follow the steps as mentioned below(This is to setup IxANVL with correct vtysh scripts):
+
+		- Download `BGP4_vtysh_sonic_scripts.tar` from https://downloads.ixiacom.com/support/downloads_and_updates/eb/ANVL_Microsoft_Sonic/BGP4_vtysh_sonic_scripts.tar
+		- Untar the content in home directory of the host. It will extract to a directory `BGP4`
+
+		```
+		tar xf BGP4_vtysh_sonic_scripts.tar
+		ls -l
+		```
+		- Copy `BGP4` directory inside the already up ixanvl container named ptf_anvl. Use scp or docker copy. e.g.
+
+		```
+		scp BGP4 root@10.250.0.100:/opt/Ixia/IxANVL/DocScript
+		```
+
 	- Run the following command to execute the `ixanvl_bgp_conformance` test (including the pre/post setup steps):
 
 	```
