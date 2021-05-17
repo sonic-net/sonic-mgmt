@@ -72,12 +72,26 @@ def get_download_url(buildid, artifact_name):
 
 def download_artifacts(url, content_type, platform, buildid):
     """find latest successful build id for a branch"""
-
-    if content_type == 'image':
-        if platform == 'kvm':
+    if content_type == 'onie':
+        if platform == 'vs':
             filename = 'sonic-vs.img.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
+
+        url = url.replace('zip', 'file')
+        url += "&subPath=%2Ftarget%2F{}".format(filename)
+    elif content_type == 'aboot':
+        filename = "sonic-aboot-{}.swi".format(platform)
+
+        url = url.replace('zip', 'file')
+        url += "&subPath=%2Ftarget%2F{}".format(filename)
+    elif content_type == 'raw':
+        filename = "sonic-{}.raw".format(platform)
+
+        url = url.replace('zip', 'file')
+        url += "&subPath=%2Ftarget%2F{}".format(filename)
+    elif content_type == 'dbg':
+        filename = "sonic-{}-dbg.bin".format(platform)
 
         url = url.replace('zip', 'file')
         url += "&subPath=%2Ftarget%2F{}".format(filename)
@@ -96,17 +110,17 @@ def download_artifacts(url, content_type, platform, buildid):
 def find_latest_build_id(platform, branch):
     """find latest successful build id for a branch"""
 
-    dict = {"broadcom" : 138,
-            "barefoot" : 146,
-            "centec" : 143,
-            "centec-arm64" : 140,
-            "generic": 147,
-            "innovium" : 148,
-            "marvell-armhf" : 141,
-            "mellanox": 139,
-            "nephos" : 149,
-            "vs" : 142,}
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}&resultFilter=succeeded&statusFilter=completed&api-version=6.0".format(dict[platform],branch)
+    platform_to_id = {"broadcom" : 138,
+                   "barefoot" : 146,
+                   "centec" : 143,
+                   "centec-arm64" : 140,
+                   "generic": 147,
+                   "innovium" : 148,
+                   "marvell-armhf" : 141,
+                   "mellanox": 139,
+                   "nephos" : 149,
+                   "vs" : 142,}
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}&resultFilter=succeeded&statusFilter=completed&api-version=6.0".format(platform_to_id[platform], branch)
 
     resp = urlopen(builds_url)
 
@@ -120,14 +134,14 @@ def main():
     global artifact_size
 
     parser = argparse.ArgumentParser(description='Download artifacts from sonic azure devops.')
-    parser.add_argument('--buildid', metavar='buildid', type=int, help='build id')
-    parser.add_argument('--branch', metavar='branch', type=str, default='master', help='branch name')
+    parser.add_argument('--buildid', metavar='buildid', type=int, help='build id, optional')
+    parser.add_argument('--branch', metavar='branch', type=str, default='master', help='branch name, default: master')
     parser.add_argument('--platform', metavar='platform', type=str,
             choices=['broadcom', 'barefoot', 'centec', 'centec-arm64', 'generic', 'innovium', 'marvell-armhf', 'mellanox', 'nephos', 'vs'],
             help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
-            choices=['all', 'image'], default='image',
-            help='download content type [all|image(default)]')
+            choices=['all', 'dbg', 'onie', 'aboot', 'raw'], default='onie',
+            help='download content type [all|dbg|onie(default)|aboot|raw]')
     args = parser.parse_args()
 
     if args.buildid is None:
