@@ -5,7 +5,7 @@ import time
 from tests.common.dualtor.dual_tor_utils import get_crm_nexthop_counter # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service
-
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
