@@ -811,7 +811,7 @@ class TestNeighbors():
 
         for item in arptable['v4']:
             # To ignore Midplane interface, added check on what is being set in setup fixture
-            if (arptable['v4'][item]['interface'] != 'eth0') and (arptable['v4'][item]['interface'] not in minigraph_portchannels) and (item in setup['port_name_map']):
+            if (arptable['v4'][item]['interface'] in setup['port_name_map']) and (arptable['v4'][item]['interface'] not in minigraph_portchannels):
                 if mode == 'alias':
                     assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v4'][item]['interface']]), arp_output) is not None
                 elif mode == 'default':
@@ -833,7 +833,7 @@ class TestNeighbors():
         for addr, detail in arptable['v6'].items():
             if (
                     detail['macaddress'] != 'None' and
-                    detail['interface'] != 'eth0' and
+                    detail['interface'] in setup['port_name_map'] and
                     detail['interface'] not in minigraph_portchannels
             ):
                 if mode == 'alias':
