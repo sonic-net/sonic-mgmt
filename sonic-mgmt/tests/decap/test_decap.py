@@ -122,9 +122,9 @@ def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Initialize parameters
-    dscp_mode = "pipe"
+    dscp_mode = "uniform"
     ecn_mode = "copy_from_outer"
-    ttl_mode = "pipe"
+    ttl_mode = "uniform"
 
     # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthost.host.options["variable_manager"]._hostvars[duthost.hostname]
