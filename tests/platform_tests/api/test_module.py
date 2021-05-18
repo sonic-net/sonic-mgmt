@@ -3,10 +3,11 @@ import re
 
 import pytest
 import yaml
-
+from time import sleep
 from tests.common.helpers.platform_api import chassis, module
-
+from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.helpers.assertions import pytest_assert
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -27,6 +28,12 @@ pytestmark = [
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
+REGEX_IP_ADDRESS = r'^(?:[0-9]{1,3}\.){3}([0-9]{1,3})$'
+
+MODULE_TYPE = ['SUPERVISOR', 'LINE-CARD', 'FABRIC-CARD']
+MIDPLANE_SUPP_MODULE = ['SUPERVISOR', 'LINE-CARD']
+
+MODULE_STATUS = ['Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online']
 
 # TODO: EEPROM info is duplicated with chassis.py. Break out into a shared module
 # Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
@@ -56,7 +63,7 @@ class TestModuleApi(PlatformApiTestBase):
     num_modules = None
 
     # This fixture would probably be better scoped at the class level, but
-    # it relies on the platform_api_conn fixture, which is scoped at the function
+    # it relies on the platform_api_conn_per_supervisor fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, platform_api_conn):
@@ -69,8 +76,12 @@ class TestModuleApi(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
+    @pytest.fixture(scope="function", autouse=True)
+    def get_skip_mod_list(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        self.skip_mod_list = get_skip_mod_list(duthost)
 
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -80,7 +91,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -88,10 +99,14 @@ class TestModuleApi(PlatformApiTestBase):
             presence = module.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve module {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Module {} presence appears incorrect".format(i)):
-                    self.expect(presence is True, "Module {} is not present".format(i))
+                    name = module.get_name(platform_api_conn, i)
+                    if name in self.skip_mod_list:
+                        self.expect(presence is False, "Module {} is not present".format(i))
+                    else:
+                        self.expect(presence is True, "Module {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -101,7 +116,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -111,7 +126,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -140,7 +155,7 @@ class TestModuleApi(PlatformApiTestBase):
     # Functions to test methods defined in ModuleBase class
     #
 
-    def test_get_base_mac(self, duthost, localhost, platform_api_conn):
+    def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -153,7 +168,7 @@ class TestModuleApi(PlatformApiTestBase):
             self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_system_eeprom_info(self, duthost, localhost, platform_api_conn):
+    def test_get_system_eeprom_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """
         Test that we can retrieve sane system EEPROM info from each module of the DUT via the platform API
         """
@@ -215,7 +230,7 @@ class TestModuleApi(PlatformApiTestBase):
             self.expect(re.match(REGEX_SERIAL_NUMBER, serial), "Module {}: Serial number appears to be incorrect".format(i))
         self.assert_expectations()
 
-    def test_components(self, duthost, localhost, platform_api_conn):
+    def test_components(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -237,7 +252,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(component and component == component_list[comp_idx], "Module {}: Component {} is incorrect".format(mod_idx, comp_idx))
         self.assert_expectations()
 
-    def test_fans(self, duthost, localhost, platform_api_conn):
+    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -259,7 +274,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(fan and fan == fan_list[fan_idx], "Module {}: Fan {} is incorrect".format(mod_idx, fan_idx))
         self.assert_expectations()
 
-    def test_psus(self, duthost, localhost, platform_api_conn):
+    def test_psus(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -281,7 +296,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(psu and psu == psu_list[psu_idx], "Module {}: PSU {} is incorrect".format(mod_idx, psu_idx))
         self.assert_expectations()
 
-    def test_thermals(self, duthost, localhost, platform_api_conn):
+    def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -303,7 +318,7 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(thermal and thermal == thermal_list[therm_idx], "Thermal {} is incorrect".format(mod_idx, therm_idx))
         self.assert_expectations()
 
-    def test_sfps(self, duthost, localhost, platform_api_conn):
+    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if self.num_modules == 0:
             pytest.skip("No modules found on device")
 
@@ -324,3 +339,94 @@ class TestModuleApi(PlatformApiTestBase):
                 sfp = module.get_sfp(platform_api_conn, mod_idx, sfp_idx)
                 self.expect(sfp and sfp == sfp_list[sfp_idx], "Module {}: SFP {} is incorrect".format(mod_idx, sfp_idx))
         self.assert_expectations()
+
+    def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            description = module.get_description(platform_api_conn, i)
+            if self.expect(description is not None, "Unable to retrieve module {} description".format(i)):
+                self.expect(isinstance(description, STRING_TYPE), "Module {} description appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            slot_id = module.get_slot(platform_api_conn, i)
+            if self.expect(slot_id is not None, "Unable to retrieve module {} slot id".format(i)):
+                self.expect(isinstance(slot_id, int), "Module {} slot id is not correct ".format(i))
+        self.assert_expectations()
+
+    def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            mod_type = module.get_type(platform_api_conn, i)
+            if self.expect(mod_type is not None, "Unable to retrieve module {} slot id".format(i)):
+                self.expect(isinstance(mod_type, STRING_TYPE), "Module {} type format appears not correct ".format(i))
+                self.expect((mod_type in MODULE_TYPE), "Module {} type appears not to be correct")
+        self.assert_expectations()
+
+    def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            mod_max_con_power = module.get_maximum_consumed_power(platform_api_conn, i)
+            if self.expect(mod_max_con_power is not None, "Unable to retrieve module {} slot id".format(i)):
+                self.expect(isinstance(mod_max_con_power, float),
+                            "Module {} max consumed power format appears incorrect ".format(i))
+        self.assert_expectations()
+
+    def test_get_midplane_ip(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            module_type = module.get_type(platform_api_conn, i)
+            if module_type in MIDPLANE_SUPP_MODULE:
+                midplane_ip = module.get_midplane_ip(platform_api_conn, i)
+                if self.expect(midplane_ip is not None, "Unable to retrieve module {} midplane ip".format(i)):
+                    self.expect(re.match(REGEX_IP_ADDRESS, midplane_ip), "Module {} midplane ip appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_is_midplane_reachable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            module_type = module.get_type(platform_api_conn, i)
+            if module_type in MIDPLANE_SUPP_MODULE:
+                midplane_status = module.is_midplane_reachable(platform_api_conn, i)
+                if self.expect(midplane_status is not None, "Unable to retrieve module {} midplane reachability".format(i)):
+                    self.expect(isinstance(midplane_status, bool), "Module {} midplabe reachability appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_oper_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        if self.num_modules == 0:
+            pytest.skip("No modules found on device")
+
+        for i in range(self.num_modules):
+            status = module.get_oper_status(platform_api_conn, i)
+            if self.expect(status is not None, "Unable to retrieve module {} status".format(i)):
+                self.expect(isinstance(status, STRING_TYPE), "Module {} status appears incorrect".format(i))
+                self.expect(status in MODULE_STATUS, "Module {}  status {} is invalid value".format(i, status))
+        self.assert_expectations()
+
+    def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        reboot_type = 'default'
+        reboot_timeout = 300
+        for mod_idx in range(self.num_modules):
+            mod_name = module.get_name(platform_api_conn, mod_idx)
+            if mod_name in self.skip_mod_list:
+                logger.info("skipping reboot for module {} ".format(mod_name))
+            else:
+                module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
+                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                sleep(reboot_timeout)
+                mod_status = module.get_oper_status(platform_api_conn, mod_idx)
+                pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))

@@ -9,9 +9,16 @@ from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
 from natsort import natsorted
-from ansible.module_utils.port_utils import get_port_alias_to_name_map
-from ansible.module_utils.debug_utils import create_debug_file, print_debug_msg
 
+try:
+    from ansible.module_utils.port_utils import get_port_alias_to_name_map
+    from ansible.module_utils.debug_utils import create_debug_file, print_debug_msg
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from module_utils.port_utils import get_port_alias_to_name_map
+    from module_utils.debug_utils import create_debug_file, print_debug_msg
 
 DOCUMENTATION='''
 module: conn_graph_facts.py
@@ -325,8 +332,16 @@ class Parse_Lab_Graph():
         """
         return self.links.get(hostname)
 
-    def contains_hosts(self, hostnames):
-        return set(hostnames) <= set(self.devices)
+    def contains_hosts(self, hostnames, part):
+        if not part:
+            return set(hostnames) <= set(self.devices)
+        # It's possible that not all devices are found in connect_graph when using in devutil
+        THRESHOLD = 0.8
+        count = 0
+        for hostname in hostnames:
+            if hostname in self.devices.keys():
+                count += 1
+        return hostnames and (count * 1.0 / len(hostnames) >= THRESHOLD)
 
 
     def get_host_console_info(self, hostname):
@@ -340,7 +355,12 @@ class Parse_Lab_Graph():
                 ret = {}
             return ret
         else:
-            return self.devices
+            """
+            Please be noted that an empty dict is returned when hostname is not found
+            The behavior is different with get_host_vlan. devutils script will check if the returned dict
+            is empty to determine if console info exists for given hostname.
+            """
+            return {}
 
     def get_host_console_link(self, hostname):
         """
@@ -349,7 +369,8 @@ class Parse_Lab_Graph():
         if hostname in self.consolelinks:
             return  self.consolelinks[hostname]
         else:
-            return self.consolelinks
+            # Please be noted that an empty dict is returned when hostname is not found
+            return {}
 
     def get_host_pdu_info(self, hostname):
         """
@@ -364,7 +385,8 @@ class Parse_Lab_Graph():
                     pass
             return ret
         else:
-            return self.devices
+            # Please be noted that an empty dict is returned when hostname is not found
+            return {}
 
     def get_host_pdu_links(self, hostname):
         """
@@ -373,7 +395,8 @@ class Parse_Lab_Graph():
         if hostname in self.pdulinks:
             return  self.pdulinks[hostname]
         else:
-            return self.pdulinks
+            # Please be noted that an empty dict is returned when hostname is not found
+            return {}
 
 
 LAB_CONNECTION_GRAPH_FILE = 'graph_files.yml'
@@ -381,13 +404,14 @@ EMPTY_GRAPH_FILE = 'empty_graph.xml'
 LAB_GRAPHFILE_PATH = 'files/'
 
 
-def find_graph(hostnames):
+def find_graph(hostnames, part=False):
     """
     Find a graph file contains all devices in testbed.
     duts are spcified by hostnames
 
     Parameters:
         hostnames: list of duts in the target testbed.
+        part: select the graph file if over 80% of hosts are found in conn_graph when part is True
     """
     global debug_fname
     filename = os.path.join(LAB_GRAPHFILE_PATH, LAB_CONNECTION_GRAPH_FILE)
@@ -401,10 +425,9 @@ def find_graph(hostnames):
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
         print_debug_msg(debug_fname, "For file %s, got hostnames %s" % (fn, lab_graph.devices))
-        if lab_graph.contains_hosts(hostnames):
+        if lab_graph.contains_hosts(hostnames, part):
             print_debug_msg(debug_fname, ("Returning lab graph from conn graph file: %s for hosts %s" % (fn, hostnames)))
             return lab_graph
-
     # Fallback to return an empty connection graph, this is
     # needed to bridge the kvm test needs. The KVM test needs
     # A graph file, which used to be whatever hardcoded file.
@@ -417,7 +440,7 @@ def find_graph(hostnames):
 def get_port_name_list(hwsku):
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
-    port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
+    port_alias_to_name_map, _ = get_port_alias_to_name_map(hwsku)
 
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
@@ -427,6 +450,66 @@ def get_port_name_list(hwsku):
     port_name_list_sorted = natsorted(port_name_list)
     return port_name_list_sorted
 
+def build_results(lab_graph, hostnames, ignore_error=False):
+    """
+    Refactor code for building json results.
+    Code is refactored because same logic is needed in devutil
+    """
+    device_info = {}
+    device_conn = {}
+    device_port_vlans = {}
+    device_vlan_range = {}
+    device_vlan_list = {}
+    device_vlan_map_list = {}
+    device_console_info = {}
+    device_console_link = {}
+    device_pdu_info = {}
+    device_pdu_links = {}
+    msg = {}
+    for hostname in hostnames:
+        dev = lab_graph.get_host_device_info(hostname)
+        if dev is None and not ignore_error:
+            msg = "cannot find info for %s" % hostname
+            return (False, msg)
+        device_info[hostname] = dev
+        device_conn[hostname] = lab_graph.get_host_connections(hostname)
+        host_vlan = lab_graph.get_host_vlan(hostname)
+        port_vlans = lab_graph.get_host_port_vlans(hostname)
+        # for multi-DUTs, must ensure all have vlan configured.
+        if host_vlan:
+            device_vlan_range[hostname] = host_vlan["VlanRange"]
+            device_vlan_list[hostname] = host_vlan["VlanList"]
+            if dev["Type"].lower() != "devsonic":
+                device_vlan_map_list[hostname] = host_vlan["VlanList"]
+            else:
+                device_vlan_map_list[hostname] = {}
+
+                port_name_list_sorted = get_port_name_list(dev['HwSku'])
+                print_debug_msg(debug_fname, "For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
+                for a_host_vlan in host_vlan["VlanList"]:
+                    # Get the corresponding port for this vlan from the port vlan list for this hostname
+                    found_port_for_vlan = False
+                    for a_port in port_vlans:
+                        if a_host_vlan in port_vlans[a_port]['vlanlist']:
+                            if a_port in port_name_list_sorted:
+                                port_index = port_name_list_sorted.index(a_port)
+                                device_vlan_map_list[hostname][port_index] = a_host_vlan
+                                found_port_for_vlan = True
+                                break
+                            elif not ignore_error:
+                                msg = "Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname)
+                                return (False, msg)
+                    if not found_port_for_vlan and not ignore_error:
+                        msg = "Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname)
+                        return (False, msg)
+        device_port_vlans[hostname] = port_vlans
+        device_console_info[hostname] = lab_graph.get_host_console_info(hostname)
+        device_console_link[hostname] = lab_graph.get_host_console_link(hostname)
+        device_pdu_info[hostname] = lab_graph.get_host_pdu_info(hostname)
+        device_pdu_links[hostname] = lab_graph.get_host_pdu_links(hostname)
+    results = {k: v for k, v in locals().items()
+                   if (k.startswith("device_") and v)}
+    return (True, results)
 
 def main():
     module = AnsibleModule(
@@ -482,59 +565,11 @@ def main():
                 'device_port_vlans': lab_graph.vlanport,
             }
             module.exit_json(ansible_facts=results)
-
-        device_info = {}
-        device_conn = {}
-        device_port_vlans = {}
-        device_vlan_range = {}
-        device_vlan_list = {}
-        device_vlan_map_list = {}
-        device_console_info = {}
-        device_console_link = {}
-        device_pdu_info = {}
-        device_pdu_links = {}
-        for hostname in hostnames:
-            dev = lab_graph.get_host_device_info(hostname)
-            if dev is None:
-                module.fail_json(msg="cannot find info for %s" % hostname)
-            device_info[hostname] = dev
-            device_conn[hostname] = lab_graph.get_host_connections(hostname)
-            host_vlan = lab_graph.get_host_vlan(hostname)
-            port_vlans = lab_graph.get_host_port_vlans(hostname)
-            # for multi-DUTs, must ensure all have vlan configured.
-            if host_vlan:
-                device_vlan_range[hostname] = host_vlan["VlanRange"]
-                device_vlan_list[hostname] = host_vlan["VlanList"]
-                if dev["Type"].lower() != "devsonic":
-                    device_vlan_map_list[hostname] = host_vlan["VlanList"]
-                else:
-                    device_vlan_map_list[hostname] = {}
-
-                    port_name_list_sorted = get_port_name_list(dev['HwSku'])
-                    print_debug_msg(debug_fname, "For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
-                    for a_host_vlan in host_vlan["VlanList"]:
-                        # Get the corresponding port for this vlan from the port vlan list for this hostname
-                        found_port_for_vlan = False
-                        for a_port in port_vlans:
-                            if a_host_vlan in port_vlans[a_port]['vlanlist']:
-                                if a_port in port_name_list_sorted:
-                                    port_index = port_name_list_sorted.index(a_port)
-                                    device_vlan_map_list[hostname][port_index] = a_host_vlan
-                                    found_port_for_vlan = True
-                                    break
-                                else:
-                                    module.fail_json(msg="Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname))
-                        if not found_port_for_vlan:
-                            module.fail_json(msg="Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname))
-            device_port_vlans[hostname] = port_vlans
-            device_console_info[hostname] = lab_graph.get_host_console_info(hostname)
-            device_console_link[hostname] = lab_graph.get_host_console_link(hostname)
-            device_pdu_info[hostname] = lab_graph.get_host_pdu_info(hostname)
-            device_pdu_links[hostname] = lab_graph.get_host_pdu_links(hostname)
-        results = {k: v for k, v in locals().items()
-                   if (k.startswith("device_") and v)}
-
-        module.exit_json(ansible_facts=results)
+        succeed, results = build_results(lab_graph, hostnames)
+        if succeed:
+            module.exit_json(ansible_facts=results)
+        else:
+            module.fail_json(msg=results)
     except (IOError, OSError):
         module.fail_json(msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
     except Exception as e:

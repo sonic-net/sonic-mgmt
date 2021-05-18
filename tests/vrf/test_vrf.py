@@ -6,6 +6,7 @@ import yaml
 import json
 import random
 import logging
+import tempfile
 
 from collections import OrderedDict
 from natsort import natsorted
@@ -32,13 +33,14 @@ from tests.common.reboot import reboot
 """
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
 
 # global variables
 g_vars = {}
+PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 # helper functions
 def get_vlan_members(vlan_name, cfg_facts):
@@ -333,6 +335,31 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
 
+def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
+    dst_ports = [str(port[0]) for port in dst_ports]
+    tmp_file = tempfile.NamedTemporaryFile()
+    for ip in dst_ips:
+        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+    tmp_file.flush()
+    ptfhost.copy(src=tmp_file.name, dest=render_file)
+
+# For dualtor
+def get_dut_enabled_ptf_ports(tbinfo, hostname):
+    dut_index = str(tbinfo['duts_map'][hostname])
+    ptf_ports = set(tbinfo['topo']['ptf_map'][dut_index].values())
+    disabled_ports = set()
+    if dut_index in tbinfo['topo']['ptf_map_disabled']:
+        disabled_ports = set(tbinfo['topo']['ptf_map_disabled'][dut_index].values())
+    return ptf_ports - disabled_ports
+
+# For dualtor
+def get_dut_vlan_ptf_ports(mg_facts):
+    ports = set()
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            ports.add(mg_facts['minigraph_port_indices'][member])
+    return ports
+
 # fixtures
 
 @pytest.fixture(scope="module")
@@ -421,7 +448,9 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost):
 def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
     def _partial_ptf_runner(testname, **kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_mac': dut_facts['router_mac']}
+                  'router_macs': [dut_facts['router_mac']],
+                  'ptf_test_port_map': PTF_TEST_PORT_MAP
+                  }
         params.update(kwargs)
         ptf_runner(host=ptfhost,
                    testdir="ptftests",
@@ -431,6 +460,44 @@ def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
     return _partial_ptf_runner
 
+@pytest.fixture(scope="module")
+def mg_facts(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts
+
+# For dualtor
+@pytest.fixture(scope='module')
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dut_vlan_mac = None
+    for vlan in config_facts.get('VLAN', {}).values():
+        if 'mac' in vlan:
+            logger.debug('Found VLAN mac')
+            dut_vlan_mac = vlan['mac']
+            break
+    if not dut_vlan_mac:
+        logger.debug('No VLAN mac, use default router_mac')
+        dut_vlan_mac = duthost.facts['router_mac']
+    return dut_vlan_mac
+
+@pytest.fixture(scope="module", autouse=True)
+def ptf_test_port_map(tbinfo, duthosts, mg_facts, ptfhost, rand_one_dut_hostname, vlan_mac):
+    duthost = duthosts[rand_one_dut_hostname]
+    ptf_test_port_map = {}
+    enabled_ptf_ports = get_dut_enabled_ptf_ports(tbinfo, duthost.hostname)
+    vlan_ptf_ports = get_dut_vlan_ptf_ports(mg_facts)
+    for port in enabled_ptf_ports:
+        if port in vlan_ptf_ports:
+            target_mac = vlan_mac
+        else:
+            target_mac = duthost.facts['router_mac']
+        ptf_test_port_map[str(port)] = {
+            'target_dut': 0,
+            'target_mac': target_mac
+        }
+    ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
 # tests
 class TestVrfCreateAndBind():
@@ -497,7 +564,7 @@ class TestVrfNeigh():
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
@@ -506,7 +573,7 @@ class TestVrfNeigh():
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf2']
         )
 
@@ -544,14 +611,14 @@ class TestVrfFib():
     def test_vrf1_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
     def test_vrf2_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf2']
         )
 
@@ -576,7 +643,7 @@ class TestVrfIsolation():
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -585,7 +652,7 @@ class TestVrfIsolation():
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
@@ -594,7 +661,7 @@ class TestVrfIsolation():
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -603,7 +670,7 @@ class TestVrfIsolation():
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
@@ -671,48 +738,56 @@ class TestVrfAclRedirect():
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
-    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner):
+    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more
+        gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['dst_ports'],
+                                '/tmp/pc01_neigh_ipv4.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['dst_ports'],
-            dst_ips=self.c_vars['pc1_v4_neigh_ips']
+            fib_info_files=['/tmp/pc01_neigh_ipv4.txt']
         )
 
-    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner):
+    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more
+        gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['dst_ports'],
+                                '/tmp/pc01_neigh_ipv6.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['dst_ports'],
-            dst_ips=self.c_vars['pc1_v6_neigh_ips']
+            fib_info_files=['/tmp/pc01_neigh_ipv6.txt']
         )
 
-    def test_redirect_to_new_ports_v4(self, partial_ptf_runner):
+    def test_redirect_to_new_ports_v4(self, partial_ptf_runner, ptfhost):
         # verify redicect ports should receive packets
+        gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['redirect_dst_ports'],
+                                '/tmp/redirect_pc01_neigh_ipv4.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['redirect_dst_ports'],
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            dst_ips=self.c_vars['pc1_v4_neigh_ips']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv4.txt']
         )
 
-    def test_redirect_to_new_ports_v6(self, partial_ptf_runner):
+    def test_redirect_to_new_ports_v6(self, partial_ptf_runner, ptfhost):
         # verify redicect ports should receive packets
+        gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['redirect_dst_ports'],
+                                '/tmp/redirect_pc01_neigh_ipv6.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['redirect_dst_ports'],
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            dst_ips=self.c_vars['pc1_v6_neigh_ips']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv6.txt']
         )
 
 
@@ -916,7 +991,7 @@ class TestVrfWarmReboot():
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
-            'fib_info': "/tmp/vrf1_fib.txt",
+            'fib_info_files': ["/tmp/vrf1_fib.txt"],
             'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
         }
 
@@ -960,7 +1035,7 @@ class TestVrfWarmReboot():
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
-            'fib_info': "/tmp/vrf1_fib.txt",
+            'fib_info_files': ["/tmp/vrf1_fib.txt"],
             'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
         }
         traffic_in_bg = threading.Thread(target=ex_ptf_runner, kwargs=params)
@@ -1194,16 +1269,16 @@ class TestVrfCapacity():
 
         duthost.shell('/tmp/vrf_capacity_ping.sh')
 
-    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list):
+    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list, ptfhost):
         ptf_port1 = g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'][1]
         ptf_port2 = g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'][1]
         dst_ips = [str(IPNetwork(self.route_prefix)[1])]
+        gen_specific_neigh_file(dst_ips, [[ptf_port2]], '/tmp/vrf_capability_fwd.txt', ptfhost)
 
         partial_ptf_runner(
             testname="vrf_test.CapTest",
             src_ports=[ptf_port1],
-            dst_ports=[[ptf_port2]],
-            dst_ips=dst_ips,
+            fib_info_files=['/tmp/vrf_capability_fwd.txt'],
             random_vrf_list=random_vrf_list,
             src_base_vid=self.src_base_vid,
             dst_base_vid=self.dst_base_vid
@@ -1269,18 +1344,19 @@ class TestVrfUnbindIntf():
         # show_ndp = duthost.shell("show ndp")['stdout']
         # assert 'PortChannel0001' not in show_ndp, "The neighbors on PortChannel0001 should be flushed after unbind from vrf."
 
-    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner):
+    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner, ptfhost):
         pc1_neigh_ips = []
         for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
             for ip in ips:
                 pc1_neigh_ips.append(str(ip.ip+1))
 
+        gen_specific_neigh_file(pc1_neigh_ips, [g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0001']],
+                                '/tmp/unbindvrf_neigh_1.txt', ptfhost)
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
-            dst_ips=pc1_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0001']],
             ipv4=True,
             ipv6=False
         )
@@ -1294,22 +1370,23 @@ class TestVrfUnbindIntf():
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             pkt_action='drop',
-            fib_info="/tmp/unbindvrf_fib_1.txt",
+            fib_info_files=["/tmp/unbindvrf_fib_1.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_pc2_neigh(self, partial_ptf_runner):
+    def test_pc2_neigh(self, partial_ptf_runner, ptfhost):
         pc2_neigh_ips = []
         for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0002'].iteritems():
             for ip in ips:
                 pc2_neigh_ips.append(str(ip.ip+1))
 
+        gen_specific_neigh_file(pc2_neigh_ips, [g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0002']],
+                                '/tmp/unbindvrf_neigh_2.txt', ptfhost)
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='fwd',
-            dst_ips=pc2_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_2.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0002']]
         )
 
     def test_pc2_fib(self, ptfhost, tbinfo, partial_ptf_runner):
@@ -1319,24 +1396,18 @@ class TestVrfUnbindIntf():
 
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/unbindvrf_fib_2.txt",
+            fib_info_files=["/tmp/unbindvrf_fib_2.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
 
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
     def test_pc1_neigh_after_rebind(self, partial_ptf_runner):
-        pc1_neigh_ips = []
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
-            for ip in ips:
-                pc1_neigh_ips.append(str(ip.ip+1))
-
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='fwd',
-            dst_ips=pc1_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0001']],
             ipv4=True,
             ipv6=False
         )
@@ -1349,7 +1420,7 @@ class TestVrfUnbindIntf():
 
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/rebindvrf_vrf1_fib.txt",
+            fib_info_files=["/tmp/rebindvrf_vrf1_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
@@ -1431,7 +1502,7 @@ class TestVrfDeletion():
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
@@ -1439,21 +1510,21 @@ class TestVrfDeletion():
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             pkt_action='drop',
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf2_neigh(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             src_ports= g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
     def test_vrf2_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
@@ -1461,7 +1532,7 @@ class TestVrfDeletion():
     def test_vrf1_neigh_after_restore(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
@@ -1469,6 +1540,6 @@ class TestVrfDeletion():
     def test_vrf1_fib_after_resotre(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )

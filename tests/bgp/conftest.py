@@ -7,11 +7,13 @@ import netaddr
 import pytest
 import random
 
+from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.utilities import wait_until
+from tests.common.utilities import wait_tcp_connection
 from tests.common import config_reload
 from bgp_helpers import define_config
 from bgp_helpers import apply_default_bgp_config
@@ -19,7 +21,8 @@ from bgp_helpers import DUT_TMP_DIR
 from bgp_helpers import TEMPLATE_DIR
 from bgp_helpers import BGP_PLAIN_TEMPLATE
 from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
-
+from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +127,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
         # start bgpd if not started
         node_results = []
         node['host'].start_bgpd()
-        logger.info('disable graceful restart on neighbor {}'.format(k))
+        logger.info('disable graceful restart on neighbor {}'.format(node))
         node_results.append(node['host'].eos_config(
                 lines=['no graceful-restart'], \
                 parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'], \
@@ -172,12 +175,21 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 [netaddr.IPAddress(vlan_intf["addr"])]
             )
 
+            loopback_ip = None
+            for intf in mg_facts["minigraph_lo_interfaces"]:
+                if netaddr.IPAddress(intf["addr"]).version == 4:
+                    loopback_ip = intf["addr"]
+                    break
+            if not loopback_ip:
+                pytest.fail("ipv4 lo interface not found")
+
             for local_intf, neighbor_addr in zip(local_interfaces, neighbor_addresses):
                 conn = {}
                 conn["local_intf"] = vlan_intf_name
                 conn["local_addr"] = vlan_intf_addr
                 conn["neighbor_addr"] = neighbor_addr
                 conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][local_intf]
+                conn["loopback_ip"] = loopback_ip
                 connections.append(conn)
 
             for conn in connections:
@@ -194,35 +206,65 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
     def _setup_interfaces_t1(mg_facts, peer_count):
         try:
             connections = []
-            ipv4_interfaces = [_ for _ in mg_facts["minigraph_interfaces"] if _is_ipv4_address(_['addr'])]
-            used_subnets = [ipaddress.ip_network(_["subnet"]) for _ in ipv4_interfaces]
-            subnet_prefixlen = used_subnets[0].prefixlen
-            used_subnets = set(used_subnets)
-            for pt in mg_facts["minigraph_portchannel_interfaces"]:
-                if _is_ipv4_address(pt["addr"]):
-                    used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+            ipv4_interfaces = []
+            used_subnets = set()
+            if mg_facts["minigraph_interfaces"]:
+                for intf in mg_facts["minigraph_interfaces"]:
+                    if _is_ipv4_address(intf["addr"]):
+                        ipv4_interfaces.append(intf["attachto"])
+                        used_subnets.add(ipaddress.ip_network(intf["subnet"]))
+
+            ipv4_lag_interfaces = []
+            if mg_facts["minigraph_portchannel_interfaces"]:
+                for pt in mg_facts["minigraph_portchannel_interfaces"]:
+                    if _is_ipv4_address(pt["addr"]):
+                        pt_members = mg_facts["minigraph_portchannels"][pt["attachto"]]["members"]
+                        # Only use LAG with 1 member for bgpmon session between PTF,
+                        # It's because exabgp on PTF is bind to single interface
+                        if len(pt_members) == 1:
+                            ipv4_lag_interfaces.append(pt["attachto"])
+                        used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+
+            subnet_prefixlen = list(used_subnets)[0].prefixlen
             _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
             subnets = (_ for _ in _subnets if _ not in used_subnets)
 
-            for intf, subnet in zip(random.sample(ipv4_interfaces, peer_count), subnets):
+            loopback_ip = None
+            for intf in mg_facts["minigraph_lo_interfaces"]:
+                if netaddr.IPAddress(intf["addr"]).version == 4:
+                    loopback_ip = intf["addr"]
+                    break
+            if not loopback_ip:
+                pytest.fail("ipv4 lo interface not found")
+
+            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
-                conn["local_intf"] = "%s" % intf["attachto"]
+                conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
-                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf["attachto"]]
+                conn["loopback_ip"] = loopback_ip
+                conn["namespace"] = DEFAULT_NAMESPACE
+                if intf.startswith("PortChannel"):
+                    member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
+                    conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
+                else:
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
                 connections.append(conn)
 
             for conn in connections:
-                # bind the ip to the interface and notify bgpcfgd 
-                duthost.shell("config interface ip add %s %s" % (conn["local_intf"], conn["local_addr"]))
+                # bind the ip to the interface and notify bgpcfgd
+                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
+                duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
             yield connections
 
         finally:
             for conn in connections:
-                duthost.shell("config interface ip remove %s %s" % (conn["local_intf"], conn["local_addr"]))
+                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
+                duthost.shell("config interface %s ip remove %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     peer_count = getattr(request.module, "PEER_COUNT", 1)
@@ -294,3 +336,54 @@ def backup_bgp_config(duthost):
     except Exception:
         config_reload(duthost)
         apply_default_bgp_config(duthost)
+
+@pytest.fixture(scope="module")
+def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
+    connection = setup_interfaces[0]
+    dut_lo_addr = connection["loopback_ip"].split("/")[0]
+    peer_addr = connection['neighbor_addr'].split("/")[0]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    asn = mg_facts['minigraph_bgp_asn']
+    # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
+    logger.info("Configuring bgp monitor session on DUT")
+    bgpmon_args = {
+        'db_table_name': 'BGP_MONITORS',
+        'peer_addr': peer_addr,
+        'asn': asn,
+        'local_addr': dut_lo_addr,
+        'peer_name': BGP_MONITOR_NAME
+    }
+    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    duthost.copy(content=bgpmon_template.render(**bgpmon_args),
+                 dest=BGPMON_CONFIG_FILE)
+    # Start bgpmon on DUT
+    logger.info("Starting bgpmon on DUT")
+    duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+
+    logger.info("Starting bgp monitor session on PTF")
+    ptfhost.file(path=DUMP_FILE, state="absent")
+    ptfhost.copy(src=CUSTOM_DUMP_SCRIPT, dest=CUSTOM_DUMP_SCRIPT_DEST)
+    ptfhost.exabgp(name=BGP_MONITOR_NAME,
+                   state="started",
+                   local_ip=peer_addr,
+                   router_id=peer_addr,
+                   peer_ip=dut_lo_addr,
+                   local_asn=asn,
+                   peer_asn=asn,
+                   port=BGP_MONITOR_PORT,
+                   dump_script=CUSTOM_DUMP_SCRIPT_DEST)
+    # Add the route to DUT loopback IP  and the interface router mac
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
+    ptfhost.shell("ip route add %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
+
+    pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+                  "Failed to start bgp monitor session on PTF")
+    yield
+    # Cleanup bgp monitor
+    duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
+    ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
+    ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
+    ptfhost.file(path=DUMP_FILE, state="absent")
+    # Remove the route to DUT loopback IP  and the interface router mac
+    ptfhost.shell("ip route del %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
+    ptfhost.shell("ip neigh del %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))

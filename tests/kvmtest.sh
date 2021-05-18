@@ -101,6 +101,7 @@ test_t0() {
     bgp/test_bgp_fact.py \
     bgp/test_bgp_gr_helper.py \
     bgp/test_bgp_speaker.py \
+    bgp/test_bgp_update_timer.py \
     cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
@@ -118,6 +119,7 @@ test_t0() {
     snmp/test_snmp_pfc_counters.py \
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
+    snmp/test_snmp_default_route.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
@@ -127,7 +129,9 @@ test_t0() {
     test_procdockerstatsd.py \
     iface_namingmode/test_iface_namingmode.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    container_checker/test_container_checker.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -148,6 +152,21 @@ test_t0() {
     popd
 }
 
+test_t2() {
+    tgname=t2-setup
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -E -c "test_vs_chassis_setup.py" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    popd
+
+    tgname=t2
+    tests="\
+    voq/test_voq_init.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    popd
+}
+
 test_t1_lag() {
     tgname=t1_lag
     tests="\
@@ -163,10 +182,30 @@ test_t1_lag() {
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py"
+    bgp/test_bgpmon.py \
+    container_checker/test_container_checker.py \
+    process_monitoring/test_critical_process_monitoring.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+    popd
+}
+
+test_multi_asic_t1_lag() {
+    tgname=multi_asic_t1_lag
+    tests="\
+    bgp/test_bgp_fact.py \
+    snmp/test_snmp_pfc_counters.py \
+    snmp/test_snmp_queue.py \
+    snmp/test_snmp_loopback.py \
+    snmp/test_snmp_default_route.py \
+    tacacs/test_rw_user.py \
+    tacacs/test_ro_user.py \
+    tacacs/test_jit_user.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -u
     popd
 }
 
@@ -205,6 +244,10 @@ if [ x$test_suite == x"t0" ]; then
     test_t0
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
+elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
+    test_multi_asic_t1_lag 
+elif [ x$test_suite == x"t2" ]; then
+    test_t2
 else
     echo "unknown $test_suite"
     exit 1

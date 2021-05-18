@@ -16,11 +16,11 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_xcvr_info_in_db(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logging.info("Check transceiver status")
     all_interfaces = conn_graph_facts["device_conn"][duthost.hostname]
 

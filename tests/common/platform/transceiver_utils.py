@@ -42,10 +42,11 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     Check if transceiver information of all the specified interfaces have been detected.
     """
     cmd = "redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
-    not_detected_interfaces = [intf for intf in interfaces if "TRANSCEIVER_INFO|%s" % intf not in db_output]
+    not_detected_interfaces = [intf for intf in interfaces if (intf not in xcvr_skip_list[dut.hostname] and
+                               "TRANSCEIVER_INFO|{}".format(intf) not in db_output)]
     if len(not_detected_interfaces) > 0:
         logging.info("Interfaces not detected: %s" % str(not_detected_interfaces))
         return False
@@ -60,12 +61,12 @@ def check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list):
     """
     logging.info("Check whether transceiver information of all ports are in redis")
     cmd = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_info = dut.command(docker_cmd)
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     for intf in interfaces:
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             assert intf in parsed_xcvr_info, "TRANSCEIVER INFO of %s is not found in DB" % intf
 
 
@@ -75,11 +76,11 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     logging.info("Check detailed transceiver information of each connected port")
     expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
     for intf in interfaces:
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf
             docker_cmd = asichost.get_docker_cmd(cmd, "database")
             port_xcvr_info = dut.command(docker_cmd)
@@ -96,12 +97,12 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     """
     logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
     cmd = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_dom_sensor = dut.command(docker_cmd)
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             assert intf in parsed_xcvr_dom_sensor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
 
 
@@ -112,11 +113,11 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check detailed TRANSCEIVER_DOM_SENSOR information of each connected ports")
-    asichost = dut.get_asic(asic_index)
+    asichost = dut.asic_instance(asic_index)
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
     for intf in interfaces:
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
             docker_cmd = asichost.get_docker_cmd(cmd, "database")
             port_xcvr_dom_sensor = dut.command(docker_cmd)

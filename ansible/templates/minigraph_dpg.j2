@@ -2,7 +2,7 @@
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
         <a:LoopbackIPInterface>
           <Name>HostIP</Name>
           <AttachTo>Loopback0</AttachTo>
@@ -76,6 +76,16 @@
         </PortChannel>
 {% endif %}
 {% endfor %}
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for portchannel, params in portchannel_config.items() %}
+{% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
+        <PortChannel>
+          <Name>{{ portchannel }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endfor %}
+{% endif %}
       </PortChannelInterfaces>
 {% if tunnel_configs | length > 0 %}
       <TunnelInterfaces>
@@ -89,7 +99,7 @@
 {% for vlan, vlan_param in vlan_configs.items() %}
         <VlanInterface>
           <Name>{{ vlan }}</Name>
-{% set vlan_intf_str=';'.join(vlan_param['intfs']) %}
+{% set vlan_intf_str=';'.join(vlan_param['intfs'] + vlan_param['portchannels']) %}
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
@@ -150,7 +160,7 @@
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
@@ -200,5 +210,6 @@
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
+{% include 'minigraph_dpg_asic.j2' %}
   </DpgDec>
 

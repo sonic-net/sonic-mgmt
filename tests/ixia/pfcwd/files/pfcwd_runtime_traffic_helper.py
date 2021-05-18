@@ -5,8 +5,9 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import start_pfcwd, stop_pfcwd
+from tests.common.ixia.port import select_ports, select_tx_port
 
-from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
+from abstract_open_traffic_generator.flow import PortTxRx, TxRx, Flow, Header,\
     Size, Rate, Duration, FixedSeconds
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
@@ -25,6 +26,7 @@ TOLERANCE_THRESHOLD = 0.05
 
 def run_pfcwd_runtime_traffic_test(api,
                                    testbed_config,
+                                   port_config_list,
                                    conn_data,
                                    fanout_data,
                                    duthost,
@@ -36,7 +38,8 @@ def run_pfcwd_runtime_traffic_test(api,
 
     Args:
         api (obj): IXIA session
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         duthost (Ansible host instance): device under test
@@ -61,6 +64,7 @@ def run_pfcwd_runtime_traffic_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     flows = __gen_traffic(testbed_config=testbed_config,
+                          port_config_list=port_config_list,
                           port_id=port_id,
                           data_flow_name=DATA_FLOW_NAME,
                           data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
@@ -91,6 +95,7 @@ def run_pfcwd_runtime_traffic_test(api,
                      tolerance=TOLERANCE_THRESHOLD)
 
 def __gen_traffic(testbed_config,
+                  port_config_list,
                   port_id,
                   data_flow_name,
                   data_flow_dur_sec,
@@ -101,7 +106,8 @@ def __gen_traffic(testbed_config,
     Generate configurations of flows
 
     Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test.
         data_flow_name (str): data flow name
         data_flow_dur_sec (int): duration of data flows in second
@@ -113,30 +119,49 @@ def __gen_traffic(testbed_config,
         flows configurations (list): the list should have configurations of
         len(prio_list) data flows
     """
-    rx_port_id = port_id
-    tx_port_id = (port_id + 1) % len(testbed_config.devices)
-
-    data_endpoint = DeviceTxRx(
-        tx_device_names=[testbed_config.devices[tx_port_id].name],
-        rx_device_names=[testbed_config.devices[rx_port_id].name],
-    )
-
     result = list()
+
+    rx_port_id = port_id
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    pattern="many to one",
+                                                    rx_port_id=rx_port_id)
+    pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
+    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
+                                rx_port_id=rx_port_id)
+    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
+
+    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+
+    tx_mac = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        """ If soruce and destination port are in the same subnet """
+        rx_mac = rx_port_config.mac
+    else:
+        rx_mac = tx_port_config.gateway_mac
+
+    data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
+                             rx_port_name=testbed_config.ports[rx_port_id].name)
     data_flow_rate_percent = int(100 / len(prio_list))
 
     """ For each priority """
     for prio in prio_list:
+        eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                                 dst=FieldPattern(rx_mac),
+                                 pfc_queue=FieldPattern([prio]))
+
         ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                                    ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-        pfc_queue = FieldPattern([prio])
+                                ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
+
+        ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                              dst=FieldPattern(rx_port_config.ip),
+                              priority=ip_prio)
 
         data_flow = Flow(
             name='{} Prio {}'.format(data_flow_name, prio),
             tx_rx=TxRx(data_endpoint),
-            packet=[
-                Header(choice=EthernetHeader(pfc_queue=pfc_queue)),
-                Header(choice=Ipv4Header(priority=ip_prio))
-            ],
+            packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
             size=Size(data_pkt_size),
             rate=Rate('line', data_flow_rate_percent),
             duration=Duration(FixedSeconds(seconds=data_flow_dur_sec))
@@ -183,6 +208,9 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
         else:
             time.sleep(1)
             attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
