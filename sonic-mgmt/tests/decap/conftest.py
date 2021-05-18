@@ -12,7 +12,7 @@ def pytest_addoption(parser):
 
     decap_group.addoption(
         "--outer_ipv6",
-        default=True,
+        default=False,
         help="Specify whether outer layer IPv6 testing will be covered",
     )
 
