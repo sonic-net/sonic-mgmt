@@ -2,7 +2,8 @@ import pytest
 from ipaddress import ip_address
 import logging
 import json
-
+import ipaddress
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,30 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, ke
                 break
     return up_port, selected_port_facts
 
+def arptable_on_switch(asic_host, mg_facts):
+    """
+    The arp table will be cleared in sanity_check for dualtor testbed, and it needs
+    60 seconds (BGP keepalive timer) in maximum for neigh to be rebuilt.
+    """
+    TIMEOUT = 70
+    while TIMEOUT >= 0:
+        all_rebuilt = True
+        switch_arptable = asic_host.switch_arptable()['ansible_facts']
+        for intf in mg_facts['minigraph_portchannel_interfaces']:
+            peer_addr = intf['peer_addr']
+            if ipaddress.ip_address(peer_addr).version == 4 and peer_addr not in switch_arptable['arptable']['v4']:
+                all_rebuilt = False
+                break
+            if ipaddress.ip_address(peer_addr).version == 6 and peer_addr not in switch_arptable['arptable']['v6']:
+                all_rebuilt = False
+                break
+        if all_rebuilt:
+            return switch_arptable
+        time.sleep(5)
+        TIMEOUT -= 5
+    return None
+    
+
 @pytest.fixture(scope='function')
 def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -81,7 +106,11 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
 
     # Use the arp table to get the mac address of the host (VM's) instead of lldp_facts as that is was is used
     # by the DUT to forward traffic - regardless of lag or port.
-    switch_arptable = asichost.switch_arptable()['ansible_facts']
+
+    switch_arptable = arptable_on_switch(asichost, mg_facts)
+    if not switch_arptable:
+        pytest.fail("ARP table is not rebuilt in given time")
+
     used_intfs = set()
     src = None  # Name of lag or interface that is is up
     dst = None  # Name of lag or interface that is is up
