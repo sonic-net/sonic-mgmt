@@ -6,13 +6,13 @@ import time
 import logging
 
 from random import randint
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 
 from log_messages import *
 
-import tech_support_cmds as cmds 
+import tech_support_cmds as cmds
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +122,9 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     :return:
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
     loganalyzer.load_common_config()
 
@@ -292,8 +295,8 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
-    """ 
-    Add ASIC specific arg using the supplied string formatter 
+    """
+    Add ASIC specific arg using the supplied string formatter
 
     New commands are added for each ASIC. In case of a regex
     paramter, new regex is created for each ASIC.
@@ -328,9 +331,9 @@ def add_asic_arg(format_str, cmds_list, asic_num):
 @pytest.fixture(scope='function')
 def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
-    Prepare a list of commands to be expected in the 
-    show techsupport output. All the expected commands are 
-    categorized into groups. 
+    Prepare a list of commands to be expected in the
+    show techsupport output. All the expected commands are
+    categorized into groups.
 
     For multi ASIC platforms, command strings are generated based on
     the number of ASICs.
@@ -362,11 +365,11 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     if duthost.facts["asic_type"] == "broadcom":
         cmds_to_check.update(
             {
-                "broadcom_cmd_bcmcmd": 
+                "broadcom_cmd_bcmcmd":
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
-                "broadcom_cmd_misc": 
+                "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
-                "copy_config_cmds": 
+                "copy_config_cmds":
                     add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
@@ -375,8 +378,8 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
-    """ 
-    Check commands within a group against the command list 
+    """
+    Check commands within a group against the command list
 
     Returns: list commands not found
     """
