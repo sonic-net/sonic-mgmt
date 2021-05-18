@@ -2,7 +2,6 @@ import pytest
 from ipaddress import ip_address
 import logging
 import json
-import ipaddress
 import time
 
 logger = logging.getLogger(__name__)
@@ -82,10 +81,10 @@ def arptable_on_switch(asic_host, mg_facts):
         switch_arptable = asic_host.switch_arptable()['ansible_facts']
         for intf in mg_facts['minigraph_portchannel_interfaces']:
             peer_addr = intf['peer_addr']
-            if ipaddress.ip_address(peer_addr).version == 4 and peer_addr not in switch_arptable['arptable']['v4']:
+            if ip_address(peer_addr).version == 4 and peer_addr not in switch_arptable['arptable']['v4']:
                 all_rebuilt = False
                 break
-            if ipaddress.ip_address(peer_addr).version == 6 and peer_addr not in switch_arptable['arptable']['v6']:
+            if ip_address(peer_addr).version == 6 and peer_addr not in switch_arptable['arptable']['v6']:
                 all_rebuilt = False
                 break
         if all_rebuilt:
