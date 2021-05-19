@@ -475,8 +475,7 @@ def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             with loganalyzer:
                 logging.info('Mocking the fault FAN back to normal...')
                 single_fan_mocker.mock_status(True)
-
-            check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+                check_cli_output_with_mocker(duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
 
         loganalyzer.expect_regex = [LOG_EXPECT_FAN_OVER_SPEED_RE]
         with loganalyzer:
