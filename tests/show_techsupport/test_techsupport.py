@@ -370,6 +370,10 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+    # Remove /proc/dma for armh
+    elif duthost.facts["asic_type"] == "marvell":
+        if 'armhf-' in duthost.facts["platform"]:
+            cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
 
