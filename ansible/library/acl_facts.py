@@ -221,7 +221,7 @@ def merge_acl_table_and_rule(all_config):
     for table in acl_tables:
         acl_tables[table]['rules'] = {}
 
-    for rule in all_config['ACL_RULE']:
+    for rule in all_config.get('ACL_RULE', {}):
         rule_expanded = rule.split('|')
         if len(rule_expanded) == 2:
             table_name = rule_expanded[0]
