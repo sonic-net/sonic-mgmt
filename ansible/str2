@@ -62,6 +62,8 @@ all:
           ansible_host: 10.64.246.149
         vms21-6:
           ansible_host: 10.64.246.152
+        vms24-1:
+          ansible_host: 10.64.246.158
 
     pdu:
       hosts:
@@ -220,6 +222,9 @@ fanout:
     str2-7260cx3-acs-fan-19:
       ansible_host: 10.3.146.156
       pdu_host: pdu-113,pdu-114
+    str2-7260cx3-acs-fan-20:
+      ansible_host: 10.3.146.165
+      pdu_host: pdu-121,pdu-122
 
 sonic:
   vars:
@@ -377,6 +382,10 @@ sonic_arista_QX:
       ansible_host: 10.3.146.158
       hwsku: Arista-7050-QX-32S
       pdu_host: pdu-117,pdu-118
+    str2-7050qx-32s-acs-02:
+      ansible_host: 10.3.146.255
+      hwsku: Arista-7050-QX-32S
+      pdu_host: pdu-121,pdu-122
 
 sonic_dx010_100:
   vars:
