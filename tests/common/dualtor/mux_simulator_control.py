@@ -300,6 +300,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
     """
     A module level fixture to toggle all ports to randomly selected tor
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
     dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
     if dut_index == 0:
         data = {"active_side": UPPER_TOR}
