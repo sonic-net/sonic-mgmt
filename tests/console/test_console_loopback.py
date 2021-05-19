@@ -36,7 +36,7 @@ def test_console_loopback_echo(duthost, creds, target_line):
         client.expect([text, pexpect.EOF, pexpect.TIMOUT], timeout=timeout_sec)
         if index == 1:
             pytest.fail("Encounter early EOF during testing line {}".format(target_line))
-        elif index = 2:
+        elif index == 2:
             pytest.fail("Not able to get echo in {}s".format(timeout_sec))
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH")
