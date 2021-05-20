@@ -36,7 +36,7 @@ def check_sysfs(dut):
         if platform_data["fans"]["hot_swappable"]:
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(fan_id, fan_info['status'])
 
-        assert fan_info['fault'] == '0', "Fan {} fault status {} is not 1".format(fan_id, fan_info['fault'])
+        assert fan_info['fault'] == '0', "Fan {} fault status {} is not 0".format(fan_id, fan_info['fault'])
 
     if not _is_fan_speed_in_range(sysfs_facts):
         sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
