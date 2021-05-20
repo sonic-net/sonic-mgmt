@@ -75,7 +75,7 @@ def _pytest_import_callback(module):
             logging.exception("\n%r", detail)
             raise
         finally:
-            logging.info("-" * 20 + (" fixture %s setup ends " % fixture_generator.__name__) + "-" * 20)
+            logging.info("-" * 20 + (" fixture %s teardown ends " % fixture_generator.__name__) + "-" * 20)
 
     def build_custom_fixture_decorator(original_fixture):
 
