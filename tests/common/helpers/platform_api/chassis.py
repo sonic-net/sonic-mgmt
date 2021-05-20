@@ -37,6 +37,10 @@ def get_serial(conn):
     return chassis_api(conn, 'get_serial')
 
 
+def get_revision(conn):
+    return chassis_api(conn, 'get_revision')
+
+
 def get_status(conn):
     return chassis_api(conn, 'get_status')
 
