@@ -10,8 +10,8 @@ OTHER_PATTERNS = {
     "INIT_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to INIT VIEW.*'),
     "APPLY_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*APPLY_VIEW.*'),
     "APPLY_VIEW|End": re.compile(r'.*swss#orchagent.*sai_redis_notify_syncd.*switched ASIC to APPLY VIEW.*'),
-    "PORT_INIT|Start": re.compile(r'.*swss#portsyncd.*onMsg.*Publish.*ok.*down.*to state db.*'),
-    "PORT_READY|Start": re.compile(r'.*swss#portsyncd.*onMsg.*Publish.*ok.*up.*to state db.*'),
+    "PORT_INIT|Start": re.compile(r'.*NOTICE swss#orchagent.*initPort: Initialized port.*'),
+    "PORT_READY|Start": re.compile(r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set.* to up.*'),
     "LAG_READY|Start": re.compile(r'.*teamd#tlm_teamd.*try_add_lag.*The LAG \'PortChannel.*\' has been added.*'),
     "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
     "FINALIZER|End": re.compile(r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),
@@ -32,4 +32,4 @@ OFFSET_ITEMS = ['DATABASE', 'FINALIZER', 'INIT_VIEW', 'SYNCD_CREATE_SWITCH',
 
 TIME_SPAN_ITEMS = ['RADV', 'BGP', 'SYNCD', 'SWSS', 'TEAMD', 'DATABASE',
     'SYNCD_CREATE_SWITCH', 'SAI_CREATE_SWITCH', 'APPLY_VIEW', 'INIT_VIEW',
-    'NEIGHBOR_ENTRY', 'PORT_INIT', 'PORT_READY', 'FINALIZER']
+    'NEIGHBOR_ENTRY', 'PORT_INIT', 'PORT_READY', 'FINALIZER', 'LAG_READY']
