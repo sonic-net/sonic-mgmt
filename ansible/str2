@@ -64,6 +64,8 @@ all:
           ansible_host: 10.64.246.152
         vms24-1:
           ansible_host: 10.64.246.158
+        vms24-2:
+          ansible_host: 10.64.246.159
 
     pdu:
       hosts:
@@ -384,6 +386,10 @@ sonic_arista_QX:
       pdu_host: pdu-117,pdu-118
     str2-7050qx-32s-acs-02:
       ansible_host: 10.3.146.255
+      hwsku: Arista-7050-QX-32S
+      pdu_host: pdu-121,pdu-122
+    str2-7050qx-32s-acs-03:
+      ansible_host: 10.3.146.167
       hwsku: Arista-7050-QX-32S
       pdu_host: pdu-121,pdu-122
 
