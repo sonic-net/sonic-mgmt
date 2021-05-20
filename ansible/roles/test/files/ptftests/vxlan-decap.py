@@ -237,7 +237,7 @@ class Vxlan(BaseTest):
         self.log('Collected tests: {}'.format(pprint.pformat(self.tests)))
 
         self.dut_mac = graph['dut_mac']
-
+        self.vlan_mac = graph['vlan_mac']
         ip = None
         for data in graph['minigraph_lo_interfaces']:
             if data['prefixlen'] == 32:
@@ -402,13 +402,13 @@ class Vxlan(BaseTest):
     def Vxlan(self, test):
         for i, n in enumerate(test['acc_ports']):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, self.vlan_mac)
                 if not res:
                     return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, self.dut_mac)
                 if not res:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
@@ -437,7 +437,7 @@ class Vxlan(BaseTest):
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
-        dst_mac = self.dut_mac
+        dst_mac = self.vlan_mac
         src_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
@@ -448,7 +448,7 @@ class Vxlan(BaseTest):
                        )
         exp_packet = simple_tcp_packet(
                          eth_dst=self.random_mac,
-                         eth_src=dst_mac,
+                         eth_src=self.dut_mac,
                          ip_src=src_ip,
                          ip_dst=dst_ip,
                          ip_ttl = 63,
@@ -484,7 +484,7 @@ class Vxlan(BaseTest):
 
         exp_packet = simple_tcp_packet(
                          eth_dst=self.ptf_mac_addrs['eth%d' % acc_port],
-                         eth_src=dst_mac,
+                         eth_src=self.vlan_mac,
                          ip_src=src_ip,
                          ip_dst=dst_ip,
                          ip_ttl = 63,
@@ -505,12 +505,11 @@ class Vxlan(BaseTest):
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
-    def checkVxlan(self, acc_port, net_port, test):
+    def checkVxlan(self, acc_port, net_port, test, dst_mac):
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
         inner_dst_ip = test['vlan_ip_prefixes'][acc_port]
-        dst_mac = self.dut_mac
         src_mac = self.random_mac
         ip_dst = self.loopback_ip
 
