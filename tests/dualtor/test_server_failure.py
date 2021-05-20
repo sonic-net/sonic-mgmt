@@ -10,13 +10,14 @@ pytestmark = [
     pytest.mark.usefixtures('run_garp_service', 'run_icmp_responder')
 ]
 
+@pytest.fixture(autouse=True, scope='module')
+def skip_if_non_dualtor_topo(tbinfo):
+    pytest_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
 
 def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_counter, simulator_server_down, toggle_simulator_port_to_upper_tor, loganalyzer):
     """
     Verify that mux cable is not toggled excessively.
     """
-    pytest_require('dualtor' in tbinfo['topo']['name'], 
-                    "Only run on dualtor testbed")
 
     for analyzer in list(loganalyzer.values()):
         analyzer.ignore_regex.append(r".*ERR swss#orchagent: :- setState: State transition from active to active is not-handled")
