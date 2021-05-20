@@ -122,19 +122,19 @@ def parse_rib(host, ip_ver):
 
     return routes
 
-def verify_all_routes_announce_to_bgpmon(duthost, ptfhost):
+def get_routes_not_announced_to_bgpmon(duthost, ptfhost):
     """
-    Verify that the routes are announced by checking neighbors route dump.
+    Get the routes that are not announced to bgpmon by checking dump of bgpmon on PTF.
     """
-    time.sleep(BGP_ANNOUNCE_TIME)
+    def _dump_fie_exists(host):
+        return host.stat(path=DUMP_FILE).get('stat', {}).get('exists', False)
+    pytest_assert(wait_until(120, 10, _dump_fie_exists, ptfhost))
+    time.sleep(20)  # Wait until all routes announced to bgpmon
     bgpmon_routes = parse_exabgp_dump(ptfhost)
     rib_v4 = parse_rib(duthost, 4)
     rib_v6 = parse_rib(duthost, 6)
     routes_dut = dict(rib_v4.items() + rib_v6.items())
-    for route in routes_dut.keys():
-        if route not in bgpmon_routes:
-            return False
-    return True
+    return [route for route in routes_dut.keys() if route not in bgpmon_routes]
 
 def remove_bgp_neighbors(duthost, asic_index):
     """
