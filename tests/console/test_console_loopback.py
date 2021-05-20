@@ -33,9 +33,10 @@ def test_console_loopback_echo(duthost, creds, target_line):
         client = create_ssh_client(dutip, ressh_user, dutpass)
         ensure_console_session_up(client, target_line)
 
+        # Generate a random strings to send
         text = generate_random_string(packet_size)
         client.sendline(text)
-        index = client.expect([text, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout_sec)
+        index = client.expect_exact([text, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout_sec)
         if index == 1:
             pytest.fail("Encounter early EOF during testing line {}".format(target_line))
         elif index == 2:
@@ -61,8 +62,8 @@ def create_ssh_client(ip, user, pwd):
             raise Exception("Unexpect pattern encountered")
 
 def ensure_console_session_up(client, line):
-    client.expect('Successful connection to line [{}]'.format(line))
-    client.expect('Press ^A ^X to disconnect')
+    client.expect_exact('Successful connection to line [{}]'.format(line))
+    client.expect_exact('Press ^A ^X to disconnect')
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
