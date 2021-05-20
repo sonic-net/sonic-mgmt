@@ -60,12 +60,11 @@ class ReportDBConnector(ABC):
         """
 
     @abstractmethod
-    def upload_reboot_report(self, reboot_timing_dict: Dict, path_name: str = "", report_guid: str = "") -> None:
+    def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
         """Upload reboot test report to the back-end data store.
 
         Args:
-            reboot_timing_dict: reboot test results stored in dictionary
-            path_name: Path 
+            path_name: Path to reboot report/summary file
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
 
@@ -160,7 +159,7 @@ class KustoConnector(ReportDBConnector):
         pdu_status_data = {"data": pdu_output}
         self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
-    def upload_reboot_report(self, reboot_timing_dict: Dict, path_name: str = "", report_guid: str = "") -> None:
+    def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
         reboot_timing_data = {
             "id": report_guid
         }

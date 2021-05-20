@@ -94,16 +94,20 @@
 ###############################################################################
 // Create table command
 ////////////////////////////////////////////////////////////
-.create table ['RawRebootTimingData']  (ReportId: string, ['ProcessingTime']:dynamic, ['FirstOccurence']:dynamic, ['RebootTime']:dynamic, ['Dataplane']:dynamic)
+.create table ['RawRebootTimingData']  (ReportId: string,
+                                    ['Controlplane']:dynamic, ['Dataplane']:dynamic, ['OffsetFromKexec']:dynamic,
+                                    ['TimeSpan']:dynamic, ['RebootTime']:dynamic)
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
 .create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' '[
-                                                                                {"column":"ReportId","Properties":{"path":"$.id"}},
-                                                                                {"column":"ProcessingTime", "Properties":{"Path":"$[\'processing_time\']"}},
-                                                                                {"column":"FirstOccurence", "Properties":{"Path":"$[\'first_occurence\']"}},
-                                                                                {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
-                                                                                {"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}}]'
+                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                            {"column":"OffsetFromKexec", "Properties":{"Path":"$[\'offset_from_kexec\']"}},
+                                                            {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
+                                                            {"column":"Controlplane", "Properties":{"Path":"$[\'controlplane\']"}},
+                                                            {"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}},
+                                                            {"column":"TimeSpan", "Properties":{"Path":"$[\'time_span\']"}}]'
+
 
 ###############################################################################
 # REBOOT REPORT TABLE SETUP                                                   #
@@ -112,33 +116,47 @@
 ###############################################################################
 // Create table command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData']  (ReportId: string, ['RebootTime']:string, ['RebootType']:string, ['DataplaneLongestDowntime']:string,
-                                    ['DataplaneLostPackets']:string, ['DataplaneTotalDowntime']:string, ['ProcessingTimeDefaultRouteSet']:string,
-                                    ['ProcessingTimeSaiSwitchCreate']:string, ['ProcessingTimeLagReady']:string, ['ProcessingTimeBgp']:string,
-                                    ['ProcessingTimeSyncd']:string, ['ProcessingTimeRadv']:string, ['ProcessingTimeFirstNeighborEntry']:string,
-                                    ['ProcessingTimeInitView']:string, ['ProcessingTimeFinalizer']:string, ['ProcessingTimePortInit']:string,
-                                    ['ProcessingTimeTeamd']:string, ['ProcessingTimeGbsyncd']:string, ['ProcessingTimeSwss']:string,
-                                    ['ProcessingTimeApplyView']:string)
-
+.create table ['RebootTimingData'] (ReportId: string, ['RebootType']:string,
+                                    ['ControlplaneArpPing']:string, ['ControlplaneDowntime']:string, ['DataplaneLostPackets']:string, ['DataplaneDowntime']:string,
+                                    ['OffsetFromKexecDatabase']:string, ['OffsetFromKexecFinalizer']:string, ['OffsetFromKexecInitView']:string, ['OffsetFromKexecSyncdCreateSwitch']:string,
+                                    ['OffsetFromKexecPortInit']:string, ['OffsetFromKexecPortReady']:string, ['OffsetFromKexecSaiCreateSwitch']:string, ['OffsetFromKexecNeighborEntry']:string,
+                                    ['OffsetFromKexecDefaultRouteSet']:string, ['OffsetFromKexecLagReady']:string, ['OffsetFromKexecApplyView']:string, ['TimeSpanRadv']:string,
+                                    ['TimeSpanSyncd']:string, ['TimeSpanBgp']:string, ['TimeSpanPortInit']:string, ['TimeSpanSwss']:string, ['TimeSpanTeamd']:string,
+                                    ['TimeSpanDatabase']:string, ['TimeSpanSyncdCreateSwitch']:string, ['TimeSpanSaiCreateSwitch']:string, ['TimeSpanApplyView']:string,
+                                    ['TimeSpanInitView']:string, ['TimeSpanNeighborEntry']:string, ['TimeSpanPortReady']:string, ['TimeSpanFinalizer']:string, ['TimeSpanLagReady']:string)
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' '[{"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
-                                                                                    {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
-                                                                                    {"column":"DataplaneLongestDowntime", "Properties":{"Path":"$[\'dataplane\'][\'longest_downtime\']"}},
-                                                                                    {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},
-                                                                                    {"column":"DataplaneTotalDowntime", "Properties":{"Path":"$[\'dataplane\'][\'total_downtime\']"}},
-                                                                                    {"column":"ProcessingTimeDefaultRouteSet", "Properties":{"Path":"$[\'processing_time\'][\'default_route_set\']"}},
-                                                                                    {"column":"ProcessingTimeSaiSwitchCreate", "Properties":{"Path":"$[\'processing_time\'][\'sai_switch_create\']"}},
-                                                                                    {"column":"ProcessingTimeLagReady", "Properties":{"Path":"$[\'processing_time\'][\'lag_ready\']"}},
-                                                                                    {"column":"ProcessingTimeBgp", "Properties":{"Path":"$[\'processing_time\'][\'bgp\']"}},
-                                                                                    {"column":"ProcessingTimeSyncd", "Properties":{"Path":"$[\'processing_time\'][\'syncd\']"}},
-                                                                                    {"column":"ProcessingTimeRadv", "Properties":{"Path":"$[\'processing_time\'][\'radv\']"}},
-                                                                                    {"column":"ProcessingTimeFirstNeighborEntry", "Properties":{"Path":"$[\'processing_time\'][\'first_neighbor_entry\']"}},
-                                                                                    {"column":"ProcessingTimeInitView", "Properties":{"Path":"$[\'processing_time\'][\'init_view\']"}},
-                                                                                    {"column":"ProcessingTimeFinalizer", "Properties":{"Path":"$[\'processing_time\'][\'finalizer\']"}},
-                                                                                    {"column":"ProcessingTimePortInit", "Properties":{"Path":"$[\'processing_time\'][\'port_init\']"}},
-                                                                                    {"column":"ProcessingTimeTeamd", "Properties":{"Path":"$[\'processing_time\'][\'teamd\']"}},
-                                                                                    {"column":"ProcessingTimeGbsyncd", "Properties":{"Path":"$[\'processing_time\'][\'gbsyncd\']"}},
-                                                                                    {"column":"ProcessingTimeSwss", "Properties":{"Path":"$[\'processing_time\'][\'swss\']"}},
-                                                                                    {"column":"ProcessingTimeApplyView", "Properties":{"Path":"$[\'processing_time\'][\'apply_view\']"}}]'
+.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' '[
+                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                            {"column":"OffsetFromKexecDatabase", "Properties":{"Path":"$[\'offset_from_kexec\'][\'database\']"}},
+                                                            {"column":"OffsetFromKexecFinalizer", "Properties":{"Path":"$[\'offset_from_kexec\'][\'finalizer\']"}},
+                                                            {"column":"OffsetFromKexecPortInit", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_init\']"}},
+                                                            {"column":"OffsetFromKexecInitView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'init_view\']"}},
+                                                            {"column":"OffsetFromKexecSyncdCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'syncd_create_switch\']"}},
+                                                            {"column":"OffsetFromKexecDefaultRouteSet", "Properties":{"Path":"$[\'offset_from_kexec\'][\'default_route_set\']"}},
+                                                            {"column":"OffsetFromKexecLagReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'lag_ready\']"}},
+                                                            {"column":"OffsetFromKexecPortReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_ready\']"}},
+                                                            {"column":"OffsetFromKexecSaiCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'sai_create_switch\']"}},
+                                                            {"column":"OffsetFromKexecNeighborEntry", "Properties":{"Path":"$[\'offset_from_kexec\'][\'neighbor_entry\']"}},
+                                                            {"column":"OffsetFromKexecApplyView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'apply_view\']"}},
+                                                            {"column":"ControlplaneArpPing", "Properties":{"Path":"$[\'controlplane\'][\'arp_ping\']"}},
+                                                            {"column":"ControlplaneDowntime", "Properties":{"Path":"$[\'controlplane\'][\'downtime\']"}},
+                                                            {"column":"TimeSpanRadv", "Properties":{"Path":"$[\'time_span\'][\'radv\']"}},
+                                                            {"column":"TimeSpanSyncd", "Properties":{"Path":"$[\'time_span\'][\'syncd\']"}},
+                                                            {"column":"TimeSpanBgp", "Properties":{"Path":"$[\'time_span\'][\'bgp\']"}},
+                                                            {"column":"TimeSpanPortInit", "Properties":{"Path":"$[\'time_span\'][\'port_init\']"}},
+                                                            {"column":"TimeSpanSwss", "Properties":{"Path":"$[\'time_span\'][\'swss\']"}},
+                                                            {"column":"TimeSpanTeamd", "Properties":{"Path":"$[\'time_span\'][\'teamd\']"}},
+                                                            {"column":"TimeSpanDatabase", "Properties":{"Path":"$[\'time_span\'][\'database\']"}},
+                                                            {"column":"TimeSpanSyncdCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'syncd_create_switch\']"}},
+                                                            {"column":"TimeSpanSaiCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'sai_create_switch\']"}},
+                                                            {"column":"TimeSpanApplyView", "Properties":{"Path":"$[\'time_span\'][\'apply_view\']"}},
+                                                            {"column":"TimeSpanInitView", "Properties":{"Path":"$[\'time_span\'][\'init_view\']"}},
+                                                            {"column":"TimeSpanNeighborEntry", "Properties":{"Path":"$[\'time_span\'][\'neighbor_entry\']"}},
+                                                            {"column":"TimeSpanPortReady", "Properties":{"Path":"$[\'time_span\'][\'port_ready\']"}},
+                                                            {"column":"TimeSpanFinalizer", "Properties":{"Path":"$[\'time_span\'][\'finalizer\']"}},
+                                                            {"column":"TimeSpanLagReady", "Properties":{"Path":"$[\'time_span\'][\'lag_ready\']"}},
+                                                            {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
+                                                            {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},
+                                                            {"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'

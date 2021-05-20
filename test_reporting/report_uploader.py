@@ -39,9 +39,8 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         tracking_id = args.external_id if args.external_id else ""
         report_guid = str(uuid.uuid4())
         for path_name in args.path_list:
-            is_reboot_report = "test_warm_reboot" in path_name or "test_fast_reboot" in path_name
-            if is_reboot_report:
-                kusto_db.upload_reboot_report(test_result_json, path_name, report_guid)
+            if "reboot_summary" in path_name or "reboot_report" in path_name:
+                kusto_db.upload_reboot_report(path_name, report_guid)
             else:
                 if args.json:
                     test_result_json = validate_junit_json_file(path_name)
