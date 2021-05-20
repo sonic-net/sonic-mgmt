@@ -102,6 +102,13 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        for i in range(self.num_psus):
+            revision = psu.get_revision(platform_api_conn, i)
+            if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
+                self.expect(isinstance(revision, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
+        self.assert_expectations()
+
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
             status = psu.get_status(platform_api_conn, i)
