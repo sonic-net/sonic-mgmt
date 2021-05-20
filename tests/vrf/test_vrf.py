@@ -336,7 +336,7 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
 
 def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
-    dst_ports = [str(port[0]) for port in dst_ports]
+    dst_ports = [str(port) for port_list in dst_ports for port in port_list]
     tmp_file = tempfile.NamedTemporaryFile()
     for ip in dst_ips:
         tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))

@@ -5,7 +5,7 @@
 {%- endmacro %}
 
 {# defualt route#}
-{% if testbed_type == 't0' %}
+{% if testbed_type == 't0' or testbed_type == 't0-64' %}
 0.0.0.0/0 {{ gen_dst_ports(dst_intfs) }}
 ::/0 {{ gen_dst_ports(dst_intfs) }}
 
