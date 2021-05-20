@@ -115,7 +115,7 @@ class VlanPort(object):
         with open(CMD_DEBUG_FNAME, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
 
-        return stdout
+        return stdout.decode('utf-8')
 
 
 def main():
