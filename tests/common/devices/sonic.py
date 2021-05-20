@@ -1148,7 +1148,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         '''
         Get any interfaces belonging to a VLAN
         '''
-        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_members_facts = self.get_running_config_facts().get('VLAN_MEMBER', {})
         vlan_intfs = []
 
         for vlan in vlan_members_facts:

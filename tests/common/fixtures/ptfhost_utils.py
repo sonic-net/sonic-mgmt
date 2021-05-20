@@ -174,70 +174,78 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
-    logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    if tbinfo['topo']['type'] == 't0':
+        logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.info("Start running icmp_responder")
-    templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
-    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    vlan_intfs = duthost.get_vlan_intfs()
-    vlan_table = duthost.get_running_config_facts()['VLAN']
-    vlan_name = list(vlan_table.keys())[0]
-    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
-    icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
-    icmp_responder_args += " " + "-m {}".format(vlan_mac)
-    ptfhost.copy(
-        content=templ.render(icmp_responder_args=icmp_responder_args),
-        dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
-    )
-    ptfhost.shell("supervisorctl update")
-    ptfhost.shell("supervisorctl start icmp_responder")
+        logging.info("Start running icmp_responder")
+        templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
+        ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+        vlan_intfs = duthost.get_vlan_intfs()
+        vlan_table = duthost.get_running_config_facts()['VLAN']
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+        icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
+        icmp_responder_args += " " + "-m {}".format(vlan_mac)
+        ptfhost.copy(
+            content=templ.render(icmp_responder_args=icmp_responder_args),
+            dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
+        )
+        ptfhost.shell("supervisorctl update")
+        ptfhost.shell("supervisorctl start icmp_responder")
+    else:
+        logger.info("Not running on a T0 testbed, not starting ICMP responder")
 
     yield
 
-    logging.info("Stop running icmp_responder")
-    ptfhost.shell("supervisorctl stop icmp_responder")
+    if tbinfo['topo']['type'] == 't0':
+        logging.info("Stop running icmp_responder")
+        ptfhost.shell("supervisorctl stop icmp_responder")
 
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
-    garp_config = {}
+    if tbinfo['topo']['type'] == 't0':
+        garp_config = {}
 
-    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    if 't0' in tbinfo['topo']['name']:
-        # For mocked dualtor testbed
-        mux_cable_table = {}
-        server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
-        for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
-            server_ipv4 = str(server_ipv4_base_addr + i)
-            mux_cable_table[intf] = {}
-            mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+        if 'dualtor' not in tbinfo['topo']['name']:
+            # For mocked dualtor testbed
+            mux_cable_table = {}
+            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
+                server_ipv4 = str(server_ipv4_base_addr + i)
+                mux_cable_table[intf] = {}
+                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        else:
+            # For physical dualtor testbed
+            mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+
+        logger.info("Generating GARP service config file")
+
+        for vlan_intf, config in mux_cable_table.items():
+            ptf_port_index = ptf_indices[vlan_intf]
+            server_ip = ip_interface(config['server_ipv4']).ip
+
+            garp_config[ptf_port_index] = {
+                                            'target_ip': '{}'.format(server_ip)
+                                        }
+
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
+
+        with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
+            template = Template(f.read())
+
+        ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
+        ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+        logger.info("Starting GARP Service on PTF host")
+        ptfhost.shell('supervisorctl update')
+        ptfhost.shell('supervisorctl start garp_service')
     else:
-        # For physical dualtor testbed
-        mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
-
-    logger.info("Generating GARP service config file")
-
-    for vlan_intf, config in mux_cable_table.items():
-        ptf_port_index = ptf_indices[vlan_intf]
-        server_ip = ip_interface(config['server_ipv4']).ip
-
-        garp_config[ptf_port_index] = {
-                                        'target_ip': '{}'.format(server_ip)
-                                      }
-
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
-
-    with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
-        template = Template(f.read())
-
-    ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
-    ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
-    logger.info("Starting GARP Service on PTF host")
-    ptfhost.shell('supervisorctl update')
-    ptfhost.shell('supervisorctl start garp_service')
+        logger.info("Not running on a T0 testbed, not starting GARP service")
 
     yield
 
-    logger.info("Stopping GARP service on PTF host")
-    ptfhost.shell('supervisorctl stop garp_service')
+    if tbinfo['topo']['type'] == 't0':
+        logger.info("Stopping GARP service on PTF host")
+        ptfhost.shell('supervisorctl stop garp_service')
