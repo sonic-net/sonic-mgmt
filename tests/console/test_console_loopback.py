@@ -26,14 +26,16 @@ def test_console_loopback_echo(duthost, creds, target_line):
     if target_line not in console_facts['lines']:
         pytest.skip("Target line {} has not configured".format(target_line))
 
-    timeout_sec = (packet_size << 3) * delay_factor / int(console_facts['lines'][target_line]['baudrate'])
+    timeout_sec = (packet_size << 3) * delay_factor / int(console_facts['lines'][target_line]['baud_rate'])
     ressh_user  = "{}:{}".format(dutuser, target_line)
 
     try:
         client = create_ssh_client(dutip, ressh_user, dutpass)
+        ensure_console_session_up(client, target_line)
+
         text = generate_random_string(packet_size)
         client.sendline(text)
-        client.expect([text, pexpect.EOF, pexpect.TIMOUT], timeout=timeout_sec)
+        index = client.expect([text, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout_sec)
         if index == 1:
             pytest.fail("Encounter early EOF during testing line {}".format(target_line))
         elif index == 2:
@@ -44,9 +46,23 @@ def test_console_loopback_echo(duthost, creds, target_line):
 def create_ssh_client(ip, user, pwd):
     # Set 'echo=False' is very important since pexpect will echo back all inputs to buffer by default
     client = pexpect.spawn('ssh {}@{}'.format(user, ip), echo=False)
-    client.expect('[Pp]assword:')
-    client.sendline(pwd)
-    return client
+
+    while True:
+        index = client.expect([
+            '[Pp]assword:',
+            'Are you sure you want to continue connecting (yes/no)?'])
+
+        if index == 0:
+            client.sendline(pwd)
+            return client
+        elif index == 1:
+            client.sendline('yes')
+        else:
+            raise Exception("Unexpect pattern encountered")
+
+def ensure_console_session_up(client, line):
+    client.expect('Successful connection to line [{}]'.format(line))
+    client.expect('Press ^A ^X to disconnect')
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
