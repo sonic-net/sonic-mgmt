@@ -61,7 +61,7 @@ class PfcCmd(object):
             logger.info(
                 "Buffer model is {}, buffer tables will be fetched from {}".format(
                     PfcCmd.buffer_model or "not defined",
-                    "APPL_DB" if PfcCmd.buffer_model else "CONFIG_DB"
+                    "APPL_DB" if PfcCmd.buffer_model == "dynamic" else "CONFIG_DB"
                 )
             )
         return PfcCmd.buffer_model == "dynamic"
