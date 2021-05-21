@@ -1,0 +1,23 @@
+Value IFACE (\w+\d+)
+Value RX_BPS (\S+(\s\S+)?)
+Value RX_ERR (\d+\S*)
+Value RX_OK (\d+\S*)
+Value RX_PPS (\S+(\s\S+)?)
+Value TX_BPS (\S+(\s\S+)?)
+Value TX_ERR (\d+\S*)
+Value TX_OK (\d+\S*)
+Value TX_PPS (\S+(\s\S+)?)
+
+
+Start
+  ^\s*\"${IFACE}\"\s*\:.*$$ -> Continue
+  ^\s*\"RX_BPS\"\:\s+\"${RX_BPS}\".*$$ -> Continue
+  ^\s*\"RX_ERR\"\s*\:\s+\"${RX_ERR}\".*$$ -> Continue
+  ^\s*\"RX_OK\"\s*\:\s+\"${RX_OK}\".*$$ -> Continue
+  ^\s*\"RX_PPS\"\s*\:\s+\"${RX_PPS}\".*$$ -> Continue
+  ^\s*\"TX_BPS\"\s*\:\s+\"${TX_BPS}\".*$$ -> Continue
+  ^\s*\"TX_ERR\"\s*\:\s+\"${TX_ERR}\".*$$ -> Continue
+  ^\s*\"TX_OK\"\s*\:\s+\"${TX_OK}\".*$$ -> Continue
+  ^\s*\"TX_PPS\"\s*\:\s+\"${TX_PPS}\".*$$ -> Record
+
+EOF

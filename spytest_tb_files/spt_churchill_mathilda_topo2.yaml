@@ -27,7 +27,7 @@ devices:
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
         device_type: TGEN
-        properties: {type: stc, version: 5.03, ip: 172.27.147.23, params: def_tg}
+        properties: {type: stc, version: 5.20, ip: 172.27.147.23, params: def_tg}
 
 topology:
     R8:

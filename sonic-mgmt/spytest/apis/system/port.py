@@ -318,6 +318,45 @@ def clear_interface_counters(dut, **kwargs):
     return True
 
 
+def clear_rif_interface_counters(dut, **kwargs):
+    cli_type = st.get_ui_type(dut, **kwargs)
+    interface_name = kwargs.get("interface_name", "")
+    interface_type = kwargs.get("interface_type", "all")
+    if cli_type == "klish":
+        confirm = kwargs.get("confirm") if kwargs.get("confirm") else "y"
+        if interface_type != "all":
+            interface_type = get_interface_number_from_name(str(interface_name))
+            if interface_type["type"] and interface_type["number"]:
+                interface_val = "{} {}".format(interface_type.get("type"), interface_type.get("number"))
+            else:
+                interface_val = ""
+        else:
+            interface_val = "all"
+        if not interface_val:
+            st.log("Invalid interface type")
+            return False
+        command = "clear counters interface {}".format(interface_val)
+        st.config(dut, command, type=cli_type, confirm=confirm, conf=False, skip_error_check=True)
+    elif cli_type == "click":
+        command = "sonic-clear rifcounters"
+        if not st.is_feature_supported("show-interfaces-counters-clear-command", dut):
+            st.community_unsupported(command, dut)
+            return st.config(dut, "sonic-clear rifcounters")
+        return st.show(dut, command)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url = rest_urls['clear_interface_counters']
+        clear_type = 'all' if interface_type == 'all' else interface_name
+        clear_counters = {"sonic-interface:input": {"interface-param": clear_type}}
+        if not config_rest(dut, http_method='post', rest_url=url, json_data=clear_counters):
+            st.error("Failed to clear interface counters")
+            return False
+    else:
+        st.log("Unsupported CLI TYPE {}".format(cli_type))
+        return False
+    return True
+
+
 def get_interface_counters(dut, port, *counter, **kwargs):
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
     output = get_interface_counters_all(dut, port=port, cli_type=cli_type)

@@ -29,6 +29,7 @@ show_interfaces_counters.tmpl, .*, sonic, sudo show interfaces counters -i .*
 show_interfaces_transceiver_eeprom.tmpl, .*, sonic, show interface(|s) transceiver eeprom\s*(Ethernet\S+|Eth\S+)*
 show_interface_status.tmpl, .*, sonic, show interface status
 show_interface_counters.tmpl, .*, sonic, sudo show interface counters -i .*
+show_interfaces_counters_per_port.tmpl, .*, sonic, portstat -i .*
 show_interfaces_transceiver_presence.tmpl, .*, sonic, show interface(|s) transceiver presence
 show_interface_counters.tmpl, .*, sonic, show interface counters
 show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
@@ -41,6 +42,7 @@ show_interface_pfc_statistics_queue.tmpl, .*, sonic, show qos interface (Etherne
 show_interface_pfc_statistics.tmpl, .*, sonic, show qos interface (Ethernet|Eth) \S+ priority-flow-control statistics
 show_interface_ethernet.tmpl, .*, sonic, show interface Ethernet\d+
 show_interface.tmpl, .*, sonic, show interface .*
+show_l3_interface_counters.tmpl, .*, sonic, intfstat -j 
 
 linux/ifconfig_eth.tmpl, .*, sonic, sudo ifconfig eth*
 unix_ifcfg.tmpl, .*,sonic, /sbin/ifconfig
@@ -159,6 +161,7 @@ show_mac_dampening_threshold.tmpl, .*, sonic, show mac (dampening-threshold|damp
 show_mac.tmpl, .*, sonic, show mac
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
 clear_counters.tmpl, .*, sonic, sonic-clear counters
+clear_counters.tmpl, .*, sonic, sonic-clear rifcounters 
 show_arp.tmpl, .*, sonic,show arp
 unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
 sonic_installer_list.tmpl, .*, sonic, sonic_installer list
