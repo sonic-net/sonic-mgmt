@@ -193,7 +193,11 @@ class ArpTest(BaseTest):
         self.dut_ssh = self.get_param('dut_ssh')
         self.dut_username = self.get_param('dut_username')
         self.dut_password = self.get_param('dut_password')
-        self.dut_connection = DeviceConnection(self.dut_ssh, username=self.dut_username, password=self.dut_password)
+        self.dut_alt_password=self.get_param('alt_password')
+        self.dut_connection = DeviceConnection(self.dut_ssh,
+                                            username=self.dut_username,
+                                            password=self.dut_password,
+                                            alt_password=self.dut_alt_password)
         self.how_long = int(self.get_param('how_long', required=False, default=300))
 
         if not os.path.isfile(config):
