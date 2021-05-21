@@ -2596,8 +2596,58 @@ def flush_iptable(dut):
 def execute_linux_cmd(dut, cmd):
     st.show(dut, cmd, skip_tmpl=True)
 
+def get_redis_cli_interface(dut):
+    command = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
+    output = st.show(dut, command)
+    return output
+
+def get_redis_cli_interface_dom_sensors(dut):
+    command = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
+    output = st.show(dut, command)
+    return output
+
+def get_redis_int_dom(dut, number):
+    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_DOM_SENSOR|Ethernet{}'".format(number)
+    output = st.show(dut, command)
+    return output
+
+def valueComparisions(minimum,value,maximum):
+    print(minimum,value,maximum)
+    print(float(minimum),float(value),float(maximum))
+    if float(minimum) < float(value) < float(maximum):
+        return True
+    else:
+        return False
+
+def processRedisData(redisDomDetails):
+    for element in redisDomDetails:
+        temperature = element['temperature']
+        voltage = element['voltage']
+        temphighwarning = element['temphighwarning']
+        templowwarning = element['templowwarning']
+        vcchighwarning = element['vcchighwarning']
+        vcclowwarning = element['vcclowwarning']
+    return temperature,voltage,temphighwarning,templowwarning,vcchighwarning,vcclowwarning
+
+def verifyVendorPresence(transceiverOutput):
+    for row in transceiverOutput:
+        if row['vendor_date'] and row['vendor_oui']:
+            st.log("All vendor fields exist")
+            return True
+        else:
+            return False
+
+def get_interface_details_redis(dut, number):
+    interface = "Ethernet{}".format(number)
+    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_INFO|{}'".format(interface)
+    print("command",command)
+    output = st.show(dut, command)
+    return output
+
 def ifconfig_eth(dut, interfacenumber):
     command = "sudo ifconfig eth{}".format(interfacenumber)
     print("command", command)
     output = st.show(dut, command)
     return output
+
+

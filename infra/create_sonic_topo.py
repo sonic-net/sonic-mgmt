@@ -570,11 +570,11 @@ def main():
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
     
-    os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
-    os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
     input_file = args['input_file']
     
     if input_file is None:
+        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
+        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 
     with open(input_file) as f:

@@ -1,0 +1,50 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    hours: 120
+          
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:/#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..32]
+
+  sonic_dut:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22,9559]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/pevenkat/pins-cisco-8000-diamantis-202012.bin
+    linecard_versions: [p7]
+    vxr_sim_config:
+      shelf:
+          ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.37.0_NPS1.70.2/npl
+          ConfigS1NpsuiteVer:  1.70.1
+          ConfigS1SDkVer: 1.37.0
+  
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+      hub0:
+      - sonic_dut.Ethernet[0..3]
+      - docker_ptf.eth[0..3]

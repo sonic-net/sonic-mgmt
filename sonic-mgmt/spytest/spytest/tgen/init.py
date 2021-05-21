@@ -9,7 +9,8 @@ py_version = platform.python_version()
 
 def tg_stc_load(version, logger, logs_path=None):
 
-    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17", "5.2": "5.20"}
+
+    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17", "5.20": "5.20"}
 
     # verify STC version provided
     version_string = str(version)
