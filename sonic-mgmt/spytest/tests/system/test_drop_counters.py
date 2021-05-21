@@ -1272,7 +1272,9 @@ class Test_Drop_Counters_Rif():
         dut_rx_drop_value = int(d1t1_interface_counters[0]['rx_drp'].replace(',', ''))
         dut_rx_err = int(d1t1_interface_counters[0]['rx_err'].replace(',', ''))
         tg.tg_traffic_control(action='stop', stream_handle=t1d1_v6stream_1['stream_id'])
-
+        sth.invoke(sth_enable_stream.format(t1d1_stream_1['stream_id']))
+        sth.invoke(sth_disable_stream.format(t1d1_v6stream_1['stream_id']))
+        sth.invoke(sth_apply)
         if int(data.pkts_per_burst * 1.05) >= dut_rx_value >= int(data.pkts_per_burst * 0.95):
             st.log("DUT received {} packets as expected".format(dut_rx_value))
             if (int(data.pkts_per_burst * 1.05) >= dut_rx_drop_value >= int(
@@ -1317,12 +1319,6 @@ class Test_Drop_Counters_Rif():
 
         tg.tg_traffic_control(action='stop', stream_handle=t1d1_stream_1['stream_id'])
 
-        if check_l3_count and check_port_stats:
-            st.log('Interface and port stats are as expected')
-        elif check_l3_count:
-            st.warn('portstats are not as expected')
-        else:
-            st.warn('interface stats are not as expected')
 
         d1t1_interface_counters = papi.get_interface_counters(dut1, vars.D1T1P1)
         dut_rx_value = int(d1t1_interface_counters[0]['rx_ok'].replace(',', ''))
@@ -1695,10 +1691,10 @@ class Test_Drop_Counters_Rif():
         dut_rx_drop_value = int(d1t1_interface_counters[0]['rx_drp'].replace(',', ''))
         dut_rx_err = int(d1t1_interface_counters[0]['rx_err'].replace(',', ''))
 
-        if int(data.pkts_per_burst1 * 1.05) >= dut_rx_value >= int(data.pkts_per_burst1 * 0.95):
+        if int(data.pkts_per_burst * 1.05) >= dut_rx_value >= int(data.pkts_per_burst * 0.95):
             st.log("DUT received {} packets as expected".format(dut_rx_value))
-            if (int(data.pkts_per_burst1 * 1.05) >= dut_rx_drop_value >= int(
-                    data.pkts_per_burst1 * 0.95)) and dut_rx_err < 5:
+            if (int(data.pkts_per_burst * 1.05) >= dut_rx_drop_value >= int(
+                    data.pkts_per_burst * 0.95)) and dut_rx_err < 5:
                 st.log("DUT dropped {} packets because of invalid dest ipv6 address and {} packets are errored out"
                        .format(dut_rx_drop_value, dut_rx_err))
             else:
@@ -1819,10 +1815,10 @@ class Test_Drop_Counters_Rif():
         dut_rx_drop_value = int(d1t1_interface_counters[0]['rx_drp'].replace(',', ''))
         dut_rx_err = int(d1t1_interface_counters[0]['rx_err'].replace(',', ''))
 
-        if int(data.pkts_per_burst1 * 1.05) >= dut_rx_value >= int(data.pkts_per_burst1 * 0.95):
+        if int(data.pkts_per_burst * 1.05) >= dut_rx_value >= int(data.pkts_per_burst * 0.95):
             st.log("DUT received {} packets as expected".format(dut_rx_value))
-            if (int(data.pkts_per_burst1 * 1.05) >= dut_rx_drop_value >= int(
-                    data.pkts_per_burst1 * 0.95)) and dut_rx_err < 5:
+            if (int(data.pkts_per_burst * 1.05) >= dut_rx_drop_value >= int(
+                    data.pkts_per_burst * 0.95)) and dut_rx_err < 5:
                 st.log("DUT dropped {} packets because of invalid dest ip address and {} packets are errored out"
                        .format(dut_rx_drop_value, dut_rx_err))
             else:
@@ -5744,10 +5740,10 @@ class Test_Drop_Counters_PortChannel():
         dut_rx_drop_value = int(d1t1_interface_counters[0]['rx_drp'].replace(',', ''))
         dut_rx_err = int(d1t1_interface_counters[0]['rx_err'].replace(',', ''))
 
-        if int(data.pkts_per_burst1 * 1.05) >= dut_rx_value >= int(data.pkts_per_burst1 * 0.95):
+        if int(data.pkts_per_burst * 1.05) >= dut_rx_value >= int(data.pkts_per_burst * 0.95):
             st.log("DUT received {} packets as expected".format(dut_rx_value))
-            if (int(data.pkts_per_burst1 * 1.05) >= dut_rx_drop_value >= int(
-                    data.pkts_per_burst1 * 0.95)) and dut_rx_err < 5:
+            if (int(data.pkts_per_burst * 1.05) >= dut_rx_drop_value >= int(
+                    data.pkts_per_burst * 0.95)) and dut_rx_err < 5:
                 st.log("DUT dropped {} packets because of invalid dest ipv6 address and {} packets are errored out"
                        .format(dut_rx_drop_value, dut_rx_err))
             else:
@@ -5866,10 +5862,10 @@ class Test_Drop_Counters_PortChannel():
         dut_rx_drop_value = int(d1t1_interface_counters[0]['rx_drp'].replace(',', ''))
         dut_rx_err = int(d1t1_interface_counters[0]['rx_err'].replace(',', ''))
 
-        if int(data.pkts_per_burst1 * 1.05) >= dut_rx_value >= int(data.pkts_per_burst1 * 0.95):
+        if int(data.pkts_per_burst * 1.05) >= dut_rx_value >= int(data.pkts_per_burst * 0.95):
             st.log("DUT received {} packets as expected".format(dut_rx_value))
-            if (int(data.pkts_per_burst1 * 1.05) >= dut_rx_drop_value >= int(
-                    data.pkts_per_burst1 * 0.95)) and dut_rx_err < 5:
+            if (int(data.pkts_per_burst * 1.05) >= dut_rx_drop_value >= int(
+                    data.pkts_per_burst * 0.95)) and dut_rx_err < 5:
                 st.log("DUT dropped {} packets because of invalid dest ip address and {} packets are errored out"
                        .format(dut_rx_drop_value, dut_rx_err))
             else:
