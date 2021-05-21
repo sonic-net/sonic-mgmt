@@ -21,8 +21,6 @@ SAI_TESTS = "saitests"
 ARP_RESPONDER_PY = "arp_responder.py"
 ICMP_RESPONDER_PY = "icmp_responder.py"
 ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
-CHANGE_MAC_ADDRESS_SCRIPT = "scripts/change_mac.sh"
-REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 
@@ -99,7 +97,7 @@ def change_mac_addresses(ptfhost):
             None
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(CHANGE_MAC_ADDRESS_SCRIPT)
+    ptfhost.change_mac_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -113,12 +111,12 @@ def remove_ip_addresses(ptfhost):
             None
     """
     logger.info("Remove existing IPs on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
     yield
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -200,15 +198,15 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server_base_ip_addr, tor_mux_intfs):
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     garp_config = {}
 
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     if 't0' in tbinfo['topo']['name']:
         # For mocked dualtor testbed
         mux_cable_table = {}
-        server_ipv4_base_addr, _ = mock_server_base_ip_addr
-        for i, intf in enumerate(tor_mux_intfs):
+        server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+        for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
             server_ipv4 = str(server_ipv4_base_addr + i)
             mux_cable_table[intf] = {}
             mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
@@ -239,4 +237,5 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server
 
     yield
 
+    logger.info("Stopping GARP service on PTF host")
     ptfhost.shell('supervisorctl stop garp_service')

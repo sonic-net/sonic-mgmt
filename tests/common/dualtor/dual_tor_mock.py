@@ -25,7 +25,9 @@ __all__ = [
     'mock_server_ip_mac_map',
     'set_dual_tor_state_to_orchagent',
     'del_dual_tor_state_from_orchagent',
-    'is_t0_mocked_dualtor'
+    'is_t0_mocked_dualtor',
+    'is_mocked_dualtor',
+    'set_mux_state'
 ]
 
 logger = logging.getLogger(__name__)
@@ -127,6 +129,22 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs)
     yield
     del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs)
+
+
+def is_mocked_dualtor(tbinfo):
+    return 'dualtor' not in tbinfo['topo']['name']
+
+
+def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
+    if is_mocked_dualtor(tbinfo):
+        set_dual_tor_state_to_orchagent(dut, state, itfs)
+    else:
+        dut_index = tbinfo['duts'].index(dut.hostname)
+        if dut_index == 0 and state == 'active' or dut_index == 1 and state == 'standby':
+            side = 'upper_tor'
+        else:
+            side = 'lower_tor'
+        toggle_all_simulator_ports(side)
 
 
 @pytest.fixture(scope='module')
@@ -316,18 +334,21 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
 
-    tunnel_key = 'TUNNEL|MuxTunnel0'
     tunnel_params = {
-        'dscp_mode': 'uniform',
-        'dst_ip': dut_loopback,
-        'ecn_mode': 'copy_from_outer',
-        'encap_ecn_mode': 'standard',
-        'ttl_mode': 'pipe',
-        'tunnel_type': 'IPINIP'
+        'TUNNEL': {
+            'MuxTunnel0': {
+                'dscp_mode': 'uniform',
+                'dst_ip': str(dut_loopback),
+                'ecn_mode': 'copy_from_outer',
+                'encap_ecn_mode': 'standard',
+                'ttl_mode': 'pipe',
+                'tunnel_type': 'IPINIP'
+            }
+        }
     }
 
-    for param, value in tunnel_params.items():
-        dut.shell('redis-cli -n 4 HSET "{}" "{}" "{}"'.format(tunnel_key, param, value))
+    dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
+    dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")
 
     return
 
@@ -342,19 +363,21 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
-    keys_inserted = []
-
-    cmds = []
+    mux_cable_params = dict()
     for i, intf in enumerate(tor_mux_intfs):
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
-        key = 'MUX_CABLE|{}'.format(intf)
-        keys_inserted.append(key)
-        cmds.append('redis-cli -n 4 HSET "{}" "server_ipv4" "{}"'.format(key, server_ipv4))
-        cmds.append('redis-cli -n 4 HSET "{}" "server_ipv6" "{}"'.format(key, server_ipv6))
-        cmds.append('redis-cli -n 4 HSET "{}" "state" "auto"'.format(key))
-    dut.shell_cmds(cmds=cmds)
+        mux_cable_params.update(
+            {intf: {
+                'server_ipv4':server_ipv4,
+                'server_ipv6':server_ipv6,
+                'state': 'auto'
+                }
+            })
 
+    mux_cable_params = {'MUX_CABLE': mux_cable_params}
+    dut.copy(content=json.dumps(mux_cable_params, indent=2), dest="/tmp/mux_cable_params.json")
+    dut.shell("sonic-cfggen -j /tmp/mux_cable_params.json --write-to-db")
     return
 
 

@@ -107,6 +107,10 @@ def pytest_addoption(parser):
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    ############################
+    #  keysight ixanvl options #
+    ############################
+    parser.addoption("--testnum", action="store", default=None, type=str)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -192,6 +196,9 @@ def get_specified_duts(request):
     testbed_duts = tbinfo['duts']
 
     host_pattern = request.config.getoption("--host-pattern")
+    if host_pattern=='all':
+        return testbed_duts
+
     if ';' in host_pattern:
         specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
     else:
@@ -245,7 +252,7 @@ def rand_one_dut_hostname(request):
     """
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1) 
+        dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
@@ -300,6 +307,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+        return None
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
@@ -367,8 +376,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         for dut_host, value in dev_conn.items():
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
-                fanout_host = fanout_rec['peerdevice']
-                fanout_port = fanout_rec['peerport']
+                fanout_host = str(fanout_rec['peerdevice'])
+                fanout_port = str(fanout_rec['peerport'])
 
                 if fanout_host in fanout_hosts.keys():
                     fanout = fanout_hosts[fanout_host]

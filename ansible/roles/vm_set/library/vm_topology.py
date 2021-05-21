@@ -146,7 +146,6 @@ def adaptive_name(template, host, index):
     rendered_name = leading_characters + host_index_str
     return rendered_name        
 
-
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
 
@@ -276,7 +275,7 @@ class VMTopology(object):
                 fp_br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, vm, fp_num)
                 self.create_ovs_bridge(fp_br_name, self.fp_mtu)
 
-        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+        if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
             # We have a KVM based virtual chassis, need to create bridge for midplane and inband.
             self.create_ovs_bridge(VS_CHASSIS_INBAND_BRIDGE_NAME, self.fp_mtu)
             self.create_ovs_bridge(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.fp_mtu)
@@ -503,7 +502,7 @@ class VMTopology(object):
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
                 self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)], injected_iface, vm_iface, disconnect_vm)
 
-        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+        if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
             # We have a KVM based virtaul chassis, bind the midplane and inband ports
             self.bind_vs_dut_ports(VS_CHASSIS_INBAND_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['inband_port'])
             self.bind_vs_dut_ports(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
@@ -517,7 +516,7 @@ class VMTopology(object):
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 self.unbind_ovs_ports(br_name, vm_iface)
 
-        if 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
+        if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
             # We have a KVM based virtaul chassis, unbind the midplane and inband ports
             self.unbind_vs_dut_ports(VS_CHASSIS_INBAND_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['inband_port'])
             self.unbind_vs_dut_ports(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
@@ -1015,6 +1014,7 @@ def main():
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
+            vm_type=dict(required=False, type='str'),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
@@ -1082,6 +1082,7 @@ def main():
                 vm_base = module.params['vm_base']
             else:
                 vm_base = None
+            vm_type = module.params['vm_type']
 
             net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
@@ -1104,7 +1105,8 @@ def main():
             if vms_exists:
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
-                net.bind_vm_backplane()
+                if vm_type != "vsonic":
+                    net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if hostif_exists:
@@ -1146,6 +1148,7 @@ def main():
                 vm_base = module.params['vm_base']
             else:
                 vm_base = None
+            vm_type = module.params['vm_type']
 
             net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
 
@@ -1155,7 +1158,8 @@ def main():
                         net.unbind_mgmt_port(dut_mgmt_port)
 
             if vms_exists:
-                net.unbind_vm_backplane()
+                if vm_type != "vsonic":
+                    net.unbind_vm_backplane()
                 net.unbind_fp_ports()
 
             if hostif_exists:

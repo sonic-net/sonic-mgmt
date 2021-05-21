@@ -6,11 +6,15 @@ import uuid
 
 from abc import ABC, abstractmethod
 from azure.kusto.data import KustoConnectionStringBuilder
-from azure.kusto.ingest import (
-    KustoIngestClient,
-    IngestionProperties,
-    DataFormat,
-)
+
+try:
+    from azure.kusto.ingest import KustoIngestClient
+except ImportError:
+    from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
+
+from azure.kusto.ingest import IngestionProperties
+from azure.kusto.ingest import DataFormat
+
 from datetime import datetime
 from typing import Dict, List
 

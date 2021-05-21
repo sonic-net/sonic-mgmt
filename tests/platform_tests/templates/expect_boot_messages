@@ -1,4 +1,25 @@
+r, ".* NOTICE admin: Rebooting with /sbin/kexec -e to.*..."
+
+r, ".* systemd.* (Stopping|Stopped|Starting|Started).* Database container.*"
+
 r, ".* NOTICE admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd).* service.*"
 r, ".* NOTICE admin: Stopped.* swss.* service.*"
 r, ".* NOTICE root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd).* service.*"
-r, ".* NOTICE root: WARMBOOT_FINALIZER.*"
+r, ".* NOTICE root: WARMBOOT_FINALIZER : Wait for database to become ready.*"
+r, ".* NOTICE root: WARMBOOT_FINALIZER : Finalizing warmboot.*"
+r, ".* NOTICE root: WARMBOOT_FINALIZER : warmboot is not enabled.*"
+
+r, ".* NOTICE swss#orchagent.*initPort: Initialized port.*"
+r, ".* NOTICE swss#orchagent.*updatePortOperStatus: Port.*oper state set.*to up.*"
+r, ".* NOTICE teamd#tlm_teamd.*try_add_lag: The LAG 'PortChannel.*' has been added.*"
+r, ".* NOTICE swss#orchagent.*notifySyncd.*sending syncd: INIT_VIEW.*"
+r, ".* NOTICE swss#orchagent.*sai_redis_notify_syncd: switched ASIC to INIT VIEW.*"
+r, ".* NOTICE swss#orchagent.*notifySyncd.*sending syncd: APPLY_VIEW.*"
+r, ".* NOTICE swss#orchagent.*sai_redis_notify_syncd: switched ASIC to APPLY VIEW.*"
+r, ".* NOTICE syncd#syncd.*performWarmRestart: switches defined in warm restart.*"
+r, ".* NOTICE syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*"
+
+r, ".*\|c\|SAI_OBJECT_TYPE_SWITCH.*"
+r, ".*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*"
+r, ".*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*"
+r, ".*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*"

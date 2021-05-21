@@ -87,13 +87,13 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
+def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
     """
     mockers = []
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def _create_mocker(dut, mocker_name):
         """
@@ -255,7 +255,7 @@ def restart_thermal_control_daemon(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return:
     """
-    logging.info('Restarting thermal control daemon...')
+    logging.info('Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
@@ -265,37 +265,15 @@ def restart_thermal_control_daemon(dut):
     # use subprocess to call ethtool to do initialization.
     # So we check here thermalcltd must have at least 2 processes.
     assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
-    pid_0 = int(output["stdout_lines"][0].strip())
-    pid_1 = int(output["stdout_lines"][1].strip())
-    # find and kill the parent process
-    pid_to_kill = pid_0 if pid_0 < pid_1 else pid_1
-    logging.info('Killing old thermal control daemon with pid: {}'.format(pid_to_kill))
-    kill_thermalctld_cmd = 'docker exec -i pmon bash -c \'kill {}\''.format(pid_to_kill)
-    output = dut.command(kill_thermalctld_cmd)  # kill thermalctld and wait supervisord auto reboot thermalctld
-    assert output["rc"] == 0, "Run command '%s' failed" % kill_thermalctld_cmd
 
-    # make sure thermalctld has restarted
-    max_wait_time = 30
-    while max_wait_time > 0:
-        max_wait_time -= 1
+    restart_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl restart thermalctld'"
+    output = dut.shell(restart_thermalctl_cmd)
+    if output["rc"] == 0:
         output = dut.shell(find_thermalctld_pid_cmd)
-        assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-        if len(output["stdout_lines"]) != 2:
-            time.sleep(1)
-            continue
-
-        new_pid_0 = int(output["stdout_lines"][0].strip())
-        new_pid_1 = int(output["stdout_lines"][1].strip())
-        parent_pid = new_pid_0 if new_pid_0 < new_pid_1 else new_pid_1
-
-        if parent_pid == pid_to_kill:
-            logging.info('Old thermal control daemon is still alive, waiting...')
-            time.sleep(1)
-            continue
-        else:
-            logging.info('New pid of thermal control daemon is {}'.format(parent_pid))
-            return
-
+        assert output["rc"] == 0, "Run command '{}' failed after restart of thermalctld on {}".format(find_thermalctld_pid_cmd, dut.hostname)
+        assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+        logging.info("thermalctld processes restarted successfully on {}".format(dut.hostname))
+        return
     # try restore by config reload...
     config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
@@ -340,7 +318,7 @@ class ThermalPolicyFileContext:
 
 
 @pytest.fixture
-def disable_thermal_policy(duthosts, rand_one_dut_hostname):
+def disable_thermal_policy(duthosts, enum_rand_one_per_hwsku_hostname):
     """Fixture to help disable thermal policy during the test. After test, it will
        automatically re-enable thermal policy. The idea here is to make thermalctld
        load a invalid policy file. To use this fixture, the test case will probably 
@@ -348,9 +326,9 @@ def disable_thermal_policy(duthosts, rand_one_dut_hostname):
 
     Args:
         duthosts DUT object representing a SONiC switch under test
-        rand_one_dut_hostname random DUT hostname
+        enum_rand_one_per_hwsku_hostname random DUT hostname
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     invalid_policy_file = os.path.join(FILES_DIR, 'invalid_format_policy.json')
     with ThermalPolicyFileContext(duthost, invalid_policy_file):
         yield

@@ -26,7 +26,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthosts, rand_one_dut_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
+    def test_cont_link_flap(self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
         Validates that continuous link flap works as expected
 
@@ -41,7 +41,7 @@ class TestContLinkFlap(object):
         Pass Criteria: All routes must be re-learned with < 5% increase in Redis and 
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
 
         # Record memory status at start

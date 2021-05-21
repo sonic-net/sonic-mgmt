@@ -194,7 +194,8 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+            "utf-8").lower()
 
 
     def _get_platform_info(self):
@@ -1128,7 +1129,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th"
         elif "Broadcom Limited Device b971" in output:
             asic = "th2"
-        elif "Broadcom Limited Device b850" in output:
+        elif ("Broadcom Limited Device b850" in output or
+              "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
         elif "Broadcom Limited Device b870" in output:
             asic = "td3"
@@ -1273,11 +1275,31 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return crm_facts
 
+    def start_service(self, service_name, docker_name):
+        logging.debug("Starting {}".format(service_name))
+        if not self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
+
     def stop_service(self, service_name, docker_name):
         logging.debug("Stopping {}".format(service_name))
         if self.is_service_fully_started(docker_name):
-            self.command("systemctl stop {}".format(service_name))
+            self.command("sudo systemctl stop {}".format(service_name))
         logging.debug("Stopped {}".format(service_name))
+
+    def restart_service(self, service_name, docker_name):
+        logging.debug("Restarting {}".format(service_name))
+        if self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl restart {}".format(service_name))
+            logging.debug("Restarted {}".format(service_name))
+        else:
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
+
+    def reset_service(self, service_name, docker_name):
+        logging.debug("Stopping {}".format(service_name))
+        self.command("sudo systemctl reset-failed {}".format(service_name))
+        logging.debug("Resetting {}".format(service_name))
 
     def delete_container(self, service):
         self.command(

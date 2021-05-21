@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_pause_single_lossless_prio(ixia_api,
                                         ixia_testbed_config,
@@ -126,6 +126,7 @@ def test_pfc_pause_multi_lossless_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                                                ixia_testbed_config,
@@ -194,6 +195,7 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
                                               ixia_testbed_config,

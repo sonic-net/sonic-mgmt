@@ -22,13 +22,12 @@ class IxiaPortConfig:
         self.type = port_type
         self.peer_port = peer_port
 
-def select_ports(port_config_list, duthost, pattern, rx_port_id):
+def select_ports(port_config_list, pattern, rx_port_id):
     """
     Given a traffic pattern, select IXIA ports to send and receive traffic
 
     Args:
         port_config_list (list of IxiaPortConfig):
-        duthost (AnsibleHost): Device Under Test (DUT)
         pattern (str): traffic pattern, "many to one" or "all to all"
         rx_port_id (int): ID of the port that should receive traffic, e.g.,
         recever in "many to one" traffic pattern
@@ -57,6 +56,17 @@ def select_ports(port_config_list, duthost, pattern, rx_port_id):
                                if x.ip != rx_port_config.ip]
         else:
             tx_port_id_list = [x.id for x in port_config_list if x.id != rx_port_id]
+
+    elif pattern == "all to all":
+        """ Interfaces in the same portchannel cannot send traffic to each other """
+        if rx_port_config.type == IxiaPortType.PortChannelMember:
+            tx_port_id_list = [x.id for x in port_config_list \
+                               if x.ip != rx_port_config.ip]
+            tx_port_id_list.append(rx_port_id)
+        else:
+            tx_port_id_list = [x.id for x in port_config_list]
+
+        rx_port_id_list = [x for x in tx_port_id_list]
 
     return tx_port_id_list, rx_port_id_list
 

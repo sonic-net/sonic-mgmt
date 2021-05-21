@@ -183,6 +183,13 @@
     - ptf_imagename is defined
     - ptf_imagename == "docker-keysight-api-server"
 
+- name: VMs not needed in case of Keysight IxANVL
+  set_fact:
+    veos_vm_required: false
+  when:
+    - ptf_imagename is defined
+    - ptf_imagename == "docker-ptf-anvl"
+
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
         uri=qemu:///system
@@ -203,18 +210,17 @@
   register: vm_list_paused
   become: true
 
+- name: Require VMs as VEOS by default
+  set_fact:
+    vm_type: "veos"
+  when: vm_type is not defined
+
+- name: Check VM type
+  fail:
+    msg: "Cannot support this VM type {{ vm_type }}"
+  when: vm_type not in supported_vm_types
+
 - block:
-
-    - name: Require VMs as VEOS by default
-      set_fact:
-        vm_type: "veos"
-      when: vm_type is not defined
-
-    - name: Check VM type
-      fail:
-        msg: "Cannot support this VM type {{ vm_type }}"
-      when: vm_type not in supported_vm_types
-
     - name: Ensure {{ root_path }} exists
       file: path={{ root_path }} state=directory
 
