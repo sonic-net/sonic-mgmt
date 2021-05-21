@@ -59,7 +59,7 @@ all:
         vms2-5:
           ansible_host: 10.64.247.23
         vms2-6:
-          ansible_host: 10.64.246.79 
+          ansible_host: 10.64.246.79
         vms3-3:
           ansible_host: 10.64.246.20
         vms3-4:
@@ -93,7 +93,7 @@ all:
           ansible_host: 10.64.247.8
         vms7-7:
           ansible_host: 10.64.247.17
-          ansible_hostv6: 2a01:111:e210:b000::6 
+          ansible_hostv6: 2a01:111:e210:b000::6
         vms7-8:
           ansible_host: 10.64.247.21
         vms7-11:
@@ -467,20 +467,20 @@ sonic_mlnx_40:
       ansible_host: 10.3.147.45
       ansible_hostv6: 2a01:111:e210:3000::14
       model: MSN2700-CS2FO
-      serial: MT2020T04274
-      base_mac: 1c:34:da:a1:a5:80
+      serial: MT2020T04287
+      base_mac: 1C:34:DA:A1:8E:00
       syseeprom_info:
         "0x21": "MSN2700"
         "0x22": "MSN2700-CS2FO"
-        "0x23": "MT2020T04274"
-        "0x24": "1C:34:DA:A1:A5:80"
-        "0x25": "05/16/2020 20:54:31"
+        "0x23": "MT2020T04287"
+        "0x24": "1C:34:DA:A1:8E:00"
+        "0x25": "05/16/2020 23:06:46"
         "0x26": "17"
         "0x28": "x86_64-mlnx_msn2700-r0"
-        "0x29": "2019.08-5.2.0016-9600"
+        "0x29": "2019.11-5.2.0020-115200"
         "0x2A": "128"
         "0x2B": "Mellanox"
-        "0xFE": "0x5AA345B9"
+        "0xFE": "0x5C1A7448s"
       pdu_host: pdu-99
     str-msn2700-03:
       ansible_host: 10.3.147.46
@@ -709,26 +709,26 @@ sonic_dx010_100:
       pdu_host: pdu-110
     str-dx010-acs-4:
       ansible_host: 10.64.246.98
-      model: R0872-F0009-01
-      serial: DX010F2B118711MS100007
-      base_mac: 00:E0:EC:C2:AF:7A
+      model: R0872-F0020-02
+      serial: DX010B2F030A27BY200002
+      base_mac: 00:E0:EC:E7:71:0F
       syseeprom_info:
         "0x21": "DX010"
-        "0x22": "R0872-F0009-01"
+        "0x22": "R0872-F0020-02"
         "0x23": "DX010F2B118711MS100007"
-        "0x24": "00:E0:EC:C2:AF:7A"
-        "0x25": "07/19/2018 02:10:56"
-        "0x26": "11"
+        "0x24": "00:E0:EC:E7:71:0F"
+        "0x25": "11/03/2020 21:22:56"
+        "0x26": "3"
         "0x27": "Seastone"
         "0x28": "RANGELEY"
         "0x29": "2014.08"
         "0x2A": "131"
         "0x2B": "CELESTICA"
-        "0x2C": "CHN"
+        "0x2C": "THA"
         "0x2D": "Celestica"
-        "0x2E": "1.1.1"
+        "0x2E": "1.0.5"
         "0x2F": "LB"
-        "0xFE": "0x75C90801"
+        "0xFE": "0xAAB39BDB"
       pdu_host: pdu-115,pdu-116
     str-dx010-acs-5:
       ansible_host: 10.64.246.99
