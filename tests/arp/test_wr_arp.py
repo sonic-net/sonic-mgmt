@@ -197,6 +197,7 @@ class TestWrArp:
         dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
         logger.info('Warm-Reboot Control-Plane assist feature')
+        sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
         ptf_runner(
             ptfhost,
             'ptftests',
@@ -209,6 +210,7 @@ class TestWrArp:
                 'dut_ssh' : dutIp,
                 'dut_username': creds['sonicadmin_user'],
                 'dut_password': creds['sonicadmin_password'],
+                "alt_password": sonicadmin_alt_password,
                 'config_file' : VXLAN_CONFIG_FILE,
                 'how_long' : testDuration,
             },
