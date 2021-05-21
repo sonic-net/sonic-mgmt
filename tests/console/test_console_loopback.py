@@ -61,8 +61,10 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
 
     console_facts = duthost.console_facts()['ansible_facts']['console_facts']
 
-    if target_line not in console_facts['lines']:
-        pytest.skip("Target line {} has not configured".format(target_line))
+    if src_line not in console_facts['lines']:
+        pytest.skip("Source line {} has not configured".format(src_line))
+    if dst_line not in console_facts['lines']:
+        pytest.skip("Destination line {} has not configured".format(dst_line))
 
     try:
         sender   = create_ssh_client(dutip, "{}:{}".format(dutuser, src_line), dutpass)
@@ -80,19 +82,10 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
 
 def create_ssh_client(ip, user, pwd):
     # Set 'echo=False' is very important since pexpect will echo back all inputs to buffer by default
-    client = pexpect.spawn('ssh {}@{}'.format(user, ip), echo=False)
-
-    while True:
-        index = client.expect([
-            '[Pp]assword:',
-            'Are you sure you want to continue connecting (yes/no)?'])
-        if index == 0:
-            client.sendline(pwd)
-            return client
-        elif index == 1:
-            client.sendline('yes')
-        else:
-            raise Exception("Unexpect pattern encountered")
+    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no'.format(user, ip), echo=False)
+    client.expect('[Pp]assword:')
+    client.sendline(pwd)
+    return client
 
 def ensure_console_session_up(client, line):
     client.expect_exact('Successful connection to line [{}]'.format(line))
@@ -103,7 +96,7 @@ def assert_expect_text(client, text, target_line, timeout_sec=0.1):
     if index == 1:
         pytest.fail("Encounter early EOF during testing line {}".format(target_line))
     elif index == 2:
-        pytest.fail("Not able to get echo in {}s".format(timeout_sec))
+        pytest.fail("Not able to get expected text in {}s".format(timeout_sec))
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
