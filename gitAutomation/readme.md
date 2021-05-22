@@ -12,3 +12,9 @@ python githubautomation.py put_the_token_here
 You will find below files generated in the same directoy you ran script
 1. bugslist.csv
 2. bugslist.json
+
+
+Note:
+Running this too many times will lead to below error
+**Exception**: {"message":"API rate limit exceeded for 172.27.147.152. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)
+An alternate to increase the limit should be looked on.
