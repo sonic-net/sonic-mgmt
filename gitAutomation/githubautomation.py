@@ -21,7 +21,7 @@ for i in range(1,50):
                 writer = csv.DictWriter(bugslist, fieldnames=fieldnames)
                 writer.writerow({'Title': bug['title'], 'Created': bug['created_at'], 'Closed':bug['closed_at'],'State': bug['state'],
                                  'BugID': bug['number'], 'RaisedBy': bug['user']['login'],
-                                 'AssignedTo': bug['assignee']['login'], 'Labels':[ele['name'].encode('ascii') for ele in bug['labels']] })
+                                 'AssignedTo': bug['assignee']['login'], 'Labels':[str(ele['name']) for ele in bug['labels']] })
             except:
                 pass
 
