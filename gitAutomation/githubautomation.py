@@ -3,11 +3,12 @@ import csv
 from pprint import pprint
 import pandas as pd
 import json
+import sys
 
-data = dict()
+data = list()
 for i in range(1,50):
     params = {"state": "all","page": i}
-    token = "b046c73a5969f9fe3f5263a900e3c7c43bf6352d"
+    token = sys.argv[1]
     url="https://wwwin-github.cisco.com/api/v3/repos/whitebox/sonic-buildimage/issues"
     headers = {'Authorization': token}
     r = requests.get(url, headers=headers, params=params)
@@ -29,13 +30,12 @@ for i in range(1,50):
             bugDict = {"BugID":bug['number'], 'Title': bug['title'], 'Created at': bug['created_at'], 'Closed at':bug['closed_at'],'State': bug['state'],
                                       'RaisedBy': bug['user']['login'],
                                      'AssignedTo': bug['assignee']['login'], 'Labels':[ele['name'] for ele in bug['labels']] }
-            data.update(bugDict)
+            data.append(bugDict)
         except:
             pass
 
-
-    with open('bugslist.json', 'w') as outfile:
-        json.dump(data, outfile)
+with open('bugslist.json', 'w') as outfile:
+    json.dump(data, outfile)
 
 
 
