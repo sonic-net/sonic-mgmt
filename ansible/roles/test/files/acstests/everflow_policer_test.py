@@ -217,10 +217,6 @@ class EverflowPolicerTest(BaseTest):
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
 
-        if self.asic_type in ["barefoot"]:
-            import binascii
-            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
-
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -234,7 +230,15 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["mellanox"]:
             exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
         elif self.asic_type in ["barefoot"]:
-            exp_pkt['GRE'].proto = 0x22eb # Barefoot specific
+            exp_pkt = testutils.ipv4_erspan_pkt(
+                eth_src = self.router_mac,
+                ip_src = self.session_src_ip,
+                ip_dst = self.session_dst_ip,
+                ip_dscp = self.session_dscp,
+                ip_ttl = self.session_ttl,
+                inner_frame = str(payload),
+                ip_id = 0,
+                sgt_other=0x4)
         else:
             exp_pkt['GRE'].proto = 0x88be
 
@@ -242,7 +246,15 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
+
+        if exp_pkt.haslayer(scapy.ERSPAN_III):
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "timestamp")
+
+        # don't match payload, payload will be matched by match_payload(pkt)
+        payload_offset = len(exp_pkt) - len(payload)
+        masked_exp_pkt.set_do_not_care(payload_offset*8, len(payload)*8)
+
         if self.check_ttl == 'False':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
@@ -251,6 +263,8 @@ class EverflowPolicerTest(BaseTest):
                 pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:] # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
+            elif self.asic_type == "barefoot":
+                pkt = scapy.Ether(pkt).load
             else:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
