@@ -23,9 +23,9 @@ function setup_local_image() {
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ IMAGE_ID }}
 
-RUN sudo userdel {{ USERNAME }} || true
-RUN sudo groupdel g{{ USERNAME }} || true
-RUN sudo groupdel {{ USERNAME }} || true
+RUN sudo userdel {{ USERNAME }} &> /dev/null || true
+RUN sudo groupdel g{{ USERNAME }} &> /dev/null || true
+RUN sudo groupdel {{ USERNAME }} &> /dev/null || true
 RUN sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
 RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
 
