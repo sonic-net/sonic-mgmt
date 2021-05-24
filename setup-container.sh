@@ -23,7 +23,7 @@ function setup_local_image() {
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ IMAGE_ID }}
 
-RUN sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }}
+RUN sudo grep g{{ GROUPNAME }} /etc/group &> /dev/null && sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }}
 RUN sudo grep {{ GROUPNAME }} /etc/group &> /dev/null || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
 RUN if sudo grep {{ USERNAME }} /etc/passwd &> /dev/null; then sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }};else sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }};fi
 
