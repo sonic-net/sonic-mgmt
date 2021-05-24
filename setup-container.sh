@@ -23,9 +23,9 @@ function setup_local_image() {
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ IMAGE_ID }}
 
-RUN if sudo grep g{{ GROUPNAME }} /etc/group &> /dev/null; then sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }};fi
-RUN sudo grep {{ GROUPNAME }} /etc/group &> /dev/null || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
-RUN if sudo grep {{ USERNAME }} /etc/passwd &> /dev/null; then sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }};else sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }};fi
+RUN if sudo grep -q g{{ GROUPNAME }} /etc/group; then sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }};fi
+RUN sudo grep -q {{ GROUPNAME }} /etc/group || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
+RUN if sudo grep -q {{ USERNAME }} /etc/passwd; then sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }};else sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }};fi
 
 RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
