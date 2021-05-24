@@ -24,9 +24,10 @@ function setup_local_image() {
 FROM {{ IMAGE_ID }}
 
 USER root
-RUN userdel {{ USERNAME }} &> /dev/null || true
-RUN groupdel g{{ USERNAME }} &> /dev/null || true
-RUN groupdel {{ USERNAME }} &> /dev/null || true
+
+RUN userdel -f {{ USERNAME }} &> /dev/null || true
+RUN groupdel -f g{{ USERNAME }} &> /dev/null || true
+RUN groupdel -f {{ USERNAME }} &> /dev/null || true
 RUN groupadd -g {{ GROUPID }} {{ GROUPNAME }}
 RUN useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
 
