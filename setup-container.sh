@@ -23,17 +23,14 @@ function setup_local_image() {
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ IMAGE_ID }}
 
-USER root
+RUN sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }}
+RUN sudo grep {{ GROUPNAME }} /etc/group &> /dev/null || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
+RUN sudo grep {{ USERNAME }} /etc/passwd &> /dev/null || sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
+RUN sudo usermod {{ USERNAME }} -d /home/{{ USERNAME }} &> /dev/null
 
-RUN userdel -f {{ USERNAME }} &> /dev/null || true
-RUN groupdel -f g{{ USERNAME }} &> /dev/null || true
+RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
-RUN groupadd -g {{ GROUPID }} {{ GROUPNAME }}
-RUN useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
-
-RUN sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
-
-RUN usermod -aG sudo {{ USERNAME }}
+RUN sudo usermod -aG sudo {{ USERNAME }}
 
 USER {{ USERNAME }}
 
