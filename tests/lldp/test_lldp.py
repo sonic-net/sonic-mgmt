@@ -31,7 +31,7 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, co
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index):
+                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo):
     """ verify LLDP information on neighbors """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -48,7 +48,11 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
     dut_system_description = res['stdout']
     lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
- 
+    
+    # LLDPD use mac address of eth0 to generate chassis ID.
+    mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
+    mgmt_mac = duthost.get_dut_iface_mac(mgmt_alias)
+
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     for k, v in lldpctl_facts['lldpctl'].items():
@@ -64,7 +68,7 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-               "0x%s" % (duthost.facts['router_mac'].replace(':', ''))
+               "0x%s" % (mgmt_mac.replace(':', ''))
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
