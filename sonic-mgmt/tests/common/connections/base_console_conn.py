@@ -6,6 +6,14 @@ import logging
 from netmiko.cisco_base_connection import CiscoBaseConnection
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
+# For interactive shell
+import sys
+import socket
+from paramiko.py3compat import u
+import termios
+import tty
+import select
+
 # All supported console types
 # Console login via telnet (mad console)
 CONSOLE_TELNET = "console_telnet"
@@ -81,3 +89,30 @@ class BaseConsoleConn(CiscoBaseConnection):
     def disconnect(self):
         super(BaseConsoleConn, self).disconnect()
 
+    def posix_shell(self):
+        oldtty = termios.tcgetattr(sys.stdin)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            tty.setcbreak(sys.stdin.fileno())
+            self.remote_conn.settimeout(0.0)
+
+            while True:
+                r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
+                if self.remote_conn in r:
+                    try:
+                        x = u(self.remote_conn.recv(1024))
+                        if len(x) == 0:
+                            sys.stdout.write("\r\n*** EOF\r\n")
+                            break
+                        sys.stdout.write(x)
+                        sys.stdout.flush()
+                    except socket.timeout:
+                        pass
+                if sys.stdin in r:
+                    x = sys.stdin.read(1)
+                    if len(x) == 0:
+                        break
+                    self.remote_conn.send(x)
+
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)

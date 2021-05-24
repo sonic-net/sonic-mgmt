@@ -1,0 +1,90 @@
+---
+- name: Include variables for PTF containers
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+
+- name: Set ptf host
+  set_fact:
+    ptf_host: "ptf_{{ vm_set_name }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    hostname: "{{ ptf_host }}"
+    ansible_user: "{{ ptf_host_user }}"
+    ansible_ssh_host: "{{ ptf_host_ip }}"
+    ansible_ssh_pass: "{{ ptf_host_pass }}"
+    ansible_python_interpreter: "/usr/bin/python"
+    groups:
+      - ptf_host
+
+- name: Set facts
+  set_fact:
+    ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
+    ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
+
+- name: (Re)start exabgp processes for IPv4 on PTF
+  exabgp:
+    name: "{{ vm_item.key }}"
+    state: "restarted"
+    router_id: "{{ ptf_local_ipv4 }}"
+    local_ip: "{{ ptf_local_ipv4 }}"
+    peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv4.split('/')[0] }}"
+    local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+    peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+    port: "{{ 5000 + vm_item.value.vm_offset|int }}"
+  async: 300
+  poll: 0
+  loop: "{{ topology['VMs']|dict2items }}"
+  loop_control:
+    loop_var: vm_item
+  delegate_to: "{{ ptf_host }}"
+
+- name: (Re)start exabgp processes for IPv6 on PTF
+  exabgp:
+    name: "{{ vm_item.key }}-v6"
+    state: "restarted"
+    router_id: "{{ ptf_local_ipv4 }}"
+    local_ip: "{{ ptf_local_ipv6 }}"
+    peer_ip: "{{ configuration[vm_item.key].bp_interface.ipv6.split('/')[0] }}"
+    local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+    peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+    port: "{{ 6000 + vm_item.value.vm_offset|int }}"
+  async: 300
+  poll: 0
+  loop: "{{ topology['VMs']|dict2items }}"
+  loop_control:
+    loop_var: vm_item
+  delegate_to: "{{ ptf_host }}"
+
+- name: Wait for exabgp to (re)start
+  pause:
+    seconds: "{{ 2 * topology['VMs']|dict2items|length }}"
+
+- name: Verify that exabgp processes for IPv4 are started
+  wait_for:
+    host: "{{ ptf_host_ip }}"
+    port: "{{ 5000 + topology.VMs[vm_item.key].vm_offset|int }}"
+    state: "started"
+    timeout: 180
+  loop: "{{ topology['VMs']|dict2items }}"
+  loop_control:
+    loop_var: vm_item
+  delegate_to: localhost
+
+- name: Verify that exabgp processes for IPv6 are started
+  wait_for:
+    host: "{{ ptf_host_ip }}"
+    port: "{{ 6000 + topology.VMs[vm_item.key].vm_offset|int }}"
+    state: "started"
+    timeout: 180
+  loop: "{{ topology['VMs']|dict2items }}"
+  loop_control:
+    loop_var: vm_item
+  delegate_to: localhost
+
+- name: Announce routes
+  announce_routes:
+    topo_name: "{{ topo }}"
+    ptf_ip: "{{ ptf_host_ip }}"
+  delegate_to: localhost

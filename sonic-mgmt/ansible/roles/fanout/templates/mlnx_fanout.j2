@@ -165,7 +165,7 @@ openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={
 # apply normal openflow rule
 openflow add-flows {{ of_counter + 1 }} table={{ open_flow_tableid }},priority={{ low_priority }},actions=normal
 
-docker
+docker vrf mgmt
 no shutdown
 exit
 write memory

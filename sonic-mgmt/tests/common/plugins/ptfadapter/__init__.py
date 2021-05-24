@@ -105,7 +105,7 @@ def ptfadapter(ptfhost, tbinfo, request):
     # Force a restart of ptf_nn_agent to ensure that it is in good status.
     ptfhost.command('supervisorctl restart ptf_nn_agent')
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], DEFAULT_PTF_NN_PORT, 0, ifaces_map.keys()) as adapter:
+    with PtfTestAdapter(tbinfo['ptf_ip'], DEFAULT_PTF_NN_PORT, 0, ifaces_map.keys(), ptfhost) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__

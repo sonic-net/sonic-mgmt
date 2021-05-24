@@ -52,11 +52,12 @@ def check_bgp_facts(hostname, host):
     if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
 
-def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_dut_hostname):
+def test_neighbors_health(duthosts, localhost, nbrhosts, eos, enum_frontend_dut_hostname):
     """Check each neighbor device health"""
 
     fails = []
-    duthost = duthosts[enum_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 

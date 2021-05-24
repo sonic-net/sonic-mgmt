@@ -2,7 +2,6 @@ import logging
 import operator
 import pytest
 import random
-import time
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
@@ -14,6 +13,8 @@ pytestmark = [
     pytest.mark.asic('mellanox'),
     pytest.mark.topology('any')
 ]
+
+logger = logging.getLogger(__name__)
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 75
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -40,20 +41,29 @@ def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
 
     temperature = random.randint(0, max_temperature)
     trust_state = True if random.randint(0, 1) else False
-    logging.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))
+    logger.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))
     expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, trust_state)
+    logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
     mocker.mock_min_table(temperature, trust_state)
-    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
-    actual_cooling_level = get_cooling_cur_state(duthost)
-    assert actual_cooling_level >= expect_minimum_cooling_level, 'Cooling level {} is less than minimum allowed {}'.format(actual_cooling_level, expect_minimum_cooling_level)
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      check_cooling_level_larger_than_minimum, 
+                      duthost,
+                      expect_minimum_cooling_level), \
+                      'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
 
     temperature = random.randint(0, max_temperature)
-    logging.info('Testing with temperature={}, trust_state={}'.format(temperature, not trust_state))
+    logger.info('Testing with temperature={}, trust_state={}'.format(temperature, not trust_state))
     expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, not trust_state)
+    logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
     mocker.mock_min_table(temperature, not trust_state)
-    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
-    actual_cooling_level = get_cooling_cur_state(duthost)
-    assert actual_cooling_level >= expect_minimum_cooling_level, 'Cooling level {} is less than minimum allowed {}'.format(actual_cooling_level, expect_minimum_cooling_level)
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      check_cooling_level_larger_than_minimum, 
+                      duthost,
+                      expect_minimum_cooling_level), \
+                      'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
+
 
 
 @pytest.mark.disable_loganalyzer
@@ -65,76 +75,69 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     if not hot_swappable:
         pytest.skip('The platform {} does not support this test case.'.format(duthost.facts["platform"]))
 
-    logging.info('Create mocker, it may take a few seconds...')
-    single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
-    logging.info('Mock FAN absence...')
-    single_fan_mocker.mock_absence()
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, MAX_COOLING_LEVEL, operator.eq), \
-        'Current cooling state is {}'.format(get_cooling_cur_state(duthost))
-
-    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME))
-    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME)
     psu_max_speed = get_psu_max_speed(duthost)
-    logging.info('Max PSU fan speed is {}'.format(psu_max_speed))
-    for index in range(psu_num):
-        speed = get_psu_speed(duthost, index)
-        logging.info('Speed for PSU {} fan is {}'.format(index, speed))
-        _check_psu_fan_speed_in_range(speed, psu_max_speed, MAX_COOLING_LEVEL)
+    logger.info('Create mocker, it may take a few seconds...')
+    single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
+    logger.info('Mock FAN absence...')
+    single_fan_mocker.mock_absence()
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
+                      check_psu_fan_speed, 
+                      duthost, 
+                      psu_num, 
+                      psu_max_speed, 
+                      operator.eq), 'Wait for PSU fan speed change to full speed failed'
 
-    logging.info('Mock FAN presence...')
+    logger.info('Mock FAN presence...')
     single_fan_mocker.mock_presence()
-    wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, check_cooling_cur_state, duthost, MAX_COOLING_LEVEL, operator.ne)
-    logging.info('Wait {} seconds for the policy to take effect...'.format(THERMAL_CONTROL_TEST_WAIT_TIME * 2))
-    # We have to wait THERMAL_CONTROL_TEST_WAIT_TIME * 2 seconds long here because:
-    #     Usually we only need wait THERMAL_CONTROL_TEST_WAIT_TIME seconds here to make sure thermal
-    #     control daemon change the cooling level to proper value, However,
-    #     there is chance that kernel might change cooling state back to MAX_COOLING_LEVEL after
-    #     user space thermal control adjust it to dynamic minimum value. So we have to wait longer for the
-    #     user space thermal control to set fan speed to dynamic minimum value again. It
-    #     means that we might need wait up to 2 thermal loops here.
-    time.sleep(THERMAL_CONTROL_TEST_WAIT_TIME * 2)
-    cooling_cur_state = get_cooling_cur_state(duthost)
-    if cooling_cur_state == MAX_COOLING_LEVEL:
-        cmd_output = str(duthost.command('show platform temperature')['stdout_lines'])
-        cmd_output = cmd_output.replace("u'", "").replace(',', " ")
-        cmd_output = re.split(r'  +',cmd_output)
-        cmd_output.pop(0)
-        j = 0
-        table = []
-        while j != len(cmd_output):
-            entry = []
-            for i in range(8):
-                entry.append(cmd_output[j + i])
-            table.append(entry)
-            j += 8
-        pytest.skip('Cooling level is still 10, ignore the rest test.\nIt might happen because the asic temperature is still high.\nCurrent system temperature:\n{}'.format(tabulate(table)))
-    logging.info('Cooling level changed to {}'.format(cooling_cur_state))
-    if cooling_cur_state < 6: # PSU fan speed will never be less than 60%
-        cooling_cur_state = 6
-    for index in range(psu_num):
-        speed = get_psu_speed(duthost, index)
-        logging.info('Speed for PSU {} fan is {}'.format(index, speed))
-        _check_psu_fan_speed_in_range(speed, psu_max_speed, cooling_cur_state)
+    wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
+                             THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
+                             check_psu_fan_speed, 
+                             duthost, 
+                             psu_num, 
+                             psu_max_speed, 
+                             operator.ne)
+
+    if not wait_result:
+        cooling_cur_state = get_cooling_cur_state(duthost)
+        if cooling_cur_state == MAX_COOLING_LEVEL:
+            cmd_output = str(duthost.command('show platform temperature')['stdout_lines'])
+            cmd_output = cmd_output.replace("u'", "").replace(',', " ")
+            cmd_output = re.split(r'  +',cmd_output)
+            cmd_output.pop(0)
+            j = 0
+            table = []
+            while j != len(cmd_output):
+                entry = []
+                for i in range(8):
+                    entry.append(cmd_output[j + i])
+                table.append(entry)
+                j += 8
+            pytest.skip('Cooling level is still 10, ignore the rest test.\nIt might happen because the asic temperature is still high.\nCurrent system temperature:\n{}'.format(tabulate(table)))
+        else:
+            assert False, 'Wait for PSU fan speed change to normal failed'
 
 
 def _check_psu_fan_speed_in_range(actual_speed, max_speed, cooling_level):
     expect_speed = max_speed * cooling_level / 10.0
+    logger.info('Expect speed: {}, actual speed: {}'.format(expect_speed, actual_speed))
     if expect_speed > actual_speed:
-        assert actual_speed > expect_speed * (1 - PSU_SPEED_TOLERANCE)
+        return actual_speed > expect_speed * (1 - PSU_SPEED_TOLERANCE)
     elif expect_speed < actual_speed:
-        assert actual_speed < expect_speed * (1 + PSU_SPEED_TOLERANCE)
+        return actual_speed < expect_speed * (1 + PSU_SPEED_TOLERANCE)
 
 
 def get_psu_speed(dut, index):
     index = index + 1
     psu_speed_path = PSU_SPEED_PATH.format(index)
     file_stat = dut.stat(path=psu_speed_path)
-    if not file_stat["stat"]["exists"]:
-        return None
+    assert file_stat["stat"]["exists"], 'Failed to get PSU speed file due to {} does not exist'.format(psu_speed_path)
 
     cmd_output = dut.command('cat {}'.format(psu_speed_path))
     try:
-        return int(cmd_output['stdout'])
+        speed = int(cmd_output['stdout'])
+        logger.info('Speed for PSU {} fan is {}'.format(index, speed))
+        return speed
     except Exception as e:
         assert False, 'Bad content in {} - {}'.format(psu_speed_path, e)
 
@@ -142,7 +145,9 @@ def get_psu_speed(dut, index):
 def get_psu_max_speed(dut):
     cmd_output = dut.command('cat {}'.format(PSU_MAX_SPEED_PATH))
     try:
-        return int(cmd_output['stdout'])
+        psu_max_speed = int(cmd_output['stdout'])
+        logger.info('Max PSU fan speed is {}'.format(psu_max_speed))
+        return psu_max_speed
     except Exception as e:
         assert False, 'Bad content in {} - {}'.format(PSU_MAX_SPEED_PATH, e)
 
@@ -150,11 +155,41 @@ def get_psu_max_speed(dut):
 def get_cooling_cur_state(dut):
     cmd_output = dut.command('cat {}'.format(COOLING_CUR_STATE_PATH))
     try:
-        return int(cmd_output['stdout'])
+        cooling_cur_state = int(cmd_output['stdout'])
+        logger.info('Cooling level is {}'.format(cooling_cur_state))
+        return cooling_cur_state
     except Exception as e:
         assert False, 'Bad content in {} - {}'.format(COOLING_CUR_STATE_PATH, e)
 
 
-def check_cooling_cur_state(dut, expect_value, op):
-    actual_value = get_cooling_cur_state(dut)
-    return op(actual_value, expect_value)
+def check_psu_fan_speed(duthost, psu_num, psu_max_speed, op):
+    """Check if PSU fan speed is in the expect range.
+
+    Args:
+        duthost: DUT host object
+        psu_num: PSU number
+        psu_max_speed: PSU max fan speed
+        op: operator eq or ne which is used to compare actual cooling level with MAX_COOLING_LEVEL
+
+    Returns:
+        [boolean]: True if all PSU fans speed are in a expected range
+    """
+    cooling_cur_state = get_cooling_cur_state(duthost)
+    if not op(cooling_cur_state, MAX_COOLING_LEVEL):
+        return False
+
+    # PSU fan speed will never be less than 60%
+    if cooling_cur_state < 6:
+        cooling_cur_state = 6
+        
+    for index in range(psu_num):
+        speed = get_psu_speed(duthost, index)
+        if not _check_psu_fan_speed_in_range(speed, psu_max_speed, cooling_cur_state):
+            return False
+    
+    return True
+
+
+def check_cooling_level_larger_than_minimum(duthost, expect_minimum_cooling_level):
+    actual_cooling_level = get_cooling_cur_state(duthost)
+    return actual_cooling_level >= expect_minimum_cooling_level

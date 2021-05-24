@@ -32,7 +32,7 @@ def add_qos_sai_args(parser):
         "--qos_dst_ports",
         action="store",
         type=lambda opt_value: [int(v) for v in opt_value.translate(None, "[]").split(',')],
-        default=[0, 1, 3],
+        default=None,
         help="QoS SAI comma separated list of destination ports. Test currently expects exactly 3 destination ports",
     )
 
@@ -40,7 +40,7 @@ def add_qos_sai_args(parser):
         "--qos_src_ports",
         action="store",
         type=lambda opt_value: [int(v) for v in opt_value.translate(None, "[]").split(',')],
-        default=[2],
+        default=None,
         help="QoS SAI comma separated list of source ports. Test currently expects exactly 1 source port",
     )
 

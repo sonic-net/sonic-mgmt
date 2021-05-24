@@ -1,0 +1,41 @@
+{% set host = configuration[hostname] %}
+{
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+    "PORTCHANNEL": {
+        "{{ name | replace("-", "") }}": {
+            "admin_status": "up",
+            "mtu": "9100"
+        }
+    },
+    "PORTCHANNEL_INTERFACE": {
+        "{{ name | replace("-", "") }}": {},
+{% if iface['ipv4'] is defined %}
+        "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {},
+{% endif %}
+{% if iface['ipv6'] is defined %}
+        "{{ name | replace("-", "") }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+    },
+{% endif %}
+{% if iface['lacp'] is defined %}
+    "PORTCHANNEL_MEMBER": {
+{% set index = name | replace("Ethernet", "") | int - 1 %}
+        "PortChannel{{ iface['lacp'] }}|Ethernet{{ index * 4}}": {}
+    },
+{% endif %}
+{% endfor %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Loopback') %}
+    "LOOPBACK_INTERFACE": {
+        "{{ name }}": {},
+{% if iface['ipv4'] is defined %}
+        "{{ name }}|{{ iface['ipv4'] }}": {},
+{% endif %}
+{% if iface['ipv6'] is defined %}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+ 	}
+{% endif %}
+{% endfor %}
+}

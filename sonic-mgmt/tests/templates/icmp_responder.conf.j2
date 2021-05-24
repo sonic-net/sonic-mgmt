@@ -1,0 +1,10 @@
+[program:icmp_responder]
+command=/usr/bin/python /opt/icmp_responder.py {{ icmp_responder_args }}
+process_name=icmp_responder
+stdout_logfile=/tmp/icmp_responder.out.log
+stderr_logfile=/tmp/icmp_responder.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1

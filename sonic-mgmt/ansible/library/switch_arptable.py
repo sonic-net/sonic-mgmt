@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import *
+import re
+
 DOCUMENTATION = '''
 ---
 module: switch_arptble
@@ -62,10 +65,6 @@ fc00::52 dev Ethernet80 lladdr 52:54:00:1d:5e:ba router REACHABLE
 10.0.0.13 dev PortChannel24 lladdr 52:54:00:4e:a8:f4 STALE
 '''
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
-import re
-import json
 
 def parse_arptable(output):
     v4host = re.compile('[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
@@ -88,21 +87,30 @@ def parse_arptable(output):
     arps = {'v4':v4tbl, 'v6':v6tbl}
     return arps
 
+
 def main():
     module = AnsibleModule(
-        argument_spec=dict(),
+        argument_spec=dict(
+            namespace=dict(required=False, default=None),
+        ),
         supports_check_mode=False)
 
+    m_args = module.params
     try:
-        rt, out, err = module.run_command("ip neigh")
+        namespace = m_args['namespace']
+        if namespace:
+            cmd = "sudo ip -n {} neigh".format(namespace)
+        else:
+            cmd = "ip neigh"
+        rt, out, err = module.run_command(cmd)
         if rt != 0:
-            self.module.fail_json(msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" %(rt, out, err))
+            module.fail_json(msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" %(rt, out, err))
             return
         arp_tbl = parse_arptable(out)
         module.exit_json(changed=False, ansible_facts={'arptable':arp_tbl})
     except Exception as e:
         err_msg = "Parse ip neigh table failed! " + str(e)
-        self.module.fail_json(msg=err_msg)
+        module.fail_json(msg=err_msg)
 
 if __name__ == "__main__":
     main()

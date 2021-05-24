@@ -54,3 +54,19 @@ def pytest_addoption(parser):
         action="store_true",
         help="Apply new configurations on DUT"
     )
+
+    vxlan_group.addoption(
+        "--lower_bound_udp_port",
+        action="store",
+        default=0,
+        type=int,
+        help="Lowest expected src port for VXLAN UPD packet"
+    )
+
+    vxlan_group.addoption(
+        "--upper_bound_udp_port",
+        action="store",
+        default=65535,
+        type=int,
+        help="Highest expected src port for VXLAN UPD packet"
+    )

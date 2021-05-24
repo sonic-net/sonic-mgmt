@@ -30,7 +30,8 @@ class PsuData(object):
         self.index = index
         self.name = 'PSU {}'.format(self.index)
         power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(index)
-        if self.helper._file_exist(power_status_file):
+        out = self.helper.dut.stat(path=power_status_file)
+        if out['stat']['exists']:
             self.power_on = True
         else:
             self.power_on = False
@@ -57,7 +58,7 @@ class PsuData(object):
 
 class MellanoxDeviceMocker(DeviceMocker):
     TARGET_SPEED_VALUE = 60
-    SPEED_TOLERANCE = 20
+    SPEED_TOLERANCE = 50
     PSU_NUM = 2
 
     def __init__(self, dut):
@@ -91,12 +92,11 @@ class MellanoxDeviceMocker(DeviceMocker):
         return True, self.fan_data.name
 
     def mock_fan_speed(self, good):
-        target_speed = self.fan_data.get_target_speed()
         if good:
-            actual_speed = target_speed
+            actual_speed = MellanoxDeviceMocker.TARGET_SPEED_VALUE
         else:
-            actual_speed = target_speed * (5 + ((MellanoxDeviceMocker.SPEED_TOLERANCE + 1) / float(100)))
-            actual_speed = int(actual_speed)
+            actual_speed = MellanoxDeviceMocker.TARGET_SPEED_VALUE * (100 - MellanoxDeviceMocker.SPEED_TOLERANCE) / 100 - 10
+        self.fan_data.mock_target_speed(MellanoxDeviceMocker.TARGET_SPEED_VALUE)
         self.fan_data.mock_speed(actual_speed)
         return True, self.fan_data.name
 

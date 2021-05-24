@@ -51,7 +51,7 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     cmd_enable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
     cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
     for feature_name, state in features_dict.items():
-        if state == "disabled":
+        if 'enabled' not in state:
             continue
         cmds = []
         cmds.append(cmd_enable_rate_limit.format(feature_name))

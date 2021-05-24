@@ -1,0 +1,9 @@
+{% set vxlan_port = 4789 %}
+[
+    {
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": "{{ vxlan_port }}"
+        },
+        "OP": "SET"
+    }
+]

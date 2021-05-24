@@ -1,8 +1,11 @@
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>{{ dut_name }}</name>
-{% if hwsku  == 'msft_multi_asic_vs' %}
+{% if hwsku  == 'msft_four_asic_vs' %}
   <memory unit='GB'>8</memory>
-  <vcpu placement='static'>8</vcpu>
+  <vcpu placement='static'>10</vcpu>
+{% elif hwsku == 'msft_multi_asic_vs' %}
+  <memory unit='GB'>8</memory>
+  <vcpu placement='static'>16</vcpu>
 {% else %}
   <memory unit='KiB'>3072000</memory>
   <currentMemory unit='KiB'>3072000</currentMemory>
