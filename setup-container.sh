@@ -23,8 +23,11 @@ function setup_local_image() {
     cat <<EOF > $tmpdir/Dockerfile.j2
 FROM {{ IMAGE_ID }}
 
-RUN sudo groupadd -f -g {{ GROUPID }} {{ GROUPNAME }}
-RUN sudo useradd -f --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
+RUN sudo userdel {{ USERNAME }}
+RUN sudo groupdel g{{ USERNAME }}
+RUN sudo groupdel {{ USERNAME }}
+RUN sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
+RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
 
 RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
