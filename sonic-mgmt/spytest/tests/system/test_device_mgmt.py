@@ -44,7 +44,7 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
         st.report_fail("DUT_does_not_have_IP_address")
     data.ip_address = ip_address_list[0]
     if '1.74' in data.ip_address:
-         gateway = '1.74.23.200'
+        gateway = '1.74.23.200'
     if '192.168' in data.ip_address:
         gateway = data.ip_address.split('.')
         gateway[-1] = '1'
