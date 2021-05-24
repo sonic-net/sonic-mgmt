@@ -25,8 +25,7 @@ FROM {{ IMAGE_ID }}
 
 RUN sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }}
 RUN sudo grep {{ GROUPNAME }} /etc/group &> /dev/null || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
-RUN sudo grep {{ USERNAME }} /etc/passwd &> /dev/null || sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
-RUN sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }} &> /dev/null
+RUN if sudo grep {{ USERNAME }} /etc/passwd &> /dev/null; then sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }};else sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }};fi
 
 RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
