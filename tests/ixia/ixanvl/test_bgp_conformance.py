@@ -41,7 +41,6 @@ def test_anvl_bgp_run(duthost,
 	    1. ANVL run.
     """
 
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     topology = tbinfo["topo"]["properties"]["topology"]
 
     ptfip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
