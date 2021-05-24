@@ -20,13 +20,15 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_mod
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.usefixtures('toggle_all_simulator_ports_to_rand_selected_tor')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -192,7 +194,8 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
-        "topo": topo
+        "topo": topo,
+        "vlan_mac": vlan_mac
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -559,7 +562,7 @@ class BaseAclTest(object):
         """Generate a TCP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
@@ -596,7 +599,7 @@ class BaseAclTest(object):
         """Generate a UDP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
@@ -622,7 +625,7 @@ class BaseAclTest(object):
         """Generate an ICMP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
