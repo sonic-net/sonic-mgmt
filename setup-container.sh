@@ -27,7 +27,7 @@ USER root
 
 RUN userdel -f {{ USERNAME }} &> /dev/null || true
 RUN groupdel -f g{{ USERNAME }} &> /dev/null || true
-RUN groupdel -f {{ USERNAME }} &> /dev/null || true
+
 RUN groupadd -g {{ GROUPID }} {{ GROUPNAME }}
 RUN useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
 
