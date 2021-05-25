@@ -12,7 +12,7 @@
 #
 # Usage: ./create_sonic_t1_ads.py -t sonic_t1_topo.yaml -c
 # -t Topology file for PyVxr
-# -c Clean pre-existing sim 
+# -c Clean pre-existing sim
 #
 # After the script is run – you can log into the sonic dut (admin/cisco123 – I change the password to cisco123) and check for bgp summary – both v4 and v6.
 #
@@ -31,6 +31,8 @@ def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
+    parser.add_argument('-b', '--branch', type=str, help='Specify git branch',
+                      required=False,default="master")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
@@ -73,7 +75,7 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout master; git stash apply\n")
+    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout {}; git stash apply\n".format(data['branch']))
     buff = ''
     while not buff.endswith(':~/sonic-test$ '):
         resp = chan.recv(9999)
@@ -127,8 +129,8 @@ def deploy_mg(data,base_topo_file):
     err_buff = ''
     rcv_timeout = 60
     interval_length = 5
-    
-    try:    
+
+    try:
         while not chan.exit_status_ready():
             if chan.recv_ready():
                 resp = chan.recv(9999)
@@ -140,37 +142,37 @@ def deploy_mg(data,base_topo_file):
             else:
                 time.sleep(interval_length)
 
-            if chan.recv_stderr_ready():            
+            if chan.recv_stderr_ready():
                 error_buff = chan.recv_stderr(9999)
                 while error_buff:
                     err_buff += error_buff.decode("ascii")
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
-    except Exception as e: 
+    except Exception as e:
         print('Hit %s' % e)
     finally:
         print(buff)
-    
+
     ssh.close()
 
 def vEOS_inital_cfg(data,vEOS_count):
     # Specify the connection timeout in seconds for blocking operations, like connection attempt
     connection_timeout = 5
-    
+
     # Specify a timeout in seconds. Read until the string is found or until the timeout has passed
     reading_timeout = 5
     base = 100
-		
+
     for i in range (1,vEOS_count+1):
         veos1_host = data['veos'+ str(i)]['HostAgent']
         veos1_port = data['veos'+str(i)]['serial0']
-        
+
         print('Adding admin password for VM0{}:'.format(str(base)))
         base += 1
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):    
+def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):
     input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
@@ -205,7 +207,7 @@ def change_dut_passwd(data):
         ssh.connect(host, port, user, passwd)
     except paramiko.ssh_exception.AuthenticationException:
         ssh.connect(host, port, user, new_passwd)
-    
+
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -219,7 +221,7 @@ def change_dut_passwd(data):
     while not buff.endswith('password: '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
-        print(resp.decode("ascii")) 
+        print(resp.decode("ascii"))
 
     # Send the password and wait for a prompt.
     time.sleep(3)
@@ -230,7 +232,7 @@ def change_dut_passwd(data):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
-    
+
     # Send the password and wait for a prompt.
     time.sleep(3)
     chan.send(new_passwd +'\n')
@@ -240,7 +242,7 @@ def change_dut_passwd(data):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
-    
+
     if (' successfully') in buff:
         print("Password change successful")
     else:
@@ -261,7 +263,7 @@ def change_dut_passwd(data):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
-    
+
     time.sleep(3)
     chan.send('sudo config save -y\n')
     buff = ''
@@ -269,7 +271,7 @@ def change_dut_passwd(data):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
-    
+
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
     buff = ''
@@ -373,7 +375,7 @@ def replace_dut_mgmt_address(data):
     ftp_client.get('/tmp/config_db.json','config_db_current.json')
     ftp_client.close()
     ssh.close()
-    
+
     with open('config_db_current.json') as cfg_file:
         cfg_data = json.load(cfg_file)
         current_mgm_intf = cfg_data["MGMT_INTERFACE"]
@@ -384,7 +386,7 @@ def replace_dut_mgmt_address(data):
     with open('config_db.json') as cfg_file:
         cfg_data = json.load(cfg_file)
         cfg_file.close()
-        
+
     with open('config_db.json','w') as cfg_file:
         cfg_data["MGMT_INTERFACE"] = current_mgm_intf
         cfg_data["DEVICE_METADATA"]["localhost"]["mac"] = current_mac
@@ -443,8 +445,8 @@ def add_vEOS_cfg(data):
     err_buff = ''
     rcv_timeout = 60
     interval_length = 5
-    
-    try:    
+
+    try:
         while not chan.exit_status_ready():
             if chan.recv_ready():
                 resp = chan.recv(9999)
@@ -457,17 +459,17 @@ def add_vEOS_cfg(data):
             else:
                 time.sleep(interval_length)
 
-            if chan.recv_stderr_ready():            
+            if chan.recv_stderr_ready():
                 error_buff = chan.recv_stderr(9999)
                 while error_buff:
                     err_buff += error_buff.decode("ascii")
                     error_buff = chan.recv_stderr(9999)
                 print(err_buff)
-    except Exception as e: 
+    except Exception as e:
         print('Hit %s' % e)
     #finally:
     #    print(buff)
-    
+
     ssh.close()
 
 def run_scripts(data,script_file,drop_version,log_dir,device_type):
@@ -515,14 +517,14 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         tc = tc.strip()
         tc_name = tc.split('/')
         tc_name = tc_name[len(tc_name)-1].split('.')[0]
-    
+
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     later = datetime.datetime.now() + datetime.timedelta(hours=1)
     while True:
         chan.send('cat ~/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
         time.sleep(3)
         resp = chan.recv(9999)
-        print(resp.decode("ascii")) 
+        print(resp.decode("ascii"))
         if tc_name in resp.decode("ascii"):
             break
         else:
@@ -547,11 +549,12 @@ def main():
     script_file = args['script_file']
     drop_version = args['drop_version']
     log_dir = args['log_dir']
+    branch = args['branch']
     if device_type == 'sherman':
         dut_name = 'sherman-01'
     else:
         dut_name = 'mathilda-01'
-    
+
     if topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
@@ -569,9 +572,9 @@ def main():
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
-    
+
     input_file = args['input_file']
-    
+
     if input_file is None:
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
@@ -579,9 +582,10 @@ def main():
 
     with open(input_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
-      
+
     data['sonic_dut']['uname'] = dut_uname
     data['sonic_dut']['passwd'] = dut_passwd
+    data['branch'] = branch
 
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
@@ -590,7 +594,7 @@ def main():
     print("********** Do a Git Update **********")
     git_update(data)
 
-    # Create testbed file based on vxr_ports 
+    # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
     create_testbed_file(data,base_topo_file,vEOS_count,dut_name)
 
@@ -643,11 +647,11 @@ def main():
         print("Device name is mth32. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
-    
+
     if run_sanity:
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
-    
+
     print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
