@@ -217,7 +217,6 @@
     include_tasks: announce_routes.yml
     when:
       - topo != 'fullmesh'
-      - not 'ptf' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
