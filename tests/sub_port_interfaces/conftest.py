@@ -36,6 +36,14 @@ def pytest_addoption(parser):
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
 
+    parser.addoption(
+        "--range_of_parent_port",
+        action="store",
+        type=str,
+        default='1-2',
+        help="Range of parent ports for creating sub-ports",
+    )
+
 
 @pytest.fixture(params=['port', 'port_in_lag'])
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
@@ -65,6 +73,10 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
     sub_ports_config = {}
     max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
+
+    first_interface_index, last_interface_index = request.config.getoption("--range_of_parent_port").split('-')
+    interface_ranges = range(int(first_interface_index), int(last_interface_index) + 1)
+
     vlan_ranges_dut = range(10, 50, 10)
     vlan_ranges_ptf = range(10, 50, 10)
 
@@ -84,7 +96,6 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
             vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
             vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
 
-    interface_ranges = range(1, 3)
     ip_subnet = u'172.16.0.0/16'
     prefix = 30
     subnet = ipaddress.ip_network(ip_subnet)
