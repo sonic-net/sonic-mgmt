@@ -20,7 +20,7 @@
         <Bandwidth>{{ console_if['baud'] }}</Bandwidth>
         <ChassisInternal>false</ChassisInternal>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
-        <EndPort>0/1/{{ console_if['line'] }}</EndPort>
+        <EndPort>{{ console_if['line'] }}</EndPort>
         <FlowControl>{{ console_if['flow_control'] }}</FlowControl>
         <StartDevice>Terminal{{ console_if['line'] }}</StartDevice>
         <StartPort>console</StartPort>

@@ -64,24 +64,6 @@
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
-      <SerialInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if vm_topo_config['console_interfaces'] | length > 0 %}
-{% for console_if in vm_topo_config['console_interfaces'] %}
-        <a:SerialInterface>
-          <ElementType>DeviceInterface</ElementType>
-          <AlternateSpeeds i:nil="true" />
-          <EnableFlowControl>{{ console_if['flow_control'] }}</EnableFlowControl>
-          <Index>{{ console_if['line'] }}</Index>
-          <InterfaceName>0/1/{{ console_if['line'] }}</InterfaceName>
-          <MultiPortsInterface>false</MultiPortsInterface>
-          <PortName>console</PortName>
-          <SonicName i:nil="true" />
-          <Speed>{{ console_if['baud'] }}</Speed>
-          <a:TcpPortName>{{ console_if['line'] + 2000 }}</a:TcpPortName>
-        </a:SerialInterface>
-{% endfor %}
-{% endif %}
-      </SerialInterfaces>
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
 {% for index in range(vms_number) %}
