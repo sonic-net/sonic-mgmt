@@ -13,6 +13,7 @@
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
+{% if 'console_interfaces' in vm_topo_config %}
 {% if vm_topo_config['console_interfaces'] | length > 0 %}
 {% for console_if in vm_topo_config['console_interfaces'] %}
       <DeviceLinkBase i:type="DeviceSerialLink">
@@ -28,6 +29,7 @@
         <TcpPortName>{{ console_if['line'] + 2000 }}</TcpPortName>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
 {% for host_index in range(vlan_intfs | length) %}
