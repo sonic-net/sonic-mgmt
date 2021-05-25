@@ -1193,6 +1193,8 @@ def main():
                 net.unbind_fp_ports()
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
+                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+
             if hostif_exists:
                 net.add_host_ports()
         elif cmd == 'connect-vms' or cmd == 'disconnect-vms':

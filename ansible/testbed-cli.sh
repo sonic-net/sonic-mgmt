@@ -312,6 +312,22 @@ function renumber_topo
   echo Done
 }
 
+function restart_ptf
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+
+  read_file ${topology}
+
+  echo "Restart ptf for testbed '${vm_set_name}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6"$@
+
+  echo Done 
+}
+
 function refresh_dut
 {
   topology=$1
@@ -569,6 +585,8 @@ case "${subcmd}" in
                  setup_k8s_vms $@
                ;;
   destroy-master) stop_k8s_vms $@
+               ;;
+  restart-ptf) restart_ptf $@
                ;;
   *)           usage
                ;;
