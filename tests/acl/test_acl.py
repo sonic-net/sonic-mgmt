@@ -562,7 +562,6 @@ class BaseAclTest(object):
         """Generate a TCP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
@@ -599,7 +598,6 @@ class BaseAclTest(object):
         """Generate a UDP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
@@ -625,7 +623,6 @@ class BaseAclTest(object):
         """Generate an ICMP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
                 eth_dst=setup["destination_mac"][direction][self.src_port],
