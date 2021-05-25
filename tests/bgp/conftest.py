@@ -98,19 +98,6 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
             )
         results[node['host'].hostname] = node_results
 
-    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
-
-    check_results(results)
-
-    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
-        pytest.fail("not all bgp sessions are up after enable graceful restart")
-
-    if not wait_until(60, 5, duthost.check_default_route):
-        pytest.fail("ipv4 or ipv6 default route not available")
-
-    yield
-
     @reset_ansible_local_tmp
     def restore_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for restoring configuration for the VM hosts.
@@ -139,6 +126,28 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
                 module_ignore_errors=True)
             )
         results[node['host'].hostname] = node_results
+    
+    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+
+    check_results(results)
+
+    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
+    res = True
+    err_msg = ""
+    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        res = False
+        err_msg = "not all bgp sessions are up after enable graceful restart"
+
+    if res and not wait_until(100, 5, duthost.check_default_route):
+        res = False
+        err_msg = "ipv4 or ipv6 default route not available"
+
+    if not res:
+        # Disable graceful restart in case of failure
+        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+        pytest.fail(err_msg)
+    
+    yield
 
     results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
 
