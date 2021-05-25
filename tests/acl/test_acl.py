@@ -28,7 +28,6 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
-    pytest.mark.usefixtures('toggle_all_simulator_ports_to_rand_selected_tor')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
