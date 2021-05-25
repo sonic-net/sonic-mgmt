@@ -1,3 +1,11 @@
+"""
+Test port auto negotiation.
+
+To save test time, the script randomly chooses 3 ports to do following test:
+1. Advertise all supported speeds and expect the negotiated speed is the highest speed
+2. Advertise each supported speed and expect the negotiated speed is the one configured
+3. Force each supported speed and expect the operational speed is the one configured
+"""
 import logging
 import pytest
 import random
@@ -150,7 +158,6 @@ def check_ports_up(duthost, dut_ports, expect_speed=None):
         return True
     else:
         return False
-
 
 
 def test_auto_negotiation_advertised_speeds_all():

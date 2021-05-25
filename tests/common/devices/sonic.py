@@ -1438,6 +1438,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'speed')
         speed = self.shell(cmd)['stdout'].strip()
         return speed
+
     def get_rsyslog_ipv4(self):
         if not self.is_multi_asic:
             return "127.0.0.1"
