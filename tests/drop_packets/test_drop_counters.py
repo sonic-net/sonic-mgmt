@@ -8,7 +8,7 @@ import re
 import ptf.packet as packet
 import ptf.testutils as testutils
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
 from drop_packets import *  # FIXME
@@ -343,6 +343,8 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop SIP link local packets")
 
     link_local_ip = "169.254.10.125"
 
