@@ -470,6 +470,35 @@ def add_vEOS_cfg(data):
     #finally:
     #    print(buff)
 
+    chan.send('./testbed-cli.sh -t testbed.csv -m veos announce-routes docker-ptf password.txt\n')
+    chan.settimeout(180)
+    buff = ''
+    err_buff = ''
+    rcv_timeout = 60
+    interval_length = 5
+
+    try:
+        while not chan.exit_status_ready():
+            if chan.recv_ready():
+                resp = chan.recv(9999)
+                print(resp.decode("ascii"))
+                buff += resp.decode("ascii")
+            else:
+                rcv_timeout -= interval_length
+            if rcv_timeout < 0:
+                break
+            else:
+                time.sleep(interval_length)
+
+            if chan.recv_stderr_ready():
+                error_buff = chan.recv_stderr(9999)
+                while error_buff:
+                    err_buff += error_buff.decode("ascii")
+                    error_buff = chan.recv_stderr(9999)
+                print(err_buff)
+    except Exception as e:
+        print('Hit %s' % e)
+
     ssh.close()
 
 def run_scripts(data,script_file,drop_version,log_dir,device_type):
