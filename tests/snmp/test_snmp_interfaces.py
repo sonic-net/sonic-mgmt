@@ -17,7 +17,7 @@ def collect_all_facts(duthost, ports_list, namespace=None):
     setup = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
 
-    if namespace is None or namespace == "":
+    if not namespace:
         sonic_db_cmd = "sonic-db-cli"
     else:
         sonic_db_cmd = "sonic-db-cli -n {}".format(namespace)
@@ -59,8 +59,6 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             oper = duthost.shell('{} STATE_DB HGET "MGMT_PORT_TABLE|{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)
             result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
-
-             
     return result
 
 def verify_port_snmp(facts, snmp_facts):
@@ -157,6 +155,7 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
     for po_name in config_facts.get('PORTCHANNEL', {}):
         assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
+@pytest.mark.bsl
 def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
 
