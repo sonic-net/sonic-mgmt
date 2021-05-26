@@ -7,7 +7,6 @@ import subprocess
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
-from devutil import conn_graph_helper
 
 try:
     from sonic_py_common import multi_asic  
@@ -62,8 +61,7 @@ class SonicPortAliasMap():
     Retrieve SONiC device interface port alias mapping and port speed if they are definded
 
     """
-    def __init__(self, hostname, hwsku):
-        self.hostname = hostname
+    def __init__(self, hwsku):
         self.hwsku = hwsku
         return
 
@@ -100,9 +98,6 @@ class SonicPortAliasMap():
         front_panel_asic_ifnames = []
         # All asic names
         asic_if_names = []
-
-        #conn_graph = conn_graph_helper.get_conn_graph_facts([self.hostname])
-        conn_graph = {}
 
         filename = self.get_portconfig_path(asic_id)
         if filename is None:
@@ -147,8 +142,6 @@ class SonicPortAliasMap():
                         aliasmap[alias] = name
                         if (speed_index != -1) and (len(mapping) > speed_index):
                             portspeed[alias] = mapping[speed_index]
-                        elif 'device_conn' in conn_graph and self.hostname in conn_graph['device_conn'] and name in conn_graph['device_conn'][self.hostname]:
-                            portspeed[alias] = conn_graph['device_conn'][self.hostname][name]['speed']
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
                             front_panel_asic_ifnames.append(asicifname)
@@ -162,7 +155,6 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             hwsku=dict(required=True, type='str'),
-            hostname=dict(required=False, default=None, type='str'),
             num_asic=dict(type='int', required=False),
             include_internal=dict(required=False, type='bool', default=False)
         ),
@@ -174,7 +166,7 @@ def main():
         portmap = {}
         aliasmap = {}
         portspeed = {}
-        allmap = SonicPortAliasMap(m_args['hostname'], m_args['hwsku'])
+        allmap = SonicPortAliasMap(m_args['hwsku'])
         # ASIC interface names of front panel interfaces 
         front_panel_asic_ifnames = []
         # { asic_name: [ asic interfaces] }

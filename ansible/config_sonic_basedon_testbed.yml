@@ -74,12 +74,17 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
     delegate_to: localhost
 
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    delegate_to: localhost
+    ignore_errors: true
+
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}" hostname="{{ inventory_hostname }}"
+    port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}" hostname="{{ inventory_hostname }}" num_asic="{{ num_asics }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
