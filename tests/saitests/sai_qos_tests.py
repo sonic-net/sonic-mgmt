@@ -96,6 +96,22 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip):
 
     return result.port
 
+class PortEnableDisable(sai_base_test.ThriftInterfaceDataPlane):
+    def tx_disable(self, dst_port_id):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(5)
+        switch_init(self.client)
+
+        asic_type = self.test_params['sonic_asic_type']
+        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+    def tx_enable(self, dst_port_id):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(5)
+        switch_init(self.client)
+
+        asic_type = self.test_params['sonic_asic_type']
+        sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
