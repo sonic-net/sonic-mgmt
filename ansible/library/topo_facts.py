@@ -60,6 +60,19 @@ def parse_host_interfaces(hifs):
 
     return ret
 
+def parse_console_interface(console_interface):
+    """
+    parse console interface
+
+    Foramt:
+    line_number.baud.flow_control_option
+
+    Example:
+    27.9600.0
+    """
+    fields = console_interface.split('.')
+    return fields[0], fields[1], fields[2]
+
 class ParseTestbedTopoinfo():
     '''
     Parse topology yml file
@@ -216,6 +229,16 @@ class ParseTestbedTopoinfo():
                 hifs = parse_host_interfaces(host_if)
                 for hif in hifs:
                     vm_topo_config['disabled_host_interfaces_by_dut'][hif[0]].append(hif[1])
+
+        if 'console_interfaces' in topo_definition['topology']:
+            vm_topo_config['console_interfaces'] = []
+            for console_if in topo_definition['topology']['console_interfaces']:
+                line, baud, flow_control = parse_console_interface(console_if)
+                cif = {}
+                cif['line'] = int(line)
+                cif['baud'] = int(baud)
+                cif['flow_control'] = 'true' if flow_control == '1' else 'false'
+                vm_topo_config['console_interfaces'].append(cif)
 
         if 'DUT' in topo_definition['topology']:
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']
