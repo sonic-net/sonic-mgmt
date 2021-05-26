@@ -59,7 +59,7 @@ We can use general functionality after that.
 ### Functionality of filter_pkt_in_buffer method
 The method finds the packet in the buffer by using matched fields and compares this packet with the expected packet.
 ```
-pkt_in_buffer = filter.filter.filter_pkt_in_buffer()
+pkt_in_buffer = filter.filter_pkt_in_buffer()
 ```
 ##### If the packet is available in the buffer, the method returns True value.
 ```
