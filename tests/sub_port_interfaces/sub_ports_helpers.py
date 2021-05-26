@@ -1,5 +1,4 @@
 import os
-from sys import path_importer_cache
 import time
 
 from collections import OrderedDict
@@ -417,9 +416,10 @@ def get_port(duthost, ptfhost, interface_num, port_type):
         portchannel_members += v.keys()
 
     config_vlan_members = cfg_facts['port_index_map']
+    port_status = cfg_facts['PORT']
     config_port_indices = {}
     for k, v in config_vlan_members.items():
-        if k not in portchannel_members:
+        if k not in portchannel_members and cfg_facts['PORT'][k].get('admin_status', 'down') == 'up':
             config_port_indices[v] = k
             if len(config_port_indices) == interface_num:
                 break
