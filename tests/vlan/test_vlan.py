@@ -407,7 +407,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
     transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=src_mac, dst_mac=dst_mac)
     return_transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=dst_mac, dst_mac=src_mac)
 
-    logger.info("Tagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+    logger.info("Tagged packet to be sent from port {} to port {}".format(src_port[0], dst_port))
 
     testutils.send(ptfadapter, src_port[0], transmit_tagged_pkt)
 
@@ -419,9 +419,9 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
         raise
     
     logger.info("One Way Tagged Packet Transmission Works")
-    logger.info("Tagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    logger.info("Tagged packet successfully sent from port {} to port {}".format(src_port[0], dst_port))
 
-    logger.info("Tagged packet to be sent from port {} to port {}".format(dst_port, src_port))
+    logger.info("Tagged packet to be sent from port {} to port {}".format(dst_port[0], src_port))
 
     testutils.send(ptfadapter, dst_port[0], return_transmit_tagged_pkt)
 
@@ -433,7 +433,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
         raise
 
     logger.info("Two Way Tagged Packet Transmission Works")
-    logger.info("Tagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    logger.info("Tagged packet successfully sent from port {} to port {}".format(dst_port[0], src_port))
 
 
 @pytest.mark.bsl
@@ -462,7 +462,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
     transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
     return_transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
 
-    logger.info("Untagged packet to be sent from port {} to port {}".format(src_port, dst_port))
+    logger.info("Untagged packet to be sent from port {} to port {}".format(src_port[0], dst_port))
 
     testutils.send(ptfadapter, src_port[0], transmit_untagged_pkt)
 
@@ -474,9 +474,9 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         raise
 
     logger.info("One Way Untagged Packet Transmission Works")
-    logger.info("Untagged packet successfully sent from port {} to port {}".format(src_port, dst_port))
+    logger.info("Untagged packet successfully sent from port {} to port {}".format(src_port[0], dst_port))
 
-    logger.info("Untagged packet to be sent from port {} to port {}".format(dst_port, src_port))
+    logger.info("Untagged packet to be sent from port {} to port {}".format(dst_port[0], src_port))
 
     testutils.send(ptfadapter, dst_port[0], return_transmit_untagged_pkt)
 
@@ -488,7 +488,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
         raise
 
     logger.info("Two Way Untagged Packet Transmission Works")
-    logger.info("Untagged packet successfully sent from port {} to port {}".format(dst_port, src_port))
+    logger.info("Untagged packet successfully sent from port {} to port {}".format(dst_port[0], src_port))
 
 
 def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, duthost):
