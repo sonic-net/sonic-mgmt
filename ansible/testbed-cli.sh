@@ -15,6 +15,7 @@ function usage
   echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
+  echo "    $0 [options] restart-ptf <topo-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -62,6 +63,7 @@ function usage
   echo "        by default, data acl is enabled"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
+  echo "To restart ptf defined in testbed: $0 restart-ptf 'topo-name' ~/.password"
   echo
   echo "You should define your topology in testbed CSV file"
   echo
