@@ -113,11 +113,11 @@ def get_port_alias_to_name_map(hwsku):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i            
     elif hwsku == "36x100Gb":
         # Cisco 8000 - 1 Rack Unit
-        for i in range(0, 37):
+        for i in range(0, 36):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "64x100Gb":
         # Cisco 8000 - 1 Rack Unit - Mathilda
-        for i in range(0, 63):
+        for i in range(0, 64):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     else:
         for i in range(0, 128, 4):
