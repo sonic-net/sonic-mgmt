@@ -27,7 +27,7 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
-          - dualtor-mux
+          - cable-test
           - tgen-t0-3
           - tgen-t1-3-lag
       children:
