@@ -176,8 +176,7 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     # is implemented for multi-asic platform
     if duthost.num_asics() == 1:
         ports_list = []
-        _ = [ports_list.extend(config_facts.get(i, {}).keys())
-             for i in ['MGMT_INTERFACE']]
+        ports_list.extend(config_facts.get('MGMT_INTERFACE', {}).keys())
         dut_facts = collect_all_facts(duthost, ports_list)
         ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
         speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
@@ -194,8 +193,8 @@ def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localh
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
 
     ports_list = []
-    _ = [ports_list.extend(config_facts.get(i, {}).keys())
-         for i in ['port_name_to_alias_map', 'PORTCHANNEL']]
+    for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
+        ports_list.extend(config_facts.get(i, {}).keys())
 
     dut_facts = collect_all_facts(duthost, ports_list, namespace)
     ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
