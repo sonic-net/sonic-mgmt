@@ -385,7 +385,7 @@ function announce_routes
 
   read_file $topology
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inv_name" testbed_announce_routes.yml --vault-password-file="$passfile" \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_announce_routes.yml --vault-password-file="$passfile" \
       -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
 
   echo done
