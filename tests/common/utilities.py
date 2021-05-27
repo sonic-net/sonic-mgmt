@@ -31,7 +31,7 @@ def skip_version(duthost, version_list):
     @param version_list: A list of incompatible versions
     """
     if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test supports {}".format(duthost.os_version, ", ".join(version_list)))
+        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
 
 
 def wait(seconds, msg=""):
