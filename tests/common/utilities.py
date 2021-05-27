@@ -5,14 +5,14 @@ import collections
 import inspect
 import ipaddress
 import logging
-import pytest
+import re
 import six
 import sys
 import threading
 import time
-import re
-
 from io import BytesIO
+
+import pytest
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
