@@ -7,7 +7,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 
 
@@ -302,13 +302,15 @@ def create_lag_port(duthost, config_port_indices):
         Dictonary of lag ports on the DUT
     """
     lag_port_map = {}
-    for port_index, port_name in config_port_indices.items():
-        lag_port = 'PortChannel{}'.format(port_index)
+    portchannel_idx = 1
+    for _, port_name in config_port_indices.items():
+        lag_port = 'PortChannel{}'.format(portchannel_idx)
         remove_ip_from_port(duthost, port_name)
         remove_member_from_vlan(duthost, '1000', port_name)
         duthost.shell('config portchannel add {}'.format(lag_port))
         duthost.shell('config portchannel member add {} {}'.format(lag_port, port_name))
-        lag_port_map[port_index] = lag_port
+        lag_port_map[portchannel_idx] = lag_port
+        portchannel_idx += 1
 
     return lag_port_map
 
@@ -395,24 +397,39 @@ def check_namespace(ptfhost, name_of_namespace):
     return name_of_namespace in out
 
 
-def get_port(duthost, ptfhost, interface_ranges, port_type):
+def get_port(duthost, ptfhost, interface_num, port_type):
     """
     Get port configurations from DUT and PTF
 
     Args:
         duthost: DUT host object
         ptfhost: PTF host object
-        interface_ranges: numbers of ports
+        interface_num: number of ports
         port_type: Type of port
 
     Returns:
         Tuple with port configurations of DUT and PTF
     """
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    portchannel_members = []
+    for _, v in cfg_facts['PORTCHANNEL_MEMBER'].items():
+        portchannel_members += v.keys()
+
     config_vlan_members = cfg_facts['port_index_map']
-    config_port_indices = {v: k for k, v in cfg_facts['port_index_map'].items() if k in config_vlan_members and v in interface_ranges}
+    port_status = cfg_facts['PORT']
+    config_port_indices = {}
+    for k, v in config_vlan_members.items():
+        if k not in portchannel_members and cfg_facts['PORT'][k].get('admin_status', 'down') == 'up':
+            config_port_indices[v] = k
+            if len(config_port_indices) == interface_num:
+                break
+
+    pytest_require(len(config_port_indices) == interface_num, "No port for testing")
+    
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    ptf_ports = {port_id: ptf_ports_available_in_topo[port_id] for port_id in interface_ranges}
+    ptf_ports = {}
+    for k in config_port_indices.keys():
+            ptf_ports[k] = ptf_ports_available_in_topo[k]
 
     if 'port_in_lag' in port_type:
         lag_port_map = create_lag_port(duthost, config_port_indices)
