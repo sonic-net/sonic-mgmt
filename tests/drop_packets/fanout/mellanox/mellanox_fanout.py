@@ -47,7 +47,7 @@ class FanoutHandler(BaseFanoutHandler):
             dut_facts = self.ansible_localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
         except RunAnsibleModuleFail as e:
             if  "cannot find info for" in e.results['msg']:
-                return None
+                return
             else:
                 raise e
 
