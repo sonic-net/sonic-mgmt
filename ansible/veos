@@ -84,6 +84,10 @@ all:
           - dualtor-120
           - tgen-t0-3
           - tgen-t1-3-lag
+          - mgmttor
+      children:
+        server_1:
+        server_2:
 
 vm_host_1:
   hosts:
