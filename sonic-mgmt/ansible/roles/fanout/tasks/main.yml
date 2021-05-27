@@ -13,7 +13,11 @@
 
 - set_fact: sw_type="{{ device_info[inventory_hostname]['Type'] }}"
 
-- set_fact: os='eos'
+- set_fact: sw_type='FanoutLeaf'
+  when: sw_type is not defined
+  tags: always
+
+- set_fact: os='nxos'
   when: os is not defined
   tags: always
 
