@@ -170,11 +170,11 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i            
     elif hwsku == "36x100Gb":
         # Cisco 8000 - 1 Rack Unit
-        for i in range(0, 37):
+        for i in range(0, 36):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "64x100Gb":
         # Cisco 8000 - 1 Rack Unit - Mathilda
-        for i in range(0, 63):
+        for i in range(0, 64):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "msft_multi_asic_vs":
         if asic_id is not None and asic_id in namespace_list['front_ns']:
