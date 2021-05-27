@@ -42,9 +42,11 @@
 
 - set_fact:
     root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
+  when: root_dev is defined
 
 - name: Change root fanout port vlan
   action: apswitch template=roles/fanout/templates/arista_7260_connect.j2
   connection: switch
   args:
     login: "{{ switch_login['Arista'] }}"
+  when: root_dev is defined
