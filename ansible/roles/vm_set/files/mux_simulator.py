@@ -28,6 +28,9 @@ UPPER_TOR = 'upper_tor'
 LOWER_TOR = 'lower_tor'
 NIC = 'nic'
 
+del_flow_cmd = 'ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'
+add_flow_cmd = 'ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
+
 # Global variable for storing mux cable flapping
 flap_counter = {}
 
@@ -103,6 +106,17 @@ def run_cmd(cmdline):
     return stdout.decode('utf-8')
 
 
+def get_intf_mapping(vm_set, port_index):
+    mux_bridge = 'mbr-{}-{}'.format(vm_set, port_index)
+    intfs = sorted(run_cmd('ovs-vsctl list-ports {}'.format(mux_bridge)).splitlines())
+
+    return {
+        UPPER_TOR: intfs[0],
+        LOWER_TOR: intfs[1],
+        NIC: intfs[2]
+    }
+
+
 def get_mux_connections(vm_set, port_index):
     """Use the 'ovs-ofctl show' command to get details of the bridge and interfaces simulating mux.
 
@@ -164,15 +178,17 @@ def get_mux_connections(vm_set, port_index):
     cmdline = 'ovs-ofctl --names show mbr-{}-{}'.format(vm_set, port_index)
     out = run_cmd(cmdline)
 
+    intf_map = get_intf_mapping(vm_set, port_index)
+
     parsed = re.findall(r'(\d|LOCAL)\((\S+)\):\s+addr:[0-9a-f:]{17}', out)
     # Example of 'parsed':
 
     mux_status = defaultdict(dict)
     mux_status['vm_set'] = vm_set
     mux_status['port_index'] = port_index
-    mux_status['ports'][NIC] = parsed[0][1]
-    mux_status['ports'][UPPER_TOR] = parsed[1][1]
-    mux_status['ports'][LOWER_TOR] = parsed[2][1]
+    mux_status['ports'][NIC] = intf_map[NIC]
+    mux_status['ports'][UPPER_TOR] = intf_map[UPPER_TOR]
+    mux_status['ports'][LOWER_TOR] = intf_map[LOWER_TOR]
     mux_status['bridge'] = parsed[3][1]
     return mux_status
 
@@ -355,6 +371,60 @@ def set_active_side(vm_set, port_index, new_active_side):
     mux_status['active_port'] = new_active_port
     return mux_status
 
+def reset_nic_flow(vm_set, port_index, nic_intf, upper_tor_intf, lower_tor_intf):
+    """
+    Resets the flows from NIC to ToR regardless of current state
+
+    Deletes any existing flows originating from the NIC interface
+    and adds a new flow originating from NIC interface with output
+    to both ToR interfaces
+    """
+
+    run_cmd(del_flow_cmd.format(vm_set, port_index, nic_intf)) 
+    action = 'output:"{}",output:"{}"'.format(upper_tor_intf, lower_tor_intf)
+    run_cmd(add_flow_cmd.format(vm_set, port_index, nic_intf, action))
+
+def reset_tor_flow(vm_set, port_index, nic_intf, upper_tor_intf, lower_tor_intf):
+    """
+    Resets the flows from ToR to NIC regardless of current state
+
+    Deletes any existing flows originating from either ToR interface
+    and adds a new flow originating from one randomly chosen ToR
+    interface with output to the NIC interface
+    """
+
+    run_cmd(del_flow_cmd.format(vm_set, port_index, upper_tor_intf))
+    run_cmd(del_flow_cmd.format(vm_set, port_index, lower_tor_intf))
+
+    new_active_tor_intf = random.choice([upper_tor_intf, lower_tor_intf])
+    action = 'output:"{}"'.format(nic_intf)
+
+    run_cmd(add_flow_cmd.format(vm_set, port_index, new_active_tor_intf, action))
+
+def reset_flows(vm_set, port_index):
+    """
+    Resets the flows for a given mux simulator port to a healthy state
+
+    Returns:
+        dict: The new mux status in a dictionary
+    """
+    intf_map = get_intf_mapping(vm_set, port_index) 
+    nic_intf, upper_tor_intf, lower_tor_intf = intf_map[NIC], intf_map[UPPER_TOR], intf_map[LOWER_TOR]
+
+    reset_nic_flow(vm_set, port_index, nic_intf, upper_tor_intf, lower_tor_intf)
+    reset_tor_flow(vm_set, port_index, nic_intf, upper_tor_intf, lower_tor_intf)
+
+    return get_mux_status(vm_set, port_index)
+
+def reset_all_flows(vm_set):
+    bridges = get_mux_bridges(vm_set)
+    bridge_prefix = 'mbr-{}-'.format(vm_set)
+
+    for bridge in bridges:
+        port_index = bridge.replace(bridge_prefix, '')
+        reset_flows(vm_set, port_index)
+
+    return get_all_mux_status(vm_set)
 
 def _validate_param(vm_set, port_index=None):
     """Validate the vm_set and port_index argument.
@@ -605,6 +675,9 @@ def update_flow_action(vm_set, port_index, action, data):
     Returns:
         dict: The new mux status.
     """
+    if action == "reset":
+        return reset_flows(vm_set, port_index)
+
     mux_status = get_mux_status(vm_set, port_index)
     tor_ports = []
     for out_port in data['out_ports']:
@@ -624,13 +697,13 @@ def mux_cable_flow_update(vm_set, port_index, action):
     Args:
         vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
         port_index (string): Index of the port. Parsed by flask from request URL.
-        action (string): The action to be applied to flow. Either "output" or "drop".
+        action (string): The action to be applied to flow. Either "output", "drop", or "reset".
 
     Returns:
         object: Return a flask response object.
     """
-    if action not in ["output", "drop"]:
-        err_msg = 'In "/mux/<vm_set>/<port_index>/<action>", action must be "output" or "drop".'
+    if action not in ["output", "drop", "reset"]:
+        err_msg = 'In "/mux/<vm_set>/<port_index>/<action>", action must be "output",drop", or "reset".'
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 404
 
@@ -641,7 +714,7 @@ def mux_cable_flow_update(vm_set, port_index, action):
 
     data = request.get_json()
     valid, msg = _validate_out_ports(data)
-    if not valid:
+    if not valid and action != "reset":
         app.logger.error('{} {} {}'.format(request.method, request.url, msg))
         return jsonify({'err_msg': msg}), 400
 
@@ -650,6 +723,24 @@ def mux_cable_flow_update(vm_set, port_index, action):
         return jsonify(mux_status)
     except Exception as e:
         err_msg = 'Update flow action failed: {}'.format(repr(e))
+        app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
+        return jsonify({'err_msg': err_msg}), 500
+
+@app.route('/mux/<vm_set>/reset', methods=['POST'])
+def reset_flow_handler(vm_set):
+    try:
+        # Use `get_mux_bridges` to validate vm_set
+        bridges = get_mux_bridges(vm_set)
+
+        if len(bridges) <= 0:
+            err_msg = 'GET/POST all mux status failed, vm_set: {}, exception: invalid vm_set'.format(vm_set)
+            app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
+            return jsonify({'err_msg': err_msg}), 400
+
+        new_mux_status = reset_all_flows(vm_set)
+        return jsonify(new_mux_status)
+    except Exception as e:
+        err_msg = 'GET/POST all mux status failed, vm_set: {}, exception: {}'.format(vm_set, repr(e))
         app.logger.error('{} {} {}'.format(request.method, request.url, err_msg))
         return jsonify({'err_msg': err_msg}), 500
 

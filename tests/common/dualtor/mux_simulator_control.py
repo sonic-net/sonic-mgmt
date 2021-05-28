@@ -5,7 +5,7 @@ import urllib2
 
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
@@ -55,7 +55,7 @@ def url(mux_server_url, duthost, tbinfo):
         """
         if not interface_name:
             if action:
-                # Only for flap_counter or clear_flap_counter
+                # Only for flap_counter, clear_flap_counter, or reset
                 return mux_server_url + "/{}".format(action)
             return mux_server_url
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -388,3 +388,17 @@ def simulator_clear_flap_counters(url):
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
+@pytest.fixture
+def reset_simulator_port(url):
+
+    def _reset_simulator_port(interface_name):
+        server_url = url(interface_name=interface_name, action=RESET) 
+        pytest_assert(_post(server_url, {}))
+
+    return _reset_simulator_port
+
+@pytest.fixture
+def reset_all_simulator_ports(url):
+
+    server_url = url(action=RESET)
+    pytest_assert(_post(server_url, {}))
