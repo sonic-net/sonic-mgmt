@@ -5,13 +5,14 @@ import collections
 import inspect
 import ipaddress
 import logging
+import re
 import six
 import sys
 import threading
 import time
-import re
-
 from io import BytesIO
+
+import pytest
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
@@ -21,6 +22,16 @@ from tests.common.cache import FactsCache
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
+
+def skip_version(duthost, version_list):
+    """
+    @summary: Skip current test if any given version keywords are in os_version
+    @param duthost: The DUT
+    @param version_list: A list of incompatible versions
+    """
+    if any(version in duthost.os_version for version in version_list):
+        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
 
 
 def wait(seconds, msg=""):
