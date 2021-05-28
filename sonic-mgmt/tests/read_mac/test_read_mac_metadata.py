@@ -115,11 +115,13 @@ class ReadMACMetadata():
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         non_default_ports = [k for k,v in cfg_facts["PORT"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
-        non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+        #non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+        #if len(non_default_ports) != 0 or len(non_default_portchannel) != 0:
+        #    pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}".format(non_default_ports,non_default_portchannel))
 
-        if len(non_default_ports) != 0 or len(non_default_portchannel) != 0:
-            pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}".format(non_default_ports,non_default_portchannel))
-
+        if len(non_default_ports) != 0:
+            pytest.fail("There are ports with non default MTU:\nPorts: {}\n".format(non_default_ports))
+        
 
 @pytest.mark.disable_loganalyzer
 def test_read_mac_metadata(request,cleanup_read_mac):
