@@ -188,7 +188,7 @@ def get_critical_process_from_monit(duthost, container_name):
         return critical_process_list, succeeded
 
     for line in file_content["stdout_lines"]:
-        if "check program" in line:
+        if "process_checker" in line:
             command_line = line.split(" {} ".format(container_name))[1].strip(" \n\"")
             critical_process_list.append(command_line)
 
