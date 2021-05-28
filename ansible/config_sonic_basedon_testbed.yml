@@ -69,6 +69,11 @@
     connection: local
     when: "VM_topo | bool"
 
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts: host="{{ inventory_hostname }}"
+    connection: local
+    ignore_errors: true
+
   - name: find interface name mapping and individual interface speed if defined
     port_alias: hwsku="{{ hwsku }}"
 
