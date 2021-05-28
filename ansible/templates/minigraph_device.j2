@@ -16,11 +16,12 @@
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
-{% set speed_option = port_speed | length %}
-{% if speed_option == 0 %}
-          <Speed>{{ iface_speed }}</Speed>
-{% else %}
+{% if port_speed[port_alias[index]] is defined %}
           <Speed>{{ port_speed[port_alias[index]] }}</Speed>
+{% elif device_conn[inventory_hostname][port_alias[index]] is defined %}
+          <Speed>{{ device_conn[inventory_hostname][port_alias[index]]['speed'] }}</Speed>
+{% else %}
+          <Speed>{{ iface_speed }}</Speed>
 {% endif %}
         </a:EthernetInterface>
 {% endfor %}

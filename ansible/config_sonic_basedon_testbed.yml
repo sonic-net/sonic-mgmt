@@ -74,6 +74,11 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
     delegate_to: localhost
 
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    delegate_to: localhost
+    ignore_errors: true
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
