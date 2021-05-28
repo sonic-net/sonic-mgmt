@@ -105,7 +105,8 @@ class TestSfpApi(PlatformApiTestBase):
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, request, platform_api_conn):
         self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
-
+        self.skip_absent_sfp = True
+        
         if self.num_sfps is None:
             try:
                 self.num_sfps = int(chassis.get_num_sfps(platform_api_conn))
