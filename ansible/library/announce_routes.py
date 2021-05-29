@@ -56,7 +56,7 @@ def get_topo_type(topo_name):
         logger.warning("Unsupported testbed type - {}".format(topo_name))
         return "unsupported"
     topo_type = match.group()
-    if tb_type in ['dualtor', 'mgmttor']:
+    if topo_type in ['dualtor', 'mgmttor']:
         # set dualtor/ topology type to 't0' to avoid adding it in each test script.
         topo_type = 't0'
     return topo_type
