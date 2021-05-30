@@ -431,7 +431,11 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
-                stdout, stderr, return_code = self.dut_connection.execCommand('show ip bgp neighbors %s' % self.neigh_bgps[vm][key])
+                if key == 'v4':
+                    cmd = "show ip bgp neighbors"
+                else:
+                    cmd = "show ipv6 bgp neighbors"
+                stdout, stderr, return_code = self.dut_connection.execCommand(cmd+' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
                         if 'BGP state' in line:
