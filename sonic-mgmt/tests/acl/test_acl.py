@@ -245,7 +245,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     duthost.command("sonic-clear arp")
 
 
-@pytest.fixture(scope="module", params=["ingress"])
+@pytest.fixture(scope="module", params=["ingress","egress"])
 def stage(request, duthosts, rand_one_dut_hostname):
     """Parametrize tests for Ingress/Egress stage testing.
 
