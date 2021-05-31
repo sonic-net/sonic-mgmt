@@ -129,6 +129,23 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 
 cmd_debug_fname = None
 
+def adaptive_name(template, host, index):
+    """
+    A helper function for interface/bridge name calculation.
+    Since the name of interface must be less than 15 bytes. This util is to adjust the template automatically
+    according to the length of vmhost name and port index. The leading characters (inje, muxy, mbr) will be shorten if necessary
+    e.g.
+    port 21 on vms7-6 -> inje-vms7-6-21
+    port 121 on vms21-1 -> inj-vms21-1-121
+    port 121 on vms121-1 -> in-vms121-1-121
+    """
+    MAX_LEN = 15
+    host_index_str = '-%s-%d' % (host, index)
+    leading_len = MAX_LEN - len(host_index_str)
+    leading_characters = template.split('-')[0][:leading_len]
+    rendered_name = leading_characters + host_index_str
+    return rendered_name        
+
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
 
@@ -255,7 +272,7 @@ class VMTopology(object):
     def create_bridges(self):
         for vm in self.vm_names:
             for fp_num in range(self.max_fp_num):
-                fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (vm, fp_num)
+                fp_br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, vm, fp_num)
                 self.create_ovs_bridge(fp_br_name, self.fp_mtu)
 
         if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
@@ -307,7 +324,7 @@ class VMTopology(object):
         """
         for vlan in self.injected_fp_ports:
             (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
-            ext_if = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, ptf_index)
+            ext_if = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
             int_if = PTF_FP_IFACE_TEMPLATE % ptf_index
             self.add_veth_if_to_docker(ext_if, int_if)
 
@@ -479,10 +496,10 @@ class VMTopology(object):
         """
         for attr in self.VMs.values():
             for idx, vlan in enumerate(attr['vlans']):
-                br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], idx)
+                br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, self.vm_names[self.vm_base_index + attr['vm_offset']], idx)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], idx)
                 (dut_index, vlan_index, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
-                injected_iface = INJECTED_INTERFACES_TEMPLATE % (self.vm_set_name, ptf_index)
+                injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
                 self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)], injected_iface, vm_iface, disconnect_vm)
 
         if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:
@@ -495,7 +512,7 @@ class VMTopology(object):
     def unbind_fp_ports(self):
         for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
-                br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
+                br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 self.unbind_ovs_ports(br_name, vm_iface)
 
@@ -651,7 +668,7 @@ class VMTopology(object):
                           +--------------+
         """
 
-        br_name = MUXY_BRIDGE_TEMPLATE % (self.vm_set_name, host_ifindex)
+        br_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, self.vm_set_name, host_ifindex)
 
         self.create_ovs_bridge(br_name, self.fp_mtu)
 
@@ -686,7 +703,7 @@ class VMTopology(object):
         remove muxy cable
         """
 
-        br_name = MUXY_BRIDGE_TEMPLATE % (self.vm_set_name, host_ifindex)
+        br_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, self.vm_set_name, host_ifindex)
 
         self.destroy_ovs_bridge(br_name)
 
@@ -711,7 +728,7 @@ class VMTopology(object):
                     # Otherwise, it means that host interface does not have "@x" in topo definition, then assume that
                     # there is no gap in sequence of host interfaces.
                     host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
-                    muxy_if = MUXY_INTERFACES_TEMPLATE % (self.vm_set_name, host_ifindex)
+                    muxy_if = adaptive_name(MUXY_INTERFACES_TEMPLATE, self.vm_set_name, host_ifindex)
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_veth_if_to_docker(muxy_if, ptf_if)
 
