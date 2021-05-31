@@ -27,6 +27,7 @@ app = Flask(__name__)
 UPPER_TOR = 'upper_tor'
 LOWER_TOR = 'lower_tor'
 NIC = 'nic'
+MUXY_BRIDGE_TEMPLATE = 'mbr-%s-%d'
 
 del_flow_cmd = 'ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'
 add_flow_cmd = 'ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
@@ -41,7 +42,7 @@ def get_flap_counter(vm_set, port_index):
     @param port_index: An integer, the port_index
     @return: An dict {'mbr-vms17-8-0': 10}
     """
-    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    mbr_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index)
     return {mbr_name: flap_counter.get(mbr_name, 0)}
 
 
@@ -52,7 +53,7 @@ def increase_flap_counter(vm_set, port_index):
     @param port_index: An integer, the port_index
     @return: None
     """
-    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    mbr_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index)
     flap_counter[mbr_name] = flap_counter.get(mbr_name, 0) + 1
 
 
@@ -63,7 +64,7 @@ def clear_flap_counter(vm_set, port_index):
     @param port_index: An integer, the port_index
     @return: None
     """
-    mbr_name = "mbr-{}-{}".format(vm_set, port_index)
+    mbr_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index)
     flap_counter[mbr_name] = 0
 
 
@@ -72,8 +73,26 @@ def init_flap_counter():
     Fill 0 to global flap counter
     """
     for intf in os.listdir('/sys/class/net'):
-        if intf.startswith('mbr-'):
+        if re.match(r"(m|mb|mbr)-", intf):
             flap_counter[intf] = 0
+
+
+def adaptive_name(template, host, index):
+    """
+    A helper function for interface/bridge name calculation.
+    Since the name of interface must be less than 15 bytes. This util is to adjust the template automatically
+    according to the length of vmhost name and port index. The leading characters (inje, muxy, mbr) will be shorten if necessary
+    e.g.
+    port 21 on vms7-6 -> inje-vms7-6-21
+    port 121 on vms21-1 -> inj-vms21-1-121
+    port 121 on vms121-1 -> in-vms121-1-121
+    """
+    MAX_LEN = 15
+    host_index_str = '-%s-%d' % (host, int(index))
+    leading_len = MAX_LEN - len(host_index_str)
+    leading_characters = template.split('-')[0][:leading_len]
+    rendered_name = leading_characters + host_index_str
+    return rendered_name    
 
 
 def run_cmd(cmdline):
@@ -175,7 +194,7 @@ def get_mux_connections(vm_set, port_index):
                 "active_side": "upper_tor"
             }
     """
-    cmdline = 'ovs-ofctl --names show mbr-{}-{}'.format(vm_set, port_index)
+    cmdline = 'ovs-ofctl --names show {}'.format(adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index))
     out = run_cmd(cmdline)
 
     intf_map = get_intf_mapping(vm_set, port_index)
@@ -233,7 +252,7 @@ def get_flows(vm_set, port_index):
             }
     """
 
-    cmdline = 'ovs-ofctl --names dump-flows mbr-{}-{}'.format(vm_set, port_index)
+    cmdline = 'ovs-ofctl --names dump-flows {}'.format(adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index))
     out = run_cmd(cmdline)
 
     parsed = re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)
@@ -259,7 +278,7 @@ def get_active_port(flows):
         string or None: Name of the active port or None if something is wrong.
     """
     for in_port in flows.keys():
-        if not in_port.startswith('muxy-'):
+        if not re.match(r"(m|mu|mux|muxy)-", in_port):
             return in_port
     return None
 
@@ -356,15 +375,15 @@ def set_active_side(vm_set, port_index, new_active_side):
         new_active_side = UPPER_TOR if mux_status['active_side'] == LOWER_TOR else LOWER_TOR
 
     new_active_port = mux_status['ports'][new_active_side]
-    run_cmd('ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'.format(vm_set, port_index, active_port))
+    run_cmd('ovs-ofctl --names del-flows {} in_port="{}"'.format(adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index), active_port))
     actions = []
     for action in flows[active_port]:
         action_desc = action['action']
         if action['out_port']:
             action_desc += ':"{}"'.format(action['out_port'])
         actions.append(action_desc)
-    run_cmd('ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
-        .format(vm_set, port_index, new_active_port, ','.join(actions)))
+    run_cmd('ovs-ofctl --names add-flow  {} in_port="{}",actions={}'
+        .format(adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index), new_active_port, ','.join(actions)))
     new_flows = get_flows(vm_set, port_index)
     mux_status['flows'] = new_flows
     mux_status['active_side'] = new_active_side
@@ -436,10 +455,10 @@ def _validate_param(vm_set, port_index=None):
     Returns:
         tuple: Return the result in a tuple. The first item is either True or False. The second item is extra message.
     """
-    pattern = 'mbr-{}'.format(vm_set)
+    pattern = r'(m|mb|mbr)-{}'.format(vm_set)
     if port_index:
-        pattern += '-{}'.format(port_index)
-    if any([intf.startswith(pattern) for intf in os.listdir('/sys/class/net')]):
+        pattern = adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, port_index)
+    if any([re.match(pattern, intf) for intf in os.listdir('/sys/class/net')]):
         return True, ''
     else:
         return False, 'No interface matches {}'.format(pattern)
@@ -513,8 +532,8 @@ def get_mux_bridges(vm_set):
     Returns:
         list: List of all the bridge names of specified vm_set.
     """
-    bridge_prefix = 'mbr-{}-'.format(vm_set)
-    mux_bridges = [intf for intf in os.listdir('/sys/class/net') if intf.startswith(bridge_prefix)]
+    bridge_pattern = '(m|mb|mbr)-{}-'.format(vm_set)
+    mux_bridges = [intf for intf in os.listdir('/sys/class/net') if re.match(bridge_pattern, intf)]
     valid_mux_bridges = []
     for mux_bridge in mux_bridges:
         out = run_cmd('ovs-vsctl list-ports {}'.format(mux_bridge))
@@ -525,11 +544,10 @@ def get_mux_bridges(vm_set):
 
 
 def get_all_mux_status(vm_set):
-    bridge_prefix = 'mbr-{}-'.format(vm_set)
     mux_bridges = get_mux_bridges(vm_set)
     all_mux_status = {}
     for bridge in mux_bridges:
-        port_index = int(bridge.replace(bridge_prefix, ''))
+        port_index = int(bridge.split('-')[-1])
         all_mux_status[bridge] = get_mux_status(vm_set, port_index)
     return all_mux_status
 
@@ -764,9 +782,9 @@ def flap_counter_all(vm_set):
     """
     ret = {}
 
-    pattern = "mbr-{}".format(vm_set)
+    pattern = "(m|mb|mbr)-{}".format(vm_set)
     for mbr, counter in flap_counter.items():
-        if mbr.startswith(pattern):
+        if re.match(pattern, mbr):
             ret[mbr] = counter
     
     return ret
@@ -785,9 +803,9 @@ def clear_flap_counter_handler(vm_set):
         return jsonify({'err_msg': msg}), 400
     port_indexes = data['port_to_clear']
     if port_indexes == "all":
-        pattern = "mbr-{}".format(vm_set)
-        for mbr, counter in flap_counter.items():
-            if mbr.startswith(pattern):
+        pattern = "(m|mb|mbr)-".format(vm_set)
+        for mbr, _ in flap_counter.items():
+            if re.match(pattern, mbr):
                 flap_counter[mbr] = 0
                 ret[mbr] = 0
     else:
@@ -797,7 +815,7 @@ def clear_flap_counter_handler(vm_set):
             if not valid:
                 continue
             clear_flap_counter(vm_set, index)
-            mbr_name = "mbr-{}-{}".format(vm_set, index)
+            mbr_name = adaptive_name(MUXY_BRIDGE_TEMPLATE, vm_set, index)
             ret[mbr_name] = 0
 
     return ret
