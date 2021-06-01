@@ -523,10 +523,8 @@ def collect_techsupport_on_dut(request, a_dut):
     # "function" scope
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
-        res = a_dut.shell(
-            "generate_dump -s \"-2 hours\"", module_ignore_errors=True
-        )
-        fname = res['stdout']
+        res = a_dut.shell("generate_dump -s \"-2 hours\"")
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
