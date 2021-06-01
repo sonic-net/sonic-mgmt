@@ -16,6 +16,7 @@ REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
+REBOOT_TYPE_KDUMP = "kdump"
 REBOOT_TYPE_UNKNOWN  = "Unknown"
 
 # Event to signal DUT activeness
@@ -72,6 +73,13 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_KDUMP: {
+        "command": "echo c > /proc/sysrq-trigger",
+        "timeout": 300,
+        "wait": 90,
+        "cause": "Kernel Panic",
+        "test_reboot_cause_only": False
     }
 }
 
@@ -120,14 +128,22 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs)
 
+    def trigger_kernel_crash_and_reboot():
+        logger.info("Triggering kernel panic with command '{}' ..."
+                    .format(reboot_command, hostname))
+        return duthost.shell(reboot_command)
+
     dut_datetime = duthost.get_now_time()
     DUT_ACTIVE.clear()
 
-    if reboot_type != REBOOT_TYPE_POWEROFF:
-        reboot_res = pool.apply_async(execute_reboot_command)
-    else:
+    if reboot_type == REBOOT_TYPE_KDUMP:
+        reboot_res = pool.apply_async(trigger_kernel_crash_and_reboot)
+    elif reboot_type == REBOOT_TYPE_POWEROFF:
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
+    else:
+        reboot_res = pool.apply_async(execute_reboot_command)
+
 
     logger.info('waiting for ssh to drop on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
