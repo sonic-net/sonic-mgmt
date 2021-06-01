@@ -100,7 +100,7 @@ def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    pytest_require(parse_version(duthost.kernel_version) <= parse_version("4.9.0"),
+    pytest_require("201811" in duthost.os_version or "201911" in duthost.os_version,
                    "Test is not supported for 202012 and newer image versions!")
 
     if not wait_until(180, 60, check_monit_last_output, duthost):
