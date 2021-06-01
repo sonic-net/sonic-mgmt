@@ -11,6 +11,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
     pytest.mark.topology('any'),
@@ -60,7 +61,7 @@ def common_setup_teardown(duthost, ptfhost):
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
-    yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn'] 
+    yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn']
     # Cleanup bgp monitor
     duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
     duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
@@ -100,7 +101,7 @@ def build_syn_pkt(local_addr, peer_addr):
     exp_packet.set_ignore_extra_bytes()
     return exp_packet
 
-def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
+def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
@@ -122,8 +123,8 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     # Verify syn packet on ptf
     (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
     #To establish the connection we set the PTF port that receive syn packet following properties
-    # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) , 
-    # add the neighbor entry and the default route for dut loopback 
+    # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) ,
+    # add the neighbor entry and the default route for dut loopback
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
@@ -140,6 +141,8 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
     ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
     try:
+        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+                      "Failed to start bgp monitor session on PTF")
         pytest_assert(wait_until(30, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
