@@ -248,10 +248,12 @@ def main():
         if state == 'started':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
+            refresh_supervisord(module)
             start_exabgp(module, name)
         elif state == 'restarted':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
+            refresh_supervisord(module)
             restart_exabgp(module, name)
         elif state == 'present':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
