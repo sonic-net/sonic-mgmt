@@ -24,7 +24,7 @@ import fib
 
 class FwdTest(FibTest):
     _required_params = [
-        'router_mac',
+        'router_macs',
     ]
     class FwdDict(object):
         def __init__(self):
@@ -34,10 +34,11 @@ class FwdTest(FibTest):
         def parse_fwd_info(self, file_path):
             # filter out empty lines and lines starting with '#'
             pattern = re.compile("^#.*$|^[ \t]*$")
+            file_path = file_path[0]
 
             with open(file_path, 'r') as f:
                 for line in f.readlines():
-                    if pattern.match(line): 
+                    if pattern.match(line):
                         continue
                     prefix, dst_ports = line.split(' ', 1)
                     self.add_entry(prefix, dst_ports)
@@ -68,13 +69,13 @@ class FwdTest(FibTest):
         """
         super(FwdTest, self).setUp()
         self.test_balancing = self.test_params.get('test_balancing', False)  # default not to test balancing
-        self.fwd_info = self.test_params.get('fwd_info', None)
+        self.fib_info_files = self.test_params.get('fib_info_files', None)
         self.dst_ports = self.test_params.get('dst_ports', None)  # dst_ports syntax example: [[0, 1], [2, 3, 4]]
         self.dst_ips = self.test_params.get('dst_ips', None)
 
         self.fwd_dict = FwdTest.FwdDict()
-        if self.fwd_info is not None:
-            self.fwd_dict.parse_fwd_info(self.fwd_info)
+        if self.fib_info_files is not None:
+            self.fwd_dict.parse_fwd_info(self.fib_info_files)
         else:
             for ip in self.dst_ips:
                 self.fwd_dict.add_entry(ip, str(self.dst_ports))
@@ -105,7 +106,7 @@ class FwdTest(FibTest):
 
 class CapTest(FwdTest):
     _required_params=[
-        'router_mac',
+        'router_macs',
         'random_vrf_list',
         'src_base_vid',
         'dst_base_vid'

@@ -28,6 +28,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
@@ -40,7 +41,31 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+
 class PfcCmd(object):
+    buffer_model_initialized = False
+    buffer_model = None
+
+    @staticmethod
+    def isBufferInApplDb(asic):
+        if not PfcCmd.buffer_model_initialized:
+            result = asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", "4", "hget",
+                    "DEVICE_METADATA|localhost", "buffer_model"
+                ]
+            )
+            if result:
+                PfcCmd.buffer_model = result[0]
+            PfcCmd.buffer_model_initialized = True
+            logger.info(
+                "Buffer model is {}, buffer tables will be fetched from {}".format(
+                    PfcCmd.buffer_model or "not defined",
+                    "APPL_DB" if PfcCmd.buffer_model == "dynamic" else "CONFIG_DB"
+                )
+            )
+        return PfcCmd.buffer_model == "dynamic"
+
     @staticmethod
     def counter_cmd(dut, queue_oid, attr):
         """
@@ -115,20 +140,28 @@ class PfcCmd(object):
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
 
         asic = dut.get_port_asic_instance(port)
+        if PfcCmd.isBufferInApplDb(asic):
+            db = "0"
+            pg_pattern = "BUFFER_PG_TABLE:{}:3-4"
+        else:
+            db = "4"
+            pg_pattern = "BUFFER_PG|{}|3-4"
+
         pg_profile = asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HGET", 
-                "BUFFER_PG|{}|3-4".format(port), "profile"
+                "redis-cli", "-n", db, "HGET",
+                pg_pattern.format(port), "profile"
             ]
         )[0].encode("utf-8")[1:-1]
 
         alpha = asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HGET", pg_profile, "dynamic_th"
+                "redis-cli", "-n", db, "HGET", pg_profile, "dynamic_th"
             ]
         )[0].encode("utf-8")
 
         return pg_profile, alpha
+
 
 class PfcPktCntrs(object):
     """ PFCwd counter retrieval and verifications  """

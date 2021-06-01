@@ -27,6 +27,10 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
+          - dualtor-120
+          - tgen-t0-3
+          - tgen-t1-3-lag
+          - mgmttor
       children:
         server_1:
         server_2:

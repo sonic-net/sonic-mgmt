@@ -3,14 +3,24 @@ import pytest
 import re
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.utilities import wait
+from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
+
+
+PORT_TOGGLE_TIMEOUT = 30
+
+def skip_test_for_multi_asic(duthosts,enum_rand_one_per_hwsku_frontend_hostname ):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip('CLI command not supported')
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
@@ -27,7 +37,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=False)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
@@ -48,14 +58,20 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     logger.info('Updating common port alias names in redis db')
     for i, item in enumerate(default_interfaces):
         port_alias_new = 'TestAlias{}'.format(i)
+        asic_index = duthost.get_port_asic_instance(item).asic_index
         port_alias_old = port_alias_facts['port_name_map'][item]
         port_alias.append(port_alias_new)
         port_name_map[item] = port_alias_new
         port_alias_map[port_alias_new] = item
         port_speed[port_alias_new] = port_speed_facts[port_alias_old]
 
+        #sonic-db-cli command
+        db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    item,
+                    port_alias_new)
         # Update port alias name in redis db
-        duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_new))
+        duthost.command(db_cmd)
 
     upport_alias_list = [ port_name_map[item] for item in up_ports ]
     portchannel_members = [ member for portchannel in minigraph_portchannels.values() for member in portchannel['members'] ]
@@ -76,8 +92,13 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     logger.info('Reverting the port alias name in redis db to the actual values')
     for item in default_interfaces:
+        asic_index = duthost.get_port_asic_instance(item).asic_index
         port_alias_old = port_alias_facts['port_name_map'][item]
-        duthost.command('redis-cli -n 4 HSET "PORT|{}" alias {}'.format(item, port_alias_old))
+        db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    item,
+                    port_alias_old)
+        duthost.command(db_cmd)
 
 @pytest.fixture(scope='module', params=['alias', 'default'])
 def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
@@ -119,7 +140,7 @@ def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_
     duthost.user(name='guest', groups='sudo', state ='absent', shell='/bin/bash', remove='yes')
 
 @pytest.fixture(scope='module')
-def sample_intf(setup):
+def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Selects and returns the alias, name and native speed of the test interface
 
@@ -129,12 +150,14 @@ def sample_intf(setup):
         sample_intf: a dictionary containing the alias, name and native
         speed of the test interface
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     minigraph_interfaces = setup['minigraph_facts']['minigraph_interfaces']
     interface_info = dict()
     interface_info['ip'] = None
 
     if setup['physical_interfaces']:
         interface = sorted(setup['physical_interfaces'])[0]
+        asic_index = duthost.get_port_asic_instance(interface).asic_index
         interface_info['is_portchannel_member'] = False
         for item in minigraph_interfaces:
             if (item['attachto'] == interface) and (IPAddress(item['addr']).version == 4):
@@ -142,11 +165,14 @@ def sample_intf(setup):
                 break
     else:
         interface = sorted(setup['up_ports'])[0]
+        asic_index = duthost.get_port_asic_instance(interface).asic_index
         interface_info['is_portchannel_member'] = True
 
     interface_info['default'] = interface
+    interface_info['asic_index'] = asic_index
     interface_info['alias'] = setup['port_name_map'][interface]
     interface_info['native_speed'] = setup['port_speed'][interface_info['alias']]
+    interface_info['cli_ns_option'] = duthost.asic_instance(asic_index).cli_ns_option
 
     return interface_info
 
@@ -326,6 +352,10 @@ def test_show_pfc_counters(setup, setup_config_mode):
 
 class TestShowPriorityGroup():
 
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
+
     def test_show_priority_group_persistent_watermark_headroom(self, setup, setup_config_mode):
         """
         Checks whether 'show priority-group persistent-watermark headroom'
@@ -390,7 +420,13 @@ class TestShowPriorityGroup():
             for intf in setup['up_ports']:
                 assert re.search(r'{}.*'.format(intf), show_pg) is not None
 
+
 class TestShowQueue():
+
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        skip_test_for_multi_asic(
+            duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
     def test_show_queue_counters(self, setup, setup_config_mode):
         """
@@ -574,14 +610,16 @@ class TestConfigInterface():
         interface = sample_intf['default']
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
+        cli_ns_option = sample_intf['cli_ns_option']
+
 
         yield
 
         if interface_ip is not None:
-            duthost.shell('config interface ip add {} {}'.format(interface, interface_ip))
+            duthost.shell('config interface {} ip add {} {}'.format(cli_ns_option, interface, interface_ip))
 
-        duthost.shell('config interface startup {}'.format(interface))
-        duthost.shell('config interface speed {} {}'.format(interface, native_speed))
+        duthost.shell('config interface {} startup {}'.format(cli_ns_option, interface))
+        duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
 
     def test_config_interface_ip(self, setup_config_mode, sample_intf):
         """
@@ -595,8 +633,10 @@ class TestConfigInterface():
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
         test_intf_ip = sample_intf['ip']
+        cli_ns_option = sample_intf['cli_ns_option']
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip remove {} {}'.format(ifmode, test_intf, test_intf_ip))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} ip remove {} {}'.format(
+            ifmode, cli_ns_option, test_intf, test_intf_ip))
         if out['rc'] != 0:
             pytest.fail()
 
@@ -606,7 +646,8 @@ class TestConfigInterface():
 
         assert re.search(r'{}\s+{}'.format(test_intf, test_intf_ip), show_ip_intf) is None
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface ip add {} {}'.format(ifmode, test_intf, test_intf_ip))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} ip add {} {}'.format(
+            ifmode, cli_ns_option, test_intf, test_intf_ip))
         if out['rc'] != 0:
             pytest.fail()
 
@@ -626,37 +667,37 @@ class TestConfigInterface():
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
+        cli_ns_option = sample_intf['cli_ns_option']
+
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+[\w\/]+\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        
+        def _port_status(expected_state):
+            admin_state = ""
+            show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
+            logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface shutdown {}'.format(ifmode, test_intf))
+            line = show_intf_status['stdout'].strip()
+            if regex_int.match(line) and interface == regex_int.match(line).group(1):
+                admin_state = regex_int.match(line).group(7)
+
+            return admin_state == expected_state
+
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} shutdown {}'.format(
+            ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+                        "Interface {} should be admin down".format(test_intf))
 
-        wait(3)
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
-        logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
-
-        line = show_intf_status['stdout'].strip()
-        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-            admin_state = regex_int.match(line).group(7)
-
-        assert admin_state == 'down'
-
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface startup {}'.format(ifmode, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
+            ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+                        "Interface {} should be admin up".format(test_intf))
 
-        wait(3)
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
-        logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
 
-        line = show_intf_status['stdout'].strip()
-        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-            admin_state = regex_int.match(line).group(7)
-
-        assert admin_state == 'up'
-
-    def test_config_interface_speed(self, setup_config_mode, sample_intf):
+    def test_config_interface_speed(self, setup_config_mode, sample_intf, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Checks whether 'config interface speed <intf> <speed>' sets
         speed of the test interface when its interface alias/name is
@@ -666,21 +707,31 @@ class TestConfigInterface():
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
         native_speed = sample_intf['native_speed']
+        cli_ns_option = sample_intf['cli_ns_option']
+        asic_index = sample_intf['asic_index']
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface speed {} 10000'.format(ifmode, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} 10000'.format(
+             ifmode,cli_ns_option, test_intf))
+
         if out['rc'] != 0:
             pytest.fail()
 
-        speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo redis-cli -n 4 HGET "PORT|{}" speed'.format(ifmode, interface))['stdout']
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    interface)
+
+        speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
         assert speed == '10000'
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface speed {} {}'.format(ifmode, test_intf, native_speed))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
+            ifmode, cli_ns_option, test_intf, native_speed))
         if out['rc'] != 0:
             pytest.fail()
 
-        speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo redis-cli -n 4 HGET "PORT|{}" speed'.format(ifmode, interface))['stdout']
+        speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
         assert speed == native_speed
@@ -709,13 +760,15 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
             elif mode == 'default':
                 assert item in acl_table
 
-def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo):
+def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo,duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
     if tbinfo['topo']['type'] not in ['t1', 't2']:
         pytest.skip('Unsupported topology')
+
+    skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
@@ -733,9 +786,12 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo):
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_check_topo(self, setup, tbinfo):
+    def setup_check_topo(self, setup, tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         if tbinfo['topo']['type'] not in ['t2', 't1']:
             pytest.skip('Unsupported topology')
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.is_multi_asic:
+            pytest.skip("CLI not supported")
 
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
@@ -755,7 +811,7 @@ class TestNeighbors():
 
         for item in arptable['v4']:
             # To ignore Midplane interface, added check on what is being set in setup fixture
-            if (arptable['v4'][item]['interface'] != 'eth0') and (arptable['v4'][item]['interface'] not in minigraph_portchannels) and (item in setup['port_name_map']):
+            if (arptable['v4'][item]['interface'] in setup['port_name_map']) and (arptable['v4'][item]['interface'] not in minigraph_portchannels):
                 if mode == 'alias':
                     assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v4'][item]['interface']]), arp_output) is not None
                 elif mode == 'default':
@@ -777,7 +833,7 @@ class TestNeighbors():
         for addr, detail in arptable['v6'].items():
             if (
                     detail['macaddress'] != 'None' and
-                    detail['interface'] != 'eth0' and
+                    detail['interface'] in setup['port_name_map'] and
                     detail['interface'] not in minigraph_portchannels
             ):
                 if mode == 'alias':

@@ -106,9 +106,16 @@ class TestWrArp:
         dip = result['stdout']
         logger.info('VxLan Sender {0}'.format(dip))
 
-        ptfhost.host.options['variable_manager'].extra_vars.update({
-            'ferret_args': '-f /tmp/vxlan_decap.json -s {0} -a {1}'.format(dip, duthost.facts["asic_type"])
-        })
+
+        vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+        if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
+            vxlan_port = int(vxlan_port_out['stdout'])
+            ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1} -p {2}'.format(
+                dip, duthost.facts["asic_type"], vxlan_port)
+        else:
+            ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1}'.format(dip, duthost.facts["asic_type"])
+
+        ptfhost.host.options['variable_manager'].extra_vars.update({'ferret_args': ferret_args})
 
         logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
         ptfhost.template(src='arp/files/ferret.conf.j2', dest='/etc/supervisor/conf.d/ferret.conf')
@@ -190,6 +197,7 @@ class TestWrArp:
         dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
         logger.info('Warm-Reboot Control-Plane assist feature')
+        sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
         ptf_runner(
             ptfhost,
             'ptftests',
@@ -202,6 +210,7 @@ class TestWrArp:
                 'dut_ssh' : dutIp,
                 'dut_username': creds['sonicadmin_user'],
                 'dut_password': creds['sonicadmin_password'],
+                "alt_password": sonicadmin_alt_password,
                 'config_file' : VXLAN_CONFIG_FILE,
                 'how_long' : testDuration,
             },

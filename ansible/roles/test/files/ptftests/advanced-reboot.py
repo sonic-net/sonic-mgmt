@@ -763,9 +763,13 @@ class ReloadTest(BaseTest):
         self.reboot_start = None
         self.no_routing_start = None
         self.no_routing_stop = None
+        self.no_control_start = None
+        self.no_control_stop = None
         self.no_cp_replies = None
         self.upper_replies = []
         self.routing_always = False
+        self.total_disrupt_packets = None
+        self.total_disrupt_time = None
         self.ssh_jobs = []
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
@@ -854,7 +858,8 @@ class ReloadTest(BaseTest):
     def wait_until_control_plane_up(self):
         self.log("Wait until Control plane is up")
         self.timeout(self.wait_until_cpu_port_up, self.task_timeout, "DUT hasn't come back up in {} seconds".format(self.task_timeout))
-        self.log("Dut reboots: control plane up at %s" % str(datetime.datetime.now()))
+        self.no_control_stop = datetime.datetime.now()
+        self.log("Dut reboots: control plane up at %s" % str(self.no_control_stop))
 
     def handle_fast_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
@@ -872,6 +877,8 @@ class ReloadTest(BaseTest):
 
         try:
             async_cpu_up.get(timeout=self.task_timeout)
+            self.no_control_stop = self.cpu_state.get_state_time('up')
+            self.log("Control plane down stops %s" % str(self.no_control_stop))
         except TimeoutError as e:
             port_up_signal.set()
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
@@ -1106,21 +1113,26 @@ class ReloadTest(BaseTest):
         self.log("="*50)
 
         if self.no_routing_stop and self.no_routing_start:
-            longest_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
+            dataplane_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
         else:
-            longest_downtime = "N/A"
-        if self.no_routing_stop and self.reboot_start:
-            reboot_time = (self.no_routing_stop - self.reboot_start).total_seconds()
-        else:
-            reboot_time = "0:00:00"
-        if 'warm-reboot' in self.reboot_type and not self.kvm_test:
+            dataplane_downtime = ""
+        if self.total_disrupt_time:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
-            total_downtime = self.total_disrupt_time
+            dataplane_downtime = self.total_disrupt_time
+        dataplane_report = dict()
+        dataplane_report["downtime"] = str(dataplane_downtime)
+        dataplane_report["lost_packets"] = str(self.total_disrupt_packets) \
+            if self.total_disrupt_packets is not None else ""
+        controlplane_report = dict()
+
+        if self.no_control_stop and self.no_control_start:
+            controlplane_downtime = (self.no_control_stop - self.no_control_start).total_seconds()
         else:
-            total_downtime = "N/A"
-        self.report["longest_downtime"] = longest_downtime
-        self.report["reboot_time"] = reboot_time
-        self.report["total_downtime"] = total_downtime
+            controlplane_downtime = ""
+        controlplane_report["downtime"] = str(controlplane_downtime)
+        controlplane_report["arp_ping"] = "" # TODO
+        self.report["dataplane"] = dataplane_report
+        self.report["controlplane"] = controlplane_report
         with open(self.report_file_name, 'w') as reportfile:
             json.dump(self.report, reportfile)
 
@@ -1139,6 +1151,7 @@ class ReloadTest(BaseTest):
             thr.setDaemon(True)
             thr.start()
             self.wait_until_control_plane_down()
+            self.no_control_start = self.cpu_state.get_state_time('down')
 
             if 'warm-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
