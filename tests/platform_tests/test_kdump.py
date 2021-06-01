@@ -243,13 +243,13 @@ def check_generated_kdump_dir(duthost):
     logger.info("Retrieving the generated kdump directory ...")
     find_kdump_dir_cmd = "find {0} -type d -regextype grep -regex '{0}[[:digit:]]\+'" \
                          .format(KDUMP_CORE_FILE_DIR)
-    find_kdump_dir_cmd_output = duthost.shell(find_kdump_dir_cmd)
-    exit_code = find_kdump_dir_cmd_output["rc"]
+    find_kdump_dir_cmd_result = duthost.shell(find_kdump_dir_cmd)
+    exit_code = find_kdump_dir_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to retrieve generated kdump directories!")
 
-    pytest_assert(len(find_kdump_dir_cmd_output["stdout_lines"]) == 1,
+    pytest_assert(len(find_kdump_dir_cmd_result["stdout_lines"]) == 1,
                   "Number of generated kdump directory should be one!")
-    generated_kdump_dir_path = find_kdump_dir_cmd_output["stdout_lines"][0].strip()
+    generated_kdump_dir_path = find_kdump_dir_cmd_result["stdout_lines"][0].strip()
     logger.info("Found the generated kdump directory '{}'.".format(generated_kdump_dir_path))
 
     logger.info("Retrieving the timestamp of kdump directory...")
@@ -260,8 +260,8 @@ def check_generated_kdump_dir(duthost):
     logger.info("Checking whether kdump core file '{}' was generated or not ..."
                 .format(kdump_core_file_path))
     check_file_existence_cmd = "sudo test -f {}".format(kdump_core_file_path)
-    check_file_existence_cmd_output = duthost.shell(check_file_existence_cmd)
-    exit_code = check_file_existence_cmd_output["rc"]
+    check_file_existence_cmd_result = duthost.shell(check_file_existence_cmd)
+    exit_code = check_file_existence_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to find generated kdump core file!")
     logger.info("kdump core file '{}' was generated.".format(kdump_core_file_path))
 
@@ -269,8 +269,8 @@ def check_generated_kdump_dir(duthost):
     logger.info("Checking whether dmesg file '{}' was generated or not ..."
                 .format(dmesg_file_path))
     check_file_existence_cmd = "sudo test -f {}".format(dmesg_file_path)
-    check_file_existence_cmd_output = duthost.shell(check_file_existence_cmd)
-    exit_code = check_file_existence_cmd_output["rc"]
+    check_file_existence_cmd_result = duthost.shell(check_file_existence_cmd)
+    exit_code = check_file_existence_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to find generated dmesg file!")
     logger.info("dmesg file '{}' was generated.".format(dmesg_file_path))
 
@@ -290,8 +290,8 @@ def delete_generated_kdump_dir(duthost, generated_kdump_dir_path):
 
     logger.info("Deleting the generated kdump directory '{}' ..."
                 .format(generated_kdump_dir_path))
-    delete_dir_cmd_output = duthost.shell("sudo rm -rf {}".format(generated_kdump_dir_path))
-    exit_code = delete_dir_cmd_output["rc"]
+    delete_dir_cmd_result = duthost.shell("sudo rm -rf {}".format(generated_kdump_dir_path))
+    exit_code = delete_dir_cmd_result["rc"]
     if exit_code == 0:
         logger.info("The generated kdump directory '{}' was deleted."
                     .format(generated_kdump_dir_path))
