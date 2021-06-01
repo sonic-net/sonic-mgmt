@@ -126,7 +126,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
                 module_ignore_errors=True)
             )
         results[node['host'].hostname] = node_results
-    
+
     results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
 
     check_results(results)
@@ -146,7 +146,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
         # Disable graceful restart in case of failure
         parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
         pytest.fail(err_msg)
-    
+
     yield
 
     results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
@@ -454,7 +454,7 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
 
     # Flush neighbor and route in advance to avoid possible "RTNETLINK answers: File exists"
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
-    ptfhost.shell("ip route flush match %s" % dut_lo_addr + "/32")
+    ptfhost.shell("ip route del %s" % dut_lo_addr + "/32", module_ignore_errors=True)
 
     # Add the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
@@ -471,5 +471,5 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
     # Remove the route to DUT loopback IP  and the interface router mac
-    ptfhost.shell("ip route flush match %s" % dut_lo_addr + "/32")
+    ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
