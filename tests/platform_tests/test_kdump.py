@@ -2,10 +2,7 @@
 Test the Linux kernel dump mechanism.
 """
 import logging
-import re
 import time
-
-from datetime import datetime
 
 import pytest
 

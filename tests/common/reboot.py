@@ -130,7 +130,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     def trigger_kernel_crash_and_reboot():
         logger.info("Triggering kernel panic with command '{}' ..."
-                    .format(reboot_command, hostname))
+                    .format(reboot_command))
         return duthost.shell(reboot_command)
 
     dut_datetime = duthost.get_now_time()
