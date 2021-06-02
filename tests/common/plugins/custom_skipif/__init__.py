@@ -123,9 +123,8 @@ def prepare_checkers(skip_dict, current_platform):
     for skip_by in skip_dict:
         logger.debug('Importing dynamic skip module: {}'.format(skip_by))
         try:
-            skip_module = __import__(skip_by)  # lgtm[py/unused-import]
             skip_module_obj = eval(
-                'skip_module.{}({}, {})'.format(skip_by, skip_dict[skip_by], extra_params))
+                '__import__(skip_by).{}({}, {})'.format(skip_by, skip_dict[skip_by], extra_params))
             skip_checkers_list.append(skip_module_obj)
         except Exception as err:
             logger.error('Unable to load dynamically skip object: {}'.format(err))
