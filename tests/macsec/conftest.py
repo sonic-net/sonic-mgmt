@@ -2,7 +2,6 @@ import pytest
 import logging
 import re
 from multiprocessing.pool import ThreadPool
-from functools import partial
 
 from tests.common  import config_reload
 
@@ -31,7 +30,7 @@ def global_cmd(duthost, nbrhosts, cmd):
     pool.join()
 
 
-def recover_environment(duthost, nbrhosts):
+def recover_configuration(duthost, nbrhosts):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(config_reload, args=(duthost, "minigraph"))
     for nbr in nbrhosts.values():
@@ -41,14 +40,16 @@ def recover_environment(duthost, nbrhosts):
 
 
 @pytest.fixture(scope="module")
-def cleanup_configuration(duthost, nbrhosts):
+def macsec_environment(duthost, nbrhosts):
+    recover_configuration(duthost, nbrhosts)
+    logger.info("Prepare MACsec environment")
     yield
-    recover_environment(duthost, nbrhosts)
-    logger.info("Cleanup configuration")
+    recover_configuration(duthost, nbrhosts)
+    logger.info("Cleanup MACsec configuration")
 
 
 @pytest.fixture(scope="module")
-def enable_macsec_feature(duthost, nbrhosts, cleanup_configuration):
+def enable_macsec_feature(duthost, nbrhosts, macsec_environment):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
     logger.info("Enable MACsec feature")
 
@@ -81,17 +82,19 @@ def get_portchannel_list(host):
     return portchannel_list
 
 
+# TODO: Temporary solution, because MACsec cannot be enabled on a portchannel member in the current version
 def delete_all_portchannel(host):
     portchannel_list = get_portchannel_list(host)
     for name, members in portchannel_list.items():
         if len(members) > 0:
             for member in members:
                 host.command("sudo config portchannel member del {} {}".format(name, member))
-            host.command("sudo config portchannel del {}".format(name))
 
 
+
+# TODO: Re-added member port to port channel
 @pytest.fixture(scope="module")
-def cleanup_portchannel(duthost, nbrhosts, cleanup_configuration):
+def cleanup_portchannel(duthost, nbrhosts, macsec_environment):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(delete_all_portchannel, args=(duthost, ))
     for nbr in nbrhosts.values():
@@ -141,7 +144,7 @@ def policy(request):
 
 
 @pytest.fixture(scope="module")
-def ctrl_nbrhosts(nbrhosts):
+def ctrl_links(nbrhosts):
     return [
         {
             "host": nbrhosts["ARISTA01T1"]["host"],
