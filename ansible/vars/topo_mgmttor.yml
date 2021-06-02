@@ -141,7 +141,7 @@ topology:
 configuration_properties:
   common:
     dut_asn: 65100
-    dut_type: ToRRouter
+    dut_type: MgmtTsToR
     swrole: leaf
     podset_number: 200
     tor_number: 16
