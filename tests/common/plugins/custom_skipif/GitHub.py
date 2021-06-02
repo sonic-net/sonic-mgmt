@@ -8,11 +8,10 @@ from CustomSkipIf import CustomSkipIf
 logger = logging.getLogger()
 
 
-class GitHub(CustomSkipIf):
-    def __init__(self, ignore_list, extra_params):
-        self.name = __name__
-        self.ignore_list = ignore_list
-        self.extra_params = extra_params
+class SkipIf(CustomSkipIf):
+    def __init__(self, ignore_list, pytest_item_obj):
+        super(SkipIf, self).__init__(ignore_list, pytest_item_obj)
+        self.name = 'GitHub'
         self.credentials = self.get_cred()
 
     def get_cred(self):
