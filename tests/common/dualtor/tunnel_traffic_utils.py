@@ -9,6 +9,22 @@ from scapy.all import IP, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 
+def derive_queue_id_from_dscp(dscp):
+    """ Derive queue id form DSCP using following mapping
+          DSCP -> Queue mapping
+            8          0
+            5          2
+            3          3
+            4          4
+            46         5
+            48         6
+            Rest       1
+    """
+
+    dscp_to_queue = { 8 : 0, 5 : 2, 3 : 3, 4 : 4, 46  : 5,  48 : 6}
+
+    return dscp_to_queue.get(dscp, 1)
+
 @pytest.fixture(scope="function")
 def tunnel_traffic_monitor(ptfadapter, tbinfo):
     """Return TunnelTrafficMonitor to verify inter-ToR tunnel traffic."""
@@ -87,34 +103,6 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             def _disassemble_ip_tos(tos):
                 return tos >> 2, tos & 0x3
 
-            def derive_queue_id_from_dscp(dscp):
-                """ Derive queue id form DSCP using following mapping
-                      DSCP -> Queue mapping
-                        8          0
-                        5          2
-                        3          3
-                        4          4
-                        46         5
-                        48         6
-                        Rest       1
-                """
-
-                if dscp == 8:
-                    queue = 0
-                elif dscp == 5:
-                    queue = 2
-                elif dscp == 3:
-                    queue = 3
-                elif dscp == 4:
-                    queue = 4
-                elif dscp == 46:
-                    queue = 5
-                elif dscp == 48:
-                    queue = 6
-                else:
-                    queue = 1
-
-                return queue
 
             outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
@@ -126,8 +114,16 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             exp_queue = derive_queue_id_from_dscp(outer_dscp)
 
             time.sleep(10)
-            queue_counter = self.standby_tor.shell('sudo show queue counters | grep "UC"')['stdout']
+            queue_counter = self.standby_tor.shell('show queue counters | grep "UC"')['stdout']
             logging.debug('queue_counter:\n{}'.format(queue_counter))
+
+            """ 
+            regex search will look for following pattern in queue_counter outpute
+            ----------------------------------------------------------------------------_---
+            Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
+            -----------  -----  --------------  ---------------  -----------  --------------
+            Ethernet124    UC1              10             1000            0             0
+            """
             result = re.search(r'\S+\s+UC\d\s+10+\s+\S+\s+\S+\s+\S+', queue_counter)
 
             rec_queue = 0
@@ -140,7 +136,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 pytest.fail("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
             else:
                 logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
-            return ""
+            return check_res
 
         def __init__(self, standby_tor, active_tor=None, existing=True):
             """

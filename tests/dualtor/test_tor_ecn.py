@@ -26,8 +26,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.utilities import dump_scapy_packet_show_output
-
-#from tests.saitests.sai_qos_tests import PortEnableDisable
+from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -58,12 +57,12 @@ def build_encapsulated_ip_packet(
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
+        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in config_facts["PEER_SWITCH"].values()][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
-    tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback0"]
-                        if is_ipv4_address(_.split("/")[0])][0]
+    tor_ipv4_address = [addr for addr in config_facts["LOOPBACK_INTERFACE"]["Loopback0"]
+                        if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
     inner_dscp = random.choice(range(0, 33))
@@ -106,12 +105,12 @@ def build_non_encapsulated_ip_packet(
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
+        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in config_facts["PEER_SWITCH"].values()][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
-    tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback0"]
-                        if is_ipv4_address(_.split("/")[0])][0]
+    tor_ipv4_address = [addr for addr in config_facts["LOOPBACK_INTERFACE"]["Loopback0"]
+                        if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
     dscp = random.choice(range(0, 33))
@@ -161,36 +160,6 @@ def build_expected_packet_to_server(
 
     return exp_pkt
 
-def derive_queue_id_from_dscp(
-    dscp
-):
-    """  Derive queue id from dscp using followng mapping
-           DSCP -> Queue mapping
-            8          0
-            5          2
-            3          3
-            4          4
-            46         5
-            48         6
-            Rest       1
-    """
-    if dscp == 8:
-        queue = 0
-    elif dscp == 5:
-        queue = 2
-    elif dscp == 3:
-        queue = 3
-    elif dscp == 4:
-        queue = 4
-    elif dscp == 46:
-        queue = 5
-    elif dscp == 48:
-        queue = 6
-    else:
-        queue = 1
-
-    return queue
-
 def get_queue_id_of_received_packet(
     duthosts, 
     rand_one_dut_hostname, 
@@ -200,8 +169,16 @@ def get_queue_id_of_received_packet(
     Get queue id of the packet received on destination
     """
     duthost = duthosts[rand_one_dut_hostname]
-    queue_counter = duthost.shell('sudo show queue counters {} | grep "UC"'.format(rand_selected_interface[0]))['stdout']
+    queue_counter = duthost.shell('show queue counters {} | grep "UC"'.format(rand_selected_interface[0]))['stdout']
     logging.info('queue_counter:\n{}'.format(queue_counter))
+
+    """ 
+    regex search will look for following pattern in queue_counter o/p for interface
+    ----------------------------------------------------------------------------_---
+    Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
+    -----------  -----  --------------  ---------------  -----------  --------------
+    Ethernet124    UC1              10             1000            0             0
+    """
     result = re.search(r'\S+\s+UC\d\s+10+\s+\S+\s+\S+\s+\S+', queue_counter)
 
     if result is not None:
@@ -227,12 +204,8 @@ def verify_ecn_on_received_packet(
     rec_pkt = Ether(rec_pkt)
     logging.info("received packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
-    if rec_pkt is not None:
-        rec_dscp = rec_pkt[IP].tos >> 2
-        rec_ecn = rec_pkt[IP].tos & 3
-    else:
-        logging.info("No packet recived on expected port")
-        return
+    rec_dscp = rec_pkt[IP].tos >> 2
+    rec_ecn = rec_pkt[IP].tos & 3
 
     if rec_ecn != exp_ecn:
         pytest.fail("the expected ECN: {0:02b} not matching with received ECN: {0:02b}".format(exp_ecn, rec_ecn))
@@ -306,7 +279,6 @@ def test_dscp_to_queue_during_encap_on_standby(
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=True):
        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
-       time.sleep(2)
 
 def test_ecn_during_decap_on_active(
     apply_active_state_to_orchagent,
@@ -360,61 +332,3 @@ def test_ecn_during_encap_on_standby(
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
     with tunnel_traffic_monitor(tor, existing=True):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
-        time.sleep(2)
-
-#def test_ecn_marking_during_congestion_on_standby(
-#    duthosts,
-#    rand_one_dut_hostname,
-#    rand_one_dut_portname_oper_up,
-#    rand_one_dut_lossless_prio
-#):
-#    """
-#    Test if the DUT performs ECN marking during congestion on standby at the egress
-#    """
-#    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-#    dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')
-#    pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
-#                   "Priority and port are not mapped to the expected DUT")
-#
-#    duthost = duthosts[rand_one_dut_hostname]
-#    lossless_prio = int(lossless_prio)
-#
-#    kmin = 50000
-#    kmax = 51000
-#    pmax = 100
-#    pkt_size = 1024
-#    pkt_cnt = 100
-#
-#    """ Configure WRED/ECN thresholds """
-#    config_result = config_wred(host_ans=duthost,
-#                                kmin=kmin,
-#                                kmax=kmax,
-#                                pmax=pmax)
-#    pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
-#
-#    """ Enable ECN marking """
-#    enable_ecn(host_ans=duthost, prio=lossless_prio)
-#
-#    """ Configure PFC threshold to 2 ^ 3 """
-#    config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost,
-#                                                         alpha_log2=3)
-#
-#    pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
-#
-#    rand_selected_dut.shell("/usr/local/bin/write_standby.py")
-#
-#    tor = rand_selected_dut
-#    non_encapsulated_packet = build_non_encapsulated_ip_packet
-#    iface, _ = rand_selected_interface
-#
-#    PortEnableDisable.tx_disable(rand_selected_interface)
-#    exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
-#
-#    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-#    logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
-#    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
-#    time.sleep(5)
-#
-#    exp_tos = encapsulated_packet[IP].payload[IP].tos
-#    exp_ecn = exp_tos & 3
-#    verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn):
