@@ -15,6 +15,7 @@ function usage
   echo "    $0 [options] announce-routes <topo-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <topo-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
+  echo "    $0 [options] restart-ptf <topo-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -48,6 +49,7 @@ function usage
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
   echo "To remove a topology on a server: $0 remove-topo 'topo-name' ~/.password"
+  echo "To remove a topology and keysight-api-server container on a server: $0 remove-topo 'topo-name' ~/.password remove_keysight_api_server"
   echo "To renumber a topology on a server: $0 renumber-topo 'topo-name' ~/.password"
   echo "To connect a topology: $0 connect-topo 'topo-name' ~/.password"
   echo "To refresh DUT in a topology: $0 refresh-dut 'topo-name' ~/.password"
@@ -61,6 +63,7 @@ function usage
   echo "        by default, data acl is enabled"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
+  echo "To restart ptf defined in testbed: $0 restart-ptf 'topo-name' ~/.password"
   echo
   echo "You should define your topology in testbed CSV file"
   echo
@@ -228,7 +231,9 @@ function add_topo
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         $ansible_options $@
 
-  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  fi
 
   # Delete the obsoleted arp entry for the PTF IP
   ip neighbor flush $ptf_ip
@@ -246,15 +251,25 @@ function remove_topo
 
   read_file ${topology}
 
+  remove_keysight_api_server=0
+  for i in "$@"
+  do
+    if [[ "remove_keysight_api_server" == "$i" ]]; then
+      remove_keysight_api_server=1
+      shift
+    fi
+  done
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-        -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-        $ansible_options $@
+      -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+      -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+      -e remove_keysight_api_server="$remove_keysight_api_server" \
+      $ansible_options $@
 
   echo Done
 }
@@ -292,9 +307,25 @@ function renumber_topo
 
   read_file ${topology}
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6"$@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+
+  echo Done
+}
+
+function restart_ptf
+{
+  topology=$1
+  passwd=$2
+  shift
+  shift
+
+  read_file ${topology}
+
+  echo "Restart ptf for testbed '${vm_set_name}'"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" -l "$server" -e topo_name="$topo_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
 
   echo Done
 }
@@ -356,7 +387,7 @@ function announce_routes
 
   read_file $topology
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "$inv_name" testbed_announce_routes.yml --vault-password-file="$passfile" \
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_announce_routes.yml --vault-password-file="$passfile" \
       -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
 
   echo done
@@ -556,6 +587,8 @@ case "${subcmd}" in
                  setup_k8s_vms $@
                ;;
   destroy-master) stop_k8s_vms $@
+               ;;
+  restart-ptf) restart_ptf $@
                ;;
   *)           usage
                ;;

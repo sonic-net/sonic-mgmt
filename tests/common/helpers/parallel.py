@@ -4,10 +4,39 @@ import os
 import shutil
 import tempfile
 import signal
-from multiprocessing import Process, Manager
+import traceback
+from multiprocessing import Process, Manager, Pipe
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+class SonicProcess(Process):
+    """
+    Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
+    an exception when run.
+
+    This exception (including backtrace) can be logged in test log to provide better info of why a particular Process failed.
+    """
+    def __init__(self, *args, **kwargs):
+        Process.__init__(self, *args, **kwargs)
+        self._pconn, self._cconn = Pipe()
+        self._exception = None
+
+    def run(self):
+        try:
+            Process.run(self)
+            self._cconn.send(None)
+        except Exception as e:
+            tb = traceback.format_exc()
+            self._cconn.send((e, tb))
+            raise e
+
+    @property
+    def exception(self):
+        if self._pconn.poll():
+            self._exception = self._pconn.recv()
+        return self._exception
 
 
 def parallel_run(target, args, kwargs, nodes, timeout=None):
@@ -38,15 +67,16 @@ def parallel_run(target, args, kwargs, nodes, timeout=None):
     for node in nodes:
         kwargs['node'] = node
         kwargs['results'] = results
-        worker = Process(target=target, args=args, kwargs=kwargs)
+        process_name = "{}--{}".format(target.__name__, node)
+        worker = SonicProcess(name=process_name, target=target, args=args, kwargs=kwargs)
         worker.start()
-        logger.debug('Started process {} running target "{}"'.format(worker.pid, target.__name__))
+        logger.debug('Started process {} running target "{}"'.format(worker.pid, process_name))
         workers.append(worker)
 
     for worker in workers:
-        logger.debug('Wait for process "{}" to complete, timeout={}'.format(worker.pid, timeout))
+        logger.debug('Wait for process "{}" with pid "{}" to complete, timeout={}'.format(worker.name, worker.pid, timeout))
         worker.join(timeout)
-        logger.debug('Process "{}" completed'.format(worker.pid))
+        logger.debug('Process "{}" with pid "{}" completed'.format(worker.name, worker.pid))
 
         # If execution time of processes exceeds timeout, need to force terminate them all.
         if timeout is not None:
@@ -54,10 +84,18 @@ def parallel_run(target, args, kwargs, nodes, timeout=None):
                 logger.error('Process execution time exceeds {} seconds.'.format(str(timeout)))
                 break
 
+    # check if we have any processes that failed - have exitcode non-zero
+    failed_processes = {}
+    for worker in workers:
+        if worker.exitcode != 0:
+            failed_processes[worker.name] = {}
+            failed_processes[worker.name]['exit_code'] = worker.exitcode
+            failed_processes[worker.name]['exception'] = worker.exception
+
     # Force terminate spawned processes
     for worker in workers:
         if worker.is_alive():
-            logger.error('Process {} is still alive, try to force terminate it.'.format(worker.pid))
+            logger.error('Process {} with pid {} is still alive, try to force terminate it.'.format(worker.name, worker.pid))
             worker.terminate()
 
     end_time = datetime.datetime.now()
@@ -75,6 +113,15 @@ def parallel_run(target, args, kwargs, nodes, timeout=None):
 
         pt_assert(False, \
             'Processes running target "{}" could not be terminated. Tried killing them. But please check'.format(target.__name__))
+
+    # if we have failed processes, we should log the exception and exit code of each Process and fail
+    if len(failed_processes.keys()):
+        for process_name, process in failed_processes.items():
+            p_exception = process['exception'][0]
+            p_traceback = process['exception'][1]
+            p_exitcode = process['exit_code']
+            logger.error('Process {} had exit code {} and exception {} and traceback {}'.format(process_name, p_exitcode, p_exception, p_traceback))
+        pt_assert(False, 'Processes "{}" had failures. Please check the logs'.format(failed_processes.keys()))
 
     logger.info('Completed running processes for target "{}" in {} seconds'.format(target.__name__, str(delta_time)))
 

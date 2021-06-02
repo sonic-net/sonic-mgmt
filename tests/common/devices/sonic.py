@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import re
+import socket
+import time
 
 from collections import defaultdict
 from datetime import datetime
@@ -192,7 +194,8 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+            "utf-8").lower()
 
 
     def _get_platform_info(self):
@@ -911,11 +914,12 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         Returns:
             str: The MAC address of the specified interface, or None if it is not found.
         """
-        for iface, iface_info in self.setup()['ansible_facts'].items():
-            if iface_name in iface:
-                return iface_info["macaddress"]
-
-        return None
+        try:
+            mac = self.command('cat /sys/class/net/{}/address'.format(iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
 
     def get_container_autorestart_states(self):
         """
@@ -1125,7 +1129,8 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th"
         elif "Broadcom Limited Device b971" in output:
             asic = "th2"
-        elif "Broadcom Limited Device b850" in output:
+        elif ("Broadcom Limited Device b850" in output or
+              "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
         elif "Broadcom Limited Device b870" in output:
             asic = "td3"
@@ -1133,6 +1138,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             asic = "th3"
 
         return asic
+
+    def get_facts(self):
+        return self.facts
 
     def get_running_config_facts(self):
         return self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
@@ -1217,47 +1225,81 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 'low': int(threshold['low threshold']),
                 'type': threshold['threshold type']
             }
+        def _show_and_parse_crm_resources():
+            # Get output of all resources
+            not_ready_prompt = "CRM counters are not ready"
+            output = self.command('crm show resources all')['stdout_lines']
+            in_section = False
+            sections = defaultdict(list)
+            section_id = 0
+            for line in output:
+                if not_ready_prompt in line:
+                    return False
+                if len(line.strip()) != 0:
+                    if not in_section:
+                        in_section = True
+                        section_id += 1
+                    sections[section_id].append(line)
+                else:
+                    in_section=False
+                    continue
+            # Output of 'crm show resources all' has 3 sections.
+            #   section 1: resources usage
+            #   section 2: ACL group
+            #   section 3: ACL table
+            if 1 in sections.keys():
+                crm_facts['resources'] = {}
+                resources = self._parse_show(sections[1])
+                for resource in resources:
+                    crm_facts['resources'][resource['resource name']] = {
+                        'used': int(resource['used count']),
+                        'available': int(resource['available count'])
+                    }
 
-        # Get output of all resources
-        output = self.command('crm show resources all')['stdout_lines']
-        in_section = False
-        sections = defaultdict(list)
-        section_id = 0
-        for line in output:
-            if len(line.strip()) != 0:
-                if not in_section:
-                    in_section = True
-                    section_id += 1
-                sections[section_id].append(line)
-            else:
-                in_section=False
-                continue
-        # Output of 'crm show resources all' has 3 sections.
-        #   section 1: resources usage
-        #   section 2: ACL group
-        #   section 3: ACL table
-        if 1 in sections.keys():
-            crm_facts['resources'] = {}
-            resources = self._parse_show(sections[1])
-            for resource in resources:
-                crm_facts['resources'][resource['resource name']] = {
-                    'used': int(resource['used count']),
-                    'available': int(resource['available count'])
-                }
+            if 2 in sections.keys():
+                crm_facts['acl_group'] = self._parse_show(sections[2])
 
-        if 2 in sections.keys():
-            crm_facts['acl_group'] = self._parse_show(sections[2])
-
-        if 3 in sections.keys():
-            crm_facts['acl_table'] = self._parse_show(sections[3])
+            if 3 in sections.keys():
+                crm_facts['acl_table'] = self._parse_show(sections[3])
+            return True
+        # Retry until crm resources are ready
+        timeout = crm_facts['polling_interval'] + 10
+        while timeout >= 0:
+            ret = _show_and_parse_crm_resources()
+            if ret:
+                break
+            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
+            time.sleep(10)
+            timeout -= 10
+        assert(timeout >= 0)
 
         return crm_facts
+
+    def start_service(self, service_name, docker_name):
+        logging.debug("Starting {}".format(service_name))
+        if not self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
 
     def stop_service(self, service_name, docker_name):
         logging.debug("Stopping {}".format(service_name))
         if self.is_service_fully_started(docker_name):
-            self.command("systemctl stop {}".format(service_name))
+            self.command("sudo systemctl stop {}".format(service_name))
         logging.debug("Stopped {}".format(service_name))
+
+    def restart_service(self, service_name, docker_name):
+        logging.debug("Restarting {}".format(service_name))
+        if self.is_service_fully_started(docker_name):
+            self.command("sudo systemctl restart {}".format(service_name))
+            logging.debug("Restarted {}".format(service_name))
+        else:
+            self.command("sudo systemctl start {}".format(service_name))
+            logging.debug("started {}".format(service_name))
+
+    def reset_service(self, service_name, docker_name):
+        logging.debug("Stopping {}".format(service_name))
+        self.command("sudo systemctl reset-failed {}".format(service_name))
+        logging.debug("Resetting {}".format(service_name))
 
     def delete_container(self, service):
         self.command(
@@ -1340,3 +1382,146 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             except KeyError:
                 pass
         return up_ip_ports
+
+    def get_supported_speeds(self, interface_name):
+        """Get supported speeds for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            list: A list of supported speed strings or None
+        """
+        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_speeds')
+        supported_speeds = self.shell(cmd)['stdout'].strip()
+        return None if not supported_speeds else supported_speeds.split(',')
+
+    def set_auto_negotiation_mode(self, interface_name, mode):
+        """Set auto negotiation mode for a given interface
+
+        Args:
+            interface_name (str): Interface name
+            mode (boolean): True to enable auto negotiation else disable
+
+        Returns:
+            boolean: False if the operation is not supported else True
+        """
+        cmd = 'config interface autoneg {} {}'.format(interface_name, 'enabled' if mode else 'disabled')
+        self.shell(cmd)
+        return True
+
+    def get_auto_negotiation_mode(self, interface_name):
+        """Get auto negotiation mode for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            the auto negotiation mode is unknown or unsupported.
+        """
+        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
+        mode = self.shell(cmd)['stdout'].strip()
+        if not mode:
+            return None
+        return True if mode == 'on' else False
+
+    def set_speed(self, interface_name, speed):
+        """Set interface speed according to the auto negotiation mode. When auto negotiation mode
+        is enabled, set the advertised speeds; otherwise, set the force speed.
+
+        Args:
+            interface_name (str): Interface name
+            speed (str): SONiC style interface speed. E.g, 1G=1000, 10G=10000, 100G=100000. If the speed
+            is None and auto negotiation mode is enabled, it sets the advertised speeds to all supported
+            speeds.
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        auto_neg_mode = self.get_auto_negotiation_mode(interface_name)
+        if not auto_neg_mode:
+            cmd = 'config interface speed {} {}'.format(interface_name, speed)
+        else:
+            cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+        self.shell(cmd)
+        return True
+
+    def get_speed(self, interface_name):
+        """Get interface speed
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
+        """
+        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'speed')
+        speed = self.shell(cmd)['stdout'].strip()
+        return speed
+
+    def get_rsyslog_ipv4(self):
+        if not self.is_multi_asic:
+            return "127.0.0.1"
+        ip_ifs = self.show_ip_interface()["ansible_facts"]
+        ns_docker_if_ipv4 = ip_ifs["ip_interfaces"]["docker0"]["ipv4"]
+        try:
+            socket.inet_aton(ns_docker_if_ipv4)
+        except socket.error:
+            raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
+        return ns_docker_if_ipv4
+
+    def ping_v4(self, ipv4, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv4 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_aton(ipv4)
+        except socket.error:
+            raise Exception("Invalid IPv4 address {}".format(ipv4))
+
+        try:
+            self.shell("{}ping -q -c{} {} > /dev/null".format(
+                ns_arg, count, ipv4
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
+    def is_backend_portchannel(self, port_channel):
+        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+        ports = mg_facts["minigraph_portchannels"].get(port_channel)
+        # minigraph facts does not have backend portchannel IFs
+        if ports is None:
+            return True
+        return False if "Ethernet-BP" not in ports["members"][0] else True
+
+    def active_ip_interfaces(self, ip_ifs, ns_arg=""):
+        """
+        Return a dict of active IP (Ethernet or PortChannel) interfaces, with
+        interface and peer IPv4 address.
+
+        Returns:
+            Dict of Interfaces and their IPv4 address
+        """
+        ip_ifaces = {}
+        for k,v in ip_ifs.items():
+            if (k.startswith("Ethernet") or
+               (k.startswith("PortChannel") and not
+                self.is_backend_portchannel(k))
+            ):
+                if (v["admin"] == "up" and v["oper_state"] == "up" and
+                        self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
+                    ):
+                    ip_ifaces[k] = {
+                        "ipv4" : v["ipv4"],
+                        "peer_ipv4" : v["peer_ipv4"]
+                    }
+
+        return ip_ifaces

@@ -18,14 +18,17 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.utilities import wait_until
 from tests.conftest import duthost
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.usefixtures('toggle_all_simulator_ports_to_rand_selected_tor')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -148,10 +151,15 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
                 acl_table_ports[''] += port
 
     vlan_ports = []
+    vlan_mac = duthost.facts["router_mac"]
 
     if topo == "t0":
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname] 
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
+        
+        vlan_table = duthost.get_running_config_facts()['VLAN']
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
 
     setup_information = {
         "router_mac": duthost.facts["router_mac"],
@@ -159,7 +167,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
         "vlan_ports": vlan_ports,
-        "topo": topo
+        "topo": topo,
+        "vlan_mac": vlan_mac
     }
 
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
@@ -396,6 +405,9 @@ class BaseAclTest(object):
                 self.setup_rules(duthost, acl_table, ip_version)
 
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+
+            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
             logger.error("ACL rule application failed, attempting to clean-up...")
@@ -463,6 +475,22 @@ class BaseAclTest(object):
         """Parametrize test based on direction of traffic."""
         return request.param
 
+    def check_rule_counters(self, duthost):
+        logger.info('Wait all rule counters are ready')
+
+        return wait_until(60, 2, self.check_rule_counters_internal, duthost)
+
+    def check_rule_counters_internal(self, duthost):
+        for asic_id in duthost.get_frontend_asic_ids():
+            res = duthost.asic_instance(asic_id).command('aclshow -a')
+
+            num_of_lines = len(res['stdout'].split('\n'))
+
+            if num_of_lines <= 2 or 'N/A' in res['stdout']:
+                return False
+
+        return True
+
     def get_src_port(self, setup, direction):
         """Get a source port for the current test."""
         src_ports = setup["downstream_port_ids"] if direction == "downlink->uplink" else setup["upstream_port_ids"]
@@ -480,10 +508,10 @@ class BaseAclTest(object):
         """Generate a TCP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -496,7 +524,7 @@ class BaseAclTest(object):
                 pkt["IP"].proto = proto
         else:
             pkt = testutils.simple_tcpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -517,10 +545,10 @@ class BaseAclTest(object):
         """Generate a UDP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -530,7 +558,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_udpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -543,10 +571,10 @@ class BaseAclTest(object):
         """Generate an ICMP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-
+        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -556,7 +584,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_icmpv6_packet(
-                eth_dst=setup["router_mac"],
+                eth_dst=dst_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -584,10 +612,21 @@ class BaseAclTest(object):
 
         return exp_pkt
 
-    def test_unmatched_blocked(self, setup, direction, ptfadapter, ip_version):
-        """Verify that unmatched packets are dropped."""
+    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
+        """Verify that unmatched packets are dropped for ingress."""
+        if stage == "egress":
+            pytest.skip("Only run for ingress")
+
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+
+    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
+        """Verify that default egress rule allow all traffics"""
+        if stage == "ingress":
+            pytest.skip("Only run for egress")
+
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
 
     def test_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on source IP."""

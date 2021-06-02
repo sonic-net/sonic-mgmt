@@ -81,7 +81,7 @@ def run_test_ipv4(ptfadapter, facts):
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, facts['dst_port_ids'], timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
-def test_dip_sip(tbinfo, ptfadapter, gather_facts):
+def test_dip_sip(tbinfo, ptfadapter, gather_facts, enum_frontend_asic_index):
     topo_type = tbinfo['topo']['type']
     if topo_type not in ('t0', 't1', 't2'):
         pytest.skip("Unsupported topology")

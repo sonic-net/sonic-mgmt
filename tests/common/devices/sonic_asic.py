@@ -28,15 +28,17 @@ class SonicAsic(object):
         """
         self.sonichost = sonichost
         self.asic_index = asic_index
-        self._ns_arg = ""
+        self.ns_arg = ""
         if self.sonichost.is_multi_asic:
             self.namespace = "{}{}".format(NAMESPACE_PREFIX, self.asic_index)
             self.cli_ns_option = "-n {}".format(self.namespace)
-            self._ns_arg = "sudo ip netns exec {} ".format(self.namespace)
+            self.ns_arg = "sudo ip netns exec {} ".format(self.namespace)
         else:
             # set the namespace to DEFAULT_NAMESPACE(None) for single asic
             self.namespace = DEFAULT_NAMESPACE
             self.cli_ns_option = ""
+        self.ports = None
+        self.queue_oid = set()
 
         self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
         self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
@@ -170,6 +172,14 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.interface_facts(*module_args, **complex_args)
 
+    def get_service_name(self, service):
+        if (not self.sonichost.is_multi_asic or
+            service not in self._DEFAULT_ASIC_SERVICES
+        ):
+            return service
+
+        return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
+
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
             service not in self._DEFAULT_ASIC_SERVICES
@@ -178,18 +188,25 @@ class SonicAsic(object):
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
 
+    def start_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.start_service(service_name, docker_name)
+
     def stop_service(self, service):
-        if not self.sonichost.is_multi_asic:
-            service_name = service
-            docker_name = service
-        else:
-            service_name = self._MULTI_ASIC_SERVICE_NAME.format(
-                service, self.asic_index
-            )
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
-                service, self.asic_index
-            )
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
         return self.sonichost.stop_service(service_name, docker_name)
+
+    def restart_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.restart_service(service_name, docker_name)
+
+    def reset_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.reset_service(service_name, docker_name)
 
     def delete_container(self, service):
         if self.sonichost.is_multi_asic:
@@ -228,7 +245,7 @@ class SonicAsic(object):
 
         try:
             self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
-                self._ns_arg, count, ipv4
+                self.ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
@@ -256,21 +273,8 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-        ip_ifs = self.show_ip_interface()["ansible_facts"]
-        ip_ifaces = {}
-        for k,v in ip_ifs["ip_interfaces"].items():
-            if (k.startswith("Ethernet") or
-                (k.startswith("PortChannel") and not self.is_backend_portchannel(k))
-            ):
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                        self.ping_v4(v["peer_ipv4"])
-                    ):
-                    ip_ifaces[k] = {
-                        "ipv4" : v["ipv4"],
-                        "peer_ipv4" : v["peer_ipv4"]
-                    }
-
-        return ip_ifaces
+        ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -289,7 +293,7 @@ class SonicAsic(object):
         check_opt = "-C INPUT"
         cmd = (
             "{}/sbin/{} -t filter {{}} -p tcp -j DROP --destination-port bgp"
-        ).format(self._ns_arg, ipcmd)
+        ).format(self.ns_arg, ipcmd)
 
         check_cmd = cmd.format(check_opt)
         run_cmd = cmd.format(run_opt)
@@ -359,7 +363,7 @@ class SonicAsic(object):
         if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
             return self.sonichost.command(cmdstr)
 
-        cmdstr = "sudo ip netns exec {} ".format(self.namespace) + cmdstr
+        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
 
@@ -386,6 +390,54 @@ class SonicAsic(object):
         )
 
         return result["stdout_lines"]
+
+    def port_exists(self, port):
+        """
+        Check if a given port exists in ASIC instance
+        Args:
+            port: port ID
+        Returns:
+            True or False
+        """
+        if self.ports is not None:
+            return port in self.ports
+
+        if_db = self.show_interface(
+            command="status", 
+            include_internal_intfs=True
+        )["ansible_facts"]["int_status"]
+
+        self.ports = set(if_db.keys())
+        return port in self.ports
+
+    def get_queue_oid(self, port, queue_num):
+        """
+        Get the queue OID of given port and queue number. The queue OID is
+        saved for the purpose of returning the ASIC instance of the
+        queue OID
+
+        Args:
+            port: Port ID
+            queue_num: Queue
+        Returns:
+            Queue OID
+        """
+        redis_cmd = [
+            "redis-cli", "-n", "2", "HGET", "COUNTERS_QUEUE_NAME_MAP",
+            "{}:{}".format(port, queue_num)
+        ]
+        queue_oid = next(iter(self.run_redis_cmd(redis_cmd)), None)
+
+        pytest_assert(
+            queue_oid != None,
+            "Queue OID not found for port {}, queue {}".format(
+                port, queue_num
+            )
+        )
+        # save the queue OID, will be used to retrieve ASIC instance for
+        # this queue's OID
+        self.queue_oid.add(queue_oid)
+        return queue_oid
 
     def get_extended_minigraph_facts(self, tbinfo):
           return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
@@ -419,4 +471,16 @@ class SonicAsic(object):
     def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
 
+    def port_on_asic(self, portname):
+        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
+        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if ports is not None and portname in ports:
+            return True
+        return False
 
+    def portchannel_on_asic(self, portchannel):
+        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if pcs is not None and portchannel in pcs:
+            return True
+        return False
