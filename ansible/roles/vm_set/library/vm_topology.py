@@ -1107,7 +1107,7 @@ def main():
                 net.bind_fp_ports()
                 if vm_type != "vsonic":
                     net.bind_vm_backplane()
-                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+                    net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if hostif_exists:
                 net.add_host_ports()
