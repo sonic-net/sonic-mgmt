@@ -14,6 +14,7 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subne
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
 from tests.common.helpers.assertions import pytest_assert
+import snappi
 
 try:
     from abstract_open_traffic_generator.port import Port
@@ -678,3 +679,76 @@ def ixia_testbed_config(conn_graph_facts,
     pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list
+
+@pytest.fixture(scope='module')
+def snappi_api(ixia_api_serv_ip,
+               ixia_api_serv_port):
+    """
+    snappi session fixture for snappi Tgen API
+    Args:
+        ixia_api_serv_ip (pytest fixture): ixia_api_serv_ip fixture
+        ixia_api_serv_port (pytest fixture): ixia_api_serv_port fixture.
+    """
+    host = "https://" + str(ixia_api_serv_ip) + ":" + str(ixia_api_serv_port)
+    api = snappi.api(host=host, ext="ixnetwork")
+    yield api
+    if api.assistant is not None:
+        api.assistant.Session.remove()
+
+
+@pytest.fixture(scope="function")
+def tgen_ports(duthost,conn_graph_facts,fanout_graph_facts):
+    """
+    Populate tgen ports info of T0 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+    Return:
+    [{'card_id': '1',
+        'ip': '21.1.1.2',
+        'location': '10.36.78.238;1;2',
+        'prefix': u'24',
+        'peer_ip': u'21.1.1.1',
+        'peer_device': 'example-s6100-dut-1',
+        'peer_port': 'Ethernet0',
+        'port_id': '2',
+        'speed': '400000'},
+        {'card_id': '1',
+        'ip': '22.1.1.2',
+        'location': '10.36.78.238;1;1',
+        'prefix': u'24',
+        'peer_ip': u'22.1.1.1',
+        'peer_device': 'example-s6100-dut-1',
+        'peer_port': 'Ethernet8',
+        'port_id': '1',
+        'speed': '400000'}]
+    """
+    speed_type = {'50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps'}
+    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,dut_hostname=duthost.hostname)
+    ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
+    ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
+    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
+    ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
+    port_speed = None
+    for i in range(len(ixia_ports)):
+        if port_speed is None:
+            port_speed = int(ixia_ports[i]['speed'])
+        elif port_speed != int(ixia_ports[i]['speed']):
+            """ All the ports should have the same bandwidth """
+            return None
+    config_facts = duthost.config_facts(host=duthost.hostname,source="running")['ansible_facts']
+    for port in ixia_ports:
+        port['location'] = get_tgen_location(port)
+        port['speed'] = speed_type[port['speed']]
+    for port in ixia_ports:
+        peer_port = port['peer_port']
+        subnet = config_facts['INTERFACE'][peer_port].keys()[0]
+        if not subnet:
+            raise Exception("IP is not configured on the interface {}".format(peer_port))
+        port['peer_ip'], port['prefix'] = subnet.split("/")
+        port['ip'] = get_addrs_in_subnet(subnet, 1)[0]
+    return ixia_ports
