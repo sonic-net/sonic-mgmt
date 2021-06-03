@@ -19,7 +19,7 @@ def is_supervisor_node(inv_files, hostname):
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
-    if 'card_type' in dut_vars and dut_vars['card_type'] == 'supervisor':
+    if dut_vars and 'card_type' in dut_vars and dut_vars['card_type'] == 'supervisor':
         return True
     return False
 
