@@ -7,7 +7,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 
 
@@ -236,10 +236,13 @@ def check_sub_port(duthost, sub_port, removed=False):
     """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     sub_ports = set(config_facts.get('VLAN_SUB_INTERFACE', {}).keys())
-    if removed:
-        return sub_port not in sub_ports
+    if not isinstance(sub_port, list):
+        sub_port = [sub_port]
 
-    return sub_port in sub_ports
+    if removed:
+        return sub_ports.isdisjoint(set(sub_port))
+
+    return sub_ports.issuperset(set(sub_port))
 
 
 def get_mac_dut(duthost, interface):
@@ -252,7 +255,7 @@ def get_mac_dut(duthost, interface):
 
     Returns: MAC address
     """
-    return duthost.setup()['ansible_facts']['ansible_{}'.format(interface)]['macaddress']
+    return duthost.get_dut_iface_mac(interface)
 
 
 def get_port_number(interface):
@@ -299,13 +302,15 @@ def create_lag_port(duthost, config_port_indices):
         Dictonary of lag ports on the DUT
     """
     lag_port_map = {}
-    for port_index, port_name in config_port_indices.items():
-        lag_port = 'PortChannel{}'.format(port_index)
+    portchannel_idx = 1
+    for _, port_name in config_port_indices.items():
+        lag_port = 'PortChannel{}'.format(portchannel_idx)
         remove_ip_from_port(duthost, port_name)
         remove_member_from_vlan(duthost, '1000', port_name)
         duthost.shell('config portchannel add {}'.format(lag_port))
         duthost.shell('config portchannel member add {} {}'.format(lag_port, port_name))
-        lag_port_map[port_index] = lag_port
+        lag_port_map[portchannel_idx] = lag_port
+        portchannel_idx += 1
 
     return lag_port_map
 
@@ -339,25 +344,94 @@ def create_bond_port(ptfhost, ptf_ports):
     return bond_port_map
 
 
-def get_port(duthost, ptfhost, interface_ranges, port_type):
+def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
+    """
+    Add port to namespace of the PTF
+
+    Args:
+        ptfhost: PTF host object
+        name_of_namespace: Name of namespace
+        port_name: Port of the PTF
+        port_ip: IP address of the port
+    """
+    if not check_namespace(ptfhost, name_of_namespace):
+        ptfhost.shell('ip netns add {}'.format(name_of_namespace))
+        ptfhost.shell('ip -n {} link set lo up'.format(name_of_namespace))
+
+    ptfhost.shell('ip link set {} netns {}'.format(port_name, name_of_namespace))
+    ptfhost.shell('ip -n {} addr add {} dev {}'.format(name_of_namespace, port_ip, port_name))
+    ptfhost.shell('ip -n {} link set {} up'.format(name_of_namespace, port_name))
+
+
+def add_static_route(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
+    """
+    Add static route on the PTF
+
+    Args:
+        ptfhost: PTF host object
+        network_ip: Network IP address
+        next_hop_ip: Next hop IP address
+        name_of_namespace: Name of namespace
+    """
+    next_hop_ip = next_hop_ip.split('/')[0]
+    if name_of_namespace:
+        ptfhost.shell('ip netns exec {} ip route add {} nexthop via {}'
+                      .format(name_of_namespace, network_ip, next_hop_ip))
+    else:
+        ptfhost.shell('ip route add {} nexthop via {}'
+                      .format(network_ip, next_hop_ip))
+
+
+def check_namespace(ptfhost, name_of_namespace):
+    """
+    Check that namespace is available on the PTF
+
+    Args:
+        ptfhost: PTF host object
+        name_of_namespace: Name of namespace
+
+    Returns:
+        Bool value which confirm availability of namespace on the PTF
+    """
+    out = ptfhost.shell('ip netns list')["stdout"]
+    return name_of_namespace in out
+
+
+def get_port(duthost, ptfhost, interface_num, port_type):
     """
     Get port configurations from DUT and PTF
 
     Args:
         duthost: DUT host object
         ptfhost: PTF host object
-        interface_ranges: numbers of ports
+        interface_num: number of ports
+        port_type: Type of port
 
     Returns:
         Tuple with port configurations of DUT and PTF
     """
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    config_vlan_members = cfg_facts['port_index_map']
-    config_port_indices = {v: k for k, v in cfg_facts['port_index_map'].items() if k in config_vlan_members and v in interface_ranges}
-    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    ptf_ports = {port_id: ptf_ports_available_in_topo[port_id] for port_id in interface_ranges}
+    portchannel_members = []
+    for _, v in cfg_facts['PORTCHANNEL_MEMBER'].items():
+        portchannel_members += v.keys()
 
-    if port_type == 'port_in_lag':
+    config_vlan_members = cfg_facts['port_index_map']
+    port_status = cfg_facts['PORT']
+    config_port_indices = {}
+    for k, v in config_vlan_members.items():
+        if k not in portchannel_members and cfg_facts['PORT'][k].get('admin_status', 'down') == 'up':
+            config_port_indices[v] = k
+            if len(config_port_indices) == interface_num:
+                break
+
+    pytest_require(len(config_port_indices) == interface_num, "No port for testing")
+    
+    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+    ptf_ports = {}
+    for k in config_port_indices.keys():
+            ptf_ports[k] = ptf_ports_available_in_topo[k]
+
+    if 'port_in_lag' in port_type:
         lag_port_map = create_lag_port(duthost, config_port_indices)
         bond_port_map = create_bond_port(ptfhost, ptf_ports)
 
@@ -373,11 +447,10 @@ def remove_sub_port(duthost, sub_port, ip):
     Args:
         duthost: DUT host object
         sub_port: Sub-port name
-        interface: Interface of DUT
+        ip: IP address of port
     """
     duthost.shell('config interface ip remove {} {}'.format(sub_port, ip))
     duthost.shell('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
-    pytest_assert(check_sub_port(duthost, sub_port, True), "Sub-port {} was not deleted".format(sub_port))
 
 
 def remove_lag_port(duthost, cfg_facts, lag_port):
@@ -407,3 +480,49 @@ def remove_ip_from_port(duthost, port):
     if ip_addresses:
         for ip in ip_addresses:
             duthost.shell('config interface ip remove {} {}'.format(port, ip))
+
+
+def remove_namespace(ptfhost, name_of_namespace):
+    """
+    Remove namespace from the PTF
+
+    Args:
+        ptfhost: PTF host object
+        name_of_namespace: Name of namespace
+    """
+    if check_namespace(ptfhost, name_of_namespace):
+        ptfhost.shell('ip -n {} link set lo down'.format(name_of_namespace))
+        ptfhost.shell('ip netns del {}'.format(name_of_namespace))
+
+
+def remove_static_route(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
+    """
+    Remove static route from the PTF
+
+    Args:
+        ptfhost: PTF host object
+        network_ip: Network IP address
+        next_hop_ip: Next hop IP address
+        name_of_namespace: Name of namespace
+    """
+    next_hop_ip = next_hop_ip.split('/')[0]
+    if name_of_namespace:
+        ptfhost.shell('ip netns exec {} ip route del {} nexthop via {}'
+                      .format(name_of_namespace, network_ip, next_hop_ip))
+    else:
+        ptfhost.shell('ip route del {} nexthop via {}'
+                      .format(network_ip, next_hop_ip))
+
+
+def get_ptf_port_list(ptfhost):
+    """
+    Get list of ports of the PTF
+
+    Args:
+        ptfhost: PTF host object
+
+    Returns:
+        List with ports available on the PTF
+    """
+    out = ptfhost.shell("ls /sys/class/net")['stdout']
+    return out.split('\n')

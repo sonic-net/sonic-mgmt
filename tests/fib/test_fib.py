@@ -9,7 +9,9 @@ from datetime import datetime
 import pytest
 import requests
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
@@ -26,8 +28,8 @@ pytestmark = [
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
-SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
-DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
+DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
 VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 2000
@@ -38,7 +40,15 @@ PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 @pytest.fixture(scope='module')
 def config_facts(duthosts):
-    return duthosts.config_facts(source='running')
+    cfg_facts = {}
+    for duthost in duthosts:
+        cfg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
+            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+    return cfg_facts
 
 
 @pytest.fixture(scope='module')
@@ -46,12 +56,13 @@ def minigraph_facts(duthosts, tbinfo):
     return duthosts.get_extended_minigraph_facts(tbinfo)
 
 
-def get_fib_info(duthost, cfg_facts, mg_facts):
+def get_t2_fib_info(duthosts, all_duts_cfg_facts, all_duts_mg_facts):
     """Get parsed FIB information from redis DB.
 
     Args:
         duthost (SonicHost): Object for interacting with DUT.
         cfg_facts (dict): Configuration facts.
+                          For multi asic platforms this will be list of dicts
         mg_facts (dict): Minigraph facts.
 
     Returns:
@@ -67,41 +78,134 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
             }
     """
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
-    duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
-
-    po = cfg_facts.get('PORTCHANNEL', {})
-    ports = cfg_facts.get('PORT', {})
-
     fib_info = {}
-    with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
-        fib = json.load(fp)
-        for k, v in fib.items():
-            skip = False
+    for dut_index, duthost in enumerate(duthosts.frontend_nodes):
+        cfg_facts = all_duts_cfg_facts[duthost.hostname]
+        mg_facts = all_duts_mg_facts[duthost.hostname]
+        for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
+            asic = duthost.asic_instance(asic_index)
 
-            prefix = k.split(':', 1)[1]
-            ifnames = v['value']['ifname'].split(',')
-            nh = v['value']['nexthop']
+            asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
+            duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-            oports = []
-            for ifname in ifnames:
-                if po.has_key(ifname):
-                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
-                else:
-                    if ports.has_key(ifname):
-                        oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
-                    else:
-                        logger.info("Route point to non front panel port {}:{}".format(k, v))
+            po = asic_cfg_facts.get('PORTCHANNEL', {})
+            ports = asic_cfg_facts.get('PORT', {})
+
+            with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+                fib = json.load(fp)
+                for k, v in fib.items():
+                    skip = False
+
+                    prefix = k.split(':', 1)[1]
+                    ifnames = v['value']['ifname'].split(',')
+                    nh = v['value']['nexthop']
+
+                    oports = []
+                    for ifname in ifnames:
+                        if po.has_key(ifname):
+                            # ignore the prefix, if the prefix nexthop is not a frontend port
+                            if 'members' in po[ifname]:
+                                if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                        else:
+                            if ports.has_key(ifname):
+                                if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                                    skip = True
+                                else:
+                                    oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                            else:
+                                logger.info("Route point to non front panel port {}:{}".format(k, v))
+                                skip = True
+
+                    # skip direct attached subnet
+                    if nh == '0.0.0.0' or nh == '::' or nh == "":
                         skip = True
 
-            # skip direct attached subnet
-            if nh == '0.0.0.0' or nh == '::' or nh == "":
-                skip = True
+                    if not skip:
+                        if prefix in fib_info:
+                            fib_info[prefix] += oports
+                        else:
+                            fib_info[prefix] = oports
 
-            if not skip:
-                fib_info[prefix] = oports
-            else:
-                fib_info[prefix] = []
+    return fib_info
+
+
+def get_fib_info(duthost, cfg_facts, mg_facts):
+    """Get parsed FIB information from redis DB.
+
+    Args:
+        duthost (SonicHost): Object for interacting with DUT.
+        cfg_facts (dict): Configuration facts.
+                          For multi asic platforms this will be list of dicts
+        mg_facts (dict): Minigraph facts.
+
+    Returns:
+        dict: Map of prefix to PTF ports that are connected to DUT output ports.
+            {
+                '192.168.0.0/21': [],
+                '192.168.8.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                '192.168.16.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+                '20c0:c2e8:0:80::/64': [[58 59] [62 63] [66 67] [70 71]],
+                '20c1:998::/64': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+            }
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    fib_info = {}
+    for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
+
+        asic = duthost.asic_instance(asic_index)
+
+        asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
+        duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
+
+        po = asic_cfg_facts.get('PORTCHANNEL', {})
+        ports = asic_cfg_facts.get('PORT', {})
+
+        with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+            fib = json.load(fp)
+            for k, v in fib.items():
+                skip = False
+
+                prefix = k.split(':', 1)[1]
+                ifnames = v['value']['ifname'].split(',')
+                nh = v['value']['nexthop']
+
+                oports = []
+                for ifname in ifnames:
+                    if po.has_key(ifname):
+                        # ignore the prefix, if the prefix nexthop is not a frontend port
+                        if 'members' in po[ifname]:
+                            if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                skip = True
+                            else:
+                                oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                    else:
+                        if ports.has_key(ifname):
+                            if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                                skip = True
+                            else:
+                                oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                        else:
+                            logger.info("Route point to non front panel port {}:{}".format(k, v))
+                            skip = True
+
+                # skip direct attached subnet
+                if nh == '0.0.0.0' or nh == '::' or nh == "":
+                    skip = True
+
+                if not skip:
+                    if prefix in fib_info:
+                        fib_info[prefix] += oports
+                    else:
+                        fib_info[prefix] = oports
+                # For single_asic device, add empty list for directly connected subnets
+                elif skip and not duthost.is_multi_asic:
+                    fib_info[prefix] = []
+
     return fib_info
 
 
@@ -120,16 +224,21 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
 
 
 @pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts):
+def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
     files = []
-    for dut_index, duthost in enumerate(duthosts):
-        fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
-        filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+    if tbinfo['topo']['type'] != "t2":
+        for dut_index, duthost in enumerate(duthosts):
+            fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
+            filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+            gen_fib_info_file(ptfhost, fib_info, filename)
+            files.append(filename)
+    else:
+        fib_info = get_t2_fib_info(duthosts, config_facts, minigraph_facts)
+        filename = '/root/fib_info_all_duts.txt'
         gen_fib_info_file(ptfhost, fib_info, filename)
         files.append(filename)
 
     return files
-
 
 @pytest.fixture(scope='module')
 def disabled_ptf_ports(tbinfo):
@@ -144,10 +253,11 @@ def disabled_ptf_ports(tbinfo):
 def vlan_ptf_ports(duthosts, config_facts, tbinfo):
     ports = set()
     for dut_index, duthost in enumerate(duthosts):
-        for vlan_members in config_facts[duthost.hostname].get('VLAN_MEMBER', {}).values():
-            for intf in vlan_members.keys():
-                dut_port_index = config_facts[duthost.hostname]['port_index_map'][intf]
-                ports.add(tbinfo['topo']['ptf_map'][str(dut_index)][str(dut_port_index)])
+        for asic_config_fact in config_facts[duthost.hostname]:
+            for vlan_members in asic_config_fact.get('VLAN_MEMBER', {}).values():
+                for intf in vlan_members.keys():
+                    dut_port_index = asic_config_fact['port_index_map'][intf]
+                    ports.add(tbinfo['topo']['ptf_map'][str(dut_index)][str(dut_port_index)])
     return ports
 
 
@@ -165,10 +275,11 @@ def vlan_macs(duthosts, config_facts):
     mac_addresses = []
     for duthost in duthosts:
         dut_vlan_mac = None
-        for vlan in config_facts[duthost.hostname].get('VLAN', {}).values():
-            if 'mac' in vlan:
-                dut_vlan_mac = vlan['mac']
-                break
+        for asic_cfg_facts in config_facts[duthost.hostname]:
+            for vlan in asic_cfg_facts.get('VLAN', {}).values():
+                if 'mac' in vlan:
+                    dut_vlan_mac = vlan['mac']
+                    break
         if not dut_vlan_mac:
             dut_vlan_mac = duthost.facts['router_mac']
         mac_addresses.append(dut_vlan_mac)
@@ -193,7 +304,6 @@ def set_mux_same_side(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, random.choice(['upper_tor', 'lower_tor']))
 
 
-@pytest.fixture
 def get_mux_status(tbinfo, mux_server_url):
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
@@ -202,13 +312,11 @@ def get_mux_status(tbinfo, mux_server_url):
     return {}
 
 
-@pytest.fixture
-def ptf_test_port_map(ptfhost, tbinfo, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs, get_mux_status):
+def ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs):
     active_dut_map = {}
-    if get_mux_status:
-        for mux_status in get_mux_status.values():
-            active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
-            active_dut_map[str(mux_status['port_index'])] = active_dut_index
+    for mux_status in get_mux_status(tbinfo, mux_server_url).values():
+        active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
+        active_dut_map[str(mux_status['port_index'])] = active_dut_index
 
     logger.info('router_macs={}'.format(router_macs))
     logger.info('vlan_macs={}'.format(vlan_macs))
@@ -230,18 +338,37 @@ def ptf_test_port_map(ptfhost, tbinfo, disabled_ptf_ports, vlan_ptf_ports, route
                 target_dut_index = active_dut_map[ptf_port]
                 target_mac = vlan_macs[target_dut_index]
 
-        if not target_dut_index:
-            target_dut_index = int(dut_intf_map.keys()[0])
-        if not target_mac:
+        if target_dut_index is None:
+            target_dut_index = int(dut_intf_map.keys()[0])  # None dualtor, target DUT is always the first and only DUT
+        if target_mac is None:
             target_mac = router_macs[target_dut_index]
         ports_map[ptf_port] = {'target_dut': target_dut_index, 'target_mac': target_mac}
 
     ptfhost.copy(content=json.dumps(ports_map), dest=PTF_TEST_PORT_MAP)
     return PTF_TEST_PORT_MAP
 
+@pytest.fixture(scope="module")
+def ignore_ttl(duthosts):
+    # on the multi asic devices, the packet can have different ttl based on how the packet is routed
+    # within in the device. So set this flag to mask the ttl in the ptf test
+    for duthost in duthosts:
+        if duthost.sonichost.is_multi_asic:
+            return True
+    return False
+
+
+@pytest.fixture(scope="module")
+def single_fib_for_duts(tbinfo):
+    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
+    if tbinfo['topo']['type'] == "t2":
+        return True
+    return False
+
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map):
+def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, set_mux_random, fib_info_files,
+                   tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs,
+                   ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -258,13 +385,16 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_ma
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"fib_info_files": fib_info_files[:2],  # Test at most 2 DUTs
-                        "ptf_test_port_map": ptf_test_port_map,
+                params={"fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
+                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports,
+                                                               vlan_ptf_ports, router_macs, vlan_macs),
                         "router_macs": router_macs,
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu,
-                        "test_balancing": test_balancing },
+                        "test_balancing": test_balancing,
+                        "ignore_ttl": ignore_ttl,
+                        "single_fib_for_duts": single_fib_for_duts},
                 log_file=log_file,
                 qlen=PTF_QLEN,
                 socket_recv_size=16384)
@@ -276,6 +406,8 @@ def get_vlan_untag_ports(duthosts, config_facts):
     """
     vlan_untag_ports = {}
     for duthost in duthosts:
+        if duthost.is_multi_asic:
+            continue
         ports = []
         vlans = config_facts.get('VLAN_INTERFACE', {}).keys()
         for vlan in vlans:
@@ -313,6 +445,13 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
+    # remove the ingress port from multi asic platform
+    # In multi asic platform each asic has different hash seed,
+    # the same packet coming in different asic
+    # could egress out of different port
+    # the hash_test condition for hash_key == ingress_port will fail
+    if duthost.sonichost.is_multi_asic:
+        hash_keys.remove('ingress-port')
 
     return hash_keys
 
@@ -360,7 +499,9 @@ def ipver(request):
     return request.param
 
 
-def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map):
+def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, set_mux_same_side,
+              tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs,
+              ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -370,18 +511,21 @@ def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
-
     ptf_runner(ptfhost,
             "ptftests",
             "hash_test.HashTest",
             platform_dir="ptftests",
-            params={"fib_info_files": fib_info_files[:2],   # Test at most 2 DUTs
-                    "ptf_test_port_map": ptf_test_port_map,
+            params={"fib_info_files": fib_info_files[:3],   # Test at most 3 DUTs
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports,
+                                                           vlan_ptf_ports, router_macs, vlan_macs),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),
                     "router_macs": router_macs,
-                    "vlan_ids": VLANIDS},
+                    "vlan_ids": VLANIDS,
+                    "ignore_ttl":ignore_ttl,
+                    "single_fib_for_duts": single_fib_for_duts
+                   },
             log_file=log_file,
             qlen=PTF_QLEN,
             socket_recv_size=16384)

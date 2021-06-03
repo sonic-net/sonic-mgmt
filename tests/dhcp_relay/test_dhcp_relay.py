@@ -43,7 +43,6 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     dhcp_relay_data_list = []
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    host_facts = duthost.setup()['ansible_facts']
 
     switch_loopback_ip = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
@@ -295,10 +294,12 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology with unicast mac
-
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
     testing_mode, duthost = testing_config
+
+    if len(dut_dhcp_relay_data) > 1:
+        pytest.skip("skip the unicast mac testcase in the multi-Vlan setting")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host

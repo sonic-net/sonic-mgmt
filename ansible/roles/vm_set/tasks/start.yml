@@ -61,7 +61,7 @@
     - set_fact:
         src_image_name: "{{ sonic_image_filename }}"
 
-  when: (vm_type | lower) == "sonic"
+  when: (vm_type | lower) == "vsonic"
 
 - name: Create VMs network
   become: yes

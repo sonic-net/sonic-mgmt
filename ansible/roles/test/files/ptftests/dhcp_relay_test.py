@@ -178,6 +178,10 @@ class DHCPTest(DataplaneBaseTest):
         discover_packet[scapy.Ether].dst = dst_mac
         discover_packet[scapy.IP].sport = src_port
 
+        if dst_mac != self.BROADCAST_MAC:
+            discover_packet[scapy.IP].dst = self.switch_loopback_ip
+            discover_packet[scapy.IP].src = self.client_ip
+
         return discover_packet
 
     def create_dhcp_discover_relayed_packet(self):
@@ -289,6 +293,10 @@ class DHCPTest(DataplaneBaseTest):
 
         request_packet[scapy.Ether].dst = dst_mac
         request_packet[scapy.IP].sport = src_port
+
+        if dst_mac != self.BROADCAST_MAC:
+            request_packet[scapy.IP].dst = self.switch_loopback_ip
+            request_packet[scapy.IP].src = self.client_ip
 
         return request_packet
 
@@ -429,8 +437,6 @@ class DHCPTest(DataplaneBaseTest):
 
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_discover.set_do_not_care_scapy(scapy.PADDING, "load")
 
         # Count the number of these packets received on the ports connected to our leaves
         num_expected_packets = self.num_dhcp_servers

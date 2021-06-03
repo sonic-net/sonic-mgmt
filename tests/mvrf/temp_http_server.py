@@ -25,3 +25,4 @@ if __name__ == "__main__":
     # This script will exit after 2 * httpd.timeout seconds in worst case that no request is received at all.
     httpd.handle_request()  # For testing http port open
     httpd.handle_request()  # For GET request from client
+    httpd.handle_request()  # For second GET request from client issued by cmd ip vrf exec mgmt curl

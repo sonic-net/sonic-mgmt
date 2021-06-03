@@ -42,7 +42,11 @@ ip routing
 ip routing vrf MGMT
 ipv6 unicast-routing
 !
+{% if vm_mgmt_gw is defined %}
+ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
+{% else %}
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
+{% endif %}
 !
 interface Management {{ mgmt_if_index }}
  description TO LAB MGMT SWITCH
