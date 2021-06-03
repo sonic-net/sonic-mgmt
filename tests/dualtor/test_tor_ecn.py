@@ -233,6 +233,11 @@ def test_dscp_to_queue_during_decap_on_active(
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
 
+    # Clear queue counters
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell('sonic-clear queuecounters')
+    logging.info("Clearing queue counters before starting traffic")
+
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
@@ -273,6 +278,11 @@ def test_dscp_to_queue_during_encap_on_standby(
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
+
+    # Clear queue counters
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell('sonic-clear queuecounters')
+    logging.info("Clearing queue counters before starting traffic")
 
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
