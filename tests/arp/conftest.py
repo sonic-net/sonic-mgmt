@@ -1,9 +1,7 @@
 import logging
 import pytest
-import time
 
 from .args.wr_arp_args import add_wr_arp_args
-from .arp_utils import collect_info, get_po
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -36,10 +34,13 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     external_ports = [p for p in mg_facts['minigraph_ports'].keys() if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
 
-    portchannel_members = []
-    for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
-        portchannel_members += v.keys()
-    ports_for_test = [x for x in ports if x not in portchannel_members]
+    if 'PORTCHANNEL_MEMBER' in config_facts:
+        portchannel_members = []
+        for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
+            portchannel_members += v.keys()
+        ports_for_test = [x for x in ports if x not in portchannel_members]
+    else:
+        ports_for_test = ports
 
     # Select two interfaces for testing which are not in portchannel
     intf1 = ports_for_test[0]
