@@ -1,7 +1,7 @@
 import pytest
 import logging
 import ipaddr as ipaddress
-from bgp_helpers import parse_rib, verify_all_routes_announce_to_bgpmon,remove_bgp_neighbors,restore_bgp_neighbors
+from bgp_helpers import parse_rib, get_routes_not_announced_to_bgpmon,remove_bgp_neighbors,restore_bgp_neighbors
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 import re
@@ -164,7 +164,7 @@ def test_TSA(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_co
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
-        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost)==[],
                       "Not all routes are announced to bgpmon")
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
                       "Failed to verify routes on eos in TSA")
@@ -183,7 +183,7 @@ def test_TSB(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown):
     # Verify DUT is in normal state.
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
-    pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
+    pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost)==[],
                   "Not all routes are announced to bgpmon")
     pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
                   "Not all ipv4 routes are announced to neighbors")

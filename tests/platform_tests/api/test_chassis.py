@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import skip_version
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -127,6 +128,13 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
         pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
         self.compare_value_with_device_facts(duthost, 'serial', serial)
+
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_version(duthost, ["201811", "201911", "202012"])
+        revision = chassis.get_revision(platform_api_conn)
+        pytest_assert(revision is not None, "Unable to retrieve chassis serial number")
+        pytest_assert(isinstance(revision, STRING_TYPE), "Chassis serial number appears incorrect")
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
