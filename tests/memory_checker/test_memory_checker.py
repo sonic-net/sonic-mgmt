@@ -61,7 +61,7 @@ def install_stress_utility(duthost, container_name):
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
 
-    Retuerns:
+    Returns:
         None.
     """
     logger.info("Installing 'stress' utility in '{}' container ...".format(container_name))
@@ -82,45 +82,49 @@ def remove_stress_utility(duthost, container_name):
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
 
-    Retuerns:
+    Returns:
         None.
     """
-    logger.info("Removing 'stress' utility on device ...")
+    logger.info("Removing 'stress' utility from '{}' container ...".format(container_name))
     remove_cmd_result = duthost.shell("docker exec {} apt-get remove stress -y".format(container_name))
     exit_code = remove_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to remove 'stress' utility!")
     logger.info("'stress' utility was removed.")
 
 
-def eatup_memory(duthost, container_name):
-    """Eats up more than 400MB memory in specified container.
+def consume_memory(duthost, container_name, vm_workers):
+    """Consumes memory more than the threshold value of specified container.
 
     Args:
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
+        vm_workers: Nnumber of workers which does the spinning on malloc()/free()
+          to consume memory.
 
-    Retuerns:
+    Returns:
         None.
     """
-    logger.info("Executing command 'stress -m 4' in '{}' container ...".format(container_name))
-    duthost.shell("docker exec {} stress -m 4".format(container_name), module_ignore_errors=True)
+    logger.info("Executing command 'stress -m {}' in '{}' container ...".format(vm_workers, container_name))
+    duthost.shell("docker exec {} stress -m {}".format(container_name, vm_workers), module_ignore_errors=True)
 
 
-def eatup_memory_and_restart_container(duthost, container_name):
-    """Invokes the 'stress' utility to eat up more than 400MB memory asynchronously and checkes
-    whether the container can be restarted or not.
+def consume_memory_and_restart_container(duthost, container_name, vm_workers):
+    """Invokes the 'stress' utility to consume memory more than threshold asynchronously and checkes
+    whether the container can be stopped and restarted.
 
     Args:
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
+        vm_workers: Nnumber of workers which does the spinning on malloc()/free()
+          to consume memory.
 
-    Retuerns:
+    Returns:
         None.
 
     """
     thread_pool = ThreadPool()
 
-    thread_pool.apply_async(eatup_memory, (duthost, container_name))
+    thread_pool.apply_async(consume_memory, (duthost, container_name, vm_workers))
 
     logger.info("Waiting '{}' container to be stopped ...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
@@ -130,10 +134,10 @@ def eatup_memory_and_restart_container(duthost, container_name):
     logger.info("'{}' container is stopped.".format(container_name))
 
     logger.info("Waiting '{}' container to be restarted ...".format(container_name))
-    stopped = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                         CONTAINER_CHECK_INTERVAL_SECS,
-                         check_container_state, duthost, container_name, True)
-    pytest_assert(stopped, "Failed to restart '{}' container!".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
     logger.info("'{}' container is restarted.".format(container_name))
 
 
@@ -144,7 +148,7 @@ def check_critical_processes(duthost, container_name):
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
 
-    Retuerns:
+    Returns:
         None.
     """
     status_result = duthost.critical_process_status(container_name)
@@ -161,7 +165,7 @@ def postcheck_critical_processes(duthost, container_name):
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
 
-    Retuerns:
+    Returns:
         None.
     """
     logger.info("Checking running status of critical processes in '{}' container ..."
@@ -181,21 +185,22 @@ def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     Args:
         duthosts: The fixture returns list of DuTs.
         enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
-        a frontend DuT from testbed.
+          a frontend DuT from testbed.
 
     Returns:
         None.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # TODO: Currently we only test 'telemetry' container and need extend this
-    # testing on all containers after the feature 'memory_checker' is fully implemented.
+    # TODO: Currently we only test 'telemetry' container and number of vm_workers is hard coded.
+    # I will extend this testing on all containers after the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
+    vm_workers = 4
 
     pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
-                   "Test is not supported for 20191130.70 and older image versions!")
+                   "Test is not supported for 20191130.72 and older image versions!")
 
     install_stress_utility(duthost, container_name)
-    eatup_memory_and_restart_container(duthost, container_name)
+    consume_memory_and_restart_container(duthost, container_name, vm_workers)
     remove_stress_utility(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
