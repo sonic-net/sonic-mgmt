@@ -96,6 +96,7 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip):
 
     return result.port
 
+
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
