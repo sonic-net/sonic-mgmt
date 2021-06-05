@@ -9,6 +9,21 @@ from scapy.all import IP, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 
+def derive_queue_id_from_dscp(dscp):
+    """ Derive queue id form DSCP using following mapping
+          DSCP -> Queue mapping
+            8          0
+            5          2
+            3          3
+            4          4
+            46         5
+            48         6
+            Rest       1
+    """
+
+    dscp_to_queue = { 8 : 0, 5 : 2, 3 : 3, 4 : 4, 46  : 5,  48 : 6}
+
+    return dscp_to_queue.get(dscp, 1)
 
 @pytest.fixture(scope="function")
 def tunnel_traffic_monitor(ptfadapter, tbinfo):
@@ -57,7 +72,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         def _check_ttl(packet):
             """Check ttl field in the packet."""
             outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
-            logging.debug("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
+            logging.info("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
             if outer_ttl != 255:
                 return "outer packet's TTL expected TTL 255, actual %s" % outer_ttl
             return ""
@@ -72,14 +87,56 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
-            logging.debug("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
-            logging.debug("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
+            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
             check_res = []
             if outer_dscp != inner_dscp:
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
             if outer_ecn != inner_ecn:
                 check_res.append("outer packet ECN not same as inner packet ECN")
             return " ,".join(check_res)
+
+        @staticmethod
+        def _check_queue(self, packet):
+            """Check queue for encap packet."""
+
+            def _disassemble_ip_tos(tos):
+                return tos >> 2, tos & 0x3
+
+
+            outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
+            outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
+            inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
+            logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
+            check_res = []
+            if outer_dscp != inner_dscp:
+                check_res.append("outer packet DSCP not same as inner packet DSCP")
+            exp_queue = derive_queue_id_from_dscp(outer_dscp)
+
+            time.sleep(10)
+            queue_counter = self.standby_tor.shell('show queue counters | grep "UC"')['stdout']
+            logging.debug('queue_counter:\n{}'.format(queue_counter))
+
+            """ 
+            regex search will look for following pattern in queue_counter outpute
+            ----------------------------------------------------------------------------_---
+            Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
+            -----------  -----  --------------  ---------------  -----------  --------------
+            Ethernet124    UC1              10             1000            0             0
+            """
+            result = re.search(r'\S+\s+UC\d\s+10+\s+\S+\s+\S+\s+\S+', queue_counter)
+
+            rec_queue = 0
+            if result != None:
+                output = result.group(0)
+                output_list = output.split()
+                rec_queue = int(output_list[1][2])
+
+            if rec_queue != exp_queue:
+                pytest.fail("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
+            else:
+                logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+            return check_res
 
         def __init__(self, standby_tor, active_tor=None, existing=True):
             """
@@ -133,17 +190,20 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             else:
                 self.rec_pkt = Ether(rec_pkt)
                 rec_port = self.listen_ports[port_index]
-                logging.debug("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
-                logging.debug("Encapsulated packet:\n%s", dump_scapy_packet_show_output(self.rec_pkt))
+                logging.info("Receive encap packet from PTF interface %s", "eth%s" % rec_port)
+                logging.info("Encapsulated packet:\n%s", dump_scapy_packet_show_output(self.rec_pkt))
                 if not self.existing:
                     raise RuntimeError("Detected tunnel traffic from host %s." % self.standby_tor.hostname)
                 ttl_check_res = self._check_ttl(self.rec_pkt)
                 tos_check_res = self._check_tos(self.rec_pkt)
+                queue_check_res = self._check_queue(self, self.rec_pkt)
                 check_res = []
                 if ttl_check_res:
                     check_res.append(ttl_check_res)
                 if tos_check_res:
                     check_res.append(tos_check_res)
+                if queue_check_res:
+                    check_res.append(queue_check_res)
                 if check_res:
                     raise ValueError(", ".join(check_res) + ".")
 
