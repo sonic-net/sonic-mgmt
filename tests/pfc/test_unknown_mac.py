@@ -14,6 +14,8 @@ import ptf.packet as packet
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +52,17 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    server_ips = []
+    if 'dualtor' in tbinfo['topo']['name']:
+        servers = mux_cable_server_ip(duthost)
+        for ips in servers.values():
+            server_ips.append(ips['server_ipv4'].split('/')[0])
+
     # populate vlan info
     vlan = dict()
     vlan['addr'] = mg_facts['minigraph_vlan_interfaces'][0]['addr']
     vlan['pfx'] = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
-    vlan['ips'] = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan['addr'], vlan['pfx']), exclude_ips=[vlan['addr']])['ansible_facts']['generated_ips']
+    vlan['ips'] = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan['addr'], vlan['pfx']), exclude_ips=[vlan['addr']] + server_ips)['ansible_facts']['generated_ips']
     vlan['hostip'] = vlan['ips'][0].split('/')[0]
     vlan['ports'] = mg_facts["minigraph_vlans"].values()[0]["members"]
     # populate dst intf and ptf id
@@ -111,7 +119,7 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
     duthost.shell("ip neigh flush all")
 
 @pytest.fixture(autouse=True)
-def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname):
+def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -122,6 +130,8 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
         duthosts(AnsibleHost) : multi dut instance
         rand_one_dut_hostname(string) : one of the dut instances from the multi dut
     """
+    # Wait 5 seconds for mux to toggle
+    time.sleep(5)
     duthost = duthosts[rand_one_dut_hostname]
     setup = unknownMacSetup
     ptfhost.script("./scripts/remove_ip.sh")
