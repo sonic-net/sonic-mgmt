@@ -23,8 +23,8 @@ ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
 
-def get_default_route_ports(host):
-    mg_facts = host.minigraph_facts(host=host.hostname)['ansible_facts']
+def get_default_route_ports(host, tbinfo):
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
     route_info = json.loads(host.shell("show ip route {} json".format(ZERO_ADDR))['stdout'])
     ports = []
     for route in route_info[ZERO_ADDR]:
@@ -36,17 +36,18 @@ def get_default_route_ports(host):
     for port in ports:
         if 'PortChannel' in port:
             for member in mg_facts['minigraph_portchannels'][port]['members']:
-                port_indices.append(mg_facts['minigraph_port_indices'][member])
+                port_indices.append(mg_facts['minigraph_ptf_indices'][member])
         else:
-            port_indices.append(mg_facts['minigraph_port_indices'][port])
+            port_indices.append(mg_facts['minigraph_ptf_indices'][port])
+
     return port_indices
 
 @pytest.fixture
-def common_setup_teardown(duthost, ptfhost):
+def common_setup_teardown(duthost, ptfhost, tbinfo):
     peer_addr = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
-    peer_ports = get_default_route_ports(duthost)
+    peer_ports = get_default_route_ports(duthost, tbinfo)
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     local_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     # Assign peer addr to an interface on ptf
