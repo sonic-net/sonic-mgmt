@@ -20,8 +20,8 @@
           <Speed>{{ port_speed[port_alias[index]] }}</Speed>
 {% elif (breakout_speed is defined) and (hwsku in breakout_speed) and (port_alias[index] in breakout_speed[hwsku].keys()) %}
           <Speed>{{ breakout_speed[hwsku][port_alias[index]] }}</Speed>
-{% elif device_conn[port_alias_map[port_alias[index]]] is defined %}
-          <Speed>{{ device_conn[port_alias_map[port_alias[index]]]['speed'] }}</Speed>
+{% elif device_conn[inventory_hostname][port_alias_map[port_alias[index]]] is defined %}
+          <Speed>{{ device_conn[inventory_hostname][port_alias_map[port_alias[index]]]['speed'] }}</Speed>
 {% else %}
           <Speed>{{ iface_speed }}</Speed>
 {% endif %}
