@@ -43,6 +43,31 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
+@pytest.fixture(params=["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
+def cmd_sfp_error_status(request):
+    """
+    @summary: Return the command for fetching sfp error status
+    """
+    return request.param
+
+
+def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status):
+    """
+    @summary: Check SFP error status using 'sfputil show error-status'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    global ans_host
+    ans_host = duthost
+    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
+
+    logging.info("Check output of '{}'".format(cmd_sfp_error_status))
+    sfp_error_status = duthost.command(cmd_sfp_error_status)
+    parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
+    for intf in dev_conn:
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
+        assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
+
+
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts):
     """
     @summary: Check SFP presence using 'sfputil show presence'
