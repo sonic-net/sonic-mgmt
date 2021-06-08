@@ -612,14 +612,6 @@ class BaseAclTest(object):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 
-    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
-        """Verify that unmatched packets are dropped for ingress."""
-        if stage == "egress":
-            pytest.skip("Only run for ingress")
-
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-
     def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
         """Verify that default egress rule allow all traffics"""
         if stage == "ingress":
