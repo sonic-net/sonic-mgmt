@@ -27,7 +27,7 @@ DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
 DATA_PKT_SIZE = 1024
 IXIA_POLL_DELAY_SEC = 2
-DEVIATION = 0.2
+DEVIATION = 0.25
 
 def run_pfcwd_basic_test(api,
                          testbed_config,
