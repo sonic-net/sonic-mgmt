@@ -16,7 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
-    In an tgen testbed, there is no PTF docker.
+    In a tgen testbed, there is no PTF docker.
     Hence, we use ptf_ip field to store snappi API server.
     This fixture returns the IP address of the snappi API server.
     Args:
@@ -30,11 +30,11 @@ def snappi_api_serv_ip(tbinfo):
 @pytest.fixture(scope="module")
 def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     """
-    This fixture returns the REST API port of the Snappi API server.
+    This fixture returns the TCP Port of the Snappi API server.
     Args:
         duthost (pytest fixture): The duthost fixture.
     Returns:
-        snappi API server REST port.
+        snappi API server port.
     """
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
@@ -46,7 +46,8 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
 def snappi_api(snappi_api_serv_ip,
                snappi_api_serv_port):
     """
-    Snappi session fixture for snappi Tgen API
+    Fixture for session handle,
+    for creating snappi objects and making API calls.
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
@@ -344,6 +345,7 @@ def tgen_testbed_config(conn_graph_facts,
         fanout_graph_facts (pytest fixture)
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (pytest fixture): DUT hostname
+        snappi_api(pytest fixture): Snappi API fixture
 
     Returns:
         - config (obj): Tgen API config of the testbed
@@ -399,8 +401,6 @@ def tgen_testbed_config(conn_graph_facts,
     pfc.pfc_class_5 = 5
     pfc.pfc_class_6 = 6
     pfc.pfc_class_7 = 7
-
-    l1_config.flow_control.choice = l1_config.flow_control.IEEE_802_1QBB
 
     port_config_list = []
 
