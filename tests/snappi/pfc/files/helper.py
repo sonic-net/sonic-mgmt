@@ -224,7 +224,7 @@ def __gen_traffic(testbed_config,
         test_flow.size.fixed = data_pkt_size
         test_flow.rate.percentage = test_flow_rate_percent
         test_flow.duration.fixed_seconds.seconds = data_flow_dur_sec
-        test_flow.duration.fixed_seconds.delay.nanoseconds = data_flow_delay_nanosec
+        test_flow.duration.fixed_seconds.delay.nanoseconds = int(data_flow_delay_nanosec)
 
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
@@ -251,7 +251,7 @@ def __gen_traffic(testbed_config,
         bg_flow.size.fixed = data_pkt_size
         bg_flow.rate.percentage = bg_flow_rate_percent
         bg_flow.duration.fixed_seconds.seconds = data_flow_dur_sec
-        bg_flow.duration.fixed_seconds.delay.nanoseconds = data_flow_delay_nanosec
+        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(data_flow_delay_nanosec)
 
         bg_flow.metrics.enable = True
         bg_flow.metrics.loss = True
