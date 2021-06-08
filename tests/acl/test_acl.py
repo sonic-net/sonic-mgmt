@@ -620,6 +620,14 @@ class BaseAclTest(object):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
 
+    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
+        """Verify that default egress rule allow all traffics"""
+        if stage == "ingress":
+            pytest.skip("Only run for egress")
+
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+
     def test_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on source IP."""
         src_ip = "20.0.0.2" if ip_version == "ipv4" else "60c0:a800::6"
