@@ -145,7 +145,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type, teardown=True)
 
 
-def nat_global_config(duthost):
+def nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT, udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT):
     """
     sets DUT's global NAT configuration;
     """
@@ -153,9 +153,9 @@ def nat_global_config(duthost):
     duthost.command("sudo config feature state nat enabled")
     # Set nat global values
     duthost.command("sudo config nat feature enable")
-    duthost.command("sudo config nat set timeout {}".format(GLOBAL_NAT_TIMEOUT))
-    duthost.command("sudo config nat set tcp-timeout {}".format(GLOBAL_TCP_NAPT_TIMEOUT))
-    duthost.command("sudo config nat set udp-timeout {}".format(GLOBAL_UDP_NAPT_TIMEOUT))
+    duthost.command("sudo config nat set timeout {}".format(timeout_in))
+    duthost.command("sudo config nat set tcp-timeout {}".format(tcp_timeout_in))
+    duthost.command("sudo config nat set udp-timeout {}".format(udp_timeout_in))
 
     # Verify nat global values
     output = duthost.command("show nat config globalvalues")
@@ -166,9 +166,9 @@ def nat_global_config(duthost):
     udp_timeout = re.search(r"UDP Timeout.+: (\d+)", show_cmd_output).group(1)
 
     assert admin_state == 'enabled', "NAT was not enabled"
-    assert int(timeout) == GLOBAL_NAT_TIMEOUT, "Global NAT timeout was not set to {}".format(GLOBAL_NAT_TIMEOUT)
-    assert int(tcp_timeout) == GLOBAL_TCP_NAPT_TIMEOUT, "Global TCP NAT timeout was not set to {}".format(GLOBAL_TCP_NAPT_TIMEOUT)
-    assert int(udp_timeout) == GLOBAL_UDP_NAPT_TIMEOUT, "Global UDP NAT timeout was not set to {}".format(GLOBAL_UDP_NAPT_TIMEOUT)
+    assert int(timeout) == timeout_in, "Global NAT timeout was not set to {}".format(timeout_in)
+    assert int(tcp_timeout) == tcp_timeout_in, "Global TCP NAT timeout was not set to {}".format(tcp_timeout_in)
+    assert int(udp_timeout) == udp_timeout_in, "Global UDP NAT timeout was not set to {}".format(udp_timeout_in)
 
 
 @pytest.fixture(scope='module', autouse=True)

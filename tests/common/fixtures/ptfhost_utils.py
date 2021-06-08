@@ -21,8 +21,6 @@ SAI_TESTS = "saitests"
 ARP_RESPONDER_PY = "arp_responder.py"
 ICMP_RESPONDER_PY = "icmp_responder.py"
 ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
-CHANGE_MAC_ADDRESS_SCRIPT = "scripts/change_mac.sh"
-REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 
@@ -99,7 +97,7 @@ def change_mac_addresses(ptfhost):
             None
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(CHANGE_MAC_ADDRESS_SCRIPT)
+    ptfhost.change_mac_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -113,12 +111,12 @@ def remove_ip_addresses(ptfhost):
             None
     """
     logger.info("Remove existing IPs on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
     yield
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -174,6 +172,10 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
+    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    if 't0' not in tbinfo['topo']['type']:
+        yield
+        return
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 

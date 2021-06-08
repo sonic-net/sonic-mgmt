@@ -39,6 +39,10 @@ def get_serial(conn, index):
     return psu_api(conn, index, 'get_serial')
 
 
+def get_revision(conn, index):
+    return psu_api(conn, index, 'get_revision')
+
+
 def get_status(conn, index):
     return psu_api(conn, index, 'get_status')
 

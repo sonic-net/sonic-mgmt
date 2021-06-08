@@ -156,6 +156,8 @@ def test_change_mux_state(
 
     # Apply mux active state
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
+    load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
+    load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
     wait(3, 'extra wait for initial CRMs to be updated')
 

@@ -9,11 +9,11 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from files.pfcwd_basic_helper import run_pfcwd_basic_test
-
+from files.helper import skip_pfcwd_test
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(ixia_api,
@@ -50,6 +50,8 @@ def test_pfcwd_basic_single_lossless_prio(ixia_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
 
@@ -99,6 +101,8 @@ def test_pfcwd_basic_multi_lossless_prio(ixia_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
 
     run_pfcwd_basic_test(api=ixia_api,
@@ -153,6 +157,8 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
 
@@ -214,6 +220,8 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
@@ -272,6 +280,8 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
 
@@ -332,6 +342,8 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+
     testbed_config, port_config_list = ixia_testbed_config
 
     logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
