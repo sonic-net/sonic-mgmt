@@ -172,6 +172,10 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
+    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    if 't0' not in tbinfo['topo']['type']:
+        yield
+        return
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
