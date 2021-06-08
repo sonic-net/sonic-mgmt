@@ -129,6 +129,11 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 
 cmd_debug_fname = None
 
+BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
+VLAN_SUB_INTERFACE_SEPARATOR = '.'
+VLAN_SUB_INTERFACE_VLAN_ID = '10'
+
+
 def adaptive_name(template, host, index):
     """
     A helper function for interface/bridge name calculation.
@@ -193,8 +198,9 @@ class VMTopology(object):
 
     host_interfaces = HostInterfaces()
 
-    def __init__(self, vm_names, fp_mtu, max_fp_num, topo):
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo):
         self.vm_names = vm_names
+        self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
         self.topo = topo
@@ -263,9 +269,9 @@ class VMTopology(object):
         return
 
     def extract_vm_vlans(self):
-        vlans = []
-        for attr in self.VMs.values():
-            vlans.extend(attr['vlans'])
+        vlans = {}
+        for vm, attr in self.VMs.items():
+            vlans[vm] = attr['vlans'][:]
 
         return vlans
 
@@ -322,11 +328,24 @@ class VMTopology(object):
             PTF (int_if) ----------- injected port (ext_if)
 
         """
-        for vlan in self.injected_fp_ports:
-            (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
-            ext_if = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-            int_if = PTF_FP_IFACE_TEMPLATE % ptf_index
-            self.add_veth_if_to_docker(ext_if, int_if)
+        for vm, vlans in self.injected_fp_ports.items():
+            for vlan in vlans:
+                (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
+                ext_if = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
+                int_if = PTF_FP_IFACE_TEMPLATE % ptf_index
+                properties = self.vm_properties.get(vm, {})
+                create_vlan_subintf = properties.get('device_type') in BACKEND_DEVICE_TYPES
+                if create_vlan_subintf:
+                    vlan_subintf_sep = properties.get('vlan_sub_interface_separator', VLAN_SUB_INTERFACE_SEPARATOR)
+                    vlan_subintf_vlan_id = properties.get('vlan_sub_interface_vlan_id', VLAN_SUB_INTERFACE_VLAN_ID)
+                    self.add_veth_if_to_docker(
+                        ext_if, int_if,
+                        create_vlan_subintf=create_vlan_subintf,
+                        vlan_sub_interface_separator=vlan_subintf_sep,
+                        vlan_sub_interface_vlan_id=vlan_subintf_vlan_id
+                    )
+                else:
+                    self.add_veth_if_to_docker(ext_if, int_if)
 
         return
 
@@ -426,10 +445,21 @@ class VMTopology(object):
 
         return
 
-    def add_veth_if_to_docker(self, ext_if, int_if):
+    def add_veth_if_to_docker(self, ext_if, int_if, create_vlan_subintf=False, **kwargs):
+        """Create vethernet devices (ext_if, int_if) and put int_if into the ptf docker."""
+        if create_vlan_subintf:
+            try:
+                vlan_subintf_sep = kwargs["vlan_sub_interface_separator"]
+                vlan_subintf_vlan_id = kwargs["vlan_sub_interface_vlan_id"]
+            except KeyError:
+                raise TypeError("Missing arguments for function 'add_veth_if_to_docker'")
+
         self.update()
 
-        t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + int_if + '_t'
+        t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6]
+        if create_vlan_subintf:
+            int_sub_if = int_if + vlan_subintf_sep + vlan_subintf_vlan_id
+            t_int_sub_if = t_int_if + vlan_subintf_sep + vlan_subintf_vlan_id
 
         if t_int_if in self.host_ifaces:
             VMTopology.cmd("ip link del dev %s" % t_int_if)
@@ -438,6 +468,8 @@ class VMTopology(object):
 
         if ext_if not in self.host_ifaces:
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
+            if create_vlan_subintf:
+                VMTopology.cmd("vconfig add %s %s" % (t_int_if, vlan_subintf_vlan_id))
 
         self.update()
 
@@ -449,6 +481,13 @@ class VMTopology(object):
                 VMTopology.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, t_int_if, self.fp_mtu))
             elif int_if in self.cntr_ifaces:
                 VMTopology.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, int_if, self.fp_mtu))
+            if create_vlan_subintf:
+                if t_int_sub_if in self.host_ifaces:
+                    VMTopology.cmd("ip link set dev %s mtu %d" % (t_int_sub_if, self.fp_mtu))
+                elif t_int_sub_if in self.cntr_ifaces:
+                    VMTopology.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, t_int_sub_if, self.fp_mtu))
+                elif int_sub_if in self.cntr_ifaces:
+                    VMTopology.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, int_sub_if, self.fp_mtu))
 
         VMTopology.iface_up(ext_if)
 
@@ -456,13 +495,28 @@ class VMTopology(object):
 
         if t_int_if in self.host_ifaces and t_int_if not in self.cntr_ifaces and int_if not in self.cntr_ifaces:
             VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, t_int_if))
+        if (
+            create_vlan_subintf and
+            t_int_sub_if in self.host_ifaces and
+            t_int_sub_if not in self.cntr_ifaces and
+            int_sub_if not in self.cntr_ifaces
+        ):
+            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, t_int_sub_if))
 
         self.update()
 
         if t_int_if in self.cntr_ifaces and int_if not in self.cntr_ifaces:
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_if, int_if))
+        if (
+            create_vlan_subintf and
+            t_int_sub_if in self.cntr_ifaces and
+            int_sub_if not in self.cntr_ifaces
+        ):
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_sub_if, int_sub_if))
 
         VMTopology.iface_up(int_if, self.pid)
+        if create_vlan_subintf:
+            VMTopology.iface_up(int_sub_if, self.pid)
 
         return
 
@@ -1015,6 +1069,7 @@ def main():
             vm_names=dict(required=True, type='list'),
             vm_base=dict(required=False, type='str'),
             vm_type=dict(required=False, type='str'),
+            vm_properties=dict(required=False, type='dict', default={}),
             ptf_mgmt_ip_addr=dict(required=False, type='str'),
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
@@ -1034,6 +1089,7 @@ def main():
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
+    vm_properties = module.params['vm_properties']
     duts_mgmt_port = []
 
     if cmd == 'bind_keysight_api_server_ip':
@@ -1049,7 +1105,7 @@ def main():
         if os.path.exists(cmd_debug_fname) and os.path.isfile(cmd_debug_fname):
             os.remove(cmd_debug_fname)
         topo = module.params['topo']
-        net = VMTopology(vm_names, fp_mtu, max_fp_num, topo)
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo)
 
         if cmd == 'create':
             net.create_bridges()
