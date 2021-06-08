@@ -13,6 +13,7 @@ import sys
 import os.path
 import json
 import ptf
+import time
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -300,7 +301,7 @@ class VNET(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "start", "arp_responder"])
-
+        time.sleep(5)
         self.dataplane.flush()
 
         return
