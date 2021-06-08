@@ -5,7 +5,7 @@ import random
 import time
 import json
 import ptf
-from scapy.all import Ether, IP
+from scapy.all import Ether, IP, TCP
 import scapy.all as scapyall
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -664,27 +664,33 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     exp_pkt = mask.Mask(pkt)
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ihl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "len")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "id")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "flags")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "frag")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "proto")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    inner_dscp = random.choice(range(0, 33))
+    inner_packet = pkt[IP]
+    inner_packet.ttl = inner_packet.ttl - 1
+    exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+        eth_dst=dst_mac,
+        eth_src=src_mac,
+        ip_src="10.1.0.32",
+        ip_dst="10.1.0.33",
+        ip_dscp=inner_dscp,
+        ip_ttl=63,
+        inner_frame=inner_packet
+    )
+    exp_tunnel_pkt[TCP] = inner_packet[TCP]
+    exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ihl")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "len")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
 
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "sport")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "seq")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "ack")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "reserved")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "dataofs")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "window")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "chksum")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "urgptr")
+    exp_tunnel_pkt.set_do_not_care(44*8, 2*8) # ignore checking inner packets checksum
 
-    return pkt, exp_pkt
+    return pkt, exp_pkt, exp_tunnel_pkt
 
 
 def random_ip(begin, end):
@@ -695,7 +701,7 @@ def random_ip(begin, end):
     return str(ipaddress.ip_address(begin) + random.randint(0, length))
 
 
-def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_number=0, timeout=None, count=1):
+def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, ports=[], device_number=0, timeout=None, count=1):
     """
     Receive all packets on all specified ports and count how many expected packets were received.
     """
@@ -714,7 +720,8 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_num
         result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
             if (result.port in ports and
-                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+                  (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
+                  ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
                 port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
                 packet_count += 1
                 if packet_count == count:
@@ -744,12 +751,13 @@ def check_nexthops_balance(rand_selected_dut,
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
     for _ in range(10000):
-        send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
+        send_packet, exp_pkt, exp_tunnel_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
-        ptf_port_count = count_matched_packets_all_ports(ptfadapter,
+        ptf_port_count, result_packet = count_matched_packets_all_ports(ptfadapter,
                                             exp_packet=exp_pkt,
+                                            exp_tunnel_pkt=exp_tunnel_pkt,
                                             ports=all_allowed_ports,
                                             timeout=0.01,
                                             count=1)

@@ -99,34 +99,29 @@ class IpinIPTunnelTest(BaseTest):
         """
         Generate ip_in_ip packet for verifying.
         """
-        inner_pkt = inner_pkt.copy()
-        inner_pkt.ttl = inner_pkt.ttl - 1
-        pkt = scapy.Ether(dst="aa:aa:aa:aa:aa:aa", src=self.standby_tor_mac) / \
-            scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt[IP]
-        exp_pkt = Mask(pkt)
-        exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
+        exp_tunnel_pkt = simple_ipv4ip_packet(
+            eth_dst="aa:aa:aa:aa:aa:aa",
+            eth_src=self.standby_tor_mac,
+            ip_src=self.standby_tor_ip,
+            ip_dst=self.active_tor_ip,
+            ip_ttl=inner_pkt.ttl - 1,
+            inner_frame=inner_pkt
+        )
+        exp_tunnel_pkt[scapy.TCP] = inner_pkt[scapy.TCP]
+        exp_tunnel_pkt = Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ihl")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "tos")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "len")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "ihl")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "frag")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "proto")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        exp_tunnel_pkt.set_do_not_care(44*8, 2*8) # ignore checking inner packets checksum
 
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "sport")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "seq")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "ack")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "reserved")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "dataofs")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "window")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "urgptr")
-        exp_pkt.set_ignore_extra_bytes()
 
-        return exp_pkt
+        return exp_tunnel_pkt
 
     def generate_unexpected_packet(self, inner_pkt):
         """
