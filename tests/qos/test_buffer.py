@@ -1509,7 +1509,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         1. Fetch the supported_speeds from STATE_DB. It's exposed by port auto negotiation feature when system starts.
            Skip the test if it is not exposed.
         2. Preparing:
-           - Configure the speed to one which is not the maximum and the cable length to 15m
+           - Configure the speed to the minimum supported one and the cable length to 15m
            - This is to enforce there is a new buffer profile created
         3. Enable the port auto negotiation and then configure the advertised speed list and then disable it
            - The maximum supported speed should be taken into account for buffer calculation after port auto negotiation enabled
@@ -1519,6 +1519,8 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
            - The maximum advertised speed should be taken after it is configured
         5. Add a new PG.
            - The maximum advertised speed should be taken in this case
+        6. Configure advertised speed as all
+           - The maximum supported speed should be taken into account for buffer calculation
     """
     def _get_max_speed_from_list(speed_list_str):
         speed_list = natsorted(speed_list_str.split(','))
