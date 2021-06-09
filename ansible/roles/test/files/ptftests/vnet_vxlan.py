@@ -301,10 +301,20 @@ class VNET(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "start", "arp_responder"])
-        time.sleep(5)
+        self.check_arp_responder_running()
         self.dataplane.flush()
 
         return
+
+    def check_arp_responder_running(self):
+        """
+        Check arp_responder is in RUNNING state, if not sleep 1 sec and check again
+        """
+        for i in range(5):
+            output = self.cmd(["supervisorctl", "status", "arp_responder"])
+            if 'RUNNING' in output[0]:
+                break
+            time.sleep(1)
 
     def tearDown(self):
         if self.vxlan_enabled:
