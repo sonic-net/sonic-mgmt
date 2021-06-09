@@ -6,6 +6,7 @@ import time
 from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
+from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
 from device_mocker import device_mocker_factory
 
 pytestmark = [
@@ -62,8 +63,8 @@ def check_image_version(duthost):
     yield
 
 
-def test_service_checker(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         cmd = "monit summary -B"
@@ -97,8 +98,9 @@ def test_service_checker(duthosts, rand_one_dut_hostname):
         assert summary == expect_summary, 'Expect summary {}, got {}'.format(expect_summary, summary)
 
 
-def test_device_checker(duthosts, rand_one_dut_hostname, device_mocker_factory):
-    duthost = duthosts[rand_one_dut_hostname]
+@pytest.mark.disable_loganalyzer
+def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname, device_mocker_factory, disable_thermal_policy):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
@@ -226,8 +228,8 @@ def test_device_checker(duthosts, rand_one_dut_hostname, device_mocker_factory):
             assert not value or expect_value not in value, 'Mock PSU good voltage, but it is still invalid'
 
 
-def test_external_checker(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, EXTERNAL_CHECK_CONFIG_FILE)):
         duthost.copy(src=os.path.join(FILES_DIR, EXTERNAL_CHECKER_MOCK_FILE),
@@ -239,8 +241,8 @@ def test_external_checker(duthosts, rand_one_dut_hostname):
         assert value == 'Device is broken', 'External checker does not work, value={}'.format(value)
 
 
-def test_system_health_config(duthosts, rand_one_dut_hostname, device_mocker_factory):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname, device_mocker_factory):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
     logger.info('Ignore fan check, verify there is no error information about fan')

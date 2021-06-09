@@ -11,9 +11,7 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
 from tests.common.platform.transceiver_utils import parse_transceiver_info
-from tests.common.plugins.sanity_check import checks
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
-from tests.common.reboot import reboot
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -116,10 +114,6 @@ class ContinuousReboot:
         if result is not True:
             # Create a failure report
             error = result.get("stderr")
-            if error and "DUT is not ready for test" in error:
-                # reboot test did not reboot the DUT, reboot externally to verify for image installation
-                logging.warn("Reboot test failed to reboot the DUT. Trying again..")
-                reboot(self.duthost, self.localhost, reboot_type=self.reboot_type, reboot_helper=None, reboot_kwargs=None)
             raise ContinuousRebootError("Reboot test failed with error: {}".format(error))
 
 
@@ -160,6 +154,18 @@ class ContinuousReboot:
         @param dut: The AnsibleHost object of DUT.
         @param interfaces: DUT's interfaces defined by minigraph
         """
+        logging.info("Check if all the interfaces are operational")
+        check_interfaces = self.request.getfixturevalue("check_interfaces")
+        results = check_interfaces()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            raise ContinuousRebootError("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
+
+        # Skip this step for virtual testbed - KVM testbed has transeivers marked as "Not present"
+        # and the DB returns an "empty array" for "keys TRANSCEIVER_INFO*"
+        if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            return
+
         logging.info("Check whether transceiver information of all ports are in redis")
         xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
         parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
@@ -167,11 +173,6 @@ class ContinuousReboot:
         for intf in interfaces:
             if intf not in parsed_xcvr_info:
                 raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
-
-        logging.info("Check if all the interfaces are operational")
-        result = checks.check_interfaces(self.duthost)
-        if result["failed"]:
-            raise ContinuousRebootError("Interface check failed, not all interfaces are up")
 
 
     @handle_test_error
@@ -429,6 +430,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
+@pytest.mark.device_type('vs')
 def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.

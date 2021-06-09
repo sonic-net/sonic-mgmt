@@ -62,6 +62,28 @@ sudo systemctl restart mux-simulator
 The mux-simulator service is shared by multiple dualtor test setups using the same test server. Any dualtor test setups using it is recorded in a persistent file on test server `{{ root_path }}/mux_simulator.setups.txt`. During `testbed-cli.sh add-topo`, the vm set name of current setup will be added into it. During `testbed-cli.sh remove-topo`, the vm set name of current setup will be removed from it. When the file is empty, the mux-simulator service will be stopped.
 
 
+## How to troubleshoot mux simulator
+By default, the mux-simulator service output its logs to `/tmp/mux_simulator.log`. Default debug level is INFO. If DEBUG level logging is needed for troubleshooting, please follow below steps:
+
+1. Stop the mux-simulator service.
+```
+sudo systemctl stop mux-simulator
+```
+2. Find out path of the mux_simulator.py script from the mux-simulator systemd service file.
+```
+cat /etc/systemd/system/mux-simulator.service
+```
+3. Manually run the mux_simulator.py script with `-v` option to **turn on DEBUG level logging**.
+```
+ sudo /usr/bin/env python /home/azure/veos-vm/mux_simulator.py 8080 -v
+```
+4. Try to call the mux simulator HTTP APIs and check the log file `/tmp/mux_simulator.log` for detailed logging.
+5. After troubleshooting is done, stop the manually started mux_simulator.py script (for example: Ctrl+C).
+6. Start the mux-simulator service again.
+```
+sudo systemctl start mux-simulator
+```
+
 ## APIs
 The APIs using json for data exchange.
 

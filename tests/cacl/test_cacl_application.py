@@ -1,4 +1,5 @@
 import ipaddress
+import json
 
 import pytest
 
@@ -11,21 +12,42 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+@pytest.fixture(scope="module")
+def docker_network(duthost):
+
+    output = duthost.command("docker inspect bridge")
+
+    docker_containers_info = json.loads(output['stdout'])[0]['Containers']
+    ipam_info = json.loads(output['stdout'])[0]['IPAM']
+    
+    docker_network = {}
+    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0]['Gateway'],
+                                'IPv6Address' : ipam_info['Config'][1]['Gateway'] }
+
+    docker_network['container'] = {}
+    for k,v in docker_containers_info.items():
+         docker_network['container'][v['Name']] = {'IPv4Address' : v['IPv4Address'].split('/')[0], 'IPv6Address' : v['IPv6Address'].split('/')[0]}
+ 
+    return docker_network
+
 
 # To specify a port range instead of a single port, use iptables format:
 # separate start and end ports with a colon, e.g., "1000:2000"
 ACL_SERVICES = {
     "NTP": {
         "ip_protocols": ["udp"],
-        "dst_ports": ["123"]
+        "dst_ports": ["123"],
+        "multi_asic_ns_to_host_fwd": False
     },
     "SNMP": {
         "ip_protocols": ["tcp", "udp"],
-        "dst_ports": ["161"]
+        "dst_ports": ["161"],
+        "multi_asic_ns_to_host_fwd": True
     },
     "SSH": {
         "ip_protocols": ["tcp"],
-        "dst_ports": ["22"]
+        "dst_ports": ["22"],
+        "multi_asic_ns_to_host_fwd": True
     }
 }
 
@@ -129,7 +151,7 @@ def get_cacl_tables_and_rules(duthost):
     return cacl_tables
 
 
-def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules):
+def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index):
     INTERFACE_TABLE_NAME_LIST = [
         "LOOPBACK_INTERFACE",
         "MGMT_INTERFACE",
@@ -139,8 +161,8 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
     ]
 
     # Gather device configuration facts
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
-
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)["ansible_facts"]
     # Add iptables/ip6tables rules to drop all packets destined for peer-to-peer interface IP addresses
     for iface_table_name in INTERFACE_TABLE_NAME_LIST:
         if iface_table_name in cfg_facts:
@@ -161,7 +183,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
 
-def generate_expected_rules(duthost):
+def generate_expected_rules(duthost, docker_network, asic_index):
     iptables_rules = []
     ip6tables_rules = []
 
@@ -176,6 +198,26 @@ def generate_expected_rules(duthost):
     # Allow localhost
     iptables_rules.append("-A INPUT -s 127.0.0.1/32 -i lo -j ACCEPT")
     ip6tables_rules.append("-A INPUT -s ::1/128 -i lo -j ACCEPT")
+
+    if asic_index is None:
+    # Allow Communication among docker containers
+        for k, v in docker_network['container'].items():
+            iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], docker_network['bridge']['IPv4Address']))
+            iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(v['IPv4Address'], docker_network['bridge']['IPv4Address']))
+            ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], docker_network['bridge']['IPv6Address']))
+            ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(v['IPv6Address'], docker_network['bridge']['IPv6Address']))
+
+    else:
+        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv4Address'], 
+                                                                            docker_network['container']['database' + str(asic_index)]['IPv4Address']))
+        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], 
+                                                                            docker_network['container']['database' + str(asic_index)]['IPv4Address']))
+        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv6Address'], 
+                                                                               docker_network['container']['database' + str(asic_index)]['IPv6Address']))
+        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], 
+                                                                               docker_network['container']['database' + str(asic_index)]['IPv6Address']))
+
+
 
     # Allow all incoming packets from established connections or new connections
     # which are related to established connections
@@ -299,7 +341,7 @@ def generate_expected_rules(duthost):
                         rules_applied_from_config += 1
 
     # Append rules which block "ip2me" traffic on p2p interfaces
-    generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules)
+    generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index)
 
     # Allow all packets with a TTL/hop limit of 0 or 1
     iptables_rules.append("-A INPUT -m ttl --ttl-lt 2 -j ACCEPT")
@@ -313,19 +355,55 @@ def generate_expected_rules(duthost):
 
     return iptables_rules, ip6tables_rules
 
+def generate_nat_expected_rules(duthost, docker_network, asic_index):
+    iptables_natrules = []
+    ip6tables_natrules = []
 
-def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds):
-    """
-    Test case to ensure caclmgrd is applying control plane ACLs properly
+    # Default policies
+    iptables_natrules.append("-P PREROUTING ACCEPT")
+    iptables_natrules.append("-P INPUT ACCEPT")
+    iptables_natrules.append("-P OUTPUT ACCEPT")
+    iptables_natrules.append("-P POSTROUTING ACCEPT")
+    ip6tables_natrules.append("-P PREROUTING ACCEPT")
+    ip6tables_natrules.append("-P INPUT ACCEPT")
+    ip6tables_natrules.append("-P OUTPUT ACCEPT")
+    ip6tables_natrules.append("-P POSTROUTING ACCEPT")
 
-    This is done by generating our own set of expected iptables and ip6tables
-    rules based on the DuT's configuration and comparing them against the
-    actual iptables/ip6tables rules on the DuT.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost)
 
-    stdout = duthost.shell("sudo iptables -S")["stdout"]
+    for acl_service in ACL_SERVICES:
+        if ACL_SERVICES[acl_service]["multi_asic_ns_to_host_fwd"]:
+            for ip_protocol in ACL_SERVICES[acl_service]["ip_protocols"]:
+                for dst_port in ACL_SERVICES[acl_service]["dst_ports"]:
+                    # IPv4 rules
+                    iptables_natrules.append(
+                                             "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['bridge']['IPv4Address']))
+
+                    iptables_natrules.append(
+                                             "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['container']['database' + str(asic_index)]['IPv4Address']))
+
+                    # IPv6 rules
+                    ip6tables_natrules.append(
+                                             "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
+                                             (ip_protocol, ip_protocol, dst_port,
+                                             docker_network['bridge']['IPv6Address']))
+
+                    ip6tables_natrules.append(
+                                             "-A POSTROUTING -p {} -m {} --dport {} -j SNAT --to-source {}".format
+                                             (ip_protocol,ip_protocol, dst_port,
+                                             docker_network['container']['database' + str(asic_index)]['IPv6Address']))
+
+    return iptables_natrules, ip6tables_natrules
+
+
+def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
+    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
+
+    
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
@@ -344,7 +422,7 @@ def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds):
     #for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.shell("sudo ip6tables -S")["stdout"]
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
@@ -362,3 +440,48 @@ def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds):
     # Ensure the ip6tables rules are applied in the correct order
     #for i in range(len(expected_ip6tables_rules)):
     #    pytest_assert(actual_ip6tables_rules[i] == expected_ip6tables_rules[i], "ip6tables rules not in expected order")
+
+def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
+    expected_iptables_rules, expected_ip6tables_rules = generate_nat_expected_rules(duthost, docker_network, asic_index)
+
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -t nat -S")["stdout"]
+    actual_iptables_rules = stdout.strip().split("\n")
+
+    # Ensure all expected iptables rules are present on the DuT
+    missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
+    pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables nat rules: {}".format(repr(missing_iptables_rules)))
+
+    # Ensure there are no unexpected iptables rules present on the DuT
+    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
+    pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables nat rules: {}".format(repr(unexpected_iptables_rules)))
+
+    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -t nat -S")["stdout"]
+    actual_ip6tables_rules = stdout.strip().split("\n")
+
+    # Ensure all expected ip6tables rules are present on the DuT
+    missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
+    pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables nat rules: {}".format(repr(missing_ip6tables_rules)))
+
+    # Ensure there are no unexpected ip6tables rules present on the DuT
+    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
+    pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}".format(repr(unexpected_ip6tables_rules)))
+
+def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
+    """
+    Test case to ensure caclmgrd is applying control plane ACLs properly
+
+    This is done by generating our own set of expected iptables and ip6tables
+    rules based on the DuT's configuration and comparing them against the
+    actual iptables/ip6tables rules on the DuT.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    verify_cacl(duthost, localhost, creds, docker_network)
+
+def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
+
+    if enum_frontend_asic_index is None:
+        pytest.skip("Not Multi-asic platform. Skipping !!")
+
+    duthost = duthosts[rand_one_dut_hostname]
+    verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
+    verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)

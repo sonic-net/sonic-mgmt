@@ -46,14 +46,14 @@ def is_service_hiting_start_limit(duthost, container_name):
 
     return False
 
-def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service, interfaces):
+def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service, interfaces, xcvr_skip_list):
     """
     Restart specified service and check platform status
     """
     logging.info("Restart the %s service on asic %s" %(service, enum_frontend_asic_index))
 
-    asichost = dut.get_asic(enum_frontend_asic_index)
-    service_name = asichost.get_service_name(service)
+    asichost = dut.asic_instance(enum_frontend_asic_index)
+    service_name = asichost.get_docker_name(service)
     dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():
@@ -66,11 +66,11 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     wait_critical_processes(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    pytest_assert(wait_until(300, 20, check_interface_information, dut, enum_frontend_asic_index, interfaces),
+    pytest_assert(wait_until(300, 20, check_interface_information, dut, enum_frontend_asic_index, interfaces, xcvr_skip_list),
                   "Not all interface information are detected within 300 seconds")
 
     logging.info("Check transceiver status on asic %s" % enum_frontend_asic_index)
-    check_transceiver_basic(dut, enum_frontend_asic_index, interfaces)
+    check_transceiver_basic(dut, enum_frontend_asic_index, interfaces, xcvr_skip_list)
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
@@ -87,7 +87,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     check_critical_processes(dut, 60)
 
 
-def test_restart_swss(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, localhost, conn_graph_facts):
+def test_restart_swss(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
@@ -103,12 +103,12 @@ def test_restart_swss(duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
         all_interfaces = new_intf_dict
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces)
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces, xcvr_skip_list)
 
 @pytest.mark.skip(reason="Restarting syncd is not supported yet")
-def test_restart_syncd(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts):
+def test_restart_syncd(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
     duthost = duthosts[rand_one_dut_hostname]
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd", conn_graph_facts["device_conn"][duthost.hostname])
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd", conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)

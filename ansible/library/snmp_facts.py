@@ -125,11 +125,13 @@ class DefineOid(object):
         # From IF-MIB
         self.ifIndex       = dp + "1.3.6.1.2.1.2.2.1.1"
         self.ifDescr       = dp + "1.3.6.1.2.1.2.2.1.2"
+        self.ifType        = dp + "1.3.6.1.2.1.2.2.1.3"
         self.ifMtu         = dp + "1.3.6.1.2.1.2.2.1.4"
         self.ifSpeed       = dp + "1.3.6.1.2.1.2.2.1.5"
         self.ifPhysAddress = dp + "1.3.6.1.2.1.2.2.1.6"
         self.ifAdminStatus = dp + "1.3.6.1.2.1.2.2.1.7"
         self.ifOperStatus  = dp + "1.3.6.1.2.1.2.2.1.8"
+        self.ifHighSpeed   = dp + "1.3.6.1.2.1.31.1.1.1.15"
         self.ifAlias       = dp + "1.3.6.1.2.1.31.1.1.1.18"
 
         self.ifInDiscards  = dp + "1.3.6.1.2.1.2.2.1.13"
@@ -206,6 +208,9 @@ class DefineOid(object):
         # Memory Check
         self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
         self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
+        self.sysTotalSharedMemory   = dp + "1.3.6.1.4.1.2021.4.13.0"
+        self.sysTotalBuffMemory     = dp + "1.3.6.1.4.1.2021.4.14.0"
+        self.sysCachedMemory        = dp + "1.3.6.1.4.1.2021.4.15.0"
 
         # From Cisco private MIB (PFC and queue counters)
         self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
@@ -216,6 +221,10 @@ class DefineOid(object):
 
         # From Cisco private MIB (PSU)
         self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2" # + .psuindex
+
+        # ipCidrRouteTable MIB
+        self.ipCidrRouteEntry = dp + "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0" # + .next hop IP
+        self.ipCidrRouteStatus = dp + "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0" # + .next hop IP
 
 def decode_hex(hexstring):
 
@@ -404,11 +413,13 @@ def main():
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.ifIndex,),
         cmdgen.MibVariable(p.ifDescr,),
+        cmdgen.MibVariable(p.ifType,),
         cmdgen.MibVariable(p.ifMtu,),
         cmdgen.MibVariable(p.ifSpeed,),
         cmdgen.MibVariable(p.ifPhysAddress,),
         cmdgen.MibVariable(p.ifAdminStatus,),
         cmdgen.MibVariable(p.ifOperStatus,),
+        cmdgen.MibVariable(p.ifHighSpeed,),
         cmdgen.MibVariable(p.ipAdEntAddr,),
         cmdgen.MibVariable(p.ipAdEntIfIndex,),
         cmdgen.MibVariable(p.ipAdEntNetMask,),
@@ -435,6 +446,9 @@ def main():
             if v.ifDescr in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['name'] = current_val
+            if v.ifType in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['type'] = current_val
             if v.ifMtu in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['mtu'] = current_val
@@ -450,6 +464,9 @@ def main():
             if v.ifOperStatus in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(int(current_val))
+            if v.ifHighSpeed in current_oid:
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+                results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
             if v.ipAdEntAddr in current_oid:
                 curIPList = current_oid.rsplit('.', 4)[-4:]
                 curIP = ".".join(curIPList)
@@ -866,18 +883,43 @@ def main():
                 psuIndex = int(current_oid.split('.')[-1])
                 results['snmp_psu'][psuIndex]['operstatus'] = current_val
 
+    errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        snmp_auth,
+        cmdgen.UdpTransportTarget((m_args['host'], 161)),
+        cmdgen.MibVariable(p.ipCidrRouteEntry,),
+        cmdgen.MibVariable(p.ipCidrRouteStatus,),
+    )
+
+    if errorIndication:
+        module.fail_json(msg=str(errorIndication) + ' querying CidrRouteTable')
+
+    for varBinds in varTable:
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if v.ipCidrRouteEntry in current_oid:
+                # extract next hop ip from oid
+                next_hop = current_oid.split(v.ipCidrRouteEntry + ".")[1]
+                results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
+            if v.ipCidrRouteStatus in current_oid:
+                next_hop = current_oid.split(v.ipCidrRouteStatus + ".")[1]
+                results['snmp_cidr_route'][next_hop]['status'] = current_val
+
     if not m_args['is_eos']:
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.sysTotalMemery,),
             cmdgen.MibVariable(p.sysTotalFreeMemery,),
+            cmdgen.MibVariable(p.sysTotalSharedMemory,),
+            cmdgen.MibVariable(p.sysTotalBuffMemory,),
+            cmdgen.MibVariable(p.sysCachedMemory,),
             lookupMib=False, lexicographicMode=False
         )
-    
+
         if errorIndication:
             module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
-    
+
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
@@ -885,6 +927,12 @@ def main():
                 results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalFreeMemery:
                 results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalSharedMemory:
+                results['ansible_sysTotalSharedMemory'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalBuffMemory:
+                results['ansible_sysTotalBuffMemory'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysCachedMemory:
+                results['ansible_sysCachedMemory'] = decode_type(module, current_oid, val)
 
     module.exit_json(ansible_facts=results)
 

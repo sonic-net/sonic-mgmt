@@ -193,7 +193,11 @@ class ArpTest(BaseTest):
         self.dut_ssh = self.get_param('dut_ssh')
         self.dut_username = self.get_param('dut_username')
         self.dut_password = self.get_param('dut_password')
-        self.dut_connection = DeviceConnection(self.dut_ssh, username=self.dut_username, password=self.dut_password)
+        self.dut_alt_password=self.get_param('alt_password')
+        self.dut_connection = DeviceConnection(self.dut_ssh,
+                                            username=self.dut_username,
+                                            password=self.dut_password,
+                                            alt_password=self.dut_alt_password)
         self.how_long = int(self.get_param('how_long', required=False, default=300))
 
         if not os.path.isfile(config):
@@ -271,7 +275,11 @@ class ArpTest(BaseTest):
 
         self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
 
-        test_port_thr.join()
+        test_port_thr.join(timeout=self.how_long)
+        if test_port_thr.isAlive():
+            self.log("Timed out waiting for warm reboot")
+            self.req_dut('quit')
+            self.assertTrue(False, "Timed out waiting for warm reboot")
 
         uptime_after = self.req_dut('uptime')
         if uptime_after.startswith('error'):

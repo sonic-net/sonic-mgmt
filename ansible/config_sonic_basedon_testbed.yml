@@ -48,6 +48,11 @@
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: inventory_hostname not in testbed_facts['duts']
 
+    - name: Set default num_asic
+      set_fact:
+        num_asics: 1
+      when: num_asics is not defined
+
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
@@ -56,21 +61,30 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set ptf image name
+      set_fact:
+        ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
     - name: set vm
       set_fact:
         vm_base: "{{ testbed_facts['vm_base'] }}"
       when: "testbed_facts['vm_base'] != ''"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
     delegate_to: localhost
+
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    delegate_to: localhost
+    ignore_errors: true
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias: hwsku="{{ hwsku }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -100,17 +114,13 @@
     delegate_to: localhost
     when: "'dualtor' in topo"
 
-  - name: generate y_cable simulator driver
-    include_tasks: dualtor/config_y_cable_simulator.yml
-    when: "'dualtor' in topo"
-
   - name: set default vm file path
     set_fact:
       vm_file: veos
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo or 'docker-keysight-api-server' in ptf_image %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
@@ -126,6 +136,12 @@
     delegate_to: localhost
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
+  - name: find downlink portchannel configuration for T0 topology
+    set_fact:
+      portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
+    delegate_to: localhost
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
   - name: find any tunnel configurations
     tunnel_config:
       vm_topo_config: "{{ vm_topo_config }}"
@@ -134,7 +150,7 @@
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'][dut_index|int] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
@@ -144,8 +160,19 @@
 
   - name: find all interface names
     set_fact:
-      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: "{{ interface_to_vms }}"
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
+
+  # create map of VM to asic interface names
+  - name: find all interface asic names
+    set_fact:
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
+    when: front_panel_asic_ifnames != [] 
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -350,9 +377,26 @@
 
       - debug: msg={{ docker_status.stdout_lines }}
 
+      - name: start topology service for multi-asic platform
+        become: true
+        shell: systemctl start topology.service
+        when: start_topo_service is defined and start_topo_service|bool == true
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
+
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
 
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true

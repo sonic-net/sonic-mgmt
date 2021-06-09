@@ -10,9 +10,10 @@
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
 # 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
 # 3. 'count' is an integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
-# 4. 'dut_host' is the ip address of dut.
+# 4. 'dut_hostname' is the name of dut.
 # 5. 'sonic_admin_user': User name to login dut
 # 6. 'sonic_admin_password': Password for sonic_admin_user to login dut
+# 7. 'sonic_admin_alt_password': Alternate Password for sonic_admin_user to login dut
 
 import sys
 import os.path
@@ -45,13 +46,13 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
         raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
 
     total_rcv_pkt_cnt = 0
-    while True:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
-            if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
-                total_rcv_pkt_cnt += 1
-                if total_rcv_pkt_cnt == exp_packet_number:
-                    break
+            total_rcv_pkt_cnt += 1
+            if total_rcv_pkt_cnt == exp_packet_number:
+                break
         else:
             break
 
@@ -170,9 +171,9 @@ class Vxlan(BaseTest):
             raise Exception("required parameter 'config_file' is not present")
         config = self.test_params['config_file']
 
-        if 'dut_host' not in self.test_params:
-            raise Exception("required parameter 'dut_host' is not present")
-        self.dut_host = self.test_params['dut_host']
+        if 'dut_hostname' not in self.test_params:
+            raise Exception("required parameter 'dut_hostname' is not present")
+        self.dut_hostname = self.test_params['dut_hostname']
 
         if 'sonic_admin_user' not in self.test_params:
             raise Exception("required parameter 'sonic_admin_user' is not present")
@@ -181,6 +182,10 @@ class Vxlan(BaseTest):
         if 'sonic_admin_password' not in self.test_params:
             raise Exception("required parameter 'sonic_admin_password' is not present")
         self.sonic_admin_password = self.test_params['sonic_admin_password']
+
+        if 'sonic_admin_alt_password' not in self.test_params:
+            raise Exception("required parameter 'sonic_admin_alt_password' is not present")
+        self.sonic_admin_alt_password = self.test_params['sonic_admin_alt_password']
 
         if not os.path.isfile(config):
             raise Exception("the config file %s doesn't exist" % config)
@@ -232,7 +237,7 @@ class Vxlan(BaseTest):
         self.log('Collected tests: {}'.format(pprint.pformat(self.tests)))
 
         self.dut_mac = graph['dut_mac']
-
+        self.vlan_mac = graph['vlan_mac']
         ip = None
         for data in graph['minigraph_lo_interfaces']:
             if data['prefixlen'] == 32:
@@ -252,9 +257,10 @@ class Vxlan(BaseTest):
         time.sleep(10)
         self.dataplane.flush()
         self.dut_connection = DeviceConnection(
-            self.dut_host,
+            self.dut_hostname,
             self.sonic_admin_user,
-            password=self.sonic_admin_password
+            password=self.sonic_admin_password,
+            alt_password=self.sonic_admin_alt_password
         )
 
         return
@@ -396,13 +402,13 @@ class Vxlan(BaseTest):
     def Vxlan(self, test):
         for i, n in enumerate(test['acc_ports']):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, self.vlan_mac)
                 if not res:
                     return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test)
+                res, out = self.checkVxlan(a, n, test, self.dut_mac)
                 if not res:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
@@ -431,7 +437,7 @@ class Vxlan(BaseTest):
 
     def checkRegularRegularVLANtoLAG(self, acc_port, pc_ports, dst_ip, test):
         src_mac = self.ptf_mac_addrs['eth%d' % acc_port]
-        dst_mac = self.dut_mac
+        dst_mac = self.vlan_mac
         src_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
@@ -442,7 +448,7 @@ class Vxlan(BaseTest):
                        )
         exp_packet = simple_tcp_packet(
                          eth_dst=self.random_mac,
-                         eth_src=dst_mac,
+                         eth_src=self.dut_mac,
                          ip_src=src_ip,
                          ip_dst=dst_ip,
                          ip_ttl = 63,
@@ -478,7 +484,7 @@ class Vxlan(BaseTest):
 
         exp_packet = simple_tcp_packet(
                          eth_dst=self.ptf_mac_addrs['eth%d' % acc_port],
-                         eth_src=dst_mac,
+                         eth_src=self.vlan_mac,
                          ip_src=src_ip,
                          ip_dst=dst_ip,
                          ip_ttl = 63,
@@ -499,12 +505,11 @@ class Vxlan(BaseTest):
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
-    def checkVxlan(self, acc_port, net_port, test):
+    def checkVxlan(self, acc_port, net_port, test, dst_mac):
         inner_dst_mac = self.ptf_mac_addrs['eth%d' % acc_port]
         inner_src_mac = self.dut_mac
         inner_src_ip = test['vlan_gw']
         inner_dst_ip = test['vlan_ip_prefixes'][acc_port]
-        dst_mac = self.dut_mac
         src_mac = self.random_mac
         ip_dst = self.loopback_ip
 

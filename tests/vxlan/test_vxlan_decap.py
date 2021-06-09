@@ -14,7 +14,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
-
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
 pytestmark = [
     pytest.mark.topology('t0')
 ]
@@ -45,6 +45,11 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
     ptfhost.shell("supervisorctl update")
 
     logger.info("Put information needed by the PTF script to the PTF container.")
+
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    
     vxlan_decap = {
         "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
@@ -52,7 +57,8 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": duthost.facts["router_mac"]
+        "dut_mac": duthost.facts["router_mac"],
+        "vlan_mac": vlan_mac
     }
     ptfhost.copy(content=json.dumps(vxlan_decap, indent=2), dest="/tmp/vxlan_decap.json")
 
@@ -146,8 +152,10 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds):
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = duthosts[rand_one_dut_hostname]
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
 
     vxlan_enabled, scenario = vxlan_status
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
@@ -161,6 +169,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfho
                         "count": COUNT,
                         "sonic_admin_user": creds.get('sonicadmin_user'),
                         "sonic_admin_password": creds.get('sonicadmin_password'),
-                        "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
+                        "sonic_admin_alt_password": sonic_admin_alt_password,
+                        "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                 qlen=10000,
                 log_file=log_file)

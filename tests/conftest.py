@@ -12,19 +12,26 @@ import jinja2
 
 from datetime import datetime
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
+from tests.common.devices.local import Localhost
+from tests.common.devices.ptf import PTFHost
+from tests.common.devices.eos import EosHost
+from tests.common.devices.fanout import FanoutHost
+from tests.common.devices.k8s import K8sMasterHost
+from tests.common.devices.k8s import K8sMasterCluster
+from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.vmhost import VMHost
+
 from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
 from tests.common.helpers.dut_ports import encode_dut_port_name
-from tests.common.devices import DutHosts
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_test_server_host
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
-from tests.common.connections import ConsoleHost
+from tests.common.connections.console_host import ConsoleHost
 
 
 logger = logging.getLogger(__name__)
@@ -33,16 +40,17 @@ cache = FactsCache()
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.fib',
                   'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
-                  'tests.common.plugins.psu_controller',
+                  'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
-                  'tests.vxlan')
+                  'tests.common.dualtor',
+                  'tests.vxlan',
+                  'tests.common.plugins.allure_server')
 
 
 def pytest_addoption(parser):
@@ -86,6 +94,12 @@ def pytest_addoption(parser):
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
+    parser.addoption("--post_check", action="store_true", default=False,
+                     help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--post_check_items", action="store", default=False,
+                     help="Change (add|remove) post test check items based on pre test check items")
+    parser.addoption("--recover_method", action="store", default="adaptive",
+                     help="Set method to use for recover if sanity failed")
 
     ########################
     #   pre-test options   #
@@ -94,6 +108,10 @@ def pytest_addoption(parser):
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    ############################
+    #  keysight ixanvl options #
+    ############################
+    parser.addoption("--testnum", action="store", default=None, type=str)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -155,7 +173,7 @@ def get_tbinfo(request):
         raise ValueError("testbed and testbed_file are required!")
 
     testbedinfo = cache.read(tbname, 'tbinfo')
-    if not testbedinfo:
+    if testbedinfo is cache.NOTEXIST:
         testbedinfo = TestbedInfo(tbfile)
         cache.write(tbname, 'tbinfo', testbedinfo)
 
@@ -170,8 +188,36 @@ def tbinfo(request):
     return testbedinfo
 
 
+def get_specified_duts(request):
+    """
+    Get a list of DUT hostnames specified with the --host-pattern CLI option
+    or -d if using `run_tests.sh`
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    testbed_duts = tbinfo['duts']
+
+    host_pattern = request.config.getoption("--host-pattern")
+    if host_pattern=='all':
+        return testbed_duts
+
+    if ';' in host_pattern:
+        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        specified_duts = host_pattern.split(',')
+
+    if any([dut not in testbed_duts for dut in specified_duts]):
+        pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
+
+    if len(testbed_duts) != specified_duts:
+        duts = specified_duts
+        logger.debug("Different DUTs specified than in testbed file, using {}"
+                    .format(str(duts)))
+
+    return duts
+
+
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -179,7 +225,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo)
+    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
 
 
 @pytest.fixture(scope="session")
@@ -200,16 +246,37 @@ def duthost(duthosts, request):
 
     return duthost
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
     """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    dut_hostnames = generate_params_dut_hostname(duts_in_testbed, tbname)
+    dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
+    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
+    """
+    Return the left duthost after random selection.
+    Return None for non dualtor testbed
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) <= 1:
+        return None
+    idx = dut_hostnames.index(rand_one_dut_hostname)
+    return duthosts[dut_hostnames[1 - idx]]
 
 
 @pytest.fixture(scope="module")
@@ -226,16 +293,6 @@ def rand_one_dut_lossless_prio(request):
         lossless_prio_list = random.sample(lossless_prio_list, 1)
     return lossless_prio_list[0]
 
-@pytest.fixture(scope="module")
-def rand_one_frontend_dut_hostname(request):
-    """
-    """
-    tbname, testbedinfo = get_tbinfo(request)
-    duts_in_testbed = testbedinfo["duts"]
-    frontend_dut_hostnames = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
-    dut_hostnames = random.sample(frontend_dut_hostnames, 1)
-    return dut_hostnames[0]
-
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
     """
@@ -251,6 +308,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(ansible_adhoc, tbinfo, duthost):
+    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+        return None
     if "ptf" in tbinfo:
         return PTFHost(ansible_adhoc, tbinfo["ptf"])
     else:
@@ -318,8 +377,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         for dut_host, value in dev_conn.items():
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
-                fanout_host = fanout_rec['peerdevice']
-                fanout_port = fanout_rec['peerport']
+                fanout_host = str(fanout_rec['peerdevice'])
+                fanout_port = str(fanout_rec['peerport'])
 
                 if fanout_host in fanout_hosts.keys():
                     fanout = fanout_hosts[fanout_host]
@@ -359,6 +418,15 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
         pass
     return fanout_hosts
 
+
+@pytest.fixture(scope="session")
+def vmhost(ansible_adhoc, request, tbinfo):
+    server = tbinfo["server"]
+    inv_files = request.config.option.ansible_inventory
+    vmhost = get_test_server_host(inv_files, server)
+    return VMHost(ansible_adhoc, vmhost.name)
+
+
 @pytest.fixture(scope='session')
 def eos():
     """ read and yield eos configuration """
@@ -375,10 +443,8 @@ def pdu():
         return pdu
 
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
+def creds_on_dut(duthost):
     """ read credential information according to the dut inventory """
-    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
@@ -417,6 +483,19 @@ def creds(duthosts, rand_one_dut_hostname):
 
     return creds
 
+@pytest.fixture(scope="module")
+def creds(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope='module')
+def creds_all_duts(duthosts):
+    creds_all_duts = dict()
+    for duthost in duthosts.nodes:
+        creds_all_duts[duthost] = creds_on_dut(duthost)
+    return creds_all_duts
+
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -446,7 +525,7 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
@@ -611,28 +690,36 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request, duts_in_testbed, tbname):
+def generate_params_frontend_hostname(request):
     frontend_duts = []
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
-    for dut in duts_in_testbed:
+    for dut in duts:
         if is_frontend_node(inv_files, dut):
             frontend_duts.append(dut)
     assert len(frontend_duts) > 0, \
         "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname)
+        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
     return frontend_duts
 
 
-def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, tbname):
-    frontend_hosts = generate_params_frontend_hostname(request, duts_in_testbed, tbname)
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+    hosts = get_specified_duts(request)
+    if frontend_only:
+        hosts = generate_params_frontend_hostname(request)
     inv_files = get_inventory_files(request)
     # Create a list of hosts per hwsku
     host_hwskus = {}
-    for a_host in frontend_hosts:
-        a_host_hwsku = get_host_visible_vars(inv_files, a_host, variable='hwsku')
-        if not a_host_hwsku:
+    for a_host in hosts:
+        host_vars = get_host_visible_vars(inv_files, a_host)
+        a_host_hwsku = None
+        if 'hwsku' in host_vars:
+            a_host_hwsku = host_vars['hwsku']
+        else:
             # Lets try 'sonic_hwsku' as well
-            a_host_hwsku = get_host_visible_vars(inv_files, a_host, variable='sonic_hwsku')
+            if 'sonic_hwsku' in host_vars:
+                a_host_hwsku = host_vars['sonic_hwsku']
         if a_host_hwsku:
             if a_host_hwsku not in host_hwskus:
                 host_hwskus[a_host_hwsku] = [a_host]
@@ -641,56 +728,69 @@ def generate_params_frontend_hostname_rand_per_hwsku(request, duts_in_testbed, t
         else:
             pytest.fail("Test selected require a node per hwsku, but 'hwsku' for '{}' not defined in the inventory".format(a_host))
 
-    frontend_hosts_per_hwsku = []
+    hosts_per_hwsku = []
     for hosts in host_hwskus.values():
         if len(hosts) == 1:
-            frontend_hosts_per_hwsku.append(hosts[0])
+            hosts_per_hwsku.append(hosts[0])
         else:
-            frontend_hosts_per_hwsku.extend(random.sample(hosts, 1))
+            hosts_per_hwsku.extend(random.sample(hosts, 1))
 
-    return frontend_hosts_per_hwsku
+    return hosts_per_hwsku
 
 
-def generate_params_supervisor_hostname(request, duts_in_testbed, tbname):
-    if len(duts_in_testbed) == 1:
+def generate_params_supervisor_hostname(request):
+    duts = get_specified_duts(request)
+    if len(duts) == 1:
         # We have a single node - dealing with pizza box, return it
-        return [duts_in_testbed[0]]
+        return [duts[0]]
     inv_files = get_inventory_files(request)
-    for dut in duts_in_testbed:
+    for dut in duts:
         # Expecting only a single supervisor node
         if is_supervisor_node(inv_files, dut):
             return [dut]
-    pytest.fail("Test selected require a supervisor node, " +
-                "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts_in_testbed, tbname))
+    # If there are no supervisor cards in a multi-dut tesbed, we are dealing with all pizza box in the testbed, pick the first DUT
+    return [duts[0]]
 
+def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
+    _, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_hostnames))
 
-def generate_param_asic_index(request, duts_in_testbed, dut_indices, param_type):
-    logging.info("generating {} asic indices for  DUT [{}] in ".format(param_type, dut_indices))
-    #if the params are not present treat the device as a single asic device
-    asic_index_params = [DEFAULT_ASIC_ID]
-
-    for dut_id in dut_indices:
-        dut = duts_in_testbed[dut_id]
-        inv_data = get_host_data(request, dut)
-        if inv_data is not None:
+    asic_index_params = []
+    for dut in dut_hostnames:
+        inv_data = get_host_visible_vars(inv_files, dut)
+        # if the params are not present treat the device as a single asic device
+        dut_asic_params = [DEFAULT_ASIC_ID]
+        if inv_data:
             if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
-                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
+                    dut_asic_params = [DEFAULT_ASIC_ID]
+                else:
+                    dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
-                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
-            logging.info("dut_index {} dut name {}  asics params = {}".format(
-                dut_id, dut, asic_index_params))
+                dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
+        if random_asic:
+            asic_index_params.append(random.sample(dut_asic_params, 1))
+        else:
+            asic_index_params.append(dut_asic_params)
     return asic_index_params
 
 
-def generate_params_dut_index(duts_in_testbeds, tbname):
-    num_duts = len(duts_in_testbeds)
-    logging.info("Num of duts in testbed '{}' is {}".format(tbname, num_duts))
+def generate_params_dut_index(request):
+    tbname, _ = get_tbinfo(request)
+    num_duts = len(get_specified_duts(request))
+    logging.info("Using {} duts from testbed '{}'".format(num_duts, tbname))
+
     return range(num_duts)
 
 
-def generate_params_dut_hostname(duts_in_testbed, tbname):
-    logging.info("DUTs in testbed '{}' are: {}".format(tbname, str(duts_in_testbed)))
-    return duts_in_testbed
+def generate_params_dut_hostname(request):
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
+    logging.info("Using DUTs {} in testbed '{}'".format(str(duts), tbname))
+
+    return duts
 
 
 def generate_port_lists(request, port_scope):
@@ -797,41 +897,76 @@ def generate_priority_lists(request, prio_scope):
     return ret if ret else empty
 
 _frontend_hosts_per_hwsku_per_module = {}
+_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
-    dut_indices = [0]
-    tbname, testbedinfo = get_tbinfo(metafunc)
-    duts_in_testbed = testbedinfo["duts"]
-    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
-    if "enum_dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(duts_in_testbed, tbname)
-        metafunc.parametrize("enum_dut_index", dut_indices, scope="module")
-    elif "enum_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(duts_in_testbed, tbname)
-        metafunc.parametrize("enum_dut_hostname", dut_hostnames, scope="module")
+    dut_fixture_name = None
+    duts_selected = None
+    global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    # Enumerators for duts are mutually exclusive
+    if "enum_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_dut_hostname(metafunc)
+        dut_fixture_name = "enum_dut_hostname"
     elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
-        supervisor_hosts = generate_params_supervisor_hostname(metafunc, duts_in_testbed, tbname)
-        metafunc.parametrize("enum_supervisor_dut_hostname", supervisor_hosts, scope="module")
+        duts_selected = generate_params_supervisor_hostname(metafunc)
+        dut_fixture_name = "enum_supervisor_dut_hostname"
     elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
-        frontend_hosts = generate_params_frontend_hostname(metafunc, duts_in_testbed, tbname)
-        metafunc.parametrize("enum_frontend_dut_hostname", frontend_hosts, scope="module")
+        duts_selected = generate_params_frontend_hostname(metafunc)
+        dut_fixture_name = "enum_frontend_dut_hostname"
+    elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
+            _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_hostname"
     elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
         if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
-            frontend_hosts_per_hwsku = generate_params_frontend_hostname_rand_per_hwsku(metafunc, duts_in_testbed, tbname)
-            _frontend_hosts_per_hwsku_per_module[metafunc.module] = frontend_hosts_per_hwsku
-        frontend_hosts = _frontend_hosts_per_hwsku_per_module[metafunc.module]
-        metafunc.parametrize("enum_rand_one_per_hwsku_frontend_hostname", frontend_hosts, scope="module")
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
 
-
+    asics_selected = None
+    asic_fixture_name = None
     if "enum_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_frontend_asic_index",
-                             generate_param_asic_index(metafunc, duts_in_testbed, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
+    elif "enum_frontend_asic_index" in metafunc.fixturenames:
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_frontend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected,ASIC_PARAM_TYPE_FRONTEND)
+    elif "enum_rand_one_asic_index" in metafunc.fixturenames:
+        if duts_selected is None:
+            tbname, tbinfo = get_tbinfo(metafunc)
+            duts_selected = [tbinfo["duts"][0]]
+        asic_fixture_name = "enum_rand_one_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+
+    # Create parameterization tuple of dut_fixture_name and asic_fixture_name to parameterize
+    if dut_fixture_name and asic_fixture_name:
+        # parameterize on both - create tuple for each
+        tuple_list = []
+        for a_dut_index, a_dut in enumerate(duts_selected):
+            for a_asic in asics_selected[a_dut_index]:
+                # Create tuple of dut and asic index
+                tuple_list.append((a_dut, a_asic))
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
+    elif dut_fixture_name:
+        # parameterize only on DUT
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
+    elif asic_fixture_name:
+        # We have no duts selected, so need asic list for the first DUT
+        metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module")
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -867,3 +1002,19 @@ def duthost_console(localhost, creds, request):
                        console_password=creds['console_password'][vars['console_type']])
     yield host
     host.disconnect()
+
+@pytest.fixture(scope='session')
+def cleanup_cache_for_session(request):
+    """
+    This fixture allows developers to cleanup the cached data for all DUTs in the testbed before test.
+    Use cases:
+      - Running tests where some 'facts' about the DUT that get cached are changed.
+      - Running tests/regression without running test_pretest which has a test to clean up cache (PR#2978)
+      - Test case development phase to work out testbed information changes.
+
+    This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    cache.cleanup(zone=tbname)
+    for a_dut in tbinfo['duts']:
+        cache.cleanup(zone=a_dut)

@@ -9,8 +9,9 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -107,6 +108,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         port_channel_members, vlan_members, rif_members, dut_to_ptf_port_map, neighbor_sniff_ports, vlans, mg_facts
     """
     duthost = duthosts[rand_one_dut_hostname]
+    intf_per_namespace = {}
     port_channel_members = {}
     vlan_members = {}
     configured_vlans = []
@@ -114,6 +116,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
 
     if tbinfo["topo"]["type"] == "ptf":
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
+
+    #Gather interface facts per asic
+    for ns in duthost.get_asic_namespace_list():
+        intf_per_namespace[ns if ns is not DEFAULT_NAMESPACE else ''] = duthost.interface_facts(namespace=ns)['ansible_facts']['ansible_interface_facts']
 
     # Gather ansible facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -127,7 +133,6 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
             vlan_members[iface] = vlan_id
 
     rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
-
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
@@ -143,7 +148,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         "dut_to_ptf_port_map": mg_facts["minigraph_ptf_indices"],
         "neighbor_sniff_ports": neighbor_sniff_ports,
         "vlans": configured_vlans,
-        "mg_facts": mg_facts
+        "mg_facts": mg_facts,
+        "intf_per_namespace": intf_per_namespace
     }
     return setup_information
 
@@ -195,6 +201,7 @@ def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports)
     """
     Return:
         dut_iface - DUT interface name expected to receive packtes from PTF
+        asic_index - asic which owns the dut_iface, significant on a multi-asic platform.
         ptf_tx_port_id - Port ID used by PTF for sending packets from expected PTF interface
         dst_mac - DUT interface destination MAC address
         src_mac - PTF interface source MAC address
@@ -202,8 +209,17 @@ def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports)
     duthost = duthosts[rand_one_dut_hostname]
     data = {}
     data["dut_iface"] = random.choice(tx_dut_ports.keys())
+    # Check which asic owns this interface
+    for ns in duthost.get_asic_namespace_list():
+        if data["dut_iface"] in setup['intf_per_namespace'][ns if ns is not DEFAULT_NAMESPACE else '']:
+            break
+
+    # Get the asic index
+    asic_index = duthost.get_asic_id_from_namespace(ns)
+    data["asic_index"] = asic_index
+
     data["ptf_tx_port_id"] = setup["dut_to_ptf_port_map"][data["dut_iface"]]
-    data["dst_mac"] = duthost.get_dut_iface_mac(data["dut_iface"])
+    data["dst_mac"] = setup['intf_per_namespace'][ns if ns is not DEFAULT_NAMESPACE else ''][data["dut_iface"]]['macaddress']
     data["src_mac"] = ptfadapter.dataplane.ports[(0, data["ptf_tx_port_id"])].mac()
     return data
 
@@ -442,6 +458,8 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Create a packet with source IP address in class E.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop SIP class E packets")
 
     ip_list = ["240.0.0.1", "255.255.255.254"]
 
@@ -513,6 +531,8 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Create a packet with link-local address "169.254.0.0/16".
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop DIP link local packets")
 
     link_local_ip = "169.254.10.125"
 

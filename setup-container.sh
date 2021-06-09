@@ -21,10 +21,11 @@ function setup_local_image() {
     chmod 600 $tmpdir/id_rsa
 
     cat <<EOF > $tmpdir/Dockerfile.j2
-FROM {{ DOCKER_REGISTRY }}/{{ DOCKER_SONIC_MGMT }}
+FROM {{ IMAGE_ID }}
 
-RUN sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
-RUN sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }}
+RUN if sudo grep -q g{{ GROUPNAME }} /etc/group; then sudo groupmod g{{ GROUPNAME }} -n {{ GROUPNAME }};fi
+RUN sudo grep -q {{ GROUPNAME }} /etc/group || sudo groupadd -g {{ GROUPID }} {{ GROUPNAME }}
+RUN if sudo grep -q {{ USERNAME }} /etc/passwd; then sudo usermod {{ USERNAME }} -m -d /home/{{ USERNAME }};else sudo useradd --shell /bin/bash -u {{ USERID }} -g {{ GROUPID }} -d /home/{{ USERNAME }} {{ USERNAME }};fi
 
 RUN sudo sed -i "$ a {{ USERNAME }} ALL=(ALL) NOPASSWD:ALL" /etc/sudoers
 
@@ -35,13 +36,13 @@ USER {{ USERNAME }}
 ADD --chown={{ USERNAME }} id_rsa /home/{{ USERNAME }}/.ssh/id_rsa
 
 ENV HOME=/home/{{ USERNAME }}
+ENV USER {{ USERNAME }}
 WORKDIR $HOME
 
 EOF
 
     cat <<EOF > $tmpdir/data.env
-DOCKER_SONIC_MGMT=$DOCKER_SONIC_MGMT
-DOCKER_REGISTRY=$DOCKER_REGISTRY
+IMAGE_ID=$IMAGE_ID
 GROUPID=$HOST_GROUP_ID
 USERID=$HOST_USER_ID
 GROUPNAME=$USER

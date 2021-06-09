@@ -1,5 +1,6 @@
 import json
 import logging
+import tempfile
 from datetime import datetime
 
 import pytest
@@ -11,7 +12,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
-from tests.common.plugins.fib import generate_routes
 
 logger = logging.getLogger(__name__)
 
@@ -22,125 +22,145 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def get_uplink_ports(topology, topo_type):
-
-    uplink_ports = []
-    if topo_type == "t0":
-        for k, v in topology["VMs"].items():
-            if "T1" in k:
-                uplink_ports.append("[{}]".format(" ".join([str(vlan) for vlan in v["vlans"]])))
-    elif topo_type == "t1":
-        for k, v in topology["VMs"].items():
-            if "T2" in k:
-                uplink_ports.append("[{}]".format(" ".join([str(vlan) for vlan in v["vlans"]])))
-    return uplink_ports
-
-
-def get_downlink_ports(topology, topo_type):
-    downlink_ports = []
-    if topo_type == "t0":
-        if "host_interfaces" in topology:
-            for intf in topology["host_interfaces"]:
-                downlink_ports.append("[{}]".format(intf))
-        if "disabled_host_interfaces" in topology:
-            for intf in topology["disabled_host_interfaces"]:
-                downlink_ports.remove("[{}]".format(intf))
-    elif topo_type == "t1":
-        for k, v in topology["VMs"].items():
-            if "T0" in k:
-                downlink_ports.append("[{}]".format(" ".join([str(vlan) for vlan in v["vlans"]])))
-    return downlink_ports
+@pytest.fixture(scope='module')
+def config_facts(duthosts):
+    cfg_facts = {}
+    for duthost in duthosts:
+        cfg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
+            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+    return cfg_facts
 
 
-def gen_fib_info(ptfhost, tbinfo, cfg_facts):
+@pytest.fixture(scope='module')
+def minigraph_facts(duthosts, tbinfo):
+    return duthosts.get_extended_minigraph_facts(tbinfo)
 
-    topo_type = tbinfo["topo"]["type"]
-    topology = tbinfo["topo"]["properties"]["topology"]
+def get_fib_info(duthost, cfg_facts, mg_facts):
+    """Get parsed FIB information from redis DB.
 
-    # uplink ports
-    uplink_ports_str = " ".join(get_uplink_ports(topology, topo_type))
+    Args:
+        duthost (SonicHost): Object for interacting with DUT.
+        cfg_facts (dict): Configuration facts.
+        mg_facts (dict): Minigraph facts.
 
-    # downlink ports
-    downlink_ports_str = " ".join(get_downlink_ports(topology, topo_type))
+    Returns:
+        dict: Map of prefix to PTF ports that are connected to DUT output ports.
+            {
+                '192.168.0.0/21': [],
+                '192.168.8.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                '192.168.16.0/25': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+                '20c0:c2e8:0:80::/64': [[58 59] [62 63] [66 67] [70 71]],
+                '20c1:998::/64': [[58 59] [62 63] [66 67] [70 71]],
+                ...
+            }
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    fib_info = {}
+    for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
 
-    fibs = []
-    common_config_topo = tbinfo['topo']['properties']['configuration_properties']['common']
-    podset_number = 5  # Limit the number of podsets to limit test execution time
-    tor_number = common_config_topo.get("tor_number", 16)
-    tor_subnet_number = common_config_topo.get("tor_subnet_number", 2)
-    max_tor_subnet_number = common_config_topo.get("max_tor_subnet_number", 16)
-    tor_subnet_size = common_config_topo.get("tor_subnet_size", 128)
+        asic = duthost.asic_instance(asic_index)
 
-    # routes to uplink
-    routes_uplink_v4 = []
-    routes_uplink_v6 = []
-    if topo_type == "t0":
-        routes_uplink_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number)
-        routes_uplink_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number)
-    elif topo_type == "t1":
-        routes_uplink_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
-                                            router_type="spine")
-        routes_uplink_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                            0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
-                                            router_type="spine")
+        asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
+        duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-    for prefix, _, _ in routes_uplink_v4:
-        fibs.append("{} {}".format(prefix, uplink_ports_str))
-    for prefix, _, _ in routes_uplink_v6:
-        fibs.append("{} {}".format(prefix, uplink_ports_str))
-
-    routes_downlink_v4 = []
-    routes_downlink_v6 = []
-    if topo_type == "t1":
-        for tor_index in range(tor_number):
-            routes_downlink_v4.extend(generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                      0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
-                                      router_type="tor", tor_index=tor_index))
-
-            routes_downlink_v6.extend(generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                      0, 0, 0, "", "", tor_subnet_size, max_tor_subnet_number,
-                                      router_type="tor", tor_index=tor_index))
-
-    for prefix, _, _ in routes_downlink_v4:
-        fibs.append("{} {}".format(prefix, downlink_ports_str))
-    for prefix, _, _ in routes_downlink_v6:
-        fibs.append("{} {}".format(prefix, downlink_ports_str))
-
-    ptfhost.copy(content="\n".join(fibs), dest="/root/fib_info.txt")
+        po = asic_cfg_facts.get('PORTCHANNEL', {})
+        ports = asic_cfg_facts.get('PORT', {})
 
 
-def prepare_ptf(ptfhost, tbinfo, cfg_facts):
+        with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
+            fib = json.load(fp)
+            for k, v in fib.items():
+                skip = False
 
-    gen_fib_info(ptfhost, tbinfo, cfg_facts)
+                prefix = k.split(':', 1)[1]
+                ifnames = v['value']['ifname'].split(',')
+                nh = v['value']['nexthop']
+
+                oports = []
+                for ifname in ifnames:
+                    if po.has_key(ifname):
+                        # ignore the prefix, if the prefix nexthop is not a frontend port
+                        if 'members' in po[ifname]:
+                            if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                skip = True
+                            else:
+                                oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                    else:
+                        if ports.has_key(ifname):
+                            if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                                skip = True
+                            else:
+                                oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                        else:
+                            logger.info("Route point to non front panel port {}:{}".format(k, v))
+                            skip = True
+
+                # skip direct attached subnet
+                if nh == '0.0.0.0' or nh == '::' or nh == "":
+                    skip = True
+
+                if not skip:
+                    if prefix in fib_info:
+                        fib_info[prefix] += oports
+                    else:
+                        fib_info[prefix] = oports
+    return fib_info
+
+
+def gen_fib_info_file(ptfhost, fib_info, filename):
+    tmp_fib_info = tempfile.NamedTemporaryFile()
+    for prefix, oports in fib_info.items():
+        tmp_fib_info.write(prefix)
+        if oports:
+            for op in oports:
+                tmp_fib_info.write(' [{}]'.format(' '.join(op)))
+        else:
+            tmp_fib_info.write(' []')
+        tmp_fib_info.write('\n')
+    tmp_fib_info.flush()
+    ptfhost.copy(src=tmp_fib_info.name, dest=filename)
+
+
+def prepare_ptf(duthost, ptfhost, cfg_facts, mg_facts):
+    fib_info = get_fib_info(duthost, cfg_facts, mg_facts)
+    gen_fib_info_file(ptfhost, fib_info, FIB_INFO_DEST)
 
 
 @pytest.fixture(scope="module")
-def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
+def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, config_facts, minigraph_facts):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Initialize parameters
-    dscp_mode = "pipe"
+    if "201811" in duthost.os_version or "201911" in duthost.os_version:
+        dscp_mode = "pipe"
+    else:
+        dscp_mode = "uniform"
+
     ecn_mode = "copy_from_outer"
     ttl_mode = "pipe"
 
     # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthost.host.options["variable_manager"]._hostvars[duthost.hostname]
-    sonic_hwsku = duthost.facts["hwsku"]
-    mellanox_hwskus = hostvars["mellanox_hwskus"]
+    sonic_hwsku = duthost.sonichost.facts["hwsku"]
+    mellanox_hwskus = hostvars.get("mellanox_hwskus", [])
 
     if sonic_hwsku in mellanox_hwskus:
         dscp_mode = "uniform"
         ecn_mode = "standard"
 
     # Gather some facts
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
+    cfg_facts = config_facts[duthost.hostname]
+    mg_facts  = minigraph_facts[duthost.hostname]
 
     lo_ip = None
     lo_ipv6 = None
-    for addr in cfg_facts["LOOPBACK_INTERFACE"]["Loopback0"]:
+    # Loopback0 ip is same on all asic
+    for addr in cfg_facts[0]["LOOPBACK_INTERFACE"]["Loopback0"]:
         ip = IPNetwork(addr).ip
         if ip.version == 4 and not lo_ip:
             lo_ip = ip
@@ -150,8 +170,8 @@ def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
 
     vlan_ip = None
     vlan_ipv6 = None
-    if "VLAN_INTERFACE" in cfg_facts:
-        for addr in cfg_facts["VLAN_INTERFACE"]["Vlan1000"]:
+    if "VLAN_INTERFACE" in cfg_facts[0]:
+        for addr in cfg_facts[0]["VLAN_INTERFACE"]["Vlan1000"]:
             ip = IPNetwork(addr).ip
             if ip.version == 4 and not vlan_ip:
                 vlan_ip = ip
@@ -184,18 +204,24 @@ def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         "dscp_mode": dscp_mode,
         "ecn_mode": ecn_mode,
         "ttl_mode": ttl_mode,
+        "ignore_ttl": True if duthost.sonichost.is_multi_asic else False,
+        "max_internal_hops": 3 if duthost.sonichost.is_multi_asic else 0,
     }
 
-    duthost.copy(content=decap_conf_template.render(**decap_conf_vars), dest="/tmp/decap_conf.json")
-    duthost.shell("docker cp /tmp/decap_conf.json swss:/decap_conf.json")
-    duthost.shell('docker exec swss sh -c "swssconfig /decap_conf.json"')
+    duthost.copy(content=decap_conf_template.render(
+        **decap_conf_vars), dest="/tmp/decap_conf.json")
+    for asic_id in duthost.get_frontend_asic_ids():
+        duthost.shell("docker cp /tmp/decap_conf.json swss{}:/decap_conf.json"
+                      .format(asic_id if asic_id is not None else ""))
+        duthost.shell('docker exec swss{} sh -c "swssconfig /decap_conf.json"'
+                      .format(asic_id if asic_id is not None else ""))
 
     # Prepare PTFf docker
-    prepare_ptf(ptfhost, tbinfo, cfg_facts)
+    prepare_ptf(duthost, ptfhost, cfg_facts, mg_facts)
 
     setup_info = {
         "src_ports": ",".join([str(port) for port in src_ports]),
-        "router_mac": cfg_facts["DEVICE_METADATA"]["localhost"]["mac"],
+        "router_mac": cfg_facts[0]["DEVICE_METADATA"]["localhost"]["mac"],
         "vlan_ip": str(vlan_ip) if vlan_ip else "",
         "vlan_ipv6": str(vlan_ipv6) if vlan_ipv6 else "",
     }
@@ -206,9 +232,13 @@ def setup_teardown(request, tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
 
     # Remove decap configuration
     decap_conf_vars["op"] = "DEL"
-    duthost.copy(content=decap_conf_template.render(**decap_conf_vars), dest="/tmp/decap_conf.json")
-    duthost.shell("docker cp /tmp/decap_conf.json swss:/decap_conf.json")
-    duthost.shell('docker exec swss sh -c "swssconfig /decap_conf.json"')
+    duthost.copy(content=decap_conf_template.render(
+        **decap_conf_vars), dest="/tmp/decap_conf.json")
+    for asic_id in duthost.get_frontend_asic_ids():
+        duthost.shell("docker cp /tmp/decap_conf.json swss{}:/decap_conf.json"
+                      .format(asic_id if asic_id is not None else ""))
+        duthost.shell('docker exec swss{} sh -c "swssconfig /decap_conf.json"'
+                      .format(asic_id if asic_id is not None else ""))
 
 
 def test_decap(setup_teardown, tbinfo, ptfhost):
@@ -233,6 +263,8 @@ def test_decap(setup_teardown, tbinfo, ptfhost):
                         "ttl_mode": setup_info["ttl_mode"],
                         "src_ports": setup_info["src_ports"],
                         "router_mac": setup_info["router_mac"],
+                        "ignore_ttl": setup_info["ignore_ttl"],
+                        "max_internal_hops": setup_info["max_internal_hops"],
                         "fib_info": FIB_INFO_DEST,
                         },
                 qlen=PTFRUNNER_QLEN,

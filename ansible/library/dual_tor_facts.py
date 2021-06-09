@@ -33,19 +33,26 @@ class DualTorParser:
         '''
         Parses the IPv4 and IPv6 loopback IPs for the DUTs
 
-        Similar to `parse_tor_position`, the ToR which comes first alphabetically is always assigned the first IP
+        Similar to `parse_tor_position`, the ToR which comes first in the testbed file is always assigned the first IP
         '''
 
         loopback_ips = defaultdict(dict)
+        addl_loopback_ips = defaultdict(dict)
 
-        ipv4_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv4'])
-        ipv6_loopbacks = sorted(self.vm_config['DUT']['loopback']['ipv6'])
+        for dut_num, dut in enumerate(self.testbed_facts['duts']):
+            loopback_ips[dut]['ipv4'] = self.vm_config['DUT']['loopback']['ipv4'][dut_num]
+            loopback_ips[dut]['ipv6'] = self.vm_config['DUT']['loopback']['ipv6'][dut_num] 
 
-        for i, dut in enumerate(sorted(self.testbed_facts['duts'])):
-            loopback_ips[dut]['ipv4'] = ipv4_loopbacks[i]
-            loopback_ips[dut]['ipv6'] = ipv6_loopbacks[i] 
+            for loopback_num in range(1, 4): # Generate two additional loopback IPs, Loopback1, Loopback2, and Loopback3
+                loopback_key = 'loopback{}'.format(loopback_num)
+                loopback_dict = {}
+                loopback_dict['ipv4'] = self.vm_config['DUT'][loopback_key]['ipv4'][dut_num]
+                loopback_dict['ipv6'] = self.vm_config['DUT'][loopback_key]['ipv6'][dut_num]
+                loopback_dict['host_ip_base_index'] = loopback_num * 2
+                addl_loopback_ips[dut][loopback_num] = loopback_dict
 
-        self.dual_tor_facts['loopback'] = loopback_ips     
+        self.dual_tor_facts['loopback'] = loopback_ips 
+        self.dual_tor_facts['addl_loopbacks'] = addl_loopback_ips
 
     def generate_cable_names(self):
         cables = []

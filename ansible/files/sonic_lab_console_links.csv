@@ -1,0 +1,4 @@
+StartDevice,StartPort,EndDevice
+console-1,10,str-msn2700-01
+console-1,11,str-7260-10
+console-1,12,str-7260-11
