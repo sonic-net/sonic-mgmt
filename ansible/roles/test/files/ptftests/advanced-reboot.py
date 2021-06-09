@@ -64,6 +64,7 @@ import scapy.all as scapyall
 import itertools
 from device_connection import DeviceConnection
 import multiprocessing
+import ast
 
 from arista import Arista
 import sad_path as sp
@@ -505,7 +506,7 @@ class ReloadTest(BaseTest):
     def setUp(self):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
-        self.vlan_ip_range = json.loads(self.test_params['vlan_ip_range'])
+        self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
