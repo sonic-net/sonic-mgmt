@@ -98,6 +98,8 @@ class FilterPktBuffer(object):
         self.masked_exp_pkt = mask.Mask(self.pkt)
         self.pkt_dict = convert_pkt_to_dict(self.pkt)
 
+        self.__ignore_fields()
+
 
     def __ignore_fields(self):
         """
@@ -208,7 +210,6 @@ class FilterPktBuffer(object):
         self.received_pkt = self.__find_pkt_in_buffer()
 
         if self.received_pkt:
-            self.__ignore_fields()
             return self.masked_exp_pkt.pkt_match(self.received_pkt) or self._diff_between_pkt(self.received_pkt)
 
         return False
