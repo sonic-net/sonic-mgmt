@@ -12,6 +12,7 @@ import ptf.packet as packet
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import get_inventory_files
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -45,7 +46,9 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
                 module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
-                fanout = module.FanoutHandler(duthost, localhost)
+                fanout = module.FanoutHandler(duthost, localhost, get_inventory_files(request))
+                if not fanout.is_mellanox:
+                    fanout = None
                 break
 
     yield fanout
