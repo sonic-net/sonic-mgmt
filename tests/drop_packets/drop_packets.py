@@ -9,9 +9,10 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import get_inventory_files
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -45,7 +46,9 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
             # Import fanout configuration handler based on vendor name
             if "mellanox" in file_name:
                 module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
-                fanout = module.FanoutHandler(duthost, localhost)
+                fanout = module.FanoutHandler(duthost, localhost, get_inventory_files(request))
+                if not fanout.is_mellanox:
+                    fanout = None
                 break
 
     yield fanout
@@ -458,6 +461,8 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Create a packet with source IP address in class E.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop SIP class E packets")
 
     ip_list = ["240.0.0.1", "255.255.255.254"]
 
@@ -529,6 +534,8 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Create a packet with link-local address "169.254.0.0/16".
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop DIP link local packets")
 
     link_local_ip = "169.254.10.125"
 

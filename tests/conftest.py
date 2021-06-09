@@ -49,7 +49,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan')
+                  'tests.vxlan',
+                  'tests.common.plugins.allure_server')
 
 
 def pytest_addoption(parser):
@@ -524,7 +525,7 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
@@ -964,6 +965,8 @@ def pytest_generate_tests(metafunc):
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module")
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:

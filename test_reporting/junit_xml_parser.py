@@ -29,6 +29,8 @@ import os
 
 from collections import defaultdict
 from datetime import datetime
+from utilities import TestResultJSONValidationError
+from utilities import validate_json_file
 
 import defusedxml.ElementTree as ET
 
@@ -77,10 +79,6 @@ REQUIRED_TESTCASE_JSON_FIELDS = ["result", "error", "summary"]
 
 class JUnitXMLValidationError(Exception):
     """Expected errors that are thrown while validating the contents of the JUnit XML file."""
-
-
-class TestResultJSONValidationError(Exception):
-    """Expected errors that are trhown while validating the contents of the Test Result JSON file."""
 
 
 def validate_junit_xml_stream(stream):
@@ -458,19 +456,7 @@ def validate_junit_json_file(path):
             - The provided file is unparseable
             - The provided file is missing required fields
     """
-    if not os.path.exists(path):
-        print(f"{path} not found")
-        sys.exit(1)
-
-    if not os.path.isfile(path):
-        print(f"{path} is not a JSON file")
-        sys.exit(1)
-
-    try:
-        with open(path) as f:
-            test_result_json = json.load(f)
-    except Exception as e:
-        raise TestResultJSONValidationError(f"Could not load JSON file {path}: {e}") from e
+    test_result_json = validate_json_file(path)
 
     _validate_json_metadata(test_result_json)
     _validate_json_summary(test_result_json)

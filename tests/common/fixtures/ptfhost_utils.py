@@ -172,27 +172,29 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
-    if tbinfo['topo']['type'] == 't0':
-        logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
-        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
-
-        logging.info("Start running icmp_responder")
-        templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
-        ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-        vlan_intfs = duthost.get_vlan_intfs()
-        vlan_table = duthost.get_running_config_facts()['VLAN']
-        vlan_name = list(vlan_table.keys())[0]
-        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
-        icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
-        icmp_responder_args += " " + "-m {}".format(vlan_mac)
-        ptfhost.copy(
-            content=templ.render(icmp_responder_args=icmp_responder_args),
-            dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
-        )
-        ptfhost.shell("supervisorctl update")
-        ptfhost.shell("supervisorctl start icmp_responder")
-    else:
+    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+    logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+
+    logging.info("Start running icmp_responder")
+    templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+    vlan_intfs = duthost.get_vlan_intfs()
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
+    icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    ptfhost.copy(
+        content=templ.render(icmp_responder_args=icmp_responder_args),
+        dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
+    )
+    ptfhost.shell("supervisorctl update")
+    ptfhost.shell("supervisorctl start icmp_responder")
 
     yield
 
