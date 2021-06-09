@@ -267,7 +267,7 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
         dut_ports, ptf_ports = get_port(duthost, ptfhost, 1, port_type, dut_ports.values())
 
     # Get additional IP addresses for configuration of RIF on the DUT and PTF
-    subnet = ipaddress.ip_network(str(define_sub_ports_configuration['subnet'].broadcast_address + 1) + u'/24')
+    subnet = ipaddress.ip_network(str(subnet.broadcast_address + 1) + u'/24')
     subnets = [i for i, _ in zip(subnet.subnets(new_prefix=30), dut_ports)]
 
     sub_ports_keys = sub_ports.copy()
