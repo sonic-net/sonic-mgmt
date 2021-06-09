@@ -2,7 +2,6 @@
 import json
 import os
 import tempfile
-import uuid
 
 from abc import ABC, abstractmethod
 from azure.kusto.data import KustoConnectionStringBuilder
@@ -15,6 +14,7 @@ except ImportError:
 from azure.kusto.ingest import IngestionProperties
 from azure.kusto.ingest import DataFormat
 
+from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
 
@@ -30,7 +30,7 @@ class ReportDBConnector(ABC):
     """
 
     @abstractmethod
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "") -> None:
+    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -38,6 +38,7 @@ class ReportDBConnector(ABC):
             external_tracking_id: An identifier that a client can use to map a test report
                 to some external system of their choosing (e.g. Jenkins, Travis CI, JIRA, etc.).
                 This id does not have to be unique.
+            report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
         pass
 
@@ -58,6 +59,14 @@ class ReportDBConnector(ABC):
             pdu_status_output: A list of PDU status results from devutils.
         """
 
+    @abstractmethod
+    def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
+        """Upload reboot test report to the back-end data store.
+
+        Args:
+            path_name: Path to reboot report/summary file
+            report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
+        """
 
 class KustoConnector(ReportDBConnector):
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
@@ -67,13 +76,17 @@ class KustoConnector(ReportDBConnector):
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
+    RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
+    REBOOT_TIMING_TABLE = "RebootTimingData"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
-        RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON
+        RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
+        RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
+        REBOOT_TIMING_TABLE: DataFormat.MULTIJSON
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -81,7 +94,9 @@ class KustoConnector(ReportDBConnector):
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
-        RAW_PDU_STATUS_TABLE: "RawPduStatusMapping"
+        RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
+        RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
+        REBOOT_TIMING_TABLE: "RebootTimingDataMapping"
     }
 
     def __init__(self, db_name: str):
@@ -106,7 +121,7 @@ class KustoConnector(ReportDBConnector):
                                                                                     tenant_id)
         self._ingestion_client = KustoIngestClient(kcsb)
 
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "") -> None:
+    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -114,9 +129,8 @@ class KustoConnector(ReportDBConnector):
             external_tracking_id: An identifier that a client can use to map a test report
                 to some external system of their choosing (e.g. Jenkins, Travis CI, JIRA, etc.).
                 This id does not have to be unique.
+            report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
-        report_guid = str(uuid.uuid4())
-
         self._upload_metadata(report_json, external_tracking_id, report_guid)
         self._upload_summary(report_json, report_guid)
         self._upload_test_cases(report_json, report_guid)
@@ -144,6 +158,18 @@ class KustoConnector(ReportDBConnector):
 
         pdu_status_data = {"data": pdu_output}
         self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
+
+    def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
+        reboot_timing_data = {
+            "id": report_guid
+        }
+        reboot_timing_dict = validate_json_file(path_name)
+        reboot_timing_data.update(reboot_timing_dict)
+        print("Uploading {} report with contents: {}".format(path_name, reboot_timing_data))
+        if "reboot_summary" in path_name:
+            self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
+        elif "reboot_report" in path_name:
+             self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {

@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import uuid
 
 from junit_xml_parser import (
     validate_junit_json_file,
@@ -35,16 +36,18 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     kusto_db = KustoConnector(args.db_name)
 
     if args.category == "test_result":
+        tracking_id = args.external_id if args.external_id else ""
+        report_guid = str(uuid.uuid4())
         for path_name in args.path_list:
-            if args.json:
-                test_result_json = validate_junit_json_file(path_name)
+            if "reboot_summary" in path_name or "reboot_report" in path_name:
+                kusto_db.upload_reboot_report(path_name, report_guid)
             else:
-                roots = validate_junit_xml_path(path_name)
-                test_result_json = parse_test_result(roots)
-
-            tracking_id = args.external_id if args.external_id else ""
-
-            kusto_db.upload_report(test_result_json, tracking_id)
+                if args.json:
+                    test_result_json = validate_junit_json_file(path_name)
+                else:
+                    roots = validate_junit_xml_path(path_name)
+                    test_result_json = parse_test_result(roots)
+                kusto_db.upload_report(test_result_json, tracking_id, report_guid)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:
