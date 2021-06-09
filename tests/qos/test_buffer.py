@@ -505,6 +505,8 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
                     else:
                         pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
                                       "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
+        else:
+            logging.info("Skip headroom checking because headroom information is not provided for speed {}".format(speed))
 
     profiles_in_asicdb = set(duthost.shell('redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
     diff = profiles_in_asicdb - initial_profiles
@@ -1497,7 +1499,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
     """The test case for auto negotiation enabled ports
 
     For those ports, the speed which is taken into account for buffer calculating is no longer the configure speed but
-        - The maximum supported speed if auto negotiation is enabled and advertised-speeds is not configured
+        - The maximum supported speed if advertised-speeds is not configured
         - The maximum advertised speed otherwise
 
     Args:
@@ -1522,16 +1524,6 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         speed_list = natsorted(speed_list_str.split(','))
         return speed_list[-1]
 
-    def _construct_speed_list_str(speed_list):
-        speed_list_str = ''
-        for speed in speed_list:
-            if speed_list_str:
-                speed_list_str += ',' + speed
-            else:
-                speed_list_str = speed
-
-        return speed_list_str
-
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
     if not supported_speeds:
@@ -1548,7 +1540,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
     supported_speeds_list = natsorted(supported_speeds.split(','))
     speed_before_test = supported_speeds_list[0]
     cable_length_to_test = '15m'
-    advertised_speeds_to_test = _construct_speed_list_str(supported_speeds_list[:-1])
+    advertised_speeds_to_test = ','.join(supported_speeds_list[:-1])
     max_advertised_speed = _get_max_speed_from_list(advertised_speeds_to_test)
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
