@@ -99,6 +99,7 @@ show_platform_idprom.tmpl, .*, sonic, show platform idprom
 show_platform_temperature.tmpl, .*, sonic, show platform temperature
 show_platform_fan.tmpl, .*, sonic, show platform fan
 show_platform_inventory.tmpl, .*, sonic, show platform inventory
+show_platform_ssdhealth.tmpl, .*, sonic, show platform ssdhealth
 show_interfaces_status.tmpl, .*, sonic, show interfaces status
 show_bgp_ipv4_prefix.tmpl, .*, sonic, show bgp ipv4\s*([\d\.\/]+)
 show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp.*ipv4 neighbor.*
@@ -175,7 +176,7 @@ show_route_map.tmpl, .*, sonic, show route-map .*
 show_bgp_neighbor.tmpl, .*,  sonic, show bgp neighbor.*
 show_uptime.tmpl, .*, sonic, show uptime
 show_ecn.tmpl, .*, sonic, show ecn
-show_environment.tmpl, .*, sonic, show environment
+show_environment_new.tmpl, .*, sonic, show environment
 show_reboot-cause.tmpl, .*, sonic, show reboot-cause
 show_pfc_counters.tmpl, .*, sonic, show pfc counters
 show_spanning_tree_vlan_interface.tmpl, .*, sonic, show spanning-tree vlan interface

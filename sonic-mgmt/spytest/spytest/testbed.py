@@ -1172,6 +1172,18 @@ class Testbed(object):
                 return dinfo.build_commit_hash
         return None
 
+    def get_build_time(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.build_time
+        return None
+
+    def get_sdk_version(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.sdk_version
+        return None
+
     def get_username(self,dut1):
         for dut, dinfo in self.topology.devices.items():
             if dut1 == dut:

@@ -227,6 +227,22 @@ def get_build_commit_hash(dut):
     """
     return getwa().get_build_commit_hash(dut)
 
+def get_build_time(dut):
+    """
+    returns the build type as a string
+    :return: build time  string 
+    :rtype: str
+    """
+    return getwa().get_build_time(dut)
+
+def get_sdk_version(dut):
+    """
+    returns the sdk version as a string
+    :return: sdk version string 
+    :rtype: str
+    """
+    return getwa().get_sdk_version(dut)
+
 def get_username(dut):
     """
     returns the username as a string

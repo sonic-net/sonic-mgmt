@@ -3,6 +3,7 @@ import os
 import re
 import ast
 import datetime
+import yaml
 
 from spytest import st
 from spytest.utils import filter_and_select
@@ -193,6 +194,19 @@ def get_platform_summary(dut, value=None):
         return output[0]
     return output
 
+def get_platform_ssdhealth(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform ssdhealth of the device.
+    :param dut:
+    :param value:  devicemodel | health | temperature
+    :return:
+    """
+    output = st.show(dut, "show platform ssdhealth")
+    if output:
+        return output[0]
+    return output
+    
 def get_platform_idprom(dut, value=None):
     """
     Author: Deekshitha Kankanala (dkankana@cisco.com)
@@ -331,8 +345,29 @@ def get_show_system_memory(dut, value=None):
     output = st.show(dut, "show system-memory")
     if len(output) <= 0 :
         return None
-    return output[0]  
+    return output[0]
 
+def apply_install(dut, image_name):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to apply "sonic-installer install xxxxx.bin"
+    :param dut: dut
+    :param image_name: value
+    :return
+    """
+    cmd = "sonic-installer install -y "+image_name
+    output = st.config(dut, cmd)
+    return output
+
+def shutdown_dut(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to apply "shutdown -r now"
+    :param dut: dut
+    """
+    cmd = "shutdown -r now"
+    output = st.config(dut, cmd)
+    return output
 
 def get_show_services(dut, value=None):
     """
@@ -343,6 +378,17 @@ def get_show_services(dut, value=None):
     :return:
     """
     output = st.show(dut, "show services")
+    return output
+
+def get_show_environment(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show environment
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show environment")
     return output
 
 def enable_show_mgmt_vrf(dut, value=None):
@@ -688,7 +734,7 @@ def verify_file_on_device(connection_obj, client_path, file_name="client.pem", d
     :param client_path:
     :param file_name:
     :param device:
-    :return:
+    :return: 
     """
     path = "{}/{}".format(client_path, file_name)
     command = '[ -f {} ] && echo 1 || echo 0'.format(path)
@@ -2596,58 +2642,21 @@ def flush_iptable(dut):
 def execute_linux_cmd(dut, cmd):
     st.show(dut, cmd, skip_tmpl=True)
 
-def get_redis_cli_interface(dut):
-    command = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
-    output = st.show(dut, command)
-    return output
-
-def get_redis_cli_interface_dom_sensors(dut):
-    command = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
-    output = st.show(dut, command)
-    return output
-
-def get_redis_int_dom(dut, number):
-    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_DOM_SENSOR|Ethernet{}'".format(number)
-    output = st.show(dut, command)
-    return output
-
-def valueComparisions(minimum,value,maximum):
-    print(minimum,value,maximum)
-    print(float(minimum),float(value),float(maximum))
-    if float(minimum) < float(value) < float(maximum):
-        return True
-    else:
-        return False
-
-def processRedisData(redisDomDetails):
-    for element in redisDomDetails:
-        temperature = element['temperature']
-        voltage = element['voltage']
-        temphighwarning = element['temphighwarning']
-        templowwarning = element['templowwarning']
-        vcchighwarning = element['vcchighwarning']
-        vcclowwarning = element['vcclowwarning']
-    return temperature,voltage,temphighwarning,templowwarning,vcchighwarning,vcclowwarning
-
-def verifyVendorPresence(transceiverOutput):
-    for row in transceiverOutput:
-        if row['vendor_date'] and row['vendor_oui']:
-            st.log("All vendor fields exist")
-            return True
-        else:
-            return False
-
-def get_interface_details_redis(dut, number):
-    interface = "Ethernet{}".format(number)
-    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_INFO|{}'".format(interface)
-    print("command",command)
-    output = st.show(dut, command)
-    return output
-
 def ifconfig_eth(dut, interfacenumber):
     command = "sudo ifconfig eth{}".format(interfacenumber)
     print("command", command)
     output = st.show(dut, command)
     return output
 
-
+def update_presence_in_thermalzone(dut, val):
+    """
+    update the presence in thermal_zone.yaml
+    """
+    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
+    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
+    out1 = utils_obj.remove_last_line_from_string(out)
+    out2= yaml.safe_load(out1)
+    out2[val][0]['presence']=0
+    out3 = yaml.dump(out2)
+    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
+    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)

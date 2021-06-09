@@ -2962,6 +2962,22 @@ class WorkArea(object):
         """
         return self._context._tb.get_build_commit_hash(dut)
 
+    def get_build_time(self, dut):
+        """
+        returns the build time as a string
+        :return: image build time  string 
+        :rtype: str
+        """
+        return self._context._tb.get_build_time(dut)
+
+    def get_sdk_version(self, dut):
+        """
+        returns the build sdk version as a string
+        :return: sdk version string 
+        :rtype: str
+        """
+        return self._context._tb.get_sdk_version(dut)
+
     def get_username(self, dut):
         """
         returns the username as a string

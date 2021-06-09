@@ -6,6 +6,7 @@ import sys
 from spytest import st
 import apis.system.box_services as boxserv_obj
 import apis.system.basic as basic_obj
+import apis.system.port as port_obj
 import apis.system.reboot as reboot_obj
 import apis.switching.mac as mac_obj
 import apis.routing.ip as ip_obj
@@ -20,7 +21,9 @@ platform_summary_data = {
     "SF_D_RP": {"platform": "x86_64-8800_rp-r0", "hwsku": "8800-RP", "asic": "cisco-8000","product_name": "8800-RP","udi_desc": "Cisco 8800 Route Processor"},
     "SF_D_LC": {"platform": "x86_64-8800_lc_48h-r0", "hwsku": "8800-LC-48H", "asic": "cisco-8000", "product_name": "8800-LC-48H","udi_desc": "Cisco 8800 48x100GE QSFP28 Line Card"},
     "mathilda32": {"platform": "x86_64-8101_32h_o-r0", "hwsku": "32x100Gb", "asic": "cisco-8000", "product_name": "8101-32H-O","udi_desc": ""},
-    "mathilda64": {"platform": "x86_64-8102_64h_o-r0", "hwsku": "64x100Gb", "asic": "cisco-8000", "product_name": "8102-64H-O","udi_desc": "Cisco 8100 64x100G QSFP28 2RU"},
+    "mathilda64": {"platform": "x86_64-8102_64h_o-r0", "hwsku": "64x100Gb", "asic": "cisco-8000", "product_name": "8102-64H-O","udi_desc": "Cisco 8100 64x100G QSFP28 2RU","voltage_sensors" : ["MB_GB_VDDS_L1_VIN", "MB_GB_VDDA_L2_VOUT", "MB_GB_VDDS_L1_VOUT", "CPU_U17_PVCCIN_VIN", "CPU_U17_PVCCIN_VOUT", "CPU_U17_P1P05V_VOUT", "MB_3_3V_R_L1_VIN", "MB_3_3V_R_L1_VOUT", "MB_GB_VDDCK_L2_VOUT", "MB_3_3V_L_L1_VIN", "MB_3_3V_L_L1_VOUT", "GB_PCIE_VDDH", "GB_PCIE_VDDACK", "GB_P1V8_VDDIO", "GB_P1V8_PLLVDD", "CPU_U117_P1P2V_VIN", "CPU_U117_P1P2V_VOUT", "CPU_U117_P1P05V_VOUT", "MB_A1V8", "MB_A1V", "MB_A3V3", "MB_A1V2", "MB_P3V3", "MB_GB_CORE_VIN_L1", "MB_GB_CORE_VOUT_L1", "MB_GB_CORE_IIN_L1", "MB_GB_CORE_IOUT_L1"],
+    "current_sensors" : ["MB_GB_VDDS_L1_IIN","MB_GB_VDDS_L1_IOUT","MB_GB_VDDA_L2_IOUT","CPU_U17_PVCCIN_IIN","CPU_U17_PVCCIN_IOUT","CPU_U17_P1P05V_IOUT", "MB_3_3V_R_L1_IIN", "MB_3_3V_R_L1_IOUT", "MB_GB_VDDCK_L2_IOUT", "MB_3_3V_L_L1_IIN", "MB_3_3V_L_L1_IOUT", "CPU_U117_P1P2V_IIN", "CPU_U117_P1P2V_IOUT", "CPU_U117_P1P05V_IOUT"]
+    },
     "churchill": {"platform": "x86_64-8201_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8201-32FH-O","udi_desc":"Cisco 8200 32x400G QSFPDD 1RU"}
 }
 
@@ -32,7 +35,10 @@ docker_data = {
 }
 platform_details = {
     "manufacturer" : "Cisco",
-    "vendor" : "Cisco"
+    "vendor" : "Cisco",
+    "devicemodel" : "INTEL",
+    "health" : "100.0%",
+    "image_name" : "sonic-cisco-8000.bin"
 }
 
 pytest.fixture(scope="module", autouse=True)
@@ -462,12 +468,14 @@ def test_ft_platform_fanstatus_with_reboot():
             st.log("###### FETCH FAN DATA AFTER REBOOT ######")
             result2 = basic_obj.get_platform_fan(dut)
             st.log("###### COMPARE DATA BEFORE AND AFTER REBOOT ######")
-            if result1 == result2:
-                st.log("The fan  before and after reboot for show platform fan is same")
-                st.report_pass("test_case_passed")
-            else:
-                st.log("The result before and after reboot is not same")
-                raise Exception("The result before and after reboot is not same")
+            for row, column in zip(result1, result2):
+                if((row.get('drawer') == column.get('drawer')) and (row.get('led') == column.get('led')) and (row.get('status') == column.get('status')) and (row.get('direction') == column.get('direction')) and (row.get('fan') == column.get('fan')) and (row.get('speed') == column.get('speed')) and (row.get('presence') == column.get('presence'))):
+                        st.log("The fan before and after reboot for show platform fan is same")
+                        st.report_pass("test_case_passed")
+                else:
+                        st.log("The fan conditions for {} fantray didnot met expected result to be equal for {} before reboot and After reboot {}".format(row.get('drawer'),row,column))
+                        st.log("The result before and after reboot is not same")
+                        raise Exception("The result before and after reboot is not same")
             st.log("fan status Compared Before and After reboot Successful")
         else:
             st.log("The fan data verifier returned False")
@@ -976,9 +984,9 @@ def test_ft_users():
 #         #Added mac_data from show mac 
 #         #test case covered in the test_vlan.py : test_ft_vlan_trunk_tagged
 #         mac_data = mac_obj.get_mac(vars.D1)
-#         st.log(mac_data)
+#       
 #         if mac_data is None:
-#             raise Exception("Parsed Mac output returned None")
+#            	raise Exception("Parsed Mac output returned None")
 #         st.report_pass("test_case_passed") 
 #     except Exception as err:
 #         st.log("Exception occured")
@@ -1525,7 +1533,7 @@ def test_ft_xcvrd_info_in_db():
         else:
             print("Type of error occured:", sys.exc_info()[0])
             raise Exception("Test case failed as Voltage values are not within range")
-
+            
     st.report_pass("test_case_passed")
  
 
@@ -1584,3 +1592,653 @@ def test_external_controller_reachability():
         st.report_pass("test_case_passed")
     else:
         st.report_fail("test_case_failed")
+        
+def verify_optics_presence_at_port(dut, port):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'optics present at port selected'
+    param: dut
+    param: port
+    """
+    try:
+        st.log("##### Start of Optics Verification for selcted port {}".format(port))
+        trans_presence_data = basic_obj.get_show_int_transceiver_presence(dut)
+        if trans_presence_data is None:
+            raise Exception("Parsed transciever presence output returned Null")
+        for data in trans_presence_data:
+            if data.get('port') == port and data.get('presence') != "Present" :
+                st.log("Optics for port {} show status to be  {} which is not expected".format(data.get('port'),data.get('presence')))
+                raise Exception("Optics for port {} show status to be  {} which is not expected".format(data.get('port'),data.get('presence')))
+            else:
+                st.log("Verification of the optics presence is successful for port {} with status {}".format(data.get('port'),data.get('presence')))
+                return True
+        st.log("####### End of Optics Verification for selected port {}".format(port))
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+    
+def get_current_date_on_dut(dut):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'Get current date in date strptime format from dut'
+    param: dut
+    """
+    try:
+        current_date = basic_obj.get_dut_date_time(dut)
+        if current_date is None:
+            raise Exception("The Parsed Date object retuned None")
+        current_date1 = datetime.datetime.strptime(current_date, '%a %d %b %Y %I:%M:%S %p %Z')
+        return current_date1
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return None
+
+def verify_eeprom_status(dut,port,status_expected):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Verify the eeprom status if not detected
+    param: dut
+    param: port
+    """
+    try:
+        transceiverOutput = basic_obj.get_sfputil_show_eeprom(dut)
+        for row in transceiverOutput:
+            if (row['interface'] == port):
+                st.log("######## Interface port matched with the EEPROM OUPUT ######")
+                if (row['status'] == status_expected):
+                    st.log("Interfaces with  {} status matched which is  expected after executing sfp.py off ".format(row['status']))
+                    st.log("Successfully Verified the eeprom status ")
+                    return True
+                else:
+                    st.log("Interfaces with  {} status matched which is not expected after executing sfp.py off ".format(row['status']))
+                    raise Exception("Interfaces with  {} status matched which is not expected after executing sfp.py off ".format(row['status']))
+        st.log("sfp show eeprom not able to get the value of the {} port".format(port))
+        raise Exception("sfp show eeprom not able to get the value of the {} port".format(port))
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+    
+def test_ft_optics_simulation():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'sfp.py on {portnumber}' and 'sfp.py off {portnumber}' 
+    """
+
+    vars = st.get_testbed_vars()
+    #Getting the low power mode data as object
+    try:
+        st.log("Run optics simulation")
+        dut = vars.D1
+        is_sfp_off = False
+        port = vars.D1D2P1
+        #Extract port number from the Port
+        port_ethernet = port[0:8]
+        port_number = port[8:]
+        port_number = unicode(port_number, 'utf-8')
+        if port_ethernet == "Ethernet" and port_number.isnumeric():
+            st.log("Verification format for the port {} successful".format(port))
+            st.log("Port number Verification and Storage successful")
+        else:
+            st.log("Port Verification format failed for the port {}".format(port))
+            raise Exception("Port Verification format failed for the port {}".format(port))
+        #Check if the optics is present at this port
+        st.log("##### IN MAIN TEST CASE, Start of Optics Verification for selcted port {} ".format(port))
+        if verify_optics_presence_at_port(dut,port):
+            st.log("Verifier of Optics presence at Port {} returned True".format(port))
+        else:
+            st.log("Verifier of Optics presence at Port {} returned False".formart(port))
+            raise Exception("Verifier of Optics presence at Port {} returned False".formart(port))
+        st.log("####### IN MAIN TEST CASE,  End of Optics Verification for selected port {}".format(port))
+        #Collect the current date and time 
+        current_date =  get_current_date_on_dut(dut)
+        #Turn off the optics with "sfp.py off {port-number}"
+        optics_off = basic_obj.apply_optics_off(dut, port_number)
+        #Check the status of Ethernet port if went down 
+        st.log("####### Verifying the interface status output #######")
+        interface_data = basic_obj.get_interface(dut, port)
+        st.log(interface_data)
+        if interface_data is None:
+            st.log("#### interface data retuned None #####")
+            raise Exception("Interface data returned None")
+        else:
+            interface_data = interface_data[0]
+            uptime = interface_data.get('uptime')
+            downtime = interface_data.get('downtime')
+            downtime_date = datetime.datetime.strptime(downtime, '%Y/%m/%d %H:%M:%S.%f')
+            st.log("downtime_date is {}".format(downtime_date))
+            current_down_seconds = (downtime_date - current_date).total_seconds()
+            if interface_data.get('status') == "down" and current_down_seconds < 60:
+                st.log("#### status, downtime of interface conditions matched ####")
+                st.log("Status is {} and  Current time and down time difference is {} ".format(interface_data.get('status'),current_down_seconds))
+            else:
+                st.log("#### Atleast one condition failed #####")
+                st.log("Status is {} and Current time and down time difference is {} which didnot matched the expectation".format(interface_data.get('status'),current_down_seconds))
+                raise Exception("Interface Flap after issuing reset port had actually didnot happened")
+        #Check the sfputil show eeprom if Not detected
+        st.log("##### CHECKING THE STATUS OF EEPROM #######")
+        if verify_eeprom_status(dut,port,"not detected"):
+            st.log("Verifier for eeprom status returned True")
+            st.log("Verifier for eeprom is successful for the port {}".format(port))
+        else:
+            st.log("Verifier for eeprom expeceted to be not detected is not successful")
+            raise Exception("Verifier for eeprom status expected to be Not dectected but retuned detected")
+        #Collect the current date and time 
+        current_date = get_current_date_on_dut(dut)
+        st.log("##### TURNING ON THE SFP ON PORT {} ########".format(port))
+        optics_on = basic_obj.apply_optics_on(dut, port_number)
+        #Check the status of Ethernet port if went up
+        st.log("####### Verifying the interface status output #######")
+        interface_data = basic_obj.get_interface(dut, port)
+        st.log(interface_data)
+        if interface_data is None:
+            st.log("#### interface data retuned None #####")
+            raise Exception("Interface data returned None")
+        else:
+            interface_data = interface_data[0]
+            uptime = interface_data.get('uptime')
+            downtime = interface_data.get('downtime')
+            uptime_date = datetime.datetime.strptime(uptime, '%Y/%m/%d %H:%M:%S.%f')
+            current_up_seconds = (uptime_date - current_date).total_seconds()
+            if interface_data.get('status') == "up" and current_up_seconds < 60:
+                st.log("#### status, uptime of interface conditions matched ####")
+                st.log("Status is {} and  Current time and up time difference is {} ".format(interface_data.get('status'),current_up_seconds))
+            else:
+                st.log("#### Atleast one condition failed #####")
+                st.log("Status is {} and Current time and down time difference is {} which didnot matched the expectation".format(interface_data.get('status'),current_up_seconds))
+                raise Exception("Interface Flap after issuing reset port had actually didnot happened")
+        #Check the sfputil show eeprom if detected
+        st.log("##### CHECKING THE STATUS OF EEPROM #######")
+        if verify_eeprom_status(dut,port,"detected"):
+            st.log("Verifier for eeprom status returned True")
+            st.log("Verifier for eeprom is successful for the port {}".format(port))
+        else:
+            st.log("Verifier for eeprom expected to be detected is not successful")
+            raise Exception("Verifier for eeprom status expected to be dectected but retuned Not detected")
+        st.report_pass("test_case_passed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.log("Exception occured , need to set optics back so turn on optics to keep system in stable state")
+        st.report_fail("test_case_failed")
+        
+def verify_optics_presence_at_port(dut, port):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'optics present at port selected'
+    param: dut
+    param: port
+    """
+    try:
+        st.log("##### Start of Optics Verification for selcted port {}".format(port))
+        trans_presence_data = basic_obj.get_show_int_transceiver_presence(dut)
+        if trans_presence_data is None:
+            raise Exception("Parsed transciever presence output returned Null")
+        for data in trans_presence_data:
+            if data.get('port') == port and data.get('presence') != "Present" :
+                st.log("Optics for port {} show status to be  {} which is not expected".format(data.get('port'),data.get('presence')))
+                raise Exception("Optics for port {} show status to be  {} which is not expected".format(data.get('port'),data.get('presence')))
+            else:
+                st.log("Verification of the optics presence is successful for port {} with status {}".format(data.get('port'),data.get('presence')))
+                return True
+        st.log("####### End of Optics Verification for selected port {}".format(port))
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+    
+def get_current_date_on_dut(dut):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'Get current date in date strptime format from dut'
+    param: dut
+    """
+    try:
+        current_date = basic_obj.get_dut_date_time(dut)
+        if current_date is None:
+            raise Exception("The Parsed Date object retuned None")
+        current_date1 = datetime.datetime.strptime(current_date, '%a %d %b %Y %I:%M:%S %p %Z')
+        return current_date1
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return None
+
+def verify_eeprom_status(dut,port,status_expected):
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Verify the eeprom status if not detected
+    param: dut
+    param: port
+    """
+    try:
+        transceiverOutput = basic_obj.get_sfputil_show_eeprom(dut)
+        for row in transceiverOutput:
+            if (row['interface'] == port):
+                st.log("######## Interface port matched with the EEPROM OUPUT ######")
+                if (row['status'] == status_expected):
+                    st.log("Interfaces with  {} status matched which is  expected after executing sfp.py off ".format(row['status']))
+                    st.log("Successfully Verified the eeprom status ")
+                    return True
+                else:
+                    st.log("Interfaces with  {} status matched which is not expected after executing sfp.py off ".format(row['status']))
+                    raise Exception("Interfaces with  {} status matched which is not expected after executing sfp.py off ".format(row['status']))
+        st.log("sfp show eeprom not able to get the value of the {} port".format(port))
+        raise Exception("sfp show eeprom not able to get the value of the {} port".format(port))
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+    
+def test_ft_optics_simulation():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'sfp.py on {portnumber}' and 'sfp.py off {portnumber}' 
+    """
+
+    vars = st.get_testbed_vars()
+    #Getting the low power mode data as object
+    try:
+        st.log("Run optics simulation")
+        dut = vars.D1
+        is_sfp_off = False
+        port = vars.D1D2P1
+        #Extract port number from the Port
+        port_ethernet = port[0:8]
+        port_number = port[8:]
+        port_number = unicode(port_number, 'utf-8')
+        if port_ethernet == "Ethernet" and port_number.isnumeric():
+            st.log("Verification format for the port {} successful".format(port))
+            st.log("Port number Verification and Storage successful")
+        else:
+            st.log("Port Verification format failed for the port {}".format(port))
+            raise Exception("Port Verification format failed for the port {}".format(port))
+        #Check if the optics is present at this port
+        st.log("##### IN MAIN TEST CASE, Start of Optics Verification for selcted port {} ".format(port))
+        if verify_optics_presence_at_port(dut,port):
+            st.log("Verifier of Optics presence at Port {} returned True".format(port))
+        else:
+            st.log("Verifier of Optics presence at Port {} returned False".formart(port))
+            raise Exception("Verifier of Optics presence at Port {} returned False".formart(port))
+        st.log("####### IN MAIN TEST CASE,  End of Optics Verification for selected port {}".format(port))
+        #Collect the current date and time 
+        current_date =  get_current_date_on_dut(dut)
+        #Turn off the optics with "sfp.py off {port-number}"
+        optics_off = basic_obj.apply_optics_off(dut, port_number)
+        #Check the status of Ethernet port if went down 
+        st.log("####### Verifying the interface status output #######")
+        interface_data = basic_obj.get_interface(dut, port)
+        st.log(interface_data)
+        if interface_data is None:
+            st.log("#### interface data retuned None #####")
+            raise Exception("Interface data returned None")
+        else:
+            interface_data = interface_data[0]
+            uptime = interface_data.get('uptime')
+            downtime = interface_data.get('downtime')
+            downtime_date = datetime.datetime.strptime(downtime, '%Y/%m/%d %H:%M:%S.%f')
+            st.log("downtime_date is {}".format(downtime_date))
+            current_down_seconds = (downtime_date - current_date).total_seconds()
+            if interface_data.get('status') == "down" and current_down_seconds < 60:
+                st.log("#### status, downtime of interface conditions matched ####")
+                st.log("Status is {} and  Current time and down time difference is {} ".format(interface_data.get('status'),current_down_seconds))
+            else:
+                st.log("#### Atleast one condition failed #####")
+                st.log("Status is {} and Current time and down time difference is {} which didnot matched the expectation".format(interface_data.get('status'),current_down_seconds))
+                raise Exception("Interface Flap after issuing reset port had actually didnot happened")
+        #Check the sfputil show eeprom if Not detected
+        st.log("##### CHECKING THE STATUS OF EEPROM #######")
+        if verify_eeprom_status(dut,port,"not detected"):
+            st.log("Verifier for eeprom status returned True")
+            st.log("Verifier for eeprom is successful for the port {}".format(port))
+        else:
+            st.log("Verifier for eeprom expeceted to be not detected is not successful")
+            raise Exception("Verifier for eeprom status expected to be Not dectected but retuned detected")
+        #Collect the current date and time 
+        current_date = get_current_date_on_dut(dut)
+        st.log("##### TURNING ON THE SFP ON PORT {} ########".format(port))
+        optics_on = basic_obj.apply_optics_on(dut, port_number)
+        #Check the status of Ethernet port if went up
+        st.log("####### Verifying the interface status output #######")
+        interface_data = basic_obj.get_interface(dut, port)
+        st.log(interface_data)
+        if interface_data is None:
+            st.log("#### interface data retuned None #####")
+            raise Exception("Interface data returned None")
+        else:
+            interface_data = interface_data[0]
+            uptime = interface_data.get('uptime')
+            downtime = interface_data.get('downtime')
+            uptime_date = datetime.datetime.strptime(uptime, '%Y/%m/%d %H:%M:%S.%f')
+            current_up_seconds = (uptime_date - current_date).total_seconds()
+            if interface_data.get('status') == "up" and current_up_seconds < 60:
+                st.log("#### status, uptime of interface conditions matched ####")
+                st.log("Status is {} and  Current time and up time difference is {} ".format(interface_data.get('status'),current_up_seconds))
+            else:
+                st.log("#### Atleast one condition failed #####")
+                st.log("Status is {} and Current time and down time difference is {} which didnot matched the expectation".format(interface_data.get('status'),current_up_seconds))
+                raise Exception("Interface Flap after issuing reset port had actually didnot happened")
+        #Check the sfputil show eeprom if detected
+        st.log("##### CHECKING THE STATUS OF EEPROM #######")
+        if verify_eeprom_status(dut,port,"detected"):
+            st.log("Verifier for eeprom status returned True")
+            st.log("Verifier for eeprom is successful for the port {}".format(port))
+        else:
+            st.log("Verifier for eeprom expected to be detected is not successful")
+            raise Exception("Verifier for eeprom status expected to be dectected but retuned Not detected")
+        st.report_pass("test_case_passed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.log("Exception occured , need to set optics back so turn on optics to keep system in stable state")
+        st.report_fail("test_case_failed")
+    finally:
+        optics_on = basic_obj.apply_optics_on(dut, port_number)
+        st.log("##### CHECKING THE STATUS OF EEPROM #######")
+        if verify_eeprom_status(dut,port,"detected"):
+            st.log("Verifier for eeprom status returned True")
+            st.log("Verifier for eeprom is successful for the port {}".format(port))
+        else:
+            st.log("Verifier for eeprom expected to be detected is not successful")
+            st.log("Error in finally block")
+            st.log("The port is not able to verify as detected")
+
+def verify_platform_ssdhealth(dut):
+    """
+    Verify platform ssdhealth
+    """
+    try:
+        #Get platform ssdhealth as obj 
+        result = basic_obj.get_platform_ssdhealth(dut)
+        if result is None:
+            st.log("Parsed ssdhealth result is not None")
+            raise Exception("Parsed ssdhealth result is not None")
+        #Check the validation with input and compare the values
+        devicemodel = result.get('devicemodel').split(" ")[0]
+        if result.get('devicemodel') is None or devicemodel != platform_details.get('devicemodel'):
+            raise Exception("Parsed device model {} not matched the expectation {} result".format(devicemodel, platform_details.get('devicemodel')))
+        if result.get('health') is None or result.get('health') != platform_details.get('health'):
+            raise Exception("Parsed health val {} not matched with input health val".format(result.get('health'), platform_details.get('health')))
+        if result.get('temperature') is None :
+            raise Exception("Parsed temperature val {} not matched with input temperature val".format(result.get('temperature'))) 
+        st.log("show platform ssdhealth completed")
+        return True
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        return False
+
+def test_ft_platform_ssdhealth():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'show platform ssdhealth' command
+    """
+
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN TEST PLATFORM SSDHEALTH #####")
+        if verify_platform_ssdhealth(dut):
+            st.log("####### IN TEST PLATFORM SSDHEALTH #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM SSDHEALTH #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier ssdhealth returned false, reporting test case failed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+
+def test_ft_show_environment():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'show environment' command
+    """
+
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN SHOW ENVIRONMENT TEST #####")
+        st.log("####### This testcase covers three test cases from the test plan ##########")
+
+         #Get platform name 
+        platform_name = st.get_platform_type(dut)
+        if platform_name is None:
+            st.log("##### Platform name ######")
+            st.log(platform_name)
+            st.log("Platform name from the input test bed file retuned None {}")
+            raise Exception("Platform name from the input test bed file retuned None")
+        #Get object from the platform_name from my current file
+        pdata_obj = get_platform_data(platform_name) 
+        if pdata_obj is None:
+            st.log("##### Platform object ######")
+            st.log(pdata_obj)
+            st.log("Platform object from the current object retuned None {}")
+            raise Exception("Platform data object from the current file returned none to get data")
+
+        environment_data = basic_obj.get_show_environment(dut)
+        st.log(environment_data)
+
+        if environment_data is None:
+            st.log("Parsed env data returned null which is not expected and says env data is empty")
+            raise Exception("Parsed env data retuned null")
+         
+        #Validate as below 
+        if isinstance(environment_data, list):
+            for data in environment_data:
+                if data.get('sensor') in pdata_obj.get('voltage_sensors'):
+                    if(float(data.get('voltage')) > float(data.get('critical_voltage_min')) and float(data.get('voltage')) < float(data.get('critical_voltage_max'))):
+                        st.log("Voltage {} matched to the expectation in the range between {} and {} for the sensor {}".format(data.get('voltage'), data.get('critical_voltage_min'), data.get('critical_voltage_max'), data.get('sensor')))
+                    else:
+                        st.log("Voltage {} not matched to the expectation in the range between {} and {} for the sensor {}".format(data.get('voltage'), data.get('critical_voltage_min'), data.get('critical_voltage_max'), data.get('sensor')))
+                        raise Exception("Voltage {} matched to the expectation in the range between {} and {} for the sensor {}".format(data.get('voltage'), data.get('critical_voltage_min'), data.get('critical_voltage_max'), data.get('sensor')))
+                if data.get('sensor') in pdata_obj.get('current_sensors'):
+                    if(float(data.get('current')) < float(data.get('critical_current_max'))):
+                        st.log("Current {} matched to the expectation in the range below  {} for the sensor {}".format(data.get('current'), data.get('critical_current_max'), data.get('sensor')))
+                    else:
+                        st.log("Current {} matched to the expectation in the range below  {} for the sensor {}".format(data.get('current'), data.get('critical_current_max'), data.get('sensor')))
+                        raise Exception("Current {} matched to the expectation in the range below  {} for the sensor {}".format(data.get('current'), data.get('critical_current_max'), data.get('sensor')))
+        else:
+            st.log("Returned object expected to be list but returned type is {}".format(type(environment_data)))
+            raise Exception("Environment data expected to be list but resulted {}".format(type(environment_data)))
+        st.report_pass("test_case_passed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+
+def verify_psu_oir_status(dut, status):
+    """
+    Verify "PSU OIR SIMULATION"
+    """
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN SHOW PLATFORM PSUSTATUS #####")
+        result = basic_obj.get_platform_psustatus(dut)
+        if result is None:
+            st.log("###### Result returned None ######")
+        print(result)
+        is_psu_status = False
+        #Check if the PSU Listed first is OK 
+        data = result[0]
+        #Check if the status is "OK" for first PSU as of now 
+        if data.get('status') == status:
+            st.log("PSU Status is listed {} which is expected".format(data.get('status')))
+            st.log("PSU Status is OK for PSU {}".format(data.get('psu')))
+            st.log("Updating the psu_status boolean value to true if found one PSU")
+            is_psu_status = True
+        else:
+            st.log("PSU Status is {} for PSU name {}".format(data.get('status'),data.get('psu')))
+            st.log("Psu reported not present or not ok")
+        if is_psu_status:
+            st.log("Atleast one PSU status found Ok ")
+            st.log("Verifier of PSU STatus successfully verified")
+            st.log("Verifier returning true")
+            st.log("##### EXITING VERIFIER ######")
+            return True
+        else:
+            st.log("Atleast one PSU have not reported status to be OK or PRESENT , so reporting the test case to be failed")
+            raise Exception("PSU Status is listed NOT PRESENT which is not expected")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+
+def test_ft_psu_oir_simulation():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'show platform psustatus' command
+    """
+    
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN TEST PLATFORM PSUSTATUS VALID #####")
+        if verify_psu_oir_status(dut, "OK"):
+            st.log("####### IN TEST PLATFORM PSU OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM PSU OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier psustatus returned false, reporting test case failed")
+        st.log("######## OVERWRITE THE THERMAL_ZONE.YAML file at the dut location /opt/cisco/etc #########")
+        #Update the thermal_zone.yaml with power_devices attribute-psu0 presence feild to 0
+        basic_obj.update_presence_in_thermalzone(dut, "power_devices")
+        st.log("config reload")
+        test_ft_config_reload()
+        st.log("Verify if the psu status after the simulation of off after the config  =reload")
+        if verify_psu_oir_status(dut, "NOT PRESENT"):
+            st.log("####### IN TEST PLATFORM PSU OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM PSU OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier psustatus returned false, reporting test case failed")  
+        st.report_pass("test_case_passed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+    finally:
+        st.show(dut, 'sudo cp /tmp/thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
+        test_ft_config_reload()
+
+def verify_fan_oir_status(dut, status):
+    """
+    Verify "FAN OIR SIMULATION"
+    """
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("fan started")
+        #Get platform fan as obj
+        st.log("Get the show platform fan output")
+        fan_data = basic_obj.get_platform_fan(dut)
+        print("parsed result")
+        print(fan_data)
+        st.log("Starting validation on fan data output")        
+        if fan_data is None:
+            raise Exception("Parsed Fan data output returned None")
+        #Verify fan status to be Ok, if not report failure
+        if isinstance(fan_data, list):
+            data = fan_data[0]
+        else:
+            st.log("Returned object expected to be dict but returned type is {}".format(type(fan_data)))
+            raise Exception("Fan data expected to be dict but resulted {}".format(type(fan_data)))
+        is_fan_status = False
+        #Check if the Fan Listed first is OK 
+        #Check if the status is "OK" for first Fan as of now 
+        if data.get('presence').lower() == status.lower():
+            st.log("Fan Status is listed {} which is expected".format(data.get('status')))
+            st.log("Fan Status is OK for PSU {}".format(data.get('fan')))
+            st.log("Updating the psu_status boolean value to true if found one fan")
+            is_fan_status = True
+        else:
+            st.log("Fan Status is {} for Fan name {}".format(data.get('status'),data.get('fan')))
+            st.log("Fan reported not present or not ok")
+        if is_fan_status:
+            st.log("Atleast one Fan status found Ok ")
+            st.log("Verifier of Fan STatus successfully verified")
+            st.log("Verifier returning true")
+            st.log("##### EXITING VERIFIER ######")
+            return True
+        else:
+            st.log("Atleast one Fan have not reported status to be OK or PRESENT , so reporting the test case to be failed")
+            raise Exception("Fan Status is listed NOT PRESENT which is not expected")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+
+def test_ft_fan_oir_simulation():
+    """
+    Author: Deekshitha Kankanala <dkankana@cisco.com>
+    Validate 'show platform fan' command
+    """
+    
+    vars = st.get_testbed_vars()
+    dut = vars.D1
+    try:
+        st.log("####### IN TEST PLATFORM FANSTATUS VALID #####")
+        if verify_fan_oir_status(dut, "PRESENT"):
+            st.log("####### IN TEST PLATFORM FAN OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM FAN OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier psustatus returned false, reporting test case failed")
+        st.log("######## OVERWRITE THE THERMAL_ZONE.YAML file at the dut location /opt/cisco/etc #########")
+        basic_obj.update_presence_in_thermalzone(dut, "cooling_devices")
+        st.log("config reload")
+        test_ft_config_reload()
+        st.log("Verify if the psu status after the simulation of off after the config  =reload")
+        if verify_fan_oir_status(dut, "NOT PRESENT"):
+            st.log("####### IN TEST PLATFORM Fan OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED TRUE ######")
+            st.log("REPORTING THE TEST CASE PASSED")
+            st.report_pass("test_case_passed")
+        else:
+            st.log("####### IN TEST PLATFORM Fan OIR SIMULATION #######")
+            st.log("####### VERIFIER RETURNED FALSE")
+            st.log("REPORTING THE TEST CASE FAILED")
+            raise Exception("Verifier fanstatus returned false, reporting test case failed")  
+        st.report_pass("test_case_passed")
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed")
+    finally:
+        st.show(dut, 'sudo cp /tmp/thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
+        test_ft_config_reload()
+
