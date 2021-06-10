@@ -1139,17 +1139,15 @@ class QosSaiBaseMasic(QosBase):
                 return True
             return False
 
-        asic_ns = "asic{}".format(test_asic)
-        cmd_str = "sudo config interface -n asic{} {} {}"
         oper_state = "up" if admin_state == "startup" else "down"
-
         ip_ifs = self.get_backend_ip_ifs(duthost, frontend_asic)
 
         for intf, asic in ip_ifs.items():
-            if  asic != asic_ns:
-                cmd = cmd_str.format(frontend_asic, admin_state, intf)
-                logger.debug("Port {}: {}".format(admin_state, cmd))
-                duthost.shell(cmd)
+            if  asic != "asic{}".format(test_asic):
+                if admin_state == "startup":
+                    duthost.asic_instance(frontend_asic).startup_interface(intf)
+                else:
+                    duthost.asic_instance(frontend_asic).shutdown_interface(intf)
 
                 # wait for port status to change
                 pytest_assert(

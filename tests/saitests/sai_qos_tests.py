@@ -239,6 +239,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
         # DSCP Mapping test
         try:
+            ip_ttl = exp_ttl + 1 if router_mac != '' else exp_ttl
+            # TTL changes on multi ASIC platforms,
+            # add 2 for additional backend and frontend routing
+            ip_ttl = ip_ttl if test_dst_port_name is None else ip_ttl + 2
+
             for dscp in range(0, 64):
                 tos = (dscp << 2)
                 tos |= 1
@@ -249,34 +254,31 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=dst_port_ip,
                                         ip_tos=tos,
                                         ip_id=exp_ip_id,
-                                        ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                                        ip_ttl=ip_ttl)
                 send_packet(self, src_port_id, pkt, 1)
                 print >> sys.stderr, "dscp: %d, calling send_packet()" % (tos >> 2)
 
-                # skip this check for backend ASIC, rely on queue counters
-                # TTL changes on multi ASIC platforms
-                if test_dst_port_name is None:
-                    cnt = 0
-                    dscp_received = False
-                    while not dscp_received:
-                        result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
-                        if isinstance(result, self.dataplane.PollFailure):
-                            self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
-                        recv_pkt = scapy.Ether(result.packet)
-                        cnt += 1
+                cnt = 0
+                dscp_received = False
+                while not dscp_received:
+                    result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
+                    if isinstance(result, self.dataplane.PollFailure):
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
+                    recv_pkt = scapy.Ether(result.packet)
+                    cnt += 1
 
-                        # Verify dscp flag
-                        try:
-                            if (recv_pkt.payload.tos == tos and
-                                recv_pkt.payload.src == src_port_ip and
-                                recv_pkt.payload.dst == dst_port_ip and
-                                recv_pkt.payload.ttl == exp_ttl and
-                                recv_pkt.payload.id == exp_ip_id):
-                                dscp_received = True
-                                print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, cnt)
-                        except AttributeError:
-                            print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, cnt)
-                            continue
+                    # Verify dscp flag
+                    try:
+                        if (recv_pkt.payload.tos == tos and
+                            recv_pkt.payload.src == src_port_ip and
+                            recv_pkt.payload.dst == dst_port_ip and
+                            recv_pkt.payload.ttl == exp_ttl and
+                            recv_pkt.payload.id == exp_ip_id):
+                            dscp_received = True
+                            print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, cnt)
+                    except AttributeError:
+                        print >> sys.stderr, "dscp: %d, total received: %d, attribute error!" % (tos >> 2, cnt)
+                        continue
 
             # Read Counters
             time.sleep(10)
