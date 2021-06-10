@@ -18,7 +18,12 @@ import json
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
-from sonic_py_common import multi_asic
+try:
+    from sonic_py_common import multi_asic
+    NAMESPACE_LIST = multi_asic.get_namespace_list()
+except ImportError:
+    NAMESPACE_LIST = ['']
+
 
 INTF_IP_GET_INFO_SCRIPT = "/tmp/gather_intf_ip_info.py"
 DOCUMENTATION = '''
@@ -313,7 +318,7 @@ def main():
     cmd_prefix = ''
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
-    for namespace in multi_asic.get_namespace_list():
+    for namespace in NAMESPACE_LIST:
         if namespace_passed and namespace != namespace_passed:
             continue
         # If the user passed a namespace parameter invoke that script with the cmd_prefix
