@@ -136,7 +136,7 @@ class ShowInterfaceModule(object):
         else:
             try:
                 cli_options = " -n {}".format(namespace) if namespace is not None else ""
-                if include_internal_intfs:
+                if include_internal_intfs and namespace is not None:
                     cli_options += " -d all"
                 intf_status_cmd = "show interface status{}".format(cli_options)
                 rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
