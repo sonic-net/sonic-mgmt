@@ -10,6 +10,7 @@ from datetime import datetime
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
@@ -320,21 +321,7 @@ def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbin
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    vm_neighbors = mg_facts['minigraph_neighbors']
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-
-    for lag_name in lag_facts['names']:
-        nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
-        peer_device   = vm_neighbors[nbr_intf]['name']
-        nbr_host = nbrhosts[peer_device]['host']
-        intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
-        # restore interfaces and portchannels
-        for intf in intf_list:
-            nbr_host.no_shutdown(intf)
-        asn = nbrhosts[peer_device]['conf']['bgp']['asn']
-        # restore BGP session
-        nbr_host.no_shutdown_bgp(asn)
+    neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
 def pytest_addoption(parser):

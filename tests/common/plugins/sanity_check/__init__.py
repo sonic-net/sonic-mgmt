@@ -12,6 +12,7 @@ from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *
 from tests.common.plugins.sanity_check.recover import recover
+from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
@@ -117,7 +118,7 @@ def do_checks(request, check_items, *args, **kwargs):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
+def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     logger.info("Prepare sanity check")
 
     skip_sanity = False
@@ -228,6 +229,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
                     if 'host' in failed_result:
                         dut_failed_results[failed_result['host']].append(failed_result)
                 for dut_name, dut_results in dut_failed_results.items():
+                    # Attempt to restore neighbor VM state
+                    neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
+                    # Attempt to restore DUT state
                     recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
 
                 logger.info("Run sanity check again after recovery")
