@@ -25,12 +25,11 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, co
     lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
     if not lldpctl_facts['lldpctl'].items():
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
-    else:
-        for k, v in lldpctl_facts['lldpctl'].items():
-            # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
-            # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
-            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+    for k, v in lldpctl_facts['lldpctl'].items():
+        # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
+        assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
+        # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
+        assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
