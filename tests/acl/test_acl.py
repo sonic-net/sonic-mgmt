@@ -567,7 +567,7 @@ class BaseAclTest(object):
                 ipv6_hlim=64
             )
 
-    def icmp_packet(self, setup, direction, ptfadapter, ip_version, src_ip=None, dst_ip=None):
+    def icmp_packet(self, setup, direction, ptfadapter, ip_version, src_ip=None, dst_ip=None, icmp_type=8, icmp_code=0):
         """Generate an ICMP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
@@ -578,8 +578,8 @@ class BaseAclTest(object):
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
-                icmp_type=8,
-                icmp_code=0,
+                icmp_type=icmp_type,
+                icmp_code=icmp_code,
                 ip_ttl=64,
             )
         else:
@@ -588,8 +588,8 @@ class BaseAclTest(object):
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
-                icmp_type=8,
-                icmp_code=0,
+                icmp_type=icmp_type,
+                icmp_code=icmp_code,
                 ipv6_hlim=64,
             )
 
@@ -791,6 +791,14 @@ class BaseAclTest(object):
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(5)
+
+    def test_icmp_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+        """Verify that we can match and drop on the TCP flags."""
+        src_ip = "20.0.0.10" if ip_version == "ipv4" else "60c0:a800::10"
+        pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip, icmp_type=3, icmp_code=1)
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        counters_sanity_check.append(29)
 
     def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version):
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
