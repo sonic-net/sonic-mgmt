@@ -50,24 +50,24 @@ class TestThermalApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, duthost, key, value, thermal_idx):
-        expected_value = None
+    def compare_value_with_platform_facts(self, duthost, key, value):
+        expected_values = []
         if duthost.facts.get("chassis").get("thermals"):
             expected_thermals = duthost.facts.get("chassis").get("thermals")
             if expected_thermals:
-                expected_value = expected_thermals[thermal_idx].get(key)
+                for thermal in expected_thermals:
+                    thermal_name = thermal.get(key)
+                    if thermal_name:
+                        expected_values.append(thermal_name)
 
-        if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for thermal {}".format(key,
-                                                                                                             thermal_idx)):
-            self.expect(value == expected_value,
-                        "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value,
-                                                                                                 expected_value,
-                                                                                                 thermal_idx))
-
+        if self.expect(len(expected_values) > 0,
+                       "Unable to get thermal name list containing thermal '{}' from platform.json file".format(value)):
+            self.expect(value in expected_values, "Thermal name '{}' is not included in {}".format(value,
+                                                                                                   expected_values))
     #
     # Functions to test methods inherited from DeviceBase class
     #
+
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_thermals):
@@ -75,7 +75,7 @@ class TestThermalApi(PlatformApiTestBase):
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts(duthost, 'name', name, i)
+                self.compare_value_with_platform_facts(duthost, 'name', name)
 
         self.assert_expectations()
 
