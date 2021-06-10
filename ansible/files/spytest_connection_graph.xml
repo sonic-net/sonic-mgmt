@@ -40,6 +40,7 @@
       <Device Hostname="str2-z9332f-03" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-z9332f-02" HwSku="DellEMC-Z9332f-M-O16C64" Type="DevSonic"/>
       <Device Hostname="str2-z9332f-04" HwSku="DellEMC-Z9332f-M-O16C64" Type="FanoutLeafSonic"/>
+      <Device Hostname="str2-z9332f-05" HwSku="DellEMC-Z9332f-M-O16C64" Type="DevSonic"/>
       <Device Hostname="str2-7260-26" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str2-7050cx3-acs-01" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
       <Device Hostname="str2-7050cx3-acs-02" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
@@ -1336,87 +1337,87 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet38/3" StartDevice="str2-7050cx3-acs-11" StartPort="Ethernet122"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet39/1" StartDevice="str2-7050cx3-acs-11" StartPort="Ethernet124"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet39/3" StartDevice="str2-7050cx3-acs-11" StartPort="Ethernet126"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet0" StartDevice="str2-z9332f-02" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet2" StartDevice="str2-z9332f-02" StartPort="Ethernet2"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet4" StartDevice="str2-z9332f-02" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet6" StartDevice="str2-z9332f-02" StartPort="Ethernet6"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet8" StartDevice="str2-z9332f-02" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet10" StartDevice="str2-z9332f-02" StartPort="Ethernet10"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet12" StartDevice="str2-z9332f-02" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet14" StartDevice="str2-z9332f-02" StartPort="Ethernet14"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet16" StartDevice="str2-z9332f-02" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet18" StartDevice="str2-z9332f-02" StartPort="Ethernet18"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet20" StartDevice="str2-z9332f-02" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet22" StartDevice="str2-z9332f-02" StartPort="Ethernet22"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet24" StartDevice="str2-z9332f-02" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet26" StartDevice="str2-z9332f-02" StartPort="Ethernet26"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet28" StartDevice="str2-z9332f-02" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet30" StartDevice="str2-z9332f-02" StartPort="Ethernet30"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet32" StartDevice="str2-z9332f-02" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet34" StartDevice="str2-z9332f-02" StartPort="Ethernet34"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet36" StartDevice="str2-z9332f-02" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet38" StartDevice="str2-z9332f-02" StartPort="Ethernet38"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet40" StartDevice="str2-z9332f-02" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet42" StartDevice="str2-z9332f-02" StartPort="Ethernet42"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet44" StartDevice="str2-z9332f-02" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet46" StartDevice="str2-z9332f-02" StartPort="Ethernet46"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet48" StartDevice="str2-z9332f-02" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet50" StartDevice="str2-z9332f-02" StartPort="Ethernet50"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet52" StartDevice="str2-z9332f-02" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet54" StartDevice="str2-z9332f-02" StartPort="Ethernet54"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet56" StartDevice="str2-z9332f-02" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet58" StartDevice="str2-z9332f-02" StartPort="Ethernet58"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet60" StartDevice="str2-z9332f-02" StartPort="Ethernet60"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet62" StartDevice="str2-z9332f-02" StartPort="Ethernet62"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet64" StartDevice="str2-z9332f-02" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet66" StartDevice="str2-z9332f-02" StartPort="Ethernet66"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet68" StartDevice="str2-z9332f-02" StartPort="Ethernet68"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet70" StartDevice="str2-z9332f-02" StartPort="Ethernet70"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet72" StartDevice="str2-z9332f-02" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet74" StartDevice="str2-z9332f-02" StartPort="Ethernet74"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet76" StartDevice="str2-z9332f-02" StartPort="Ethernet76"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet78" StartDevice="str2-z9332f-02" StartPort="Ethernet78"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet80" StartDevice="str2-z9332f-02" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet82" StartDevice="str2-z9332f-02" StartPort="Ethernet82"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet84" StartDevice="str2-z9332f-02" StartPort="Ethernet84"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet86" StartDevice="str2-z9332f-02" StartPort="Ethernet86"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet88" StartDevice="str2-z9332f-02" StartPort="Ethernet88"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet90" StartDevice="str2-z9332f-02" StartPort="Ethernet90"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet92" StartDevice="str2-z9332f-02" StartPort="Ethernet92"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet94" StartDevice="str2-z9332f-02" StartPort="Ethernet94"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet96" StartDevice="str2-z9332f-02" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet104" StartDevice="str2-z9332f-02" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet112" StartDevice="str2-z9332f-02" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet120" StartDevice="str2-z9332f-02" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet128" StartDevice="str2-z9332f-02" StartPort="Ethernet128"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet130" StartDevice="str2-z9332f-02" StartPort="Ethernet130"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet132" StartDevice="str2-z9332f-02" StartPort="Ethernet132"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet134" StartDevice="str2-z9332f-02" StartPort="Ethernet134"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet136" StartDevice="str2-z9332f-02" StartPort="Ethernet136"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet138" StartDevice="str2-z9332f-02" StartPort="Ethernet138"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet140" StartDevice="str2-z9332f-02" StartPort="Ethernet140"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet142" StartDevice="str2-z9332f-02" StartPort="Ethernet142"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet144" StartDevice="str2-z9332f-02" StartPort="Ethernet144"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet146" StartDevice="str2-z9332f-02" StartPort="Ethernet146"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet148" StartDevice="str2-z9332f-02" StartPort="Ethernet148"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet150" StartDevice="str2-z9332f-02" StartPort="Ethernet150"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet152" StartDevice="str2-z9332f-02" StartPort="Ethernet152"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet154" StartDevice="str2-z9332f-02" StartPort="Ethernet154"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet156" StartDevice="str2-z9332f-02" StartPort="Ethernet156"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet158" StartDevice="str2-z9332f-02" StartPort="Ethernet158"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet160" StartDevice="str2-z9332f-02" StartPort="Ethernet160"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet168" StartDevice="str2-z9332f-02" StartPort="Ethernet168"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet176" StartDevice="str2-z9332f-02" StartPort="Ethernet176"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet184" StartDevice="str2-z9332f-02" StartPort="Ethernet184"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet192" StartDevice="str2-z9332f-02" StartPort="Ethernet192"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet200" StartDevice="str2-z9332f-02" StartPort="Ethernet200"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet208" StartDevice="str2-z9332f-02" StartPort="Ethernet208"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet216" StartDevice="str2-z9332f-02" StartPort="Ethernet216"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet224" StartDevice="str2-z9332f-02" StartPort="Ethernet224"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet232" StartDevice="str2-z9332f-02" StartPort="Ethernet232"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet240" StartDevice="str2-z9332f-02" StartPort="Ethernet240"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet248" StartDevice="str2-z9332f-02" StartPort="Ethernet248"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-z9332f-04" EndPort="Ethernet256" StartDevice="str2-z9332f-02" StartPort="Ethernet256"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet0" StartDevice="str2-z9332f-05" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet2" StartDevice="str2-z9332f-05" StartPort="Ethernet2"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet4" StartDevice="str2-z9332f-05" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet6" StartDevice="str2-z9332f-05" StartPort="Ethernet6"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet8" StartDevice="str2-z9332f-05" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet10" StartDevice="str2-z9332f-05" StartPort="Ethernet10"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet12" StartDevice="str2-z9332f-05" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet14" StartDevice="str2-z9332f-05" StartPort="Ethernet14"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet16" StartDevice="str2-z9332f-05" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet18" StartDevice="str2-z9332f-05" StartPort="Ethernet18"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet20" StartDevice="str2-z9332f-05" StartPort="Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet22" StartDevice="str2-z9332f-05" StartPort="Ethernet22"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet24" StartDevice="str2-z9332f-05" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet26" StartDevice="str2-z9332f-05" StartPort="Ethernet26"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet28" StartDevice="str2-z9332f-05" StartPort="Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet30" StartDevice="str2-z9332f-05" StartPort="Ethernet30"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet32" StartDevice="str2-z9332f-05" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet34" StartDevice="str2-z9332f-05" StartPort="Ethernet34"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet36" StartDevice="str2-z9332f-05" StartPort="Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet38" StartDevice="str2-z9332f-05" StartPort="Ethernet38"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet40" StartDevice="str2-z9332f-05" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet42" StartDevice="str2-z9332f-05" StartPort="Ethernet42"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet44" StartDevice="str2-z9332f-05" StartPort="Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet46" StartDevice="str2-z9332f-05" StartPort="Ethernet46"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet48" StartDevice="str2-z9332f-05" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet50" StartDevice="str2-z9332f-05" StartPort="Ethernet50"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet52" StartDevice="str2-z9332f-05" StartPort="Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet54" StartDevice="str2-z9332f-05" StartPort="Ethernet54"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet56" StartDevice="str2-z9332f-05" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet58" StartDevice="str2-z9332f-05" StartPort="Ethernet58"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet60" StartDevice="str2-z9332f-05" StartPort="Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet62" StartDevice="str2-z9332f-05" StartPort="Ethernet62"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet64" StartDevice="str2-z9332f-05" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet66" StartDevice="str2-z9332f-05" StartPort="Ethernet66"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet68" StartDevice="str2-z9332f-05" StartPort="Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet70" StartDevice="str2-z9332f-05" StartPort="Ethernet70"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet72" StartDevice="str2-z9332f-05" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet74" StartDevice="str2-z9332f-05" StartPort="Ethernet74"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet76" StartDevice="str2-z9332f-05" StartPort="Ethernet76"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet78" StartDevice="str2-z9332f-05" StartPort="Ethernet78"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet80" StartDevice="str2-z9332f-05" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet82" StartDevice="str2-z9332f-05" StartPort="Ethernet82"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet84" StartDevice="str2-z9332f-05" StartPort="Ethernet84"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet86" StartDevice="str2-z9332f-05" StartPort="Ethernet86"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet88" StartDevice="str2-z9332f-05" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet90" StartDevice="str2-z9332f-05" StartPort="Ethernet90"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet92" StartDevice="str2-z9332f-05" StartPort="Ethernet92"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet94" StartDevice="str2-z9332f-05" StartPort="Ethernet94"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet96" StartDevice="str2-z9332f-05" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet104" StartDevice="str2-z9332f-05" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet112" StartDevice="str2-z9332f-05" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet120" StartDevice="str2-z9332f-05" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet128" StartDevice="str2-z9332f-05" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet130" StartDevice="str2-z9332f-05" StartPort="Ethernet130"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet132" StartDevice="str2-z9332f-05" StartPort="Ethernet132"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet134" StartDevice="str2-z9332f-05" StartPort="Ethernet134"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet136" StartDevice="str2-z9332f-05" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet138" StartDevice="str2-z9332f-05" StartPort="Ethernet138"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet140" StartDevice="str2-z9332f-05" StartPort="Ethernet140"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet142" StartDevice="str2-z9332f-05" StartPort="Ethernet142"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet144" StartDevice="str2-z9332f-05" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet146" StartDevice="str2-z9332f-05" StartPort="Ethernet146"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet148" StartDevice="str2-z9332f-05" StartPort="Ethernet148"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet150" StartDevice="str2-z9332f-05" StartPort="Ethernet150"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet152" StartDevice="str2-z9332f-05" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet154" StartDevice="str2-z9332f-05" StartPort="Ethernet154"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet156" StartDevice="str2-z9332f-05" StartPort="Ethernet156"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-z9332f-04" EndPort="Ethernet158" StartDevice="str2-z9332f-05" StartPort="Ethernet158"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet160" StartDevice="str2-z9332f-05" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet168" StartDevice="str2-z9332f-05" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet176" StartDevice="str2-z9332f-05" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet184" StartDevice="str2-z9332f-05" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet192" StartDevice="str2-z9332f-05" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet200" StartDevice="str2-z9332f-05" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet208" StartDevice="str2-z9332f-05" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet216" StartDevice="str2-z9332f-05" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet224" StartDevice="str2-z9332f-05" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet232" StartDevice="str2-z9332f-05" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet240" StartDevice="str2-z9332f-05" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-04" EndPort="Ethernet248" StartDevice="str2-z9332f-05" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-z9332f-04" EndPort="Ethernet256" StartDevice="str2-z9332f-05" StartPort="Ethernet256"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-03" EndPort="Ethernet0" StartDevice="str2-z9332f-01" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-03" EndPort="Ethernet8" StartDevice="str2-z9332f-01" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-03" EndPort="Ethernet16" StartDevice="str2-z9332f-01" StartPort="Ethernet16"/>
@@ -3359,7 +3360,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.149/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-z9332f-01">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.228/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.248/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-z9332f-03">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.229/23"/>
@@ -3489,6 +3490,9 @@
       <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="3723"/>
       <InterfaceVlan mode="Access" portname="Ethernet256" vlanids="3724"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str2-z9332f-05">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.228/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7260-26">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.160/23"/>
     </DevicesL3Info>

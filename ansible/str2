@@ -388,9 +388,15 @@ sonic_dell_z9332f:
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       hwsku: DellEMC-Z9332f-M-O16C64
-    str2-z9332f-01:
+      pdu_host: pdu-111
+    str2-z9332f-05:
       ansible_host: 10.3.146.228
+      hwsku: DellEMC-Z9332f-M-O16C64
+      pdu_host: pdu-111
+    str2-z9332f-01:
+      ansible_host: 10.3.146.248
       hwsku: DellEMC-Z9332f-O32
+      pdu_host: pdu-111
 
 server:
   hosts:

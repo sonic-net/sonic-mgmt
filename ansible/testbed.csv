@@ -68,7 +68,7 @@ vms20-t0-7060,vms20-2,t0,docker-ptf,vms20-2,10.64.246.58/23,,server_20,VM2092,st
 vms21-t0-2700,vms21-1,t0,docker-ptf,vms21-1,10.64.246.145/23,,server_21,VM2100,str2-msn2700-spy-1,str2,True,v-saidia
 vms21-t1-2700-2,vms21-2,t1-lag,docker-ptf,vms21-2,10.64.246.146/23,,server_21,VM2104,str2-msn2700-spy-2,str2,True,v-saidia
 vms21-dual-t0-7050-3,vms21-3,dualtor-56,docker-ptf,vms21-3,10.64.246.147/23,,server_21,VM2128,[str2-7050cx3-acs-10;str2-7050cx3-acs-11],str2,True,v-saidia
-vms21-t0-z9332f-02,vms21-4,t0-80,docker-ptf,vms21-4,10.64.246.148/23,,server_21,VM2132,str2-z9332f-02,str2,True,v-saidia
+vms21-t0-z9332f-02,vms21-4,t0-80,docker-ptf,vms21-4,10.64.246.148/23,,server_21,VM2132,str2-z9332f-05,str2,True,v-saidia
 vms21-t1-z9332f-01,vms21-5,t1-lag,docker-ptf,vms21-5,10.64.246.149/23,,server_21,VM2156,str2-z9332f-01,str2,True,v-saidia
 vms21-dual-t0-7260,vms21-6,dualtor-120,docker-ptf,vms21-6,10.64.246.152/23,,server_21,VM2188,[str2-7260cx3-acs-10;str2-7260cx3-acs-11],str2,True,v-saidia
 vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf,svc1-1,10.206.144.19/24,,server_svc_1,VM1000,svcstr-n3164-acs-1,strsvc,False,Mahesh
