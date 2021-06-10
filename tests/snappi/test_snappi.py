@@ -78,7 +78,7 @@ def __gen_all_to_all_traffic(testbed_config,
     return testbed_config
 
 
-def test_tgen(snappi_api,
+def test_snappi(snappi_api,
               tgen_testbed_config,
               conn_graph_facts,
               fanout_graph_facts,
@@ -88,7 +88,7 @@ def test_tgen(snappi_api,
     Test if we can use Tgen API generate traffic in a testbed
 
     Args:
-        snappi_api (pytest fixture): IXIA session
+        snappi_api (pytest fixture): Snappi session
         tgen_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
