@@ -198,7 +198,7 @@ class ShowInterfaceModule(object):
         regex_int = re.compile(r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
         self.int_counter = {}
         cli_options = " -n {}".format(namespace) if namespace is not None else ""
-        if include_internal_intfs:
+        if include_internal_intfs and namespace is not None:
             cli_options += " -d all"
         intf_status_cmd = "show interface counter{}".format(cli_options)
         try:

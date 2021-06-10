@@ -19,6 +19,14 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "dualtor-56", "dualtor"]
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
+    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
+
+    TARGET_QUEUE_WRED = 3
+    TARGET_LOSSY_QUEUE_SCHED = 0
+    TARGET_LOSSLESS_QUEUE_SCHED = 3
+
+    buffer_model_initialized = False
+    buffer_model = None
 
     def isBufferInApplDb(self, dut_asic):
         if not self.buffer_model_initialized:
@@ -111,14 +119,9 @@ class QosBase:
 
 class QosSaiBase(QosBase):
     """
-        QosSaiBase contains collection of pytest fixtures that ready the tesbed for QoS SAI test cases.
+        QosSaiBase contains collection of pytest fixtures that ready the
+        testbed for QoS SAI test cases.
     """
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
-    TARGET_QUEUE_WRED = 3
-    TARGET_LOSSY_QUEUE_SCHED = 0
-    TARGET_LOSSLESS_QUEUE_SCHED = 3
-    buffer_model_initialized = False
-    buffer_model = None
 
     def __computeBufferThreshold(self, dut_asic, bufferProfile):
         """
