@@ -52,7 +52,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan')
+                  'tests.vxlan',
+                  'tests.common.plugins.allure_server')
 
 
 def pytest_addoption(parser):
@@ -527,7 +528,7 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
