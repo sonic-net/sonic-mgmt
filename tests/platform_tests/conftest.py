@@ -310,6 +310,33 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         json.dump(result_summary, fp, indent=4)
 
 
+@pytest.fixture()
+def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+    """
+    This fixture is invoked at the test teardown for advanced-reboot SAD cases.
+    If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
+    a bad state. This fixture will restore state of neighbor interfaces, portchannels
+    and BGP sessions that were shutdown during the test.
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = mg_facts['minigraph_neighbors']
+    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+    for lag_name in lag_facts['names']:
+        nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+        peer_device   = vm_neighbors[nbr_intf]['name']
+        nbr_host = nbrhosts[peer_device]['host']
+        intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
+        # restore interfaces and portchannels
+        for intf in intf_list:
+            nbr_host.no_shutdown(intf)
+        asn = nbrhosts[peer_device]['conf']['bgp']['asn']
+        # restore BGP session
+        nbr_host.no_shutdown_bgp(asn)
+
+
 def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
