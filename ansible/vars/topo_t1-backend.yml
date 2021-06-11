@@ -53,6 +53,7 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: BackEndLeafRouter
+    dut_cluster: PrdStr03
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
