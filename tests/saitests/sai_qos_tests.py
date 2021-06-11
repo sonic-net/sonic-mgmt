@@ -191,6 +191,15 @@ class ReleaseAllPorts(sai_base_test.ThriftInterfaceDataPlane):
 # DSCP to queue mapping
 class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
+    def get_port_id(self, port_name):
+        sai_port_id = self.client.sai_thrift_get_port_id_by_front_port(
+            port_name
+        )
+        print >> sys.stderr, "Port name {}, SAI port id {}".format(
+            port_name, sai_port_id
+        )
+        return sai_port_id
+
     def runTest(self):
         switch_init(self.client)
 
@@ -216,12 +225,25 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, "port list {}".format(port_list)
         # Get a snapshot of counter values
 
+        # Destination port on a backend ASIC is provide as a port name
+        test_dst_port_name = self.test_params.get("test_dst_port_name")
+        sai_dst_port_id = None
+        if test_dst_port_name is not None:
+            sai_dst_port_id = self.get_port_id(test_dst_port_name)
+        else:
+            sai_dst_port_id = port_list[dst_port_id]
+
         time.sleep(10)
         # port_results is not of our interest here
-        port_results, queue_results_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        port_results, queue_results_base = sai_thrift_read_port_counters(self.client, sai_dst_port_id)
 
         # DSCP Mapping test
         try:
+            ip_ttl = exp_ttl + 1 if router_mac != '' else exp_ttl
+            # TTL changes on multi ASIC platforms,
+            # add 2 for additional backend and frontend routing
+            ip_ttl = ip_ttl if test_dst_port_name is None else ip_ttl + 2
+
             for dscp in range(0, 64):
                 tos = (dscp << 2)
                 tos |= 1
@@ -232,7 +254,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=dst_port_ip,
                                         ip_tos=tos,
                                         ip_id=exp_ip_id,
-                                        ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                                        ip_ttl=ip_ttl)
                 send_packet(self, src_port_id, pkt, 1)
                 print >> sys.stderr, "dscp: %d, calling send_packet()" % (tos >> 2)
 
@@ -247,8 +269,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
                     # Verify dscp flag
                     try:
-                        if (recv_pkt.payload.tos == tos) and (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip) and \
-                           (recv_pkt.payload.ttl == exp_ttl) and (recv_pkt.payload.id == exp_ip_id):
+                        if (recv_pkt.payload.tos == tos and
+                            recv_pkt.payload.src == src_port_ip and
+                            recv_pkt.payload.dst == dst_port_ip and
+                            recv_pkt.payload.ttl == exp_ttl and
+                            recv_pkt.payload.id == exp_ip_id):
                             dscp_received = True
                             print >> sys.stderr, "dscp: %d, total received: %d" % (tos >> 2, cnt)
                     except AttributeError:
@@ -257,7 +282,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
             # Read Counters
             time.sleep(10)
-            port_results, queue_results = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            port_results, queue_results = sai_thrift_read_port_counters(self.client, sai_dst_port_id)
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
             # According to SONiC configuration all dscp are classified to queue 1 except:
@@ -267,7 +292,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp  4 -> queue 4
             # dscp 46 -> queue 5
             # dscp 48 -> queue 6
-            # So for the 64 pkts sent the mapping should be -> 58 queue 1, and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
+            # So for the 64 pkts sent the mapping should be -> 58 queue 1,
+            # and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
             # Check results
             # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
@@ -2114,3 +2140,45 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+
+class PacketTransmit(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    Transmit packets from a given source port to destination port. If no
+    packet count is provided, default_count is used
+    """
+
+    def runTest(self):
+        default_count = 300
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        packet_count = self.test_params.get("count", default_count)
+
+        print >> sys.stderr, "dst_port_id: {}, src_port_id: {}".format(
+            dst_port_id, src_port_id
+        )
+        print >> sys.stderr, ("dst_port_mac: {}, src_port_mac: {},"
+            "src_port_ip: {}, dst_port_ip: {}").format(
+                dst_port_mac, src_port_mac, src_port_ip, dst_port_ip
+            )
+
+        # Send packets to leak out
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        pkt = simple_ip_packet(pktlen=64,
+                    eth_dst=pkt_dst_mac,
+                    eth_src=src_port_mac,
+                    ip_src=src_port_ip,
+                    ip_dst=dst_port_ip,
+                    ip_ttl=64)
+
+        print >> sys.stderr, "Sending {} packets to port {}".format(
+            packet_count, src_port_id
+        )
+        send_packet(self, src_port_id, pkt, packet_count)
