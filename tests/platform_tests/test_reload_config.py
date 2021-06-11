@@ -14,7 +14,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.reboot import reboot
-from tests.common.config_reload import config_force_option_supported, config_system_checks_passed, config_reload
+from tests.common.config_reload import config_force_option_supported, config_system_checks_passed
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
