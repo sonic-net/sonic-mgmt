@@ -15,7 +15,7 @@ class QosSaiBase:
     """
         QosSaiBase contains collection of pytest fixtures that ready the tesbed for QoS SAI test cases.
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "dualtor-56", "dualtor"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor"]
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
@@ -101,7 +101,7 @@ class QosSaiBase:
         )[0].encode("utf-8").replace("oid:",'')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, dut_asic, table, port, priorityGroup):
+    def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
@@ -145,7 +145,8 @@ class QosSaiBase:
                 )
             )
 
-        self.__updateVoidRoidParams(dut_asic, bufferProfile)
+        if "201811" not in os_version:
+            self.__updateVoidRoidParams(dut_asic, bufferProfile)
 
         return bufferProfile
 
@@ -738,6 +739,7 @@ class QosSaiBase:
                 "server": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
                 "port_map_file": ptf_portmap_file,
                 "sonic_asic_type": duthost.facts['asic_type'],
+                "sonic_version": duthost.os_version
             }
         }
 
@@ -851,6 +853,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             dut_asic,
+            duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
@@ -878,6 +881,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             dut_asic,
+            duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0"
@@ -905,6 +909,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             dut_asic,
+            duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "3-4"
@@ -932,6 +937,7 @@ class QosSaiBase:
         yield self.__getBufferProfile(
             request,
             dut_asic,
+            duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0-2"
