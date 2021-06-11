@@ -39,7 +39,6 @@ vms12-t0-2,v12-21,t0,docker-ptf,v12-21,10.64.246.26/23,,server_12,VM1228,str-msn
 vms12-3-t0-e1031,v12-31,t0-52,docker-ptf,v12-31,10.64.246.42/23,,server_12,VM1264,str-e1031-acs-1,str,True,gulv
 vms12-t0-s6000,v12-4,t0,docker-ptf,vms-unknown,10.64.246.84/23,,server_12,VM1232,str-s6000-on-5,str,False,dev
 vms12-t0-s6000-1,v12-6,t0,docker-ptf,v12-6,10.64.246.55/23,,server_12,VM1280,str-s6000-acs-14,str,True,taahme
-vms12-4-t0-marvell,v12-41,t0-52,docker-ptf,vms-unknown,10.64.246.85/23,,server_12,VM1268,str-marvell-acs-1,str,True,stumkurv
 vms12-t0-3800,vms12-5,t0-64,docker-ptf,vms12-5,10.64.246.90/23,,server_12,VM1272,str-sn3800-01,str,True,stumkurv
 vms12-t0-s5232-1,vms12-8,t0,docker-ptf,vms12-8,10.64.246.112/23,,server_12,VM1284,str-s5232f-on-1,str,True,lawlee
 vms12-9-t0-e1031,vms12-9,mgmttor,docker-ptf,vms12-9,10.64.246.153/23,,server_12,VM1288,str-e1031-acs-3,str,True,v-saidia
