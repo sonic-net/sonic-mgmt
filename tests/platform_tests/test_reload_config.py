@@ -13,8 +13,8 @@ from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
-from tests.common.reboot import *
-from tests.common.config_reload import *
+from tests.common.reboot import reboot
+from tests.common.config_reload import config_force_option_supported, config_system_checks_passed, config_reload
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -69,7 +69,7 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     if not config_force_option_supported(duthost):
         return
 
-    reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, wait=5)
+    reboot(duthost, localhost, reboot_type="cold", wait=5)
     logging.info("Reload configuration check")
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")
     # config reload command shouldn't work immediately after system reboot
