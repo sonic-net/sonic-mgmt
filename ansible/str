@@ -358,16 +358,16 @@ sonic_dell64_40:
     str-s6100-acs-5:
       ansible_host: 10.64.246.66
       model: 0F6N2R
-      serial: DY8TG02
-      base_mac: D8:9E:F3:D5:CD:E0
+      serial: 6Z4TG02
+      base_mac: 34:17:EB:1B:DC:00
       syseeprom_info:
         "0x21": "S6100-ON"
         "0x22": "0F6N2R"
-        "0x23": "CN0F6N2RCES0083K0084"
-        "0x24": "D8:9E:F3:D5:CD:E0"
-        "0x25": "04/13/2018 00:00:03"
+        "0x23": "CN0F6N2RCES0075F0013"
+        "0x24": "34:17:EB:1B:DC:00"
+        "0x25": "08/20/2020 09:07:30"
         "0x26": "1"
-        "0x27": "A04"
+        "0x27": "A06"
         "0x28": "x86_64-dell_s6100_c2538-r0"
         "0x29": "3.15.1.0"
         "0x2A": "384"
@@ -375,8 +375,9 @@ sonic_dell64_40:
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "DY8TG02"
-        "0xFE": "0x991D521B"
+        "0x2F": "6Z4TG02"
+        "0xFE": "0x77D8FF6E"
+      pdu_host: pdu-102
   vars:
     hwsku: Force10-S6100
     iface_speed: 40000

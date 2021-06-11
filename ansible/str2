@@ -355,6 +355,27 @@ sonic_dx010_100:
   hosts:
     str2-dx010-acs-6:
       ansible_host: 10.64.246.100
+      model: R0872-F0009-01
+      serial: DX010F2B118711MS100005
+      base_mac: 00:E0:EC:C2:AE:74
+      syseeprom_info:
+        "0x21": "DX010"
+        "0x22": "R0872-F0009-01"
+        "0x23": "DX010F2B118711MS100005"
+        "0x24": "00:E0:EC:C2:AE:74"
+        "0x25": "07/19/2018 02:10:45"
+        "0x26": "11"
+        "0x27": "Seastone"
+        "0x28": "RANGELEY"
+        "0x29": "2014.08"
+        "0x2A": "131"
+        "0x2B": "CELESTICA"
+        "0x2C": "CHN"
+        "0x2D": "Celestica"
+        "0x2E": "1.1.1"
+        "0x2F": "LB"
+        "0xFE": "0x79E8DB41"
+      pdu_host: pdu-116,pdu-115
 
 sonic_arista64_100:
   vars:
