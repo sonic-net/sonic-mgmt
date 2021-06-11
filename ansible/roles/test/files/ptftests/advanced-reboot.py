@@ -327,7 +327,7 @@ class ReloadTest(BaseTest):
 
     def generate_vlan_servers(self):
         vlan_host_map = defaultdict(dict)
-        self.nr_vl_pkts = 0
+        self.nr_vl_pkts = 0     # Number of packets from upper layer
         for vlan, prefix in self.vlan_ip_range.items():
             if not self.ports_per_vlan[vlan]:
                 continue
@@ -339,7 +339,7 @@ class ReloadTest(BaseTest):
                 port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
                 addr = self.host_ip(prefix, i)
 
-                vlan_host_map[port][addr] = mac     # For simplicity, assuming there is no overlapped ports between vlans
+                vlan_host_map[port][addr] = mac
 
             self.nr_vl_pkts += n_hosts
 
@@ -406,10 +406,17 @@ class ReloadTest(BaseTest):
         self.get_portchannel_info()
 
     def build_vlan_if_port_mapping(self):
-        content = self.read_json('vlan_ports_file')
-        if len(content) > 1:
-            raise Exception("Too many vlans")
-        return [(ifname, self.port_indices[ifname]) for ifname in content.values()[0]['members']]
+        portchannel_content = self.read_json('portchannel_ports_file')
+        portchannel_names = [pc['name'] for pc in portchannel_content.values()]
+
+        vlan_content = self.read_json('vlan_ports_file')
+        
+        vlan_if_port = []
+        for vlan in self.vlan_ip_range.keys():
+            for ifname in vlan_content[vlan]['members']:
+                if ifname not in portchannel_names:
+                    vlan_if_port.append((ifname, self.port_indices[ifname]))
+        return vlan_if_port
 
     def populate_fail_info(self, fails):
         for key in fails:
