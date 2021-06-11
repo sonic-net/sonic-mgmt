@@ -206,6 +206,8 @@ class ParseTestbedTopoinfo():
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            if 'dut_cluster' in topo_definition['configuration_properties']['common']:
+                vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
         for asic in asic_definition:
