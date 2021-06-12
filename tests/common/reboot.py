@@ -67,7 +67,7 @@ reboot_ctrl_dict = {
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_WATCHDOG: {
-        "command": "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
+        "command": "watchdogutil arm -s 5",
         "timeout": 300,
         "wait": 120,
         "cause": "Watchdog",
@@ -104,12 +104,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     hostname = duthost.hostname
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
-        if reboot_type == REBOOT_TYPE_WATCHDOG:
-            res = duthost.command('python -c \"import sonic_platform\"', module_ignore_errors=True)
-            reboot_command = "python{} -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"".format('3' if res['failed'] else '2')
-            logger.info('reboot command : {}'.format(reboot_command))
-        else:
-            reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
+        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
         if timeout == 0:
             timeout = reboot_ctrl['timeout']
         if wait == 0:

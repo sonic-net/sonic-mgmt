@@ -236,11 +236,10 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    py_res = duthost.command("python -c \"import sonic_platform\"", module_ignore_errors=True)
-    test_watchdog_supported = "python{} -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog(); exit()\"".format('3' if py_res['failed'] else '2')
+    test_watchdog_supported = "watchdogutil status"
 
-    watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)["stderr"]
-    if "" != watchdog_supported:
+    watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)
+    if "" != watchdog_supported["stderr"] or "" == watchdog_supported["stdout"]:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
