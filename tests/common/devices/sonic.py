@@ -1367,7 +1367,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         except RunAnsibleModuleFail:
             return
         for pid in pid_list:
-            self.shell("kill {}".format(pid))
+            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def get_up_ip_ports(self):
         """
@@ -1520,8 +1520,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                         self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
                     ):
                     ip_ifaces[k] = {
-                        "ipv4" : v["ipv4"],
-                        "peer_ipv4" : v["peer_ipv4"]
+                        "ipv4": v["ipv4"],
+                        "peer_ipv4": v["peer_ipv4"],
+                        "bgp_neighbor": v["bgp_neighbor"]
                     }
 
         return ip_ifaces
