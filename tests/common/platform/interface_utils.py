@@ -123,9 +123,8 @@ def get_port_map(dut, asic_index=None):
     port_mapping_res = {}
     port_mapping = cfg_facts.get("PORT", {})
     for port, port_dict_info in port_mapping.items():
-        port_alias = port_dict_info["alias"]
-        port_alias_number = int(re.search('etp(\d+)', port_alias).group(1))
-        port_mapping_res[port] = [port_alias_number]
+        port_index = port_dict_info["index"]
+        port_mapping_res[port] = [int(port_index)]
     return port_mapping_res
 
 
