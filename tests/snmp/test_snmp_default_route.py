@@ -1,13 +1,24 @@
 import pytest
+from tests.common.platform.interface_utils import get_port_map
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
 
+@pytest.fixture(scope='function')
+def skip_if_no_ports(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Fixture that skips test execution in case dut doesn't have data ports
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    for asic_index in duthost.get_frontend_asic_ids():
+        interface_list = get_port_map(duthost, asic_index)
+        if not interface_list:
+            pytest.skip("This test is not supported as there are no data ports in dut")
 
 @pytest.mark.bsl
-def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds_all_duts):
+def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_if_no_ports, localhost, creds_all_duts):
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
