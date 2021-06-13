@@ -3,7 +3,6 @@ Cross check show sfp presence with qsfp_status
 """
 import logging
 import os
-import json
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
