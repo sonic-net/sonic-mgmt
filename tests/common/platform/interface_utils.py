@@ -6,7 +6,6 @@ This script contains re-usable functions for checking status of interfaces on SO
 import json
 import re
 import logging
-import pytest
 from transceiver_utils import all_transceivers_detected
 
 

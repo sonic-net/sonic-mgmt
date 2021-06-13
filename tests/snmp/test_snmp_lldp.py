@@ -1,6 +1,5 @@
 import pytest
 import re
-from tests.common.platform.interface_utils import get_port_map
 
 pytestmark = [
     pytest.mark.topology('any'),
