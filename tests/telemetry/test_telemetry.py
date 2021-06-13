@@ -4,6 +4,7 @@ import logging
 import re
 import pytest
 
+from tests.common.platform.interface_utils import get_port_map
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
@@ -153,21 +154,25 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
+
 def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    for asic_index in duthost.get_frontend_asic_ids():
+        interface_list = get_port_map(duthost, asic_index)
+        if "Ethernet0" in interface_list:
+            logger.info('start telemetry output testing')
+            dut_ip = duthost.mgmt_ip
+            cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
+                   -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+            show_gnmi_out = ptfhost.shell(cmd)['stdout']
+            logger.info("GNMI Server output")
+            logger.info(show_gnmi_out)
+            result = str(show_gnmi_out)
+            inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+            pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-    logger.info('start telemetry output testing')
-    dut_ip = duthost.mgmt_ip
-    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
-           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-    pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """ Test osbuild/version query.
@@ -180,6 +185,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
 
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
+
 
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
@@ -226,6 +232,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
+
 def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
@@ -234,9 +241,12 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
-    show_gnmi_out = ptfhost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
+    for asic_index in duthost.get_frontend_asic_ids():
+        interface_list = get_port_map(duthost, asic_index)
+        if "Ethernet0" in interface_list:
+            show_gnmi_out = ptfhost.shell(cmd)['stdout']
+            result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+            assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
+            assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+            assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
