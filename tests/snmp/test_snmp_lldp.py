@@ -1,5 +1,6 @@
 import pytest
 import re
+from tests.common.platform.interface_utils import get_port_map
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -38,11 +39,14 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
-    mg_facts = {}
-    for asic_id in duthost.get_asic_ids():
-        mg_facts_ns   = duthost.asic_instance(asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
-        if mg_facts_ns is not None:
-            mg_facts.update(mg_facts_ns)
+    for asic in duthost.asics:
+        lldp_nei = []
+        cfg_facts = asic.config_facts(host=duthost.hostname,
+                                      source="persistent", verbose=False)['ansible_facts']
+        if "PORT" in cfg_facts:
+            for port, port_info_dict in cfg_facts["PORT"].items():
+                if re.search('ARISTA', port_info_dict['description']):
+                    lldp_nei.append(port)
 
     print snmp_facts['snmp_lldp']
     for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:
@@ -64,12 +68,6 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
         assert snmp_facts['snmp_lldp'][k]
         assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
 
-    minigraph_lldp_nei = []
-    for k, v in mg_facts.items():
-        if "server" not in v['name'].lower():
-            minigraph_lldp_nei.append(k)
-    print minigraph_lldp_nei
-
     # Check if lldpRemTable is present
     active_intf = []
     for k, v in snmp_facts['snmp_interfaces'].items():
@@ -85,7 +83,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             active_intf.append(k)
     print "lldpRemTable: ", active_intf
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8
+    assert len(active_intf) >= len(lldp_nei) * 0.8
 
     # skip neighbors that do not send chassis information via lldp
     lldp_facts= {}
