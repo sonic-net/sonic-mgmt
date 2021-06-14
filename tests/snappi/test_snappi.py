@@ -1,14 +1,13 @@
-import logging
 import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.fixtures.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, tgen_testbed_config
-from tests.common.ixia.port import select_ports
-from tests.common.ixia.qos_fixtures import prio_dscp_map
+from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+    snappi_api, snappi_testbed_config
+from tests.common.snappi.port import select_ports
+from tests.common.snappi.qos_fixtures import prio_dscp_map
 
 
 @pytest.mark.topology("tgen")
@@ -79,17 +78,17 @@ def __gen_all_to_all_traffic(testbed_config,
 
 
 def test_snappi(snappi_api,
-              tgen_testbed_config,
-              conn_graph_facts,
-              fanout_graph_facts,
-              rand_one_dut_lossless_prio,
-              prio_dscp_map):
+                snappi_testbed_config,
+                conn_graph_facts,
+                fanout_graph_facts,
+                rand_one_dut_lossless_prio,
+                prio_dscp_map):
     """
-    Test if we can use Tgen API generate traffic in a testbed
+    Test if we can use Snappi API generate traffic in a testbed
 
     Args:
         snappi_api (pytest fixture): Snappi session
-        tgen_testbed_config (pytest fixture): testbed configuration information
+        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         rand_one_dut_lossless_prio (str): name of lossless priority to test
@@ -98,8 +97,7 @@ def test_snappi(snappi_api,
     Returns:
         N/A
     """
-
-    testbed_config, port_config_list = tgen_testbed_config
+    testbed_config, port_config_list = snappi_testbed_config
     dut_hostname, lossless_prio = rand_one_dut_lossless_prio.split('|')
 
     pytest_require(len(port_config_list) >= 2, "This test requires at least 2 ports")

@@ -6,17 +6,17 @@ import snappi
 from ipaddress import ip_address, IPv4Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
-    get_peer_ixia_chassis
-from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
-from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
+from tests.common.snappi.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
+    get_peer_snappi_chassis
+from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
+from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
-    In a tgen testbed, there is no PTF docker.
+    In a Snappi testbed, there is no PTF docker.
     Hence, we use ptf_ip field to store snappi API server.
     This fixture returns the IP address of the snappi API server.
     Args:
@@ -39,7 +39,7 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['secret_group_vars']
-            ['ixia_api_server']['rest_port'])
+            ['snappi_api_server']['rest_port'])
 
 
 @pytest.fixture(scope='module')
@@ -68,7 +68,7 @@ def __gen_mac(id):
     """
     Generate a MAC address
     Args:
-        id (int): IXIA port ID
+        id (int): Snappi port ID
     Returns:
         MAC address (string)
     """
@@ -89,14 +89,14 @@ def __valid_ipv4_addr(ip):
         return False
 
 
-def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
+def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
     """
-    Generate Tgen configuration of layer 3 interfaces
+    Generate Snappi configuration of layer 3 interfaces
     Args:
-        config (obj): Tgen API config of the testbed
-        port_config_list (list): list of IXIA port configuration information
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
-        ixia_ports (list): list of IXIA port information
+        snappi_ports (list): list of Snappi port information
     Returns:
         True if we successfully generate configuration or False
     """
@@ -122,8 +122,8 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
         prefix = str(v['prefixlen'])
         ip = str(v['peer_addr'])
 
-        port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
-                    if ixia_pot['peer_port'] == intf]
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+                    if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
             return False
 
@@ -144,28 +144,28 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
         ip_stack.prefix = prefix
         ip_stack.gateway = gw_addr
 
-        port_config = IxiaPortConfig(id=port_id,
-                                     ip=ip,
-                                     mac=mac,
-                                     gw=gw_addr,
-                                     gw_mac=dut_mac,
-                                     prefix_len=prefix,
-                                     port_type=IxiaPortType.IPInterface,
-                                     peer_port=intf)
+        port_config = SnappiPortConfig(id=port_id,
+                                       ip=ip,
+                                       mac=mac,
+                                       gw=gw_addr,
+                                       gw_mac=dut_mac,
+                                       prefix_len=prefix,
+                                       port_type=SnappiPortType.IPInterface,
+                                       peer_port=intf)
 
         port_config_list.append(port_config)
 
     return True
 
 
-def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
+def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
     """
-    Generate Tgen configuration of Vlan interfaces
+    Generate Snappi configuration of Vlan interfaces
     Args:
-        config (obj): Tgen API config of the testbed
-        port_config_list (list): list of IXIA port configuration information
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
-        ixia_ports (list): list of IXIA port information
+        snappi_ports (list): list of Snappi port information
     Returns:
         True if we successfully generate configuration or False
     """
@@ -203,8 +203,8 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
             phy_intf = phy_intfs[i]
             vlan_ip_addr = vlan_ip_addrs[i]
 
-            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
-                        if ixia_pot['peer_port'] == phy_intf]
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+                        if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
 
@@ -224,28 +224,28 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
             ip_stack.prefix = prefix
             ip_stack.gateway = gw_addr
 
-            port_config = IxiaPortConfig(id=port_id,
-                                         ip=vlan_ip_addr,
-                                         mac=mac,
-                                         gw=gw_addr,
-                                         gw_mac=dut_mac,
-                                         prefix_len=prefix,
-                                         port_type=IxiaPortType.VlanMember,
-                                         peer_port=phy_intf)
+            port_config = SnappiPortConfig(id=port_id,
+                                           ip=vlan_ip_addr,
+                                           mac=mac,
+                                           gw=gw_addr,
+                                           gw_mac=dut_mac,
+                                           prefix_len=prefix,
+                                           port_type=SnappiPortType.VlanMember,
+                                           peer_port=phy_intf)
 
             port_config_list.append(port_config)
 
     return True
 
 
-def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
+def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     """
-    Generate Tgen configuration of portchannel interfaces
+    Generate Snappi configuration of portchannel interfaces
     Args:
-        config (obj): Tgen API config of the testbed
-        port_config_list (list): list of IXIA port configuration information
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
-        ixia_ports (list): list of IXIA port information
+        snappi_ports (list): list of Snappi port information
     Returns:
         True if we successfully generate configuration or False
     """
@@ -281,8 +281,8 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
-            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
-                        if ixia_pot['peer_port'] == phy_intf]
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+                        if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
 
@@ -299,14 +299,14 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
             lp.ethernet.name = 'Ethernet Port {}'.format(port_id)
             lp.ethernet.mac = mac
 
-            port_config = IxiaPortConfig(id=port_id,
-                                         ip=pc_ip_addr,
-                                         mac=mac,
-                                         gw=gw_addr,
-                                         gw_mac=dut_mac,
-                                         prefix_len=prefix,
-                                         port_type=IxiaPortType.PortChannelMember,
-                                         peer_port=phy_intf)
+            port_config = SnappiPortConfig(id=port_id,
+                                           ip=pc_ip_addr,
+                                           mac=mac,
+                                           gw=gw_addr,
+                                           gw_mac=dut_mac,
+                                           prefix_len=prefix,
+                                           port_type=SnappiPortType.PortChannelMember,
+                                           peer_port=phy_intf)
 
             port_config_list.append(port_config)
 
@@ -322,13 +322,13 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
 
 
 @pytest.fixture(scope="function")
-def tgen_testbed_config(conn_graph_facts,
-                        fanout_graph_facts,
-                        duthosts,
-                        rand_one_dut_hostname,
-                        snappi_api):
+def snappi_testbed_config(conn_graph_facts,
+                          fanout_graph_facts,
+                          duthosts,
+                          rand_one_dut_hostname,
+                          snappi_api):
     """
-    Geenrate Tgen API config and port config information for the testbed
+    Geenrate snappi API config and port config information for the testbed
     Args:
         conn_graph_facts (pytest fixture)
         fanout_graph_facts (pytest fixture)
@@ -336,35 +336,35 @@ def tgen_testbed_config(conn_graph_facts,
         rand_one_dut_hostname (pytest fixture): DUT hostname
         snappi_api(pytest fixture): Snappi API fixture
     Returns:
-        - config (obj): Tgen API config of the testbed
+        - config (obj): Snappi API config of the testbed
         - port_config_list (list): list of port configuration information
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     """ Generate L1 config """
-    ixia_fanout = get_peer_ixia_chassis(conn_data=conn_graph_facts,
-                                        dut_hostname=duthost.hostname)
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=duthost.hostname)
 
-    pytest_assert(ixia_fanout is not None, 'Fail to get ixia_fanout')
+    pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
 
-    ixia_fanout_id = list(fanout_graph_facts.keys()).index(ixia_fanout)
-    ixia_fanout_list = IxiaFanoutManager(fanout_graph_facts)
-    ixia_fanout_list.get_fanout_device_details(device_number=ixia_fanout_id)
+    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
 
-    ixia_ports = ixia_fanout_list.get_ports(peer_device=duthost.hostname)
+    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
 
     port_speed = None
 
     """ L1 config """
     config = snappi_api.config()
-    for i in range(len(ixia_ports)):
+    for i in range(len(snappi_ports)):
         config.ports.port(name='Port {}'.format(i),
-                          location=get_tgen_location(ixia_ports[i]))
+                          location=get_snappi_port_location(snappi_ports[i]))
 
         if port_speed is None:
-            port_speed = int(ixia_ports[i]['speed'])
+            port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_assert(port_speed == int(ixia_ports[i]['speed']),
+        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
                       'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
@@ -395,19 +395,19 @@ def tgen_testbed_config(conn_graph_facts,
     config_result = __vlan_intf_config(config=config,
                                        port_config_list=port_config_list,
                                        duthost=duthost,
-                                       ixia_ports=ixia_ports)
+                                       snappi_ports=snappi_ports)
     pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
     config_result = __portchannel_intf_config(config=config,
                                               port_config_list=port_config_list,
                                               duthost=duthost,
-                                              ixia_ports=ixia_ports)
+                                              snappi_ports=snappi_ports)
     pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
 
     config_result = __l3_intf_config(config=config,
                                      port_config_list=port_config_list,
                                      duthost=duthost,
-                                     ixia_ports=ixia_ports)
+                                     snappi_ports=snappi_ports)
     pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list
