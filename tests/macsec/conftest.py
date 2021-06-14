@@ -37,6 +37,7 @@ def recover_configuration(duthost, nbrhosts):
         pool.apply_async(config_reload, args=(nbr["host"], "config_db"))
     pool.close()
     pool.join()
+    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
@@ -52,56 +53,6 @@ def macsec_environment(duthost, nbrhosts):
 def enable_macsec_feature(duthost, nbrhosts, macsec_environment):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
     logger.info("Enable MACsec feature")
-
-
-def get_portchannel_list(host):
-    '''
-        Here is an output example of `show interfaces portchannel`
-        admin@sonic:~$ show interfaces portchannel
-        Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
-            S - selected, D - deselected, * - not synced
-        No.  Team Dev         Protocol     Ports
-        -----  ---------------  -----------  ---------------------------
-        0001  PortChannel0001  LACP(A)(Up)  Ethernet112(S) Ethernet108(D)
-        0002  PortChannel0002  LACP(A)(Up)  Ethernet116(S)
-        0003  PortChannel0003  LACP(A)(Up)  Ethernet120(S)
-        0004  PortChannel0004  LACP(A)(Up)  N/A
-    '''
-    lines = host.command("show interfaces portchannel")["stdout_lines"]
-    lines = lines[4:] # Remove the output header
-    portchannel_list = {}
-    for line in lines:
-        items = line.split()
-        portchannel = items[1]
-        portchannel_list[portchannel] = []
-        if items[-1] == "N/A":
-            continue
-        for item in items[3:]:
-            port = re.search(r"(Ethernet.*)\(", item).group(1)
-            portchannel_list[portchannel].append(port)
-    return portchannel_list
-
-
-# TODO: Temporary solution, because MACsec cannot be enabled on a portchannel member in the current version
-def delete_all_portchannel(host):
-    portchannel_list = get_portchannel_list(host)
-    for name, members in portchannel_list.items():
-        if len(members) > 0:
-            for member in members:
-                host.command("sudo config portchannel member del {} {}".format(name, member))
-
-
-
-# TODO: Re-added member port to port channel
-@pytest.fixture(scope="module")
-def cleanup_portchannel(duthost, nbrhosts, macsec_environment):
-    pool = ThreadPool(1 + len(nbrhosts))
-    pool.apply_async(delete_all_portchannel, args=(duthost, ))
-    for nbr in nbrhosts.values():
-        pool.apply_async(delete_all_portchannel, args=(nbr["host"], ))
-    pool.close()
-    pool.join()
-    logging.info("Cleanup all port channels")
 
 
 @pytest.fixture(scope="module")
