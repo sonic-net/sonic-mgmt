@@ -236,10 +236,9 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    test_watchdog_supported = "watchdogutil status"
 
-    watchdog_supported = duthost.command(test_watchdog_supported,module_ignore_errors=True)
-    if "" != watchdog_supported["stderr"] or "" == watchdog_supported["stdout"]:
+    watchdogutil_status_result = duthost.command("watchdogutil status", module_ignore_errors=True)
+    if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
