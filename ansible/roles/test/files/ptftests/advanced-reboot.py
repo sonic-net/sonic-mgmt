@@ -412,7 +412,7 @@ class ReloadTest(BaseTest):
         vlan_content = self.read_json('vlan_ports_file')
         
         vlan_if_port = []
-        for vlan in self.vlan_ip_range.keys():
+        for vlan in self.vlan_ip_range:
             for ifname in vlan_content[vlan]['members']:
                 if ifname not in portchannel_names:
                     vlan_if_port.append((ifname, self.port_indices[ifname]))
