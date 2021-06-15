@@ -10,6 +10,11 @@ from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
+
+from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+
+
 pytestmark = [
     pytest.mark.topology("any"),
 ]
@@ -43,14 +48,21 @@ def log_bgp_updates(duthost, iface, save_path):
 
 
 @pytest.fixture
-def is_quagga(duthost):
+def is_quagga(duthosts, rand_one_dut_hostname):
     """Return True if current bgp is using Quagga."""
+    duthost = duthosts[rand_one_dut_hostname]
     show_res = duthost.shell("vtysh -c 'show version'")
     return "Quagga" in show_res["stdout"]
 
 
 @pytest.fixture
-def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
+def is_dualtor(tbinfo):
+    return "dualtor" in tbinfo["topo"]["name"]
+
+
+@pytest.fixture
+def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces):
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
@@ -76,7 +88,7 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             dut_asn,
             NEIGHBOR_PORT0,
             neigh_type,
-            is_quagga=is_quagga
+            is_multihop=is_quagga or is_dualtor
         ),
         BGPNeighbor(
             duthost,
@@ -88,7 +100,7 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             dut_asn,
             NEIGHBOR_PORT1,
             neigh_type,
-            is_quagga=is_quagga
+            is_multihop=is_quagga or is_dualtor
         )
     )
 
@@ -118,7 +130,8 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthost):
+def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_dut_hostname,
+                          toggle_all_simulator_ports_to_rand_selected_tor):
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
@@ -141,6 +154,8 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthost):
             return bgp_fields["withdrawn_len"] > 0 and _route in bgp_fields["withdrawn"]
         else:
             return False
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     n0, n1 = common_setup_teardown
     try:
