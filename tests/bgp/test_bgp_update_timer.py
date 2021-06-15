@@ -88,7 +88,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga
             dut_asn,
             NEIGHBOR_PORT0,
             neigh_type,
-            is_quagga=is_quagga or is_dualtor
+            is_multihop=is_quagga or is_dualtor
         ),
         BGPNeighbor(
             duthost,
@@ -100,7 +100,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga
             dut_asn,
             NEIGHBOR_PORT1,
             neigh_type,
-            is_quagga=is_quagga or is_dualtor
+            is_multihop=is_quagga or is_dualtor
         )
     )
 
