@@ -6,6 +6,7 @@ import natsort
 import random
 import re
 
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.utilities import wait_until
