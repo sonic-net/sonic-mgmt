@@ -45,7 +45,7 @@ The tests will run on following testbeds:
 ![SONiC DUT as ToR ](Img/Server-T1-Topology.png)
 
 ## Setup configuration
-IPv4 EBGP neighborship will be established on a LAG between SONiC DUT and directly connected test ports. Test ports inturn will simulate the ToR's and Leafs by advertising IPv4/IPv6, dual-stack routes.
+IPv4 and IPv6 EBGP neighborship will be established on a LAG between SONiC DUT and directly connected test ports. Test ports inturn will simulate the ToR's and Leafs by advertising IPv4/IPv6, dual-stack routes.
 
 ## Test Methodology
 Following test methodology will be used for measuring downtime convergence. 
