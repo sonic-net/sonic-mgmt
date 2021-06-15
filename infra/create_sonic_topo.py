@@ -357,7 +357,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
         ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
-    else:
+    elif topo_type == 't1':
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
@@ -591,11 +591,18 @@ def main():
             base_topo_file = 'testbed-sherman-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
-    else:
+    elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 32
+    elif topo_type == 't1-64-lag':
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t1-64-lag.yaml'
+        else:
+            base_topo_file = 'testbed-mth64-t1-64-lag.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
 
@@ -673,7 +680,7 @@ def main():
         print("Device name is sherman. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
-        print("Device name is mth32. To execute a pytest script:\n")
+        print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
