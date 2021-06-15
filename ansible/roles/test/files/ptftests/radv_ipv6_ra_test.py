@@ -1,17 +1,25 @@
 # Packet Test Framework imports
-import ptf
-import scapy
 import logging
+
+import ptf
 import ptf.testutils as testutils
+import scapy.layers.inet6 as inet6
+import scapy.layers.l2 as l2
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+
+Ether = l2.Ether
+IPv6 = inet6.IPv6
+RA = inet6.ICMPv6ND_RA
+RS = inet6.ICMPv6ND_RS
+PrefixInfo = inet6.ICMPv6NDOptPrefixInfo
 
 ALL_NODES_MULTICAST_MAC_ADDRESS = '33:33:00:00:00:01'
 ALL_ROUTERS_MULTICAST_MAC_ADDRESS = '33:33:00:00:00:02'
 ALL_NODES_IPV6_MULTICAST_ADDRESS = 'ff02::1'
 ALL_ROUTERS_IPV6_MULTICAST_ADDRESS = 'ff02::2'
-ICMPV6_SOLICITED_RA_TIMEOUT = 1
+ICMPV6_SOLICITED_RA_TIMEOUT_SECS = 1
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -21,8 +29,8 @@ class DataplaneBaseTest(BaseTest):
         # Filter for ICMPv6 RA packets
         def is_icmpv6_ra(pkt_str):
             try:
-                pkt = scapy.layers.l2.Ether(pkt_str)
-                return (scapy.layers.inet6.IPv6 in pkt and scapy.layers.inet6.ICMPv6ND_RA in pkt)
+                pkt = Ether(pkt_str)
+                return (IPv6 in pkt and RA in pkt)
             except:
                 return False
 
@@ -44,11 +52,11 @@ class DataplaneBaseTest(BaseTest):
 
     """
     def create_icmpv6_router_advertisement_packet(self, dst_mac, dst_ip, src_mac, src_ip):
-        ether = scapy.layers.l2.Ether(dst=dst_mac, src=src_mac)
-        ip6 = scapy.layers.inet6.IPv6(src=src_ip, dst=dst_ip, fl=0, tc=0, hlim=255)
-        icmp6 = scapy.layers.inet6.ICMPv6ND_RA(code=0, M=1, O=0)
+        ether = Ether(dst=dst_mac, src=src_mac)
+        ip6 = IPv6(src=src_ip, dst=dst_ip, fl=0, tc=0, hlim=255)
+        icmp6 = RA(code=0, M=1, O=0)
         #NOTE: Test expects RA packet to contain route prefix as the first option
-        icmp6 /= scapy.layers.inet6.ICMPv6NDOptPrefixInfo(type=3, len=4)
+        icmp6 /= PrefixInfo(type=3, len=4)
         rapkt = ether / ip6 / icmp6
         return rapkt
 
@@ -67,32 +75,30 @@ class DataplaneBaseTest(BaseTest):
         masked_rapkt = Mask(rapkt)
         masked_rapkt.set_ignore_extra_bytes()
 
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.IPv6, "version")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.IPv6, "tc")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.IPv6, "fl")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.IPv6, "plen")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.IPv6, "nh")
+        masked_rapkt.set_do_not_care_scapy(IPv6, "tc")
+        masked_rapkt.set_do_not_care_scapy(IPv6, "fl")
+        masked_rapkt.set_do_not_care_scapy(IPv6, "plen")
+        masked_rapkt.set_do_not_care_scapy(IPv6, "nh")
 
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "cksum")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "chlim")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "H")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "prf")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "P")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "res")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "routerlifetime")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "reachabletime")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6ND_RA, "retranstimer")
+        masked_rapkt.set_do_not_care_scapy(RA, "cksum")
+        masked_rapkt.set_do_not_care_scapy(RA, "chlim")
+        masked_rapkt.set_do_not_care_scapy(RA, "H")
+        masked_rapkt.set_do_not_care_scapy(RA, "prf")
+        masked_rapkt.set_do_not_care_scapy(RA, "P")
+        masked_rapkt.set_do_not_care_scapy(RA, "res")
+        masked_rapkt.set_do_not_care_scapy(RA, "routerlifetime")
+        masked_rapkt.set_do_not_care_scapy(RA, "reachabletime")
+        masked_rapkt.set_do_not_care_scapy(RA, "retranstimer")
 
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "prefixlen")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "L")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "A")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "R")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "res1")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "validlifetime")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo,
-                                    "preferredlifetime")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "res2")
-        masked_rapkt.set_do_not_care_scapy(scapy.layers.inet6.ICMPv6NDOptPrefixInfo, "prefix")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "prefixlen")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "L")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "A")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "R")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "res1")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "validlifetime")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "preferredlifetime")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "res2")
+        masked_rapkt.set_do_not_care_scapy(PrefixInfo, "prefix")
 
         return masked_rapkt
 
@@ -136,14 +142,13 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
     """
 
     def verify_periodic_router_advertisement(self):
-        testutils.verify_packet(
-                                self,
+        testutils.verify_packet(self,
                                 self.masked_rapkt,
                                 self.ptf_port_index,
                                 self.radv_max_ra_interval+1)
         logging.info("Received unsolicited RA from:%s on PTF eth%d",
-                                                            self.downlink_vlan_ip6,
-                                                            self.ptf_port_index)
+                     self.downlink_vlan_ip6,
+                     self.ptf_port_index)
 
 
     def runTest(self):
@@ -193,16 +198,14 @@ class RadvSolicitedRATest(DataplaneBaseTest):
 
     """
     def create_icmpv6_router_solicitation_packet(self):
-        ether = scapy.layers.l2.Ether(
-                            dst=ALL_ROUTERS_MULTICAST_MAC_ADDRESS,
-                            src=self.ptf_port_mac)
-        ip6 = scapy.layers.inet6.IPv6(
-                                    dst=ALL_ROUTERS_IPV6_MULTICAST_ADDRESS,
-                                    src=self.ptf_port_ip6,
-                                    fl=0,
-                                    tc=0,
-                                    hlim=255)
-        icmp6 = scapy.layers.inet6.ICMPv6ND_RS(code=0, res=0)
+        ether = Ether(dst=ALL_ROUTERS_MULTICAST_MAC_ADDRESS,
+                      src=self.ptf_port_mac)
+        ip6 = IPv6(dst=ALL_ROUTERS_IPV6_MULTICAST_ADDRESS,
+                   src=self.ptf_port_ip6,
+                   fl=0,
+                   tc=0,
+                   hlim=255)
+        icmp6 = RS(code=0, res=0)
         rspkt = ether / ip6 / icmp6
         return rspkt
 
@@ -212,25 +215,24 @@ class RadvSolicitedRATest(DataplaneBaseTest):
     """
     def ptf_send_icmpv6_router_solicitation(self):
         logging.info("Sending ICMPv6 router solicitation on PTF port:eth%s",
-                                                                self.ptf_port_index)
+                     self.ptf_port_index)
         ret = testutils.send_packet(self, self.ptf_port_index, self.rs_packet)
         assert(len(self.rs_packet) == ret,
-                "Failed to send ICMPv6 router solicitation on PTF port:eth%s",
-                        self.ptf_port_index)
+               "Failed to send ICMPv6 router solicitation on PTF port:eth%s",
+               self.ptf_port_index)
 
     """
     @summary: Verify the received solicited RA packet from the router/DUT
 
     """
     def verify_solicited_router_advertisement(self):
-        testutils.verify_packet(
-                                self,
+        testutils.verify_packet(self,
                                 self.masked_rapkt,
                                 self.ptf_port_index,
-                                ICMPV6_SOLICITED_RA_TIMEOUT)
+                                ICMPV6_SOLICITED_RA_TIMEOUT_SECS)
         logging.info("Received solicited RA from:%s on PTF eth%d",
-                                                            self.downlink_vlan_ip6,
-                                                            self.ptf_port_index)
+                     self.downlink_vlan_ip6,
+                     self.ptf_port_index)
 
     def runTest(self):
         count = 5
