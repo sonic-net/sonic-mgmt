@@ -323,12 +323,18 @@ def _extract_test_summary(test_cases):
     for _, cases in test_cases.items():
         for case in cases:
             test_result_summary["tests"] += 1
-            test_result_summary["failures"] += case["result"] == "failure" or case["result"] == "error"
+            #test_result_summary["failures"] += case["result"] == "failure" or case["result"] == "error"
+            test_result_summary["failures"] += case["result"] == "failure"
             test_result_summary["skipped"] += case["result"] == "skipped"
             test_result_summary["errors"] += case["error"]
             test_result_summary["time"] += float(case["time"])
 
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
+    total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) + int(test_result_summary["errors"])
+    passed = int(test_result_summary["tests"]) - int(total)
+    name = case['classname'].split('.')
+    name = name[len(name) -1]
+    print("{},{},{},{},{},{}".format(name,test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"]))
     return test_result_summary
 
 
