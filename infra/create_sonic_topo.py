@@ -347,23 +347,19 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client=ssh.open_sftp()
     #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
+    ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
+    ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
+    ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
+    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')  
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
         ftp_client.put('sonic_lab_devices_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     if topo_type == 't0':
-        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
-        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
-        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
         ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
-        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
@@ -604,7 +600,7 @@ def main():
         else:
             base_topo_file = 'testbed-mth64-t1-64-lag.yaml'
         os.system("cp sonic_t1_topo/* .")
-        vEOS_count = 32
+        vEOS_count = 24
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
