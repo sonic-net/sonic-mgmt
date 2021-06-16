@@ -67,7 +67,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
                 action = __recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = __recover_services(dut, result)
-            elif result['check_item'] in [ 'processes', 'bgp', 'mux_simulator' ]:
+            elif result['check_item'] in [ 'processes', 'bgp' ]:
                 action = 'config_reload'
             else:
                 action = 'reboot'
