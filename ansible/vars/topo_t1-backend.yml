@@ -2,51 +2,51 @@ topology:
   VMs:
     ARISTA01BT0:
       vlans:
-        - 16
+        - 4
       vm_offset: 0
     ARISTA02BT0:
       vlans:
-        - 17
+        - 5
       vm_offset: 1
     ARISTA03BT0:
       vlans:
-        - 18
+        - 6
       vm_offset: 2
     ARISTA04BT0:
       vlans:
-        - 19
+        - 7
       vm_offset: 3
     ARISTA05BT0:
       vlans:
-        - 20
+        - 8
       vm_offset: 4
     ARISTA06BT0:
       vlans:
-        - 21
+        - 9
       vm_offset: 5
     ARISTA07BT0:
       vlans:
-        - 22
+        - 10
       vm_offset: 6
     ARISTA08BT0:
       vlans:
-        - 23
+        - 11
       vm_offset: 7
     ARISTA09BT0:
       vlans:
-        - 24
+        - 12
       vm_offset: 8
     ARISTA10BT0:
       vlans:
-        - 25
+        - 13
       vm_offset: 9
     ARISTA11BT0:
       vlans:
-        - 26
+        - 14
       vm_offset: 10
     ARISTA12BT0:
       vlans:
-        - 27
+        - 15
       vm_offset: 11
 
 configuration_properties:
@@ -61,8 +61,8 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    vlan_sub_interface_separator: '.'
-    vlan_sub_interface_vlan_id: '10'
+    sub_interface_separator: '.'
+    sub_interface_vlan_id: '10'
   tor:
     swrole: tor
     device_type: BackEndToRRouter
@@ -79,11 +79,6 @@ configuration:
         65100:
         - 10.0.0.32
         - FC00::41
-    vips:
-      ipv4:
-        prefixes:
-          - 200.0.1.0/26
-        asn: 64700
     interfaces:
       Loopback0:
         ipv4: 100.1.0.17/32
@@ -128,11 +123,6 @@ configuration:
         65100:
         - 10.0.0.36
         - FC00::49
-    vips:
-      ipv4:
-        prefixes:
-          - 200.0.1.0/26
-        asn: 64700
     interfaces:
       Loopback0:
         ipv4: 100.1.0.19/32
