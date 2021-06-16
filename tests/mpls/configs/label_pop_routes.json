@@ -3,6 +3,8 @@
         "LABEL_ROUTE_TABLE:1000001": {
             "nexthop": "10.0.0.51",
             "ifname": "Ethernet25",
+            "mpls_nh": "swap+",
+            "mpls_pop": "1",
             "weight": "1"
         },
         "OP": "SET"
@@ -17,6 +19,8 @@
         "LABEL_ROUTE_TABLE:1000003": {
             "nexthop": "10.0.0.21",
             "ifname": "Ethernet10",
+            "mpls_nh": "swap+",
+            "mpls_pop": "1",
             "weight": "1"
         },
         "OP": "SET"
