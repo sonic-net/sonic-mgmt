@@ -43,6 +43,8 @@ label_pop_routes.json
         "LABEL_ROUTE_TABLE:1000001": {
             "nexthop": "10.0.0.51",
             "ifname": "Ethernet25",
+            "mpls_nh": "swap+",
+            "mpls_pop": "1",
             "weight": "1"
         },
         "OP": "SET"
@@ -57,6 +59,8 @@ label_pop_routes.json
         "LABEL_ROUTE_TABLE:1000003": {
             "nexthop": "10.0.0.21",
             "ifname": "Ethernet10",
+            "mpls_nh": "swap+",
+            "mpls_pop": "1",
             "weight": "1"
         },
         "OP": "SET"
@@ -76,8 +80,9 @@ label_pop_routes.json
  [
     {
         "ROUTE_TABLE:192.168.0.1": {
-            "nexthop": "1000001+10.0.0.51",
+            "nexthop": "10.0.0.51",
             "ifname": "Ethernet25",
+            "mpls_nh": "1000001",
             "weight": "1"
         },
         "OP": "SET"
@@ -96,8 +101,10 @@ label_swap_routes.json
 [
     {
         "LABEL_ROUTE_TABLE:1000001": {
-            "nexthop": "1000002+10.0.0.51",
+            "nexthop": "10.0.0.51",
             "ifname": "Ethernet25",
+            "mpls_nh": "swap+1000002",
+            "mpls_pop": "1"
             "weight": "1"
         },
         "OP": "SET"
@@ -110,8 +117,10 @@ label_swap_routes.json
     },
     {
         "LABEL_ROUTE_TABLE:1000003": {
-            "nexthop": "1000004+10.0.0.21",
+            "nexthop": "10.0.0.21",
             "ifname": "Ethernet10",
+            "mpls_nh": "swap+1000004",
+            "mpls_pop": "1",
             "weight": "1"
         },
         "OP": "SET"
