@@ -82,12 +82,12 @@ interface {{ name }}
 {% endif %}
 {% endif %}
 {% if iface['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 nd ra suppress
 {% if create_vlan_sub_interfaces and not is_loopback %}
 {{ ip_interfaces.append(name) }}
 {% else %}
- ipv6 enable
  ipv6 address {{ iface['ipv6'] }}
- ipv6 nd ra suppress
 {% endif %}
 {% endif %}
 !
