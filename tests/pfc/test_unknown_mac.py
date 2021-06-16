@@ -222,6 +222,7 @@ class TrafficSendVerify(object):
         self.exp_pkts = list()
         self.pkt_map = dict()
         self.pre_rx_drops = dict()
+        self.dut_mac = duthost.facts['router_mac']
 
     def _constructPacket(self):
         """
@@ -232,7 +233,7 @@ class TrafficSendVerify(object):
             udp_dport = random.randint(0, 65535)
             src_port = self.ptf_pc_ports[pc_info][0]
             src_ip = self.ptf_pc_ports[pc_info][2]
-            pkt = testutils.simple_udp_packet(eth_dst=self.arp_entry[self.dst_ip],
+            pkt = testutils.simple_udp_packet(eth_dst=self.dut_mac,
                                                         eth_src=self.ptfadapter.dataplane.get_mac(0, src_port),
                                                         ip_dst=self.dst_ip,
                                                         ip_src=src_ip,
@@ -243,7 +244,7 @@ class TrafficSendVerify(object):
                                                        )
             self.pkts.append(pkt)
             tmp_pkt = testutils.simple_udp_packet(eth_dst=self.arp_entry[self.dst_ip],
-                                                  eth_src=self.ptfadapter.dataplane.get_mac(0, src_port),
+                                                  eth_src=self.dut_mac,
                                                   ip_dst=self.dst_ip,
                                                   ip_src=src_ip,
                                                   ip_tos = self.dscp << 2,
