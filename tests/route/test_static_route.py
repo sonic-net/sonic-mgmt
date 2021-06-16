@@ -4,7 +4,9 @@ import ipaddress
 import time
 import natsort
 import random
+import re
 
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.utilities import wait_until
@@ -87,6 +89,33 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
 
+def check_route_redistribution(duthost, prefix, ipv6, removed=False):
+    if ipv6:
+        bgp_neighbor_addr_regex = re.compile(r"^([0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)")
+        SHOW_BGP_SUMMARY_CMD = "show ipv6 bgp summary"
+        SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ipv6 bgp neighbor {} advertised-routes"
+    else:
+        bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
+        SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
+        SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
+
+    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
+
+    bgp_neighbors = []
+
+    for line in bgp_summary:
+        matched = bgp_neighbor_addr_regex.match(line)
+        if matched:
+            bgp_neighbors.append(str(matched.group(0)))
+
+    for neighbor in bgp_neighbors:
+        adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
+        if removed:
+            assert prefix not in adv_routes
+        else:
+            assert prefix in adv_routes
+
+
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False, config_reload_test=False):
     # Add ipaddresses in ptf
     add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
@@ -100,11 +129,15 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
         generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
+        # Check the route is advertised to the neighbors
+        check_route_redistribution(duthost, prefix, ipv6)
+
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
             config_reload(duthost)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+            check_route_redistribution(duthost, prefix, ipv6)
 
     finally:
         # Remove static route
@@ -112,6 +145,10 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
         # Delete ipaddresses in ptf
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
+
+        # Check the advertised route get removed
+        time.sleep(5)
+        check_route_redistribution(duthost, prefix, ipv6, removed=True)
 
         # Config save if the saved config_db was updated
         if config_reload_test:

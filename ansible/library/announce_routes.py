@@ -80,7 +80,7 @@ def announce_routes(ptf_ip, port, routes):
 
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
-    r = requests.post(url, data=data, timeout=30)
+    r = requests.post(url, data=data, timeout=90)
     assert r.status_code == 200
 
 # AS path from Leaf router for T0 topology
