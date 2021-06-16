@@ -149,7 +149,25 @@ def adaptive_name(template, host, index):
     leading_len = MAX_LEN - len(host_index_str)
     leading_characters = template.split('-')[0][:leading_len]
     rendered_name = leading_characters + host_index_str
-    return rendered_name        
+    return rendered_name
+
+
+def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
+    """A helper function to calculate temporary interface name for the interface to adapt to the 15-characters name limit."""
+    MAX_LEN = 15 - reserved_space
+    t_suffix = "_t"
+    HASH_LEN = 6
+    # the max length is at least as long as the hash string length + suffix length
+    if MAX_LEN < HASH_LEN + len(t_suffix):
+        raise ValueError("Requested length is too short to get temporary interface name.")
+    interface_name_len = len(interface_name)
+    ptf_name = PTF_NAME_TEMPLATE % vm_set_name
+    if interface_name_len <= MAX_LEN - len(t_suffix) - HASH_LEN:
+        t_int_if = hashlib.md5(ptf_name.encode("utf-8")).hexdigest()[0:HASH_LEN] + interface_name + t_suffix
+    else:
+        t_int_if = hashlib.md5((ptf_name + interface_name).encode("utf-8")).hexdigest()[0:HASH_LEN] + t_suffix
+    return t_int_if
+
 
 class HostInterfaces(object):
     """Data descriptor that supports multi-DUTs interface definition."""
@@ -456,7 +474,8 @@ class VMTopology(object):
 
         self.update()
 
-        t_int_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6]
+        reserved_space = len(vlan_subintf_sep + vlan_subintf_vlan_id) if create_vlan_subintf else 0
+        t_int_if = adaptive_temporary_interface(self.vm_set_name, int_if, reserved_space=reserved_space)
         if create_vlan_subintf:
             int_sub_if = int_if + vlan_subintf_sep + vlan_subintf_vlan_id
             t_int_sub_if = t_int_if + vlan_subintf_sep + vlan_subintf_vlan_id
