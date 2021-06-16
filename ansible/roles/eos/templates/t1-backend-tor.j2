@@ -2,8 +2,8 @@
 {% set ip_interfaces = [] %}
 {% set create_vlan_sub_interfaces = props['device_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] %}
 {% if create_vlan_sub_interfaces %}
-{% set vlan_sub_interface_separator = props['vlan_sub_interface_separator'] %}
-{% set vlan_sub_interface_vlan_id = props['vlan_sub_interface_vlan_id'] %}
+{% set sub_interface_separator = props['sub_interface_separator'] %}
+{% set sub_interface_vlan_id = props['sub_interface_vlan_id'] %}
 {% endif %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
@@ -95,11 +95,11 @@ interface {{ name }}
 !
 {% for name in ip_interfaces|unique %}
 {% set iface = host['interfaces'][name] %}
-{% set vlan_sub_intf = name + vlan_sub_interface_separator + vlan_sub_interface_vlan_id %}}
+{% set vlan_sub_intf = name + sub_interface_separator + sub_interface_vlan_id %}}
 interface {{ vlan_sub_intf }}
  no switchport
  no shutdown
- encapsulation dot1q vlan {{ vlan_sub_interface_vlan_id }}
+ encapsulation dot1q vlan {{ sub_interface_vlan_id }}
 {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
 {% endif %}

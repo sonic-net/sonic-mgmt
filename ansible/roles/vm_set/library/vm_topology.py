@@ -130,8 +130,8 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 cmd_debug_fname = None
 
 BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
-VLAN_SUB_INTERFACE_SEPARATOR = '.'
-VLAN_SUB_INTERFACE_VLAN_ID = '10'
+SUB_INTERFACE_SEPARATOR = '.'
+SUB_INTERFACE_VLAN_ID = '10'
 
 
 def adaptive_name(template, host, index):
@@ -336,13 +336,13 @@ class VMTopology(object):
                 properties = self.vm_properties.get(vm, {})
                 create_vlan_subintf = properties.get('device_type') in BACKEND_DEVICE_TYPES
                 if create_vlan_subintf:
-                    vlan_subintf_sep = properties.get('vlan_sub_interface_separator', VLAN_SUB_INTERFACE_SEPARATOR)
-                    vlan_subintf_vlan_id = properties.get('vlan_sub_interface_vlan_id', VLAN_SUB_INTERFACE_VLAN_ID)
+                    vlan_subintf_sep = properties.get('sub_interface_separator', SUB_INTERFACE_SEPARATOR)
+                    vlan_subintf_vlan_id = properties.get('sub_interface_vlan_id', SUB_INTERFACE_VLAN_ID)
                     self.add_veth_if_to_docker(
                         ext_if, int_if,
                         create_vlan_subintf=create_vlan_subintf,
-                        vlan_sub_interface_separator=vlan_subintf_sep,
-                        vlan_sub_interface_vlan_id=vlan_subintf_vlan_id
+                        sub_interface_separator=vlan_subintf_sep,
+                        sub_interface_vlan_id=vlan_subintf_vlan_id
                     )
                 else:
                     self.add_veth_if_to_docker(ext_if, int_if)
@@ -449,8 +449,8 @@ class VMTopology(object):
         """Create vethernet devices (ext_if, int_if) and put int_if into the ptf docker."""
         if create_vlan_subintf:
             try:
-                vlan_subintf_sep = kwargs["vlan_sub_interface_separator"]
-                vlan_subintf_vlan_id = kwargs["vlan_sub_interface_vlan_id"]
+                vlan_subintf_sep = kwargs["sub_interface_separator"]
+                vlan_subintf_vlan_id = kwargs["sub_interface_vlan_id"]
             except KeyError:
                 raise TypeError("Missing arguments for function 'add_veth_if_to_docker'")
 
