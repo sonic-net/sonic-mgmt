@@ -22,7 +22,7 @@ def config_system_checks_passed(duthost):
         return False
 
     logging.info("Checking if delayed services are up")
-    out = duthost.shell("systemctl list-dependencies delay.target --plain |sed '1d'")
+    out = duthost.shell("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'")
     for service in out['stdout'].splitlines():
         out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
         if out1['stdout'].strip() == "0":
