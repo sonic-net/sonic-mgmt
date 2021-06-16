@@ -121,11 +121,16 @@ class Arista(object):
         samples[cur_time] = sample
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
-            cmd = self.queue.get()
-            if cmd == 'quit':
-                self.log('quit command received')
-                quit_enabled = True
-                continue
+            cmd = None
+            # quit command was received, we don't process next commands
+            # but wait for v4_routing_ok and v6_routing_ok
+            if not quit_enabled:
+                cmd = self.queue.get()
+                self.log('Command received: cmd={}'.format(cmd))
+                if cmd == 'quit':
+                    quit_enabled = True
+                    continue
+
             cur_time = time.time()
             info = {}
             debug_info = {}
