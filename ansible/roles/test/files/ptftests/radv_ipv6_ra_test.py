@@ -31,7 +31,7 @@ class DataplaneBaseTest(BaseTest):
             try:
                 pkt = Ether(pkt_str)
                 return (IPv6 in pkt and RA in pkt)
-            except:
+            except Exception:
                 return False
 
         self.dataplane = ptf.dataplane_instance
