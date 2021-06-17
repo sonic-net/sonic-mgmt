@@ -63,3 +63,16 @@ x86_64-arista.*:
     valid_timeout: 10
     greater_timeout: 100
     too_big_timeout: 660
+
+# Celestica Seastone watchdog
+x86_64-cel_seastone-r0:
+  default:
+    greater_timeout: 20
+    too_big_timeout: 16779
+
+# Celestica E1031 watchdog
+x86_64-cel_e1031-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 180
+    too_big_timeout: 200
