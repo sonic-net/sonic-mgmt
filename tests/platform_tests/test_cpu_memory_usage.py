@@ -51,12 +51,15 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
         persist_outstanding_procs.append(pid)
 
     if outstanding_mem_polls or persist_outstanding_procs:
+        failure_message = ""
+
         if outstanding_mem_polls:
-            logging.error("system memory usage exceeds %d%%", memory_threshold)
+            failure_message += "System memory usage exceeds {}%".format(memory_threshold)
+            if persist_outstanding_procs:
+                failure_message += "; "
+
         if persist_outstanding_procs:
-            logging.error(
-                "processes that persistently exceeds cpu usage %d%%: %s",
-                cpu_threshold,
-                [outstanding_procs[p] for p in persist_outstanding_procs]
-            )
-        pytest.fail("system cpu and memory usage check fails")
+            failure_message += "Processes that persistently exceed CPU usage ({}%): {}".format(
+                cpu_threshold, [outstanding_procs[p] for p in persist_outstanding_procs])
+
+        pytest.fail(failure_message)
