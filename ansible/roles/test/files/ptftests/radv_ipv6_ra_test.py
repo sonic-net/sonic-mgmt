@@ -217,9 +217,8 @@ class RadvSolicitedRATest(DataplaneBaseTest):
         logging.info("Sending ICMPv6 router solicitation on PTF port:eth%s",
                      self.ptf_port_index)
         ret = testutils.send_packet(self, self.ptf_port_index, self.rs_packet)
-        assert(len(self.rs_packet) == ret,
-               "Failed to send ICMPv6 router solicitation on PTF port:eth%s",
-               self.ptf_port_index)
+        assert len(self.rs_packet) == ret, \
+               "Failed to send ICMPv6 router solicitation on PTF eth%s".format(self.ptf_port_index)
 
     """
     @summary: Verify the received solicited RA packet from the router/DUT
