@@ -1,11 +1,9 @@
 import re
 import json
 import logging
-import ptf.testutils as testutils
 import pytest
 import time
 
-from ipaddress import ip_network, IPv4Network
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, reset_simulator_port
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
