@@ -33,15 +33,15 @@ class TestNeighborMacNoPtf:
     def count_routes(self, asichost, prefix):
         # Counts routes in ASIC_DB with a given prefix
         num = asichost.shell(
-                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(asichost.sonic_db_cli,ROUTE_TABLE_NAME, prefix),
+                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(asichost.sonic_db_cli, ROUTE_TABLE_NAME, prefix),
                 module_ignore_errors=True, verbose=True)['stdout']
         return int(num)
 
-    def _check_no_bgp_routes_asic(self, asichost):
-        # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
+    def _get_bgp_routes_asic(self, asichost):
+        # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
         localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
         localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
-        #these routes are present only on multi asic device, on single asic platform they will be zero
+        # these routes are present only on multi asic device, on single asic platform they will be zero
         internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
         allroutes = self.count_routes(asichost, "")
         logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}".format(asichost.asic_index, localv4, localv6, internal, allroutes))
@@ -53,7 +53,7 @@ class TestNeighborMacNoPtf:
         bgp_routes = 0
         # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on testbed
         for asic in duthost.asics:
-            bgp_routes += self._check_no_bgp_routes_asic(asic)
+            bgp_routes += self._get_bgp_routes_asic(asic)
         
         return bgp_routes == 0
             
