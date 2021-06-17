@@ -172,16 +172,23 @@ def vEOS_inital_cfg(data,vEOS_count):
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):
+def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
     input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
 
-    tdata['devices'][dut_name]['ansible']['ansible_host'] = data['sonic_dut']['xr_mgmt_ip']
-    tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
-    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
-    tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    # Find each device listed in the VXR topology that starts with "sonic_dut_"
+    for vxr_device in data.keys():
+        if vxr_device.startswith('sonic_dut_'):
+            dut_id = vxr_device.split('_')[-1]
+
+            #NOTE dut_name = 'matilda-01' or 'sherman-01' (in the non-VXR topo file)
+            #NOTE this script assumes the VXR topology has exactly one device named "sonic_dut"
+            tdata['devices'][dut_prefix + dut_id]['ansible']['ansible_host'] = data[vxr_device]['xr_mgmt_ip']
+            tdata['devices'][dut_prefix + dut_id]['ansible']['ansible_ssh_user'] = data[vxr_device]['uname']
+            tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+            tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -552,8 +559,10 @@ def main():
     branch = args['branch']
     if device_type == 'sherman':
         dut_name = 'sherman-01'
+        dut_prefix = "sherman"
     else:
         dut_name = 'mathilda-01'
+        dut_prefix = "mathilda"
 
     if topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
@@ -588,8 +597,11 @@ def main():
     with open(input_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
-    data['sonic_dut']['uname'] = dut_uname
-    data['sonic_dut']['passwd'] = dut_passwd
+    for (entry_key, entry_value) in data.items():
+        if entry_key.startswith('sonic_dut_'):
+            data[entry_key]['uname'] = dut_uname
+            data[entry_key]['passwd'] = dut_passwd
+
     data['branch'] = branch
 
     # Create admin user in vEOS vm
@@ -601,7 +613,7 @@ def main():
 
     # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
-    create_testbed_file(data,base_topo_file,vEOS_count,dut_name)
+    create_testbed_file(data,base_topo_file,vEOS_count,dut_name,dut_prefix)
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")

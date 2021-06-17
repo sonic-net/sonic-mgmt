@@ -30,7 +30,7 @@ devices:
     data_ports:
       - eth[0..32]
 
-  DUT0: &dut
+  sonic_dut_0: &dut
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
@@ -42,7 +42,7 @@ devices:
             ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.40.1_NPS1.76.1/npl
             ConfigS1NpsuiteVer: 1.76.2
 
-  DUT1:
+  sonic_dut_1:
       <<: *dut
 
   sonic_mgmt :
@@ -76,41 +76,41 @@ connections:
 
     mux_sim_to_upper_tor:
       - mux_sim.upper_tor[0..11]
-      - DUT0.Ethernet[0..11]
+      - sonic_dut_0.Ethernet[0..11]
 
     mux_sim_to_lower_tor:
       - mux_sim.lower_tor[0..11]
-      - DUT1.Ethernet[0..11]
+      - sonic_dut_1.Ethernet[0..11]
 
-    DUT0_to_veos1:
-      - DUT0.Ethernet[12..13]
+    sonic_dut_0_to_veos1:
+      - sonic_dut_0.Ethernet[12..13]
       - veos1.Ethernet[1..2]
 
-    DUT0_to_veos2:
-      - DUT0.Ethernet[14..15]
+    sonic_dut_0_to_veos2:
+      - sonic_dut_0.Ethernet[14..15]
       - veos2.Ethernet[1..2]
 
-    DUT0_to_veos3:
-      - DUT0.Ethernet[40..41]
+    sonic_dut_0_to_veos3:
+      - sonic_dut_0.Ethernet[40..41]
       - veos3.Ethernet[1..2]
 
-    DUT0_to_veos4:
-      - DUT0.Ethernet[42..43]
+    sonic_dut_0_to_veos4:
+      - sonic_dut_0.Ethernet[42..43]
       - veos4.Ethernet[1..2]
 
-    DUT1_to_veos1:
-      - DUT1.Ethernet[12..13]
+    sonic_dut_1_to_veos1:
+      - sonic_dut_1.Ethernet[12..13]
       - veos1.Ethernet[3..4]
 
-    DUT1_to_veos2:
-      - DUT1.Ethernet[14..15]
+    sonic_dut_1_to_veos2:
+      - sonic_dut_1.Ethernet[14..15]
       - veos2.Ethernet[3..4]
 
-    DUT1_to_veos3:
-      - DUT1.Ethernet[40..41]
+    sonic_dut_1_to_veos3:
+      - sonic_dut_1.Ethernet[40..41]
       - veos3.Ethernet[3..4]
 
-    DUT1_to_veos4:
-      - DUT1.Ethernet[42..43]
+    sonic_dut_1_to_veos4:
+      - sonic_dut_1.Ethernet[42..43]
       - veos4.Ethernet[3..4]
 
