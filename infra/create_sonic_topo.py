@@ -36,7 +36,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1')
+                      required=True,default='t1', choices=['t0', 't1', 'dualtor-56'])
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -562,13 +562,18 @@ def main():
             base_topo_file = 'testbed-sherman-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
-    else:
+    elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
+    elif topo_type == 'dualtor-56':
+        os.system("cp sonic_dualtor_56/* .")
+        vEOS_count = 4
+        base_topo_file = 'testbed-mth32-t0-dualtor.yaml'
+
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
@@ -576,8 +581,8 @@ def main():
     input_file = args['input_file']
 
     if input_file is None:
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {}".format(topo_yaml))
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 
     with open(input_file) as f:
