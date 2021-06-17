@@ -1,5 +1,5 @@
 #
-# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="172.0.0.0/22";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -64,6 +64,7 @@ import scapy.all as scapyall
 import itertools
 from device_connection import DeviceConnection
 import multiprocessing
+import ast
 
 from arista import Arista
 import sad_path as sp
@@ -137,7 +138,6 @@ class ReloadTest(BaseTest):
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
         self.check_param('dut_mac', '', required=True)
-        self.check_param('dut_vlan_ip', '', required=True)
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '10.1.0.32/32', required=False)
@@ -253,19 +253,29 @@ class ReloadTest(BaseTest):
 
         return port_indices
 
-    def read_portchannel_ports(self):
-        content = self.read_json('portchannel_ports_file')
+    def read_vlan_portchannel_ports(self):
+        portchannel_content = self.read_json('portchannel_ports_file')
+        portchannel_names = [pc['name'] for pc in portchannel_content.values()]
+
+        vlan_content = self.read_json('vlan_ports_file')
+
+        ports_per_vlan = dict()
+        pc_in_vlan = []
+        for vlan in self.vlan_ip_range.keys():
+            ports_in_vlan = []
+            for ifname in vlan_content[vlan]['members']:
+                if ifname in portchannel_names:
+                    pc_in_vlan.append(ifname)
+                else:
+                    ports_in_vlan.append(self.port_indices[ifname])
+            ports_per_vlan[vlan] = ports_in_vlan
+
         pc_ifaces = []
-        for pc in content.values():
-            pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
+        for pc in portchannel_content.values():
+            if not pc['name'] in pc_in_vlan:
+                pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
-        return pc_ifaces
-
-    def read_vlan_ports(self):
-        content = self.read_json('vlan_ports_file')
-        if len(content) > 1:
-            raise Exception("Too many vlans")
-        return [self.port_indices[ifname] for ifname in content.values()[0]['members']]
+        return ports_per_vlan, pc_ifaces
 
     def check_param(self, param, default, required = False):
         if param not in self.test_params:
@@ -317,19 +327,21 @@ class ReloadTest(BaseTest):
 
     def generate_vlan_servers(self):
         vlan_host_map = defaultdict(dict)
-        vlan_ip_range = self.test_params['vlan_ip_range']
+        self.nr_vl_pkts = 0     # Number of packets from upper layer
+        for vlan, prefix in self.vlan_ip_range.items():
+            if not self.ports_per_vlan[vlan]:
+                continue
+            _, mask = prefix.split('/')
+            n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
 
-        _, mask = vlan_ip_range.split('/')
-        n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
+            for counter, i in enumerate(xrange(2, n_hosts + 2)):
+                mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
+                port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
+                addr = self.host_ip(prefix, i)
 
-        for counter, i in enumerate(xrange(2, n_hosts + 2)):
-            mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
-            port = self.vlan_ports[i % len(self.vlan_ports)]
-            addr = self.host_ip(vlan_ip_range, i)
+                vlan_host_map[port][addr] = mac
 
-            vlan_host_map[port][addr] = mac
-
-        self.nr_vl_pkts = n_hosts
+            self.nr_vl_pkts += n_hosts
 
         return vlan_host_map
 
@@ -394,10 +406,17 @@ class ReloadTest(BaseTest):
         self.get_portchannel_info()
 
     def build_vlan_if_port_mapping(self):
-        content = self.read_json('vlan_ports_file')
-        if len(content) > 1:
-            raise Exception("Too many vlans")
-        return [(ifname, self.port_indices[ifname]) for ifname in content.values()[0]['members']]
+        portchannel_content = self.read_json('portchannel_ports_file')
+        portchannel_names = [pc['name'] for pc in portchannel_content.values()]
+
+        vlan_content = self.read_json('vlan_ports_file')
+        
+        vlan_if_port = []
+        for vlan in self.vlan_ip_range:
+            for ifname in vlan_content[vlan]['members']:
+                if ifname not in portchannel_names:
+                    vlan_if_port.append((ifname, self.port_indices[ifname]))
+        return vlan_if_port
 
     def populate_fail_info(self, fails):
         for key in fails:
@@ -494,13 +513,15 @@ class ReloadTest(BaseTest):
     def setUp(self):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
-        self.portchannel_ports = self.read_portchannel_ports()
-        self.vlan_ports = self.read_vlan_ports()
+        self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
+        self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
+        self.vlan_ports = []
+        for ports in self.ports_per_vlan.values():
+            self.vlan_ports += ports
         if self.sad_oper:
             self.build_peer_mapping()
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
-        self.vlan_ip_range = self.test_params['vlan_ip_range']
         self.default_ip_range = self.test_params['default_ip_range']
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
@@ -704,16 +725,17 @@ class ReloadTest(BaseTest):
         self.ping_dut_packet = str(packet)
 
     def generate_arp_ping_packet(self):
-        vlan_ip_range = self.test_params['vlan_ip_range']
+        vlan = next(k for k, v in self.ports_per_vlan.items() if v)
+        vlan_ip_range = self.vlan_ip_range[vlan]
 
-        vlan_port_canadiates = range(len(self.vlan_ports))
+        vlan_port_canadiates = range(len(self.ports_per_vlan[vlan]))
         vlan_port_canadiates.remove(0) # subnet prefix
         vlan_port_canadiates.remove(1) # subnet IP on dut
         src_idx  = random.choice(vlan_port_canadiates)
         vlan_port_canadiates.remove(src_idx)
         dst_idx  = random.choice(vlan_port_canadiates)
-        src_port = self.vlan_ports[src_idx]
-        dst_port = self.vlan_ports[dst_idx]
+        src_port = self.ports_per_vlan[vlan][src_idx]
+        dst_port = self.ports_per_vlan[vlan][dst_idx]
         src_addr = self.host_ip(vlan_ip_range, src_idx)
         dst_addr = self.host_ip(vlan_ip_range, dst_idx)
         src_mac  = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
