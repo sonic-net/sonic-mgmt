@@ -19,7 +19,7 @@ Examples of these devices are:
 
 The architecture of this tool is
 
-![Untitled Diagram(6)](/assets/Untitled%20Diagram(6).png)
+![Untitled Diagram(6)](Img/fwutil_arch.png)
 
 These components are already (or planned to be) unit tested individually thus we have a reasonable level of confidence that they are independently functionally correct.
 
