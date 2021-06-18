@@ -17,6 +17,8 @@ pdu-107,21,str-a7060cx-acs-10,PSU1
 pdu-108,21,str-a7060cx-acs-10,PSU2
 pdu-105,37,str-a7170-acs-1,PSU1
 pdu-106,37,str-a7170-acs-1,PSU2
+pdu-107,6,str-a7280cr3-2,PSU1
+pdu-108,6,str-a7280cr3-2,PSU2
 pdu-105,32,str-agc7648-acs-1,PSU1
 pdu-110,39,str-dx010-acs-1,PSU1
 pdu-110,40,str-dx010-acs-1,PSU2
@@ -30,8 +32,9 @@ pdu-113,15,str-e1031-acs-3,PSU1
 pdu-102,26,str-msn2700-01,PSU1
 pdu-103,26,str-msn2700-01,PSU2
 pdu-99,27,str-msn2700-02,PSU1
+pdu-98,27,str-msn2700-02,PSU2
 pdu-98,1,str-msn2700-03,PSU1
-pdu-99,1,str-msn2700-03,PSU2
+pdu-98,2,str-msn2700-03,PSU2
 pdu-99,17,str-msn2700-04,PSU1
 pdu-98,17,str-msn2700-04,PSU2
 pdu-99,12,str-msn2700-06,PSU1
@@ -40,8 +43,8 @@ pdu-107,29,str-msn2700-20,PSU1
 pdu-108,29,str-msn2700-20,PSU2
 pdu-107,27,str-msn2700-22,PSU1
 pdu-108,27,str-msn2700-22,PSU2
-pdu-115,1,str-msn4600c-acs-02,PSU1
-pdu-116,1,str-msn4600c-acs-02,PSU2
+pdu-115,31,str-msn4600c-acs-02,PSU1
+pdu-116,31,str-msn4600c-acs-02,PSU2
 pdu-102,37,str-n3132-acs-1,PSU1
 pdu-103,37,str-n3132-acs-1,PSU2
 pdu-97,5,str-n3132-acs-2,PSU1
@@ -66,7 +69,7 @@ pdu-97,16,str-s6000-acs-7,PSU2
 pdu-97,10,str-s6000-acs-8,PSU1
 pdu-96,10,str-s6000-acs-8,PSU2
 pdu-99,5,str-s6000-acs-9,PSU1
-pdu-98,4,str-s6000-acs-9,PSU2
+pdu-98,5,str-s6000-acs-9,PSU2
 pdu-97,37,str-s6000-on-1,PSU1
 pdu-96,37,str-s6000-on-1,PSU2
 pdu-97,30,str-s6000-on-2,PSU1
@@ -192,3 +195,4 @@ pdu-101,15,str-acs-serv-12,PSU1
 pdu-100,15,str-acs-serv-13,PSU1
 pdu-100,11,str-acs-serv-14,PSU1
 pdu-100,10,str-acs-serv-15,PSU1
+

@@ -4988,6 +4988,8 @@
       <PowerControlLinkInfo EndDevice="str-a7060cx-acs-10" EndPort="PSU2" StartDevice="pdu-108" StartPort="21"/>
       <PowerControlLinkInfo EndDevice="str-a7170-acs-1" EndPort="PSU1" StartDevice="pdu-105" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str-a7170-acs-1" EndPort="PSU2" StartDevice="pdu-106" StartPort="37"/>
+      <PowerControlLinkInfo EndDevice="str-a7280cr3-2" EndPort="PSU1" StartDevice="pdu-107" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str-a7280cr3-2" EndPort="PSU2" StartDevice="pdu-108" StartPort="6"/>
       <PowerControlLinkInfo EndDevice="str-agc7648-acs-1" EndPort="PSU1" StartDevice="pdu-105" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str-dx010-acs-1" EndPort="PSU1" StartDevice="pdu-110" StartPort="39"/>
       <PowerControlLinkInfo EndDevice="str-dx010-acs-1" EndPort="PSU2" StartDevice="pdu-110" StartPort="40"/>
@@ -5001,8 +5003,9 @@
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-102" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-103" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-02" EndPort="PSU1" StartDevice="pdu-99" StartPort="27"/>
+      <PowerControlLinkInfo EndDevice="str-msn2700-02" EndPort="PSU2" StartDevice="pdu-98" StartPort="27"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU1" StartDevice="pdu-98" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU2" StartDevice="pdu-99" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU2" StartDevice="pdu-98" StartPort="2"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-04" EndPort="PSU1" StartDevice="pdu-99" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-04" EndPort="PSU2" StartDevice="pdu-98" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-06" EndPort="PSU1" StartDevice="pdu-99" StartPort="12"/>
@@ -5011,8 +5014,8 @@
       <PowerControlLinkInfo EndDevice="str-msn2700-20" EndPort="PSU2" StartDevice="pdu-108" StartPort="29"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-22" EndPort="PSU1" StartDevice="pdu-107" StartPort="27"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-22" EndPort="PSU2" StartDevice="pdu-108" StartPort="27"/>
-      <PowerControlLinkInfo EndDevice="str-msn4600c-acs-02" EndPort="PSU1" StartDevice="pdu-115" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str-msn4600c-acs-02" EndPort="PSU2" StartDevice="pdu-116" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-msn4600c-acs-02" EndPort="PSU1" StartDevice="pdu-115" StartPort="31"/>
+      <PowerControlLinkInfo EndDevice="str-msn4600c-acs-02" EndPort="PSU2" StartDevice="pdu-116" StartPort="31"/>
       <PowerControlLinkInfo EndDevice="str-n3132-acs-1" EndPort="PSU1" StartDevice="pdu-102" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str-n3132-acs-1" EndPort="PSU2" StartDevice="pdu-103" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str-n3132-acs-2" EndPort="PSU1" StartDevice="pdu-97" StartPort="5"/>
@@ -5037,7 +5040,7 @@
       <PowerControlLinkInfo EndDevice="str-s6000-acs-8" EndPort="PSU1" StartDevice="pdu-97" StartPort="10"/>
       <PowerControlLinkInfo EndDevice="str-s6000-acs-8" EndPort="PSU2" StartDevice="pdu-96" StartPort="10"/>
       <PowerControlLinkInfo EndDevice="str-s6000-acs-9" EndPort="PSU1" StartDevice="pdu-99" StartPort="5"/>
-      <PowerControlLinkInfo EndDevice="str-s6000-acs-9" EndPort="PSU2" StartDevice="pdu-98" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str-s6000-acs-9" EndPort="PSU2" StartDevice="pdu-98" StartPort="5"/>
       <PowerControlLinkInfo EndDevice="str-s6000-on-1" EndPort="PSU1" StartDevice="pdu-97" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str-s6000-on-1" EndPort="PSU2" StartDevice="pdu-96" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str-s6000-on-2" EndPort="PSU1" StartDevice="pdu-97" StartPort="30"/>
