@@ -98,7 +98,7 @@ def consume_memory(duthost, container_name, vm_workers):
     Args:
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
-        vm_workers: Nnumber of workers which does the spinning on malloc()/free()
+        vm_workers: Number of workers which does the spinning on malloc()/free()
           to consume memory.
 
     Returns:
@@ -109,13 +109,13 @@ def consume_memory(duthost, container_name, vm_workers):
 
 
 def consume_memory_and_restart_container(duthost, container_name, vm_workers):
-    """Invokes the 'stress' utility to consume memory more than threshold asynchronously and checkes
-    whether the container can be stopped and restarted.
+    """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
+    and checks whether the container can be stopped and restarted.
 
     Args:
         duthost: The AnsibleHost object of DuT.
         container_name: Name of container.
-        vm_workers: Nnumber of workers which does the spinning on malloc()/free()
+        vm_workers: Number of workers which does the spinning on malloc()/free()
           to consume memory.
 
     Returns:
@@ -126,14 +126,14 @@ def consume_memory_and_restart_container(duthost, container_name, vm_workers):
 
     thread_pool.apply_async(consume_memory, (duthost, container_name, vm_workers))
 
-    logger.info("Waiting '{}' container to be stopped ...".format(container_name))
+    logger.info("Waiting for '{}' container to be stopped ...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop '{}' container!".format(container_name))
     logger.info("'{}' container is stopped.".format(container_name))
 
-    logger.info("Waiting '{}' container to be restarted ...".format(container_name))
+    logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
                            check_container_state, duthost, container_name, True)
@@ -168,7 +168,7 @@ def postcheck_critical_processes(duthost, container_name):
     Returns:
         None.
     """
-    logger.info("Checking running status of critical processes in '{}' container ..."
+    logger.info("Checking the running status of critical processes in '{}' container ..."
                 .format(container_name))
     is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
                               check_critical_processes, duthost, container_name)
@@ -180,7 +180,8 @@ def postcheck_critical_processes(duthost, container_name):
 
 def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Checks whether the telemetry container can be restarted or not if the memory
-    usage of it is beyond 400MB.
+    usage of it is beyond the threshold. The `stress` utility is leveraged as
+    the memory stressing tool.
 
     Args:
         duthosts: The fixture returns list of DuTs.
@@ -191,8 +192,9 @@ def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         None.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # TODO: Currently we only test 'telemetry' container and number of vm_workers is hard coded.
-    # I will extend this testing on all containers after the feature 'memory_checker' is fully implemented.
+    # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
+    # and number of vm_workers is hard coded. We will extend this testing on all containers after
+    # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
     vm_workers = 4
 
