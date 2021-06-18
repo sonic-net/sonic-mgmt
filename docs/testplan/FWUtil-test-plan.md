@@ -19,7 +19,7 @@ Examples of these devices are:
 
 The architecture of this tool is
 
-![Untitled Diagram(6)](Img/fwutil_arch.png)
+![Untitled Diagram(6)](/assets/Untitled%20Diagram(6).png)
 
 These components are already (or planned to be) unit tested individually thus we have a reasonable level of confidence that they are independently functionally correct.
 
@@ -65,6 +65,27 @@ We can then ask `fwutil` to parse the image and report back a version that shoul
 Using `fwutil` to perform a variety of install / update / probe operations on each defined component type will fully test its functionality for a given platform.
 
 This strategy of enforcing self-consistency can be used to create a **vendor-agnostic test suite** that is capable of verifying the functionality of `fwutil` on **any platform that supports the Platform API**.
+
+#### Scope
+
+These tests are **not** intended to test the stability or reliability of the individual firmware upgrade utilities, although they have the side effect of doing this to a degree.
+
+Here we **are** testing:
+
+1. The ability of `fwutil` to orchestrate the firmware installation process
+    a. Appropriately determine upgrade capability
+    b. Appropriately call the Platform API to perform those upgrades
+2. The ability of the Platform API to call firmware utilities
+    a. Call with the appropriate arguments
+    b. Parse output successfully
+    c. Catch errors and don't call the utility with faulty data
+
+We are **not** testing:
+
+1. The stability of vendor specific utilities under various switch conditions
+2. The ability of vendor specific utilities to successfully upgrade and downgrade firmware from various versions
+
+We **strongly** encourage vendors to do their own testing on these utilities but we largely consider this testing to be out of the scope of SONiC.
 
 ## 3. Firmware Integration
 
@@ -246,9 +267,15 @@ We then generate a new mock file with the original firmware versions for each co
 
 ### 4.3.2 Successful Update from Next Image
 
-See 4.3.1 but we reboot into the "next" image before uploading the mock `platform_components.json` file and then we reboot back into the "current" image to perform the test and verify that it successfully reads the mock file and firmware files from the next image.
+In this case we
 
-This test will skip if the DUT does not have a "next" image present.
+1. Decompress the squashfs of the next image found in `/host/`
+2. Upload the mock `platform_components.json` to that file system
+3. Re-compress the squashfs
+
+The we test and verify that it successfully reads the mock file and firmware files from the next image the same was as 4.3.1
+
+This test may skip if the DUT does not have a "next" image present or the test administrator may provide a next image in the `.tar.gz` file named `next.bin` which will be installed using `sonic-install` and then removed.
 
 ### 4.3.3 Invalid Platform Configuration
 
