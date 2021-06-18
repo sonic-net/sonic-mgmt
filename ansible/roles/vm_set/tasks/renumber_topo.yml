@@ -57,6 +57,7 @@
       vm_names: "{{ VM_hosts }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
+      vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
       ptf_mgmt_ip_addr: "{{ ptf_ip }}"
       ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
       ptf_mgmt_ip_gw: "{{ mgmt_gw }}"

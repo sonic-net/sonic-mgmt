@@ -10,6 +10,7 @@ class FilterModule(object):
             'filter_vm_targets': filter_vm_targets,
             'extract_hostname': extract_hostname,
             'first_n_elements': first_n_elements,
+            'expand_properties': expand_properties
         }
 
 
@@ -178,3 +179,16 @@ def log(value, base):
         raise errors.AnsibleFilterError('Wrong type for base')
 
     return math.log(value, base)
+
+
+def expand_properties(value, configuration_properties):
+    """Expand configuration properties list to property key-value dictionary."""
+    configuration = value
+    vm_properties = {}
+    for vm, vm_info in configuration.items():
+        properties = vm_info.get("properties", [])
+        vm_properties[vm] = {}
+        for p in properties:
+            if p in configuration_properties:
+                vm_properties[vm].update(configuration_properties[p])
+    return vm_properties
