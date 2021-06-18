@@ -9,7 +9,8 @@
   ptf_ipv6: 2a01:111:e210:b000::9/64
   server: server_2
   vm_base:
-  dut: [str-s6000-acs-9]
+  dut:
+    - str-s6000-acs-9
   inv_name: str
   auto_recover: 'True'
   comment: rlhui
@@ -23,7 +24,8 @@
   ptf_ipv6:
   server: server_1
   vm_base: VM0100
-  dut: [str-n3132-acs-2]
+  dut:
+    - str-n3132-acs-2
   inv_name: str
   auto_recover: 'False'
   comment: starlab-odl
@@ -37,7 +39,8 @@
   ptf_ipv6: 2a01:111:e210:b000::8/64
   server: server_1
   vm_base: VM0124
-  dut: [str-msn2700-02]
+  dut:
+    - str-msn2700-02
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -46,12 +49,13 @@
   group-name: vms1-3
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: vms1-8
-  ptf_ip: 10.64.246.43/23
+  ptf: vms1-3
+  ptf_ip: 10.64.246.69/23
   ptf_ipv6:
   server: server_1
   vm_base: VM0148
-  dut: [str-msn2700-01]
+  dut:
+    - str-msn2700-01
   inv_name: str
   auto_recover: 'True'
   comment: dev
@@ -65,7 +69,8 @@
   ptf_ipv6:
   server: server_1
   vm_base: VM0160
-  dut: [str-msn2700-06]
+  dut:
+    - str-msn2700-06
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -79,7 +84,8 @@
   ptf_ipv6:
   server: server_1
   vm_base: VM0184
-  dut: [str-n3132-acs-1]
+  dut:
+    - str-n3132-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -93,7 +99,8 @@
   ptf_ipv6:
   server: server_2
   vm_base: VM0232
-  dut: [str-msn2700-20]
+  dut:
+    - str-msn2700-20
   inv_name: str
   auto_recover: 'True'
   comment: weibai
@@ -107,10 +114,26 @@
   ptf_ipv6:
   server: server_2
   vm_base: VM0240
-  dut: [str-msn2700-22]
+  dut:
+    - str-msn2700-22
   inv_name: str
   auto_recover: 'True'
   comment: stumkurv
+
+- conf-name: vms2-t1-7260-7
+  group-name: vms2-6
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms2-6
+  ptf_ip: 10.64.246.79/23
+  ptf_ipv6:
+  server: server_2
+  vm_base: VM0244
+  dut:
+    - str-7260cx3-acs-7
+  inv_name: str
+  auto_recover: 'True'
+  comment: nejo
 
 - conf-name: vms2-5-t0-7050-1
   group-name: vms2-5
@@ -121,7 +144,8 @@
   ptf_ipv6:
   server: server_2
   vm_base: VM0272
-  dut: [str-a7050-acs-1]
+  dut:
+    - str-a7050-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: daall
@@ -135,7 +159,8 @@
   ptf_ipv6:
   server: server_3
   vm_base: VM0356
-  dut: [str-s6100-acs-1]
+  dut:
+    - str-s6100-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: Pavel
@@ -149,7 +174,8 @@
   ptf_ipv6:
   server: server_3
   vm_base: VM0360
-  dut: [str-s6000-acs-13]
+  dut:
+    - str-s6000-acs-13
   inv_name: str
   auto_recover: 'True'
   comment: Renuka
@@ -163,7 +189,8 @@
   ptf_ipv6: 2a01:111:e210:b000::7/64
   server: server_3
   vm_base: VM0300
-  dut: [str-dx010-acs-1]
+  dut:
+    - str-dx010-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: nejo
@@ -177,7 +204,8 @@
   ptf_ipv6:
   server: server_3
   vm_base: VM0324
-  dut: [str-a7280cr3-2]
+  dut:
+    - str-a7280cr3-2
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -191,7 +219,8 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0600
-  dut: [str-a7050-acs-2]
+  dut:
+    - str-a7050-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: jleveque
@@ -205,7 +234,8 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0624
-  dut: [str-agc7648-acs-1]
+  dut:
+    - str-agc7648-acs-1
   inv_name: str
   auto_recover: 'False'
   comment: prsunny
@@ -219,7 +249,8 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0632
-  dut: [str-z9100-acs-2]
+  dut:
+    - str-z9100-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: Sujin
@@ -233,7 +264,8 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0636
-  dut: [str-a7060cx-acs-1]
+  dut:
+    - str-a7060cx-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -247,7 +279,8 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0640
-  dut: [str-a7060cx-acs-10]
+  dut:
+    - str-a7060cx-acs-10
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -261,7 +294,8 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0732
-  dut: [str-s6100-acs-2]
+  dut:
+    - str-s6100-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: Sujin
@@ -275,7 +309,8 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0700
-  dut: [str-s6100-acs-5]
+  dut:
+    - str-s6100-acs-5
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -289,7 +324,8 @@
   ptf_ipv6: 2a01:111:e210:b000::6/64
   server: server_7
   vm_base: VM0736
-  dut: [str-7260cx3-acs-1]
+  dut:
+    - str-7260cx3-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: yingxie
@@ -303,24 +339,11 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0740
-  dut: [str-7260cx3-acs-2]
+  dut:
+    - str-7260cx3-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: yingxie
-
-- conf-name: vms7-t0-7260-7
-  group-name: vms7-9
-  topo: t0-64
-  ptf_image_name: docker-ptf
-  ptf: vms7-9
-  ptf_ip: 10.64.246.79/23
-  ptf_ipv6:
-  server: server_7
-  vm_base: VM0744
-  dut: [str-7260cx3-acs-7]
-  inv_name: str
-  auto_recover: 'True'
-  comment: nejo
 
 - conf-name: vms7-t0-s6100-4
   group-name: vms7-1
@@ -331,7 +354,8 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0748
-  dut: [str-s6100-acs-4]
+  dut:
+    - str-s6100-acs-4
   inv_name: str
   auto_recover: 'True'
   comment: yingxie
@@ -345,7 +369,8 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0756
-  dut: [str-dx010-acs-4]
+  dut:
+    - str-dx010-acs-4
   inv_name: str
   auto_recover: 'True'
   comment: vadixit
@@ -359,7 +384,23 @@
   ptf_ipv6:
   server: server_7
   vm_base: VM0760
-  dut: [str-dx010-acs-5]
+  dut:
+    - str-dx010-acs-5
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms7-t0-4600c-2
+  group-name: vms7-13
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms7-13
+  ptf_ip: 10.64.246.151/23
+  ptf_ipv6:
+  server: server_7
+  vm_base: VM0752
+  dut:
+    - str-msn4600c-acs-02
   inv_name: str
   auto_recover: 'True'
   comment: v-saidia
@@ -373,7 +414,8 @@
   ptf_ipv6:
   server: server_11
   vm_base: VM1132
-  dut: [str-msn2700-03]
+  dut:
+    - str-msn2700-03
   inv_name: str
   auto_recover: 'True'
   comment: qiluo
@@ -387,7 +429,8 @@
   ptf_ipv6:
   server: server_11
   vm_base: VM1164
-  dut: [str-s6000-acs-11]
+  dut:
+    - str-s6000-acs-11
   inv_name: str
   auto_recover: 'True'
   comment: Travis
@@ -401,7 +444,8 @@
   ptf_ipv6:
   server: server_11
   vm_base: VM1116
-  dut: [str-s6000-acs-10]
+  dut:
+    - str-s6000-acs-10
   inv_name: str
   auto_recover: 'True'
   comment: Pradnya
@@ -415,7 +459,8 @@
   ptf_ipv6:
   server: server_11
   vm_base: VM1120
-  dut: [str-s6000-on-4]
+  dut:
+    - str-s6000-on-4
   inv_name: str
   auto_recover: 'True'
   comment: daall
@@ -429,7 +474,8 @@
   ptf_ipv6:
   server: server_11
   vm_base: VM1124
-  dut: [str-s6000-on-6]
+  dut:
+    - str-s6000-on-6
   inv_name: str
   auto_recover: 'False'
   comment: isabel
@@ -443,7 +489,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1200
-  dut: [str-s6000-acs-8]
+  dut:
+    - str-s6000-acs-8
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -457,7 +504,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1224
-  dut: [str-s6000-acs-7]
+  dut:
+    - str-s6000-acs-7
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -471,7 +519,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1228
-  dut: [str-msn2700-04]
+  dut:
+    - str-msn2700-04
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -485,7 +534,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1264
-  dut: [str-e1031-acs-1]
+  dut:
+    - str-e1031-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: gulv
@@ -499,7 +549,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1232
-  dut: [str-s6000-on-5]
+  dut:
+    - str-s6000-on-5
   inv_name: str
   auto_recover: 'False'
   comment: dev
@@ -513,24 +564,11 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1280
-  dut: [str-s6000-acs-14]
+  dut:
+    - str-s6000-acs-14
   inv_name: str
   auto_recover: 'True'
   comment: taahme
-
-- conf-name: vms12-4-t0-marvell
-  group-name: v12-41
-  topo: t0-52
-  ptf_image_name: docker-ptf
-  ptf: vms-unknown
-  ptf_ip: 10.64.246.85/23
-  ptf_ipv6:
-  server: server_12
-  vm_base: VM1268
-  dut: [str-marvell-acs-1]
-  inv_name: str
-  auto_recover: 'True'
-  comment: stumkurv
 
 - conf-name: vms12-t0-3800
   group-name: vms12-5
@@ -541,7 +579,8 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1272
-  dut: [str-sn3800-01]
+  dut:
+    - str-sn3800-01
   inv_name: str
   auto_recover: 'True'
   comment: stumkurv
@@ -555,10 +594,26 @@
   ptf_ipv6:
   server: server_12
   vm_base: VM1284
-  dut: [str-s5232f-on-1]
+  dut:
+    - str-s5232f-on-1
   inv_name: str
   auto_recover: 'True'
   comment: lawlee
+
+- conf-name: vms12-9-t0-e1031
+  group-name: vms12-9
+  topo: mgmttor
+  ptf_image_name: docker-ptf
+  ptf: vms12-9
+  ptf_ip: 10.64.246.153/23
+  ptf_ipv6:
+  server: server_12
+  vm_base: VM1288
+  dut:
+    - str-e1031-acs-3
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-saidia
 
 - conf-name: vms13-t0-a7170
   group-name: vms13-4
@@ -569,7 +624,8 @@
   ptf_ipv6:
   server: server_13
   vm_base: VM1304
-  dut: [str-a7170-acs-1]
+  dut:
+    - str-a7170-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -583,7 +639,8 @@
   ptf_ipv6:
   server: server_13
   vm_base: VM1308
-  dut: [str-n3164-acs-2]
+  dut:
+    - str-n3164-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: Arvind
@@ -597,7 +654,8 @@
   ptf_ipv6:
   server: server_13
   vm_base: VM1368
-  dut: [str-s6000-acs-12]
+  dut:
+    - str-s6000-acs-12
   inv_name: str
   auto_recover: 'True'
   comment: lawlee
@@ -611,7 +669,8 @@
   ptf_ipv6:
   server: server_13
   vm_base: VM1372
-  dut: [str-s6000-on-2]
+  dut:
+    - str-s6000-on-2
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -625,7 +684,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1704
-  dut: [str2-n3164-acs-3]
+  dut:
+    - str2-n3164-acs-3
   inv_name: str2
   auto_recover: 'True'
   comment: abdosi
@@ -639,7 +699,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1728
-  dut: [str2-sn3800-azd]
+  dut:
+    - str2-sn3800-azd
   inv_name: str2
   auto_recover: 'True'
   comment: annarsia
@@ -653,7 +714,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1732
-  dut: [str2-sn3800-azd-2]
+  dut:
+    - str2-sn3800-azd-2
   inv_name: str2
   auto_recover: 'True'
   comment: annarsia
@@ -667,7 +729,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1736
-  dut: [str2-7050qx-32s-acs-01]
+  dut:
+    - str2-7050qx-32s-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: gechiang
@@ -681,7 +744,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1760
-  dut: [str2-n3164-acs-1]
+  dut:
+    - str2-n3164-acs-1
   inv_name: str2
   auto_recover: 'True'
   comment: Judy
@@ -695,7 +759,9 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1784
-  dut: [str2-7050cx3-acs-06, str2-7050cx3-acs-07]
+  dut:
+    - str2-7050cx3-acs-06
+    - str2-7050cx3-acs-07
   inv_name: str2
   auto_recover: 'True'
   comment: hellogemini
@@ -709,7 +775,9 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1788
-  dut: [str2-7050cx3-acs-08, str2-7050cx3-acs-09]
+  dut:
+    - str2-7050cx3-acs-08
+    - str2-7050cx3-acs-09
   inv_name: str2
   auto_recover: 'True'
   comment: hellogemini
@@ -723,7 +791,8 @@
   ptf_ipv6:
   server: server_17
   vm_base: VM1792
-  dut: [str2-7260cx3-acs-9]
+  dut:
+    - str2-7260cx3-acs-9
   inv_name: str2
   auto_recover: 'True'
   comment: yingxie
@@ -737,7 +806,8 @@
   ptf_ipv6:
   server: server_18
   vm_base: VM1800
-  dut: [str2-msn4600c-acs-01]
+  dut:
+    - str2-msn4600c-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -751,7 +821,8 @@
   ptf_ipv6:
   server: server_18
   vm_base: VM1824
-  dut: [str2-7215-acs-1]
+  dut:
+    - str2-7215-acs-1
   inv_name: str2
   auto_recover: 'True'
   comment: stumkurv
@@ -765,7 +836,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2000
-  dut: [str2-dx010-acs-6]
+  dut:
+    - str2-dx010-acs-6
   inv_name: str2
   auto_recover: 'True'
   comment: Jenkins
@@ -779,7 +851,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2024
-  dut: [str2-7050cx3-acs-03]
+  dut:
+    - str2-7050cx3-acs-03
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -793,7 +866,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2048
-  dut: [str2-n3164-acs-4]
+  dut:
+    - str2-n3164-acs-4
   inv_name: str2
   auto_recover: 'True'
   comment: suvarna
@@ -807,7 +881,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2076
-  dut: [str2-7170-azd]
+  dut:
+    - str2-7170-azd
   inv_name: str2
   auto_recover: 'True'
   comment: v-llucy
@@ -821,7 +896,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2080
-  dut: [str2-7050cx3-acs-01]
+  dut:
+    - str2-7050cx3-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -835,7 +911,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2084
-  dut: [str2-7050cx3-acs-02]
+  dut:
+    - str2-7050cx3-acs-02
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -849,7 +926,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2088
-  dut: [str2-sn3800-02]
+  dut:
+    - str2-sn3800-02
   inv_name: str2
   auto_recover: 'True'
   comment: stumkurv
@@ -863,7 +941,8 @@
   ptf_ipv6:
   server: server_20
   vm_base: VM2092
-  dut: [str2-7060cx-32s-29]
+  dut:
+    - str2-7060cx-32s-29
   inv_name: str2
   auto_recover: 'True'
   comment: vadixit
@@ -877,7 +956,8 @@
   ptf_ipv6:
   server: server_21
   vm_base: VM2100
-  dut: [str2-msn2700-spy-1]
+  dut:
+    - str2-msn2700-spy-1
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -891,7 +971,8 @@
   ptf_ipv6:
   server: server_21
   vm_base: VM2104
-  dut: [str2-msn2700-spy-2]
+  dut:
+    - str2-msn2700-spy-2
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -905,7 +986,9 @@
   ptf_ipv6:
   server: server_21
   vm_base: VM2128
-  dut: [str2-7050cx3-acs-10, str2-7050cx3-acs-11]
+  dut:
+    - str2-7050cx3-acs-10
+    - str2-7050cx3-acs-11
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -919,7 +1002,8 @@
   ptf_ipv6:
   server: server_21
   vm_base: VM2132
-  dut: [str2-z9332f-02]
+  dut:
+    - str2-z9332f-05
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -933,7 +1017,24 @@
   ptf_ipv6:
   server: server_21
   vm_base: VM2156
-  dut: [str2-z9332f-01]
+  dut:
+    - str2-z9332f-01
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms21-dual-t0-7260
+  group-name: vms21-6
+  topo: dualtor-120
+  ptf_image_name: docker-ptf
+  ptf: vms21-6
+  ptf_ip: 10.64.246.152/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM2188
+  dut:
+    - str2-7260cx3-acs-10
+    - str2-7260cx3-acs-11
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -947,7 +1048,8 @@
   ptf_ipv6:
   server: server_svc_1
   vm_base: VM1000
-  dut: [svcstr-n3164-acs-1]
+  dut:
+    - svcstr-n3164-acs-1
   inv_name: strsvc
   auto_recover: 'False'
   comment: Mahesh
@@ -961,7 +1063,8 @@
   ptf_ipv6:
   server: server_svc_1
   vm_base: VM1024
-  dut: [svcstr-n3164-acs-2]
+  dut:
+    - svcstr-n3164-acs-2
   inv_name: strsvc
   auto_recover: 'False'
   comment: genhwa
@@ -975,26 +1078,13 @@
   ptf_ipv6:
   server: server_6
   vm_base: VM0600
-  dut: [example-s6100-dut-1]
+  dut:
+    - example-s6100-dut-1
   inv_name: ''
   auto_recover: 'False'
   comment: superman
 
-- conf-name: spytest
-  group-name: spytest
-  topo: fullmesh
-  ptf_image_name: docker-ptf
-  ptf: ptf-unknown
-  ptf_ip: 10.64.246.101/23
-  ptf_ipv6:
-  server: server_16
-  vm_base:
-  dut: [str2-7060-spy-3, str2-7060-spy-4, str2-7060-spy-1, str2-7060-spy-2]
-  inv_name: str2
-  auto_recover: 'False'
-  comment: hellospytest
-
-- conf-name: ixanvl-vs-conf 
+- conf-name: ixanvl-vs-conf
   group-name: anvl
   topo: ptf32
   ptf_image_name: docker-ptf-anvl
@@ -1005,4 +1095,114 @@
   vm_base:
   dut:
     - vlab-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Test ptf ANVL SONIC VM
+
+- conf-name: vms20-t1-ixia-1
+  group-name: vms20-ixia-1
+  topo: tgen-t1-3-lag
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-1
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-sn2700-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t1-ixia-2
+  group-name: vms20-ixia-2
+  topo: tgen-t1-3-lag
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-2
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-a7060-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t0-ixia-1
+  group-name: vms20-ixia-3
+  topo: tgen-t0-3
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-3
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-s6100-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t0-ixia-2
+  group-name: vms20-ixia-4
+  topo: tgen-t0-35-3
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-4
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-7050qx-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: spytest
+  group-name: spytest
+  topo: fullmesh
+  ptf_image_name: docker-ptf
+  ptf: ptf-unknown
+  ptf_ip: 10.64.246.101/23
+  ptf_ipv6:
+  server: server_16
+  vm_base:
+  dut:
+    - str2-7060-spy-3
+    - str2-7060-spy-4
+    - str2-7060-spy-1
+    - str2-7060-spy-2
+  inv_name: str2
+  auto_recover: 'False'
+  comment: hellospytest
+
+- conf-name: vms18-t0-7050qx-acs-02
+  group-name: vms18-3
+  topo: t0-35
+  ptf_image_name: docker-ptf
+  ptf: vms18-3
+  ptf_ip: 10.64.246.158/23
+  ptf_ipv6:
+  server: server_18
+  vm_base: VM1828
+  dut:
+    - str2-7050qx-32s-acs-02
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms18-t1-7050qx-acs-03
+  group-name: vms18-7
+  topo: t1-backend
+  ptf_image_name: docker-ptf
+  ptf: vms18-7
+  ptf_ip: 10.64.246.159/23
+  ptf_ipv6:
+  server: server_18
+  vm_base: VM1884
+  dut:
+    - str2-7050qx-32s-acs-03
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
