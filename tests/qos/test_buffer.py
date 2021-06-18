@@ -1546,7 +1546,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
     max_advertised_speed = _get_max_speed_from_list(advertised_speeds_to_test)
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
-    expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_before_test, cable_length_to_test)
+    expected_profile = make_expected_profile_name(speed_before_test, cable_length_to_test)
     try:
         # Preparing: configure the speed to one which is not the maximum speed and the cable length to 15m
         # This is to enforce there is a new buffer profile created
@@ -1559,7 +1559,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         logging.info('Enable port auto negotiation')
         duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
         # Check whether the maximum supported speed is used for creating lossless profile
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_supported_speed, cable_length_to_test)
+        expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
 
@@ -1567,14 +1567,14 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         logging.info('Update advertised speeds to {}'.format(advertised_speeds_to_test))
         duthost.shell('config interface advertised-speeds {} {}'.format(port_to_test, advertised_speeds_to_test))
         # Check whether the maximum advertised speed is used for creating lossless profile
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_advertised_speed, cable_length_to_test)
+        expected_profile = make_expected_profile_name(max_advertised_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
 
         # Disable port auto negotiation
         logging.info('Disable port auto negotiation')
         duthost.shell('config interface autoneg {} disabled'.format(port_to_test))
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_before_test, cable_length_to_test)
+        expected_profile = make_expected_profile_name(speed_before_test, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
 
@@ -1582,7 +1582,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         logging.info('Reenable port auto negotiation with advertised speeds configured')
         duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
         # Check whether the maximum advertised speed is used for creating lossless profile
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_advertised_speed, cable_length_to_test)
+        expected_profile = make_expected_profile_name(max_advertised_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
 
@@ -1594,7 +1594,7 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         # Update the advertised speed to all
         logging.info('Update advertised speeds to all')
         duthost.shell('config interface advertised-speeds {} all'.format(port_to_test))
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(max_supported_speed, cable_length_to_test)
+        expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
