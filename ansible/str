@@ -563,7 +563,7 @@ sonic_arista64_100:
       hwsku: Arista-7170-64C
     str-7260cx3-acs-7:
       ansible_host: 10.64.246.78
-      hwsku: Arista-7260CX3-Q64
+      hwsku: Arista-7260CX3-C64
   vars:
     iface_speed: 100000
 
