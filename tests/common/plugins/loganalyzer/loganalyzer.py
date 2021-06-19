@@ -140,9 +140,9 @@ class LogAnalyzer:
 
         return call_result
 
-    def init(self):
+    def init(self, log_files=None):
         """
-        @summary: Add start marker into syslog on the DUT.
+        @summary: Add start marker into log files on the DUT.
 
         @return: True for successfull execution False otherwise
         """
@@ -150,14 +150,16 @@ class LogAnalyzer:
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
-        return self._setup_marker()
+        return self._setup_marker(log_files=log_files)
 
-    def _setup_marker(self):
+    def _setup_marker(self, log_files=None):
         """
-        Adds the marker to the syslog
+        Adds the marker to the log files
         """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
+        if log_files:
+            cmd += " --log {}".format(log_files)
 
         logging.debug("Adding start marker '{}'".format(start_marker))
         self.ansible_host.command(cmd)
