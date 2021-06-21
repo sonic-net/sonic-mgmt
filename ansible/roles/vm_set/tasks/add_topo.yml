@@ -226,7 +226,7 @@
 
   when: container_type == "PTF"
 
-- name: Save PTF container
+- name: Save PTF image
   block:
   - shell: docker tag "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}" docker-ptf
   - shell: docker save -o docker-ptf.tar docker-ptf
