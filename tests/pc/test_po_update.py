@@ -40,12 +40,12 @@ def get_portchannel_in_ns(mg_facts, namespace):
     return None
 
 
-def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     """
     test port channel add/deletion as well ip address configuration
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
+    namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     namespace_prefix = '-n ' + namespace if namespace else ''
     asichost = duthost.asic_instance_from_namespace(namespace)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
