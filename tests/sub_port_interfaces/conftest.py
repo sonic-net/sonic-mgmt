@@ -84,12 +84,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
             vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
             vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
 
-    interface_ranges = range(1, 3)
+    interface_num = 2
     ip_subnet = u'172.16.0.0/16'
     prefix = 30
     subnet = ipaddress.ip_network(ip_subnet)
 
-    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_ranges, request.param)
+    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, request.param)
 
     subnets = [i for i, _ in zip(subnet.subnets(new_prefix=22), config_port_indices)]
 
@@ -254,7 +254,7 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
     """
     PTF's configuration reload on teardown

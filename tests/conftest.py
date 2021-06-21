@@ -20,9 +20,12 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
-
-from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.constants import (
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
+    ASIC_PARAM_TYPE_BACKEND
+)
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
@@ -49,7 +52,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan')
+                  'tests.vxlan',
+                  'tests.common.plugins.allure_server')
 
 
 def pytest_addoption(parser):
@@ -524,7 +528,7 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
@@ -680,6 +684,28 @@ def enable_container_autorestart():
 
     return enable_container_autorestart
 
+@pytest.fixture(scope='module')
+def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+    """
+        Swap syncd on DUT host
+
+        Args:
+            request (Fixture): pytest request object
+            duthost (AnsibleHost): Device Under Test (DUT)
+
+        Returns:
+            None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    swapSyncd = request.config.getoption("--qos_swap_syncd")
+    try:
+        if swapSyncd:
+            docker.swap_syncd(duthost, creds)
+
+        yield
+    finally:
+        if swapSyncd:
+            docker.restore_default_syncd(duthost, creds)
 
 def get_host_data(request, dut):
     '''
@@ -768,6 +794,8 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            elif param_type == ASIC_PARAM_TYPE_BACKEND and ASIC_PARAM_TYPE_BACKEND in inv_data:
+                dut_asic_params = inv_data[ASIC_PARAM_TYPE_BACKEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
         if random_asic:
             asic_index_params.append(random.sample(dut_asic_params, 1))
@@ -927,22 +955,21 @@ def pytest_generate_tests(metafunc):
 
     asics_selected = None
     asic_fixture_name = None
+
+    if duts_selected is None:
+        tbname, tbinfo = get_tbinfo(metafunc)
+        duts_selected = [tbinfo["duts"][0]]
+
     if "enum_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
     elif "enum_frontend_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_frontend_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected,ASIC_PARAM_TYPE_FRONTEND)
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND)
+    elif "enum_backend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_backend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_BACKEND)
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
 
@@ -964,6 +991,8 @@ def pytest_generate_tests(metafunc):
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module")
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:

@@ -19,7 +19,7 @@ def is_supervisor_node(inv_files, hostname):
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
-    if 'card_type' in dut_vars and dut_vars['card_type'] == 'supervisor':
+    if dut_vars and 'card_type' in dut_vars and dut_vars['card_type'] == 'supervisor':
         return True
     return False
 
@@ -43,8 +43,8 @@ def is_container_running(duthost, container_name):
     Returns:
         Boolean value. True represents the container is running
     """
-    result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
-    return result["stdout_lines"][0].strip() == "true"
+    running_containers = duthost.shell(r"docker ps -f 'status=running' --format \{\{.Names\}\}")['stdout_lines']
+    return container_name in running_containers
 
 
 def check_container_state(duthost, container_name, should_be_running):

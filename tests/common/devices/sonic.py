@@ -194,7 +194,8 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode("utf-8")
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+            "utf-8").lower()
 
 
     def _get_platform_info(self):
@@ -1366,7 +1367,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         except RunAnsibleModuleFail:
             return
         for pid in pid_list:
-            self.shell("kill {}".format(pid))
+            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def get_up_ip_ports(self):
         """
@@ -1381,6 +1382,84 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             except KeyError:
                 pass
         return up_ip_ports
+
+    def get_supported_speeds(self, interface_name):
+        """Get supported speeds for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            list: A list of supported speed strings or None
+        """
+        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_speeds')
+        supported_speeds = self.shell(cmd)['stdout'].strip()
+        return None if not supported_speeds else supported_speeds.split(',')
+
+    def set_auto_negotiation_mode(self, interface_name, mode):
+        """Set auto negotiation mode for a given interface
+
+        Args:
+            interface_name (str): Interface name
+            mode (boolean): True to enable auto negotiation else disable
+
+        Returns:
+            boolean: False if the operation is not supported else True
+        """
+        cmd = 'config interface autoneg {} {}'.format(interface_name, 'enabled' if mode else 'disabled')
+        self.shell(cmd)
+        return True
+
+    def get_auto_negotiation_mode(self, interface_name):
+        """Get auto negotiation mode for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            the auto negotiation mode is unknown or unsupported.
+        """
+        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
+        mode = self.shell(cmd)['stdout'].strip()
+        if not mode:
+            return None
+        return True if mode == 'on' else False
+
+    def set_speed(self, interface_name, speed):
+        """Set interface speed according to the auto negotiation mode. When auto negotiation mode
+        is enabled, set the advertised speeds; otherwise, set the force speed.
+
+        Args:
+            interface_name (str): Interface name
+            speed (str): SONiC style interface speed. E.g, 1G=1000, 10G=10000, 100G=100000. If the speed
+            is None and auto negotiation mode is enabled, it sets the advertised speeds to all supported
+            speeds.
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        auto_neg_mode = self.get_auto_negotiation_mode(interface_name)
+        if not auto_neg_mode:
+            cmd = 'config interface speed {} {}'.format(interface_name, speed)
+        else:
+            cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+        self.shell(cmd)
+        return True
+
+    def get_speed(self, interface_name):
+        """Get interface speed
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
+        """
+        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'speed')
+        speed = self.shell(cmd)['stdout'].strip()
+        return speed
 
     def get_rsyslog_ipv4(self):
         if not self.is_multi_asic:
@@ -1441,8 +1520,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                         self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
                     ):
                     ip_ifaces[k] = {
-                        "ipv4" : v["ipv4"],
-                        "peer_ipv4" : v["peer_ipv4"]
+                        "ipv4": v["ipv4"],
+                        "peer_ipv4": v["peer_ipv4"],
+                        "bgp_neighbor": v["bgp_neighbor"]
                     }
 
         return ip_ifaces

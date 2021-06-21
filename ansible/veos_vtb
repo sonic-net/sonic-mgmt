@@ -14,6 +14,7 @@ all:
           - t1-64-lag
           - t1-8-lag
           - t1-64-lag-clet
+          - t1-backend
           - t0
           - t0-16
           - t0-56
@@ -25,6 +26,7 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
+          - dualtor-120
           - t2-vs
       children:
         server_1:
