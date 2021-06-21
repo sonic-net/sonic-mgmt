@@ -1,6 +1,8 @@
 import pytest
 import logging
 import re
+import random
+import ipaddress
 from multiprocessing.pool import ThreadPool
 
 from tests.common import config_reload
@@ -47,7 +49,7 @@ def macsec_environment(duthost, nbrhosts):
     recover_configuration(duthost, nbrhosts)
     logger.info("Prepare MACsec environment")
     yield
-    recover_configuration(duthost, nbrhosts)
+    # recover_configuration(duthost, nbrhosts)
     logger.info("Cleanup MACsec configuration")
 
 
@@ -97,17 +99,77 @@ def policy(request):
     return request.param
 
 
+def find_links(duthost, tbinfo, filter):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+        filter(interface, neighbor, mg_facts, tbinfo)
+
+
 @pytest.fixture(scope="module")
-def ctrl_links(nbrhosts):
-    return [
-        {
-            "host": nbrhosts["ARISTA01T1"]["host"],
-            "dut_ctrl_port": "Ethernet112",
-            "host_ctrl_port": "Ethernet0",
-        },
-        {
-            "host": nbrhosts["ARISTA02T1"]["host"],
-            "dut_ctrl_port": "Ethernet116",
-            "host_ctrl_port": "Ethernet0",
+def downstream_links(duthost, tbinfo, nbrhosts):
+    links = defaultdict(dict)
+    def filter(interface, neighbor, mg_facts, tbinfo):
+        if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
+            port = mg_facts["minigraph_neighbors"][interface]["port"]
+            links[interface] = {
+                "name": neighbor["name"],
+                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
+                "port":"Ethernet{}".format((int(re.search(r"(\d+)",port).group(1)) - 1) * 4)
+            }
+    find_links(duthost, tbinfo, filter)
+    return links
+
+
+@pytest.fixture(scope="module")
+def upstream_links(duthost, tbinfo, nbrhosts):
+    links = defaultdict(dict)
+    def filter(interface, neighbor, mg_facts, tbinfo):
+        if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
+            for item in mg_facts["minigraph_bgp"]:
+                if item["name"] == neighbor["name"]:
+                    if isinstance(ipaddress.ip_address(item["addr"]), ipaddress.IPv4Address):
+                        ipv4_addr = item["addr"]
+                        break
+            port = mg_facts["minigraph_neighbors"][interface]["port"]
+            links[interface] = {
+                "name": neighbor["name"],
+                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
+                "ipv4_addr": ipv4_addr,
+                "port":"Ethernet{}".format((int(re.search(r"(\d+)",port).group(1)) - 1) * 4)
+            }
+    find_links(duthost, tbinfo, filter)
+    return links
+
+
+def find_links_from_nbr(duthost, tbinfo, nbrhosts):
+    links = defaultdict(dict)
+
+    def filter(interface, neighbor, mg_facts, tbinfo):
+        if neighbor["name"] not in nbrhosts.keys():
+            return
+        port = mg_facts["minigraph_neighbors"][interface]["port"]
+        links[interface] = {
+            "name": neighbor,
+            "host": nbrhosts[neighbor["name"]]["host"],
+            "port":"Ethernet{}".format((int(re.search(r"(\d+)",port).group(1)) - 1) * 4)
         }
-    ]
+    find_links(duthost, tbinfo, filter)
+    return links
+
+
+@pytest.fixture(scope="module")
+def ctrl_links(duthost, tbinfo, nbrhosts):
+    assert len(nbrhosts) > 1
+    ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)/2)
+    logging.info("Controlled links {}".format(ctrl_nbr_names))
+    nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
+    return find_links_from_nbr(duthost, tbinfo, nbrhosts)
+
+
+@pytest.fixture(scope="module")
+def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
+    unctrl_nbr_names = set(nbrhosts.keys()) - set(ctrl_links.keys())
+    logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
+    nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
+    return find_links_from_nbr(duthost, tbinfo, nbrhosts)
+

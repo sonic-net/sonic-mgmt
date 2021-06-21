@@ -7,7 +7,6 @@ import re
 import binascii
 
 import pytest
-import ipaddress
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -55,7 +54,7 @@ def get_portchannel(host):
 def all_portchannels(duthost, ctrl_links):
     portchannel_lists = {}
     portchannel_lists[duthost] = get_portchannel(duthost)
-    for nbr in ctrl_links:
+    for dut_port, nbr in ctrl_links.items():
         if nbr["host"] in portchannel_lists:
             continue
         portchannel_lists[nbr["host"]] = get_portchannel(nbr["host"])
@@ -108,9 +107,9 @@ def disable_macsec_port(host, port):
 
 
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
-    for nbr in ctrl_links:
-        disable_macsec_port(duthost, nbr["dut_ctrl_port"])
-        disable_macsec_port(nbr["host"], nbr["host_ctrl_port"])
+    for dut_port, nbr in ctrl_links.items():
+        disable_macsec_port(duthost, dut_port)
+        disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], profile_name)
     delete_macsec_profile(duthost, profile_name)
 
@@ -119,21 +118,24 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                                cipher_suite, primary_cak, primary_ckn, policy):
     set_macsec_profile(duthost, profile_name, default_priority,
                        cipher_suite, primary_cak, primary_ckn, policy)
-    for nbr in ctrl_links:
-        enable_macsec_port(duthost, nbr["dut_ctrl_port"], profile_name)
+    for dut_port, nbr in ctrl_links.items():
+        enable_macsec_port(duthost, dut_port, profile_name)
         set_macsec_profile(nbr["host"], profile_name, default_priority,
                            cipher_suite, primary_cak, primary_ckn, policy)
-        enable_macsec_port(nbr["host"], nbr["host_ctrl_port"], profile_name)
+        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(duthost, ctrl_links, profile_name, default_priority, cipher_suite,
+def setup(duthost, ctrl_links, unctrl_links, profile_name, default_priority, cipher_suite,
           primary_cak, primary_ckn, policy, enable_macsec_feature, request,
           all_portchannels):
     if request.session.testsfailed > 0:
         return
+    all_links = {}
+    all_links.update(ctrl_links)
+    all_links.update(unctrl_links)
     config_all_portchannel_members(all_portchannels, "del")
-    cleanup_macsec_configuration(duthost, ctrl_links, profile_name)
+    cleanup_macsec_configuration(duthost, all_links, profile_name)
     time.sleep(30)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy)
@@ -146,7 +148,7 @@ def setup(duthost, ctrl_links, profile_name, default_priority, cipher_suite,
         return
     config_all_portchannel_members(all_portchannels, "del")
     time.sleep(10)
-    cleanup_macsec_configuration(duthost, ctrl_links, profile_name)
+    cleanup_macsec_configuration(duthost, all_links, profile_name)
     time.sleep(30)
     config_all_portchannel_members(all_portchannels, "add")
 
@@ -157,10 +159,6 @@ def check_wpa_supplicant_process(host, ctrl_port_name):
     output = host.shell(cmd)["stdout_lines"]
     pytest_assert(len(output) == 1, "The wpa_supplicant for the port {} wasn't started on the host {}".format(
         host, ctrl_port_name))
-
-
-def get_macaddress(host, port_name):
-    return host.get_dut_iface_mac(port_name)
 
 
 def get_sci(macaddress, port_identifer=1, order="network"):
@@ -210,8 +208,8 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
             assert port_table["enable_encrypt"] == "false"
 
     # Check MACsec SC table
-    dut_sci = get_sci(get_macaddress(duthost, dut_ctrl_port_name))
-    nbr_sci = get_sci(get_macaddress(nbrhost, nbr_ctrl_port_name))
+    dut_sci = get_sci(duthost.get_dut_iface_mac(dut_ctrl_port_name))
+    nbr_sci = get_sci(nbrhost.get_dut_iface_mac(nbr_ctrl_port_name))
     dut_ingress_sc_table = sonic_db_cli(
         duthost, QUERY_MACSEC_INGRESS_SC.format(dut_ctrl_port_name, nbr_sci))
     nbr_ingress_sc_table = sonic_db_cli(
@@ -398,25 +396,25 @@ def check_mka_session(dut_mka_session, dut_sci, nbr_mka_session, nbr_sci, policy
 
 class TestControlPlane():
     def test_wpa_supplicant_processes(self, duthost, ctrl_links):
-        for nbr in ctrl_links:
-            check_wpa_supplicant_process(duthost, nbr["dut_ctrl_port"])
-            check_wpa_supplicant_process(nbr["host"], nbr["host_ctrl_port"])
+        for port_name, nbr in ctrl_links.items():
+            check_wpa_supplicant_process(duthost, port_name)
+            check_wpa_supplicant_process(nbr["host"], nbr["port"])
 
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite):
-        for nbr in ctrl_links:
-            check_appl_db(duthost, nbr["dut_ctrl_port"], nbr["host"],
-                          nbr["host_ctrl_port"], policy, cipher_suite)
+        for port_name, nbr in ctrl_links.items():
+            check_appl_db(duthost, port_name, nbr["host"],
+                          nbr["port"], policy, cipher_suite)
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite):
         dut_mka_session = get_mka_session(duthost)
         assert len(dut_mka_session) == len(ctrl_links)
-        for nbr in ctrl_links:
+        for port_name, nbr in ctrl_links.items():
             nbr_mka_session = get_mka_session(nbr["host"])
-            dut_macsec_port = get_macsec_infname(duthost, nbr["dut_ctrl_port"])
+            dut_macsec_port = get_macsec_infname(duthost, port_name)
             nbr_macsec_port = get_macsec_infname(
-                nbr["host"], nbr["host_ctrl_port"])
-            dut_macaddress = get_macaddress(duthost, nbr["dut_ctrl_port"])
-            nbr_macaddress = get_macaddress(nbr["host"], nbr["host_ctrl_port"])
+                nbr["host"], nbr["port"])
+            dut_macaddress = duthost.get_dut_iface_mac(port_name)
+            nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
             dut_sci = get_sci(dut_macaddress, order="host")
             nbr_sci = get_sci(nbr_macaddress, order="host")
             check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
@@ -427,16 +425,20 @@ class TestControlPlane():
 def create_pkt(eth_dst, ip_src, ip_dst, payload=None):
     pkt = testutils.simple_ipv4ip_packet(
         eth_dst=eth_dst, ip_src=ip_src, ip_dst=ip_dst, inner_frame=payload)
+    return pkt
+
+
+def create_exp_pkt(pkt, ttl):
     exp_pkt = pkt.copy()
-    exp_pkt[scapy.IP].ttl = exp_pkt[scapy.IP].ttl - 1
+    exp_pkt[scapy.IP].ttl = ttl
     exp_pkt = mask.Mask(exp_pkt, ignore_extra_bytes=True)
     exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
     exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
-    return pkt, exp_pkt
+    return exp_pkt
 
 
 def get_macsec_attr(host, port):
-    eth_src = get_macaddress(host, port)
+    eth_src = host.get_dut_iface_mac(port)
     macsec_port = sonic_db_cli(host, QUERY_MACSEC_PORT.format(port))
     if macsec_port["enable_encrypt"] == "true":
         encrypt = 1
@@ -466,10 +468,10 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, pn):
     return pkt
 
 
-def check_macsec_pkt(host, port, test, ptf_port_id, exp_pkt, timeout=3):
+def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     device, ptf_port = testutils.port_to_tuple(ptf_port_id)
     received_packets = []
-    sci, an, sak, encrypt = get_macsec_attr(host, port)
+    sci, an, sak, encrypt = macsec_attr
     end_time = time.time() + timeout
     while True:
         cur_time = time.time()
@@ -477,6 +479,8 @@ def check_macsec_pkt(host, port, test, ptf_port_id, exp_pkt, timeout=3):
             break
         ret = testutils.dp_poll(
             test, device_number=device, port_number=ptf_port, timeout=end_time - cur_time, exp_pkt=None)
+        if isinstance(ret, test.dataplane.PollFailure):
+            break
         # If the packet isn't MACsec type
         pkt = scapy.Ether(ret.packet)
         if pkt[scapy.Ether].type != 0x88e5:
@@ -492,73 +496,49 @@ def check_macsec_pkt(host, port, test, ptf_port_id, exp_pkt, timeout=3):
             continue
         if exp_pkt.pkt_match(pkt):
             return
-    fail_message = "Expect pkt \n{}\nBut received \n".format(exp_pkt)
+    fail_message = "Expect pkt \n{}\n{}\nBut received \n".format(exp_pkt, exp_pkt.exp_pkt.show(dump=True))
     for packet in received_packets:
         fail_message += "\n{}\n".format(packet.show(dump=True))
     pytest.fail(fail_message)
 
 
-def find_links(duthost, tbinfo, filter):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        filter(interface, neighbor, mg_facts, tbinfo)
-
-
-@pytest.fixture(scope="module")
-def downstream_links(duthost, tbinfo):
-    links = defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
-            links[neighbor["name"]] = {
-                "port_name": interface,
-                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "macaddr": get_macaddress(duthost, interface)
-            }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
-@pytest.fixture(scope="module")
-def ctrl_upstream_links(duthost, tbinfo, ctrl_links):
-    links = defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
-            for item in mg_facts["minigraph_bgp"]:
-                if item["name"] == neighbor["name"]:
-                    if isinstance(ipaddress.ip_address(item["addr"]), ipaddress.IPv4Address):
-                        ipv4_addr = item["addr"]
-                        break
-            is_ctrl_port = False
-            for link in ctrl_links:
-                if link["dut_ctrl_port"] == interface:
-                    is_ctrl_port = True
-                    break
-            if not is_ctrl_port:
-                return
-            links[neighbor["name"]] = {
-                "port_name": interface,
-                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "ipv4_addr": ipv4_addr
-            }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
 class TestDataPlane():
-    def test_server_to_neighbor(self, duthost, nbrhosts, nbr_device_numbers, nbr_ptfadapter, downstream_links, ctrl_upstream_links):
-        devices = sorted(nbrhosts.keys())
-        for up_host_name, upstream in ctrl_upstream_links.items():
-            # Pick the first down neighbor device to sent a plaintext packet
-            down_host_name = downstream_links.keys()[0]
-            downstream = downstream_links[down_host_name]
-            logging.info("{} -> {}".format(down_host_name, up_host_name))
-            payload = bytes("TestMACsec {}".format(up_host_name))
-            pkt, exp_pkt = create_pkt(
-                downstream["macaddr"], "1.2.3.4", upstream["ipv4_addr"], payload)
-            testutils.send(nbr_ptfadapter, downstream["ptf_port_id"], pkt)
-            testutils.verify_packet_any_port(nbr_ptfadapter, exp_pkt, ports=range(
-                0, 257), device_number=nbr_device_numbers[up_host_name])
-            check_macsec_pkt(host=duthost, port=upstream["port_name"], test=nbr_ptfadapter,
-                             ptf_port_id=upstream["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
+    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+        down_port, down_link = downstream_links.items()[0]
+        for ctrl_port in ctrl_links.keys():
+            up_link = upstream_links[ctrl_port]
+            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+            payload = "{} -> {}".format(down_link["name"], up_link["name"])
+            logging.info(payload)
+            pkt = create_pkt(
+                dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+            exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt)
+            nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+            testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+                nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
+            macsec_attr = get_macsec_attr(duthost, ctrl_port)
+            check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
+                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
+
+    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+        for ctrl_port in ctrl_links.keys():
+            for up_port, up_link in upstream_links.items():
+                if up_port == ctrl_port:
+                    continue
+                ctrl_port = "Ethernet112"
+                up_port = "Ethernet116"
+                up_link = upstream_links["Ethernet116"]
+                ctrl_link = upstream_links[ctrl_port]
+                dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+                payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
+                logging.info(payload)
+                pkt = create_pkt(
+                    dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
+                nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+                testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt)
+                exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+                nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
+                testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+                    nbr_device_numbers[up_link["name"]], nbr_up_port_id))
+
