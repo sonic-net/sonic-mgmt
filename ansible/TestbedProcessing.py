@@ -133,6 +133,7 @@ def makeMain(data, outfile):
         }
     }
     with open(outfile, "w") as toWrite:
+        toWrite.write( "supported_vm_types: [ 'veos', 'ceos', 'vsonic' ]\n" ),
         yaml.dump(dictData, stream=toWrite, default_flow_style=False)
         toWrite.write("# proxy\n")
         yaml.dump(proxy, stream=toWrite, default_flow_style=False)
@@ -164,7 +165,7 @@ generates files/sonic_lab_devices.csv by pulling hostname, managementIP, hwsku, 
 error handling: checks if attribute values are None type or string "None"
 """
 def makeSonicLabDevices(data, outfile):
-    csv_columns = "Hostname,ManagementIp,HwSku,Type"
+    csv_columns = "Hostname,ManagementIp,HwSku,Type,CardType"
     topology = data
     csv_file = outfile
 
@@ -175,8 +176,8 @@ def makeSonicLabDevices(data, outfile):
                 hostname = device
                 managementIP = str(deviceDetails.get("ansible").get("ansible_host"))
                 hwsku = deviceDetails.get("hwsku")
-                devType = deviceDetails.get("device_type")
-
+                devType = deviceDetails.get("device_type") #DevSonic, server, FanoutRoot etc
+                cardType = deviceDetails.get("card_type") #supervisor, Linecard etc
                 # catch empty values
                 if not managementIP:
                     managementIP = ""
@@ -184,8 +185,10 @@ def makeSonicLabDevices(data, outfile):
                     hwsku = ""
                 if not devType:
                     devType = ""
+                if not cardType:
+                    cardType = ""
 
-                row = hostname + "," + managementIP + "," + hwsku + "," + devType
+                row = hostname + "," + managementIP + "," + hwsku + "," + devType + "," + cardType
                 f.write(row + "\n")
     except IOError:
         print("I/O error: makeSonicLabDevices")
@@ -240,6 +243,11 @@ def makeTestbed(data, outfile):
                     ptf = ""
                 if not comment:
                     comment = ""
+                # dut is a list for multi-dut testbed, convert it to string
+                if type(dut) is not str:
+                   dut = dut.__str__()
+                dut = dut.replace(",", ";")
+                dut = dut.replace(" ", "")
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + ptf_ipv6 + ","+ server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
@@ -265,6 +273,8 @@ def makeSonicLabLinks(data, outfile):
             for key, item in topology.items():
                 startDevice = key
                 interfacesDetails = item.get("interfaces")
+                if not interfacesDetails:
+                    continue
 
                 for startPort, element in interfacesDetails.items():
                     startPort = startPort
@@ -363,6 +373,7 @@ makeLab(data, veos, devices, outfile)
 """
 def makeLab(data, devices, testbed, outfile):
     deviceGroup = data
+    start_switchid = 0
     with open(outfile, "w") as toWrite:
         for key, value in deviceGroup.items():
             #children section
@@ -377,45 +388,143 @@ def makeLab(data, devices, testbed, outfile):
                 toWrite.write("[" + key + "]\n")
                 for host in value.get("host"):
                     entry = host
+                    dev = devices.get(host.lower())
 
                     if "ptf" in key:
                         try: #get ansible host
-                            ansible_host = testbed.get(host).get("ansible").get("ansible_host")
+                            ansible_host = dev.get("ansible").get("ansible_host")
                             entry += "\tansible_host=" + ansible_host.split("/")[0]
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
                         if ansible_host:
                             try: # get ansible ssh username
-                                ansible_ssh_user = testbed.get(host.lower()).get("ansible").get("ansible_ssh_user")
+                                ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
                                 entry += "\tansible_ssh_user=" + ansible_ssh_user
                             except:
                                 print("\t\t" + host + ": ansible_ssh_user not found")
 
                             try: # get ansible ssh pass
-                                ansible_ssh_pass = testbed.get(host.lower()).get("ansible").get("ansible_ssh_pass")
+                                ansible_ssh_pass = dev.get("ansible").get("ansible_ssh_pass")
                                 entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                             except:
                                 print("\t\t" + host + ": ansible_ssh_pass not found")
                     else: #not ptf container
                         try: #get ansible host
-                            ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
+                            ansible_host = dev.get("ansible").get("ansible_host")
                             entry += "\tansible_host=" + ansible_host.split("/")[0]
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
                         if ansible_host:
                             try: # get ansible ssh username
-                                ansible_ssh_user = devices.get(host.lower()).get("ansible").get("ansible_ssh_user")
+                                ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
                                 entry += "\tansible_ssh_user=" + ansible_ssh_user
                             except:
                                 print("\t\t" + host + ": ansible_ssh_user not found")
 
                             try: # get ansible ssh pass
-                                ansible_ssh_pass = devices.get(host.lower()).get("ansible").get("ansible_ssh_pass")
+                                ansible_ssh_pass = dev.get("ansible").get("ansible_ssh_pass")
                                 entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                             except:
                                 print("\t\t" + host + ": ansible_ssh_pass not found")
+                        try: #get hwsku
+                            hwsku = dev.get("hwsku")
+                            if hwsku is not None:
+                               entry += "\thwsku=" + hwsku
+                        except AttributeError:
+                            print("\t\t" + host + ": hwsku not found")
+
+                        try: #get card_type
+                            card_type = dev.get("card_type")
+                            if card_type is not None:
+                               entry += "\tcard_type=" + card_type
+                        except AttributeError:
+                           print("\t\t" + host + ": card_type not found")
+
+                        try: #get num_fabric_asics
+                            num_fabric_asics = dev.get("num_fabric_asics")
+                            if num_fabric_asics is not None:
+                               entry += "\tnum_fabric_asics=" + str( num_fabric_asics )
+                        except AttributeError:
+                            print("\t\t" + host + " num_fabric_asics not found")
+
+                        try: #get num_asics
+                            num_asics = dev.get("num_asics")
+                            if num_asics is not None:
+                               entry += "\tnum_asics=" + str( num_asics )
+                        except AttributeError:
+                            print("\t\t" + host + " num_asics not found")
+
+                        if card_type != 'supervisor':
+                           entry += "\tstart_switchid=" + str( start_switchid )
+                           if num_asic is not None:
+                              start_switchid += int( num_asic )
+                           else:
+                              start_switchid += 1
+
+                        try: #get frontend_asics
+                            frontend_asics = dev.get("frontend_asics")
+                            if frontend_asics is not None:
+                               entry += "\tfrontend_asics=" + frontend_asics.__str__()
+                        except AttributeError:
+                            print("\t\t" + host + ": frontend_asics not found")
+
+                        try: #get asics_host_ip
+                            asics_host_ip = dev.get("asics_host_ip")
+                            if asics_host_ip is not None:
+                               entry += " \tasics_host_ip=" + str( asics_host_ip )
+                        except AttributeError:
+                            print("\t\t" + host + " asics_host_ip not found")
+
+                        try: #get asics_host_ipv6
+                            asics_host_ipv6 = dev.get("asics_host_ipv6")
+                            if asics_host_ipv6 is not None:
+                               entry += "\tasics_host_ipv6=" + str( asics_host_ipv6 )
+                        except AttributeError:
+                            print("\t\t" + host + " asics_host_ipv6 not found")
+
+                        try: #get voq_inband_ip
+                            voq_inband_ip = dev.get("voq_inband_ip")
+                            if voq_inband_ip is not None:
+                               entry += "\tvoq_inband_ip=" + str( voq_inband_ip )
+                        except AttributeError:
+                            print("\t\t" + host + " voq_inband_ip not found")
+
+                        try: #get voq_inband_ipv6
+                            voq_inband_ipv6 = dev.get("voq_inband_ipv6")
+                            if voq_inband_ipv6 is not None:
+                               entry += "\tvoq_inband_ipv6=" + str( voq_inband_ipv6 )
+                        except AttributeError:
+                            print("\t\t" + host + " voq_inband_ipv6 not found")
+
+                        try: #get voq_inband_intf
+                            voq_inband_intf = dev.get("voq_inband_intf")
+                            if voq_inband_intf is not None:
+                               entry += "\tvoq_inband_intf=" + str( voq_inband_intf )
+                        except AttributeError:
+                            print("\t\t" + host + " voq_inband_intf not found")
+
+                        try: #get voq_inband_type
+                            voq_inband_type = dev.get("voq_inband_type")
+                            if voq_inband_type is not None:
+                               entry += "\tvoq_inband_type=" + str( voq_inband_type )
+                        except AttributeError:
+                            print("\t\t" + host + " voq_inband_type not found")
+
+                        try: #get switch_type
+                            switch_type = dev.get("switch_type")
+                            if switch_type is not None:
+                               entry += "\tswitch_type=" + str( switch_type )
+                        except AttributeError:
+                            print("\t\t" + host + " switch_type not found")
+
+                        try: #get max_cores
+                            max_cores = dev.get("max_cores")
+                            if max_cores is not None:
+                               entry += "\tmax_cores=" + str( max_cores )
+                        except AttributeError:
+                            print("\t\t" + host + " max_cores not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
@@ -455,8 +564,13 @@ def makeVeos(data, veos, devices, outfile):
                     entry = host
 
                     try:
-                        ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
+                        dev = devices.get(host.lower())
+                        ansible_host = dev.get("ansible").get("ansible_host")
                         entry += "\tansible_host=" + ansible_host.split("/")[0]
+                        if dev.get("device_type") == "DevSonic":
+                            entry += "\ttype=" + dev.get("type")
+                            entry += "\thwsku=" + dev.get("hwsku")
+                            entry += "\tcard_type=" + dev.get("card_type")
                     except:
                         try:
                             ansible_host = veos.get(key).get(host).get("ansible_host")

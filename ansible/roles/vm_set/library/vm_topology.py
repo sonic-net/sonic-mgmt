@@ -573,6 +573,8 @@ class VMTopology(object):
                 vm_iface = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['vm_offset']], idx)
                 (dut_index, vlan_index, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
+                if len( self.duts_fp_ports[self.duts_name[dut_index]] ) == 0:
+                    continue
                 self.bind_ovs_ports(br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)], injected_iface, vm_iface, disconnect_vm)
 
         if self.topo and 'DUT' in self.topo and 'vs_chassis' in self.topo['DUT']:

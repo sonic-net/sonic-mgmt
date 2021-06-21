@@ -80,13 +80,41 @@
     ignore_errors: true
 
   - name: find interface name mapping and individual interface speed if defined from dut
-    port_alias: hwsku="{{ hwsku }}"
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
-    port_alias: hwsku="{{ hwsku }}" num_asic="{{ num_asics }}"
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      num_asic: "{{ num_asics }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
+
+  - name: find and generate fabric ASIC infomation
+    fabric_info:
+      num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
+      asics_host_basepfx: "{{ asics_host_ip | default(None) }}"
+      asics_host_basepfx6: "{{ asics_host_ipv6 | default(None) }}"
+
+  - name: set all VoQ system ports information
+    set_fact:
+      all_sysports: "{{ all_sysports | default( [] ) + hostvars[item]['sysports'] }}"
+    when: hostvars[item]['sysports'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all VoQ information for iBGP
+    set_fact:
+      all_inbands: "{{ all_inbands | default( [] ) + [ hostvars[item]['voq_inband_ip'] ] }}"
+      all_hostnames: "{{ all_hostnames | default( [] ) + [ item ] }}"
+    when: hostvars[item]['voq_inband_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
 
   - name: find all enabled host_interfaces
     set_fact:

@@ -1,6 +1,7 @@
   <CpgDec>
     <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     <PeeringSessions>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
 {% if vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] %}
@@ -77,9 +78,26 @@
 {% endif %}
 {% endfor %} 
 {% endfor %}
+{% endif %}
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+      <BGPSession>
+        <StartRouter>{{ inventory_hostname  }}</StartRouter>
+        <StartPeer>{{ voq_inband_ip.split('/')[0] }}</StartPeer>
+        <EndRouter>{{ all_hostnames[all_idx] }}</EndRouter>
+        <EndPeer>{{ all_inbands[all_idx].split('/')[0] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>0</HoldTime>
+        <KeepAliveTime>0</KeepAliveTime>
+        <VoQChassisInternal>true</VoQChassisInternal>
+      </BGPSession>
+{% endif %}
+{% endfor %}
+{% endif %}
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if type is not defined or type != 'supervisor' %}
+{% if card_type is not defined or card_type != 'supervisor' %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ inventory_hostname }}</a:Hostname>
@@ -94,6 +112,18 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+          <BGPPeer>
+            <Address>{{ all_inbands[all_idx].split('/')[0] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
@@ -117,6 +147,17 @@
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
+        <a:Hostname>{{ all_hostnames[all_idx]  }}</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% for index in range( vms_number) %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 %}
       <a:BGPRouterDeclaration>

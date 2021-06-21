@@ -57,6 +57,7 @@
       <RsvpInterfaces/>
       <Hostname>{{ asic }}</Hostname>
       <PortChannelInterfaces>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
@@ -84,10 +85,12 @@
         </PortChannel>
 {% endif %}
 {% endfor %}
+{% endif %}
       </PortChannelInterfaces>
       <SubInterfaces/>
       <VlanInterfaces/>
       <IPInterfaces>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
@@ -134,6 +137,7 @@
           <Prefix>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
         </IPInterface>
 {% endfor %}
+{% endif %}
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
@@ -160,6 +164,7 @@
         <AclInterface>
           <AttachTo>
 {%- set acl_intfs = [] -%}
+{% if card_type is not defined or card_type != 'supervisor' %}
 {%- for index in range(vms_number) %}
 {% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
@@ -194,6 +199,7 @@
 {% endif %}
 {% endif %}
 {% endfor %}
+{% endif %}
 
 {{- acl_intfs|join(';') -}}
           </AttachTo>
@@ -204,5 +210,41 @@
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
+{% for asic in fabric_info %}
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+            <b:IPPrefix>{{ asic['ip_prefix'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ asic['ip_prefix'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+            <b:IPPrefix>{{ asic['ip6_prefix'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ asic['ip6_prefix'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      </LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+      </ManagementIPInterfaces>
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>{{ asic['asicname'] }}</Hostname>
+      <PortChannelInterfaces/>
+      <VlanInterfaces/>
+      <IPInterfaces/>
+      <DataAcls/>
+      <AclInterfaces/>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+{% endfor %}
 {% endfor %}
 
