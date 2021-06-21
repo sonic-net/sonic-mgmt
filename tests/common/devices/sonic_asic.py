@@ -484,3 +484,22 @@ class SonicAsic(object):
         if pcs is not None and portchannel in pcs:
             return True
         return False
+
+    def get_bgp_statistic(self, stat):
+        """
+        Get the named bgp statistic
+
+        Args: stat - name of statistic
+
+        Returns: statistic value or None if not found
+
+        """
+        ret = None
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        if stat in bgp_facts['bgp_statistics']:
+            ret = bgp_facts['bgp_statistics'][stat]
+        return ret
+
+    def check_bgp_statistic(self, stat, value):
+        val = self.get_bgp_statistic(stat)
+        return val == value

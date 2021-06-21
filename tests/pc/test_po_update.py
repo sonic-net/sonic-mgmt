@@ -33,19 +33,33 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
     yield
 
-def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def get_portchannel_in_ns(mg_facts, namespace):
+    for k, v in mg_facts['minigraph_portchannels'].iteritems():
+        if v.has_key('namespace') and namespace == v['namespace']:
+            return k
+    return None
+
+
+def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     test port channel add/deletion as well ip address configuration
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
+    namespace_prefix = '-n ' + namespace if namespace else ''
+    asichost = duthost.asic_instance_from_namespace(namespace)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    int_facts = duthost.interface_facts()['ansible_facts']
+    int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
 
     # Initialize portchannel
     if len(mg_facts['minigraph_portchannels'].keys()) == 0:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")
 
-    portchannel = mg_facts['minigraph_portchannels'].keys()[0]
+    portchannel = get_portchannel_in_ns(mg_facts, namespace) if namespace else mg_facts['minigraph_portchannels'].keys()[0]
+    if portchannel is None:
+        pytest.skip("Skip test due to there is no portchannel present from minigraph.")
+
+    
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
     portchannel_ip = int_facts['ansible_interface_facts'][portchannel]['ipv4']['address']
@@ -67,54 +81,54 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
         # Step 1: Remove portchannel members from portchannel
         for member in portchannel_members:
-            duthost.shell("config portchannel member del %s %s" % (portchannel, member))
+            duthost.shell("config portchannel %s member del %s %s" % (namespace_prefix, portchannel, member))
         remove_portchannel_members = True
 
         # Step 2: Remove portchannel ip from portchannel
-        duthost.shell("config interface ip remove %s %s/31" % (portchannel, portchannel_ip))
+        duthost.shell("config interface %s ip remove %s %s/31" % (namespace_prefix, portchannel, portchannel_ip))
         remove_portchannel_ip = True
 
         time.sleep(30)
-        int_facts = duthost.interface_facts()['ansible_facts']
+        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
-        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 1))
+        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 1))
 
         # Step 3: Create tmp portchannel
-        duthost.shell("config portchannel add %s" % tmp_portchannel)
+        duthost.shell("config portchannel %s add %s" % (namespace_prefix, tmp_portchannel))
         create_tmp_portchannel = True
 
         # Step 4: Add portchannel member to tmp portchannel
         for member in portchannel_members:
-            duthost.shell("config portchannel member add %s %s" % (tmp_portchannel, member))
+            duthost.shell("config portchannel %s member add %s %s" % (namespace_prefix, tmp_portchannel, member))
         add_tmp_portchannel_members = True
 
         # Step 5: Add portchannel ip to tmp portchannel
-        duthost.shell("config interface ip add %s %s/31" % (tmp_portchannel, portchannel_ip))
-        int_facts = duthost.interface_facts()['ansible_facts']
+        duthost.shell("config interface %s ip add %s %s/31" % (namespace_prefix, tmp_portchannel, portchannel_ip))
+        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
         time.sleep(30)
-        int_facts = duthost.interface_facts()['ansible_facts']
+        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
-        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0))
+        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
-            duthost.shell("config interface ip remove %s %s/31" % (tmp_portchannel, portchannel_ip))
+            duthost.shell("config interface %s ip remove %s %s/31" % (namespace_prefix, tmp_portchannel, portchannel_ip))
 
         time.sleep(5)
         if add_tmp_portchannel_members:
             for member in portchannel_members:
-                duthost.shell("config portchannel member del %s %s" % (tmp_portchannel, member))
+                duthost.shell("config portchannel %s member del %s %s" % (namespace_prefix, tmp_portchannel, member))
 
         time.sleep(5)
         if create_tmp_portchannel:
-            duthost.shell("config portchannel del %s" % tmp_portchannel)
+            duthost.shell("config portchannel %s del %s" % (namespace_prefix, tmp_portchannel))
         if remove_portchannel_ip:
-            duthost.shell("config interface ip add %s %s/31" % (portchannel, portchannel_ip))
+            duthost.shell("config interface %s ip add %s %s/31" % (namespace_prefix, portchannel, portchannel_ip))
         if remove_portchannel_members:
             for member in portchannel_members:
-                duthost.shell("config portchannel member add %s %s" % (portchannel, member))
-        pytest_assert(wait_until(120, 10, duthost.check_bgp_statistic, 'ipv4_idle', 0))
+                duthost.shell("config portchannel %s member add %s %s" % (namespace_prefix, portchannel, member))
+        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
 
