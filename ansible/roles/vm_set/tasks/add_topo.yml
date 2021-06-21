@@ -225,3 +225,10 @@
     when: "'dualtor' in topo"
 
   when: container_type == "PTF"
+
+- name: Save PTF container
+  block:
+  - shell: docker tag "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}" docker-ptf
+  - shell: docker save -o docker-ptf.tar docker-ptf
+  - fetch:  src=docker-ptf.tar dest=docker-ptf.tar flat=yes
+  run_once: yes
