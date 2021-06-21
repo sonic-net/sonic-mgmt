@@ -1,0 +1,13 @@
+Value sensor ([ 0-9_a-zA-Z]*)
+Value voltage ([+0-9.-]+)
+Value current ([+0-9.-]+)
+Value critical_voltage_min ([+0-9.-]+)
+Value critical_voltage_max ([+0-9.-]+)
+Value critical_current_max ([+0-9.-]+)
+
+Start
+  ^\s*${sensor}:\s+${voltage}\s*V\s*\(crit min\s*=\s*${critical_voltage_min}\s*V,\s*crit max\s*=\s*${critical_voltage_max}\s*V\) -> Record
+  ^\s*${sensor}:\s+${voltage}\s*V\s*\(crit min\s*=\s*${critical_voltage_min}\s*V,\s*min\s*=\s*\S+\s*V\)
+  ^\s*\(max\s*=\s*\S+\s*V,\s*crit max\s*=\s*${critical_voltage_max}\s*V\) -> Record
+  ^\s*${sensor}:\s+${current}\s*A\s*\(max\s*=\s*\S+\s*A,\s*crit max\s*=\s*${critical_current_max}\s*A\) -> Record
+ 

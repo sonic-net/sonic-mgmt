@@ -1,0 +1,8 @@
+Value DeviceModel (.*)
+Value Health (.*)
+Value Temperature (.*)
+
+Start
+  ^Device Model :\s+${DeviceModel} -> Continue
+  ^Health\s+:\s+${Health} -> Continue
+  ^Temperature\s+:\s+${Temperature}

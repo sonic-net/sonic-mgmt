@@ -337,7 +337,6 @@ def _extract_test_summary(test_cases):
     print("{},{},{},{},{},{}".format(name,test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"]))
     return test_result_summary
 
-
 def _parse_test_metadata(root):
     properties_element = root.find(METADATA_TAG)
 
