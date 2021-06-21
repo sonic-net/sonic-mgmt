@@ -3,19 +3,21 @@ import logging
 import re
 from multiprocessing.pool import ThreadPool
 
-from tests.common  import config_reload
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", "macsec_required: mark test as MACsec required to run")
+    config.addinivalue_line(
+        "markers", "macsec_required: mark test as MACsec required to run")
 
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--neighbor_type") == "sonic":
         return
-    skip_macsec = pytest.mark.skip(reason="Neighbor devices don't support MACsec")
+    skip_macsec = pytest.mark.skip(
+        reason="Neighbor devices don't support MACsec")
     for item in items:
         if "macsec_required" in item.keywords:
             item.add_marker(skip_macsec)
@@ -89,7 +91,8 @@ def primary_cak(cipher_suite):
     return ckn
 
 
-@pytest.fixture(scope="module", params=["integrity_only", "security"])
+# TODO @pytest.fixture(scope="module", params=["integrity_only", "security"])
+@pytest.fixture(scope="module", params=["security"])
 def policy(request):
     return request.param
 

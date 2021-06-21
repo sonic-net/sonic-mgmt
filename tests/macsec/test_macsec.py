@@ -160,8 +160,7 @@ def check_wpa_supplicant_process(host, ctrl_port_name):
 
 
 def get_macaddress(host, port_name):
-    cmd = "cat /sys/class/net/{}/address".format(port_name)
-    return host.command(cmd)["stdout_lines"][0]
+    return host.get_dut_iface_mac(port_name)
 
 
 def get_sci(macaddress, port_identifer=1, order="network"):
@@ -548,15 +547,18 @@ def ctrl_upstream_links(duthost, tbinfo, ctrl_links):
 
 
 class TestDataPlane():
-    def test_server_to_neighbor(self, duthost, tbinfo, ptfadapter, downstream_links, ctrl_upstream_links):
-        for up_dev, upstream in ctrl_upstream_links.items():
+    def test_server_to_neighbor(self, duthost, nbrhosts, nbr_device_numbers, nbr_ptfadapter, downstream_links, ctrl_upstream_links):
+        devices = sorted(nbrhosts.keys())
+        for up_host_name, upstream in ctrl_upstream_links.items():
             # Pick the first down neighbor device to sent a plaintext packet
-            down_dev = downstream_links.keys()[0]
-            downstream = downstream_links[down_dev]
-            logging.info("{} -> {}".format(down_dev, up_dev))
-            payload = bytes("TestMACsec {}".format(up_dev))
+            down_host_name = downstream_links.keys()[0]
+            downstream = downstream_links[down_host_name]
+            logging.info("{} -> {}".format(down_host_name, up_host_name))
+            payload = bytes("TestMACsec {}".format(up_host_name))
             pkt, exp_pkt = create_pkt(
                 downstream["macaddr"], "1.2.3.4", upstream["ipv4_addr"], payload)
-            testutils.send(ptfadapter, downstream["ptf_port_id"], pkt)
-            check_macsec_pkt(host=duthost, port=upstream["port_name"], test=ptfadapter,
+            testutils.send(nbr_ptfadapter, downstream["ptf_port_id"], pkt)
+            testutils.verify_packet_any_port(nbr_ptfadapter, exp_pkt, ports=range(
+                0, 257), device_number=nbr_device_numbers[up_host_name])
+            check_macsec_pkt(host=duthost, port=upstream["port_name"], test=nbr_ptfadapter,
                              ptf_port_id=upstream["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
