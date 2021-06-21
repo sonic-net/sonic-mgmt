@@ -53,7 +53,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         ))
 
     if config_force_option_supported(duthost):
-        wait_until(300,20,config_system_checks_passed, duthost)
+        wait_until(300, 20, config_system_checks_passed, duthost)
 
     logger.info('reloading {}'.format(config_source))
 
