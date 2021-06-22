@@ -26,6 +26,7 @@ DEFAULT_MTU = None
 PORT_TO_TEST = None
 NUMBER_OF_LANES = None
 PORTS_WITH_8LANES = None
+ASIC_TYPE = None
 
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
@@ -128,13 +129,14 @@ def load_test_parameters(duthost):
     global TESTPARAM_LOSSLESS_PG
     global TESTPARAM_SHARED_HEADROOM_POOL
     global TESTPARAM_LOSSY_PG
+    global ASIC_TYPE
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
         params = json.load(file)
         logging.info("Loaded test parameters {} from {}".format(params, param_file_name))
-        asic_type = duthost.facts['asic_type']
-        vendor_specific_param = params[asic_type]
+        ASIC_TYPE = duthost.facts['asic_type']
+        vendor_specific_param = params[ASIC_TYPE]
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
         TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
@@ -564,8 +566,9 @@ def make_expected_profile_name(speed, cable_length, other_factors=None):
     expected_profile = 'pg_lossless_{}_{}_'.format(speed, cable_length)
     if other_factors:
         expected_profile += '_'.join(other_factors) + '_'
-    if NUMBER_OF_LANES == 8 and speed != '400000':
-        expected_profile += '8lane_'
+    if ASIC_TYPE == 'mellanox':
+        if NUMBER_OF_LANES == 8 and speed != '400000':
+            expected_profile += '8lane_'
     expected_profile += 'profile'
     return expected_profile
 
@@ -1570,9 +1573,9 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         loganalyzer, marker = init_log_analyzer(duthost,
                                                 'Fetch the longest possible cable length',
                                                 ['Update speed .* and cable length .* for port .* failed, accumulative headroom size exceeds the limit',
-                                                 'Unable to update profile for port .*. Accumulative headroom size exceeds limit',
-                                                 'Failed to process table update'],
-                                                ['oid is set to null object id on SAI_OBJECT_TYPE_BUFFER_PROFILE',
+                                                 'Unable to update profile for port .*. Accumulative headroom size exceeds limit'],
+                                                ['Failed to process table update',
+                                                 'oid is set to null object id on SAI_OBJECT_TYPE_BUFFER_PROFILE',
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
         logging.info('[Find out the longest cable length the port can support]')
