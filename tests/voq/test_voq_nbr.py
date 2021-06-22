@@ -55,10 +55,7 @@ def check_bgp_restored(duthosts, all_cfg_facts):
             if 'BGP_NEIGHBOR' not in asic_cfg_facts:
                 continue
 
-            if node.is_multi_asic:
-                bgp_facts = node.bgp_facts(instance_id=asic.asic_index)['ansible_facts']
-            else:
-                bgp_facts = node.bgp_facts()['ansible_facts']
+            bgp_facts = asic.bgp_facts()['ansible_facts']
 
             for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
                 if bgp_facts['bgp_neighbors'][address]['state'] != "established":
@@ -89,10 +86,7 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
             if 'BGP_NEIGHBOR' not in asic_cfg_facts:
                 continue
 
-            if node.is_multi_asic:
-                bgp_facts = node.bgp_facts(instance_id=asic.asic_index)['ansible_facts']
-            else:
-                bgp_facts = node.bgp_facts()['ansible_facts']
+            bgp_facts = asic.bgp_facts()['ansible_facts']
 
             for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
                 if bgp_facts['bgp_neighbors'][address]['state'] == "established":
@@ -104,17 +98,8 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
 
                     logger.info(
                         "Startup neighbor: {} on host {} asic {}".format(address, node.hostname, asic.asic_index))
-                    asnum = asic_cfg_facts['DEVICE_METADATA']['localhost']['bgp_asn']
-                    node.command("sudo config bgp startup neighbor {}".format(address))
-                    if node.is_multi_asic:
-                        node.command(
-                            "docker exec bgp{} vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
-                                asic.asic_index, asnum, address))
-                    else:
-                        node.command(
-                            "docker exec bgp vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
-                                asnum, address))
 
+                    node.command("sudo config bgp startup neighbor {}".format(address))
                     vm_info = get_vm_with_ip(address, nbrhosts)
                     nbr = nbrhosts[vm_info['vm']]
                     logger.info(
@@ -681,10 +666,7 @@ def check_arptable_mac(host, asic, neighbor, mac, checkstate=True):
 
 
 def check_arptable_state(host, asic, neighbor, state):
-    if host.is_multi_asic:
-        arptable = host.switch_arptable(namespace=asic.namespace)['ansible_facts']
-    else:
-        arptable = host.switch_arptable()['ansible_facts']
+    arptable = asic.switch_arptable()['ansible_facts']
 
     if ':' in neighbor:
         table = arptable['arptable']['v6']
@@ -882,10 +864,7 @@ class LinkFlap(object):
 
         """
         logger.info("Admin down port %s/%s", dut.hostname, dut_intf)
-        if dut.is_multi_asic:
-            asic.shutdown_interface(dut_intf)
-        else:
-            dut.shutdown(dut_intf)
+        asic.shutdown_interface(dut_intf)
         pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'down'),
                       "dut port {} didn't go down as expected".format(dut_intf))
 
@@ -902,11 +881,7 @@ class LinkFlap(object):
 
         """
         logger.info("Admin up port %s/%s", dut.hostname, dut_intf)
-        if dut.is_multi_asic:
-            asic.startup_interface(dut_intf)
-        else:
-            dut.no_shutdown(dut_intf)
-
+        asic.startup_interface(dut_intf)
         pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
@@ -992,8 +967,8 @@ class TestNeighborLinkFlap(LinkFlap):
             neighbors = [n for n in neighs if neighs[n]['local_addr'] in local_ips]
 
             logger.info("Testing neighbors: %s on intf: %s", neighbors, intf)
-
             self.localport_admindown(per_host, asic, intf)
+
             try:
                 check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
             finally:

@@ -25,10 +25,7 @@ def check_host_arp_table(host, asic, neighbor_ip, neighbor_mac, interface, state
     """
 
     if arptable is None:
-        if host.is_multi_asic:
-            arptable = host.switch_arptable(namespace=asic.namespace)['ansible_facts']
-        else:
-            arptable = host.switch_arptable()['ansible_facts']
+        arptable = asic.switch_arptable()['ansible_facts']
 
     if ':' in neighbor_ip:
         table = arptable['arptable']['v6']
