@@ -9,6 +9,7 @@ import ptf.testutils
 DEFAULT_PTF_NN_PORT = 10900
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
+ETHERNET_PFX = "Ethernet"
 
 
 def pytest_addoption(parser):
@@ -63,7 +64,7 @@ def get_ifaces(netdev_output):
         iface = line.split(':')[0].strip()
 
         # Skip not FP interfaces
-        if ETH_PFX not in iface:
+        if ETH_PFX not in iface and ETHERNET_PFX not in iface:
             continue
 
         ifaces.append(iface)
@@ -112,3 +113,43 @@ def ptfadapter(ptfhost, tbinfo, request):
             adapter.payload_pattern = node_id + " "
 
         yield adapter
+
+
+@pytest.fixture(scope='module')
+def nbr_device_numbers(nbrhosts):
+    """return the mapping of neighbor devices name to ptf device number.
+    """
+    numbers = sorted(nbrhosts.keys())
+    device_numbers = {
+        nbr_name: numbers.index(nbr_name) + DEFAULT_DEVICE_NUM + 1
+        for nbr_name in nbrhosts.keys()}
+    return device_numbers
+
+
+@pytest.fixture(scope='module')
+def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
+    """return ptf test adapter object.
+    Start the ptf nn services in neighbor devices and register them in ptfadapter.
+    """
+    if request.config.getoption("--neighbor_type") != "sonic":
+        pytest.fail("Neighbor devices aren't SONiC so that the ptf nn service cannot be started")
+    device_sockets = ptf.config['device_sockets']
+    current_file_dir = os.path.dirname(os.path.realpath(__file__))
+    for name, attr in nbrhosts.items():
+        host = attr["host"]
+        res = host.command('cat /proc/net/dev')
+        ifaces = get_ifaces(res['stdout'])
+        ifaces_map = {int(ifname.replace(ETHERNET_PFX, '')): ifname for ifname in ifaces if ifname.startswith(ETHERNET_PFX)}
+        host.host.options['variable_manager'].extra_vars.update({
+                'device_num': nbr_device_numbers[name],
+                'ptf_nn_port': DEFAULT_PTF_NN_PORT,
+                'ifaces_map': ifaces_map,
+            })
+        host.template(src=os.path.join(current_file_dir, 'templates/ptf_nn_agent.conf.ptf.j2'),
+                    dest='/tmp/ptf_nn_agent.conf')
+        host.shell('docker rm -f ptf || true')
+        host.shell('docker run -dt --network=host --rm --name ptf -v /tmp/ptf_nn_agent.conf:/etc/supervisor/conf.d/ptf_nn_agent.conf docker-ptf')
+        ptf_nn_sock_addr = 'tcp://{}:{}'.format(host.facts["mgmt_interface"][0], DEFAULT_PTF_NN_PORT)
+        device_sockets.append((nbr_device_numbers[name], ifaces_map, ptf_nn_sock_addr))
+    ptfadapter.reinit({"device_sockets": device_sockets})
+    return ptfadapter
