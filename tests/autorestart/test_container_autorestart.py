@@ -23,6 +23,7 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_NAME_REGEX = (r"([a-zA-Z_]+)(\d*)$")
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
@@ -95,7 +96,7 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature
     }
 
     _, container_name = decode_dut_port_name(enum_dut_feature_container)
-    feature = re.match(r"([a-zA-Z]+)(\d*)$", container_name).group(1)
+    feature = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
 
     if loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
@@ -310,7 +311,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
         skip_condition.append("radv")
 
     # bgp0 -> bgp, bgp -> bgp
-    feature_name = re.match(r"([a-zA-Z]+)(\d*)$", container_name).group(1)
+    feature_name = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
 
     # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
     pytest_require(feature_name not in skip_condition,
