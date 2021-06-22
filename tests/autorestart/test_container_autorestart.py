@@ -95,7 +95,7 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature
     }
 
     _, container_name = decode_dut_port_name(enum_dut_feature_container)
-    feature = re.match(r"([a-zA-Z]+)", container_name)
+    feature = re.match(r"([a-zA-Z]+)(\d*)$", container_name).group(1)
 
     if loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
