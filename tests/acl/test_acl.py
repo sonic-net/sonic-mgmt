@@ -403,7 +403,8 @@ class BaseAclTest(object):
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
             with loganalyzer:
                 self.setup_rules(duthost, acl_table, ip_version)
-
+                time.sleep(5)
+                
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
 
             assert self.check_rule_counters(duthost), "Rule counters should be ready!"
