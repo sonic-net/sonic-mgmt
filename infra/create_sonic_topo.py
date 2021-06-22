@@ -359,7 +359,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
         ftp_client.put('sonic_lab_devices_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
-    if topo_type == 't0':
+    if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
         ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
         ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
