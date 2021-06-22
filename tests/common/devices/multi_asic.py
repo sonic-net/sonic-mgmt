@@ -386,7 +386,6 @@ class MultiAsicSonicHost(object):
             cmds = []
             cmds.append(cmd_disable_rate_limit.format(docker))
             cmds.append(cmd_reload.format(docker))
-            print("msm cmds {}".format(cmds))
             self.sonichost.shell_cmds(cmds=cmds)
 
     def get_bgp_neighbors(self):

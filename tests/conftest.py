@@ -24,8 +24,7 @@ from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
     ASIC_PARAM_TYPE_BACKEND
 )
-from tests.common.helpers.dut_ports import (
-    encode_dut_port_name, decode_dut_port_name
+from tests.common.helpers.dut_ports import encode_dut_port_name
 )
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
@@ -884,6 +883,8 @@ def generate_dut_feature_container_list(request):
     List of features and container names are both obtained from
     metadata file
     """
+    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+
     tbname = request.config.getoption("--testbed")
     if not tbname:
         return empty
