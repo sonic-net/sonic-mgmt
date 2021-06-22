@@ -72,6 +72,10 @@
       max_fp_num: "{{ max_fp_num }}"
     become: yes
 
+  - name: Change MAC address for PTF interfaces
+    include_tasks: ptf_change_mac.yml
+    when: topo != 'fullmesh'
+
   - name: Send arp ping packet to gw for flusing the ARP table
     command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
     become: yes

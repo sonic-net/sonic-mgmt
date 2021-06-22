@@ -11,5 +11,8 @@ for INTF in ${INTF_LIST}; do
     MAC="${PREFIX}${SUFFIX}"
 
     echo "Update ${INTF} MAC address: ${ADDR}->$MAC"
+    # bringing the device down/up to trigger ipv6 link local address change
+    ip link set dev ${INTF} down
     ip link set dev ${INTF} address ${MAC}
+    ip link set dev ${INTF} up
 done
