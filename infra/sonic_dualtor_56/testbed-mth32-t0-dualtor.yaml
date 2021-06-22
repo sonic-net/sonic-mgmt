@@ -16,13 +16,13 @@ device_groups:
     - sonic_cisco
   sonic_cisco:
     host:
-    - dut0
-    - dut1
+    - matilda-0
+    - matilda-1
     vars:
       hwsku: 32x100Gb
       iface_speed: '100000'
 devices:
-  dut0:
+  matilda-0:
     alias: null
     ansible:
       ansible_host: 192.168.122.47
@@ -35,7 +35,7 @@ devices:
     device_type: DevSonic
     hwsku: 32x100Gb
     os: sonic
-  dut1:
+  matilda-1:
     alias: null
     ansible:
       ansible_host: 192.168.122.48

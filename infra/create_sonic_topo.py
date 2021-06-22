@@ -181,12 +181,13 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
     # Find each device listed in the VXR topology that starts with "sonic_dut_"
     for vxr_device in data.keys():
         if vxr_device.startswith('sonic_dut_'):
+            # 0-indexed id parsed from 'sonic_dut_{}' devices in VXR topo file
             dut_id = vxr_device.split('_')[-1]
+            # 'matilda-0', 'matilda-1', etc, from non-VXR topo file
+            dut_name = "{}-{}".format(dut_prefix, dut_id)
 
-            #NOTE dut_name = 'matilda-01' or 'sherman-01' (in the non-VXR topo file)
-            #NOTE this script assumes the VXR topology has exactly one device named "sonic_dut"
-            tdata['devices'][dut_prefix + dut_id]['ansible']['ansible_host'] = data[vxr_device]['xr_mgmt_ip']
-            tdata['devices'][dut_prefix + dut_id]['ansible']['ansible_ssh_user'] = data[vxr_device]['uname']
+            tdata['devices'][dut_name]['ansible']['ansible_host'] = data[vxr_device]['xr_mgmt_ip']
+            tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data[vxr_device]['uname']
             tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
             tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
