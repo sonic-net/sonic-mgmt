@@ -827,6 +827,36 @@
   auto_recover: 'True'
   comment: stumkurv
 
+- conf-name: vms18-t0-7050qx-acs-02
+  group-name: vms18-3
+  topo: t0-35
+  ptf_image_name: docker-ptf
+  ptf: vms18-3
+  ptf_ip: 10.64.246.158/23
+  ptf_ipv6:
+  server: server_18
+  vm_base: VM1828
+  dut:
+    - str2-7050qx-32s-acs-02
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms18-t1-7050qx-acs-03
+  group-name: vms18-7
+  topo: t1-backend
+  ptf_image_name: docker-ptf
+  ptf: vms18-7
+  ptf_ip: 10.64.246.159/23
+  ptf_ipv6:
+  server: server_18
+  vm_base: VM1884
+  dut:
+    - str2-7050qx-32s-acs-03
+  inv_name: str2
+  auto_recover: 'True'
+  comment: topo_with_12_vms
+
 - conf-name: vms20-t1-dx010-6
   group-name: vms20-6
   topo: t1-lag
@@ -946,6 +976,66 @@
   inv_name: str2
   auto_recover: 'True'
   comment: vadixit
+
+- conf-name: vms20-t1-ixia-1
+  group-name: vms20-ixia-1
+  topo: tgen-t1-3-lag
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-1
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-sn2700-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t1-ixia-2
+  group-name: vms20-ixia-2
+  topo: tgen-t1-3-lag
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-2
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-a7060-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t0-ixia-1
+  group-name: vms20-ixia-3
+  topo: tgen-t0-3
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-3
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-s6100-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
+- conf-name: vms20-t0-ixia-2
+  group-name: vms20-ixia-4
+  topo: tgen-t0-35-3
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-4
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-7050qx-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
 
 - conf-name: vms21-t0-2700
   group-name: vms21-1
@@ -1099,66 +1189,6 @@
   auto_recover: 'True'
   comment: Test ptf ANVL SONIC VM
 
-- conf-name: vms20-t1-ixia-1
-  group-name: vms20-ixia-1
-  topo: tgen-t1-3-lag
-  ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-1
-  ptf_ip: 10.64.246.150/23
-  ptf_ipv6:
-  server: server_20
-  vm_base:
-  dut:
-    - msr-sn2700-dut-1
-  inv_name: ixia
-  auto_recover: 'False'
-  comment: nejo
-
-- conf-name: vms20-t1-ixia-2
-  group-name: vms20-ixia-2
-  topo: tgen-t1-3-lag
-  ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-2
-  ptf_ip: 10.64.246.150/23
-  ptf_ipv6:
-  server: server_20
-  vm_base:
-  dut:
-    - msr-a7060-dut-1
-  inv_name: ixia
-  auto_recover: 'False'
-  comment: nejo
-
-- conf-name: vms20-t0-ixia-1
-  group-name: vms20-ixia-3
-  topo: tgen-t0-3
-  ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-3
-  ptf_ip: 10.64.246.150/23
-  ptf_ipv6:
-  server: server_20
-  vm_base:
-  dut:
-    - msr-s6100-dut-1
-  inv_name: ixia
-  auto_recover: 'False'
-  comment: nejo
-
-- conf-name: vms20-t0-ixia-2
-  group-name: vms20-ixia-4
-  topo: tgen-t0-35-3
-  ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-4
-  ptf_ip: 10.64.246.150/23
-  ptf_ipv6:
-  server: server_20
-  vm_base:
-  dut:
-    - msr-7050qx-dut-1
-  inv_name: ixia
-  auto_recover: 'False'
-  comment: nejo
-
 - conf-name: spytest
   group-name: spytest
   topo: fullmesh
@@ -1176,33 +1206,3 @@
   inv_name: str2
   auto_recover: 'False'
   comment: hellospytest
-
-- conf-name: vms18-t0-7050qx-acs-02
-  group-name: vms18-3
-  topo: t0-35
-  ptf_image_name: docker-ptf
-  ptf: vms18-3
-  ptf_ip: 10.64.246.158/23
-  ptf_ipv6:
-  server: server_18
-  vm_base: VM1828
-  dut:
-    - str2-7050qx-32s-acs-02
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-saidia
-
-- conf-name: vms18-t1-7050qx-acs-03
-  group-name: vms18-7
-  topo: t1-backend
-  ptf_image_name: docker-ptf
-  ptf: vms18-7
-  ptf_ip: 10.64.246.159/23
-  ptf_ipv6:
-  server: server_18
-  vm_base: VM1884
-  dut:
-    - str2-7050qx-32s-acs-03
-  inv_name: str2
-  auto_recover: 'True'
-  comment: v-saidia
