@@ -583,6 +583,7 @@ def main():
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
         base_topo_file = 'testbed-mth32-t0-dualtor.yaml'
+    print("USING BASE TOPO {}".format(base_topo_file))
 
 
     if clean_sim:
