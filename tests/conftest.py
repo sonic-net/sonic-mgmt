@@ -25,7 +25,6 @@ from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_BACKEND
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
-)
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
