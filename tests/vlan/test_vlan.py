@@ -14,6 +14,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +214,7 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
     except RunAnsibleModuleFail as e:
         logger.error(e)
 
-    duthost.shell("config reload -y &>/dev/null", executable="/bin/bash")
-
+    config_reload(duthost)
     # make sure Portchannels go up for post-test link sanity
     time.sleep(90)
 

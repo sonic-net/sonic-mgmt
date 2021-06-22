@@ -6,6 +6,7 @@ import constants
 from tests.common.utilities import wait
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.config_reload import config_force_option_supported
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
             logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
 
     if outstanding_action:
+        if outstanding_action == "config_reload" and config_force_option_supported(dut):
+            outstanding_action = "config_reload_f"
         method    = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reboot"]:
@@ -90,6 +93,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
 
 def recover(dut, localhost, fanouthosts, check_results, recover_method):
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
+    if recover_method == "config_reload" and config_force_option_supported(dut):
+        recover_method = "config_reload_f"
     method    = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:

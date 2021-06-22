@@ -11,6 +11,7 @@ import ptf.testutils as testutils
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from jinja2 import Environment, FileSystemLoader
+from tests.common.config_reload import config_reload
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -607,7 +608,7 @@ def teardown_test_env(testbed, duthost, ptfhost, setup_info, interface_type, reb
     if reboot:
         duthost.command('reboot')
     else:
-        duthost.command('config reload -y')
+        config_reload(duthost)
     # wait for dut become stable
     time.sleep(180)
     # remove ptf interfaces configuration
