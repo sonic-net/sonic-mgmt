@@ -29,7 +29,8 @@ import datetime
 
 # Return a list that only contains the entries in 'data' whose keys start with 'sonic_dut_'
 def get_dut_entries(data):
-    return [value for (key, value) in data if key.startswith('sonic_dut_')]
+    # N.B. for some reason tuple expansion with dict.items() does not work here
+    return [data[key] for key in data if key.startswith('sonic_dut_')]
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
