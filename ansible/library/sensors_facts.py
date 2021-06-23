@@ -51,9 +51,11 @@ class SensorsModule(object):
 
         self.stdout = None
         self.skip_devices = set()
+        self.skip_sensors_attr = set()
         self.raw = {}
         self.alarms = {}
         self.warnings = []
+        self.os_version = self._get_os_version()
         self.facts = {
             'raw': self.raw,
             'alarms': self.alarms,
@@ -64,6 +66,26 @@ class SensorsModule(object):
 
         return
 
+    def _get_os_version(self):
+        """
+        Gets the SONiC OS version that is running on this device.
+        """
+        os_version = None
+        try:
+            process = subprocess.Popen(['sonic-cfggen', '-y', '/etc/sonic/sonic_version.yml', '-v', 'build_version'],
+                                       stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            self.stdout, stderr = process.communicate()
+            ret_code = process.returncode
+        except Exception as e:
+            self.module.fail_json(msg=str(e))
+        else:
+            if ret_code != 0:
+                self.module.fail_json(msg=stderr)
+            else:
+                os_version = self.stdout.split('.')[0].strip()
+
+        return os_version
+
     def run(self):
         '''
             Main method of the class
@@ -71,6 +93,7 @@ class SensorsModule(object):
         self.collect_sensors()
         self.parse_sensors()
         self.psu_check()
+        self.version_skip_check()
         self.check_alarms()
         self.module.exit_json(ansible_facts={'sensors': self.facts})
 
@@ -145,6 +168,22 @@ class SensorsModule(object):
 
         return
 
+    def version_skip_check(self):
+        """
+        Check that if some sensors need to be skipped on the DUT.
+        If the image version on DUT match, we set up self.skip_sensors_attr set,
+        which should be skipped during checks
+        """
+
+        for version, attrs in self.checks['sensor_skip_version'].items():
+            if version == self.os_version:
+                for attr in attrs['skip_list']:
+                    self.skip_sensors_attr.add(attr)
+                    self.warnings.append("sensor attributes [%s] is absent in version %s" % (attr, self.os_version))
+                self.facts['warning'] = True
+
+        return
+
     def get_raw_value(self, path):
         '''
             Get value in raw output in the path 'path'
@@ -170,21 +209,26 @@ class SensorsModule(object):
 
         return cur_values
 
+    def skip_the_value(self, path):
+        """
+        Check if the path has been added to self.skip_devices of self.skip_sensors_attr.
+        If yes, this path shall be skipped in the alarm check.
+        """
+        if path.split('/')[0] in self.skip_devices or path in self.skip_sensors_attr:
+            return True
+        return False
+
     def check_alarms(self):
-        '''
-            Calculate alarm situation using the lists
-        '''
-
-        # Return True if the value should be skipped
-        skip_the_value = lambda path: path.split('/')[0] in self.skip_devices
-
+        """
+        Calculate alarm situation using the lists
+        """
         # check alarm lists
         for hw_part, alarm_list in self.checks['alarms'].items():
             reasons = '%s_reasons' % hw_part
             self.alarms[hw_part] = False
             self.alarms[reasons] = []
             for path in alarm_list:
-                if skip_the_value(path):
+                if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
                 if value is None:
@@ -200,7 +244,7 @@ class SensorsModule(object):
         for hw_part, compare_list in self.checks['compares'].items():
             reasons = '%s_reasons' % hw_part
             for (path_input, path_max) in compare_list:
-                if skip_the_value(path_input):
+                if self.skip_the_value(path_input):
                     continue
                 value_input = self.get_raw_value(path_input)
                 value_max = self.get_raw_value(path_max)
@@ -221,7 +265,7 @@ class SensorsModule(object):
         for hw_part, not_zero_list in self.checks['non_zero'].items():
             reasons = '%s_reasons' % hw_part
             for path in not_zero_list:
-                if skip_the_value(path):
+                if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
                 if value is None:
