@@ -27,6 +27,10 @@ import paramiko
 import time
 import datetime
 
+# Return a list that only contains the entries in 'data' whose keys start with 'sonic_dut_'
+def get_dut_entries(data):
+    return [value for (key, value) in data if key.startswith('sonic_dut_')]
+
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
@@ -200,14 +204,17 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
         yaml.dump(tdata,f)
         f.close()
 
-def change_dut_passwd(data):
-    host = data['sonic_dut']['HostAgent']
-    port = data['sonic_dut']['xr_redir22']
-    user = data['sonic_dut']['uname']
-    passwd = data['sonic_dut']['passwd']
+def change_dut_passwd(dut_entry):
+    #TODO this needs to be reworked to allow multiple "sonic_dut" entries
+    #for (entry_key, entry_value) in data.items():
+    #    if entry_key.startswith('sonic_dut_'):
+    host = dut_entry['HostAgent']
+    port = dut_entry['xr_redir22']
+    user = dut_entry['uname']
+    passwd = dut_entry['passwd']
     #passwd = "cisco123"
     new_passwd = "cisco123"
-    mgmt_ip = data['sonic_dut']['xr_mgmt_ip']
+    mgmt_ip = dut_entry['xr_mgmt_ip']
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -378,7 +385,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
 def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'])
+    ssh.connect(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'])
     ftp_client=ssh.open_sftp()
     ftp_client.get('/tmp/config_db.json','config_db_current.json')
     ftp_client.close()
@@ -401,7 +408,7 @@ def replace_dut_mgmt_address(data):
         json.dump(cfg_data, cfg_file, indent=4)
         cfg_file.close()
 
-    ssh.connect(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'])
+    ssh.connect(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'])
     ftp_client=ssh.open_sftp()
     ftp_client.put('config_db.json','/tmp/config_db_new.json')
     ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
@@ -413,7 +420,7 @@ def reload_dut_with_newCFG(data):
     cmd_list.append('sudo cp /tmp/config_db_new.json /etc/sonic/config_db.json\n')
     cmd_list.append('sudo cp /tmp/minigraph.xml /etc/sonic/minigraph.xml\n')
     cmd_list.append('sudo reboot\n')
-    run_exec_cmds(data['sonic_dut']['HostAgent'], data['sonic_dut']['xr_redir22'], data['sonic_dut']['uname'], data['sonic_dut']['passwd'], cmd_list)
+    run_exec_cmds(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'], cmd_list)
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
@@ -622,8 +629,9 @@ def main():
     upload_tb_files(data,topo_type,base_topo_file,device_type)
 
     # Change DUT password and set mgmt ip address
-    print("********** Change DUT password and set mgmt ip address ***********")
-    change_dut_passwd(data)
+    for (i, dut_entry) in enumerate(get_dut_entries(data)):
+            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(i))
+            change_dut_passwd(dut_entry)
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
@@ -648,7 +656,8 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
+    for (i, dut_entry) in enumerate(get_dut_entries(data)):
+        print("Sonic DUT #{} (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
@@ -671,7 +680,7 @@ def main():
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
 
-    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_dut']['HostAgent'], data['sonic_dut']['serial0'], data['sonic_dut']['xr_mgmt_ip'], data['sonic_dut']['xr_redir22']))
+    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
