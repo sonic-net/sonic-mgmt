@@ -52,8 +52,9 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             ' or '.join(['"{}"'.format(src) for src in config_sources])
         ))
 
+    cmd = 'config reload -y &>/dev/null'
     if config_force_option_supported(duthost):
-        wait_until(300, 20, config_system_checks_passed, duthost)
+        cmd = 'config reload -y -f &>/dev/null'
 
     logger.info('reloading {}'.format(config_source))
 
@@ -71,6 +72,6 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         duthost.shell('config save -y')
 
     if config_source == 'config_db':
-        duthost.shell('config reload -y &>/dev/null', executable="/bin/bash")
+        duthost.shell(cmd, executable="/bin/bash")
 
     time.sleep(wait)
