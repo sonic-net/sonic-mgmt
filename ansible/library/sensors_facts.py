@@ -93,7 +93,7 @@ class SensorsModule(object):
         self.collect_sensors()
         self.parse_sensors()
         self.psu_check()
-        self.version_skip_check()
+        self.sensor_skip_check()
         self.check_alarms()
         self.module.exit_json(ansible_facts={'sensors': self.facts})
 
@@ -168,14 +168,14 @@ class SensorsModule(object):
 
         return
 
-    def version_skip_check(self):
+    def sensor_skip_check(self):
         """
         Check that if some sensors need to be skipped on the DUT.
         If the image version on DUT match, we set up self.skip_sensors_attr set,
         which should be skipped during checks
         """
 
-        for version, attrs in self.checks['sensor_skip_version'].items():
+        for version, attrs in self.checks['sensor_skip_per_version'].items():
             if version == self.os_version:
                 for attr in attrs['skip_list']:
                     self.skip_sensors_attr.add(attr)
