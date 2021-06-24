@@ -1,0 +1,202 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    hours: 120
+          
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:/#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..32]
+
+  sonic_dut:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_10.0/sonic-cisco-8000.bin
+    linecard_types: [matilda64]
+    vxr_sim_config:
+      shelf:
+        ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.0_NPS1.77.0/npl
+        ConfigS1NpsuiteVer: 1.77.0
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    vcpu: 4
+    memory: '4G'
+
+device_groups:
+  veos:
+    devices:
+    - "veos[1..24]"
+    platform: veos
+    xr_port_redir: [22]
+    image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
+    disks:
+    - hda:
+        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+        type: reference
+
+connections:
+    custom:
+      ptf_injected1:
+        ports:
+        - docker_ptf.eth0
+        - sonic_dut.Ethernet0
+        - veos1.Ethernet1
+      ptf_injected2:
+        ports:
+        - docker_ptf.eth1
+        - sonic_dut.Ethernet1
+        - veos1.Ethernet2
+      ptf_injected3:
+        ports:
+        - docker_ptf.eth4
+        - sonic_dut.Ethernet4
+        - veos2.Ethernet1
+      ptf_injected4:
+        ports:
+        - docker_ptf.eth5
+        - sonic_dut.Ethernet5
+        - veos2.Ethernet2
+      ptf_injected5:
+        ports:
+        - docker_ptf.eth16
+        - sonic_dut.Ethernet16
+        - veos3.Ethernet1
+      ptf_injected6:
+        ports:
+        - docker_ptf.eth17
+        - sonic_dut.Ethernet17
+        - veos3.Ethernet2
+      ptf_injected7:
+        ports:
+        - docker_ptf.eth20
+        - sonic_dut.Ethernet20
+        - veos4.Ethernet1
+      ptf_injected8:
+        ports:
+        - docker_ptf.eth21
+        - sonic_dut.Ethernet21
+        - veos4.Ethernet2
+      ptf_injected9:
+        ports:
+        - docker_ptf.eth34
+        - sonic_dut.Ethernet34
+        - veos5.Ethernet1
+      ptf_injected10:
+        ports:
+        - docker_ptf.eth36
+        - sonic_dut.Ethernet36
+        - veos6.Ethernet1
+      ptf_injected11:
+        ports:
+        - docker_ptf.eth37
+        - sonic_dut.Ethernet37
+        - veos7.Ethernet1
+      ptf_injected12:
+        ports:
+        - docker_ptf.eth38
+        - sonic_dut.Ethernet38
+        - veos8.Ethernet1
+      ptf_injected13:
+        ports:
+        - docker_ptf.eth39
+        - sonic_dut.Ethernet39
+        - veos9.Ethernet1
+      ptf_injected14:
+        ports:
+        - docker_ptf.eth42
+        - sonic_dut.Ethernet42
+        - veos10.Ethernet1
+      ptf_injected15:
+        ports:
+        - docker_ptf.eth44
+        - sonic_dut.Ethernet44
+        - veos11.Ethernet1
+      ptf_injected16:
+        ports:
+        - docker_ptf.eth45
+        - sonic_dut.Ethernet45
+        - veos12.Ethernet1
+      ptf_injected17:
+        ports:
+        - docker_ptf.eth46
+        - sonic_dut.Ethernet46
+        - veos13.Ethernet1
+      ptf_injected18:
+        ports:
+        - docker_ptf.eth47
+        - sonic_dut.Ethernet47
+        - veos14.Ethernet1
+      ptf_injected19:
+        ports:
+        - docker_ptf.eth50
+        - sonic_dut.Ethernet50
+        - veos15.Ethernet1
+      ptf_injected20:
+        ports:
+        - docker_ptf.eth52
+        - sonic_dut.Ethernet52
+        - veos16.Ethernet1
+      ptf_injected21:
+        ports:
+        - docker_ptf.eth53
+        - sonic_dut.Ethernet53
+        - veos17.Ethernet1
+      ptf_injected22:
+        ports:
+        - docker_ptf.eth54
+        - sonic_dut.Ethernet54
+        - veos18.Ethernet1
+      ptf_injected23:
+        ports:
+        - docker_ptf.eth55
+        - sonic_dut.Ethernet55
+        - veos19.Ethernet1
+      ptf_injected24:
+        ports:
+        - docker_ptf.eth58
+        - sonic_dut.Ethernet58
+        - veos20.Ethernet1
+      ptf_injected25:
+        ports:
+        - docker_ptf.eth60
+        - sonic_dut.Ethernet60
+        - veos21.Ethernet1
+      ptf_injected26:
+        ports:
+        - docker_ptf.eth61
+        - sonic_dut.Ethernet61
+        - veos22.Ethernet1
+      ptf_injected27:
+        ports:
+        - docker_ptf.eth62
+        - sonic_dut.Ethernet62
+        - veos23.Ethernet1
+      ptf_injected28:
+        ports:
+        - docker_ptf.eth63
+        - sonic_dut.Ethernet63
+        - veos24.Ethernet1
+      backplane:
+        ports:
+        - veos[1..24].Ethernet9
+        - docker_ptf.eth32  
