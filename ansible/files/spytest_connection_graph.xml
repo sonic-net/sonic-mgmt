@@ -3774,8 +3774,8 @@
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-01" EndPort="PSU2" StartDevice="pdu-118" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-02" EndPort="PSU1" StartDevice="pdu-122" StartPort="46"/>
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-02" EndPort="PSU2" StartDevice="pdu-121" StartPort="46"/>
-      <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU1" StartDevice="pdu-122" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU2" StartDevice="pdu-121" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU1" StartDevice="pdu-122" StartPort="39"/>
+      <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU2" StartDevice="pdu-121" StartPort="39"/>
       <PowerControlLinkInfo EndDevice="str2-z9332f-01" EndPort="PSU1" StartDevice="pdu-111" StartPort="46"/>
       <PowerControlLinkInfo EndDevice="str2-z9332f-02" EndPort="PSU1" StartDevice="pdu-111" StartPort="48"/>
       <PowerControlLinkInfo EndDevice="str2-7060-spy-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="34"/>
@@ -3846,12 +3846,12 @@
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-15" EndPort="PSU2" StartDevice="pdu-121" StartPort="25"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-17" EndPort="PSU1" StartDevice="pdu-122" StartPort="38"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-17" EndPort="PSU2" StartDevice="pdu-121" StartPort="38"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-18" EndPort="PSU1" StartDevice="pdu-114" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-18" EndPort="PSU2" StartDevice="pdu-113" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-19" EndPort="PSU1" StartDevice="pdu-114" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-19" EndPort="PSU2" StartDevice="pdu-113" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-20" EndPort="PSU1" StartDevice="pdu-122" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-20" EndPort="PSU2" StartDevice="pdu-121" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-18" EndPort="PSU1" StartDevice="pdu-114" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-18" EndPort="PSU2" StartDevice="pdu-113" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-19" EndPort="PSU1" StartDevice="pdu-114" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-19" EndPort="PSU2" StartDevice="pdu-113" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-20" EndPort="PSU1" StartDevice="pdu-122" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-20" EndPort="PSU2" StartDevice="pdu-121" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str2-dx010-acs-2" EndPort="PSU1" StartDevice="pdu-120" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="str2-dx010-acs-2" EndPort="PSU2" StartDevice="pdu-119" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-16" EndPort="PSU1" StartDevice="pdu-117" StartPort="7"/>
