@@ -25,6 +25,7 @@ NIC = 'nic'
 MUX_BRIDGE_TEMPLATE = 'mbr-%s-%d'
 
 LIST_PORTS_CMD = 'ovs-vsctl list-ports {}'
+DUMP_FLOW_CMD = 'ovs-ofctl --names dump-flows {}'
 DEL_FLOW_CMD = 'ovs-ofctl --names del-flows {} in_port="{}"'
 ADD_FLOW_CMD = 'ovs-ofctl --names add-flow {} in_port="{}",actions={}'
 MOD_FLOW_CMD = 'ovs-ofctl --names mod-flows {} in_port="{}",actions={}'
@@ -290,7 +291,7 @@ class Mux(object):
         #   * upstream flow, PTF port (muxy-<vm_set>_<port_index>) -> both UPPER_TOR and LOWER_TOR ports
         #   * downstream flow, UPPER_TOR or LOWER_TOR port -> PTF port.
         # The current TOR port of downstream is active port
-        out = run_cmd('ovs-ofctl --names dump-flows {}'.format(self.bridge))
+        out = run_cmd(DUMP_FLOW_CMD.format(self.bridge))
 
         # Parse the flows, store result in dict flows[in_port][out_port] = action
         flows = defaultdict(dict)
