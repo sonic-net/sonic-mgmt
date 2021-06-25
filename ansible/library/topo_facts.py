@@ -88,7 +88,12 @@ class ParseTestbedTopoinfo():
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
-                vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
+                # expand properties list into properties dictinary
+                property_lst = topo_definition['configuration'][vm]['properties']
+                vmconfig[vm]['properties'] = {}
+                for p in property_lst:
+                    if p in topo_definition['configuration_properties']:
+                        vmconfig[vm]['properties'].update(topo_definition['configuration_properties'][p])
             if neigh_type == 'VMs':
                 vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
                 for vlan in topo_definition['topology'][neigh_type][vm]['vlans']:
@@ -201,6 +206,8 @@ class ParseTestbedTopoinfo():
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            if 'dut_cluster' in topo_definition['configuration_properties']['common']:
+                vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
         for asic in asic_definition:

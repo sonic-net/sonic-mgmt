@@ -158,8 +158,11 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
-        self.rebootData['vlan_ip_range'] = self.mgFacts['minigraph_vlan_interfaces'][0]['subnet']
-        self.rebootData['dut_vlan_ip'] = self.mgFacts['minigraph_vlan_interfaces'][0]['addr']
+        vlan_ip_range = dict()
+        for vlan in self.mgFacts['minigraph_vlan_interfaces']:
+            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
+                vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
         self.rebootData['dut_password'] = self.creds['sonicadmin_password']
@@ -494,7 +497,6 @@ class AdvancedReboot:
                 "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
                 "ports_file" : self.rebootData['ports_file'],
                 "dut_mac" : self.rebootData['dut_mac'],
-                "dut_vlan_ip" : self.rebootData['dut_vlan_ip'],
                 "default_ip_range" : self.rebootData['default_ip_range'],
                 "vlan_ip_range" : self.rebootData['vlan_ip_range'],
                 "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
