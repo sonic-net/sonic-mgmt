@@ -29,4 +29,4 @@ r, ".*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*"
 
 # bgpd.log messages
 r, ".*ADJCHANGE: neighbor .* in vrf default Up.*"
-r, ".*bgp_update_receive: rcvd End-of-RIB for IPv4 Unicast from.*"
+r, ".*rcvd End-of-RIB for IPv4 Unicast from.*"
