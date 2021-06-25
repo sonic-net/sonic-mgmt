@@ -106,7 +106,7 @@ class AnsibleLogAnalyzer:
 
     #---------------------------------------------------------------------
 
-    def require_marker_check(self, file_name):
+    def require_marker_check(self, file_path):
         '''
         @summary: Check if log file needs to check for default start/end markers
 
@@ -116,7 +116,7 @@ class AnsibleLogAnalyzer:
         check.
         '''
         files_to_skip = ["sairedis.rec", "bgpd.log"]
-        return not any([target in file_name for target in files_to_skip])
+        return not any([target in file_path for target in files_to_skip])
 
     #---------------------------------------------------------------------
 
