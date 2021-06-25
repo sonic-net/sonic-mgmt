@@ -150,7 +150,8 @@ class SetupPfcwdFunc(object):
         """
         self.pfc_wd['storm_start_defer'] = random.randrange(120)
         self.pfc_wd['storm_stop_defer'] = random.randrange(self.pfc_wd['storm_start_defer'] + 5, 125)
-        self.max_wait = max(self.max_wait, self.pfc_wd['storm_stop_defer'])
+        # Added 10 sec to max_wait as sometimes it's not enough and test fail due to runtime error
+        self.max_wait = max(self.max_wait, self.pfc_wd['storm_stop_defer']) + 10
 
     def storm_setup(self, port, queue, storm_defer=False):
         """
