@@ -116,7 +116,7 @@ class EosHost(AnsibleHostBase):
     def no_shutdown_bgp(self, asn):
         out = self.eos_config(
             lines=['no shut'],
-            parents=['router bgp %s'.format(asn)])
+            parents=['router bgp {}'.format(asn)])
         logging.info('No shut BGP [%s]' % asn)
         return out
 
