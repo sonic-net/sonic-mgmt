@@ -24,9 +24,7 @@ LOWER_TOR = 'lower_tor'
 NIC = 'nic'
 MUX_BRIDGE_TEMPLATE = 'mbr-%s-%d'
 
-del_flow_cmd = 'ovs-ofctl --names del-flows mbr-{}-{} in_port="{}"'
-add_flow_cmd = 'ovs-ofctl --names add-flow  mbr-{}-{} in_port="{}",actions={}'
-
+LIST_PORTS_CMD = 'ovs-vsctl list-ports {}'
 DEL_FLOW_CMD = 'ovs-ofctl --names del-flows {} in_port="{}"'
 ADD_FLOW_CMD = 'ovs-ofctl --names add-flow {} in_port="{}",actions={}'
 MOD_FLOW_CMD = 'ovs-ofctl --names mod-flows {} in_port="{}",actions={}'
@@ -206,7 +204,7 @@ class Mux(object):
         Returns:
             boolean: Return False if it is not a valid mux bridge
         """
-        out = run_cmd('ovs-vsctl list-ports {}'.format(self.bridge))
+        out = run_cmd(LIST_PORTS_CMD.format(self.bridge))
         out_lines = out.splitlines()
         if len(out_lines) != 3:
             self.error('unexpected ports, found ports:\n{}'.format(out))
@@ -242,7 +240,7 @@ class Mux(object):
 
         return True
 
-    def _init_active_standby(self, active_side):
+    def _active_standby_state_heper(self, active_side):
         if active_side is None:
             active_side = random.choice([UPPER_TOR, LOWER_TOR])
         standby_side = LOWER_TOR if active_side == UPPER_TOR else LOWER_TOR
@@ -253,7 +251,7 @@ class Mux(object):
         self.standby_port = self.ports[standby_side]
 
     def _init_flows(self):
-        self._init_active_standby(None)
+        self._active_standby_state_heper(None)
 
         self.flows = {
             'upstream': {
@@ -302,7 +300,7 @@ class Mux(object):
                 self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
             else:
                 # From TOR to NIC, downstream flow
-                self._init_active_standby(self.sides[in_port])
+                self._active_standby_state_heper(self.sides[in_port])
                 self.flows['downstream']['in_side'] = self.sides[in_port]
                 self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
 
@@ -378,7 +376,7 @@ class Mux(object):
                     self.bridge,
                     self.active_port))
                 # Immediately update state after flow config changed to ensure consistency
-                self._init_active_standby(None)
+                self._active_standby_state_heper(None)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = []
 
@@ -387,14 +385,14 @@ class Mux(object):
                     new_active_port,
                     action_desc))
                 # Immediately update state after flow config changed to ensure consistency
-                self._init_active_standby(new_active_side)
+                self._active_standby_state_heper(new_active_side)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = [NIC]
 
             else:
                 # If currently downstream flow action is drop, there should be no downstream flow config.
                 # Then no flow config change required, only need to update the state.
-                self._init_active_standby(new_active_side)
+                self._active_standby_state_heper(new_active_side)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = []
 
@@ -435,7 +433,7 @@ class Mux(object):
                 self.bridge,
                 self.ports[active_side],
                 action_desc))
-            self._init_active_standby(active_side)
+            self._active_standby_state_heper(active_side)
             self.flows['downstream']['in_side'] = active_side
             self.flows['downstream']['out_sides'] = [NIC]
 
@@ -745,6 +743,7 @@ def mux_cable_flow_update(vm_set, port_index, action):
             ))
 
     if action == 'reset':
+        app.logger.info('{} POST {}'.format(request.remote_addr, request.url))
         return g_muxes.reset_flows(vm_set, port_index)
     else:
         data = _validate_out_sides(request)
@@ -807,7 +806,7 @@ def clear_flap_counter_handler(vm_set):
 if __name__ == '__main__':
     usage = '\n'.join([
         'Start mux simulator server at specified port:',
-        '  $ sudo python <prog> <port> [-vv]',
+        '  $ sudo python <prog> <port> [-v]',
         'Specify "-v" for DEBUG level logging and enabling traceback in response in case of exception.'])
 
     if len(sys.argv) < 2:
