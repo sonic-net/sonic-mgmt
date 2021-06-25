@@ -219,23 +219,30 @@ def __tgen_bgp_config(cvg_api,
 
     def create_topo():
         config.devices[0].ethernet.name = 'Ethernet 1'
+        config.devices[0].ethernet.mac = "00:00:00:00:00:01"
         config.devices[0].ethernet.ipv4.name = 'IPv4 1'
         config.devices[0].ethernet.ipv4.address = tgen_ports[0]['ip']
         config.devices[0].ethernet.ipv4.gateway = tgen_ports[0]['peer_ip']
         config.devices[0].ethernet.ipv4.prefix = int(tgen_ports[0]['prefix'])
         rx_flow_name = []
         for i in range(2,port_count+1):
+            if len(str(hex(i).split('0x')[1]))==1:
+                m='0'+hex(i).split('0x')[1]
+            else:
+                m=hex(i).split('0x')[1]
             ethernet_stack = config.devices[i-1].ethernet
             ethernet_stack.name = 'Ethernet %d'%i
+            ethernet_stack.mac = "00:00:00:00:00:%s"%m
             ipv4_stack = ethernet_stack.ipv4
             ipv4_stack.name = 'IPv4 %d'%i
             ipv4_stack.address = tgen_ports[i-1]['ip']
             ipv4_stack.gateway = tgen_ports[i-1]['peer_ip']
-            ipv4_stack.prefix = tgen_ports[i-1]['prefix']
+            ipv4_stack.prefix = int(tgen_ports[i-1]['prefix'])
             bgpv4_stack = ipv4_stack.bgpv4
             bgpv4_stack.name = 'BGP %d'%i
             bgpv4_stack.as_type = BGP_TYPE
             bgpv4_stack.dut_address = tgen_ports[i-1]['peer_ip']
+            bgpv4_stack.local_address = tgen_ports[i-1]['ip']
             bgpv4_stack.as_number = int(TGEN_AS_NUM)
             route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name = "Network Group %d"%i)[-1]
             route_range.addresses.bgpv4routeaddress(address = '200.1.0.1', prefix = 32, count = number_of_ipv4_routes, step = 1)
@@ -249,7 +256,7 @@ def __tgen_bgp_config(cvg_api,
     flow.size.fixed = 1024
     flow.rate.percentage = 100
     flow.metrics.enable = True
-    return conv_config,config,rx_flows
+    return conv_config,config
     
 def get_flow_stats(cvg_api):
         """

@@ -7,8 +7,8 @@ from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-@pytest.mark.parametrize('multipath',[3])
-@pytest.mark.parametrize('convergence_test_iterations',[2])
+@pytest.mark.parametrize('multipath',[2])
+@pytest.mark.parametrize('convergence_test_iterations',[1])
 @pytest.mark.parametrize('number_of_ipv4_routes',[8000])
 def test_bgp_convergence_for_local_link_failover(cvg_api,
                                                  duthost,
