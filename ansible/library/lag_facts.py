@@ -48,7 +48,7 @@ class LagModule(object):
         self.get_po_names()
         for po,ns in self.lag_names.items():
             self.lags[po] = {}
-            if 'multi_asic' in sys.modules:
+            if 'sonic_py_common' in sys.modules:
                 ns_id = multi_asic.get_asic_id_from_name(ns) if ns else ''
             else:
                 ns_id = ''
@@ -70,7 +70,7 @@ class LagModule(object):
                 self.module.fail_json(msg=fail_msg)
             else:
                 for po in out.split():
-                    if 'multi_asic' in sys.modules and multi_asic.is_port_channel_internal(po):
+                    if 'sonic_py_common' in sys.modules and multi_asic.is_port_channel_internal(po):
                         continue
                     self.lag_names[po] = ns
         return
