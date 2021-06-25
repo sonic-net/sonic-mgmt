@@ -92,43 +92,47 @@ The APIs using json for data exchange.
 * mux_status
 ```
 {
-  "active_port": "enp59s0f1.3216",
+  "active_port": "enp59s0f1.3532",
   "active_side": "upper_tor",
-  "bridge": "mbr-vms17-8-0",
+  "bridge": "mbr-vms21-3-0",
+  "flap_counter": 0,
   "flows": {
-    "enp59s0f1.3216": [
+    "enp59s0f1.3532": [
       {
         "action": "output",
-        "out_port": "muxy-vms17-8-0"
+        "out_port": "muxy-vms21-3-0"
       }
     ],
-    "muxy-vms17-8-0": [
+    "muxy-vms21-3-0": [
       {
         "action": "output",
-        "out_port": "enp59s0f1.3272"
+        "out_port": "enp59s0f1.3532"
       },
       {
         "action": "output",
-        "out_port": "enp59s0f1.3216"
+        "out_port": "enp59s0f1.3588"
       }
     ]
   },
-  "port_index": "0",
+  "healthy": true,
+  "port_index": 0,
   "ports": {
-    "nic": "muxy-vms17-8-0",
-    "upper_tor": "enp59s0f1.3216",
-    "lower_tor": "enp59s0f1.3272"
+    "lower_tor": "enp59s0f1.3588",
+    "nic": "muxy-vms21-3-0",
+    "upper_tor": "enp59s0f1.3532"
   },
-  "vm_set": "vms17-8"
+  "standby_port": "enp59s0f1.3588",
+  "standby_side": "lower_tor",
+  "vm_set": "vms21-3"
 }
 ```
 
 * all_mux_status
 ```
 {
-    "mbr-vms17-8-0": <mux_status>,
-    "mbr-vms17-8-2": <mux_status>,
-    "mbr-vms17-8-3": <mux_status>,
+    "mbr-vms21-3-0": <mux_status>,
+    "mbr-vms21-3-1": <mux_status>,
+    "mbr-vms21-3-2": <mux_status>,
     ...
 }
 ```
@@ -138,9 +142,13 @@ The APIs using json for data exchange.
 {
     "err_msg": <msg>
 }
+
+In case of the mux_simulator.py script is started with "-v" option, an extra "traceback" field will be included in the json response for troubleshooting.
 ```
 
 ### GET `/mux/<vm_set>/<port_index>`
+
+Get status of mux bridge specified by `vm_set` and `port_index`.
 
 * `vm_set`: Value of column `group_name` in `testbed.csv` of current testbed.
 * `port_index`: Index of DUT front panel port. Starting from `0`.
@@ -148,7 +156,10 @@ The APIs using json for data exchange.
 Response: `mux_status`
 
 ### POST `/mux/<vm_set>/<port_index>`
-Post json data format:
+
+Toggle active/standby side of mux bridge specified by `vm_set` and `port_index`.
+
+Format of json data required in POST:
 ```
 {
     "active_side": "upper_tor|lower_tor|toggle|random"
@@ -163,11 +174,14 @@ Post json data format:
 Response: `mux_status`
 
 ### GET `/mux/<vm_set>`
+
+Get status of all mux bridges belong to `vm_set`.
+
 Response: `all_mux_status`
 
 ### POST `/mux/<vm_set>`
 
-Post json data format:
+Format of json data required in POST:
 ```
 {
     "active_side": "upper_tor|lower_tor|toggle|random"
@@ -179,17 +193,81 @@ Response: `all_mux_status`
 
 ### POST `/mux/<vm_set>/<port_index>/<action>`
 
-* `action`: one of: `output`, `drop`.
+Set flow action to `output` or `drop` for specified interfaces on mux bridge specified by `vm_set` and `port_index`.
 
-Post json data format:
+* `action`: one of: `output`, `drop`, and `reset`
+
+#### When `action` is `output` or `drop`
+
+Format of json data required in POST:
 ```
 {
-    "out_ports": ["nic", "upper_tor", "lower_tor"],
+    "out_sides": ["nic", "upper_tor", "lower_tor"],
 }
 ```
 
-* `out_ports` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
+* `out_sides` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
 
-This API is to set specified out ports to `output` or `drop`.
+This API is to set specified out ports to `output` or `drop` when action is `output` or `drop`.
 
 Response: `mux_status`
+
+#### When `action` is `reset`
+
+No json data required in POST. This API is to recover the flows of current mux bridge to known good state:
+* Upstream flow: forward all packets received by `nic` to both `upper_tor` and `lower_tor`
+* Downstream flow: forward packets received by current active tor interface to `nic`. In case current active port is unknown, randomly choose an active interface from `upper_tor` and `lower_tor`. Then setup the downstream flow.
+
+Response: `mux_status`
+
+### POST `/mux/<vm_set>/reset`
+
+Recover flows of all mux bridges belong to `vm_set` to known good state.
+
+No json data required in POST. This API is to recover flows of all the mux bridges belong to the `vm_set` to known good state:
+* Upstream flow: forward all packets received by `nic` to both `upper_tor` and `lower_tor`
+* Downstream flow: forward packets received by current active tor interface to `nic`. In case current active port is unknown, randomly choose an active interface from `upper_tor` and `lower_tor`. Then setup the downstream flow.
+
+Response: `all_mux_status`
+
+### GET `/mux/<vm_set>/port_index>/flap_counter`
+
+Get flap counter of bridge specified by `vm_set` and `port_index`.
+
+Response:
+```
+{
+  <mux_bridge_name>: <flap_counter>
+}
+```
+
+Example:
+```
+{
+  "mbr-vms21-3-0": 3
+}
+```
+
+### GET `/mux/<vm_set>/flap_counter`
+
+Get flap counter of all bridges belong to `vm_set`.
+
+Response:
+```
+{
+  <mux_bridge_name>: <flap_counter>,
+  <mux_bridge_name>: <flap_counter>,
+  ...
+}
+```
+
+Example:
+```
+{
+  "mbr-vms21-3-0": 0,
+  "mbr-vms21-3-1": 0,
+  "mbr-vms21-3-10": 1,
+  "mbr-vms21-3-11": 0,
+  ...
+}
+```
