@@ -145,6 +145,10 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    sonic_hwsku = duthost.sonichost.facts["hwsku"]
+    if "SN3800" in sonic_hwsku:
+        pytest.skip("Not supported on Mellanox 3800")
+
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 

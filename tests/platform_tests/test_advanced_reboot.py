@@ -10,13 +10,18 @@ pytestmark = [
 ]
 
 @pytest.mark.usefixtures('get_advanced_reboot')
-def test_fast_reboot(request, get_advanced_reboot, advanceboot_loganalyzer):
+def test_fast_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_advanced_reboot, advanceboot_loganalyzer):
     '''
     Fast reboot test case is run using advacned reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    sonic_hwsku = duthost.sonichost.facts["hwsku"]
+    if "SN3800" in sonic_hwsku:
+        pytest.skip("Not supported on Mellanox 3800")
+
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot')
     advancedReboot.runRebootTestcase()
 
