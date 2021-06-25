@@ -26,14 +26,14 @@ def test_bgp_convergence_for_remote_link_failover(cvg_api,
     1) Create BGP config on DUT and TGEN respectively
     2) Create a flow from TGEN1 to (N-1) TGEN ports
     3) Send Traffic from TGEN1 to (N-1) TGEN ports having the same route range
-    4) Simulate link failure by bringing down one of the (N-1) TGEN Ports
-    5) Calculate the packet loss duration for convergence time
+    4) Simulate route withdraw from one of the (N-1) BGP peers which is the equivalent of remote link failure
+    5) Calculate the cp/dp for convergence time
     6) Clean up the BGP config on the dut
 
     Verification:
-    1) Send traffic without flapping any link 
+    1) Send traffic with all routes advertised by BGP peers
         Result: Should not observe traffic loss 
-    2) Flap one of the N TGEN link
+    2) Withdraw all routes from one of the BGP peer
         Result: The traffic must be routed via rest of the ECMP paths and should not observe traffic loss
 
     Args:
@@ -43,7 +43,7 @@ def test_bgp_convergence_for_remote_link_failover(cvg_api,
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         multipath: ECMP value
-        convergence_test_iterations: number of iterations the link failure test has to be run for a port
+        convergence_test_iterations: number of iterations the cp/dp convergence test has to be run for a port
         number_of_ipv4_routes:  Number of IPV4 Routes
     """
     #convergence_test_iterations and multipath values can be modified as per user preference

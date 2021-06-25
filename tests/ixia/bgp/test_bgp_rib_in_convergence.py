@@ -25,16 +25,17 @@ def test_RIB_IN_convergence(cvg_api,
     Steps:
     1) Create BGP config on DUT and TGEN respectively
     2) Create a flow from TGEN1 to (N-1) TGEN ports
-    3) Send Traffic from TGEN1 to (N-1) TGEN ports having the same route range
-    4) Simulate link failure by bringing down one of the (N-1) TGEN Ports
-    5) Calculate the packet loss duration for convergence time
+    3) Withdraw the routes from all the BGP peers
+    4) Send Traffic from TGEN1 to (N-1) TGEN ports having the same route range
+    4) Advertise the routes when traffic is running
+    5) Calculate the RIB-IN convergence time
     6) Clean up the BGP config on the dut
 
     Verification:
-    1) Send traffic without flapping any link 
-        Result: Should not observe traffic loss 
-    2) Flap one of the N TGEN link
-        Result: The traffic must be routed via rest of the ECMP paths and should not observe traffic loss
+    1) Send traffic after withdrawing routes from all BGP peers
+        Result: Should not observe any traffic in the receiving side
+    2) Advertise the routes when the traffic is running
+        Result: The traffic must be routed via the ECMP paths and should not observe any traffic loss
 
     Args:
         snappi_api (pytest fixture): Snappi API
