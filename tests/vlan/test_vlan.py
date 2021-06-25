@@ -198,21 +198,16 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
     ptfhost.command('supervisorctl stop arp_responder')
 
     logger.info("Delete VLAN intf")
-    try:
-        for item in vlan_ports_list:
-            for i in vlan_ports_list[0]['permit_vlanid']:
-                duthost.command('ip route flush {}'.format(
-                    item['permit_vlanid'][i]['remote_ip']))
-
-        for vlan_port in vlan_ports_list:
-            for permit_vlanid in vlan_port["permit_vlanid"].keys():
-                if int(permit_vlanid) != vlan_port["pvid"]:
+    for vlan_port in vlan_ports_list:
+        for permit_vlanid in vlan_port["permit_vlanid"].keys():
+            if int(permit_vlanid) != vlan_port["pvid"]:
+                try:
                     ptfhost.command("ip link delete eth{idx}.{pvid}".format(
                     idx=vlan_port["port_index"][0],
                     pvid=permit_vlanid
                     ))
-    except RunAnsibleModuleFail as e:
-        logger.error(e)
+                except RunAnsibleModuleFail as e:
+                    logger.error(e)
 
     config_reload(duthost)
     # make sure Portchannels go up for post-test link sanity
