@@ -152,7 +152,16 @@ class Mux(object):
     '''
 
     def __init__(self, vm_set, port_index):
+        # Flag for skipping bridge without ports attached to it.
+        # Workaround for uncleaned mbr-xx bridges on server
         self.isvalid = True
+
+        # The flask server could be running in multi-threaded mode. This means that getting mux status and changing
+        # mux flow configuration could interleave with each other. The operation of updating flow configuration is
+        # not atomic, sometimes it needs to run a command to remove flow, then run a command to add a new flow.
+        # If a request of getting mux status come in in the middle of such flow configuration change, the mux
+        # status returned may not match the actual flow status. Purpose of the lock is to workaround such conflicts.
+        # All the operations of updating mux config and getting mux status must acquire the lock firstly.
         self.lock = threading.Lock()
 
         self.vm_set = vm_set
@@ -311,40 +320,38 @@ class Mux(object):
         Status of the mux bridge is maintained in instance attributes. This property is to gather the attributes and
         return them in a dict.
         """
-        self.lock.acquire()
-
-        # Transform mux flows to json expected by mux simulator client
-        flows = {}
-        flows[self.ports[NIC]] = [
-            {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['upstream']['out_sides']
-        ]
-
-        if self.flows['downstream']['in_side'] is not None:
-            in_side = self.flows['downstream']['in_side']
-            in_port = self.ports[in_side]
-            flows[in_port] = [
-                {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['downstream']['out_sides']
+        with self.lock:
+            # Transform mux flows to json expected by mux simulator client
+            flows = {}
+            flows[self.ports[NIC]] = [
+                {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['upstream']['out_sides']
             ]
 
-        healthy = True
-        if len(self.flows['downstream']['out_sides']) != 1 or len(self.flows['upstream']['out_sides']) != 2:
-            healthy = False
+            if self.flows['downstream']['in_side'] is not None:
+                in_side = self.flows['downstream']['in_side']
+                in_port = self.ports[in_side]
+                flows[in_port] = [
+                    {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['downstream']['out_sides']
+                ]
 
-        status = {
-            'bridge': self.bridge,
-            'vm_set': self.vm_set,
-            'port_index': self.port_index,
-            'ports': self.ports,
-            'active_port': self.active_port,
-            'active_side': self.active_side,
-            'standby_side': self.standby_side,
-            'standby_port': self.standby_port,
-            'flows': flows,
-            'flap_counter': self.flap_counter,
-            'healthy': healthy
-        }
-        self.lock.release()
-        return status
+            healthy = True
+            if len(self.flows['downstream']['out_sides']) != 1 or len(self.flows['upstream']['out_sides']) != 2:
+                healthy = False
+
+            status = {
+                'bridge': self.bridge,
+                'vm_set': self.vm_set,
+                'port_index': self.port_index,
+                'ports': self.ports,
+                'active_port': self.active_port,
+                'active_side': self.active_side,
+                'standby_side': self.standby_side,
+                'standby_port': self.standby_port,
+                'flows': flows,
+                'flap_counter': self.flap_counter,
+                'healthy': healthy
+            }
+            return status
 
     def set_active_side(self, new_active_side):
         """Set the active side of the mux bridge to the specified side.
@@ -353,9 +360,7 @@ class Mux(object):
         this method will run ovs-ofctl command to remove flow and add a new flow to switch active side. All the
         related instance attributes are updated after open flow rules are changed.
         """
-        try:
-            self.lock.acquire()
-
+        with self.lock:
             self.info('>>>>>> updating mux active side from {} to {}'.format(self.active_side, new_active_side))
             if new_active_side == RANDOM:
                 new_active_side = random.choice([UPPER_TOR, LOWER_TOR])
@@ -400,8 +405,6 @@ class Mux(object):
             self.flap_counter += 1
 
             self.info('updated mux active side to {} <<<<<<'.format(new_active_side))
-        finally:
-            self.lock.release()
 
     def _update_downstream_flow(self, new_action):
         self.debug('updating downstream flow, new_action={}'.format(new_action))
@@ -498,8 +501,7 @@ class Mux(object):
 
         Item in out_sides could be any of: 'nic', 'upper_tor', 'lower_tor'.
         """
-        try:
-            self.lock.acquire()
+        with self.lock:
             self.info('>>>>> calling update_flows, new_action={}, out_sides={}, current flow:\n{}'.format(new_action, out_sides, json.dumps(self.flows, indent=2)))
             if NIC in out_sides:
                 self._update_downstream_flow(new_action)
@@ -507,8 +509,6 @@ class Mux(object):
             if len(tor_sides) > 0:
                 self._update_upstream_flow(new_action, tor_sides)
             self.info('update_flows completed, current flows:\n{} <<<<<<'.format(json.dumps(self.flows, indent=2)))
-        finally:
-            self.lock.release()
 
     def reset_flows(self):
         """Restore all the flows for this mux bridge.
@@ -518,11 +518,10 @@ class Mux(object):
         self.info('resetting flows done <<<<<<')
 
     def clear_flap_counter(self):
-        self.lock.acquire()
-        self.info('clear flap counter')
-        self.flap_counter = 0
-        self.info('clear flap counter done')
-        self.lock.release()
+        with self.lock:
+            self.info('clear flap counter')
+            self.flap_counter = 0
+            self.info('clear flap counter done')
 
 
 class Muxes(object):
