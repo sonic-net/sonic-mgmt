@@ -129,7 +129,8 @@ VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
 
 cmd_debug_fname = None
 
-BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
+BACKEND_TOR_TYPE = "BackEndToRRouter"
+BACKEND_LEAF_TYPE = "BackEndLeafRouter"
 SUB_INTERFACE_SEPARATOR = '.'
 SUB_INTERFACE_VLAN_ID = '10'
 
@@ -263,7 +264,33 @@ class VMTopology(object):
 
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
 
+        # if the device is a bt0, build the mapping from interface to vlan id
+        if self.dut_type == BACKEND_TOR_TYPE:
+            default_vlan_config = self.topo.get("DUT", {}).get("vlan_configs", {}).get("default_vlan_config")
+            if not default_vlan_config:
+                raise ValueError("Topology has no default vlan config.")
+            if default_vlan_config not in self.topo["DUT"]["vlan_configs"]:
+                raise ValueError("Topology has no definition for default vlan config %s" % default_vlan_config)
+            vlan_config = self.topo["DUT"]["vlan_configs"][default_vlan_config]
+            self.vlan_ids = {}
+            for vlan in vlan_config.values():
+                for intf in vlan["intfs"]:
+                    self.vlan_ids[str(intf)] = str(vlan["id"])
+
         return
+
+    @property
+    def dut_type(self):
+        """Return the dut_type in vm configuration if present."""
+        if not hasattr(self, "_dut_type"):
+            for properties in self.vm_properties.values():
+                dut_type = properties.get("dut_type")
+                if dut_type:
+                    self._dut_type = dut_type
+                    break
+            else:
+                self._dut_type = None
+        return self._dut_type
 
     def update(self):
         errmsg = []
@@ -352,7 +379,7 @@ class VMTopology(object):
                 ext_if = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
                 int_if = PTF_FP_IFACE_TEMPLATE % ptf_index
                 properties = self.vm_properties.get(vm, {})
-                create_vlan_subintf = properties.get('device_type') in BACKEND_DEVICE_TYPES
+                create_vlan_subintf = properties.get('device_type') in (BACKEND_TOR_TYPE, BACKEND_LEAF_TYPE)
                 if create_vlan_subintf:
                     vlan_subintf_sep = properties.get('sub_interface_separator', SUB_INTERFACE_SEPARATOR)
                     vlan_subintf_vlan_id = properties.get('sub_interface_vlan_id', SUB_INTERFACE_VLAN_ID)
@@ -445,6 +472,15 @@ class VMTopology(object):
 
         return
 
+    def add_dut_vlan_subif_to_docker(self, iface_name, vlan_separator, vlan_id):
+        """Create a vlan sub interface for the ptf interface."""
+        self.update()
+        if iface_name not in self.cntr_ifaces:
+            raise ValueError("Interface %s not present in docker" % iface_name)
+        vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
+        VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s vlan id %s" % (self.pid, iface_name, vlan_sub_iface_name, vlan_id))
+        VMTopology.cmd("nsenter -t %s -n ip link set %s up" % (self.pid, vlan_sub_iface_name))
+
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
 
         if self.pid is None:
@@ -462,6 +498,16 @@ class VMTopology(object):
             VMTopology.cmd("nsenter -t %s -n ip link set netns 1 dev %s" % (self.pid, dut_iface))
 
         return
+
+    def remove_dut_vlan_subif_from_docker(self, iface_name, vlan_separator, vlan_id):
+        """Remove the vlan sub interface created for the ptf interface."""
+        if self.pid is None:
+            return
+
+        self.update()
+        vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
+        if vlan_sub_iface_name in self.cntr_ifaces:
+            VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_sub_iface_name))
 
     def add_veth_if_to_docker(self, ext_if, int_if, create_vlan_subintf=False, **kwargs):
         """Create vethernet devices (ext_if, int_if) and put int_if into the ptf docker."""
@@ -784,7 +830,6 @@ class VMTopology(object):
 
         return
 
-
     def add_host_ports(self):
         """
         add dut port in the ptf docker
@@ -792,7 +837,6 @@ class VMTopology(object):
         for non-dual topo, inject the dut port into ptf docker.
         for dual-tor topo, create ovs port and add to ptf docker.
         """
-
         self.update()
         for i, intf in enumerate(self.host_interfaces):
             if self._is_multi_duts:
@@ -820,7 +864,10 @@ class VMTopology(object):
                 fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.add_dut_if_to_docker(ptf_if, fp_port)
-
+                if self.dut_type == BACKEND_TOR_TYPE:
+                    vlan_separator = self.topo.get("DUT", {}).get("sub_interface_separator", SUB_INTERFACE_SEPARATOR)
+                    vlan_id = self.vlan_ids[str(intf)]
+                    self.add_dut_vlan_subif_to_docker(ptf_if, vlan_separator, vlan_id)
         return
 
     def remove_host_ports(self):
@@ -844,6 +891,10 @@ class VMTopology(object):
                 fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.remove_dut_if_from_docker(ptf_if, fp_port)
+                if self.dut_type == BACKEND_TOR_TYPE:
+                    vlan_separator = self.topo.get("DUT", {}).get("sub_interface_separator", SUB_INTERFACE_SEPARATOR)
+                    vlan_id = self.vlan_ids[str(intf)]
+                    self.remove_dut_vlan_subif_from_docker(ptf_if, vlan_separator, vlan_id)
 
     @staticmethod
     def iface_up(iface_name, pid=None):

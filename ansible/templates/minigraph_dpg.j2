@@ -121,7 +121,12 @@
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+{% if 'type' in vlan_param %}
+{% if vlan_param['type']|lower == 'tagged'%}
+          <Type>Tagged</Type>
+{% else %}
           <Type i:nil="true"/>
+{% endif %}
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
           <VlanID>{{ vlan_param['id'] }}</VlanID>
