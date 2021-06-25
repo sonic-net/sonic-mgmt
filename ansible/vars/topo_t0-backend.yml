@@ -248,7 +248,7 @@ configuration:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126
     bp_interface:
-      ipv4: 10.10.246.33/24
+      ipv4: 10.10.246.34/24
       ipv6: fc0a::22/64
 
   ARISTA07BT1:
@@ -269,7 +269,7 @@ configuration:
         ipv4: 10.0.0.69/31
         ipv6: fc00::8a/126
     bp_interface:
-      ipv4: 10.10.246.34/24
+      ipv4: 10.10.246.35/24
       ipv6: fc0a::23/64
 
   ARISTA08BT1:
@@ -290,7 +290,7 @@ configuration:
         ipv4: 10.0.0.71/31
         ipv6: fc00::8e/126
     bp_interface:
-      ipv4: 10.10.246.35/24
+      ipv4: 10.10.246.36/24
       ipv6: fc0a::24/64
 
   ARISTA09BT1:
@@ -311,7 +311,7 @@ configuration:
         ipv4: 10.0.0.73/31
         ipv6: fc00::92/126
     bp_interface:
-      ipv4: 10.10.246.36/24
+      ipv4: 10.10.246.37/24
       ipv6: fc0a::25/64
 
   ARISTA10BT1:
@@ -332,7 +332,7 @@ configuration:
         ipv4: 10.0.0.75/31
         ipv6: fc00::96/126
     bp_interface:
-      ipv4: 10.10.246.37/24
+      ipv4: 10.10.246.38/24
       ipv6: fc0a::26/64
 
   ARISTA11BT1:
@@ -353,7 +353,7 @@ configuration:
         ipv4: 10.0.0.77/31
         ipv6: fc00::9a/126
     bp_interface:
-      ipv4: 10.10.246.38/24
+      ipv4: 10.10.246.39/24
       ipv6: fc0a::27/64
 
   ARISTA12BT1:
@@ -374,5 +374,5 @@ configuration:
         ipv4: 10.0.0.79/31
         ipv6: fc00::9e/126
     bp_interface:
-      ipv4: 10.10.246.39/24
+      ipv4: 10.10.246.40/24
       ipv6: fc0a::28/64
