@@ -159,7 +159,7 @@ class LogAnalyzer:
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
         if log_files:
-            cmd += " --log {}".format(log_files)
+            cmd += " --logs {}".format(log_files)
 
         logging.debug("Adding start marker '{}'".format(start_marker))
         self.ansible_host.command(cmd)
