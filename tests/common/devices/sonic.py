@@ -488,103 +488,41 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
-    def start_pmon_daemon_service(self, daemon_name):
+    def start_pmon_daemon(self, daemon_name):
         """
         @summary: start daemon in pmon docker using supervisorctl start command.
-
-        @return: True if it is stopped or False if not
         """
-        pmon_daemon_start_cmd = "docker exec pmon bash -c 'supervisorctl start %s'"%daemon_name
+        pmon_daemon_start_cmd = "docker exec pmon supervisorctl start {}".format(daemon_name)
 
-        try:
-            output = self.shell(pmon_daemon_start_cmd, module_ignore_errors=True)
-            while True:
-                line = output.readline()
-                logging.debug("Start {} command output : {}".format(daemon_name, line))
-                if line != '':
-                    start_result = line.strip().split(':')
-                    if start_result[0] == daemon_name and stop_result[1] == "started":
-                        return True
-                    else:
-                        return False
-                else:
-                    break
-        except:
-            pass
-
-        return False
+        self.shell(pmon_daemon_start_cmd, module_ignore_errors=True)
 
     def stop_pmon_daemon_service(self, daemon_name):
         """
         @summary: stop daemon in pmon docker using supervisorctl stop command.
-
-        @return: True if it is stopped or False if not
         """
-        pmon_daemon_stop_cmd = "docker exec pmon bash -c 'supervisorctl stop %s'"%daemon_name
+        pmon_daemon_stop_cmd = "docker exec pmon supervisorctl stop {}".format(daemon_name)
 
-        try:
-            output = self.shell(pmon_daemon_stop_cmd, module_ignore_errors=True)
-            while True:
-                line = output.readline()
-                logging.debug("Stop {} command output : {}".format(daemon_name, line))
-                if line != '':
-                    stop_result = line.strip().split(':')
-                    if stop_result[0] == daemon_name and stop_result[1] == "stopped":
-                        return True
-                    else:
-                        return False
-                else:
-                    break
-        except:
-            pass
-
-        return False
+        self.shell(pmon_daemon_stop_cmd, module_ignore_errors=True)
 
     def get_pmon_daemon_status(self, daemon_name):
         """
         @summary: get daemon status in pmon docker using supervisorctl status command.
 
-        @return: "RUNNING"/"STOPPED"/"EXITED"
+        @return: daemon_status - "RUNNING"/"STOPPED"/"EXITED"
+                 daemon_pid - integer number
         """
-        pmon_daemon_status_cmd = "docker exec pmon bash -c 'supervisorctl status {}'".format(daemon_name)
-        daemon_status = "N/A"
+        daemon_status = None
+        daemon_pid = -1
 
-        try:
-            output = self.shell(pmon_daemon_status_cmd, module_ignore_errors=True)
-            while True:
-                line = output.readline()
-                logging.debug("Get {} status command output : {}".format(daemon_name, line))
-                if line != '':
-                    daemon_status = line.strip().split(" ")[1]
-                else:
-                    break
-        except:
-            pass
+        daemon_info = duthost.shell("docker exec pmon supervisorctl status {}".format(daemon_name), module_ignore_errors=True)["stdout"]
+        if daemon_info.find(program_name) != -1:
+            daemon_status = daemon_info.split()[1].strip()
+            if daemon_status == "RUNNING":
+                daemon_pid = int(daemon_info.split()[3].strip(','))
 
-        return daemon_status
+        logging.info("Daemon '{}' in the '{}' state with pid {}".format(daemon_name, daemon_status, daemon_pid))
 
-    def get_pmon_daemon_pid(self, daemon_name):
-        """
-        @summary: get daemon pid in pmon docker using supervisorctl pid command.
-
-        @return: pid if it returns otherwise "None"
-        """
-        pmon_daemon_stop_cmd = "docker exec pmon bash -c 'supervisorctl pid {}'".format(daemon_name)
-        daemon_pid = "N/A"
-
-        try:
-            output = self.shell(pmon_daemon_stop_cmd, module_ignore_errors=True)
-            while True:
-                line = output.readline()
-                logging.debug("Get {} pid command output : {}".format(daemon_name, line))
-                if line != '':
-                    daemon_pid = line.strip()
-                else:
-                    break
-        except:
-            pass
-
-        return daemon_pid
+        return daemon_status, daemon_pid
 
     def kill_pmon_daemon_pid_w_sig(self, pid, sig_name):
         """
@@ -594,12 +532,9 @@ class SonicHost(AnsibleHostBase):
         """
         daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
 
-        output = self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
-        if output['stdout'] == "" and output['stderr'] == "":
-            return True
-        return False
+        self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
 
-    def stop_pmon_daemon_kill_w_sig(self, daemon_name, sig_name):
+    def stop_pmon_daemon_kill_w_sig(self, daemon_name, sig_name, pid):
         """
         @summary: stop daemon in pmon docker using kill with a sig.
 
@@ -607,27 +542,20 @@ class SonicHost(AnsibleHostBase):
         """
         result = False
 
-        pid = self.get_pmon_daemon_pid(daemon_name)
-        if pid is not "N/A":
-	        return self.kill_daemon_pid_w_sig(pid, sig_name)
+        if pid != -1 :
+	        self.kill_daemon_pid_w_sig(pid, sig_name)
 
-        return False
 
-    def stop_pmon_daemon(self, daemon_name, sig_name=None):
+    def stop_pmon_daemon(self, daemon_name, sig_name=None, pid=-1):
         """
         @summary: stop daemon in pmon docker.
 
         @return: True if it is stopped or False if not
         """
-
-        result = False
-
         if sig_name is None:
-            result = self.stop_pmon_daemon_service(daemon_name)
+            self.stop_pmon_daemon_service(daemon_name)
         else:
-            result = self.kill_pmon_daemon_pid_w_sig(daemon_name, sig_name)
-
-        return result
+            self.kill_pmon_daemon_pid_w_sig(daemon_name, sig_name, pid)
 
     def get_pmon_daemon_enable_status(self, daemon_name):
         """
@@ -642,7 +570,7 @@ class SonicHost(AnsibleHostBase):
         baseline_pmon_daemons_list_cmd = "docker exec pmon bash -c 'cat %s | grep program'"%baseline_pmon_conf_file_path
 
         try:
-            output = self.shell(baseline_pmon_daemons_list_cmd)
+            output = self.shell(baseline_pmon_daemons_list_cmd)['stdout_lines']
             while True:
                 line = output.readline()
                 logging.debug("Original file content is %s" % str(json_data))

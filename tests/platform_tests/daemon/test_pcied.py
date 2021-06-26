@@ -15,7 +15,7 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.platform.daemon_utils import *
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
 expected_running_status = "RUNNING"
@@ -28,21 +28,21 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
-pytestmark = [
-    pytest.mark.disable_loganalyzer,
-]
-
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, rand_one_dut_hostname, conn_graph_facts):
+def teardown_module(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
 
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_status is not "RUNNING":
+        duthost.start_pmon_daemon(daemon_name)
+        time.sleep(10)
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture(autouse=True, scope='module')
+@pytest.fixture(scope="module", autouse=True)
 def disable_and_enable_autorestart(duthost):
     """Changes the autorestart of containers from `enabled` to `disabled` before testing.
        and Rolls them back after testing.
@@ -73,54 +73,59 @@ def disable_and_enable_autorestart(duthost):
         pytest_assert(exit_code == 0, "Failed to enable the autorestart of container '{}'".format(container_name))
         logging.info("The autorestart of container '{}' is enabled.".format(container_name))
 
+@pytest.fixture()
+def check_daemon_status(duthost):
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_status is not "RUNNING":
+        duthost.start_pmon_daemon(daemon_name)
+        time.sleep(10)
 
-def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
+def test_pmon_pcied_running_status(duthost):
     """
     @summary: This test case is to check pcied status on dut
     """
-    duthost = duthosts[rand_one_dut_hostname]
-    daemon_status = get_pmon_daemon_running_status(duthost, daemon_name)
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_running_status,
                           "Pcied expected running status is {} but is {}".format(expected_running_status, daemon_status))
+    pytest_assert(daemon_pid != -1,
+                          "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
 
 
-def test_pmon_daemon_stop_and_start_status(duthosts, rand_one_dut_hostname):
+def test_pmon_daemon_stop_and_start_status(duthost, check_daemon_status):
     """
     @summary: This test case is to check the pcied stopped and restarted status 
     """
-
-    duthost = duthosts[rand_one_dut_hostname]
-
-    result = stop_pmon_daemon(duthost, daemon_name, SIG_STOP_SERVICE)
-    pytest_assert(result == True, "Stop {} daemon returns {}".format(daemon_name, result))
-    daemon_status = get_pmon_daemon_running_status(duthost, daemon_name)
+    duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+    time.sleep(2)
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
                           "Pcied expected stopped status is {} but is {}".format(expected_stopped_status, daemon_status))
+    pytest_assert(daemon_pid == -1,
+                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
 
-    result = start_pmon_daemon(duthost, daemon_name)
-    pytest_assert(result == True, "Start {} daemon returns {}".format(daemon_name, result))
-    daemon_status = get_pmon_daemon_running_status(duthost, daemon_name)
+    duthost.start_pmon_daemon(daemon_name)
+    time.sleep(10)
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_running_status,
                           "Pcied expected restarted status is {} but is {}".format(expected_running_status, daemon_status))
+    pytest_assert(daemon_pid == -1,
+                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
 
 
-def test_pmon_daemon_term_and_start_status(duthosts, rand_one_dut_hostname):
+def test_pmon_daemon_term_and_start_status(duthost, check_daemon_status):
     """
     @summary: This test case is to check the pcied terminated and restarted status
     """
-
-    duthost = duthosts[rand_one_dut_hostname]
-
-    result = stop_pmon_daemon(duthost, daemon_name, SIG_TERM)
+    result = duthost.stop_pmon_daemon(daemon_name, SIG_TERM)
     pytest_assert(result == True, "Stop {} daemon returns {}".format(daemon_name, result))
-    daemon_status = get_pmon_daemon_running_status(duthost, daemon_name)
+    daemon_status = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_exited_status,
                           "Pcied expected terminated status is {} but is {}".format(expected_exited_status, daemon_status))
 
-    result = start_pmon_daemon(duthost, daemon_name)
-    pytest_assert(result == True, "Start {} daemon returns {}".format(daemon_name, result))
-    daemon_status = get_pmon_daemon_running_status(duthost, daemon_name)
+    duthost.start_pmon_daemon(daemon_name)
+    time.sleep(10)
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_running_status,
                           "Pcied expected restarted status is {} but is {}".format(expected_running_status, daemon_status))
-
-
+    pytest_assert(daemon_pid == -1,
+                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
