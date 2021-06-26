@@ -143,7 +143,7 @@ configuration_properties:
     dut_asn: 65100
     dut_type: MgmtTsToR
     swrole: leaf
-    podset_number: 200
+    podset_number: 30
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16
