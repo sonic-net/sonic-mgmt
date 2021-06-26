@@ -514,8 +514,8 @@ class SonicHost(AnsibleHostBase):
         daemon_status = None
         daemon_pid = -1
 
-        daemon_info = duthost.shell("docker exec pmon supervisorctl status {}".format(daemon_name), module_ignore_errors=True)["stdout"]
-        if daemon_info.find(program_name) != -1:
+        daemon_info = self.shell("docker exec pmon supervisorctl status {}".format(daemon_name), module_ignore_errors=True)["stdout"]
+        if daemon_info.find(daemon_name) != -1:
             daemon_status = daemon_info.split()[1].strip()
             if daemon_status == "RUNNING":
                 daemon_pid = int(daemon_info.split()[3].strip(','))
@@ -530,20 +530,9 @@ class SonicHost(AnsibleHostBase):
 
         @return: True if it is stopped or False if not
         """
-        daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
-
-        self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
-
-    def stop_pmon_daemon_kill_w_sig(self, daemon_name, sig_name, pid):
-        """
-        @summary: stop daemon in pmon docker using kill with a sig.
-
-        @return: True if it is stopped or False if not
-        """
-        result = False
-
         if pid != -1 :
-	        self.kill_daemon_pid_w_sig(pid, sig_name)
+            daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
+            self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
 
 
     def stop_pmon_daemon(self, daemon_name, sig_name=None, pid=-1):
@@ -555,7 +544,7 @@ class SonicHost(AnsibleHostBase):
         if sig_name is None:
             self.stop_pmon_daemon_service(daemon_name)
         else:
-            self.kill_pmon_daemon_pid_w_sig(daemon_name, sig_name, pid)
+            self.kill_pmon_daemon_pid_w_sig(pid, sig_name)
 
     def get_pmon_daemon_enable_status(self, daemon_name):
         """
