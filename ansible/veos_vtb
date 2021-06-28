@@ -14,6 +14,7 @@ all:
           - t1-64-lag
           - t1-8-lag
           - t1-64-lag-clet
+          - t1-backend
           - t0
           - t0-16
           - t0-56
@@ -25,6 +26,8 @@ all:
           - t0-116
           - dualtor
           - dualtor-56
+          - dualtor-120
+          - t2-vs
       children:
         server_1:
     lab:
@@ -120,6 +123,9 @@ all:
           num_asics: 6
           ansible_password: password
           ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1,2,3]
         vlab-08:
           ansible_host: 10.250.0.112
           ansible_hostv6: fec0::ffff:afa:c
@@ -129,6 +135,9 @@ all:
           num_asics: 4
           ansible_password: password
           ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1]
         vlab-simx-01:
           ansible_host: 10.250.0.103
           ansible_hostv6: fec0::ffff:afa:3
@@ -139,6 +148,34 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
+        vlab-t2-01:
+          ansible_host: 10.250.0.120
+          ansible_hostv6: fec0::ffff:afa:10
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9020
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 1
+        vlab-t2-02:
+          ansible_host: 10.250.0.121
+          ansible_hostv6: fec0::ffff:afa:11
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9021
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 2
+        vlab-t2-sup:
+          ansible_host: 10.250.0.122
+          ansible_hostv6: fec0::ffff:afa:12
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9022
+          ansible_password: password
+          ansible_user: admin
+          card_type: supervisor
+          slot_num: 3
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

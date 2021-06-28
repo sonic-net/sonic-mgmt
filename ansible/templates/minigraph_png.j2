@@ -1,5 +1,6 @@
   <PngDec>
     <DeviceInterfaceLinks>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
@@ -13,6 +14,24 @@
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
+{% if 'console_interfaces' in vm_topo_config %}
+{% if vm_topo_config['console_interfaces'] | length > 0 %}
+{% for console_if in vm_topo_config['console_interfaces'] %}
+      <DeviceLinkBase i:type="DeviceSerialLink">
+        <ElementType>DeviceSerialLink</ElementType>
+        <Bandwidth>{{ console_if['baud'] }}</Bandwidth>
+        <ChassisInternal>false</ChassisInternal>
+        <EndDevice>{{ inventory_hostname }}</EndDevice>
+        <EndPort>{{ console_if['line'] }}</EndPort>
+        <FlowControl>{{ console_if['flow_control'] }}</FlowControl>
+        <StartDevice>Terminal{{ console_if['line'] }}</StartDevice>
+        <StartPort>console</StartPort>
+        <Validate>true</Validate>
+        <TcpPortName>{{ console_if['line'] + 2000 }}</TcpPortName>
+      </DeviceLinkBase>
+{% endfor %}
+{% endif %}
+{% endif %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
@@ -66,6 +85,7 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -82,6 +102,9 @@
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
+{% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
+	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
+{% endif %}
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
 {% set neighbor_hostname = dual_tor_facts['neighbor']['hostname'] %}
@@ -107,7 +130,7 @@
 {% set server_base_address_v4 = '.'.join(server_base_address_v4.split('.')[:-1]) + '.{}' %}
 {% set server_base_address_v6 = (vlan_configs.values() | list)[0]['prefix_v6'] %}
 {% set server_base_address_v6 = server_base_address_v6 | ipaddr('network') %}
-{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{}' %}
+{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{:x}' %}
 {% for cable in dual_tor_facts['cables'] %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
@@ -144,7 +167,9 @@
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
-{% if 'T1' in dev %}
+{% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
+{% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
@@ -190,6 +215,11 @@
         <SerialNumber i:nil="true"/>
         <Hostname>{{ asic }}</Hostname>
         <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
+{% for asic in fabric_info %}
+      <Device i:type="Asic">
+        <Hostname>{{ asic['asicname'] }}</Hostname>
       </Device>
 {% endfor %}
     </Devices>

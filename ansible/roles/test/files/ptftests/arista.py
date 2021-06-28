@@ -32,6 +32,7 @@ import pickle
 from operator import itemgetter
 import scapy.all as scapyall
 import enum
+import ast
 
 class Arista(object):
     DEBUG = False
@@ -43,7 +44,8 @@ class Arista(object):
         self.password = password
         self.conn = None
         self.arista_prompt = None
-        self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
+        self.v4_routes = list(ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes.append(test_params['lo_prefix'])
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
         self.info = set()
@@ -121,11 +123,16 @@ class Arista(object):
         samples[cur_time] = sample
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
-            cmd = self.queue.get()
-            if cmd == 'quit':
-                self.log('quit command received')
-                quit_enabled = True
-                continue
+            cmd = None
+            # quit command was received, we don't process next commands
+            # but wait for v4_routing_ok and v6_routing_ok
+            if not quit_enabled:
+                cmd = self.queue.get()
+                self.log('Command received: cmd={}'.format(cmd))
+                if cmd == 'quit':
+                    quit_enabled = True
+                    continue
+
             cur_time = time.time()
             info = {}
             debug_info = {}
@@ -134,10 +141,16 @@ class Arista(object):
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            v4_routing_ok, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            if v4_routing != v4_routing_ok:
+                v4_routing_ok = v4_routing
+                self.log('BGP routing for ipv4 OK: %s' % (v4_routing_ok))
             info['bgp_route_v4'] = v4_routing_ok
 
-            v6_routing_ok, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            v6_routing, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            if v6_routing != v6_routing_ok:
+                v6_routing_ok = v6_routing
+                self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")

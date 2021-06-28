@@ -82,6 +82,16 @@ sonic_s6000:
     vlab-06:
       ansible_host: 10.250.0.111
       ansible_hostv6: fec0::ffff:afa:b
+    vlab-t2-01:
+      ansible_host: 10.250.0.120
+      ansible_hostv6: fec0::ffff:afa:10
+    vlab-t2-02:
+      ansible_host: 10.250.0.121
+      ansible_hostv6: fec0::ffff:afa:11
+    vlab-t2-sup:
+      ansible_host: 10.250.0.122
+      ansible_hostv6: fec0::ffff:afa:12
+      card_type: supervisor
 
 sonic_s6100:
   vars:

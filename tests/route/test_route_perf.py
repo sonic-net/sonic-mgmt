@@ -83,21 +83,33 @@ def cleanup_dut(duthost, intf_neighs):
         # remove interface
         duthost.shell('sudo config interface ip remove {} {}'.format(intf_neigh['interface'], intf_neigh['ip']))
 
-def generate_intf_neigh(num_neigh, ip_version):
+def generate_intf_neigh(duthost, num_neigh, ip_version):
+    interfaces = duthost.show_interface(command='status')['ansible_facts']['int_status']
+    up_interfaces = []
+    for intf, values in interfaces.items():
+        if values['admin_state'] == 'up' and values['oper_state'] == 'up':
+            up_interfaces.append(intf)
+    if not up_interfaces:
+        raise Exception('DUT does not have up interfaces')
+
     # Generate interfaces and neighbors
     intf_neighs = []
     str_intf_nexthop = {'ifname':'', 'nexthop':''}
-    for idx_neigh in range(num_neigh):
+
+    idx_neigh = 0
+    for itfs_name in up_interfaces:
+        if not itfs_name.startswith("PortChannel") and interfaces[itfs_name]['vlan'].startswith("PortChannel"):
+            continue
         if ip_version == 4:
             intf_neigh = {
-                'interface' : 'Ethernet%d' % (idx_neigh * 4 + 4),
+                'interface' : itfs_name,
                 'ip' : '10.%d.0.1/24' % (idx_neigh + 1),
                 'neighbor' : '10.%d.0.2' % (idx_neigh + 1),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
             }
         else:
             intf_neigh = {
-                'interface' : 'Ethernet%d' % (idx_neigh * 4),
+                'interface' : itfs_name,
                 'ip' : '%x::1/64' % (0x2000 + idx_neigh),
                 'neighbor' : '%x::2' % (0x2000 + idx_neigh),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
@@ -110,6 +122,9 @@ def generate_intf_neigh(num_neigh, ip_version):
         else:
             str_intf_nexthop['ifname'] += ',' + intf_neigh['interface']
             str_intf_nexthop['nexthop'] += ',' + intf_neigh['neighbor']
+        idx_neigh += 1
+        if idx_neigh == num_neigh:
+            break
 
     return intf_neighs, str_intf_nexthop
 
@@ -197,7 +212,7 @@ def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 8
-    intf_neighs, str_intf_nexthop = generate_intf_neigh(NUM_NEIGHS, ip_versions)
+    intf_neighs, str_intf_nexthop = generate_intf_neigh(duthost, NUM_NEIGHS, ip_versions)
 
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag, {}).get("used")
