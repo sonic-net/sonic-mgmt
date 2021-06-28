@@ -88,11 +88,11 @@ class DHCPTest(DataplaneBaseTest):
         # Shutdown and startup the client interface to generate a proper IPv6 link-local address
         command = "ifconfig eth{} down".format(client_port_index)
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
+        proc.communicate()
 
         command = "ifconfig eth{} up".format(client_port_index)
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
+        proc.communicate()
 
         command = "ip addr show eth{} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1".format(client_port_index)
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
