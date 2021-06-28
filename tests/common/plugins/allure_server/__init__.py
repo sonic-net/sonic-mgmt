@@ -3,6 +3,8 @@ import logging
 import os
 import requests
 import base64
+import re
+import subprocess
 
 logger = logging.getLogger()
 
@@ -31,15 +33,66 @@ def pytest_sessionfinish(session, exitstatus):
         if allure_server_addr:
             allure_report_dir = session.config.option.allure_report_dir
             if allure_report_dir:
+                session_info_dict = {}
                 try:
-                    allure_server_odb = AllureServer(allure_server_addr, allure_server_port, allure_report_dir,
+                    session_info_dict = get_setup_session_info(session)
+                except Exception as err:
+                    logger.warning('Can not get session info for Allure report. Error: {}'.format(err))
+
+                if session_info_dict:
+                    export_session_info_to_allure(session_info_dict, allure_report_dir)
+
+                try:
+                    allure_server_obj = AllureServer(allure_server_addr, allure_server_port, allure_report_dir,
                                                      allure_server_project_id)
-                    allure_server_odb.generate_allure_report()
+                    allure_server_obj.generate_allure_report()
                 except Exception as err:
                     logger.error('Failed to upload allure report to server. Allure report not available. '
                                  '\nError: {}'.format(err))
             else:
                 logger.error('PyTest argument "--alluredir" not provided. Impossible to generate Allure report')
+
+
+def get_setup_session_info(session):
+    ansible_dir = get_ansible_path(session)
+    testbed = session.config.option.testbed
+
+    os.chdir(ansible_dir)
+
+    cmd = "ansible -m command -i inventory {} -a 'show version'".format(testbed)
+    output = subprocess.check_output(cmd, shell=True).decode('utf-8')
+
+    version = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    platform = re.compile(r"platform: +([^\s]+)\s", re.IGNORECASE)
+    hwsku = re.compile(r"hwsku: +([^\s]+)\s", re.IGNORECASE)
+    asic = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+
+    result = {
+        "Version": version.findall(output)[0] if version.search(output) else "",
+        "Platform": platform.findall(output)[0] if platform.search(output) else "",
+        "HwSKU": hwsku.findall(output)[0] if hwsku.search(output) else "",
+        "ASIC": asic.findall(output)[0] if asic.search(output) else ""
+    }
+
+    return result
+
+
+def export_session_info_to_allure(session_info_dict, allure_report_dir):
+    allure_env_file_name = 'environment.properties'
+    allure_env_file_path = os.path.join(allure_report_dir, allure_env_file_name)
+    with open(allure_env_file_path, 'w') as env_file_obj:
+        for item, value in session_info_dict.items():
+            env_file_obj.write('{}={}\n'.format(item, value))
+
+
+def get_ansible_path(session):
+    sonic_mgmt_dir_path = session.fspath.dirname
+    ansible_dir = os.path.join(sonic_mgmt_dir_path, 'ansible')
+
+    if not os.path.exists(ansible_dir):
+        raise FileNotFoundError('Ansible path "{}" does not exist'.format(ansible_dir))
+
+    return ansible_dir
 
 
 def get_time_stamp_str():
@@ -66,6 +119,7 @@ class AllureServer:
         self.create_project_on_allure_server()
         self.upload_results_to_allure_server()
         self.generate_report_on_allure_server()
+        self.clean_results_on_allure_server()
 
     def create_project_on_allure_server(self):
         """
@@ -131,3 +185,13 @@ class AllureServer:
         else:
             report_url = response.json()['data']['report_url']
             logger.info('Allure report URL: {}'.format(report_url))
+
+    def clean_results_on_allure_server(self):
+        """
+        This method would clean results for project on the remote allure server
+        """
+        url = self.base_url + '/clean-results?project_id=' + self.project_id
+        response = requests.get(url, headers=self.http_headers)
+
+        if response.raise_for_status():
+            logger.error('Failed to clean results on allure server, error: {}'.format(response.content))
