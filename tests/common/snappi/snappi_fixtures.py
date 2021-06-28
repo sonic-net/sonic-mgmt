@@ -52,11 +52,11 @@ def snappi_api(snappi_api_serv_ip,
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
     """
-    host = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+    location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
     # TODO: Currently extension is defaulted to ixnetwork.
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
-    api = snappi.api(host=host, ext="ixnetwork")
+    api = snappi.api(location=location, ext="ixnetwork")
 
     yield api
 
@@ -141,7 +141,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         ip_stack = ethernet.ipv4
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
         ip_stack.address = ip
-        ip_stack.prefix = prefix
+        ip_stack.prefix = int(prefix)
         ip_stack.gateway = gw_addr
 
         port_config = SnappiPortConfig(id=port_id,
@@ -221,7 +221,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             ip_stack = ethernet.ipv4
             ip_stack.name = 'Ipv4 Port {}'.format(port_id)
             ip_stack.address = vlan_ip_addr
-            ip_stack.prefix = prefix
+            ip_stack.prefix = int(prefix)
             ip_stack.gateway = gw_addr
 
             port_config = SnappiPortConfig(id=port_id,
@@ -315,7 +315,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
         ip_stack = device.ethernet.ipv4
         ip_stack.address = pc_ip_addr
-        ip_stack.prefix = prefix
+        ip_stack.prefix = int(prefix)
         ip_stack.gateway = gw_addr
 
     return True

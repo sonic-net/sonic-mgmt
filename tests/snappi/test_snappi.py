@@ -10,7 +10,7 @@ from tests.common.snappi.port import select_ports
 from tests.common.snappi.qos_fixtures import prio_dscp_map
 
 
-@pytest.mark.topology("tgen")
+@pytest.mark.topology("snappi")
 @pytest.mark.disable_loganalyzer
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,
