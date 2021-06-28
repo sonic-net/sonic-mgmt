@@ -12,6 +12,22 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+# The list below is to ignore the 12 hardcoded ip table rules in internal caclmgrd
+ignored_iptable_rules = [
+    '-A INPUT -s 20.44.16.64/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 20.44.16.64/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 13.69.229.128/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 13.69.229.128/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 52.231.147.224/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 52.231.147.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 13.66.141.96/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 13.66.141.96/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 40.74.146.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 40.74.146.224/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 52.162.110.128/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 52.162.110.128/27 -p tcp -m tcp --dport 8090 -j ACCEPT'
+]
+
 @pytest.fixture(scope="module")
 def docker_network(duthost):
 
@@ -411,7 +427,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}".format(repr(missing_iptables_rules)))
 
     # Ensure there are no unexpected iptables rules present on the DuT
-    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules)
+    unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules) - set(ignored_iptable_rules)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}".format(repr(unexpected_iptables_rules)))
 
     # TODO: caclmgrd currently applies the "block_ip2me" rules in the order it gathers the interfaces and
