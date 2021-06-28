@@ -32,7 +32,8 @@ class SonicHost(AnsibleHostBase):
 
 
     def __init__(self, ansible_adhoc, hostname,
-                 shell_user=None, shell_passwd=None):
+                 shell_user=None, shell_passwd=None,
+                 ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
         if shell_user and shell_passwd:
@@ -57,6 +58,13 @@ class SonicHost(AnsibleHostBase):
             for pass_var in (_['name'] for _ in pass_def['vars']):
                 if pass_var in hostvars:
                     vm.extra_vars.update({pass_var: shell_passwd})
+
+        if ssh_user and ssh_passwd:
+            evars = {
+                'ansible_ssh_user': ssh_user,
+                'ansible_ssh_pass': ssh_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
@@ -152,9 +160,30 @@ class SonicHost(AnsibleHostBase):
         facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
+        facts["mgmt_interface"] = self._get_mgmt_interface()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_mgmt_interface(self):
+        """
+        Gets the IPs of management interface
+        Output example
+
+            admin@ARISTA04T1:~$ show management_interface address
+            Management IP address = 10.250.0.54/24
+            Management Network Default Gateway = 10.250.0.1
+            Management IP address = 10.250.0.59/24
+            Management Network Default Gateway = 10.250.0.1
+
+        """
+        show_cmd_output = self.shell("show management_interface address", module_ignore_errors=True)
+        mgmt_addrs = []
+        for line in show_cmd_output["stdout_lines"]:
+            addr = re.match(r"Management IP address = (\d{0,3}\.\d{0,3}\.\d{0,3}\.\d{0,3})\/\d+", line)
+            if addr:
+                mgmt_addrs.append(addr.group(1))
+        return mgmt_addrs
 
     def _get_modular_chassis(self):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)

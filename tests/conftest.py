@@ -15,6 +15,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -69,6 +70,10 @@ def pytest_addoption(parser):
 
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
+
+    # neighbor device type
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
+                    help="Neighbor devices type")
 
     ############################
     # pfc_asym options         #
@@ -350,21 +355,31 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 @pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, tbinfo, creds):
+def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
 
     vm_base = int(tbinfo['vm_base'][2:])
+    neighbor_type = request.config.getoption("--neighbor_type")
     devices = {}
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
-        devices[k] = {'host': EosHost(ansible_adhoc,
-                                      "VM%04d" % (vm_base + v['vm_offset']),
-                                      creds['eos_login'],
-                                      creds['eos_password'],
-                                      shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                      shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                      'conf': tbinfo['topo']['properties']['configuration'][k]}
+        if neighbor_type == "eos":
+            devices[k] = {'host': EosHost(ansible_adhoc,
+                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        creds['eos_login'],
+                                        creds['eos_password'],
+                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
+                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+        elif neighbor_type == "sonic":
+            devices[k] = {'host': SonicHost(ansible_adhoc,
+                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
+                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+        else:
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
     return devices
 
 @pytest.fixture(scope="module")
@@ -434,6 +449,14 @@ def vmhost(ansible_adhoc, request, tbinfo):
 def eos():
     """ read and yield eos configuration """
     with open('eos/eos.yml') as stream:
+        eos = yaml.safe_load(stream)
+        return eos
+
+
+@pytest.fixture(scope='session')
+def sonic():
+    """ read and yield sonic configuration """
+    with open('sonic/sonic.yml') as stream:
         eos = yaml.safe_load(stream)
         return eos
 
