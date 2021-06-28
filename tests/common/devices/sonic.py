@@ -1545,9 +1545,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                (k.startswith("PortChannel") and not
                 self.is_backend_portchannel(k))
             ):
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                        self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
-                    ):
+                if (v["admin"] == "up" and v["oper_state"] == "up"):
                     ip_ifaces[k] = {
                         "ipv4": v["ipv4"],
                         "peer_ipv4": v["peer_ipv4"],
