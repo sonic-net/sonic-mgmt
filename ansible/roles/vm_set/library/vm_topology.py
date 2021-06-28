@@ -258,6 +258,11 @@ class VMTopology(object):
         else:
             self.host_interfaces = []
 
+        if 'disabled_host_interfaces' in self.topo:
+            self.disabled_host_interfaces = self.topo['disabled_host_interfaces']
+        else:
+            self.disabled_host_interfaces = []
+
         self.duts_fp_ports = duts_fp_ports
 
         self.injected_fp_ports = self.extract_vm_vlans()
@@ -478,7 +483,7 @@ class VMTopology(object):
         if iface_name not in self.cntr_ifaces:
             raise ValueError("Interface %s not present in docker" % iface_name)
         vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
-        VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s vlan id %s" % (self.pid, iface_name, vlan_sub_iface_name, vlan_id))
+        VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %s" % (self.pid, iface_name, vlan_sub_iface_name, vlan_id))
         VMTopology.cmd("nsenter -t %s -n ip link set %s up" % (self.pid, vlan_sub_iface_name))
 
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
@@ -864,7 +869,8 @@ class VMTopology(object):
                 fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.add_dut_if_to_docker(ptf_if, fp_port)
-                if self.dut_type == BACKEND_TOR_TYPE:
+                # only create sub interface for enabled ports defined in t0-backend
+                if self.dut_type == BACKEND_TOR_TYPE and intf not in self.disabled_host_interfaces:
                     vlan_separator = self.topo.get("DUT", {}).get("sub_interface_separator", SUB_INTERFACE_SEPARATOR)
                     vlan_id = self.vlan_ids[str(intf)]
                     self.add_dut_vlan_subif_to_docker(ptf_if, vlan_separator, vlan_id)
