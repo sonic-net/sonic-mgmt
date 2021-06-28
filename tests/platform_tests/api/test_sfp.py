@@ -27,13 +27,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get platform facts from platform.json file
-    request.cls.chassis_facts = duthost.facts.get("chassis")
-
-
-@pytest.mark.usefixtures("gather_facts")
 class TestSfpApi(PlatformApiTestBase):
     """
     This class contains test cases intended to verify the functionality and
@@ -140,18 +133,19 @@ class TestSfpApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, sfp_idx):
+    def compare_value_with_platform_facts(self, key, value, sfp_idx, duthost):
         expected_value = None
 
-        if self.chassis_facts:
-            expected_sfps = self.chassis_facts.get("sfps")
+        if duthost.facts.get("chassis"):
+            expected_sfps = duthost.facts.get("chassis").get("sfps")
             if expected_sfps:
                 expected_value = expected_sfps[sfp_idx].get(key)
 
         if self.expect(expected_value is not None,
                        "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
             self.expect(value == expected_value,
-                          "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value, sfp_idx))
+                        "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value,
+                                                                                             sfp_idx))
 
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
@@ -161,19 +155,25 @@ class TestSfpApi(PlatformApiTestBase):
             return False
         return True
 
+    def is_xcvr_resettable(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict.get("type_abbrv_name")
+        if xcvr_type == "SFP":
+            return False
+        return True
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+    def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                self.compare_value_with_platform_facts('name', name, i, duthosts[enum_rand_one_per_hwsku_hostname])
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             presence = sfp.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve transceiver {} presence".format(i)):
@@ -181,21 +181,21 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(presence is True, "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             model = sfp.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve transceiver {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Transceiver {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             serial = sfp.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Unable to retrieve transceiver {} serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Transceiver {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             status = sfp.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve transceiver {} status".format(i)):
@@ -209,7 +209,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):
+    def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
         for sfp_id in self.candidate_sfp:
             replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
@@ -220,7 +220,7 @@ class TestSfpApi(PlatformApiTestBase):
     # Functions to test methods defined in SfpBase class
     #
 
-    def test_get_transceiver_info(self, duthost, localhost, platform_api_conn):
+    def test_get_transceiver_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on transceiver info values
         for i in self.candidate_sfp:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -244,7 +244,7 @@ class TestSfpApi(PlatformApiTestBase):
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_transceiver_bulk_status(self, duthost, localhost, platform_api_conn):
+    def test_get_transceiver_bulk_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
             if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
@@ -258,7 +258,7 @@ class TestSfpApi(PlatformApiTestBase):
                         self.expect(False, "Transceiver {} bulk status does not contain field: '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_transceiver_threshold_info(self, duthost, localhost, platform_api_conn):
+    def test_get_transceiver_threshold_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on transceiver threshold info values
         for i in self.candidate_sfp:
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
@@ -275,7 +275,7 @@ class TestSfpApi(PlatformApiTestBase):
                         self.expect(False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_reset_status(self, duthost, localhost, platform_api_conn):
+    def test_get_reset_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             reset_status = sfp.get_reset_status(platform_api_conn, i)
@@ -283,7 +283,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(reset_status, bool), "Transceiver {} reset status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_los(self, duthost, localhost, platform_api_conn):
+    def test_get_rx_los(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             rx_los = sfp.get_rx_los(platform_api_conn, i)
@@ -292,7 +292,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX loss-of-signal data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_fault(self, duthost, localhost, platform_api_conn):
+    def test_get_tx_fault(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             tx_fault = sfp.get_tx_fault(platform_api_conn, i)
@@ -301,7 +301,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX fault data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_temperature(self, duthost, localhost, platform_api_conn):
+    def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             temp = sfp.get_temperature(platform_api_conn, i)
@@ -309,7 +309,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(temp, float), "Transceiver {} temperature appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_voltage(self, duthost, localhost, platform_api_conn):
+    def test_get_voltage(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             voltage = sfp.get_voltage(platform_api_conn, i)
@@ -317,7 +317,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(voltage, float), "Transceiver {} voltage appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_bias(self, duthost, localhost, platform_api_conn):
+    def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             tx_bias = sfp.get_tx_bias(platform_api_conn, i)
@@ -326,7 +326,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX bias data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_power(self, duthost, localhost, platform_api_conn):
+    def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         # TODO: Should we should expect get_rx_power() to return None or a list of "N/A" strings
         # if the transceiver is non-optical, e.g., DAC
@@ -346,7 +346,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_power(self, duthost, localhost, platform_api_conn):
+    def test_get_tx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
             tx_power = sfp.get_tx_power(platform_api_conn, i)
@@ -367,14 +367,21 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_reset(self, duthost, localhost, platform_api_conn):
+    def test_reset(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Verify that the transceiver was actually reset
         for i in self.candidate_sfp:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+               continue
+
             ret = sfp.reset(platform_api_conn, i)
-            self.expect(ret is True, "Failed to reset transceiver {}".format(i))
+            if self.is_xcvr_resettable(info_dict):
+               self.expect(ret is True, "Failed to reset transceiver {}".format(i))
+            else:
+               self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
         self.assert_expectations()
 
-    def test_tx_disable(self, duthost, localhost, platform_api_conn):
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         for i in self.candidate_sfp:
             # First ensure that the transceiver type supports setting TX disable
@@ -395,7 +402,7 @@ class TestSfpApi(PlatformApiTestBase):
                                     "Transceiver {} TX disable data is incorrect".format(i))
         self.assert_expectations()
 
-    def test_tx_disable_channel(self, duthost, localhost, platform_api_conn):
+    def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         for i in self.candidate_sfp:
             # First ensure that the transceiver type supports setting TX disable on individual channels
@@ -422,7 +429,7 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
         self.assert_expectations()
 
-    def test_lpmode(self, duthost, localhost, platform_api_conn):
+    def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.candidate_sfp:
             # First ensure that the transceiver type supports low-power mode
@@ -443,7 +450,7 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(lpmode == state, "Transceiver {} low-power is incorrect".format(i))
         self.assert_expectations()
 
-    def test_power_override(self, duthost, localhost, platform_api_conn):
+    def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
         for i in self.candidate_sfp:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)

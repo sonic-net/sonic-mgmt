@@ -163,8 +163,12 @@ class Parse_Lab_Graph():
                     deviceinfo[hostname] = {}
                     hwsku = dev.attrib['HwSku']
                     devtype = dev.attrib['Type']
+                    card_type = "Linecard"
+                    if 'CardType' in dev.attrib:
+                        card_type = dev.attrib['CardType']
                     deviceinfo[hostname]['HwSku'] = hwsku
                     deviceinfo[hostname]['Type'] = devtype
+                    deviceinfo[hostname]['CardType'] = card_type
                     self.links[hostname] = {}
         devicel2info = {}
         devicel3s = self.root.find(self.dpgtag).findall('DevicesL3Info')
@@ -440,7 +444,7 @@ def find_graph(hostnames, part=False):
 def get_port_name_list(hwsku):
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
-    port_alias_to_name_map = get_port_alias_to_name_map(hwsku)
+    port_alias_to_name_map, _ = get_port_alias_to_name_map(hwsku)
 
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
@@ -519,6 +523,7 @@ def main():
             filename=dict(required=False),
             filepath=dict(required=False),
             anchor=dict(required=False, type='list'),
+            ignore_errors=dict(required=False, type='bool', default=False),
         ),
         mutually_exclusive=[['host', 'hosts', 'anchor']],
         supports_check_mode=True
@@ -565,7 +570,7 @@ def main():
                 'device_port_vlans': lab_graph.vlanport,
             }
             module.exit_json(ansible_facts=results)
-        succeed, results = build_results(lab_graph, hostnames)
+        succeed, results = build_results(lab_graph, hostnames, m_args['ignore_errors'])
         if succeed:
             module.exit_json(ansible_facts=results)
         else:

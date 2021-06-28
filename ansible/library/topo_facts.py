@@ -60,6 +60,19 @@ def parse_host_interfaces(hifs):
 
     return ret
 
+def parse_console_interface(console_interface):
+    """
+    parse console interface
+
+    Foramt:
+    line_number.baud.flow_control_option
+
+    Example:
+    27.9600.0
+    """
+    fields = console_interface.split('.')
+    return fields[0], fields[1], fields[2]
+
 class ParseTestbedTopoinfo():
     '''
     Parse topology yml file
@@ -75,7 +88,12 @@ class ParseTestbedTopoinfo():
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
-                vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
+                # expand properties list into properties dictinary
+                property_lst = topo_definition['configuration'][vm]['properties']
+                vmconfig[vm]['properties'] = {}
+                for p in property_lst:
+                    if p in topo_definition['configuration_properties']:
+                        vmconfig[vm]['properties'].update(topo_definition['configuration_properties'][p])
             if neigh_type == 'VMs':
                 vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
                 for vlan in topo_definition['topology'][neigh_type][vm]['vlans']:
@@ -188,6 +206,8 @@ class ParseTestbedTopoinfo():
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            if 'dut_cluster' in topo_definition['configuration_properties']['common']:
+                vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
         for asic in asic_definition:
@@ -216,6 +236,16 @@ class ParseTestbedTopoinfo():
                 hifs = parse_host_interfaces(host_if)
                 for hif in hifs:
                     vm_topo_config['disabled_host_interfaces_by_dut'][hif[0]].append(hif[1])
+
+        if 'console_interfaces' in topo_definition['topology']:
+            vm_topo_config['console_interfaces'] = []
+            for console_if in topo_definition['topology']['console_interfaces']:
+                line, baud, flow_control = parse_console_interface(console_if)
+                cif = {}
+                cif['line'] = int(line)
+                cif['baud'] = int(baud)
+                cif['flow_control'] = 'true' if flow_control == '1' else 'false'
+                vm_topo_config['console_interfaces'].append(cif)
 
         if 'DUT' in topo_definition['topology']:
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']

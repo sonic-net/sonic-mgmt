@@ -8,7 +8,7 @@ import re
 import ptf.packet as packet
 import ptf.testutils as testutils
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
 from drop_packets import *  # FIXME
@@ -326,9 +326,6 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
-    arp_info = duthost.shell("show arp")["stdout"]
-    pytest_assert(ip_dst not in arp_info.split(), "ARP entry is not cleared")
-
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
@@ -346,6 +343,8 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts["asic_type"]
+    pytest_require("broadcom" not in asic_type, "BRCM does not drop SIP link local packets")
 
     link_local_ip = "169.254.10.125"
 

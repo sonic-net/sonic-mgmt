@@ -8,20 +8,24 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def pdu_controller(duthosts, rand_one_dut_hostname, conn_graph_facts, pdu):
+def pdu_controller(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts, pdu):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
     @returns: Returns a pdu controller object implementing the BasePduController interface defined in
               controller_base.py.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     inv_mgr = duthost.host.options["inventory_manager"]
     pdu_host_list = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
     pdu_hosts = {}
-    for ph in pdu_host_list.split(','):
-        var_list = inv_mgr.get_host(ph).get_vars()
-        pdu_hosts[ph] = var_list
+    if pdu_host_list:
+        for ph in pdu_host_list.split(','):
+            var_list = inv_mgr.get_host(ph).get_vars()
+            pdu_hosts[ph] = var_list
+    else:
+        logging.debug("No 'pdu_host' is defined in inventory file for '%s'." %
+                     duthost.hostname)
 
     controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu)
 
