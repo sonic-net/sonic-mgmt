@@ -33,37 +33,22 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
     yield
 
-def get_portchannel_in_ns(mg_facts, namespace):
-    for k, v in mg_facts['minigraph_portchannels'].iteritems():
-        if v.has_key('namespace') and namespace == v['namespace']:
-            return k
-    return None
-
-
 def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     """
     test port channel add/deletion as well ip address configuration
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
-    asichost = duthost.asic_instance_from_namespace(namespace)
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    int_facts = asichost.interface_facts()['ansible_facts']
 
-    # Initialize portchannel
-    if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+    portchannel, portchannel_members = asichost.get_portchannel_and_members_in_ns(tbinfo)
+    if portchannel is None:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")
 
-    portchannel = get_portchannel_in_ns(mg_facts, namespace) if namespace else mg_facts['minigraph_portchannels'].keys()[0]
-    if portchannel is None:
-        pytest.skip("Skip test due to there is no portchannel present from minigraph.")
-
-    
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
     portchannel_ip = int_facts['ansible_interface_facts'][portchannel]['ipv4']['address']
-    portchannel_members = mg_facts['minigraph_portchannels'][portchannel]['members']
+
     # Initialize flags
     remove_portchannel_members = False
     remove_portchannel_ip = False
@@ -81,54 +66,53 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
         # Step 1: Remove portchannel members from portchannel
         for member in portchannel_members:
-            duthost.shell("config portchannel %s member del %s %s" % (namespace_prefix, portchannel, member))
+            asichost.config_portchannel_member(portchannel, member, "del")
         remove_portchannel_members = True
 
         # Step 2: Remove portchannel ip from portchannel
-        duthost.shell("config interface %s ip remove %s %s/31" % (namespace_prefix, portchannel, portchannel_ip))
+        asichost.config_ip_intf(portchannel, portchannel_ip+"/31", "remove")
         remove_portchannel_ip = True
 
         time.sleep(30)
-        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
+        int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
         pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 1))
 
         # Step 3: Create tmp portchannel
-        duthost.shell("config portchannel %s add %s" % (namespace_prefix, tmp_portchannel))
+        asichost.config_portchannel(tmp_portchannel, "add")
         create_tmp_portchannel = True
 
         # Step 4: Add portchannel member to tmp portchannel
         for member in portchannel_members:
-            duthost.shell("config portchannel %s member add %s %s" % (namespace_prefix, tmp_portchannel, member))
+            asichost.config_portchannel_member(tmp_portchannel, member, "add")
         add_tmp_portchannel_members = True
 
         # Step 5: Add portchannel ip to tmp portchannel
-        duthost.shell("config interface %s ip add %s %s/31" % (namespace_prefix, tmp_portchannel, portchannel_ip))
-        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
+        asichost.config_ip_intf(tmp_portchannel, portchannel_ip+"/31", "add")
+        int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
         time.sleep(30)
-        int_facts = duthost.interface_facts(namespace=namespace)['ansible_facts']
+        int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
-            duthost.shell("config interface %s ip remove %s %s/31" % (namespace_prefix, tmp_portchannel, portchannel_ip))
+            asichost.config_ip_intf(tmp_portchannel, portchannel_ip+"/31", "remove")
 
         time.sleep(5)
         if add_tmp_portchannel_members:
             for member in portchannel_members:
-                duthost.shell("config portchannel %s member del %s %s" % (namespace_prefix, tmp_portchannel, member))
+                asichost.config_portchannel_member(tmp_portchannel, member, "del")
 
         time.sleep(5)
         if create_tmp_portchannel:
-            duthost.shell("config portchannel %s del %s" % (namespace_prefix, tmp_portchannel))
+            asichost.config_portchannel(tmp_portchannel, "del")
         if remove_portchannel_ip:
-            duthost.shell("config interface %s ip add %s %s/31" % (namespace_prefix, portchannel, portchannel_ip))
+            asichost.config_ip_intf(portchannel, portchannel_ip+"/31", "add")
         if remove_portchannel_members:
             for member in portchannel_members:
-                duthost.shell("config portchannel %s member add %s %s" % (namespace_prefix, portchannel, member))
+                asichost.config_portchannel_member(portchannel, member, "add")
         pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
-
