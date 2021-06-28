@@ -149,6 +149,8 @@ sensors_checks:
 
     psu_skips: {}
 
+    sensor_skip_per_version: {}
+
   x86_64-dell_z9100_c2538-r0:
     alarms:
       fan:
@@ -276,6 +278,8 @@ sensors_checks:
 
     psu_skips: {}
 
+    sensor_skip_per_version: {}
+
   x86_64-dell_s6000_s1220-r0:
     alarms:
       fan:
@@ -350,6 +354,7 @@ sensors_checks:
         skip_list:
         - dni_dps460-i2c-1-59
         - ltc4215-i2c-11-42
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn2700-r0:
     alarms:
@@ -507,6 +512,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-m3000-r0:
     alarms:
@@ -794,6 +800,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn2410-r0:
     alarms:
@@ -975,6 +982,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn2100-r0:
     alarms:
@@ -1083,6 +1091,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn2010-r0:
     alarms:
@@ -1176,6 +1185,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn3700-r0:
     alarms:
@@ -1386,6 +1396,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn3700c-r0:
     alarms:
@@ -1586,6 +1597,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn3800-r0:
     alarms:
@@ -1857,6 +1869,7 @@ sensors_checks:
         side: left
         skip_list:
         - dps460-i2c-4-59
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4700-r0:
     alarms:
@@ -2155,6 +2168,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4700-r0-a1:
     alarms:
@@ -2379,6 +2393,19 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version:
+      201911:
+        skip_list:
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Curr (in1)/curr1_alarm
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Pwr (in1)/power1_alarm
+        - mp2975-i2c-5-64/PMIC-2 PSU 12V Rail Curr (in1)/curr1_alarm
+        - mp2975-i2c-5-64/PMIC-2 PSU 12V Rail Pwr (in1)/power1_alarm
+        - mp2975-i2c-5-66/PMIC-3 PSU 12V Rail Curr (in1)/curr1_alarm
+        - mp2975-i2c-5-66/PMIC-3 PSU 12V Rail Pwr (in1)/power1_alarm
+        - mp2975-i2c-5-6a/PMIC-4 PSU 12V Rail Curr (in1)/curr1_alarm
+        - mp2975-i2c-5-6a/PMIC-4 PSU 12V Rail Pwr (in1)/power1_alarm
+        - mp2975-i2c-5-6e/PMIC-5 PSU 12V Rail Curr (in1)/curr1_alarm
+        - mp2975-i2c-5-6e/PMIC-5 PSU 12V Rail Pwr (in1)/power1_alarm
 
   x86_64-arista_7050_qx32:
     alarms:
@@ -2458,6 +2485,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-arista_7260cx3_64:
     alarms:
@@ -2547,6 +2575,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-ingrasys_s9100-r0:
     alarms:
@@ -2597,6 +2626,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-ingrasys_s8900_54xc-r0:
     alarms:
@@ -2647,6 +2677,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-ingrasys_s8900_64xc-r0:
     alarms:
@@ -2705,6 +2736,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-ingrasys_s8810_32q-r0:
     alarms:
@@ -2758,6 +2790,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-ingrasys_s9130_32x-r0:
     alarms:
@@ -2809,6 +2842,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-accton_wedge100bf_65x-r0:
     alarms:
@@ -2852,6 +2886,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-accton_wedge100bf_32x-r0:
     alarms:
@@ -2895,6 +2930,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-arista_7060_cx32s:
     alarms:
@@ -2964,6 +3000,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-accton_as7712_32x-r0:
     alarms:
@@ -3037,6 +3074,7 @@ sensors_checks:
         side: left
         skip_list:
         - ym2651-i2c-11-5b
+    sensor_skip_per_version: {}
 
   x86_64-cel_seastone-r0:
     alarms:
@@ -3216,6 +3254,7 @@ sensors_checks:
       - lm75b-i2c-6-49/Front-panel temp sensor 2/temp1_input
       - lm75b-i2c-7-4a/ASIC temp sensor/temp1_input
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-arista_7170_64c:
     alarms:
@@ -3302,6 +3341,7 @@ sensors_checks:
       temp: []
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-cel_e1031-r0:
     alarms:
@@ -3327,6 +3367,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-arista_7050_qx32s:
     alarms:
@@ -3410,6 +3451,7 @@ sensors_checks:
       - pmbus-i2c-5-58/Power supply 2 sensor/temp3_input
 
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   et6448m:
     alarms:
@@ -3444,6 +3486,7 @@ sensors_checks:
       - adt7473-i2c-0-2e/+3.3V/in2_input
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
   
   armhf-nokia_ixs7215_52x-r0:
     alarms:
@@ -3478,6 +3521,7 @@ sensors_checks:
       - adt7473-i2c-0-2e/+3.3V/in2_input
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-juniper_qfx5210-r0:
     alarms:
@@ -3549,6 +3593,7 @@ sensors_checks:
         side: left
         skip_list:
         - ym2851-i2c-9-58
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn3420-r0:
     alarms:
@@ -3740,6 +3785,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4410-r0:
     alarms:
@@ -4041,6 +4087,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4600c-r0:
     alarms:
@@ -4330,6 +4377,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4600-r0:
     alarms:
@@ -4652,6 +4700,7 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4600-r0-a1:
     alarms:
@@ -4899,4 +4948,5 @@ sensors_checks:
       power: []
       temp: []
     psu_skips: {}
+    sensor_skip_per_version: {}
 
