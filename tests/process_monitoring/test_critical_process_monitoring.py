@@ -78,9 +78,9 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.70"))
+    pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
-                   "Test is not supported for 20191130.70 and older image versions!")
+                   "Test is not supported for 20191130.72 and older image versions!")
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -188,7 +188,7 @@ def get_critical_process_from_monit(duthost, container_name):
         return critical_process_list, succeeded
 
     for line in file_content["stdout_lines"]:
-        if "check program" in line:
+        if "process_checker" in line:
             command_line = line.split(" {} ".format(container_name))[1].strip(" \n\"")
             critical_process_list.append(command_line)
 
@@ -577,5 +577,5 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the container checker!")
+        pytest.fail("Post-check failed after testing the process monitoring!")
     logger.info("Post-checking status of critical processes and BGP sessions was done!")

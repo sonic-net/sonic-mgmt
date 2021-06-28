@@ -133,7 +133,7 @@ class FibTest(BaseTest):
         self.src_ports = self.test_params.get('src_ports', None)
         if not self.src_ports:
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
-        
+
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
@@ -352,13 +352,14 @@ class FibTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IPv6'].src,
                     pkt['IPv6'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
             .format('any',
                     'any',

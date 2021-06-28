@@ -5,7 +5,7 @@ import urllib2
 
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
@@ -55,7 +55,7 @@ def url(mux_server_url, duthost, tbinfo):
         """
         if not interface_name:
             if action:
-                # Only for flap_counter or clear_flap_counter
+                # Only for flap_counter, clear_flap_counter, or reset
                 return mux_server_url + "/{}".format(action)
             return mux_server_url
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -98,7 +98,7 @@ def _post(server_url, data):
 
     Args:
         server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
-        data: data to post {"out_ports": ["nic", "upper_tor", "lower_tor"]}
+        data: data to post {"out_sides": ["nic", "upper_tor", "lower_tor"]}
     Returns:
         True if succeed. False otherwise
     """
@@ -137,7 +137,7 @@ def set_drop(url, recover_all_directions):
         """
         drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
     yield _set_drop
@@ -161,7 +161,7 @@ def set_output(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
     return _set_output
@@ -215,7 +215,7 @@ def recover_all_directions(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
+        data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
         pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
 
     return _recover_all_directions
@@ -300,6 +300,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
     """
     A module level fixture to toggle all ports to randomly selected tor
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
     dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
     if dut_index == 0:
         data = {"active_side": UPPER_TOR}
@@ -385,3 +388,17 @@ def simulator_clear_flap_counters(url):
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
+@pytest.fixture
+def reset_simulator_port(url):
+
+    def _reset_simulator_port(interface_name):
+        server_url = url(interface_name=interface_name, action=RESET)
+        pytest_assert(_post(server_url, {}))
+
+    return _reset_simulator_port
+
+@pytest.fixture
+def reset_all_simulator_ports(url):
+
+    server_url = url(action=RESET)
+    pytest_assert(_post(server_url, {}))

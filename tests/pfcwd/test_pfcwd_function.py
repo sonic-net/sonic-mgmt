@@ -49,22 +49,22 @@ class PfcCmd(object):
     @staticmethod
     def isBufferInApplDb(asic):
         if not PfcCmd.buffer_model_initialized:
-            PfcCmd.buffer_model = asic.run_redis_cmd(
+            result = asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "hget",
                     "DEVICE_METADATA|localhost", "buffer_model"
                 ]
             )
-
+            if result:
+                PfcCmd.buffer_model = result[0]
             PfcCmd.buffer_model_initialized = True
             logger.info(
-                "Buffer model is {}, buffer tables will be fetched from {}".
-                    format(
+                "Buffer model is {}, buffer tables will be fetched from {}".format(
                     PfcCmd.buffer_model or "not defined",
-                    "APPL_DB" if PfcCmd.buffer_model else "CONFIG_DB"
+                    "APPL_DB" if PfcCmd.buffer_model == "dynamic" else "CONFIG_DB"
                 )
             )
-        return PfcCmd.buffer_model
+        return PfcCmd.buffer_model == "dynamic"
 
     @staticmethod
     def counter_cmd(dut, queue_oid, attr):
@@ -119,9 +119,15 @@ class PfcCmd(object):
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
         asic = dut.get_port_asic_instance(port)
+
+        if PfcCmd.isBufferInApplDb(asic):
+            db = "0"
+        else:
+            db = "4"
+
         asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HSET", profile, "dynamic_th", value
+                "redis-cli", "-n", db, "HSET", profile, "dynamic_th", value
             ]
         )
 
