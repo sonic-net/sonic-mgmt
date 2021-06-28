@@ -127,6 +127,7 @@
 {% else %}
           <Type i:nil="true"/>
 {% endif %}
+{% endif %}
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
           <VlanID>{{ vlan_param['id'] }}</VlanID>
