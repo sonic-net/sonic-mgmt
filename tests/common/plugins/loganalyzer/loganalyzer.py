@@ -140,7 +140,7 @@ class LogAnalyzer:
 
         return call_result
 
-    def init(self, log_files=None):
+    def init(self):
         """
         @summary: Add start marker into log files on the DUT.
 
@@ -149,6 +149,11 @@ class LogAnalyzer:
         logging.debug("Loganalyzer init")
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
+
+        log_files = []
+        for idx, path in enumerate(self.additional_files):
+            if not self.additional_start_str or self.additional_start_str[idx] == '':
+                log_files.append(path)
 
         return self._setup_marker(log_files=log_files)
 
@@ -159,7 +164,7 @@ class LogAnalyzer:
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
         if log_files:
-            cmd += " --logs {}".format(log_files)
+            cmd += " --logs {}".format(','.join(log_files))
 
         logging.debug("Adding start marker '{}'".format(start_marker))
         self.ansible_host.command(cmd)

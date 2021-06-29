@@ -262,7 +262,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
                     additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
-    marker = loganalyzer.init(log_files='/var/log/frr/bgpd.log')
+    marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
     ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
