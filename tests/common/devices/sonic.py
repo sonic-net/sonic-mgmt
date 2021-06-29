@@ -507,6 +507,19 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
+    def get_pmon_daemon_db_value(self, daemon_db_table_key, field):
+        """
+        @summary: get db value in state db to check the daemon expected status
+        """
+        ret_val = None
+        get_db_value_cmd = 'redis-cli -n 6 hget "{}" {}'.format(daemon_db_table_key, field)
+
+        cmd_output = self.shell(get_db_value_cmd, module_ignore_errors=True)
+        if cmd_output['rc'] == 0:
+            ret_val = cmd_output['stdout']
+
+        return ret_val
+
     def start_pmon_daemon(self, daemon_name):
         """
         @summary: start daemon in pmon docker using supervisorctl start command.
@@ -553,7 +566,6 @@ class SonicHost(AnsibleHostBase):
             daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
             self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
 
-
     def stop_pmon_daemon(self, daemon_name, sig_name=None, pid=-1):
         """
         @summary: stop daemon in pmon docker.
@@ -564,36 +576,6 @@ class SonicHost(AnsibleHostBase):
             self.stop_pmon_daemon_service(daemon_name)
         else:
             self.kill_pmon_daemon_pid_w_sig(pid, sig_name)
-
-    def get_pmon_daemon_enable_status(self, daemon_name):
-        """
-        @summary: get daemon enable status of daemons from pmon docker.
-                  Referencing (/usr/share/sonic/device/{platform}/pmon_daemon_control.json)
-                  if some daemon is disabled in the config file, then remove it from the daemon list.
-                  Referencing (/usr/share/sonic/templates/docker-pmon.supervisord.conf.j2)
-
-        @return: True if it's enabled or False if not
-        """
-        baseline_pmon_conf_file_path = os.path.join('/usr/share/sonic/templates', 'docker-pmon.supervisord.conf.j2')
-        baseline_pmon_daemons_list_cmd = "docker exec pmon bash -c 'cat %s | grep program'"%baseline_pmon_conf_file_path
-
-        try:
-            output = self.shell(baseline_pmon_daemons_list_cmd)['stdout_lines']
-            while True:
-                line = output.readline()
-                logging.debug("Original file content is %s" % str(json_data))
-                if line != '':
-                    daemon = line.strip().split(':')[1].replace(']','')
-                    if daemon == daemon_name:
-                        return True
-                else:
-                    break
-
-        except:
-            # if docker-pmon.supervisord.conf.j2 not exist, then it's using default setting,
-            pass
-
-        return False
 
     def get_pmon_daemon_states(self):
         """

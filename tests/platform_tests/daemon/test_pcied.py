@@ -35,6 +35,17 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
+pcie_devices_status_tbl_key = "PCIE_DEVICES|status"
+status_field = "status"
+expected_pcied_devices_status = "PASSED"
+
+@pytest.fixture(scope="module", autouse=True)
+def setup(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_status is None:
+        pytest.fail("{} is not enabled in {}".format(daemon_name, duthost.facts('platform'), duthost.os_version))
+
 
 @pytest.fixture(scope="module", autouse=True)
 def teardown_module(duthosts, rand_one_dut_hostname):
@@ -100,6 +111,11 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
                           "Pcied expected running status is {} but is {}".format(expected_running_status, daemon_status))
     pytest_assert(daemon_pid != -1,
                           "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
+
+    daemon_db_value = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
+    pytest_assert(daemon_db_value == expected_pcied_devices_status,
+                          "Expected {} {} is {} but is {}".format(pcie_devices_status_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
+
 
 
 def test_pmon_daemon_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
