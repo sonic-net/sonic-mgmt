@@ -3,7 +3,6 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
-import json
 import logging
 from transceiver_utils import all_transceivers_detected
 
