@@ -7,7 +7,7 @@ import snappi_convergence
 from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 from tests.common.snappi.common_helpers import (
-    get_vlan_subnet, get_addrs_in_subnet,get_peer_snappi_chassis)
+    get_addrs_in_subnet,get_peer_snappi_chassis)
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 
 @pytest.fixture(scope="module")

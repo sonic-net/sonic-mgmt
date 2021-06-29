@@ -1,9 +1,6 @@
-import pytest
-import time
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import wait
-from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 DUT_AS_NUM = 65100

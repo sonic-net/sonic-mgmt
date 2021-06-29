@@ -4,10 +4,8 @@ This module contains a definition of a simple helper class
 "SnappiFanoutManager" which can be used to manage cards and ports of Snappi
 chassis instead of reading it from fanout_graph_facts fixture.
 """
-from copy import deepcopy
-
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
+from tests.common.snappi.common_helpers import ansible_stdout_to_str
 from tests.common.reboot import logger
 
 
