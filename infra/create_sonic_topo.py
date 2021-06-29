@@ -603,6 +603,14 @@ def main():
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 24
         ptf_intfcount = 64
+    elif topo_type == 't0-64':
+        os.system("cp sonic_t0_topo/* .")
+        vEOS_count = 4
+        ptf_intfcount = 64
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t0.yaml'
+        else:
+            base_topo_file = 'testbed-mth32-t0-64.yaml'
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py clean")
