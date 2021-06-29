@@ -3,7 +3,7 @@
         "ROUTE_TABLE:192.168.0.1": {
             "nexthop": "10.0.0.51",
             "ifname": "Ethernet25",
-            "mpls_nh": "1000001",
+            "mpls_nh": "push1000001",
             "weight": "1"
         },
         "OP": "SET"
