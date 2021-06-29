@@ -872,25 +872,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
-    def get_bgp_statistic(self, stat):
-        """
-        Get the named bgp statistic
-
-        Args: stat - name of statistic
-
-        Returns: statistic value or None if not found
-
-        """
-        ret = None
-        bgp_facts = self.bgp_facts()['ansible_facts']
-        if stat in bgp_facts['bgp_statistics']:
-            ret = bgp_facts['bgp_statistics'][stat]
-        return ret
-
-    def check_bgp_statistic(self, stat, value):
-        val = self.get_bgp_statistic(stat)
-        return val == value
-
     def get_bgp_neighbors(self):
         """
         Get a diction of BGP neighbor states
