@@ -10,15 +10,12 @@ DUT_AS_NUM = 65100
 TGEN_AS_NUM = 65200
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
-MAX_DP_CONVERGENCE = 100
-MAX_CPDP_CONVERGENCE = 3
-MAX_RIBIN_CONVERGENCE = 3
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
                                      tgen_ports,
                                      iteration,
                                      multipath,
-                                     number_of_ipv4_routes):
+                                     number_of_v4_routes,):
     """
     Run BGP Convergence test
     
@@ -28,7 +25,7 @@ def run_bgp_local_link_failover_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
     port_count = multipath+1
     # Create bgp config on dut
@@ -41,14 +38,14 @@ def run_bgp_local_link_failover_test(cvg_api,
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_ipv4_routes)
+                                        number_of_v4_routes,)
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_convergence_for_local_link_failover(cvg_api,
                               tgen_bgp_config,
                               iteration,
                               multipath,
-                              number_of_ipv4_routes)
+                              number_of_v4_routes,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
@@ -60,7 +57,7 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                 tgen_ports,
                                 iteration,
                                 multipath,
-                                number_of_ipv4_routes):
+                                number_of_v4_routes,):
     """
     Run BGP Convergence test
     
@@ -70,7 +67,6 @@ def run_bgp_remote_link_failover_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
-        number_of_ipv4_routes:  Number of IPV4 Routes
     """
     port_count = multipath+1
     # Create bgp config on dut
@@ -83,14 +79,14 @@ def run_bgp_remote_link_failover_test(cvg_api,
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_ipv4_routes)
+                                        number_of_v4_routes,)
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_convergence_for_remote_link_failover(cvg_api,
                                              tgen_bgp_config,
                                              iteration,
                                              multipath,
-                                             number_of_ipv4_routes)
+                                             number_of_v4_routes,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
@@ -102,7 +98,7 @@ def run_RIB_IN_convergence_test(cvg_api,
                                 tgen_ports,
                                 iteration,
                                 multipath,
-                                number_of_ipv4_routes):
+                                number_of_v4_routes,):
     """
     Run BGP Convergence test
     
@@ -112,7 +108,7 @@ def run_RIB_IN_convergence_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
     port_count = multipath+1
     # Create bgp config on dut
@@ -125,14 +121,14 @@ def run_RIB_IN_convergence_test(cvg_api,
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_ipv4_routes)
+                                        number_of_v4_routes,)
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_RIB_IN_convergence(cvg_api,
                             tgen_bgp_config,
                             iteration,
                             multipath,
-                            number_of_ipv4_routes)
+                            number_of_v4_routes,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
@@ -190,7 +186,7 @@ def duthost_bgp_config(duthost,
 def __tgen_bgp_config(cvg_api,
                       tgen_ports,
                       port_count,
-                      number_of_ipv4_routes):
+                      number_of_v4_routes,):
     """
     Creating  BGP config on TGEN
     
@@ -198,7 +194,7 @@ def __tgen_bgp_config(cvg_api,
         cvg_api (pytest fixture): snappi API
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count: multipath + 1
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
@@ -245,7 +241,7 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_stack.local_address = tgen_ports[i-1]['ip']
             bgpv4_stack.as_number = int(TGEN_AS_NUM)
             route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name = "Network Group %d"%i)[-1]
-            route_range.addresses.bgpv4routeaddress(address = '200.1.0.1', prefix = 32, count = number_of_ipv4_routes, step = 1)
+            route_range.addresses.bgpv4routeaddress(address = '200.1.0.1', prefix = 32, count = number_of_v4_routes, step = 1)
             rx_flow_name.append(route_range.name)
         return rx_flow_name
     
@@ -256,7 +252,7 @@ def __tgen_bgp_config(cvg_api,
     flow.size.fixed = 1024
     flow.rate.percentage = 100
     flow.metrics.enable = True
-    return conv_config,config
+    return conv_config
     
 def get_flow_stats(cvg_api):
         """
@@ -271,22 +267,20 @@ def get_convergence_for_local_link_failover(cvg_api,
                                             bgp_config,
                                             iteration,
                                             multipath,
-                                            number_of_ipv4_routes):
+                                            number_of_v4_routes,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
-    conv_config = bgp_config[0]
-    config = bgp_config[1]
     rx_port_names = []
-    conv_config.convergence_event = (conv_config.LINK_UP_DOWN)
-    cvg_api.set_config(conv_config)
-    for i in range(1,len(config.ports)):
-        rx_port_names.append(config.ports[i].name)
+    bgp_config.convergence_event = (bgp_config.LINK_UP_DOWN)
+    cvg_api.set_config(bgp_config)
+    for i in range(1,len(bgp_config.config.ports)):
+        rx_port_names.append(bgp_config.config.ports[i].name)
 
     def get_avg_dpdp_convergence_time(port_name,
                                       rx_port_names):
@@ -338,10 +332,8 @@ def get_convergence_for_local_link_failover(cvg_api,
             
             # Calculate DPDP Convergence
             dp_convergence = (tx_frames - rx_frames) * 1000 / tx_frame_rate
-            logger.info("DP Convergence Time: {} ms".format(int(dp_convergence)))  
-            avg.append(int(dp_convergence))
-            logger.info(dp_convergence)
-            assert dp_convergence < MAX_DP_CONVERGENCE,"DP Convergence is greater than 100 ms"
+            logger.info("DP Convergence Time: {} ms".format(round(dp_convergence,3)))
+            avg.append(round(dp_convergence,3))
             logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name,i+1))
             
             #Performing link up at the end of iteration
@@ -350,7 +342,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             cs.link.state = cs.link.UP
             cvg_api.set_state(cs)
         table.append('%s Link Failure'%port_name)
-        table.append(number_of_ipv4_routes)
+        table.append(number_of_v4_routes)
         table.append(iteration)
         table.append(mean(avg))
         return table
@@ -366,25 +358,23 @@ def get_convergence_for_remote_link_failover(cvg_api,
                                              bgp_config,
                                              iteration,
                                              multipath,
-                                             number_of_ipv4_routes):
+                                             number_of_v4_routes,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
     route_names = []
-    conv_config = bgp_config[0]
-    for device in bgp_config[1].devices:
+    for device in bgp_config.config.devices:
         if device.name not in ['Topology 1']:
             for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
                 route_names.append(route.name)
-    conv_config = bgp_config[0]
-    conv_config.rx_rate_threshold = 90/(multipath-1)
-    conv_config.convergence_event = (conv_config.ROUTE_ADVERTISE_WITHDRAW)
-    cvg_api.set_config(conv_config)
+    bgp_config.rx_rate_threshold = 90/(multipath-1)
+    bgp_config.convergence_event = (bgp_config.ROUTE_ADVERTISE_WITHDRAW)
+    cvg_api.set_config(bgp_config)
     
 
     def get_avg_cpdp_convergence_time(route_name):
@@ -427,7 +417,6 @@ def get_convergence_for_remote_link_failover(cvg_api,
             convergence_metrics = cvg_api.get_results(request).flow_convergence
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
-                assert metrics.control_plane_data_plane_convergence_us < MAX_CPDP_CONVERGENCE*1000000,"CP/DP Convergence is greater than 100s"
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
 
             #Advertise the routes back at the end of iteration
@@ -438,7 +427,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             logger.info('Readvertise {} routes back at the end of iteration {}'.format(route_name,i+1))
             
         table.append('%s route withdraw'%route_name)
-        table.append(number_of_ipv4_routes)
+        table.append(number_of_v4_routes)
         table.append(iteration)
         table.append(mean(avg))
         return table
@@ -454,25 +443,25 @@ def get_RIB_IN_convergence(cvg_api,
                            bgp_config,
                            iteration,
                            multipath,
-                           number_of_ipv4_routes):
+                           number_of_v4_routes,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
 
     route_names = []
-    conv_config = bgp_config[0]
-    for device in bgp_config[1].devices:
+    #for device in bgp_config[1].devices:
+    for device in bgp_config.config.devices:
         if device.name not in ['Topology 1']:
             for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
                 route_names.append(route.name)
-    conv_config.rx_rate_threshold = 90/(multipath-1)
-    conv_config.convergence_event = (conv_config.ROUTE_ADVERTISE_WITHDRAW)
-    cvg_api.set_config(conv_config)
+    bgp_config.rx_rate_threshold = 90/(multipath)
+    bgp_config.convergence_event = (bgp_config.ROUTE_ADVERTISE_WITHDRAW)
+    cvg_api.set_config(bgp_config)
 
     table,avg,tx_frate,rx_frate = [],[],[],[]
     for i in range(0,iteration):
@@ -518,9 +507,7 @@ def get_RIB_IN_convergence(cvg_api,
         convergence_metrics = cvg_api.get_results(request).flow_convergence
         for metrics in convergence_metrics:
             logger.info('RIB-IN Convergence time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
-            assert metrics.control_plane_data_plane_convergence_us < MAX_RIBIN_CONVERGENCE*1000000
         avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-        
         #Stop traffic at the end of iteration
         logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
         cs = cvg_api.convergence_state()
@@ -529,12 +516,12 @@ def get_RIB_IN_convergence(cvg_api,
         wait(TIMEOUT,"For Traffic To stop")
         
     table.append('Advertise All BGP Routes')
-    table.append(number_of_ipv4_routes)
+    table.append(number_of_v4_routes)
     table.append(iteration)
     table.append(mean(avg))
     columns = ['Event Name','No. of IPV4 Routes','Iterations','Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table],headers = columns,tablefmt = "psql"))
-
+    
 def cleanup_config(duthost,
                    tgen_ports,
                    port_count):

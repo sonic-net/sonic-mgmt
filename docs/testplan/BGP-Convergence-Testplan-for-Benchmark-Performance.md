@@ -169,11 +169,11 @@ Measure the convergence time when local link failure event happens with in the n
 
 ### Test Results
 Below table is the result of 3 way ECMP for 4 link flap iterations
-| Event Name | Iterations  | Avg Calculated Data Convergence Time(ms)  |
-| :---:   | :-: | :-: |
-| Test_Port_2 Link Failure | 4 | 26.75 |
-| Test_Port_3 Link Failure | 4 | 55 |
-| Test_Port_4 Link Failure | 4 | 43 |
+| Event Name | No. of IPv4 Routes  | Iterations  | Avg Calculated Data Convergence Time(ms)  |
+| :---:   | :-: | :-: | :-: |
+| Test_Port_2 Link Failure | 1000 | 4 | 4.112 |
+| Test_Port_3 Link Failure | 1000 | 4 | 4.336 |
+| Test_Port_4 Link Failure | 1000 | 4 | 4.219 |
 
 ### Call for action
 * Solicit experience in multi-DUT system test scenarios.

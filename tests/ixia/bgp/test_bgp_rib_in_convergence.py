@@ -7,8 +7,8 @@ from tests.common.fixtures.conn_graph_facts import (
 import pytest
 
 @pytest.mark.parametrize('multipath',[2])
-@pytest.mark.parametrize('convergence_test_iterations',[1])
-@pytest.mark.parametrize('number_of_ipv4_routes',[8000])
+@pytest.mark.parametrize('convergence_test_iterations',[2])
+@pytest.mark.parametrize('number_of_v4_routes',[4000])
 def test_RIB_IN_convergence(cvg_api,
                          duthost,
                          tgen_ports,
@@ -16,7 +16,7 @@ def test_RIB_IN_convergence(cvg_api,
                          fanout_graph_facts,
                          multipath,
                          convergence_test_iterations,
-                         number_of_ipv4_routes):
+                         number_of_v4_routes):
 
     """
     Topo:
@@ -45,7 +45,7 @@ def test_RIB_IN_convergence(cvg_api,
         fanout_graph_facts (pytest fixture): fanout graph
         multipath: ECMP value
         convergence_test_iterations: number of iterations the link failure test has to be run for a port
-        number_of_ipv4_routes:  Number of IPV4 Routes
+        number_of_v4_routes:  Number of IPV4 Routes
     """
     #convergence_test_iterations and multipath values can be modified as per user preference
     run_RIB_IN_convergence_test(cvg_api,
@@ -53,4 +53,4 @@ def test_RIB_IN_convergence(cvg_api,
                              tgen_ports,
                              convergence_test_iterations,
                              multipath,
-                             number_of_ipv4_routes)
+                             number_of_v4_routes)
