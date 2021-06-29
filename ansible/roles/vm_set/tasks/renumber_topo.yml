@@ -9,6 +9,12 @@
       ptf_imagetag: "latest"
     when: ptf_imagetag is not defined
 
+  - name: Stop mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: stop
+    when: "'dualtor' in topo"
+
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
@@ -92,5 +98,11 @@
     when:
       - topo != 'fullmesh'
       - not 'ptf' in topo
+
+  - name: Start mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: start
+    when: "'dualtor' in topo"
 
   when: container_type == "PTF"
