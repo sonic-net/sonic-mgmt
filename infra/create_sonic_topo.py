@@ -405,9 +405,9 @@ def reload_dut_with_newCFG(data):
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
-    cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
-    cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
-    cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
+    cmd_list.append('ip address add 10.10.246.254/24 dev backplane')
+    cmd_list.append('ip -6 address add fc0a::ff/64 dev backplane')
+    cmd_list.append('for i in {0..%s}; do /sbin/ifconfig eth$i mtu 9216 up; done' % data['ptf_intf_count'])
     run_exec_cmds(data['docker_ptf']['HostAgent'], data['docker_ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
 def add_vEOS_cfg(data):
@@ -575,6 +575,7 @@ def main():
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     branch = args['branch']
+    ptf_intfcount = 32
     if device_type == 'sherman':
         dut_name = 'sherman-01'
     else:
@@ -601,15 +602,16 @@ def main():
             base_topo_file = 'testbed-mth64-t1-64-lag.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 24
+        ptf_intfcount = 64
 
     if clean_sim:
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py clean")
 
     input_file = args['input_file']
 
     if input_file is None:
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py start {}".format(topo_yaml))
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {}".format(topo_yaml))
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 
     with open(input_file) as f:
@@ -618,6 +620,7 @@ def main():
     data['sonic_dut']['uname'] = dut_uname
     data['sonic_dut']['passwd'] = dut_passwd
     data['branch'] = branch
+    data['ptf_intf_count'] = ptf_intfcount
 
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
