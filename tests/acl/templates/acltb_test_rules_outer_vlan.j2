@@ -1,0 +1,24 @@
+{
+    "ACL_RULE": {
+        "{{ table_egress }}|rule_1": {
+            "priority": "1003",
+            "VLAN_ID": "100",
+            "PACKET_ACTION": "FORWARD"
+        },
+        "{{ table_egress }}|rule_2": {
+            "priority": "1002",
+            "VLAN_ID": "100",
+            "PACKET_ACTION": "DROP"
+        },
+        "{{ table_ingress }}|rule_1": {
+            "priority": "1001",
+            "VLAN_ID": "200",
+            "PACKET_ACTION": "FORWARD"
+        },
+        "{{ table_ingress }}|rule_2": {
+            "priority": "1000",
+            "VLAN_ID": "200",
+            "PACKET_ACTION": "DROP"
+        }
+    }
+}
