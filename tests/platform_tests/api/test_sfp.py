@@ -181,14 +181,6 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(presence is True, "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        for i in self.candidate_sfp:
-            error_description = sfp.get_error_description(platform_api_conn, i)
-            if self.expect(error_description is not None, "Unable to retrieve transceiver {} error description".format(i)):
-                if self.expect(isinstance(error_description, str) or isinstance(error_description, unicode), "Transceiver {} error description appears incorrect".format(i)):
-                    self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
-        self.assert_expectations()
-
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in self.candidate_sfp:
             model = sfp.get_model(platform_api_conn, i)
@@ -483,6 +475,14 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                 self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        for i in self.candidate_sfp:
+            error_description = sfp.get_error_description(platform_api_conn, i)
+            if self.expect(error_description is not None, "Unable to retrieve transceiver {} error description".format(i)):
+                if self.expect(isinstance(error_description, str) or isinstance(error_description, unicode), "Transceiver {} error description appears incorrect".format(i)):
+                    self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
