@@ -18,8 +18,15 @@ r, ".* NOTICE swss#orchagent.*notifySyncd.*sending syncd: APPLY_VIEW.*"
 r, ".* NOTICE swss#orchagent.*sai_redis_notify_syncd: switched ASIC to APPLY VIEW.*"
 r, ".* NOTICE syncd#syncd.*performWarmRestart: switches defined in warm restart.*"
 r, ".* NOTICE syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*"
+r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart timer started.*.*"
+r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart reconciliation processed..*"
 
+# sairedis.rec messages
 r, ".*\|c\|SAI_OBJECT_TYPE_SWITCH.*"
 r, ".*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*"
 r, ".*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*"
 r, ".*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*"
+
+# bgpd.log messages
+r, ".*ADJCHANGE: neighbor .* in vrf default Up.*"
+r, ".*rcvd End-of-RIB for IPv4 Unicast from.*"
