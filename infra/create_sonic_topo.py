@@ -610,7 +610,7 @@ def main():
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
         else:
-            base_topo_file = 'testbed-mth32-t0-64.yaml'
+            base_topo_file = 'testbed-mth64-t0-64.yaml'
 
     if clean_sim:
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py clean")
