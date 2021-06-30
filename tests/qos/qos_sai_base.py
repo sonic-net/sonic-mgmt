@@ -356,7 +356,7 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    def __buildTestPorts(self, request, testPortIds, testPortIps):
+    def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids, dst_port_ids):
         """
             Build map of test ports index and IPs
 
@@ -372,7 +372,13 @@ class QosSaiBase(QosBase):
         srcPorts = request.config.getoption("--qos_src_ports")
 
         if dstPorts is None:
-            if len(testPortIds) >= 4:
+            if dst_port_ids:
+                pytest_assert(
+                    len(set(testPortIds).intersection(set(dst_port_ids))) == len(set(dst_port_ids)),
+                    "Dest port id passed in qos.yml not valid"
+                    )
+                dstPorts = dst_port_ids
+            elif len(testPortIds) >= 4:
                 dstPorts = [0, 2, 3]
             elif len(testPortIds) == 3:
                 dstPorts = [0, 2, 2]
@@ -380,7 +386,15 @@ class QosSaiBase(QosBase):
                 dstPorts = [0, 0, 0]
 
         if srcPorts is None:
-            srcPorts = [1]
+            if src_port_ids:
+                pytest_assert(
+                    len(set(testPortIds).intersection(set(src_port_ids))) == len(set(src_port_ids)),
+                    "Source port id passed in qos.yml not valid"
+                    )
+                # To verify ingress lossless speed/cable-length randomize the source port.
+                srcPorts = [random.choice(src_port_ids)]
+            else:
+                srcPorts = [1]
 
         pytest_assert(len(testPortIds) >= 2, "Provide at least 2 test ports")
         logging.debug(
@@ -398,14 +412,14 @@ class QosSaiBase(QosBase):
 
         #TODO: Randomize port selection
         return {
-            "dst_port_id": testPortIds[dstPorts[0]],
-            "dst_port_ip": testPortIps[testPortIds[dstPorts[0]]],
-            "dst_port_2_id": testPortIds[dstPorts[1]],
-            "dst_port_2_ip": testPortIps[testPortIds[dstPorts[1]]],
-            'dst_port_3_id': testPortIds[dstPorts[2]],
-            "dst_port_3_ip": testPortIps[testPortIds[dstPorts[2]]],
-            "src_port_id": testPortIds[srcPorts[0]],
-            "src_port_ip": testPortIps[testPortIds[srcPorts[0]]],
+            "dst_port_id": dstPorts[0] if dst_port_ids else testPortIds[dstPorts[0]],
+            "dst_port_ip": testPortIps[dstPorts[0] if dst_port_ids else testPortIds[dstPorts[0]]],
+            "dst_port_2_id": dstPorts[1] if dst_port_ids else testPortIds[dstPorts[1]],
+            "dst_port_2_ip": testPortIps[dstPorts[1] if dst_port_ids else testPortIds[dstPorts[1]]],
+            'dst_port_3_id': dstPorts[2] if dst_port_ids else testPortIds[dstPorts[2]],
+            "dst_port_3_ip": testPortIps[dstPorts[2] if dst_port_ids else testPortIds[dstPorts[2]]],
+            "src_port_id": srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]],
+            "src_port_ip": testPortIps[srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]]],
         }
 
     @pytest.fixture(scope='class', autouse=True)
@@ -481,7 +495,41 @@ class QosSaiBase(QosBase):
         # restore currently assigned IPs
         testPortIps.update(dutPortIps)
 
-        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps)
+        qosConfigs = {}
+        with open(r"qos/files/qos.yml") as file:
+            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
+
+        vendor = duthost.facts["asic_type"]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        dutAsic = None
+        for asic in self.SUPPORTED_ASIC_LIST:
+            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+            if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                dutAsic = asic
+                break
+
+        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+
+        dutTopo = "topo-"
+
+        if dutTopo + topo in qosConfigs['qos_params'][dutAsic]:
+            dutTopo = dutTopo + topo
+        else:
+            # Default topo is any
+            dutTopo = dutTopo + "any"
+
+        # Support of passing source and dest ptf port id from qos.yml
+        # This is needed when on some asic port are distributed across
+        # multiple buffer pipes.
+        src_port_ids = None
+        dst_port_ids = None
+        if "src_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
+            src_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["src_port_ids"]
+
+        if "dst_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
+            dst_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["dst_port_ids"]
+
+        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
         yield {
             "dutInterfaces" : {
                 index: port for port, index in mgFacts["minigraph_ptf_indices"].items()
@@ -489,6 +537,9 @@ class QosSaiBase(QosBase):
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
+            "qosConfigs": qosConfigs,
+            "dutAsic" : dutAsic,
+            "dutTopo" : dutTopo
         }
 
     @pytest.fixture(scope='class')
@@ -681,6 +732,8 @@ class QosSaiBase(QosBase):
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
         profileName = ingressLosslessProfile["profileName"]
+        logger.info("Lossless Buffer profile selected is {}".format(profileName))
+
         if self.isBufferInApplDb(dut_asic):
             profile_pattern = "^BUFFER_PROFILE_TABLE\:pg_lossless_(.*)_profile$"
         else:
@@ -690,20 +743,9 @@ class QosSaiBase(QosBase):
 
         portSpeedCableLength = m.group(1)
 
-        qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
-            qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
-
-        vendor = duthost.facts["asic_type"]
-        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-        dutAsic = None
-        for asic in self.SUPPORTED_ASIC_LIST:
-            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
-                dutAsic = asic
-                break
-
-        pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
+        qosConfigs = dutConfig["qosConfigs"]
+        dutAsic = dutConfig["dutAsic"]
+        dutTopo = dutConfig["dutTopo"]
 
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
@@ -711,7 +753,7 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'], dutAsic,
+            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dutTopo], dutAsic,
                                                        portSpeedCableLength,
                                                        dutConfig,
                                                        ingressLosslessProfile,
@@ -722,8 +764,7 @@ class QosSaiBase(QosBase):
             )
             qosParams = qpm.run()
         else:
-            qosParams = qosConfigs['qos_params'][dutAsic]
-
+            qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
             "param": qosParams,
             "portSpeedCableLength": portSpeedCableLength,
