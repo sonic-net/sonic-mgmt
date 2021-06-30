@@ -6,7 +6,7 @@ import snappi
 from ipaddress import ip_address, IPv4Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
-from tests.common.snappi.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
+from tests.common.snappi.common_helpers import get_addrs_in_subnet,\
     get_peer_snappi_chassis
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
