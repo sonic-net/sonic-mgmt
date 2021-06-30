@@ -215,7 +215,7 @@ def mtu_config(duthosts):
                 else:
                     raise Exception("Unsupported interface parameter - {}".format(iface))
                 cls.iface = iface
-                check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu
+                check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu  # lgtm[py/loop-variable-capture]
                 pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
                 cls.asic_index = asic_index
 
@@ -329,12 +329,10 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
     @summary: Verify that packets on ingress port are not dropped when egress RIF link is down and check that drop counters not incremented
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
@@ -376,12 +374,10 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     global L2_COL_KEY
     if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
