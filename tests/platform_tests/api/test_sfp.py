@@ -6,6 +6,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, sfp
+from tests.common.utilities import skip_version
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -475,6 +476,19 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                 self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        """This function tests get_error_description() API (supported on 202106 and above)"""
+        skip_version(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
+
+        for i in self.candidate_sfp:
+            error_description = sfp.get_error_description(platform_api_conn, i)
+            if self.expect(error_description is not None, "Unable to retrieve transceiver {} error description".format(i)):
+                if "Not implemented" in error_description:
+                    pytest.skip("get_error_description isn't implemented. Skip the test")
+                if self.expect(isinstance(error_description, str) or isinstance(error_description, unicode), "Transceiver {} error description appears incorrect".format(i)):
+                    self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
