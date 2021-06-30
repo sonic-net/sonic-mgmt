@@ -536,6 +536,76 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
+    def get_pmon_daemon_db_value(self, daemon_db_table_key, field):
+        """
+        @summary: get db value in state db to check the daemon expected status
+        """
+        ret_val = None
+        get_db_value_cmd = 'redis-cli -n 6 hget "{}" {}'.format(daemon_db_table_key, field)
+
+        cmd_output = self.shell(get_db_value_cmd, module_ignore_errors=True)
+        if cmd_output['rc'] == 0:
+            ret_val = cmd_output['stdout']
+
+        return ret_val
+
+    def start_pmon_daemon(self, daemon_name):
+        """
+        @summary: start daemon in pmon docker using supervisorctl start command.
+        """
+        pmon_daemon_start_cmd = "docker exec pmon supervisorctl start {}".format(daemon_name)
+
+        self.shell(pmon_daemon_start_cmd, module_ignore_errors=True)
+
+    def stop_pmon_daemon_service(self, daemon_name):
+        """
+        @summary: stop daemon in pmon docker using supervisorctl stop command.
+        """
+        pmon_daemon_stop_cmd = "docker exec pmon supervisorctl stop {}".format(daemon_name)
+
+        self.shell(pmon_daemon_stop_cmd, module_ignore_errors=True)
+
+    def get_pmon_daemon_status(self, daemon_name):
+        """
+        @summary: get daemon status in pmon docker using supervisorctl status command.
+
+        @return: daemon_status - "RUNNING"/"STOPPED"/"EXITED"
+                 daemon_pid - integer number
+        """
+        daemon_status = None
+        daemon_pid = -1
+
+        daemon_info = self.shell("docker exec pmon supervisorctl status {}".format(daemon_name), module_ignore_errors=True)["stdout"]
+        if daemon_info.find(daemon_name) != -1:
+            daemon_status = daemon_info.split()[1].strip()
+            if daemon_status == "RUNNING":
+                daemon_pid = int(daemon_info.split()[3].strip(','))
+
+        logging.info("Daemon '{}' in the '{}' state with pid {}".format(daemon_name, daemon_status, daemon_pid))
+
+        return daemon_status, daemon_pid
+
+    def kill_pmon_daemon_pid_w_sig(self, pid, sig_name):
+        """
+        @summary: stop daemon in pmon docker using kill with a sig.
+
+        @return: True if it is stopped or False if not
+        """
+        if pid != -1 :
+            daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
+            self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
+
+    def stop_pmon_daemon(self, daemon_name, sig_name=None, pid=-1):
+        """
+        @summary: stop daemon in pmon docker.
+
+        @return: True if it is stopped or False if not
+        """
+        if sig_name is None:
+            self.stop_pmon_daemon_service(daemon_name)
+        else:
+            self.kill_pmon_daemon_pid_w_sig(pid, sig_name)
+
     def get_pmon_daemon_states(self):
         """
         @summary: get state list of daemons from pmon docker.
