@@ -764,7 +764,7 @@ class QosSaiBase(QosBase):
             )
             qosParams = qpm.run()
         else:
-           qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
             "param": qosParams,
             "portSpeedCableLength": portSpeedCableLength,
