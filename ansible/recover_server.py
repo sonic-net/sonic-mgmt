@@ -293,7 +293,7 @@ def do_jobs(testbeds, inventory, passfile, tbfile=None, vmfile=None, skip_cleanu
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Recover testbed servers.')
     parser.add_argument('--testbed-servers', action='append', type=str, required=True, help='testbed server to recover')
-    parser.add_argument('--testbed', default='testbed.csv', help='testbed file(default: testbed.csv)')
+    parser.add_argument('--testbed', default='testbed.yaml', help='testbed file(default: testbed.yaml)')
     parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
     parser.add_argument('--inventory', required=True, help='lab inventory file')
     parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')

@@ -1,4 +1,4 @@
-# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.yaml
 # When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test.
 # Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
 #
@@ -18,7 +18,7 @@
 # -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
 # -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
 # -e topo=t0                 - the name of topology to generate minigraph file
-# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.yaml file
 #                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
 # -e vm_file=veos            - the virtual machine file name
 # -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
@@ -38,7 +38,7 @@
   - block:
     - name: set default testbed file
       set_fact:
-        testbed_file: testbed.csv
+        testbed_file: testbed.yaml
       when: testbed_file is not defined
 
     - name: Gathering testbed information

@@ -18,7 +18,7 @@ function usage
   echo "    $0 [options] restart-ptf <topo-name> <vault-password-file>"
   echo
   echo "Options:"
-  echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
+  echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
   echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
@@ -65,7 +65,7 @@ function usage
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf defined in testbed: $0 restart-ptf 'topo-name' ~/.password"
   echo
-  echo "You should define your topology in testbed CSV file"
+  echo "You should define your topology in testbed YAML file"
   echo
   exit
 }
@@ -508,7 +508,7 @@ function cleanup_vmhost
 }
 
 vmfile=veos
-tbfile=testbed.csv
+tbfile=testbed.yaml
 vm_type=veos
 vm_num=0
 msetnumber=1

@@ -98,7 +98,7 @@ RETURN = '''
 '''
 
 ### Default testbed file name
-TESTBED_FILE = 'testbed.csv'
+TESTBED_FILE = 'testbed.yaml'
 TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 
 

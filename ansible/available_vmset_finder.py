@@ -5,6 +5,7 @@ import csv
 import re
 import os
 import yaml
+import imp
 
 from collections import defaultdict
 from operator import itemgetter
@@ -28,13 +29,15 @@ Return:
 '''
 
 TOPO_PATH = 'vars/'
+ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
+SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
 
 
 def build_topo_vmcnt():
     topo_vm_cnt = dict()
 
     try:
-        topo_files = [f for f in os.listdir(TOPO_PATH) if os.path.isfile('{}{}'.format(TOPO_PATH, f)) and f.startswith('topo_t')]
+        topo_files = [f for f in os.listdir(TOPO_PATH) if os.path.isfile('{}{}'.format(TOPO_PATH, f)) and f.startswith('topo_t') or f.startswith('topo_mgmt')]
         for tfile in topo_files:
             topo = re.findall('topo_(.*)\.yml', tfile)[0]
             with open(TOPO_PATH + tfile) as f:
@@ -48,15 +51,14 @@ def build_topo_vmcnt():
 
 def parse_file(topo_vm_cnt, testbed_file, server_pool):
     server_info = defaultdict(list)
+    testbed = imp.load_source('testbed', os.path.join(SONIC_MGMT_DIR, 'tests/common/testbed.py'))
 
     try:
-        with open(testbed_file) as f:
-             content = csv.DictReader(f)
-             for line in content:
-                 if 'ptf' in line['# conf-name'] or '#' in line['# conf-name']:
-                     continue
-                 if line['server'] in server_pool:
-                     server_info[line['server']].append((line['vm_base'], topo_vm_cnt[line['topo']]))
+        for tb in testbed.TestbedInfo(testbed_file).testbed_topo.values():
+            if "ptf" in tb["topo"]["name"]:
+                continue
+            if tb["server"] in server_pool:
+                server_info[tb["server"]].append((tb["vm_base"], topo_vm_cnt[tb["topo"]["name"]]))
     except EnvironmentError as e:
         print 'Error while trying to open/read testbed file: {}'.format(str(e))
         exit(1)
