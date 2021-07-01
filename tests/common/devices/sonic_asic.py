@@ -457,6 +457,12 @@ class SonicAsic(object):
                                   intf=interface_name,
                                   ip=ip_address))
 
+    def config_portchannel(self, pc_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} {op} {pc}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name))
+
     def config_portchannel_member(self, pc_name, interface_name, op):
         return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
                           .format(ns=self.cli_ns_option,
@@ -484,3 +490,53 @@ class SonicAsic(object):
         if pcs is not None and portchannel in pcs:
             return True
         return False
+
+    def get_portchannel_and_members_in_ns(self, tbinfo):
+        """
+        Get a portchannel and it's members in this namespace.
+
+        Args: tbinfo - testbed info
+
+        Returns: a tuple with (portchannel_name, port_channel_members)
+
+        """
+        pc = None
+        pc_members = None
+
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+
+        if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+            return None, None
+
+        if self.namespace is DEFAULT_NAMESPACE:
+            pc = mg_facts['minigraph_portchannels'].keys()[0]
+            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+        else:
+            for k, v in mg_facts['minigraph_portchannels'].iteritems():
+                if v.has_key('namespace') and self.namespace == v['namespace']:
+                    pc = k
+                    pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                    break
+         
+        return pc, pc_members
+
+    def get_bgp_statistic(self, stat):
+        """
+        Get the named bgp statistic
+
+        Args: stat - name of statistic
+
+        Returns: statistic value or None if not found
+
+        """
+        ret = None
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        if stat in bgp_facts['bgp_statistics']:
+            ret = bgp_facts['bgp_statistics'][stat]
+        return ret
+
+    def check_bgp_statistic(self, stat, value):
+        val = self.get_bgp_statistic(stat)
+        return val == value

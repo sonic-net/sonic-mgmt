@@ -23,6 +23,7 @@ import csv
 import pprint
 import logging
 import logging.handlers
+from datetime import datetime
 from __builtin__ import True
 
 #---------------------------------------------------------------------
@@ -105,8 +106,17 @@ class AnsibleLogAnalyzer:
 
     #---------------------------------------------------------------------
 
-    def is_filename_sairedis_rec(self, file_name):
-        return "sairedis.rec" in file_name
+    def require_marker_check(self, file_path):
+        '''
+        @summary: Check if log file needs to check for default start/end markers
+
+        There are a few log files that do not follow the default start/end markers
+        due to datetime format or capability of adding default end marker in tests.
+        This function is introduced to identify whether a file needs default marker
+        check.
+        '''
+        files_to_skip = ["sairedis.rec", "bgpd.log"]
+        return not any([target in file_path for target in files_to_skip])
 
     #---------------------------------------------------------------------
 
@@ -124,6 +134,7 @@ class AnsibleLogAnalyzer:
             self.print_diagnostic_message('Log file {} not found. Skip adding marker.'.format(log_file))
         self.print_diagnostic_message('log file:{}, place marker {}'.format(log_file, marker))
         with open(log_file, 'a') as file:
+            file.write(datetime.now().strftime("%b %d %H:%M:%S.%f") + ' ')
             file.write(marker)
             file.write('\n')
             file.flush()
@@ -318,8 +329,8 @@ class AnsibleLogAnalyzer:
 
         #-- indicates whether log analyzer currently is in the log range between start
         #-- and end marker. see analyze_file method.
-        is_sairedis_rec = self.is_filename_sairedis_rec(log_file_path)
-        in_analysis_range = False
+        check_marker = self.require_marker_check(log_file_path)
+        in_analysis_range = not check_marker
         stdin_as_input = self.is_filename_stdin(log_file_path)
         matching_lines = []
         expected_lines = []
@@ -360,10 +371,10 @@ class AnsibleLogAnalyzer:
                     in_analysis_range = False
                     break
 
-            if in_analysis_range or is_sairedis_rec:
+            if in_analysis_range:
                 # Skip long logs in sairedis recording since most likely they are bulk set operations for non-default routes
                 # without much insight while they are time consuming to analyze
-                if is_sairedis_rec and len(rev_line) > 1000:
+                if not check_marker and len(rev_line) > 1000:
                     continue
                 if self.line_is_expected(rev_line, expect_messages_regex):
                     expected_lines.append(rev_line)
@@ -371,8 +382,8 @@ class AnsibleLogAnalyzer:
                 elif self.line_matches(rev_line, match_messages_regex, ignore_messages_regex):
                     matching_lines.append(rev_line)
 
-        # care about the markers only if input is not stdin or sairedis recording
-        if not stdin_as_input and not is_sairedis_rec:
+        # care about the markers only if input is not stdin or no need to check start marker
+        if not stdin_as_input and check_marker:
             if (not found_start_marker):
                 print 'ERROR: start marker was not found'
                 sys.exit(err_no_start_marker)
