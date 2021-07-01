@@ -438,12 +438,19 @@ def _check_single_intf_status(intf_status, expected_side):
                         .format(bridge, len(intf_status['flows']))
         return failed, failed_reason
 
+    if not intf_status['healthy']:
+        failed = True
+        failed_reason = 'Mux simulator reported unhealthy mux for {} with flows {}' \
+                        .format(bridge, intf_status['flows'])
+        return failed, failed_reason
+
+
     # Gather the flow information
     active_intf, mux_intf = None, None
     active_flows, mux_flows = None, None
 
     for input_intf, actions in intf_status['flows'].items():
-        if 'muxy' in input_intf:
+        if 'mu' in input_intf:
             mux_intf = input_intf
             mux_flows = actions
         else:
