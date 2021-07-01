@@ -59,12 +59,14 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
         if po1:
             asic.config_portchannel_member(po1, intf1, "del")
+            time.sleep(5)
             collect_info(duthost)
             asic.startup_interface(intf1)
             collect_info(duthost)
 
         if po2:
             asic.config_portchannel_member(po2, intf2, "del")
+            time.sleep(5)
             collect_info(duthost)
             asic.startup_interface(intf2)
             collect_info(duthost)
