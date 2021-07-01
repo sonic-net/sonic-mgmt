@@ -44,16 +44,16 @@ def get_disk_free_size(module, partition):
 
     return avail
 
-# Return total/available memory size in MB, 0, 0 means failed to get the sizes
+# Return total/available memory size in MB, -1, -1 means failed to get the sizes
 def get_memory_sizes(module):
     _, out, _   = exec_command(module, cmd="free -m", msg="checking memory total/free sizes")
     lines = out.split('\n')
     if len(lines) < 2:
-        return 0, 0
+        return -1, -1
 
     fields = lines[1].split()
     if len(fields) < 3:
-        return 0, 0
+        return -1, -1
 
     total, avail = int(fields[1]), int(fields[-1])
     return total, avail
@@ -61,12 +61,12 @@ def get_memory_sizes(module):
 
 def setup_swap_if_necessary(module):
     df = get_disk_free_size(module, '/host')
-    mem, mf = get_memory_sizes(module)
-    if df < 4000 or mem == 0 or mf == 0:
+    total, avail = get_memory_sizes(module)
+    if df < 4000 or total < 0 or avail < 0:
         # Disk free space low or failed to obtain memory information
         return
 
-    if mem < 2048 or mf < 1200:
+    if total < 2048 or avail < 1200:
         # Memory size or available amount is low, there is risk of OOM during new
         # image installation. Create a temporary swap file.
         exec_command(module, cmd="sudo rm -f {0}; sudo fallocate -l 1G {0}; sudo chmod 600 {0}; sudo mkswap {0}; sudo swapon {0}".format('/host/swapfile'),
