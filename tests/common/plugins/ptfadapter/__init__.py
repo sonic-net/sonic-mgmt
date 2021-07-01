@@ -72,6 +72,25 @@ def get_ifaces(netdev_output):
     return ifaces
 
 
+def get_ifaces_map(ifaces):
+    """Get interface map."""
+    sub_ifaces = []
+    iface_map = {}
+    for iface in ifaces:
+        iface_suffix = iface.lstrip(ETH_PFX)
+        if "." in iface_suffix:
+            iface_index = int(iface_suffix.split(".")[0])
+            sub_ifaces.append((iface_index, iface))
+        else:
+            iface_index = int(iface_suffix)
+            iface_map[iface_index] = iface
+
+    # override those interfaces that has sub interface
+    for i, si in sub_ifaces:
+        iface_map[i] = si
+    return iface_map
+
+
 @pytest.fixture(scope='module')
 def ptfadapter(ptfhost, tbinfo, request):
     """return ptf test adapter object.
@@ -85,7 +104,7 @@ def ptfadapter(ptfhost, tbinfo, request):
     # get the eth interfaces from PTF and initialize ifaces_map
     res = ptfhost.command('cat /proc/net/dev')
     ifaces = get_ifaces(res['stdout'])
-    ifaces_map = {int(ifname.replace(ETH_PFX, '')): ifname for ifname in ifaces}
+    ifaces_map = get_ifaces_map(ifaces)
 
     # generate supervisor configuration for ptf_nn_agent
     ptfhost.host.options['variable_manager'].extra_vars.update({
