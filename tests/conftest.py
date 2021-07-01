@@ -920,6 +920,9 @@ def generate_dut_feature_container_list(request):
     except IOError as e:
         return empty
 
+    if tbname not in metadata:
+        return empty
+
     meta = metadata[tbname]
     container_list = []
 
