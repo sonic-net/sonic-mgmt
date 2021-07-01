@@ -126,7 +126,7 @@ def get_report_summary(analyze_result, reboot_type):
     return result_summary
 
 
-def analyze_syslog(duthost, messages, result, offset_from_kexec):
+def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
     if not messages:
         logging.error("Expected messages not found in syslog")
@@ -185,8 +185,12 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
             timings["time_span"] = (datetime.strptime(timestamps["Started"], FMT) -\
                 datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
-            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
-                datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            if "last_occurence" in timings:
+                timings["time_span"] = (datetime.strptime(timings["last_occurence"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            else:
+                timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
@@ -257,7 +261,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             pytest.skip('Testcase not supported for kvm')
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
-                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec'})
+                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
     marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
@@ -278,8 +282,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     offset_from_kexec = dict()
 
     for key, messages in result["expect_messages"].items():
-        if "syslog" in key:
-            analyze_syslog(duthost, messages, analyze_result, offset_from_kexec)
+        if "syslog" in key or "bgpd.log" in key:
+            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
         elif "sairedis.rec" in key:
             analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 

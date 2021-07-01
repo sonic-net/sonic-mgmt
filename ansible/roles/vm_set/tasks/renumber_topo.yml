@@ -9,6 +9,12 @@
       ptf_imagetag: "latest"
     when: ptf_imagetag is not defined
 
+  - name: Stop mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: stop
+    when: "'dualtor' in topo"
+
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
@@ -72,6 +78,10 @@
       max_fp_num: "{{ max_fp_num }}"
     become: yes
 
+  - name: Change MAC address for PTF interfaces
+    include_tasks: ptf_change_mac.yml
+    when: topo != 'fullmesh'
+
   - name: Send arp ping packet to gw for flusing the ARP table
     command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
     become: yes
@@ -88,5 +98,11 @@
     when:
       - topo != 'fullmesh'
       - not 'ptf' in topo
+
+  - name: Start mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: start
+    when: "'dualtor' in topo"
 
   when: container_type == "PTF"
