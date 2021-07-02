@@ -7,7 +7,7 @@ import snappi_convergence
 from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 from tests.common.snappi.common_helpers import (
-    get_addrs_in_subnet,get_peer_snappi_chassis)
+    get_addrs_in_subnet,get_ipv6_addrs_in_subnet,get_peer_snappi_chassis)
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 
 @pytest.fixture(scope="module")
@@ -40,8 +40,11 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
             ['snappi_api_server']['rest_port'])
 
 
-@pytest.fixture(scope="function")
-def tgen_ports(duthost,conn_graph_facts,fanout_graph_facts):
+@pytest.fixture(scope="module")
+def tgen_ports(duthost,
+               conn_graph_facts,
+               fanout_graph_facts):
+
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -49,53 +52,77 @@ def tgen_ports(duthost,conn_graph_facts,fanout_graph_facts):
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
     Return:
-    [{'card_id': '1',
-        'ip': '21.1.1.2',
-        'location': '10.36.78.238;1;2',
-        'prefix': u'24',
-        'peer_ip': u'21.1.1.1',
-        'peer_device': 'example-s6100-dut-1',
-        'peer_port': 'Ethernet0',
-        'port_id': '2',
-        'speed': '400000'},
-        {'card_id': '1',
+        [{'card_id': '1',
         'ip': '22.1.1.2',
-        'location': '10.36.78.238;1;1',
-        'prefix': u'24',
+        'ipv6': '3001::2',
+        'ipv6_prefix': u'64',
+        'location': '10.36.78.238;1;2',
+        'peer_device': 'sonic-s6100-dut',
         'peer_ip': u'22.1.1.1',
-        'peer_device': 'example-s6100-dut-1',
+        'peer_ipv6': u'3001::1',
         'peer_port': 'Ethernet8',
+        'port_id': '2',
+        'prefix': u'24',
+        'speed': 'speed_400_gbps'},
+        {'card_id': '1',
+        'ip': '21.1.1.2',
+        'ipv6': '2001::2',
+        'ipv6_prefix': u'64',
+        'location': '10.36.78.238;1;1',
+        'peer_device': 'sonic-s6100-dut',
+        'peer_ip': u'21.1.1.1',
+        'peer_ipv6': u'2001::1',
+        'peer_port': 'Ethernet0',
         'port_id': '1',
-        'speed': '400000'}]
+        'prefix': u'24',
+        'speed': 'speed_400_gbps'}]
     """
+
     speed_type = {'50000': 'speed_50_gbps',
                   '100000': 'speed_100_gbps',
                   '200000': 'speed_200_gbps',
                   '400000': 'speed_400_gbps'}
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,dut_hostname=duthost.hostname)
+
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                        dut_hostname=duthost.hostname)
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
     snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
     port_speed = None
+
     for i in range(len(snappi_ports)):
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
+
         elif port_speed != int(snappi_ports[i]['speed']):
             """ All the ports should have the same bandwidth """
             return None
-    config_facts = duthost.config_facts(host=duthost.hostname,source="running")['ansible_facts']
+
+    config_facts = duthost.config_facts(host=duthost.hostname,
+                                        source="running")['ansible_facts']
+
     for port in snappi_ports:
         port['location'] = get_snappi_port_location(port)
         port['speed'] = speed_type[port['speed']]
+
     for port in snappi_ports:
         peer_port = port['peer_port']
-        subnet = config_facts['INTERFACE'][peer_port].keys()[0]
-        if not subnet:
-            raise Exception("IP is not configured on the interface {}".format(peer_port))
-        port['peer_ip'], port['prefix'] = subnet.split("/")
-        port['ip'] = get_addrs_in_subnet(subnet, 1)[0]
+        int_addrs = config_facts['INTERFACE'][peer_port].keys()
+        ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
+        if not ipv4_subnet:
+            raise Exception("IPv4 is not configured on the interface {}"
+                            .format(peer_port))
+        port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
+        port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
+        ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
+        if not ipv6_subnet:
+            raise Exception("IPv6 is not configured on the interface {}"
+                            .format(peer_port))
+        port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
+        port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
     return snappi_ports
+
 
 @pytest.fixture(scope='module')
 def cvg_api(snappi_api_serv_ip,
