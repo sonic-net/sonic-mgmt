@@ -485,6 +485,7 @@ class VMTopology(object):
         vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
         VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %s" % (self.pid, iface_name, vlan_sub_iface_name, vlan_id))
         VMTopology.cmd("nsenter -t %s -n ip link set %s up" % (self.pid, vlan_sub_iface_name))
+        self.update()
 
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
 
@@ -513,6 +514,7 @@ class VMTopology(object):
         vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
         if vlan_sub_iface_name in self.cntr_ifaces:
             VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_sub_iface_name))
+        self.update()
 
     def add_veth_if_to_docker(self, ext_if, int_if, create_vlan_subintf=False, **kwargs):
         """Create vethernet devices (ext_if, int_if) and put int_if into the ptf docker."""
