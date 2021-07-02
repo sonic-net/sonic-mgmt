@@ -7,12 +7,14 @@ DUT_AS_NUM = 65100
 TGEN_AS_NUM = 65200
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
+
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
                                      tgen_ports,
                                      iteration,
                                      multipath,
-                                     number_of_v4_routes,):
+                                     number_of_routes,
+                                     route_type,):
     """
     Run BGP Convergence test
     
@@ -22,39 +24,45 @@ def run_bgp_local_link_failover_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
     port_count = multipath+1
     # Create bgp config on dut
     duthost_bgp_config(duthost,
                        tgen_ports,
                        port_count,
-                       multipath) 
+                       multipath,
+                       route_type) 
 
     # Create bgp config on TGEN 
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_v4_routes,)
+                                        number_of_routes,
+                                        route_type,)
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_convergence_for_local_link_failover(cvg_api,
                               tgen_bgp_config,
                               iteration,
                               multipath,
-                              number_of_v4_routes,)
+                              number_of_routes,
+                              route_type,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
                    tgen_ports,
-                   port_count)
+                   port_count,
+                   route_type,)
 
 def run_bgp_remote_link_failover_test(cvg_api,
                                 duthost,
                                 tgen_ports,
                                 iteration,
                                 multipath,
-                                number_of_v4_routes,):
+                                number_of_routes,
+                                route_type,):
     """
     Run BGP Convergence test
     
@@ -64,38 +72,44 @@ def run_bgp_remote_link_failover_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
+        route_type: IPv4 or IPv6 routes
     """
     port_count = multipath+1
     # Create bgp config on dut
     duthost_bgp_config(duthost,
                        tgen_ports,
                        port_count,
-                       multipath) 
+                       multipath,
+                       route_type,) 
 
     # Create bgp config on TGEN 
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_v4_routes,)
+                                        number_of_routes,
+                                        route_type,)
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_convergence_for_remote_link_failover(cvg_api,
                                              tgen_bgp_config,
                                              iteration,
                                              multipath,
-                                             number_of_v4_routes,)
+                                             number_of_routes,
+                                             route_type,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
                    tgen_ports,
-                   port_count)
+                   port_count,
+                   route_type,)
 
 def run_RIB_IN_convergence_test(cvg_api,
                                 duthost,
                                 tgen_ports,
                                 iteration,
                                 multipath,
-                                number_of_v4_routes,):
+                                number_of_routes,
+                                route_type,):
     """
     Run BGP Convergence test
     
@@ -105,37 +119,43 @@ def run_RIB_IN_convergence_test(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
     port_count = multipath+1
     # Create bgp config on dut
     duthost_bgp_config(duthost,
                        tgen_ports,
                        port_count,
-                       multipath) 
+                       multipath,
+                       route_type,) 
 
     # Create bgp config on TGEN 
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         tgen_ports,
                                         port_count,
-                                        number_of_v4_routes,)
+                                        number_of_routes,
+                                        route_type,) 
 
     # Run the convergence test by flapping all the rx links one by one and calculate the convergence values
     get_RIB_IN_convergence(cvg_api,
                             tgen_bgp_config,
                             iteration,
                             multipath,
-                            number_of_v4_routes,)
+                            number_of_routes,
+                            route_type,)
 
     # Cleanup the dut configs after getting the convergence numbers
     cleanup_config(duthost,
                    tgen_ports,
-                   port_count)
+                   port_count,
+                   route_type,) 
 
 def duthost_bgp_config(duthost,
                        tgen_ports,
                        port_count,
-                       multipath):
+                       multipath,
+                       route_type,):
     """
     Configures BGP on the DUT with N-1 ecmp
     
@@ -144,16 +164,27 @@ def duthost_bgp_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count:multipath + 1
         multipath: ECMP value for BGP config
+        route_type: IPv4 or IPv6 routes
     """
+    if route_type == 'IPv4':
+        peer_ip = 'peer_ip'
+        ip = 'ip'
+        prefix = 'prefix'
+        address_type = ['ip','ipv4']
+    else:
+        peer_ip = 'peer_ipv6'
+        ip = 'ipv6'
+        prefix = 'ipv6_prefix'
+        address_type = ['ipv6','ipv6']
     for i in range(0,port_count):
         intf_config = (
             "vtysh "
             "-c 'configure terminal' "
             "-c 'interface %s' "
-            "-c 'ip address %s/%s' "
+            "-c '%s address %s/%s' "
         )
-        intf_config %= (tgen_ports[i]['peer_port'],tgen_ports[i]['peer_ip'],tgen_ports[i]['prefix'])
-        logger.info('Configuring IP Address %s' %tgen_ports[i]['ip'])
+        intf_config %= (tgen_ports[i]['peer_port'],address_type[0],tgen_ports[i][peer_ip],tgen_ports[i][prefix])
+        logger.info('Configuring IP Address %s' %tgen_ports[i][ip])
         duthost.shell(intf_config)
     bgp_config = (
         "vtysh "
@@ -171,19 +202,20 @@ def duthost_bgp_config(duthost,
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family ipv4 unicast' "
+        "-c 'address-family %s unicast' "
         "-c 'neighbor %s activate' "
         "-c 'exit' "
         )        
-        bgp_config_neighbor %= (DUT_AS_NUM,tgen_ports[i]['ip'],TGEN_AS_NUM,tgen_ports[i]['ip'])
-        logger.info('Configuring BGP Neighbor %s' %tgen_ports[i]['ip'])
+        bgp_config_neighbor %= (DUT_AS_NUM,tgen_ports[i][ip],TGEN_AS_NUM,address_type[1],tgen_ports[i][ip])
+        logger.info('Configuring BGP Neighbor %s' %tgen_ports[i][ip])
         duthost.shell(bgp_config_neighbor)
 
 
 def __tgen_bgp_config(cvg_api,
                       tgen_ports,
                       port_count,
-                      number_of_v4_routes,):
+                      number_of_routes,
+                      route_type,):
     """
     Creating  BGP config on TGEN
     
@@ -191,7 +223,8 @@ def __tgen_bgp_config(cvg_api,
         cvg_api (pytest fixture): snappi API
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count: multipath + 1
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
@@ -210,7 +243,7 @@ def __tgen_bgp_config(cvg_api,
     layer1.speed = "speed_100_gbps"
     layer1.auto_negotiate = False
 
-    def create_topo():
+    def create_v4_topo():
         config.devices[0].ethernet.name = 'Ethernet 1'
         config.devices[0].ethernet.mac = "00:00:00:00:00:01"
         config.devices[0].ethernet.ipv4.name = 'IPv4 1'
@@ -219,10 +252,10 @@ def __tgen_bgp_config(cvg_api,
         config.devices[0].ethernet.ipv4.prefix = int(tgen_ports[0]['prefix'])
         rx_flow_name = []
         for i in range(2,port_count+1):
-            if len(str(hex(i).split('0x')[1]))==1:
-                m='0'+hex(i).split('0x')[1]
+            if len(str(hex(i).split('0x')[1])) == 1:
+                m = '0'+hex(i).split('0x')[1]
             else:
-                m=hex(i).split('0x')[1]
+                m = hex(i).split('0x')[1]
             ethernet_stack = config.devices[i-1].ethernet
             ethernet_stack.name = 'Ethernet %d'%i
             ethernet_stack.mac = "00:00:00:00:00:%s"%m
@@ -238,12 +271,50 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_stack.local_address = tgen_ports[i-1]['ip']
             bgpv4_stack.as_number = int(TGEN_AS_NUM)
             route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name = "Network Group %d"%i)[-1]
-            route_range.addresses.bgpv4routeaddress(address = '200.1.0.1', prefix = 32, count = number_of_v4_routes, step = 1)
+            route_range.addresses.bgpv4routeaddress(address = '200.1.0.1', prefix = 32, count = number_of_routes, step = 1)
             rx_flow_name.append(route_range.name)
         return rx_flow_name
     
-    rx_flows = create_topo()
-    flow = config.flows.flow(name = 'convergence_test')[-1]
+    def create_v6_topo():
+        config.devices[0].ethernet.name = 'Ethernet 1'
+        config.devices[0].ethernet.mac = "00:00:00:00:00:01"
+        config.devices[0].ethernet.ipv6.name = 'IPv6 1'
+        config.devices[0].ethernet.ipv6.address = tgen_ports[0]['ipv6']
+        config.devices[0].ethernet.ipv6.gateway = tgen_ports[0]['peer_ipv6']
+        config.devices[0].ethernet.ipv6.prefix = int(tgen_ports[0]['ipv6_prefix'])
+        rx_flow_name = []
+        for i in range(2,port_count+1):
+            if len(str(hex(i).split('0x')[1])) == 1:
+                m = '0'+hex(i).split('0x')[1]
+            else:
+                m = hex(i).split('0x')[1]
+            ethernet_stack = config.devices[i-1].ethernet
+            ethernet_stack.name = 'Ethernet %d'%i
+            ethernet_stack.mac = "00:00:00:00:00:%s"%m
+            ipv6_stack = ethernet_stack.ipv6
+            ipv6_stack.name = 'IPv6 %d'%i
+            ipv6_stack.address = tgen_ports[i-1]['ipv6']
+            ipv6_stack.gateway = tgen_ports[i-1]['peer_ipv6']
+            ipv6_stack.prefix = int(tgen_ports[i-1]['ipv6_prefix'])
+            bgpv6_stack = ipv6_stack.bgpv6
+            bgpv6_stack.name = r'BGP+ %d'%i
+            bgpv6_stack.as_type = BGP_TYPE
+            bgpv6_stack.dut_address = tgen_ports[i-1]['peer_ipv6']
+            bgpv6_stack.local_address = tgen_ports[i-1]['ipv6']
+            bgpv6_stack.as_number = int(TGEN_AS_NUM)
+            route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name = "Network Group %d"%i)[-1]
+            route_range.addresses.bgpv6routeaddress(address = '3000::1', prefix = 64, count = number_of_routes, step = 1)
+            rx_flow_name.append(route_range.name)
+        return rx_flow_name
+    
+    if route_type == 'IPv4':
+        rx_flows = create_v4_topo()
+        flow = config.flows.flow(name = 'IPv4 Traffic')[-1]
+    elif route_type == 'IPv6':
+        rx_flows = create_v6_topo()
+        flow = config.flows.flow(name = 'IPv6 Traffic')[-1]
+    else:
+        raise Exception('Invalid route type given')
     flow.tx_rx.device.tx_names = [config.devices[0].name]
     flow.tx_rx.device.rx_names = rx_flows
     flow.size.fixed = 1024
@@ -264,14 +335,16 @@ def get_convergence_for_local_link_failover(cvg_api,
                                             bgp_config,
                                             iteration,
                                             multipath,
-                                            number_of_v4_routes,):
+                                            number_of_routes,
+                                            route_type,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
     rx_port_names = []
     bgp_config.convergence_event = (bgp_config.LINK_UP_DOWN)
@@ -339,7 +412,8 @@ def get_convergence_for_local_link_failover(cvg_api,
             cs.link.state = cs.link.UP
             cvg_api.set_state(cs)
         table.append('%s Link Failure'%port_name)
-        table.append(number_of_v4_routes)
+        table.append(route_type)
+        table.append(number_of_routes)
         table.append(iteration)
         table.append(mean(avg))
         return table
@@ -348,27 +422,33 @@ def get_convergence_for_local_link_failover(cvg_api,
     for i,port_name in enumerate(rx_port_names):
         table.append(get_avg_dpdp_convergence_time(port_name,rx_port_names))
     
-    columns = ['Event Name','No. of IPV4 Routes','Iterations','Avg Calculated Data Convergence Time (ms)']
+    columns = ['Event Name','Route Type','No. of Routes','Iterations','Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table,headers = columns,tablefmt = "psql"))
 
 def get_convergence_for_remote_link_failover(cvg_api,
                                              bgp_config,
                                              iteration,
                                              multipath,
-                                             number_of_v4_routes,):
+                                             number_of_routes,
+                                             route_type,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
     route_names = []
     for device in bgp_config.config.devices:
         if device.name not in ['Topology 1']:
-            for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
-                route_names.append(route.name)
+            if route_type =='IPv4':
+                for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
+                    route_names.append(route.name)
+            else:
+                for route in device.ethernet.ipv6.bgpv6.bgpv6_routes:
+                    route_names.append(route.name)
     bgp_config.rx_rate_threshold = 90/(multipath-1)
     bgp_config.convergence_event = (bgp_config.ROUTE_ADVERTISE_WITHDRAW)
     cvg_api.set_config(bgp_config)
@@ -424,7 +504,8 @@ def get_convergence_for_remote_link_failover(cvg_api,
             logger.info('Readvertise {} routes back at the end of iteration {}'.format(route_name,i+1))
             
         table.append('%s route withdraw'%route_name)
-        table.append(number_of_v4_routes)
+        table.append(route_type)
+        table.append(number_of_routes)
         table.append(iteration)
         table.append(mean(avg))
         return table
@@ -433,32 +514,40 @@ def get_convergence_for_remote_link_failover(cvg_api,
     for route in route_names:
         table.append(get_avg_cpdp_convergence_time(route))
     
-    columns = ['Event Name','No. of IPV4 Routes','Iterations','Avg Control to Data Plane Convergence Time (ms)']
+    columns = ['Event Name','Route Type','No. of Routes','Iterations','Avg Control to Data Plane Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table,headers = columns,tablefmt = "psql"))
 
 def get_RIB_IN_convergence(cvg_api,
                            bgp_config,
                            iteration,
                            multipath,
-                           number_of_v4_routes,):
+                           number_of_routes,
+                           route_type,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_v4_routes:  Number of IPV4 Routes
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
     """
-
+    #anish
     route_names = []
-    #for device in bgp_config[1].devices:
     for device in bgp_config.config.devices:
         if device.name not in ['Topology 1']:
-            for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
-                route_names.append(route.name)
+            if route_type == 'IPv4':
+                for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
+                    route_names.append(route.name)
+            else:
+                for route in device.ethernet.ipv6.bgpv6.bgpv6_routes:
+                    route_names.append(route.name)
     bgp_config.rx_rate_threshold = 90/(multipath)
     bgp_config.convergence_event = (bgp_config.ROUTE_ADVERTISE_WITHDRAW)
+    #anish
+    #cvg_api.set_config(cvg_api.config())
     cvg_api.set_config(bgp_config)
+    
 
     table,avg,tx_frate,rx_frate = [],[],[],[]
     for i in range(0,iteration):
@@ -513,15 +602,17 @@ def get_RIB_IN_convergence(cvg_api,
         wait(TIMEOUT,"For Traffic To stop")
         
     table.append('Advertise All BGP Routes')
-    table.append(number_of_v4_routes)
+    table.append(route_type)
+    table.append(number_of_routes)
     table.append(iteration)
     table.append(mean(avg))
-    columns = ['Event Name','No. of IPV4 Routes','Iterations','Avg RIB-IN Convergence Time(ms)']
+    columns = ['Event Name','Route Type','No. of Routes','Iterations','Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table],headers = columns,tablefmt = "psql"))
     
 def cleanup_config(duthost,
                    tgen_ports,
-                   port_count):
+                   port_count,
+                   route_type,):
     """
     Cleaning up dut config at the end of the test
     
@@ -529,7 +620,16 @@ def cleanup_config(duthost,
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count:multipath + 1
+        route_type: IPv4 or IPv6 routes
     """
+    if route_type == 'IPv4':
+        peer_ip = 'peer_ip'
+        ip = 'ip'
+        prefix = 'prefix'
+    else:
+        peer_ip = 'peer_ipv6'
+        ip = 'ipv6'
+        prefix = 'ipv6_prefix'
     logger.info('Cleaning Up Interface and BGP config')
     bgp_config_cleanup = (
         "vtysh "
@@ -543,8 +643,8 @@ def cleanup_config(duthost,
             "vtysh "
             "-c 'configure terminal' "
             "-c 'interface %s' "
-            "-c 'no ip address %s/%s' "
+            "-c 'no %s address %s/%s' "
         )
-        intf_config_cleanup %= (tgen_ports[i]['peer_port'],tgen_ports[i]['peer_ip'],tgen_ports[i]['prefix'])
+        intf_config_cleanup %= (tgen_ports[i]['peer_port'],ip,tgen_ports[i][peer_ip],tgen_ports[i][prefix])
         duthost.shell(intf_config_cleanup)
     logger.info('Convergence Test Completed')
