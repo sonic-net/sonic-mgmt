@@ -51,13 +51,13 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count"])
+    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
 
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
     unexpected_fields = actual_fields - expected_fields
-    pytest_assert(((unexpected_fields == new_field) or len(unexpected_fields) == 0),
+    pytest_assert(((unexpected_fields.issubset(new_field)) or len(unexpected_fields) == 0),
                   "Unexpected fields in output: {}  on '{}'".format(repr(unexpected_fields), duthost.hostname))
 
     # Testing for missing values
