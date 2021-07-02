@@ -31,22 +31,18 @@ expected_running_status = "RUNNING"
 expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
-daemon_name = "pcied"
+daemon_name = "fancontrol"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
-
-pcie_devices_status_tbl_key = "PCIE_DEVICES|status"
-status_field = "status"
-expected_pcied_devices_status = "PASSED"
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
-        pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
+        pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts["platform"], duthost.os_version))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -102,9 +98,9 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
 
-def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_running_status(duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case is to check pcied status on dut
+    @summary: This test case is to check fancontrol status on dut
     """
     duthost = duthosts[rand_one_dut_hostname]
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -114,15 +110,10 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
     pytest_assert(daemon_pid != -1,
                           "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
 
-    daemon_db_value = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
-    pytest_assert(daemon_db_value == expected_pcied_devices_status,
-                          "Expected {} {} is {} but is {}".format(pcie_devices_status_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
 
-
-
-def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case is to check the pcied stopped and restarted status 
+    @summary: This test case is to check the fancontrol stopped and restarted status 
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -149,9 +140,9 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case is to check the pcied terminated and restarted status
+    @summary: This test case is to check the fancontrol terminated and restarted status
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -178,9 +169,9 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_on
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case is to check the pcied killed unexpectedly (automatically restarted) status
+    @summary: This test case is to check the fancontrol killed unexpectedly (automatically restarted) status
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
