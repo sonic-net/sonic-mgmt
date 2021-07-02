@@ -36,12 +36,41 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     return rc, out, err
 
 
+# Return available disk size in MB
 def get_disk_free_size(module, partition):
     _, out, _   = exec_command(module, cmd="df -BM --output=avail %s" % partition,
                          msg="checking disk available size")
     avail = int(out.split('\n')[1][:-1])
 
     return avail
+
+# Return total/available memory size in MB, -1, -1 means failed to get the sizes
+def get_memory_sizes(module):
+    _, out, _   = exec_command(module, cmd="free -m", msg="checking memory total/free sizes")
+    lines = out.split('\n')
+    if len(lines) < 2:
+        return -1, -1
+
+    fields = lines[1].split()
+    if len(fields) < 3:
+        return -1, -1
+
+    total, avail = int(fields[1]), int(fields[-1])
+    return total, avail
+
+
+def setup_swap_if_necessary(module):
+    df = get_disk_free_size(module, '/host')
+    total, avail = get_memory_sizes(module)
+    if df < 4000 or total < 0 or avail < 0:
+        # Disk free space low or failed to obtain memory information
+        return
+
+    if total < 2048 or avail < 1200:
+        # Memory size or available amount is low, there is risk of OOM during new
+        # image installation. Create a temporary swap file.
+        exec_command(module, cmd="sudo rm -f {0}; sudo fallocate -l 1G {0}; sudo chmod 600 {0}; sudo mkswap {0}; sudo swapon {0}".format('/host/swapfile'),
+                     msg="Create a temporary swap file")
 
 
 def reduce_installed_sonic_images(module):
@@ -147,6 +176,7 @@ def main():
         reduce_installed_sonic_images(module)
         if new_image_url or save_as:
             free_up_disk_space(module, disk_used_pcent)
+            setup_swap_if_necessary(module)
             install_new_sonic_image(module, new_image_url, save_as)
     except:
         err = str(sys.exc_info())
