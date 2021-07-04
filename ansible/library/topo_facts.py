@@ -151,20 +151,20 @@ class ParseTestbedTopoinfo():
             vmconfig[vm]['bgp_ipv6'] = [None] * dut_num
             vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
             for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
-                ip = ipaddress.ip_address(ipstr.decode('utf8'))
+                ip = ipaddress.ip_address(ipstr)
                 for dut_index in range(0, dut_num):
                     if ip.version == 4:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv4'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv4'][dut_index]+'/'+vmconfig[vm]['ipv4mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv4'][dut_index] = ipstr.upper()
                     elif ip.version == 6:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv6'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv6'][dut_index]+'/'+vmconfig[vm]['ipv6mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv6'][dut_index] = ipstr.upper()
         return vmconfig
