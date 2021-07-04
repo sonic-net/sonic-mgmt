@@ -69,7 +69,7 @@ class RouterUtility():
         is_valid_ipv6 = True
         try :
             ip = ipaddress.IPv6Address(unicode(ipaddr))
-        except Exception, e:
+        except Exception as e:
             is_valid_ipv6 = False
 
         return is_valid_ipv6

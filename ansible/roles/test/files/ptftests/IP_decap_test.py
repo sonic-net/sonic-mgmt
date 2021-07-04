@@ -439,7 +439,7 @@ class DecapPacketTest(BaseTest):
 
                 try:
                     self.run_encap_combination_test(outer_pkt_type, inner_pkt_type)
-                except AssertionError, e:
+                except AssertionError as e:
                     error = e
                     # print error, but continue to test others encap traffic combinations
                     print "\n{}:\n{}".format(encap_combination, error)

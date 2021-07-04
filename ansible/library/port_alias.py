@@ -247,7 +247,7 @@ def main():
             # is not passed.
             try: 
                 num_asic = multi_asic.get_num_asics()
-            except Exception, e:
+            except Exception as e:
                 num_asic = 1
 
         switchid = 0
@@ -286,10 +286,10 @@ def main():
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
-    except (IOError, OSError), e:
+    except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
-    except Exception, e:
+    except Exception as e:
         fail_msg = "failed to find the correct port config for "+m_args['hwsku'] + str(e)
         module.fail_json(msg=fail_msg)
 
