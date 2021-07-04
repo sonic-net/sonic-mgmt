@@ -136,7 +136,7 @@ class QosSaiBase(QosBase):
                 Updates bufferProfile with computed buffer threshold
         """
         db = "0" if self.isBufferInApplDb(dut_asic) else "4"
-        pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+        pool = bufferProfile["pool"].encode("utf-8").translate(str.maketrans("", "", "[]"))
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -161,11 +161,11 @@ class QosSaiBase(QosBase):
         """
         if self.isBufferInApplDb(dut_asic):
             bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL_TABLE:",''
+                str.maketrans("", "", "[]")).replace("BUFFER_POOL_TABLE:",''
             )
         else:
             bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL|",''
+                str.maketrans("", "", "[]")).replace("BUFFER_POOL|",''
             )
 
         bufferPoolVoid = dut_asic.run_redis_cmd(
@@ -204,7 +204,7 @@ class QosSaiBase(QosBase):
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
         bufferProfileName = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
-        )[0].encode("utf-8").translate(None, "[]")
+        )[0].encode("utf-8").translate(str.maketrans("", "", "[]"))
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -273,7 +273,7 @@ class QosSaiBase(QosBase):
                 "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                 "wred_profile"
             ]
-        )[0].encode("utf-8").translate(None, "[]")
+        )[0].encode("utf-8").translate(str.maketrans("", "", "[]"))
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -319,7 +319,7 @@ class QosSaiBase(QosBase):
                 "redis-cli", "-n", "4", "HGET",
                 "QUEUE|{0}|{1}".format(port, queue), "scheduler"
             ]
-        )[0].encode("utf-8").translate(None, "[]")
+        )[0].encode("utf-8").translate(str.maketrans("", "", "[]"))
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]

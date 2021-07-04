@@ -86,7 +86,7 @@ class PopulateFdb(BaseTest):
             Returns:
                 mac (int): integer representation of MAC address
         """
-        return int(mac.translate(None, ":.- "), 16)
+        return int(mac.translate(str.maketrans("", "", ":.- ")), 16)
 
     def __convertMacToStr(self, mac):
         """
