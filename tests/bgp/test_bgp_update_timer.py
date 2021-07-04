@@ -68,7 +68,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
     dut_type = ''
-    for k, v in mg_facts['minigraph_devices'].iteritems():
+    for k, v in mg_facts['minigraph_devices'].items():
         if k == duthost.hostname:
             dut_type = v['type']
 

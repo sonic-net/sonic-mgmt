@@ -88,7 +88,7 @@ def switch_init(client):
         for port_id in thrift_attr.value.objlist.object_id_list:
             front_port_list.append(port_id)
 
-    for interface,front in interface_to_front_mapping.iteritems():
+    for interface,front in interface_to_front_mapping.items():
         sai_port_id = client.sai_thrift_get_port_id_by_front_port(front);
         port_list[int(interface)]=sai_port_id
 

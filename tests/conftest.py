@@ -503,7 +503,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.iteritems():
+    for k, v in console_login_creds.items():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 

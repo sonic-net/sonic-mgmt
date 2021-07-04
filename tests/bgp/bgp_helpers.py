@@ -109,7 +109,7 @@ def parse_rib(host, ip_ver):
         cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
 
         route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
-        for ip, nexthops in route_data['routes'].iteritems():
+        for ip, nexthops in route_data['routes'].items():
             aspath = set()
             for nexthop in nexthops:
                 # if internal route with aspath as '' skip adding

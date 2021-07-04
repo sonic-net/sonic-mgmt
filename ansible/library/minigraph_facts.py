@@ -241,7 +241,7 @@ def parse_png(png, hname):
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
 
-    for k, v in neighbors.iteritems():
+    for k, v in neighbors.items():
          v['namespace'] = neighbors_namespace[k]
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
@@ -603,7 +603,7 @@ def parse_xml(filename, hostname, asic_name=None):
     port_alias_to_name_map, port_alias_asic_map = get_port_alias_to_name_map(hwsku, asic_id)
 
     # Create inverse mapping between port name and alias
-    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
 
     for child in root:
         if asic_name is None:
@@ -628,7 +628,7 @@ def parse_xml(filename, hostname, asic_name=None):
 
     # Associate Port Channel to namespace
     try:
-        for pckey, pcval in pcs.iteritems():
+        for pckey, pcval in pcs.items():
             pcval['namespace'] = neighbors[pcval['members'][0]]['namespace']
     except Exception as e:
         print >> sys.stderr, "Warning: PortChannel " + pckey + " has no member ports."

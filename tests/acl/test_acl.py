@@ -131,20 +131,20 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     acl_table_ports =  defaultdict(list)
 
     if topo == "t0" or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
-        for namespace, port in downstream_ports.iteritems():
+        for namespace, port in downstream_ports.items():
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
 
     if topo == "t0" or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        for k, v in port_channels.iteritems():
+        for k, v in port_channels.items():
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
     else:
-        for namespace, port in upstream_ports.iteritems():
+        for namespace, port in upstream_ports.items():
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:

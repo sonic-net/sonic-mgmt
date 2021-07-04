@@ -104,9 +104,9 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     logger.info("Verifying all routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
     # Check routes on all neigh
-    for hostname, routes in routes_on_all_eos.iteritems():
+    for hostname, routes in routes_on_all_eos.items():
         logger.info("Verifying all routes(ipv{}) are announced to {}".format(ip_ver, hostname))
-        for route, aspaths in routes_dut.iteritems():
+        for route, aspaths in routes_dut.items():
             # Filter out routes announced by this neigh
             skip = False
             for aspath in aspaths:
@@ -135,9 +135,9 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
     else:
         lo_addr = lo_addr_v6
     routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
-    for hostname, routes in routes_on_all_eos.iteritems():
+    for hostname, routes in routes_on_all_eos.items():
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
-        for prefix, received_community in routes.iteritems():
+        for prefix, received_community in routes.items():
             if ipaddress.IPNetwork(prefix) != lo_addr:
                 logger.warn("route for {} is found on {}, which is not in loopback address".format(prefix, hostname))
                 return False
