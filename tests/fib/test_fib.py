@@ -164,6 +164,7 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
 
         po = asic_cfg_facts.get('PORTCHANNEL', {})
         ports = asic_cfg_facts.get('PORT', {})
+        sub_interfaces = asic_cfg_facts.get('VLAN_SUB_INTERFACE', {})
 
         with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
             fib = json.load(fp)
@@ -184,7 +185,9 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
                             else:
                                 oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
-                        if ports.has_key(ifname):
+                        if sub_interfaces.has_key(ifname):
+                            oports.append([str(mg_facts['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                        elif ports.has_key(ifname):
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
@@ -223,13 +226,19 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
     ptfhost.copy(src=tmp_fib_info.name, dest=filename)
 
 
-@pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
+@pytest.fixture(scope='function')
+def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo, request):
+    testname = request.node.name
     files = []
     if tbinfo['topo']['type'] != "t2":
         for dut_index, duthost in enumerate(duthosts):
             fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
-            filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+            if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
+                # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
+                # add a default route as failover in the prefix matching
+                fib_info[u'0.0.0.0/0'] = []
+                fib_info[u'::/0'] = []
+            filename = '/root/fib_info_dut_{0}_{1}.txt'.format(testname, dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)
     else:
