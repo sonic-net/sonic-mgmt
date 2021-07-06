@@ -62,7 +62,7 @@ def check_monit_last_output(duthost):
         else:
             return "/usr/bin/lldpmgrd' is not running in host" in monit_last_output
     else:
-        pytes.fail("Failed to get Monit last output of process 'lldpmgrd'!")
+        pytest.fail("Failed to get Monit last output of process 'lldpmgrd'!")
 
 
 def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -77,10 +77,12 @@ def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         None.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
-
-    exit_code = monit_status_result["rc"]
-    pytest_assert(exit_code == 0, "Monit is either not running or not configured correctly")
+    def _monit_status():
+        monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
+        return monit_status_result["rc"] == 0
+    # Monit is configured with start delay = 300s, hence we wait up to 320s here 
+    pytest_assert(wait_until(320, 20, _monit_status), 
+                    "Monit is either not running or not configured correctly")
 
 
 def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_hostname, disable_lldp):

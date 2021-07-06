@@ -29,46 +29,67 @@ def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope="module")
-def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
+def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, config_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asic.get_extended_minigraph_facts(tbinfo)
     external_ports = [p for p in mg_facts['minigraph_ports'].keys() if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
-    # Select port index 0 & 1 two interfaces for testing
-    intf1 = ports[0]
-    intf2 = ports[1]
+    po1 = None
+    po2 = None
+    if tbinfo['topo']['type'] == 't0':
+        if 'PORTCHANNEL_MEMBER' in config_facts:
+            portchannel_members = []
+            for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
+                portchannel_members += v.keys()
+            ports_for_test = [x for x in ports if x not in portchannel_members]
+        else:
+            ports_for_test = ports
+
+        # Select two interfaces for testing which are not in portchannel
+        intf1 = ports_for_test[0]
+        intf2 = ports_for_test[1]
+    else:
+        # Select port index 0 & 1 two interfaces for testing
+        intf1 = ports[0]
+        intf2 = ports[1]
+
+        po1 = get_po(mg_facts, intf1)
+        po2 = get_po(mg_facts, intf2)
+
+        if po1:
+            asic.config_portchannel_member(po1, intf1, "del")
+            collect_info(duthost)
+            asic.startup_interface(intf1)
+            collect_info(duthost)
+
+        if po2:
+            asic.config_portchannel_member(po2, intf2, "del")
+            collect_info(duthost)
+            asic.startup_interface(intf2)
+            collect_info(duthost)
+
+        if po1 or po2:
+            time.sleep(40)
+
     logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
     intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
     intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    po1 = get_po(mg_facts, intf1)
-    po2 = get_po(mg_facts, intf2)
-
-    if po1 is not None:
-        asic.config_portchannel_member(po1, intf1, "del")
-        collect_info(duthost)
-        asic.startup_interface(intf1)
-        collect_info(duthost)
-    
-    if po2 is not None:
-        asic.config_portchannel_member(po2, intf2, "del")
-        collect_info(duthost)
-        asic.startup_interface(intf2)
-        collect_info(duthost)
-
     asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
     asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
-    if (po1 is not None) or (po2 is not None):
-        time.sleep(40)
-    
     yield intf1, intf2, intf1_indice, intf2_indice
 
     asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
     asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
 
+    if tbinfo['topo']['type'] != 't0':
+        if po1:
+            asic.config_portchannel_member(po1, intf1, "add")
+        if po2:
+            asic.config_portchannel_member(po2, intf2, "add")
 
 
 @pytest.fixture(scope="module")

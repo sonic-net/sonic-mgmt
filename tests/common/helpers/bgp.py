@@ -23,7 +23,7 @@ class BGPNeighbor(object):
 
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
-                 dut_ip, dut_asn, port, neigh_type, is_quagga=False):
+                 dut_ip, dut_asn, port, neigh_type, is_multihop=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -34,7 +34,7 @@ class BGPNeighbor(object):
         self.peer_asn = dut_asn
         self.port = port
         self.type = neigh_type
-        self.is_quagga = is_quagga
+        self.is_multihop = is_multihop
 
     def start_session(self):
         """Start the BGP session."""
@@ -75,7 +75,7 @@ class BGPNeighbor(object):
         if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
             raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
 
-        if self.is_quagga:
+        if self.is_multihop:
             allow_ebgp_multihop_cmd = (
                 "vtysh "
                 "-c 'configure terminal' "
