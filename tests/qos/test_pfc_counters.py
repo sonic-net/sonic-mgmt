@@ -4,6 +4,7 @@ from qos_helpers import eos_to_linux_intf
 import os
 import time
 import pytest
+import logging
 
 """
 This module implements test cases for PFC counters of SONiC.
@@ -18,6 +19,8 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+logger = logging.getLogger(__name__)
+
 PFC_GEN_FILE_RELATIVE_PATH = r'../../ansible/roles/test/files/helpers/pfc_gen.py'
 """ Expected PFC generator path at the leaf fanout switch """
 PFC_GEN_FILE_DEST = r'~/pfc_gen.py'
@@ -25,6 +28,22 @@ PFC_GEN_FILE_DEST = r'~/pfc_gen.py'
 PKT_COUNT = 10
 """ Number of switch priorities """
 PRIO_COUNT = 8
+
+
+@pytest.fixture(scope='module', autouse=True)
+def enable_flex_port_counter(rand_selected_dut):
+    get_cmd = 'sonic-db-cli CONFIG_DB hget "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS"'
+    status = rand_selected_dut.shell(get_cmd)['stdout']
+    if status == 'enable':
+        yield
+        return
+    set_cmd = 'sonic-db-cli CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"'
+    logger.info("Enable flex counter for port")
+    rand_selected_dut.shell(set_cmd.format('enable'))
+    yield
+    logger.info("Disable flex counter for port")
+    rand_selected_dut.shell(set_cmd.format('disable'))
+
 
 def setup_testbed(fanouthosts, duthost, leaf_fanouts):
     """
