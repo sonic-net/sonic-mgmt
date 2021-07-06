@@ -3,7 +3,6 @@ This module contains the snappi fixture
 """
 import pytest
 import snappi_convergence
-#from ipaddress import ip_address, IPv4Address
 from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 from tests.common.snappi.common_helpers import (
@@ -84,11 +83,11 @@ def tgen_ports(duthost,
                   '400000': 'speed_400_gbps'}
 
     snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                        dut_hostname=duthost.hostname)
+                                            dut_hostname=duthost.hostname)
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+    snappi_fanout_list.get_fanout_device_details(device_number = snappi_fanout_id)
+    snappi_ports = snappi_fanout_list.get_ports(peer_device = duthost.hostname)
     port_speed = None
 
     for i in range(len(snappi_ports)):
@@ -109,24 +108,27 @@ def tgen_ports(duthost,
     for port in snappi_ports:
         peer_port = port['peer_port']
         int_addrs = config_facts['INTERFACE'][peer_port].keys()
-        ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
-        if not ipv4_subnet:
-            raise Exception("IPv4 is not configured on the interface {}"
-                            .format(peer_port))
-        port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
-        port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
-        ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
-        if not ipv6_subnet:
-            raise Exception("IPv6 is not configured on the interface {}"
-                            .format(peer_port))
-        port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
-        port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
+        try:
+            ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
+            if not ipv4_subnet:
+                raise Exception("IPv4 is not configured on the interface {}"
+                                .format(peer_port))
+            port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
+            port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
+            ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
+            if not ipv6_subnet:
+                raise Exception("IPv6 is not configured on the interface {}"
+                                .format(peer_port))
+            port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
+            port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
+        except:
+            raise Exception('Configure IPv4 and IPv6 on DUT interfaces')
     return snappi_ports
 
 
 @pytest.fixture(scope='module')
 def cvg_api(snappi_api_serv_ip,
-               snappi_api_serv_port):
+            snappi_api_serv_port):
     api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port),ext='ixnetwork')
     yield api
     if getattr(api, 'assistant', None) is not None:
