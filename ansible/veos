@@ -80,6 +80,7 @@ all:
           - t0-80
           - t0-120
           - t0-116
+          - t0-backend
           - fullmesh
           - dualtor
           - dualtor-56
