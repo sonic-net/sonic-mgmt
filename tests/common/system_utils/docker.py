@@ -2,6 +2,7 @@
 
 import collections
 import logging
+import time
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
@@ -98,23 +99,41 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
 
+def disable_docker_proxy(duthost):
+    """
+    A stop-bleeding patch for hardcoded http_proxy.
+    """
+    cmds = [
+        "sudo echo '' > /etc/systemd/system/docker.service.d/http_proxy.conf",
+        "sudo echo '' > /etc/systemd/system/docker.service.d/https_proxy.conf",
+        "sudo systemctl daemon-reload",
+        "sudo systemctl restart docker"
+    ]
+    duthost.shell_cmds(cmds=cmds)
+    logger.info('docker http proxy has been removed')
+    time.sleep(120)
+
+
 def swap_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss 
+    This will download a new Docker image to the duthost and restart the swss
     service.
 
     Args:
         duthost (SonicHost): The target device.
         creds (dict): Credentials used to access the docker registry.
     """
+    # Todo: Remove when the hardcoded http_proxy is removed
+    disable_docker_proxy(duthost)
+
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
 
