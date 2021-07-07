@@ -5,6 +5,7 @@ import os
 import yaml
 import re
 import requests
+import time
 
 from ansible.module_utils.basic import *
 
@@ -80,6 +81,7 @@ def announce_routes(ptf_ip, port, routes):
 
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
+    time.sleep(60)
     r = requests.post(url, data=data, timeout=90)
     assert r.status_code == 200
 
