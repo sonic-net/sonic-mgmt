@@ -195,5 +195,3 @@ class IpinIPTunnelTest(BaseTest):
                                                     timeout=TIMEOUT)
                 pkt_distribution[self.indice_to_portchannel[dst_ports[idx]]] = pkt_distribution.get(self.indice_to_portchannel[dst_ports[idx]], 0) + 1
             self.check_balance(pkt_distribution, hash_key)
-
-

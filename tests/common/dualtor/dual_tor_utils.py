@@ -650,7 +650,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
     dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
-    pkt = testutils.simple_tcp_packet(pktlen=128,
+    send_pkt = testutils.simple_tcp_packet(pktlen=128,
                         eth_dst=dst_mac,
                         eth_src=src_mac,
                         dl_vlan_enable=False,
@@ -661,36 +661,31 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
                         tcp_sport=sport,
                         tcp_dport=dport,
                         ip_ttl=64)
-    exp_pkt = mask.Mask(pkt)
+    exp_pkt = mask.Mask(send_pkt)
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    inner_dscp = random.choice(range(0, 33))
-    inner_packet = pkt[IP]
+    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+
+    inner_packet = send_pkt[IP]
     inner_packet.ttl = inner_packet.ttl - 1
     exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
         eth_dst=dst_mac,
         eth_src=src_mac,
         ip_src="10.1.0.32",
         ip_dst="10.1.0.33",
-        ip_dscp=inner_dscp,
-        ip_ttl=63,
         inner_frame=inner_packet
     )
+    send_pkt.ttl = 64
     exp_tunnel_pkt[TCP] = inner_packet[TCP]
     exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
     exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ihl")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "len")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
 
-    exp_tunnel_pkt.set_do_not_care(44*8, 2*8) # ignore checking inner packets checksum
-
-    return pkt, exp_pkt, exp_tunnel_pkt
+    return send_pkt, exp_pkt, exp_tunnel_pkt
 
 
 def random_ip(begin, end):
@@ -719,9 +714,9 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
 
         result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
-            if (result.port in ports and
-                  (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
-                  ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
+            if ((result.port in ports) and
+                (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
+                ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
                 port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
                 packet_count += 1
                 if packet_count == count:
@@ -755,19 +750,20 @@ def check_nexthops_balance(rand_selected_dut,
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
-        ptf_port_count, result_packet = count_matched_packets_all_ports(ptfadapter,
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter,
                                             exp_packet=exp_pkt,
                                             exp_tunnel_pkt=exp_tunnel_pkt,
                                             ports=all_allowed_ports,
-                                            timeout=0.01,
+                                            timeout=0.1,
                                             count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
 
     logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    expect_packet_num = 10000 // nexthops_count
     for downlink_int in expected_downlink_ports:
-        expect_packet_num = 10000 // len(expected_downlink_ports)
+        # ECMP validation:
         pkt_num_lo = expect_packet_num * (1.0 - 0.25)
         pkt_num_hi = expect_packet_num * (1.0 + 0.25)
         count = port_packet_count.get(downlink_int, 0)
@@ -778,11 +774,20 @@ def check_nexthops_balance(rand_selected_dut,
 
     if len(downlink_ints) < nexthops_count:
         # Some nexthop is now connected to standby mux, and the packets will be sent towards portchanel ints
-        # Verify that the packets are also sent to uplinks (in case of standby MUX)
+        # Hierarchical ECMP validation (in case of standby MUXs):
+        # Step 1: Calculate total uplink share.
+        total_uplink_share = expect_packet_num * (nexthops_count - len(expected_downlink_ports))
+        # Step 2: Divide uplink share among all uplinks
+        expect_packet_num = total_uplink_share // len(expected_uplink_ports)
+        # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
         for uplink_int in expected_uplink_ports:
+            pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+            pkt_num_hi = expect_packet_num * (1.0 + 0.25)
             count = port_packet_count.get(uplink_int, 0)
             logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
-            pt_assert(count > 0, "Packets not sent on uplink ports {}".format(uplink_int))
+            if count < pkt_num_lo or count > pkt_num_hi:
+                balance = False
+                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on uplink port {}".format(uplink_int))
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
