@@ -539,6 +539,8 @@ def add_default_route_to_dut(config_facts, duthosts, tbinfo):
                         continue
                     asic.shell("ip route del default", module_ignore_errors=True)
                     asic.shell("ip -6 route del default", module_ignore_errors=True)
+    else:
+        yield
 
 
 def test_hash(add_default_route_to_dut, fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, set_mux_same_side,
