@@ -95,38 +95,29 @@ class IpinIPTunnelTest(BaseTest):
                             ip_ttl=64)
         return pkt
 
-    def generate_expected_packet(self, inner_pkt):
+
+    def generate_expected_packet(self, inner_packet):
         """
         Generate ip_in_ip packet for verifying.
         """
-        inner_pkt = inner_pkt.copy()
-        inner_pkt.ttl = inner_pkt.ttl - 1
-        pkt = scapy.Ether(dst="aa:aa:aa:aa:aa:aa", src=self.standby_tor_mac) / \
-            scapy.IP(src=self.standby_tor_ip, dst=self.active_tor_ip) / inner_pkt[IP]
-        exp_pkt = Mask(pkt)
-        exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
+        inner_packet.ttl = inner_packet.ttl - 1
+        exp_tunnel_pkt = simple_ipv4ip_packet(
+            eth_dst="aa:aa:aa:aa:aa:aa",
+            eth_src=self.standby_tor_mac,
+            ip_src=self.standby_tor_ip,
+            ip_dst=self.active_tor_ip,
+            inner_frame=inner_packet[scapy.IP]
+        )
+        inner_packet.ttl = 64
+        exp_tunnel_pkt[scapy.TCP] = inner_packet[scapy.TCP]
+        exp_tunnel_pkt = Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
+        return exp_tunnel_pkt
 
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "ihl")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "frag")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "proto")
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "sport")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "seq")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "ack")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "reserved")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "dataofs")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "window")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
-        exp_pkt.set_do_not_care_scapy(scapy.TCP, "urgptr")
-        exp_pkt.set_ignore_extra_bytes()
-
-        return exp_pkt
 
     def generate_unexpected_packet(self, inner_pkt):
         """
@@ -200,5 +191,3 @@ class IpinIPTunnelTest(BaseTest):
                                                     timeout=TIMEOUT)
                 pkt_distribution[self.indice_to_portchannel[dst_ports[idx]]] = pkt_distribution.get(self.indice_to_portchannel[dst_ports[idx]], 0) + 1
             self.check_balance(pkt_distribution, hash_key)
-
-
