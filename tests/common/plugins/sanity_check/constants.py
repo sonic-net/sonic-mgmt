@@ -11,6 +11,12 @@ PRINT_LOGS = {
     "routes": "ip route | wc -l"
 }
 
+# Check items for testbed infrastructure that are not 
+# controlled by the DUT
+INFRA_CHECK_ITEMS = [
+    "mux_simulator"
+]
+
 # Recover related definitions
 RECOVER_METHODS = {
     "config_reload": {"cmd": "bash -c 'config reload -y &>/dev/null'", "reboot": False, "adaptive": False, 'recover_wait': 120},

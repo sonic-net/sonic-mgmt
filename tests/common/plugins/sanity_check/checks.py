@@ -1,14 +1,12 @@
 import re
 import json
 import logging
-import ptf.testutils as testutils
 import pytest
 import time
 
-from ipaddress import ip_network, IPv4Network
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import *
-from tests.common.dualtor.dual_tor_utils import *
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, reset_simulator_port
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -311,184 +309,205 @@ def _check_monit_services_status(check_result, monit_services_status):
     return check_result
 
 
-def get_arp_pkt_info(dut):
-    intf_mac = dut.facts['router_mac']
-    mgmt_ipv4 = None
+def _check_intf_names(intf_status, active_intf, mux_intf, expected_side):
+    '''
+    Checks that the interface names for the mux are correct
 
-    mgmt_intf_facts = dut.get_running_config_facts()['MGMT_INTERFACE']
-
-    for mgmt_intf in mgmt_intf_facts:
-        for mgmt_ip in mgmt_intf_facts[mgmt_intf]:
-            if type(ip_network(mgmt_ip, strict=False)) is IPv4Network:
-                mgmt_ipv4 = mgmt_ip.split('/')[0]
-                return intf_mac, mgmt_ipv4
-
-    return intf_mac, mgmt_ipv4
-
-
-def mux_sim_check_downstream(active_tor, standby_tor, ptfadapter,
-                     active_tor_ping_tgt_ip, standby_tor_ping_tgt_ip,
-                     active_tor_exp_pkt, standby_tor_exp_pkt,
-                     ptf_port_index, tor_mux_intf):
+    1. The reported active side (upper or lower ToR) must match expected
+    2. The active side interface name must match the ports list returned by the mux
+    3. The server/NIC interface name must match the portsr list returned by the mux
+    '''
+    bridge = intf_status['bridge']
     failed = False
-    reason = ''
-    host = None
-    ping_cmd = 'ping -I {} {} -c 1 -W 1; true'
-
-    # Clear ARP tables to start in consistent state
-    active_tor.shell("ip neigh flush all")
-    standby_tor.shell("ip neigh flush all")
-
-    # Ping from both ToRs, expect only message from active ToR to reach PTF
-    active_tor.shell(ping_cmd.format(tor_mux_intf, active_tor_ping_tgt_ip))
-    try:
-        testutils.verify_packet(ptfadapter, active_tor_exp_pkt, ptf_port_index)
-    except AssertionError:
+    failed_reason = ''
+    # Verify correct active ToR
+    if intf_status['active_side'] != expected_side:
         failed = True
-        reason = 'Packet from active ToR {} not received'.format(active_tor)
-        host = active_tor.hostname
-        return failed, reason, host
+        failed_reason = 'Active side mismatch for {}, got {} but expected {}' \
+                        .format(bridge, intf_status['active_side'], expected_side)
+        return failed, failed_reason
 
-    standby_tor.shell(ping_cmd.format(tor_mux_intf, standby_tor_ping_tgt_ip))
-    try:
-        testutils.verify_no_packet(ptfadapter, standby_tor_exp_pkt, ptf_port_index)
-    except AssertionError:
+    # Verify correct active ToR interface name
+    if active_intf is not None and active_intf != intf_status['ports'][expected_side]:
         failed = True
-        reason = 'Packet from standby ToR {} received'.format(standby_tor)
-        host = standby_tor.hostname
+        failed_reason = 'Active interface name mismatch for {}, got {} but expected {}' \
+                        .format(bridge, active_intf, intf_status['ports'][expected_side])
+        return failed, failed_reason
+ 
+    # Verify correct server interface name
+    if mux_intf is not None and mux_intf != intf_status['ports'][NIC]:
+        failed = True
+        failed_reason = 'NIC interface name mismatch for {}, got {} but expected {}' \
+                        .format(bridge, mux_intf, intf_status['ports'][NIC])
+        return failed, failed_reason
 
-    return failed, reason, host
+    return failed, failed_reason
 
 
-def mux_sim_check_upstream(upper_tor_host, lower_tor_host, ptfadapter,
-                           ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index):
-    # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
+def _check_server_flows(intf_status, mux_flows):
+    '''
+    Checks that the flows originating from the server/NIC port are correct
+
+    1. Checks that there are exactly two flows (one per ToR)
+    2. Checks that for each flow, the action is output
+    3. Checks that for each flow, the output port is one of the ToR interfaces
+        a. Also checks that each ToR interface is used exactly once
+
+    '''
     failed = False
-    reason = ''
-    host = None
-    upper_tor_host.shell("ip neigh flush all")
-    lower_tor_host.shell("ip neigh flush all")
-
-    testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
-
-    upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-    lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-    if ptf_arp_tgt_ip not in upper_tor_arp_table:
+    failed_reason = ''
+    bridge = intf_status['bridge']
+    # Checking server flows 
+    if len(mux_flows) != 2:
         failed = True
-        reason = 'Packet from PTF not received on upper ToR {}'.format(upper_tor_host)
-        host = upper_tor_host.hostname
-        return failed, reason, host
+        failed_reason = 'Incorrect number of mux flows for {}, got {} but expected 2' \
+                        .format(bridge, len(mux_flows))
+        return failed, failed_reason
 
-    if ptf_arp_tgt_ip not in lower_tor_arp_table:
+    tor_intfs = [intf_status['ports'][UPPER_TOR], intf_status['ports'][LOWER_TOR]]
+    
+    # Each flow should be set to output and have the output interface
+    # as one of the ToR interfaces
+    for flow in mux_flows:
+        if flow['action'] != 'output':
+            failed = True
+            failed_reason = 'Incorrect mux flow action for {}, got {} but expected output' \
+                            .format(bridge, flow['action'])
+            return failed, failed_reason
+        
+        if flow['out_port'] not in tor_intfs:
+            failed = True
+            failed_reason = 'Incorrect ToR output interface for {}, got {} but expected one of {}' \
+                            .format(bridge, flow['out_port'], tor_intfs)
+            return failed, failed_reason
+        else:
+            # Remove already seen ToR intfs from consideration to catch
+            # duplicate output ports
+            tor_intfs.remove(flow['out_port'])
+
+    return failed, failed_reason
+
+
+def _check_tor_flows(active_flows, mux_intf, bridge):
+    '''
+    Checks that the flows originationg from the active ToR are correct
+
+    1. Checks that there is exactly one flow (for the server/NIC)
+    2. Checks that the action is output
+    3. Checks that the out port is the server/NIC interface
+    '''
+    failed = False
+    failed_reason = ''
+
+    # Checking active ToR flows
+    if len(active_flows) != 1:
         failed = True
-        reason = 'Packet from PTF not received on lower ToR {}'.format(lower_tor_host)
-        host = lower_tor_host.hostname
+        failed_reason = 'Incorrect number of active ToR flows for {}, got {} but expected 1' \
+                        .format(bridge, len(active_flows))
+        return failed, failed_reason
+    
+    if active_flows[0]['action'] != 'output':
+        failed = True
+        failed_reason = 'Incorrect active ToR action for {}, got {} but expected output' \
+                        .format(bridge, active_flows[0]['action'])
+        return failed, failed_reason
+    
+    if active_flows[0]['out_port'] != mux_intf:
+        failed = True
+        failed_reason = 'Incorrect active ToR flow output interface for {}, got {} but expected {}' \
+                        .format(bridge, active_flows[0]['out_port'], mux_intf)
+        return failed, failed_reason
+    
+    return failed, failed_reason
 
-    return failed, reason, host
+
+def _check_single_intf_status(intf_status, expected_side):
+    """
+    Checks the mux simulator status for a single ToR/server connection
+    """
+    failed = False
+    failed_reason = ''
+
+    bridge = intf_status['bridge']
+
+    # Check the total number of flows is 2, one for 
+    # server to both ToRs and one for active ToR to server
+    if len(intf_status['flows']) != 2:
+        failed = True
+        failed_reason = 'Incorrect number of flows for {}, got {} but expected 2' \
+                        .format(bridge, len(intf_status['flows']))
+        return failed, failed_reason
+
+    if not intf_status['healthy']:
+        failed = True
+        failed_reason = 'Mux simulator reported unhealthy mux for {} with flows {}' \
+                        .format(bridge, intf_status['flows'])
+        return failed, failed_reason
+
+
+    # Gather the flow information
+    active_intf, mux_intf = None, None
+    active_flows, mux_flows = None, None
+
+    for input_intf, actions in intf_status['flows'].items():
+        if 'mu' in input_intf:
+            mux_intf = input_intf
+            mux_flows = actions
+        else:
+            # Since we have already ensured there are exactly 2 flows
+            # The flow which is not originating from the NIC must be
+            # the flow for the active ToR
+            active_intf = input_intf
+            active_flows = actions
+
+    failed, failed_reason = _check_intf_names(intf_status, active_intf, mux_intf, expected_side)
+ 
+    if not failed:
+        failed, failed_reason = _check_server_flows(intf_status, mux_flows)
+
+    if not failed:
+        failed, failed_reason = _check_tor_flows(active_flows, mux_intf, bridge)
+
+    return failed, failed_reason
+
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
-                    recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
+def check_mux_simulator(toggle_all_simulator_ports, get_mux_status, reset_simulator_port):
 
     def _check(*args, **kwargs):
         """
         @summary: Checks if the OVS bridge mux simulator is functioning correctly
         @return: A dictionary containing the testing result of the PTF interface tested:
             {
+                'check_item': 'mux_simulator',
                 'failed': <True/False>,
                 'failed_reason': <reason string>,
-                'intf': '<PTF interface name> mux simulator'
+                'action': <recovery function>
             }
         """
+        logger.info("Checking mux simulator status")
         results = {
                     'failed': False,
                     'failed_reason': '',
                     'check_item': 'mux_simulator',
-                    'interface': ptf_server_intf
+                    'action': None
                 }
 
         failed = False
         reason = ''
-        host = None
 
-        logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
-        ptf_port_index = int(ptf_server_intf.replace('eth', ''))
-        recover_all_directions(tor_mux_intf)
+        for side in [UPPER_TOR, LOWER_TOR]:
+            toggle_all_simulator_ports(side)
+            time.sleep(5)
+            mux_status = get_mux_status()
+            for status in mux_status.values():
+                failed, reason = _check_single_intf_status(status, expected_side=side)
 
-        upper_tor_intf_mac, upper_tor_mgmt_ip = get_arp_pkt_info(upper_tor_host)
-        lower_tor_intf_mac, lower_tor_mgmt_ip = get_arp_pkt_info(lower_tor_host)
-
-        upper_tor_ping_tgt_ip = '10.10.10.1'
-        lower_tor_ping_tgt_ip = '10.10.10.2'
-        ptf_arp_tgt_ip = '10.10.10.3'
-
-        upper_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
-                                                        eth_src=upper_tor_intf_mac,
-                                                        ip_snd=upper_tor_mgmt_ip,
-                                                        ip_tgt=upper_tor_ping_tgt_ip,
-                                                        hw_snd=upper_tor_intf_mac)
-        lower_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
-                                                        eth_src=lower_tor_intf_mac,
-                                                        ip_snd=lower_tor_mgmt_ip,
-                                                        ip_tgt=lower_tor_ping_tgt_ip,
-                                                        hw_snd=lower_tor_intf_mac)
-
-        ptf_arp_pkt = testutils.simple_arp_packet(ip_tgt=ptf_arp_tgt_ip,
-                                                ip_snd=ptf_arp_tgt_ip,
-                                                arp_op=2)
-
-
-        # Run tests with upper ToR active
-        try:
-            # Stop linkmgrd to prevent it from switching over ports
-            upper_tor_host.shell('systemctl stop mux')
-            lower_tor_host.shell('systemctl stop mux')
-
-            toggle_simulator_port_to_upper_tor(tor_mux_intf)
-            if check_simulator_read_side(tor_mux_intf) != 1:
-                failed = True
-                reason = 'Unable to switch active link to upper ToR'
-
-            if not failed:
-                failed, reason, host = mux_sim_check_downstream(upper_tor_host, lower_tor_host,
-                    ptfadapter, upper_tor_ping_tgt_ip, lower_tor_ping_tgt_ip,
-                    upper_tor_exp_pkt, lower_tor_exp_pkt, ptf_port_index, tor_mux_intf)
-            
-            if not failed:
-                failed, reason, host = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
-                    ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
-
-            # Repeat all tests with lower ToR active
-            if not failed:
-                toggle_simulator_port_to_lower_tor(tor_mux_intf)
-                if check_simulator_read_side(tor_mux_intf) != 2:
-                    failed = True
-                    reason = 'Unable to switch active link to lower ToR'
-
-            if not failed:
-                failed, reason, host = mux_sim_check_downstream(lower_tor_host, upper_tor_host,
-                    ptfadapter, lower_tor_ping_tgt_ip, upper_tor_ping_tgt_ip,
-                    lower_tor_exp_pkt, upper_tor_exp_pkt, ptf_port_index, tor_mux_intf)
-
-            if not failed:
-                failed, reason, host = mux_sim_check_upstream(upper_tor_host, lower_tor_host,
-                    ptfadapter, ptf_arp_tgt_ip, ptf_arp_pkt, ptf_port_index)
-
-            logger.info('Finished mux simulator check')
-        finally:
-            cmds = [
-                'ip neigh flush all',
-                'systemctl reset-failed mux',
-                'systemctl start mux'
-            ]
-
-            lower_tor_host.shell_cmds(cmds=cmds)
-            upper_tor_host.shell_cmds(cmds=cmds)
-
-        results['failed'] = failed
-        results['failed_reason'] = reason
-        if host is not None:
-            results['host'] = host
+                if failed:
+                    results['failed'] = failed
+                    results['failed_reason'] = reason
+                    results['action'] = reset_simulator_port
+                    return results
 
         return results
 
