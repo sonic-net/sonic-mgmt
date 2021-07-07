@@ -91,7 +91,7 @@
             <a:Value>{{ erspan_dest_str }}</a:Value>
          </a:DeviceProperty>
 {% endif %}
-{% if switch_type is defined and switch_type == 'voq' %}
+{% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
           <a:DeviceProperty>
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
@@ -100,8 +100,8 @@
           <a:DeviceProperty>
             <a:Name>SwitchId</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>{{ start_switchid }}</a:Value>
-          </a:DeviceProperty>         
+            <a:Value>{{ switchids[0] }}</a:Value>
+          </a:DeviceProperty>
 {% endif %}
 {% if max_cores is defined %}
           <a:DeviceProperty>
@@ -112,7 +112,40 @@
 {% endif %}
         </a:Properties>
       </a:DeviceMetadata>
-{% set idx = 0 %}
+{% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}
+{% for asic_index in range(num_asics) %}
+{% set asic_name = "ASIC" + asic_index|string %}
+     <a:DeviceMetadata>
+        <a:Name>{{ asic_name }}</a:Name>
+        <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>SubRole</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>FrontEnd</a:Value>
+          </a:DeviceProperty>
+{% if switch_type is defined and switch_type == 'voq' %}
+          <a:DeviceProperty>
+            <a:Name>SwitchType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ switch_type }}</a:Value>
+         </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>SwitchId</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ switchids[asic_index] }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if max_cores is defined %}
+          <a:DeviceProperty>
+            <a:Name>MaxCores</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ max_cores }}</a:Value>
+         </a:DeviceProperty>
+        </a:Properties>
+{% endif %}
+      </a:DeviceMetadata>
+{% endfor %}
+{% endif %}
 {% for asic in asic_topo_config %}
       <a:DeviceMetadata>
         <a:Name>{{ asic }}</a:Name>

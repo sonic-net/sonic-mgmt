@@ -80,19 +80,39 @@
 {% endfor %}
 {% endif %}
 {% if switch_type is defined and switch_type == 'voq' %}
-{% for all_idx in range(all_inbands|length) %}
-{% if voq_inband_ip != all_inbands[all_idx] %}
+{% set voq_peers = dict() %}
+{% for asic_id in range(num_asics) %}
+{% if num_asics == 1 %}
+{% set start_rtr = inventory_hostname %}
+{% else %}
+{% set start_rtr = "ASIC" + asic_id|string %}
+{% endif %}
+{% for a_linecard in all_inbands %}
+{% for idx in range(all_inbands[a_linecard]|length) %}
+{% if voq_inband_ip[asic_id] != all_inbands[a_linecard][idx] %}
       <BGPSession>
-        <StartRouter>{{ inventory_hostname  }}</StartRouter>
-        <StartPeer>{{ voq_inband_ip.split('/')[0] }}</StartPeer>
-        <EndRouter>{{ all_hostnames[all_idx] }}</EndRouter>
-        <EndPeer>{{ all_inbands[all_idx].split('/')[0] }}</EndPeer>
+        <StartRouter>{{ start_rtr }}</StartRouter>
+        <StartPeer>{{ voq_inband_ip[asic_id].split('/')[0] }}</StartPeer>
+{% if all_inbands[a_linecard]|length == 1 %}
+{% set end_rtr = a_linecard %}
+{% else %}
+{% if a_linecard == inventory_hostname %}
+{% set end_rtr = "ASIC" + idx|string %}
+{% else %}
+{% set end_rtr = a_linecard + "-ASIC" + idx|string %}
+{% endif %}
+{% endif %}
+{% set _dummy = voq_peers.update({ all_inbands[a_linecard][idx].split('/')[0] : end_rtr }) %}
+        <EndRouter>{{ end_rtr }}</EndRouter>
+        <EndPeer>{{ all_inbands[a_linecard][idx].split('/')[0] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>0</HoldTime>
         <KeepAliveTime>0</KeepAliveTime>
         <VoQChassisInternal>true</VoQChassisInternal>
       </BGPSession>
 {% endif %}
+{% endfor %}
+{% endfor %}
 {% endfor %}
 {% endif %}
     </PeeringSessions>
@@ -112,16 +132,14 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
-{% if switch_type is defined and switch_type == 'voq' %}
-{% for all_idx in range(all_inbands|length) %}
-{% if voq_inband_ip != all_inbands[all_idx] %}
+{% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
+{% for a_voq_peer in voq_peers %}
           <BGPPeer>
-            <Address>{{ all_inbands[all_idx].split('/')[0] }}</Address>
+            <Address>{{ a_voq_peer }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
           </BGPPeer>
-{% endif %}
 {% endfor %}
 {% endif %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
@@ -147,17 +165,6 @@
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
-{% if switch_type is defined and switch_type == 'voq' %}
-{% for all_idx in range(all_inbands|length) %}
-{% if voq_inband_ip != all_inbands[all_idx] %}
-      <a:BGPRouterDeclaration>
-        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
-        <a:Hostname>{{ all_hostnames[all_idx]  }}</a:Hostname>
-        <a:RouteMaps/>
-      </a:BGPRouterDeclaration>
-{% endif %}
-{% endfor %}
-{% endif %}
 {% for index in range( vms_number) %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 %}
       <a:BGPRouterDeclaration>
@@ -174,7 +181,7 @@
         <a:Hostname>{{ asic }}</a:Hostname>
         <a:Peers>
 {% for index in range( vms_number) %}
-{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
           <BGPPeer>
             <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
             <RouteMapIn i:nil="true"/>
@@ -197,6 +204,52 @@
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% endfor %}
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for a_linecard in all_inbands %}
+{% if a_linecard != inventory_hostname %}
+{% for idx in range(all_inbands[a_linecard]|length) %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
+        <a:Hostname>{{ voq_peers[all_inbands[a_linecard][idx].split('/')[0]] }}</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% if num_asics > 1 %}
+{% for asic_id in range(num_asics) %}
+{% set asic_name = "ASIC" + asic_id|string %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
+        <a:Hostname>{{ asic_name }}</a:Hostname>
+        <a:Peers>
+{% for index in range( vms_number) %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+          <BGPPeer>
+            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+{% for a_linecard in all_inbands %}
+{% for idx in range(all_inbands[a_linecard]|length) %}
+{% if voq_inband_ip[asic_id] != all_inbands[a_linecard][idx] %}
+          <BGPPeer>
+            <Address>{{ all_inbands[a_linecard][idx] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+{% endfor %}
+        </a:Peers>
+      </a:BGPRouterDeclaration>
+{% endfor %}
+{% endif %}
+{% endif %}
     </Routers>
   </CpgDec>
 

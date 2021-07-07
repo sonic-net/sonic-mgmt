@@ -72,10 +72,11 @@
 {% endfor %}
 {% endfor %}
 {% endfor %}
+{% if switch_type is not defined or switch_type != "voq" %}
 {% for asic_intf in front_panel_asic_ifnames %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
-        <Bandwidth>40000</Bandwidth>
+        <Bandwidth>{{ port_speed[port_alias[loop.index - 1]] }}</Bandwidth>
         <ChassisInternal>true</ChassisInternal>
         <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
         <EndPort>{{ asic_intf }}</EndPort>
@@ -85,6 +86,7 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
@@ -217,6 +219,15 @@
         <HwSku>Broadcom-Trident2</HwSku>
       </Device>
 {% endfor %}
+{% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}
+{% for asic_index in range(num_asics) %}
+{% set asic_name = "ASIC" + asic_index|string %}
+      <Device i:type="Asic">
+        <ElementType>Asic</ElementType>
+        <Hostname>{{ asic_name }}</Hostname>
+      </Device>
+{% endfor %}
+{% endif %}
 {% for asic in fabric_info %}
       <Device i:type="Asic">
         <Hostname>{{ asic['asicname'] }}</Hostname>
