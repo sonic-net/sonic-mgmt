@@ -118,32 +118,78 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
             assert prefix in adv_routes
 
 
-def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False, config_reload_test=False):
+def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, vlan_intf_addr, vlan_intf_devname,ipv6=False, config_reload_test=False):
     # Add ipaddresses in ptf
     add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
     try:
+        ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
         time.sleep(5)
-
-        # Check traffic get forwarded to the nexthop
-        ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
-        generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
-
-        # Check the route is advertised to the neighbors
-        check_route_redistribution(duthost, prefix, ipv6)
 
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
             config_reload(duthost)
-            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
-            check_route_redistribution(duthost, prefix, ipv6)
 
+        if ipv6:
+            duthost.shell("sonic-clear ndp")
+            for idx, addr in enumerate(nexthop_addrs):
+                # Add static neighbor
+                duthost.shell(
+                    "ip -6 neigh add {} lladdr {} dev {}".format(addr, ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                                                              vlan_intf_devname))
+                pkt = testutils.simple_icmpv6_packet(
+                    eth_dst=duthost.facts["router_mac"],
+                    eth_src=ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                    ipv6_src=addr,
+                    ipv6_dst=vlan_intf_addr,
+                    ipv6_hlim=64,
+                    icmp_code=0,
+                    icmp_type=128
+                )
+                # Send pkt to update DUT's FDB table to avoid flooding
+                testutils.send(ptfadapter, nexthop_devs[idx], pkt)
+        else:
+            duthost.shell("sonic-clear arp")
+            for idx, addr in enumerate(nexthop_addrs):
+                # Add static neighbor
+                duthost.shell(
+                    "ip neigh add {} lladdr {} dev {}".format(addr, ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                                                              vlan_intf_devname))
+
+                pkt = testutils.simple_icmp_packet(
+                    eth_dst=duthost.facts["router_mac"],
+                    eth_src=ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                    ip_src=addr,
+                    ip_dst=vlan_intf_addr,
+                    icmp_type=8,
+                    icmp_code=0,
+                    ip_ttl=64
+                )
+                # Send pkt to update DUT's FDB table to avoid flooding
+                testutils.send(ptfadapter, nexthop_devs[idx], pkt)
+
+        # Check traffic get forwarded to the nexthop
+        generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+
+        # Check the route is advertised to the neighbors
+        check_route_redistribution(duthost, prefix, ipv6)
     finally:
         # Remove static route
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
+
+        # Remove static neighbor entry
+        for idx, addr in enumerate(nexthop_addrs):
+            if ipv6:
+                duthost.shell(
+                    "ip -6 neigh del {} lladdr {} dev {}".format(addr, ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                                                              vlan_intf_devname))
+            else:
+                duthost.shell(
+                    "ip neigh del {} lladdr {} dev {}".format(addr, ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]),
+                                                              vlan_intf_devname))
 
         # Delete ipaddresses in ptf
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
@@ -161,6 +207,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
     prefix_len = vlan_intf['prefixlen']
+    vlan_intf_addr = vlan_intf['addr']
 
     if is_dualtor(tbinfo):
         server_ips = mux_cable_server_ip(duthost)
@@ -176,36 +223,36 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
         nexthop_addrs = [str(vlan_subnet[i + 2]) for i in range(len(nexthop_devs))]
     count = min(count, len(nexthop_devs))
     indices = random.sample(list(range(len(nexthop_devs))), k=count)
-    return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices]
+    return vlan_intf_addr, prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices], vlan_intf['attachto']
 
 
 def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo)
+    vlan_intf_addr, prefix_len, nexthop_addrs, nexthop_devs, vlan_intf_devname = get_nexthops(duthost, tbinfo)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs)
+                          nexthop_addrs, prefix_len, nexthop_devs, vlan_intf_addr, vlan_intf_devname)
 
 
 def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, count=3)
+    vlan_intf_addr, prefix_len, nexthop_addrs, nexthop_devs, vlan_intf_devname = get_nexthops(duthost, tbinfo, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, vlan_intf_addr, vlan_intf_devname, config_reload_test=True)
 
 
 def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, ipv6=True)
+    vlan_intf_addr, prefix_len, nexthop_addrs, nexthop_devs, vlan_intf_devname = get_nexthops(duthost, tbinfo, ipv6=True)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, vlan_intf_addr, vlan_intf_devname, ipv6=True)
 
 
 def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
+    vlan_intf_addr, prefix_len, nexthop_addrs, nexthop_devs, vlan_intf_devname = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, ipv6=True, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, vlan_intf_addr, vlan_intf_devname, ipv6=True, config_reload_test=True)
