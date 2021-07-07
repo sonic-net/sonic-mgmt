@@ -9,6 +9,7 @@ from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_version
+from tests.common.platform.interface_utils import get_port_map
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -360,11 +361,23 @@ class TestChassisApi(PlatformApiTestBase):
 
     def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if duthost.is_supervisor_node():
+            pytest.skip("skipping for supervisor node")
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
-
+        list_sfps = []
+        if duthost.facts.get("interfaces"):
+            intfs = duthost.facts.get("interfaces")
+            for intf in intfs:
+                index_list = [int(x) for x in duthost.facts["interfaces"][intf]['index'].split(",")]
+                list_sfps.extend(set(index_list))
+        else:
+            int_list = get_port_map(duthost, 'all')
+            for k, v in int_list.items():
+                list_sfps.extend(v)
+        list_sfps.sort()
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
             pytest_assert(num_sfps == expected_num_sfps,
@@ -375,7 +388,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
 
-        for i in range(num_sfps):
+        for i in list_sfps:
             sfp = chassis.get_sfp(platform_api_conn, i)
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()
