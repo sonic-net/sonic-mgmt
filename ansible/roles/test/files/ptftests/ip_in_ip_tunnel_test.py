@@ -95,33 +95,29 @@ class IpinIPTunnelTest(BaseTest):
                             ip_ttl=64)
         return pkt
 
-    def generate_expected_packet(self, inner_pkt):
+
+    def generate_expected_packet(self, inner_packet):
         """
         Generate ip_in_ip packet for verifying.
         """
+        inner_packet.ttl = inner_packet.ttl - 1
         exp_tunnel_pkt = simple_ipv4ip_packet(
             eth_dst="aa:aa:aa:aa:aa:aa",
             eth_src=self.standby_tor_mac,
             ip_src=self.standby_tor_ip,
             ip_dst=self.active_tor_ip,
-            ip_ttl=inner_pkt.ttl - 1,
-            inner_frame=inner_pkt
+            inner_frame=inner_packet[scapy.IP]
         )
-        exp_tunnel_pkt[scapy.TCP] = inner_pkt[scapy.TCP]
+        inner_packet.ttl = 64
+        exp_tunnel_pkt[scapy.TCP] = inner_packet[scapy.TCP]
         exp_tunnel_pkt = Mask(exp_tunnel_pkt)
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ihl")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-
-        exp_tunnel_pkt.set_do_not_care(44*8, 2*8) # ignore checking inner packets checksum
-
-
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
         return exp_tunnel_pkt
+
 
     def generate_unexpected_packet(self, inner_pkt):
         """
