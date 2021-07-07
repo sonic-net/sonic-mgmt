@@ -445,6 +445,9 @@ class TestSfpApi(PlatformApiTestBase):
             # Enable and disable low-power mode on each transceiver
             for state in [True, False]:
                 ret = sfp.set_lpmode(platform_api_conn, i, state)
+                if ret is None:
+                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
+                    break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
                 lpmode = sfp.get_lpmode(platform_api_conn, i)
                 if self.expect(lpmode is not None, "Unable to retrieve transceiver {} low-power mode".format(i)):
