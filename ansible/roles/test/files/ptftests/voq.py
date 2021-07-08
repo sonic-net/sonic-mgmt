@@ -257,7 +257,7 @@ class TTL0(DataplaneTest):
         print("Found %s ICMP ttl expired packets on ports: %s" % (result, str(src_rx_ports)))
         logger.info("Found %s ICMP ttl expired packets on ports: %s" % (result, str(src_rx_ports)))
         print("port: %s" % result.port)
-        if str(result.port) not in src_rx_ports:
+        if result.port not in src_rx_ports:
             self.fail("Port %s not in %s" % (result.port, src_rx_ports))
 
         verify_no_packet_any(self, send_pkt, dst_rx_ports)
@@ -289,6 +289,7 @@ class MtuTest(BaseTest):
         self.src_ptf_port_list = self.test_params.get('src_ptf_port_list')
         self.dst_ptf_port_list = self.test_params.get('dst_ptf_port_list')
         self.version = self.test_params.get('version')
+        self.ignore_ttl = self.test_params.get('ignore_ttl')
 
     def check_icmp_mtu(self):
         """Check ICMP/Ping to DUT works for MAX MTU. """
@@ -386,6 +387,9 @@ class MtuTest(BaseTest):
 
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            if self.ignore_ttl:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
         else:
             pkt = simple_ipv6ip_packet(pktlen=self.pktlen,
@@ -403,12 +407,15 @@ class MtuTest(BaseTest):
 
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            if self.ignore_ttl:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
         dst_port_list = self.dst_ptf_port_list
+        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst + " expected ports " + str(dst_port_list))
         (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
         assert received

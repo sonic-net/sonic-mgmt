@@ -38,24 +38,6 @@ def all_cfg_facts(duthosts):
     return results
 
 
-@pytest.fixture(scope="module", autouse=True)
-def bgp_redistribute_route_lo(duthosts, all_cfg_facts):
-    for a_host in duthosts.frontend_nodes:
-        for a_asic in a_host.asics:
-            asic_asn = all_cfg_facts[a_host.hostname][a_asic.asic_index]['ansible_facts']['DEVICE_METADATA']['localhost']['bgp_asn']
-
-            send_command = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv4 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            send_command_ipv6 = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv6 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            a_host.command(send_command)
-            a_host.command(send_command_ipv6)
-
-
 @reset_ansible_local_tmp
 def _get_nbr_macs(nbrhosts, node=None, results=None):
     vm = nbrhosts[node]
