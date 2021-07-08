@@ -313,7 +313,7 @@ class AsicDbCli(RedisCli):
         """
         cmd = ["/usr/bin/redis-cli", "-n", "1", "HGET", neighbor_key, field]
         if self.host.namespace is not None:
-            cmd = ["/usr/bin/redis-cli", "-h", str(self.ip), "-n", "1", "HGET", neighbor_key, field]
+            cmd = ["/usr/bin/redis-cli", "-n", "1", "HGET", neighbor_key, field]
             cmd = ["sudo", "ip", "netns", "exec"] + [self.host.namespace] + cmd
 
         result = self.host.sonichost.shell(argv=cmd)
