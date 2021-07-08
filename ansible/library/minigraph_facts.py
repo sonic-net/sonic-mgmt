@@ -363,6 +363,7 @@ def parse_dpg(dpg, hname):
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         dhcp_servers = []
+        dhcpv6_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
@@ -375,6 +376,12 @@ def parse_dpg(dpg, hname):
             else:
                 vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")
+            vintf_node = vintf.find(str(QName(ns, "Dhcpv6Relays")))
+            if vintf_node is not None and vintf_node.text is not None:
+                vlandhcpservers = vintf_node.text
+            else:
+                vlandhcpservers = ""
+            dhcpv6_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 # Skip PortChannel inside Vlan
                 if member in pcs:
@@ -402,7 +409,7 @@ def parse_dpg(dpg, hname):
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers
     return None, None, None, None, None, None, None
 
 def parse_cpg(cpg, hname):
@@ -578,6 +585,7 @@ def parse_xml(filename, hostname, asic_name=None):
     hostname = None
     syslog_servers = []
     dhcp_servers = []
+    dhcpv6_servers = []
     ntp_servers = []
     mgmt_routes = []
     bgp_peers_with_range = []
@@ -608,7 +616,7 @@ def parse_xml(filename, hostname, asic_name=None):
     for child in root:
         if asic_name is None:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
             elif child.tag == str(QName(ns, "PngDec")):
@@ -619,7 +627,7 @@ def parse_xml(filename, hostname, asic_name=None):
                 (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, asic_name)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, asic_name)
                 host_lo_intfs = parse_host_loopback(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
@@ -700,6 +708,7 @@ def parse_xml(filename, hostname, asic_name=None):
             results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
     results['syslog_servers'] = syslog_servers
     results['dhcp_servers'] = dhcp_servers
+    results['dhcpv6_servers'] = dhcpv6_servers
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id
