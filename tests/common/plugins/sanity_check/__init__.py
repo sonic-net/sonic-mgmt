@@ -44,6 +44,14 @@ def is_check_item(member):
 
 SUPPORTED_CHECKS = [member[0].replace('check_', '') for member in getmembers(checks, is_check_item)]
 
+def fallback_serializer(_):
+    """
+    Fallback serializer for non JSON serializable objects
+
+    Used for json.dumps
+    """
+    return '<not serializable>'
+
 
 def _item2fixture(item):
     return 'check_' + item
@@ -215,29 +223,36 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
         print_logs(duthosts)
 
         check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
-        logger.debug("Pre-test sanity check results:\n%s" % json.dumps(check_results, indent=4))
+        logger.debug("Pre-test sanity check results:\n%s" % json.dumps(check_results, indent=4, default=fallback_serializer))
 
         failed_results = [result for result in check_results if result['failed']]
         if failed_results:
             if not allow_recover:
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
-                    .format(json.dumps(failed_results, indent=4)))
+                    .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
                 dut_failed_results = defaultdict(list)
+                infra_recovery_actions= []
                 for failed_result in failed_results:
                     if 'host' in failed_result:
                         dut_failed_results[failed_result['host']].append(failed_result)
+                    if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
+                        if 'action' in failed_result and failed_result['action'] is not None \
+                            and callable(failed_result['action']):
+                            infra_recovery_actions.append(failed_result['action'])
                 for dut_name, dut_results in dut_failed_results.items():
                     recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
+                for action in infra_recovery_actions:
+                    action()
 
                 logger.info("Run sanity check again after recovery")
                 new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)
-                logger.debug("Pre-test sanity check after recovery results:\n%s" % json.dumps(new_check_results, indent=4))
+                logger.debug("Pre-test sanity check after recovery results:\n%s" % json.dumps(new_check_results, indent=4, default=fallback_serializer))
 
                 new_failed_results = [result for result in new_check_results if result['failed']]
                 if new_failed_results:
                     pt_assert(False, "!!!!!!!!!!!!!!!! Pre-test sanity check after recovery failed: !!!!!!!!!!!!!!!!\n{}"\
-                        .format(json.dumps(new_failed_results, indent=4)))
+                        .format(json.dumps(new_failed_results, indent=4, default=fallback_serializer)))
 
         logger.info("Done pre-test sanity check")
     else:
@@ -252,12 +267,12 @@ def sanity_check(localhost, duthosts, request, fanouthosts, tbinfo):
     if post_check_items:
         logger.info("Start post-test sanity check")
         post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
-        logger.debug("Post-test sanity check results:\n%s" % json.dumps(post_check_results, indent=4))
+        logger.debug("Post-test sanity check results:\n%s" % json.dumps(post_check_results, indent=4, default=fallback_serializer))
 
         post_failed_results = [result for result in post_check_results if result['failed']]
         if post_failed_results:
             pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
-                .format(json.dumps(post_failed_results, indent=4)))
+                .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
 
         logger.info("Done post-test sanity check")
     else:

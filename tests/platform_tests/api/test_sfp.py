@@ -5,8 +5,9 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.platform_api import chassis, sfp
+from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
+from tests.common.platform.interface_utils import get_port_map
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -110,37 +111,50 @@ class TestSfpApi(PlatformApiTestBase):
     # it relies on the platform_api_conn fixture, which is scoped at the function
     # level, so we must do the same here to prevent a scope mismatch.
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, request, platform_api_conn):
+    def setup(self, request, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if duthost.is_supervisor_node():
+            pytest.skip("skipping for supervisor node")
         self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
-
-        if self.num_sfps is None:
-            try:
-                self.num_sfps = int(chassis.get_num_sfps(platform_api_conn))
-            except:
-                pytest.fail("num_sfps is not an integer")
-
+        internal_intf = re.compile(r'^Ethernet-BP|^Ethernet-IB')
+        self.list_sfps = []
+        # get expected data from platform.json if not present get from port_config.ini
+        if duthost.facts.get("interfaces"):
+            intfs = duthost.facts.get("interfaces")
+            for intf in intfs:
+                if re.match(internal_intf, intf):
+                    logging.debug("skipping internal interface {}".format(intf))
+                    continue
+                index_list = [int(x) for x in duthost.facts["interfaces"][intf]['index'].split(",")]
+                self.list_sfps.extend(set(index_list))
+        else:
+            int_list = get_port_map(duthost, 'all')
+            for k, v in int_list.items():
+                self.list_sfps.extend(v)
+        self.list_sfps.sort()
         self.candidate_sfp = []
         if self.skip_absent_sfp:
             # Skip absent SFP if option "--skip-absent-sfp" set to True 
-            for i in range(self.num_sfps):
+            for i in self.list_sfps:
                 try:
                     if sfp.get_presence(platform_api_conn, i):
                         self.candidate_sfp.append(i)
                 except Exception:
-                    pytest.fail("get_presence API is not supported, failed to compose present SFP list")
+                    pytest.fail("get_presence API is not supported for index {}, failed to compose present SFP list".format(i))
         else:
-            self.candidate_sfp = range(self.num_sfps)
+            self.candidate_sfp = self.list_sfps
+
     #
     # Helper functions
     #
 
     def compare_value_with_platform_facts(self, key, value, sfp_idx, duthost):
         expected_value = None
-
+        sfp_id = self.list_sfps.index(sfp_idx)
         if duthost.facts.get("chassis"):
             expected_sfps = duthost.facts.get("chassis").get("sfps")
             if expected_sfps:
-                expected_value = expected_sfps[sfp_idx].get(key)
+                expected_value = expected_sfps[sfp_id].get(key)
 
         if self.expect(expected_value is not None,
                        "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
@@ -445,6 +459,9 @@ class TestSfpApi(PlatformApiTestBase):
             # Enable and disable low-power mode on each transceiver
             for state in [True, False]:
                 ret = sfp.set_lpmode(platform_api_conn, i, state)
+                if ret is None:
+                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
+                    break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
                 lpmode = sfp.get_lpmode(platform_api_conn, i)
                 if self.expect(lpmode is not None, "Unable to retrieve transceiver {} low-power mode".format(i)):
