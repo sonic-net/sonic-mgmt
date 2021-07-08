@@ -828,10 +828,10 @@
   comment: stumkurv
 
 - conf-name: vms18-t0-7050qx-acs-02
-  group-name: vms18-3
-  topo: t0-35
+  group-name: vms18-6
+  topo: t0-backend
   ptf_image_name: docker-ptf
-  ptf: vms18-3
+  ptf: vms18-6
   ptf_ip: 10.64.246.158/23
   ptf_ipv6:
   server: server_18
@@ -840,7 +840,7 @@
     - str2-7050qx-32s-acs-02
   inv_name: str2
   auto_recover: 'True'
-  comment: v-saidia
+  comment: topo_with_12_vms
 
 - conf-name: vms18-t1-7050qx-acs-03
   group-name: vms18-7
