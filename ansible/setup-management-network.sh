@@ -42,7 +42,7 @@ fi
 echo
 
 echo "STEP 5: Checking if bridge br1 already exists..."
-if ! brctl show br1; then
+if ! ifconfig br1; then
     echo "br1 not found, creating bridge network"
     brctl addbr br1
     brctl show br1

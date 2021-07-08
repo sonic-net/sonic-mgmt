@@ -8,8 +8,17 @@ First, we need to prepare the host where we will be configuring the virtual test
     - To setup a T0 topology, the server needs to have at least 10GB of memory free
     - If the testbed host is a VM, then it must support nested virtualization
         - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
+2. Ensure that python and pip are installed
+```
+apt install python3 python3-pip
+```
 
-2. Run the host setup script to install required packages and initialize the management bridge network
+3. If the server was upgraded from Ubuntu 18.04, check the default python version using command `python --version`. If the default python version is still 2.x, replace it with python3 using symbolic link:
+```
+ln -sf /usr/bin/python3 /usr/bin/python
+```
+
+4. Run the host setup script to install required packages and initialize the management bridge network
 
 ```
 git clone https://github.com/Azure/sonic-mgmt
@@ -17,7 +26,7 @@ cd sonic-mgmt/ansible
 sudo ./setup-management-network.sh
 ```
 
-3. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
+5. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
 
 ## Download an VM image
 We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
@@ -126,7 +135,7 @@ index 3e7b3c4e..edabfc40 100644
 foo ALL=(ALL) NOPASSWD:ALL
 ```
 
-4. Verify that you can login into the host (e.g. `ssh foo@172.17.0.1`) from the `sonic-mgmt` container without any password prompt.
+4. Verify that you can login into the host (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` container without any password prompt.
 
 5. Verify that you can use `sudo` without a password prompt inside the host (e.g. `sudo bash`).
 
@@ -139,7 +148,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the VMs, you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
