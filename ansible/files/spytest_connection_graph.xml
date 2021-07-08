@@ -51,7 +51,7 @@
       <Device Hostname="str2-7050cx3-acs-09" HwSku="Arista-7050CX3-32S-D48C8" Type="DevSonic"/>
       <Device Hostname="str2-7050cx3-acs-10" HwSku="Arista-7050CX3-32S-D48C8" Type="DevSonic"/>
       <Device Hostname="str2-7050cx3-acs-11" HwSku="Arista-7050CX3-32S-D48C8" Type="DevSonic"/>
-      <Device Hostname="str2-7050qx-32s-acs-01" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
+      <Device Hostname="str2-7050qx-32s-acs-01" HwSku="Arista-7050QX32S-Q32" Type="DevSonic"/>
       <Device Hostname="str2-7050qx-32s-acs-02" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
       <Device Hostname="str2-7050qx-32s-acs-03" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
       <Device Hostname="str2-7260cx3-acs-9" HwSku="Arista-7260CX3-D108C8" Type="DevSonic"/>
@@ -3605,7 +3605,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.158/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7050qx-32s-acs-02">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.255/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.28/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7050qx-32s-acs-03">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.167/23"/>
