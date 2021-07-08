@@ -512,7 +512,7 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutTopo + topo in qosConfigs['qos_params'][dutAsic]:
+        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
@@ -523,11 +523,14 @@ class QosSaiBase(QosBase):
         # multiple buffer pipes.
         src_port_ids = None
         dst_port_ids = None
-        if "src_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
-            src_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["src_port_ids"]
+        try:
+            if "src_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
+                src_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["src_port_ids"]
 
-        if "dst_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
-            dst_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["dst_port_ids"]
+            if "dst_port_ids" in  qosConfigs['qos_params'][dutAsic][dutTopo]:
+                dst_port_ids = qosConfigs['qos_params'][dutAsic][dutTopo]["dst_port_ids"]
+        except KeyError:
+            pass
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
         yield {
