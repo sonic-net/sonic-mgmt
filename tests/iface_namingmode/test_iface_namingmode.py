@@ -37,7 +37,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=False)['ansible_facts']
+    port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
     up_ports = minigraph_facts['minigraph_ports'].keys()
     default_interfaces = port_alias_facts['port_name_map'].keys()
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
@@ -336,8 +336,8 @@ def test_show_pfc_counters(setup, setup_config_mode):
     per the configured naming mode
     """
     dutHostGuest, mode, ifmode = setup_config_mode
-    pfc_rx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters | sed -n "/Port Rx/,/^$/p"'.format(ifmode))['stdout']
-    pfc_tx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters | sed -n "/Port Tx/,/^$/p"'.format(ifmode))['stdout']
+    pfc_rx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters -d all | sed -n "/Port Rx/,/^$/p"'.format(ifmode))['stdout']
+    pfc_tx = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show pfc counters -d all | sed -n "/Port Tx/,/^$/p"'.format(ifmode))['stdout']
     logger.info('pfc_rx:\n{}'.format(pfc_rx))
     logger.info('pfc_tx:\n{}'.format(pfc_tx))
 
