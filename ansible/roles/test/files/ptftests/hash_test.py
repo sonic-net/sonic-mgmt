@@ -184,7 +184,7 @@ class HashTest(BaseTest):
         @param src_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
-        base_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
@@ -262,7 +262,7 @@ class HashTest(BaseTest):
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
-        base_mac = self.dataplane.get_mac(0, 0)
+        base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
 
