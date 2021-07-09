@@ -235,7 +235,7 @@ def main():
                                            'sysports': sysports})
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        switchids = [0]
+        switchids = None
         if 'switchids' in m_args and m_args['switchids'] != None:
            switchids = m_args['switchids']
         # When this script is invoked on sonic-mgmt docker, num_asic 
@@ -258,7 +258,7 @@ def main():
         if 'hostname' in m_args:
             hostname = m_args['hostname']
         for asic_id in range(num_asic):
-            if asic_id is not None:
+            if switchids and asic_id is not None:
                 switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None

@@ -123,7 +123,6 @@
             <a:Reference i:nil="true"/>
             <a:Value>FrontEnd</a:Value>
           </a:DeviceProperty>
-{% if switch_type is defined and switch_type == 'voq' %}
           <a:DeviceProperty>
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
@@ -134,7 +133,6 @@
             <a:Reference i:nil="true"/>
             <a:Value>{{ switchids[asic_index] }}</a:Value>
           </a:DeviceProperty>
-{% endif %}
 {% if max_cores is defined %}
           <a:DeviceProperty>
             <a:Name>MaxCores</a:Name>

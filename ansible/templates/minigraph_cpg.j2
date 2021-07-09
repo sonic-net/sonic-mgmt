@@ -102,7 +102,7 @@
 {% set end_rtr = a_linecard + "-ASIC" + idx|string %}
 {% endif %}
 {% endif %}
-{% set _dummy = voq_peers.update({ all_inbands[a_linecard][idx].split('/')[0] : end_rtr }) %}
+{% set _ = voq_peers.update({ all_inbands[a_linecard][idx].split('/')[0] : end_rtr }) %}
         <EndRouter>{{ end_rtr }}</EndRouter>
         <EndPeer>{{ all_inbands[a_linecard][idx].split('/')[0] }}</EndPeer>
         <Multihop>1</Multihop>
