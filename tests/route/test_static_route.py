@@ -137,7 +137,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
-            config_reload(duthost)
+            config_reload(duthost, wait=350)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
