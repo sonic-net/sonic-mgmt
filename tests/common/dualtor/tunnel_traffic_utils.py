@@ -113,7 +113,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
             exp_queue = derive_queue_id_from_dscp(outer_dscp)
 
-            time.sleep(10)
+            time.sleep(60)
             queue_counter = self.standby_tor.shell('show queue counters | grep "UC"')['stdout']
             logging.debug('queue_counter:\n{}'.format(queue_counter))
 
