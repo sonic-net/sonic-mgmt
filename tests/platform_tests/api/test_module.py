@@ -28,7 +28,7 @@ pytestmark = [
 ]
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
-REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
+REGEX_SERIAL_NUMBER = r'^[-A-Za-z0-9]+$'
 REGEX_IP_ADDRESS = r'^(?:[0-9]{1,3}\.){3}([0-9]{1,3})$'
 
 MODULE_TYPE = ['SUPERVISOR', 'LINE-CARD', 'FABRIC-CARD']
