@@ -1,0 +1,1 @@
+# Place for snappi fixtures.
