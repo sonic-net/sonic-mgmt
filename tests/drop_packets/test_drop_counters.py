@@ -8,10 +8,12 @@ import re
 import ptf.packet as packet
 import ptf.testutils as testutils
 
+from collections import defaultdict
+
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
-from drop_packets import *  # FIXME
+from .drop_packets import *  # FIXME
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -37,36 +39,36 @@ COMBINED_ACL_DROP_COUNTER = False
 
 
 @pytest.fixture(autouse=True, scope="module")
-def enable_counters(duthosts, rand_one_dut_hostname):
+def enable_counters(duthosts):
     """ Fixture which enables RIF and L2 counters """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    previous_cnt_status = {}
+    previous_cnt_status = defaultdict(dict)
     # Separating comands based on whether they need to be done per namespace or globally.
     cmd_list = ["intfstat -D", "sonic-clear counters"]
     cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
 
     """ Fixture which enables RIF and L2 counters """
-    duthost.shell_cmds(cmds=cmd_list)
+    for duthost in duthosts:
+        duthost.shell_cmds(cmds=cmd_list)
 
-    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
-    for namespace in namespace_list:
-        cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
-        previous_cnt_status[namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
+        namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
+        for namespace in namespace_list:
+            cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
+            previous_cnt_status[duthost][namespace] = {item: duthost.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
 
-        ns_cmd_list = []
-        CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-        for cmd in cmd_list_per_ns:
-            ns_cmd_list.append(CMD_PREFIX + cmd)
-        duthost.shell_cmds(cmds=ns_cmd_list)
+            ns_cmd_list = []
+            CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+            for cmd in cmd_list_per_ns:
+                ns_cmd_list.append(CMD_PREFIX + cmd)
+            duthost.shell_cmds(cmds=ns_cmd_list)
 
     yield
-    for namespace in namespace_list:
-        for port, status in previous_cnt_status[namespace].items():
-            if status == "disable":
-                logger.info("Restoring counter '{}' state to disable".format(port))
-                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-                duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
+    for duthost in duthosts:
+        for namespace in namespace_list:
+            for port, status in previous_cnt_status[duthost][namespace].items():
+                if status == "disable":
+                    logger.info("Restoring counter '{}' state to disable".format(port))
+                    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+                    duthost.command(CMD_PREFIX + "counterpoll {} disable".format(port))
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -91,85 +93,94 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture
-def acl_setup(duthosts, rand_one_dut_hostname, loganalyzer):
+def acl_setup(duthosts, loganalyzer):
     """ Create acl rule defined in config file. Delete rule after test case finished """
-    duthost = duthosts[rand_one_dut_hostname]
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    template_dir = os.path.join(base_dir, 'acl_templates')
-    acl_rules_template = "acltb_test_rule.json"
-    del_acl_rules_template = "acl_rule_del.json"
-    dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
+    for duthost in duthosts:
+        base_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.join(base_dir, 'acl_templates')
+        acl_rules_template = "acltb_test_rule.json"
+        del_acl_rules_template = "acl_rule_del.json"
+        dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
 
-    duthost.command("mkdir -p {}".format(dut_tmp_dir))
-    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
-    dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
+        duthost.command("mkdir -p {}".format(dut_tmp_dir))
+        dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+        dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
-    logger.info("Generating config for ACL rule, ACL table - DATAACL")
-    duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path)
-    logger.info("Generating clear config for ACL rule, ACL table - DATAACL")
-    duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path)
+        logger.info("Generating clear config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
 
-    logger.info("Applying {}".format(dut_conf_file_path))
+        logger.info("Applying {}".format(dut_conf_file_path))
 
-    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-    with loganalyzer[rand_one_dut_hostname] as analyzer:
-        duthost.command("config acl update full {}".format(dut_conf_file_path))
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer[duthost.hostname]:
+            duthost.command("config acl update full {}".format(dut_conf_file_path))
 
     yield
 
-    loganalyzer[rand_one_dut_hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-    with loganalyzer[rand_one_dut_hostname] as analyzer:
-        logger.info("Applying {}".format(dut_clear_conf_file_path))
-        duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
-        logger.info("Removing {}".format(dut_tmp_dir))
-        duthost.command("rm -rf {}".format(dut_tmp_dir))
-        time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
+    for duthost in duthosts:
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer[duthost.hostname]:
+            logger.info("Applying {}".format(dut_clear_conf_file_path))
+            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
+            logger.info("Removing {}".format(dut_tmp_dir))
+            duthost.command("rm -rf {}".format(dut_tmp_dir))
+            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports=None):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
     # Clear SONiC counters
-    duthost.command("sonic-clear counters")
+    for duthost in duthosts:
+        duthost.command("sonic-clear counters")
 
-    # Clear RIF counters per namespace.
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-    duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
+        # Clear RIF counters per namespace.
+        namespace = duthost.get_namespace_from_asic_id(asic_index)
+        CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+        duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
 
-    send_packets(pkt, duthost, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
+    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
     if discard_group == "L2":
-        verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
-        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+        verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+        for duthost in duthosts:
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
-            verify_drop_counters(duthost, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
-            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+            for duthost in duthosts:
+                ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
-            verify_drop_counters(duthost, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
-            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            verify_drop_counters(duthosts, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
+            for duthost in duthosts:
+                ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
 
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
-        acl_drops = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]["RULE_1"]["packets_count"]
+        acl_drops = 0
+        for duthost in duthosts:
+            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]["RULE_1"]["packets_count"]
         if acl_drops != PKT_NUMBER:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}".format(
                 tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER
             )
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
-            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
-            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            for duthost in duthosts:
+                ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+                ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
-        ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
-        ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+        for duthost in duthosts:
+            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
@@ -183,9 +194,8 @@ def get_intf_mtu(duthost, intf, asic_index):
 
 
 @pytest.fixture
-def mtu_config(duthosts, rand_one_dut_hostname):
+def mtu_config(duthosts):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
-    duthost = duthosts[rand_one_dut_hostname]
     class MTUConfig(object):
         iface = None
         mtu = None
@@ -193,31 +203,33 @@ def mtu_config(duthosts, rand_one_dut_hostname):
 
         @classmethod
         def set_mtu(cls, mtu, iface, asic_index):
-            namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
-            cls.mtu = duthost.command("sonic-db-cli -n '{}' CONFIG_DB hget \"PORTCHANNEL|{}\" mtu".format(namespace, iface))["stdout"]
-            if not cls.mtu:
-                cls.mtu = cls.default_mtu
-            if "PortChannel" in iface:
-                duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
-            elif "Ethernet" in iface:
-                duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
-            else:
-                raise Exception("Unsupported interface parameter - {}".format(iface))
-            cls.iface = iface
-            check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu
-            pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
-            cls.asic_index = asic_index
+            for duthost in duthosts:
+                namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
+                cls.mtu = duthost.command("sonic-db-cli -n '{}' CONFIG_DB hget \"PORTCHANNEL|{}\" mtu".format(namespace, iface))["stdout"]
+                if not cls.mtu:
+                    cls.mtu = cls.default_mtu
+                if "PortChannel" in iface:
+                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
+                elif "Ethernet" in iface:
+                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
+                else:
+                    raise Exception("Unsupported interface parameter - {}".format(iface))
+                cls.iface = iface
+                check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu  # lgtm[py/loop-variable-capture]
+                pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
+                cls.asic_index = asic_index
 
         @classmethod
         def restore_mtu(cls):
-            if cls.iface:
-                namespace = duthost.get_namespace_from_asic_id(cls.asic_index) if duthost.is_multi_asic else ''
-                if "PortChannel" in cls.iface:
-                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
-                elif "Ethernet" in cls.iface:
-                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
-                else:
-                    raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
+            for duthost in duthosts:
+                if cls.iface:
+                    namespace = duthost.get_namespace_from_asic_id(cls.asic_index) if duthost.is_multi_asic else ''
+                    if "PortChannel" in cls.iface:
+                        duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
+                    elif "Ethernet" in cls.iface:
+                        duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
+                    else:
+                        raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
 
     yield MTUConfig
 
@@ -231,8 +243,8 @@ def check_if_skip():
 
 
 @pytest.fixture(scope='module')
-def do_test():
-    def do_counters_test(discard_group, pkt, ptfadapter, duthost, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
+def do_test(duthosts):
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -244,7 +256,7 @@ def do_test():
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports)
+        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -285,7 +297,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname
             tcp_dport=pkt_fields["tcp_dport"]
         )
 
-        do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
 def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, acl_setup, ports_info):
@@ -309,7 +321,7 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
         tcp_dport=pkt_fields["tcp_dport"]
         )
     asic_index = ports_info["asic_index"]
-    base_verification("ACL", pkt, ptfadapter, duthost, asic_index, ports_info, tx_dut_ports)
+    base_verification("ACL", pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports)
 
     # Verify packets were not egresed the DUT
     exp_pkt = expected_packet_mask(pkt)
@@ -317,12 +329,10 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
     @summary: Verify that packets on ingress port are not dropped when egress RIF link is down and check that drop counters not incremented
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     ip_dst = rif_port_down
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst, pkt_fields["ipv4_src"])
 
@@ -335,7 +345,7 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, duthosts, rand_one_dut
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    do_test("NO_DROPS", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("NO_DROPS", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -361,15 +371,13 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     pkt = testutils.simple_tcp_packet(**pkt_params)
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     global L2_COL_KEY
     if  "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
@@ -396,6 +404,6 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, duthosts, rand_one_dut_ho
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, duthost, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
     finally:
         L2_COL_KEY = RX_DRP
