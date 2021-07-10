@@ -579,7 +579,7 @@ def main():
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
         else:
-            base_topo_file = 'testbed-mth32-t0.yaml'
+            base_topo_file = 'testbed-mth64-t0.yaml'
     elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
@@ -590,16 +590,14 @@ def main():
     elif topo_type == 'dualtor-56':
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
-        base_topo_file = 'testbed-mth32-t0-dualtor.yaml'
+        base_topo_file = 'testbed-mth64-t0-dualtor.yaml'
     print("USING BASE TOPO {}".format(base_topo_file))
-
-
-    if clean_sim:
-        os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
 
     input_file = args['input_file']
 
     if input_file is None:
+        if clean_sim:
+            os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {}".format(topo_yaml))
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
