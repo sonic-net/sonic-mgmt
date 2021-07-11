@@ -106,6 +106,7 @@ test_t0() {
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py \
     lldp/test_lldp.py \
     ntp/test_ntp.py \
     pc/test_po_cleanup.py \
