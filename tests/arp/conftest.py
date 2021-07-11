@@ -37,7 +37,17 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
     po1 = None
     po2 = None
-    if tbinfo['topo']['type'] == 't0':
+
+    is_storage_backend = 'backend' in tbinfo['topo']['name']
+
+    if is_storage_backend:
+        vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
+        ports_for_test = [_['attachto'] for _ in vlan_sub_intfs]
+
+        # select two vlan sub interfaces for testing
+        intf1 = ports_for_test[0]
+        intf2 = ports_for_test[1]
+    elif tbinfo['topo']['type'] == 't0':
         if 'PORTCHANNEL_MEMBER' in config_facts:
             portchannel_members = []
             for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
@@ -74,8 +84,12 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
-    intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
-    intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
+    if is_storage_backend:
+        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1.split('.')[0]]
+        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2.split('.')[0]]
+    else:
+        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
+        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
     asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
     asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
