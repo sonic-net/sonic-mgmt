@@ -14,11 +14,6 @@ REBOOT_TYPES = {
         "fast": "fast-reboot"
         }
 
-def reboot(duthost, pdu_ctrl, reboot_type):
-    if reboot_type == "power off": return power_cycle(duthost, pdu_ctrl)
-    if reboot_type not in REBOOT_TYPES: pytest.fail("Invalid reboot type {}".format(reboot_type)) 
-    return duthost.command(REBOOT_TYPES[reboot_type], module_ignore_errors=True, module_async=True)
-
 def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skipping" % duthost.hostname)
@@ -30,6 +25,40 @@ def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
     time.sleep(delay_time)
     for outlet in power_on_seq:
         pdu_ctrl.turn_on_outlet(outlet)
+
+def reboot(duthost, pdu_ctrl, reboot_type):
+    if reboot_type not in REBOOT_TYPES: pytest.fail("Invalid reboot type {}".format(reboot_type))
+
+    if reboot_type == "power off": 
+        power_cycle(duthost, pdu_ctrl)
+        return
+
+    duthost.command(REBOOT_TYPES[reboot_type], module_ignore_errors=True, module_async=True)
+
+def complete_install(duthost, boot_type, res, pdu_ctrl, auto_reboot=False, next_image=None):
+    hn = duthost.mgmt_ip
+
+    if boot_type != "none":
+        if not auto_reboot:
+            res.get(TIMEOUT)
+            reboot(duthost, pdu_ctrl, boot_type)
+        
+        # Wait for ssh flap
+        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=TIMEOUT)
+        time.sleep(300)
+        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
+        wait_until(300, 30, duthost.critical_services_fully_started)
+        time.sleep(60)
+
+    # Reboot back into original image if neccesary
+    if next_image:
+        duthost.command("sonic-installer set-default {}".format(current))
+        reboot(duthost, pdu_ctrl, "cold")
+        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=150)
+        time.sleep(100)
+        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
+        wait_until(300, 30, duthost.critical_services_fully_started)
+        time.sleep(60)
 
 def show_firmware(duthost):
     out = duthost.command("fwutil show status")
@@ -152,34 +181,12 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     command += " -y"
 
-    print("RAN COMMAND {}".format(command))
     task, res = duthost.command(command, module_ignore_errors=True, module_async=True)
     boot_type = boot if boot else paths[component]["reboot"][0]
-    hn = duthost.mgmt_ip
+    auto_reboot = paths[component].get("auto_reboot", False)
 
-    if boot_type != "none":
-        if not paths[component].get("auto_reboot", False):
-            res.get(TIMEOUT)
-            reboot(duthost, pdu_ctrl, reboot if reboot else paths[component]["reboot"])
-        
-        # Wait for ssh flap
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=TIMEOUT)
-        time.sleep(300)
-        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
-        wait_until(300, 30, duthost.critical_services_fully_started)
-        time.sleep(60)
+    complete_install(duthost, boot_type, res, pdu_ctrl, auto_reboot, next_image):
 
     final_versions = show_firmware(duthost)
-
-    # Reboot back into original image if neccesary
-    if next_image:
-        duthost.command("sonic_installer set_next_boot {}".format(current))
-        reboot(duthost, pdu_ctrl, "cold")
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=150)
-        time.sleep(100)
-        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
-        wait_until(300, 30, duthost.critical_services_fully_started)
-        time.sleep(60)
-
     return validate_versions(init_versions, final_versions, paths, chassis, boot)
 

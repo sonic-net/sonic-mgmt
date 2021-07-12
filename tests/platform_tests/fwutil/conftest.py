@@ -66,7 +66,6 @@ def next_image(duthost, fw_pkg):
     duthost.copy(src=fw_pkg["images"][target], dest=DUT_HOME)
     remote_path = os.path.join(DUT_HOME, os.path.basename(fw_pkg["images"][target]))
     duthost.command("sonic_installer install -y {}".format(remote_path), module_ignore_errors=True)
-    duthost.command("sonic_installer set_next_boot SONiC-OS-{}".format(target))
 
     # Mount newly installed image
     fs_path = FS_PATH_TEMPLATE.format(target)
@@ -89,8 +88,4 @@ def next_image(duthost, fw_pkg):
     duthost.command(cmd)
 
     yield overlay_mountpoint
-
-    input("TEST")
-    # Reset next boot
-    duthost.command("sonic_installer remove SONiC-OS-{}".format(target))
 
