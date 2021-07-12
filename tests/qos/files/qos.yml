@@ -525,7 +525,7 @@ qos_params:
                     pkts_num_fill_egr_min: 14
                     cell_size: 256
             100000_300m:
-                pkts_num_leak_out: 41
+                pkts_num_leak_out: 31
                 xoff_1:
                     dscp: 3
                     ecn: 1
