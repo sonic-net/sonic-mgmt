@@ -403,20 +403,6 @@ def get_convergence_for_local_link_failover(cvg_api,
                 rx_frate.append(flow.frames_tx_rate)
             assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
-            tx_frame_rate = flow_stats[0].frames_tx_rate
-
-            """ Stopping traffic """
-            logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
-            wait(TIMEOUT, "For Traffic To Stop")
-            flow_stats = get_flow_stats(cvg_api)
-            assert flow_stats[0].frames_tx_rate == 0
-            tx_frames = flow_stats[0].frames_tx
-            rx_frames = sum([fs.frames_rx for fs in flow_stats])
-
-            logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
             """ Get control plane to data plane convergence value """
             request = cvg_api.convergence_request()
             request.convergence.flow_names = []
@@ -426,6 +412,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
 
             """ Performing link up at the end of iteration """
+            logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
             cs = cvg_api.convergence_state()
             cs.link.port_names = [port_name]
             cs.link.state = cs.link.UP
