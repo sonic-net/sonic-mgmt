@@ -1,4 +1,5 @@
 import pytest
+import time
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -151,6 +152,8 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
             'sudo config'
     ]
 
+    # Wait until hostcfgd started and configured tacas authorization
+    time.sleep(100)
     for command in commands:
         banned = ssh_remote_ban_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
                                     creds_all_duts[duthost]['tacacs_ro_user_passwd'], command)

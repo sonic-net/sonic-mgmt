@@ -16,6 +16,8 @@ from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
 from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.utilities import is_ipv4_address
+
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +166,7 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
 
         po = asic_cfg_facts.get('PORTCHANNEL', {})
         ports = asic_cfg_facts.get('PORT', {})
+        sub_interfaces = asic_cfg_facts.get('VLAN_SUB_INTERFACE', {})
 
         with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
             fib = json.load(fp)
@@ -184,7 +187,9 @@ def get_fib_info(duthost, cfg_facts, mg_facts):
                             else:
                                 oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
-                        if ports.has_key(ifname):
+                        if sub_interfaces.has_key(ifname):
+                            oports.append([str(mg_facts['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                        elif ports.has_key(ifname):
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
@@ -223,13 +228,19 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
     ptfhost.copy(src=tmp_fib_info.name, dest=filename)
 
 
-@pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
+@pytest.fixture(scope='function')
+def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo, request):
+    testname = request.node.name
     files = []
     if tbinfo['topo']['type'] != "t2":
         for dut_index, duthost in enumerate(duthosts):
             fib_info = get_fib_info(duthost, config_facts[duthost.hostname], minigraph_facts[duthost.hostname])
-            filename = '/root/fib_info_dut{}.txt'.format(dut_index)
+            if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
+                # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
+                # add a default route as failover in the prefix matching
+                fib_info[u'0.0.0.0/0'] = []
+                fib_info[u'::/0'] = []
+            filename = '/root/fib_info_dut_{0}_{1}.txt'.format(testname, dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)
     else:
@@ -239,6 +250,7 @@ def fib_info_files(duthosts, ptfhost, config_facts, minigraph_facts, tbinfo):
         files.append(filename)
 
     return files
+
 
 @pytest.fixture(scope='module')
 def disabled_ptf_ports(tbinfo):
@@ -499,7 +511,48 @@ def ipver(request):
     return request.param
 
 
-def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, set_mux_same_side,
+@pytest.fixture
+def add_default_route_to_dut(config_facts, duthosts, tbinfo):
+    """
+    Add a default route to the device for storage backend testbed.
+    This is to ensure the IO packets could be successfully directed.
+    """
+    if "backend" in tbinfo["topo"]["name"]:
+        logging.info("Add default route on the DUT.")
+        try:
+            for duthost in duthosts:
+                cfg_facts = config_facts[duthost.hostname]
+                for asic_index, asic_cfg_facts in enumerate(cfg_facts):
+                    asic = duthost.asic_instance(asic_index)
+                    bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
+                    ipv4_cmd_parts = ["ip route add default"]
+                    ipv6_cmd_parts = ["ip -6 route add default"]
+                    for neighbor in bgp_neighbors.keys():
+                        if is_ipv4_address(neighbor):
+                            ipv4_cmd_parts.append("nexthop via %s" % neighbor)
+                        else:
+                            ipv6_cmd_parts.append("nexthop via %s" % neighbor)
+                    ipv4_cmd_parts.sort()
+                    ipv6_cmd_parts.sort()
+                    # limit to 4 nexthop entries
+                    ipv4_cmd = " ".join(ipv4_cmd_parts[:5])
+                    ipv6_cmd = " ".join(ipv6_cmd_parts[:5])
+                    asic.shell(ipv4_cmd)
+                    asic.shell(ipv6_cmd)
+            yield
+        finally:
+            logging.info("Remove default route on the DUT.")
+            for duthost in duthosts:
+                for asic in duthost.asics:
+                    if asic.is_it_backend():
+                        continue
+                    asic.shell("ip route del default", module_ignore_errors=True)
+                    asic.shell("ip -6 route del default", module_ignore_errors=True)
+    else:
+        yield
+
+
+def test_hash(add_default_route_to_dut, fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, set_mux_same_side,
               tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs,
               ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')

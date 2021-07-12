@@ -8,8 +8,17 @@ First, we need to prepare the host where we will be configuring the virtual test
     - To setup a T0 topology, the server needs to have at least 10GB of memory free
     - If the testbed host is a VM, then it must support nested virtualization
         - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
+2. Ensure that python and pip are installed
+```
+apt install python3 python3-pip
+```
 
-2. Run the host setup script to install required packages and initialize the management bridge network
+3. If the server was upgraded from Ubuntu 18.04, check the default python version using command `python --version`. If the default python version is still 2.x, replace it with python3 using symbolic link:
+```
+ln -sf /usr/bin/python3 /usr/bin/python
+```
+
+4. Run the host setup script to install required packages and initialize the management bridge network
 
 ```
 git clone https://github.com/Azure/sonic-mgmt
@@ -17,7 +26,7 @@ cd sonic-mgmt/ansible
 sudo ./setup-management-network.sh
 ```
 
-3. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
+5. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
 
 ## Download an VM image
 We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
@@ -51,12 +60,12 @@ If you want to skip downloading the image when the cEOS image is not imported lo
 You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
 
 ## Download the sonic-vs image
-To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download a public build from Jenkins.
+To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
 
-1. Download the sonic-vs image from [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz)
+1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
-$ wget https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-vs-image/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
+$ wget https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz -O sonic-vs.img.gz
 ```
 
 2. Unzip the image and move it into `~/sonic-vm/images/`
@@ -126,7 +135,7 @@ index 3e7b3c4e..edabfc40 100644
 foo ALL=(ALL) NOPASSWD:ALL
 ```
 
-4. Verify that you can login into the host (e.g. `ssh foo@172.17.0.1`) from the `sonic-mgmt` container without any password prompt.
+4. Verify that you can login into the host (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` container without any password prompt.
 
 5. Verify that you can use `sudo` without a password prompt inside the host (e.g. `sudo bash`).
 
@@ -139,7 +148,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 $ ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extract parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the VMs, you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
@@ -293,8 +302,16 @@ cd sonic-mgmt/tests
 
 2. Run the following command to execute the `bgp_fact` test (including the pre/post setup steps):
 
+If neighbor devices are EOS
+
 ```
 ./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
+```
+
+If neighbor devices are SONiC
+
+```
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
