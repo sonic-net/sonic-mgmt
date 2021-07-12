@@ -10,18 +10,21 @@
   - [Setup configuration](#Setup-configuration)
   - [Test methodology](#Test-methodology)
   - [Test cases](#Test-cases)
-    - [Test case # 1 – Convergence performance when remote link fails (route withdraw)](#test-case--1--convergence-performance-when-remote-link-fails-route-withdraw)
+    - [Test case # 1 – Failover convergence with remote link failure (route withdraw)](#test-case--1--convergence-performance-when-remote-link-fails-route-withdraw)
       - [Test objective](#Test-objective)
       - [Test steps](#Test-steps)
       - [Test results](#Test-results)
+      - [Test case](#Test-case)
     - [Test case # 2 – RIB-IN Convergence](#Test-case--2--RIB-IN-Convergence)
       - [Test objective](#Test-objective-1)
       - [Test steps](#Test-steps-1)
       - [Test results](#Test-results-1)
+      - [Test case](#Test-case-1)
     - [Test case # 3 - Failover convergence with local link failure](#Test-case--3--Failover-convergence-with-local-link-failure) 
       - [Test objective](#Test-objective-2)
       - [Test steps](#Test-steps-2)
       - [Test results](#Test-results-2)
+      - [Test case](#Test-case-2)
     - [Call for action](#Call-for-action)
 
 ## Overview
@@ -102,6 +105,8 @@ For above test case, below are the test results when multiple remote link fails.
 | Withdraw Routes | 8K | 2800 |
 | Withdraw Routes | 16K | 7176 |
 
+### Test Case
+sonic-mgmt/tests/ixia/bgp/test_bgp_remote_link_failover.py 
 ### Test case # 2 – RIB-IN Convergence 
 #### Test objective
 Measure the convergence time to install the routes in its RIB and then in its FIB to forward the packets after the routes are advertised.
@@ -145,6 +150,8 @@ In order to measure RIB-IN capacity of the switch, we can follow the same test m
 | Advertise Routes | 195K | 84487 | 0 |
 | Advertise Routes | 194K | 83285 | 0 |
 
+### Test Case
+sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_convergence.py 
 ### Test case # 3 - Failover convergence with local link failure 
 #### Test objective
 Measure the convergence time when local link failure event happens with in the network.
@@ -175,6 +182,8 @@ Below table is the result of 3 way ECMP for 4 link flap iterations
 | Test_Port_3 Link Failure | 1000 | 4 | 4.336 |
 | Test_Port_4 Link Failure | 1000 | 4 | 4.219 |
 
+### Test Case
+sonic-mgmt/tests/ixia/bgp/test_bgp_local_link_failover.py 
 ### Call for action
 * Solicit experience in multi-DUT system test scenarios.
 

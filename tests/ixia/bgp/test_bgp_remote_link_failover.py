@@ -8,8 +8,8 @@ import pytest
 
 @pytest.mark.parametrize('multipath',[2])
 @pytest.mark.parametrize('convergence_test_iterations',[1])
-@pytest.mark.parametrize('number_of_routes',[4000])
-@pytest.mark.parametrize('route_type',['IPv4','IPv6'])
+@pytest.mark.parametrize('number_of_routes',[1000])
+@pytest.mark.parametrize('route_type',['IPv4'])
 def test_bgp_convergence_for_remote_link_failover(cvg_api,
                                                   duthost,
                                                   tgen_ports,
@@ -34,7 +34,7 @@ def test_bgp_convergence_for_remote_link_failover(cvg_api,
 
     Verification:
     1) Send traffic with all routes advertised by BGP peers
-        Result: Should not observe traffic loss 
+        Result: Should not observe traffic loss
     2) Withdraw all routes from one of the BGP peer
         Result: The traffic must be routed via rest of the ECMP paths and should not observe traffic loss
 
