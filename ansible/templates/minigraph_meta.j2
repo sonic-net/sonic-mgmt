@@ -176,7 +176,6 @@
 {% endif %}
       </a:DeviceMetadata>
 {% endfor %}
-
 {% for asic in fabric_info %}
       <a:DeviceMetadata>
         <a:Name>{{ asic['asicname'] }}</a:Name>
@@ -191,10 +190,14 @@
             <a:Reference i:nil="true"/>
             <a:Value>Fabric</a:Value>
           </a:DeviceProperty>
+          <a:DeviceProperty>
+            <a:Name>SwitchId</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ switchids[asic['asic_id']] }}</a:Value>
+          </a:DeviceProperty>
         </a:Properties>
       </a:DeviceMetadata>
 {% endfor %}
-
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
