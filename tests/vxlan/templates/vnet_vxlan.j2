@@ -27,7 +27,8 @@
     "VLAN": {
 {%- for vlan_intf in vlan_intf_list %}
         "Vlan{{ vlan_intf.vlan_id }}": {
-            "vlanid": {{ vlan_intf.vlan_id }}
+            "vlanid": {{ vlan_intf.vlan_id }},
+            "host_ifname": "MonVlan{{ vlan_intf.vlan_id }}"
         }{{ "," if not loop.last else "" }}
 {%- endfor %}
     },
