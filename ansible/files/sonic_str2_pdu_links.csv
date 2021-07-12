@@ -72,11 +72,15 @@ pdu-116,18,str2-7260cx3-64-19,PSU1
 pdu-115,18,str2-7260cx3-64-19,PSU2
 pdu-120,28,str2-7260cx3-acs-8,PSU1
 pdu-119,28,str2-7260cx3-acs-8,PSU2
+pdu-116,33,str2-dx010-acs-7,PSU1
+pdu-115,33,str2-dx010-acs-7,PSU2
 pdu-120,26,str2-7260cx3-acs-fan-06,PSU1
 pdu-119,26,str2-7260cx3-acs-fan-06,PSU2
 pdu-117,30,str2-7260cx3-acs-fan-07,PSU1
 pdu-117,31,str2-7260cx3-acs-fan-07,PSU2
 pdu-112,9,str2-7260cx3-fan-08,PSU1
+pdu-116,34,str2-7260cx3-fan-09,PSU1
+pdu-115,34,str2-7260cx3-fan-09,PSU2
 pdu-117,27,str2-7260cx3-acs-fan-09,PSU1
 pdu-118,27,str2-7260cx3-acs-fan-09,PSU2
 pdu-120,22,str2-7260cx3-acs-fan-10,PSU1
