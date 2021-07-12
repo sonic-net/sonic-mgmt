@@ -143,7 +143,7 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
             facts.update(dst_port_facts)
 
     if src is None or dst is None:
-        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".duthost.hostname)
+        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".format(duthost.hostname))
     logger.info("gathered_new_facts={}".format(json.dumps(facts, indent=2)))
 
     yield facts
