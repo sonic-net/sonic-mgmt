@@ -1,5 +1,6 @@
 import os
 import time
+import random
 
 from collections import OrderedDict
 
@@ -18,13 +19,14 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 SUB_PORTS_TEMPLATE = 'sub_port_config.j2'
+TUNNEL_TEMPLATE = 'tunnel_config.j2'
 ACTION_FWD = 'fwd'
 ACTION_DROP = 'drop'
 TCP_PORT = 80
 UDP_PORT = 161
 
 
-def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_vlan_enable=False, icmp_type=8, pktlen=100):
+def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_vlan_enable=False, icmp_type=8, pktlen=100, ip_tunnel=None):
     """
     Generate packet to send.
 
@@ -39,6 +41,7 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
         dl_vlan_enable: True if the packet is with vlan, False otherwise
         icmp_type: ICMP type
         pktlen: packet length
+        ip_tunnel: Tunnel IP address of DUT
 
     Returns: simple packet
     """
@@ -51,10 +54,19 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
     elif 'ICMP' in tr_type:
         return testutils.simple_icmp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, icmp_type=icmp_type, vlan_vid=vlan_vid,
                                             dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
+    elif 'decap' in tr_type:
+        inner_dscp = random.choice(range(0, 33))
+        inner_ttl = random.choice(range(3, 65))
+
+        inner_packet = testutils.simple_tcp_packet(ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT, ip_ttl=inner_ttl,
+                                                   ip_tos=inner_dscp)[packet.IP]
+
+        return testutils.simple_ipv4ip_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src='1.1.1.1', ip_dst=ip_tunnel, ip_dscp=inner_dscp, ip_ttl=64,
+                                              vlan_vid=vlan_vid, dl_vlan_enable=dl_vlan_enable, inner_frame=inner_packet)
 
     return None
 
-def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action=None, type_of_traffic=None, ttl=64, pktlen=100):
+def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action=None, type_of_traffic=None, ttl=64, pktlen=100, ip_tunnel=None):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -70,6 +82,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src,
         type_of_traffic: Type of traffic
         ttl: Time to live
         pktlen: packet length
+        ip_tunnel: Tunnel IP address of DUT
     """
     if not type_of_traffic:
         type_of_traffic = ['ICMP',]
@@ -79,6 +92,8 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src,
             generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, pktlen, ttl)
         elif 'ICMP' in tr_type:
             generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl)
+        elif 'decap' in tr_type:
+            generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl, 104, ip_tunnel)
         else:
             pytest.skip('Unsupported type of traffic')
 
@@ -219,6 +234,72 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
         testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, dst_port_list)
 
 
+def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl=64, pktlen=104, ip_tunnel=None):
+    """
+    Send encapsulated packet from PTF to DUT and
+    verify that DUT sends/doesn't send TCP/UDP packet to PTF.
+
+    Args:
+        duthost: DUT host object
+        ptfadapter: PTF adapter
+        src_port: Port of PTF
+        dst_port: Port of DUT
+        ip_src: Source IP address of PTF
+        ip_dst: Destination IP address of DUT
+        pkt_action: Packet action (forwarded or drop)
+        tr_type: Type of traffic (TCP or UDP)
+        pktlen: packet length
+        ttl: Time to live
+        ip_tunnel: Tunnel IP address of DUT
+    """
+    # Get VLAN ID from name of sub-port
+    src_vlan_vid = int(src_port.split('.')[1])
+    dl_vlan_enable = True
+
+    dst_vlan_vid = int(dst_port.split('.')[1])
+
+    router_mac = duthost.facts['router_mac']
+    src_port_number = int(get_port_number(src_port))
+    dst_port_number = int(get_port_number(dst_port))
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port_number)
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port_number)
+
+    ip_src = ip_src.split('/')[0]
+    ip_dst = ip_dst.split('/')[0]
+    ip_tunnel = ip_tunnel.split('/')[0]
+
+    # Define encapsulated packet
+    pkt = create_packet(eth_dst=router_mac,
+                        eth_src=src_mac,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        ip_tunnel=ip_tunnel,
+                        vlan_vid=src_vlan_vid,
+                        dl_vlan_enable=dl_vlan_enable,
+                        tr_type=tr_type,
+                        ttl=64)
+
+    # Build expected packet
+    inner_packet = pkt[packet.IP].payload[packet.IP].copy()
+    exp_pkt = Ether(src=router_mac, dst=dst_mac) / Dot1Q(vlan=dst_vlan_vid) / inner_packet
+    exp_pkt['IP'].ttl -= 1
+
+    update_arp_table(duthost, ip_dst)
+    ptfadapter.dataplane.flush()
+
+    testutils.send_packet(ptfadapter, src_port_number, pkt)
+
+    pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
+                                 exp_pkt=exp_pkt,
+                                 dst_port_number=dst_port_number,
+                                 match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"), ("IP", "src"), ("IP", "dst")],
+                                 ignore_fields=[])
+
+    pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
+
+    pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
+
+
 def shutdown_port(duthost, interface):
     """
     Shutdown port on the DUT
@@ -293,8 +374,10 @@ def __check_vlan(duthost, vlan_id, removed=False):
     """
     vlan_name = 'Vlan{}'.format(vlan_id)
     out = duthost.shell('redis-cli -n 4 keys "VLAN|{}"'.format(vlan_name))["stdout"]
+
     if removed:
         return vlan_name not in out
+
     return vlan_name in out
 
 
@@ -313,8 +396,10 @@ def __check_vlan_member(duthost, vlan_id, vlan_member, removed=False):
     """
     vlan_name = 'Vlan{}'.format(vlan_id)
     out = duthost.shell('redis-cli -n 4 keys "VLAN_MEMBER|{}|{}"'.format(vlan_name, vlan_member))["stdout"]
+
     if removed:
         return vlan_name not in out
+
     return vlan_name in out
 
 
@@ -762,3 +847,14 @@ def remove_sub_port_from_ptf(ptfhost, sub_port, ip):
     """
     ptfhost.shell("ip address del {} dev {}".format(ip, sub_port))
     ptfhost.shell("ip link del {}".format(sub_port))
+
+
+def update_arp_table(duthost, ip):
+    """
+    Add entry to ARP table
+
+    Args:
+        duthost: DUT host object
+        ip: IP address of directly connected inteface
+    """
+    duthost.command("ping {} -c 3".format(ip), module_ignore_errors=True)
