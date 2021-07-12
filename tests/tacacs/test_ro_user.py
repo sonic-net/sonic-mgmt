@@ -10,11 +10,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def ssh_remote_run(localhost, remote_ip, username, password, cmd):
+def ssh_remote_run(localhost, remote_ip, username, password, cmd, module_ignore_errors=True):
     res = localhost.shell("sshpass -p {} ssh "\
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
+                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "\
                           "{}@{} {}".format(
-            password, username, remote_ip, cmd), module_ignore_errors=True)
+            password, username, remote_ip, cmd), module_ignore_errors=module_ignore_errors)
     return res
 
 
@@ -34,7 +34,7 @@ def does_command_exist(localhost, remote_ip, username, password, command):
     return len(usr_result["stdout_lines"]) > 0 or len(bin_result["stdout_lines"]) > 0
 
 def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
-    res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
+    res = ssh_remote_run(localhost, remote_ip, username, password, cmd, module_ignore_errors=False)
     # Verify that the command is allowed
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
     expected = res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr'])
@@ -87,8 +87,8 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "sudo docker ps -a",
         ],
         "lldpctl": ["sudo lldpctl"],
-        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"', 'sudo vtysh -c "show bgp ipv6 summary json"'],
-        "rvtysh": ['sudo rvtysh -c "show ip bgp su"', 'sudo rvtysh -n 0 -c "show ip bgp su"'],
+        "vtysh": ['sudo vtysh -c "show\ version"', 'sudo vtysh -c "show\ bgp\ ipv4\ summary\ json"', 'sudo vtysh -c "show\ bgp\ ipv6\ summary\ json"'],
+        "rvtysh": ['sudo rvtysh -c "show\ ip\ bgp\ su"', 'sudo rvtysh -n 0 -c "show\ ip\ bgp\ su"'],
         "decode-syseeprom": ["sudo decode-syseeprom"],
         "generate_dump": ['sudo generate_dump -s "5 secs ago"'],
         "lldpshow": ["sudo lldpshow"],
