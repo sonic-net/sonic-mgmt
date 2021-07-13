@@ -7,7 +7,7 @@ from copy import deepcopy
 from tests.common.utilities import wait_until
 
 DEVICES_PATH="usr/share/sonic/device"
-TIMEOUT=300
+TIMEOUT=1800
 REBOOT_TYPES = {
         "cold": "reboot",
         "warm": "warm-reboot",
@@ -23,24 +23,25 @@ def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
     for outlet in all_outlets:
         pdu_ctrl.turn_off_outlet(outlet)
     time.sleep(delay_time)
-    for outlet in power_on_seq:
+    for outlet in all_outlets:
         pdu_ctrl.turn_on_outlet(outlet)
 
 def reboot(duthost, pdu_ctrl, reboot_type):
-    if reboot_type not in REBOOT_TYPES: pytest.fail("Invalid reboot type {}".format(reboot_type))
-
     if reboot_type == "power off": 
         power_cycle(duthost, pdu_ctrl)
         return
 
+    if reboot_type not in REBOOT_TYPES: pytest.fail("Invalid reboot type {}".format(reboot_type))
+
     duthost.command(REBOOT_TYPES[reboot_type], module_ignore_errors=True, module_async=True)
 
-def complete_install(duthost, boot_type, res, pdu_ctrl, auto_reboot=False, next_image=None):
+def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=False, current=None, next_image=None):
     hn = duthost.mgmt_ip
 
     if boot_type != "none":
         if not auto_reboot:
             res.get(TIMEOUT)
+            duthost.command("sonic-installer set-default {}".format(current))
             reboot(duthost, pdu_ctrl, boot_type)
         
         # Wait for ssh flap
@@ -119,7 +120,7 @@ def generate_config(duthost, cfg, versions):
         if "firmware" in paths[comp]:
             paths[comp]["firmware"] = os.path.join("/", DEVICES_PATH, 
                     duthost.facts["platform"], 
-                    paths[comp]["firmware"])
+                    os.path.basename(paths[comp]["firmware"]))
 
     # Populate items we are installing
     with open("platform_components.json", "w") as f:
@@ -138,6 +139,9 @@ def upload_platform(duthost, paths, next_image=None):
     for comp, dat in paths.items():
         duthost.copy(src=dat["firmware"], 
                 dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
+        if "install_file" in dat:
+            duthost.copy(src=dat["install_file"], 
+                    dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
 
 def validate_versions(init, final, config, chassis, boot):
     final = final["chassis"][chassis]["component"]
@@ -171,7 +175,9 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
         command += " chassis component {} fw".format(component)
 
     if basepath is not None:
-        command += " {}".format(os.path.join(basepath, paths[component]["firmware"]))
+        # Install file is override if API implementation needs a different file for install / update
+        filepath = paths[component]["install_file"] if "install_file" in paths[component] else paths[component]["firmware"]
+        command += " {}".format(os.path.join(basepath, os.path.basename(filepath)))
 
     if next_image is not None:
         command += " --image={}".format("next" if next_image else "current")
@@ -185,8 +191,8 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     boot_type = boot if boot else paths[component]["reboot"][0]
     auto_reboot = paths[component].get("auto_reboot", False)
 
-    complete_install(duthost, boot_type, res, pdu_ctrl, auto_reboot, next_image):
+    complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image)
 
     final_versions = show_firmware(duthost)
-    return validate_versions(init_versions, final_versions, paths, chassis, boot)
+    return validate_versions(init_versions, final_versions, paths, chassis, boot_type)
 
