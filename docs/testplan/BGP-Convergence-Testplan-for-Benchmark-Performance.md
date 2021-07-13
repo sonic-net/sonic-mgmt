@@ -106,7 +106,7 @@ For above test case, below are the test results when multiple remote link fails.
 | Withdraw Routes | 16K | 7176 |
 
 ### Test Case
-sonic-mgmt/tests/ixia/bgp/test_bgp_remote_link_failover.py 
+* sonic-mgmt/tests/ixia/bgp/test_bgp_remote_link_failover.py 
 ### Test case # 2 – RIB-IN Convergence 
 #### Test objective
 Measure the convergence time to install the routes in its RIB and then in its FIB to forward the packets after the routes are advertised.
@@ -151,7 +151,8 @@ In order to measure RIB-IN capacity of the switch, we can follow the same test m
 | Advertise Routes | 194K | 83285 | 0 |
 
 ### Test Case
-sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_convergence.py 
+* sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_convergence.py 
+* sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_capacity.py 
 ### Test case # 3 - Failover convergence with local link failure 
 #### Test objective
 Measure the convergence time when local link failure event happens with in the network.
@@ -183,7 +184,7 @@ Below table is the result of 3 way ECMP for 4 link flap iterations
 | Test_Port_4 Link Failure | 1000 | 4 | 4.219 |
 
 ### Test Case
-sonic-mgmt/tests/ixia/bgp/test_bgp_local_link_failover.py 
+* sonic-mgmt/tests/ixia/bgp/test_bgp_local_link_failover.py 
 ### Call for action
 * Solicit experience in multi-DUT system test scenarios.
 
