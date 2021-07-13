@@ -53,8 +53,11 @@ def modify_monit_config_and_restart(duthost):
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
 
+    logger.info("Restore bgp neighbours ...")
+    duthost.shell("config bgp startup all")
 
-def install_stress_utility(duthost, container_name):
+
+def install_stress_utility(duthost, creds, container_name):
     """Installs the 'stress' utility in container before testing.
 
     Args:
@@ -66,9 +69,15 @@ def install_stress_utility(duthost, container_name):
     """
     logger.info("Installing 'stress' utility in '{}' container ...".format(container_name))
 
-    install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy=http://100.127.20.21:8080 \
-                                        && export https_proxy=http://100.127.20.21:8080 \
-                                        && apt-get install stress -y'".format(container_name))
+    # Get proxy settings from creds
+    http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+    https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+
+    # Shutdown bgp for having ability to install stress tool
+    duthost.shell("config bgp shutdown all")
+    install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy={} \
+                                        && export https_proxy={} \
+                                        && apt-get install stress -y'".format(container_name, http_proxy, https_proxy))
 
     exit_code = install_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to install 'stress' utility!")
@@ -178,7 +187,7 @@ def postcheck_critical_processes(duthost, container_name):
     logger.info("All critical processes in '{}' container are running.".format(container_name))
 
 
-def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_memory_checker(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostname):
     """Checks whether the telemetry container can be restarted or not if the memory
     usage of it is beyond the threshold. The `stress` utility is leveraged as
     the memory stressing tool.
@@ -202,7 +211,7 @@ def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
-    install_stress_utility(duthost, container_name)
+    install_stress_utility(duthost, creds, container_name)
     consume_memory_and_restart_container(duthost, container_name, vm_workers)
     remove_stress_utility(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
