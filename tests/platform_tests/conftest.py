@@ -7,6 +7,7 @@ import logging
 from collections import OrderedDict
 from datetime import datetime
 
+from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -334,3 +335,29 @@ def pytest_generate_tests(metafunc):
                 metafunc.parametrize('power_off_delay', delay_list)
             except ValueError:
                 metafunc.parametrize('power_off_delay', default_delay_list)
+
+@pytest.fixture
+def add_fail_step_to_reboot(request, localhost, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    test_name = request.node.name
+    if "warm" in test_name:
+        reboot_script = "warm-reboot"
+    elif "fast" in test_name:
+        reboot_script = "fast-reboot"
+
+    cmd_format = "sed -i 's/{}/{}/' {}"
+    reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
+    original_line = 'set +e'
+    replaced_line = 'exit -1; set +e'
+    replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
+    logging.info("Modify {} to exit before set +e".format(reboot_script_path))
+    duthost.shell(replace_cmd)
+
+    yield
+
+    replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
+    logging.info("Revert {} script to original".format(reboot_script_path))
+    duthost.shell(replace_cmd)
+    # cold reboot DUT to restore any bad state caused by negative test
+    reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD)
