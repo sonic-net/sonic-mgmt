@@ -23,6 +23,8 @@ from bgp_helpers import BGP_PLAIN_TEMPLATE
 from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
 from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+
 
 logger = logging.getLogger(__name__)
 
@@ -98,19 +100,6 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
             )
         results[node['host'].hostname] = node_results
 
-    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
-
-    check_results(results)
-
-    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
-        pytest.fail("not all bgp sessions are up after enable graceful restart")
-
-    if not wait_until(60, 5, duthost.check_default_route):
-        pytest.fail("ipv4 or ipv6 default route not available")
-
-    yield
-
     @reset_ansible_local_tmp
     def restore_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for restoring configuration for the VM hosts.
@@ -140,6 +129,28 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
             )
         results[node['host'].hostname] = node_results
 
+    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+
+    check_results(results)
+
+    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
+    res = True
+    err_msg = ""
+    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        res = False
+        err_msg = "not all bgp sessions are up after enable graceful restart"
+
+    if res and not wait_until(100, 5, duthost.check_default_route):
+        res = False
+        err_msg = "ipv4 or ipv6 default route not available"
+
+    if not res:
+        # Disable graceful restart in case of failure
+        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+        pytest.fail(err_msg)
+
+    yield
+
     results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
 
     check_results(results)
@@ -149,7 +160,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthost, ptfhost, request, tbinfo):
+def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -210,16 +221,60 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
             if ip_intf["ipv4 address/mask"].split("/")[0] == ip:
                 duthost.shell("config interface %s ip remove %s %s" % (namespace, ip_intf["interface"], ip))
 
+    def _find_vlan_intferface(mg_facts):
+        for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+            if _is_ipv4_address(vlan_intf["addr"]):
+                return vlan_intf
+        raise ValueError("No Vlan interface defined in T0.")
+
+    def _find_loopback_interface(mg_facts):
+        loopback_intf_name = "Loopback0"
+        for loopback in mg_facts["minigraph_lo_interfaces"]:
+            if loopback["name"] == loopback_intf_name:
+                return loopback
+        raise ValueError("No loopback interface %s defined." % loopback_intf_name)
+
+    @contextlib.contextmanager
+    def _setup_interfaces_dualtor(mg_facts, peer_count):
+        try:
+            connections = []
+            vlan_intf = _find_vlan_intferface(mg_facts)
+            loopback_intf = _find_loopback_interface(mg_facts)
+            vlan_intf_addr = vlan_intf["addr"]
+            vlan_intf_prefixlen = vlan_intf["prefixlen"]
+            loopback_intf_addr = loopback_intf["addr"]
+            loopback_intf_prefixlen = loopback_intf["prefixlen"]
+
+            mux_configs = mux_cable_server_ip(duthost)
+            local_interfaces = random.sample(mux_configs.keys(), peer_count)
+            for local_interface in local_interfaces:
+                connections.append(
+                    {
+                        "local_intf": loopback_intf["name"],
+                        "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
+                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
+                        "neighbor_addr": "%s/%s" % (mux_configs[local_interface]["server_ipv4"].split("/")[0], vlan_intf_prefixlen)
+                    }
+                )
+
+            ptfhost.remove_ip_addresses()
+
+            for conn in connections:
+                ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
+                                                  conn["neighbor_addr"]))
+            ptfhost.shell("ip route add %s via %s" % (loopback_intf_addr, vlan_intf_addr))
+            yield connections
+
+        finally:
+            ptfhost.shell("ip route delete %s" % loopback_intf_addr)
+            for conn in connections:
+                ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
+
     @contextlib.contextmanager
     def _setup_interfaces_t0(mg_facts, peer_count):
         try:
             connections = []
-            vlan_intf = None
-            for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
-                if _is_ipv4_address(vlan_intf["addr"]):
-                    break
-            if vlan_intf is None:
-                raise ValueError("No Vlan interface defined in T0.")
+            vlan_intf = _find_vlan_intferface(mg_facts)
             vlan_intf_name = vlan_intf["attachto"]
             vlan_intf_addr = "%s/%s" % (vlan_intf["addr"], vlan_intf["prefixlen"])
             vlan_members = mg_facts["minigraph_vlans"][vlan_intf_name]["members"]
@@ -332,14 +387,17 @@ def setup_interfaces(duthost, ptfhost, request, tbinfo):
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     peer_count = getattr(request.module, "PEER_COUNT", 1)
-    if tbinfo["topo"]["type"] == "t0":
+    if "dualtor" in tbinfo["topo"]["name"]:
+        setup_func = _setup_interfaces_dualtor
+    elif tbinfo["topo"]["type"] == "t0":
         setup_func = _setup_interfaces_t0
     elif tbinfo["topo"]["type"] == "t1":
         setup_func = _setup_interfaces_t1
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     with setup_func(mg_facts, peer_count) as connections:
         yield connections
 
@@ -445,7 +503,7 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
 
     # Flush neighbor and route in advance to avoid possible "RTNETLINK answers: File exists"
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
-    ptfhost.shell("ip route flush match %s" % dut_lo_addr + "/32")
+    ptfhost.shell("ip route del %s" % dut_lo_addr + "/32", module_ignore_errors=True)
 
     # Add the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
@@ -462,5 +520,5 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
     # Remove the route to DUT loopback IP  and the interface router mac
-    ptfhost.shell("ip route flush match %s" % dut_lo_addr + "/32")
+    ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)

@@ -9,7 +9,9 @@ from datetime import datetime
 import pytest
 import requests
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
@@ -26,8 +28,8 @@ pytestmark = [
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
-SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
-DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
+DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
 VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 2000
@@ -302,7 +304,6 @@ def set_mux_same_side(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, random.choice(['upper_tor', 'lower_tor']))
 
 
-@pytest.fixture
 def get_mux_status(tbinfo, mux_server_url):
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
@@ -311,13 +312,11 @@ def get_mux_status(tbinfo, mux_server_url):
     return {}
 
 
-@pytest.fixture
-def ptf_test_port_map(ptfhost, tbinfo, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs, get_mux_status):
+def ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs):
     active_dut_map = {}
-    if get_mux_status:
-        for mux_status in get_mux_status.values():
-            active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
-            active_dut_map[str(mux_status['port_index'])] = active_dut_index
+    for mux_status in get_mux_status(tbinfo, mux_server_url).values():
+        active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
+        active_dut_map[str(mux_status['port_index'])] = active_dut_index
 
     logger.info('router_macs={}'.format(router_macs))
     logger.info('vlan_macs={}'.format(vlan_macs))
@@ -339,9 +338,9 @@ def ptf_test_port_map(ptfhost, tbinfo, disabled_ptf_ports, vlan_ptf_ports, route
                 target_dut_index = active_dut_map[ptf_port]
                 target_mac = vlan_macs[target_dut_index]
 
-        if not target_dut_index:
-            target_dut_index = int(dut_intf_map.keys()[0])
-        if not target_mac:
+        if target_dut_index is None:
+            target_dut_index = int(dut_intf_map.keys()[0])  # None dualtor, target DUT is always the first and only DUT
+        if target_mac is None:
             target_mac = router_macs[target_dut_index]
         ports_map[ptf_port] = {'target_dut': target_dut_index, 'target_mac': target_mac}
 
@@ -365,8 +364,11 @@ def single_fib_for_duts(tbinfo):
         return True
     return False
 
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
-def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_macs, set_mux_random, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
+def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, set_mux_random, fib_info_files,
+                   tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs,
+                   ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 
     # do not test load balancing for vs platform as kernel 4.9
@@ -384,7 +386,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu, fib_info_files, router_ma
                 "fib_test.FibTest",
                 platform_dir="ptftests",
                 params={"fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
-                        "ptf_test_port_map": ptf_test_port_map,
+                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports,
+                                                               vlan_ptf_ports, router_macs, vlan_macs),
                         "router_macs": router_macs,
                         "ipv4": ipv4,
                         "ipv6": ipv6,
@@ -444,12 +447,12 @@ def hash_keys(duthost):
             hash_keys.remove('ingress-port')
     # remove the ingress port from multi asic platform
     # In multi asic platform each asic has different hash seed,
-    # the same packet coming in different asic 
+    # the same packet coming in different asic
     # could egress out of different port
     # the hash_test condition for hash_key == ingress_port will fail
     if duthost.sonichost.is_multi_asic:
         hash_keys.remove('ingress-port')
-    
+
     return hash_keys
 
 
@@ -496,7 +499,9 @@ def ipver(request):
     return request.param
 
 
-def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs, set_mux_same_side, ptf_test_port_map, ignore_ttl, single_fib_for_duts):
+def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, set_mux_same_side,
+              tbinfo, mux_server_url, disabled_ptf_ports, vlan_ptf_ports, router_macs, vlan_macs,
+              ignore_ttl, single_fib_for_duts):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -506,13 +511,13 @@ def test_hash(fib_info_files, setup_vlan, hash_keys, ptfhost, ipver, router_macs
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
-
     ptf_runner(ptfhost,
             "ptftests",
             "hash_test.HashTest",
             platform_dir="ptftests",
             params={"fib_info_files": fib_info_files[:3],   # Test at most 3 DUTs
-                    "ptf_test_port_map": ptf_test_port_map,
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, mux_server_url, disabled_ptf_ports,
+                                                           vlan_ptf_ports, router_macs, vlan_macs),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),

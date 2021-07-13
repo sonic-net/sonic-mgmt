@@ -6,6 +6,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu
+from tests.common.utilities import skip_version
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
 
@@ -103,6 +104,8 @@ class TestPsuApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_version(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
