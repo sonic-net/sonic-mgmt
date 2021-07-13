@@ -113,6 +113,13 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(lines=['no agent Rib shutdown'])
         return out
 
+    def no_shutdown_bgp(self, asn):
+        out = self.eos_config(
+            lines=['no shut'],
+            parents=['router bgp {}'.format(asn)])
+        logging.info('No shut BGP [%s]' % asn)
+        return out
+
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state

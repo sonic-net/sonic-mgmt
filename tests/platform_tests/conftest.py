@@ -10,6 +10,7 @@ from datetime import datetime
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
@@ -312,6 +313,19 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         json.dump(analyze_result, fp, indent=4)
     with open(summary_file_path, 'w') as fp:
         json.dump(result_summary, fp, indent=4)
+
+
+@pytest.fixture()
+def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+    """
+    This fixture is invoked at the test teardown for advanced-reboot SAD cases.
+    If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
+    a bad state. This fixture will restore state of neighbor interfaces, portchannels
+    and BGP sessions that were shutdown during the test.
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
 def pytest_addoption(parser):
