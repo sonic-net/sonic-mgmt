@@ -166,6 +166,50 @@ def run_rib_in_convergence_test(cvg_api,
                    route_type,)
 
 
+def run_RIB_IN_capacity_test(cvg_api,
+                             duthost,
+                             tgen_ports,
+                             multipath,
+                             start_value,
+                             step_value,
+                             route_type,):
+
+    """
+    Run RIB-IN Capacity test
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        duthost (pytest fixture): duthost fixture
+        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        multipath: ecmp value for BGP config
+        start_value:
+        step_value:
+        route_type: IPv4 or IPv6 routes
+    """
+    port_count = multipath+1
+    """ Create bgp config on dut """
+    duthost_bgp_config(duthost,
+                       tgen_ports,
+                       port_count,
+                       multipath,
+                       route_type,)
+
+
+    """ Run the RIB-IN capacity test by increasig the route count step by step """
+    get_RIB_IN_capacity(cvg_api,
+                        tgen_ports,
+                        multipath,
+                        start_value,
+                        step_value,
+                        route_type,)
+
+    """ Cleanup the dut configs after getting the convergence numbers """
+    cleanup_config(duthost,
+                   tgen_ports,
+                   port_count,
+                   route_type,)
+
+
 def duthost_bgp_config(duthost,
                        tgen_ports,
                        port_count,
@@ -611,6 +655,148 @@ def get_rib_in_convergence(cvg_api,
     columns = ['Event Name', 'Route Type', 'No. of Routes','Iterations', 'Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
 
+
+def get_RIB_IN_capacity(cvg_api,
+                        tgen_ports,
+                        multipath,
+                        start_value,
+                        step_value,
+                        route_type,):
+    """
+    Args:
+        cvg_api (pytest fixture): snappi API
+        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        multipath: ecmp value for BGP config
+        start_value:  Start value of the number of BGP routes
+        step_value: Step value of the number of BGP routes to be incremented
+        route_type: IPv4 or IPv6 routes
+
+    """
+    def tgen_capacity(routes):
+        conv_config = cvg_api.convergence_config()
+        config = conv_config.config
+        for i in range(1, 3):
+            config.ports.port(name='Test_Port_%d' % i, location=tgen_ports[i-1]['location'])
+            config.devices.device(name='Topology %d' % i)
+            config.devices[i-1].container_name = config.ports[i-1].name
+
+        config.options.port_options.location_preemption = True
+        layer1 = config.layer1.layer1()[-1]
+        layer1.name = 'port settings'
+        layer1.port_names = [port.name for port in config.ports]
+        layer1.ieee_media_defaults = False
+        layer1.auto_negotiation.rs_fec = True
+        layer1.auto_negotiation.link_training = False
+        layer1.speed = "speed_100_gbps"
+        layer1.auto_negotiate = False
+
+        def create_v4_topo():
+            config.devices[0].ethernet.name = 'Ethernet 1_%d' % routes
+            config.devices[0].ethernet.mac = "00:00:00:00:00:01"
+            config.devices[0].ethernet.ipv4.name = 'IPv4 1_%d' % routes
+            config.devices[0].ethernet.ipv4.address = tgen_ports[0]['ip']
+            config.devices[0].ethernet.ipv4.gateway = tgen_ports[0]['peer_ip']
+            config.devices[0].ethernet.ipv4.prefix = int(tgen_ports[0]['prefix'])
+            rx_flow_name = []
+            for i in range(2, 3):
+                if len(str(hex(i).split('0x')[1])) == 1:
+                    m = '0'+hex(i).split('0x')[1]
+                else:
+                    m = hex(i).split('0x')[1]
+                ethernet_stack = config.devices[i-1].ethernet
+                ethernet_stack.name = 'Ethernet_%d_%d' % (i, routes)
+                ethernet_stack.mac = "00:00:00:00:00:%s" % m
+                ipv4_stack = ethernet_stack.ipv4
+                ipv4_stack.name = 'IPv4_%d_%d' % (i, routes)
+                ipv4_stack.address = tgen_ports[i-1]['ip']
+                ipv4_stack.gateway = tgen_ports[i-1]['peer_ip']
+                ipv4_stack.prefix = int(tgen_ports[i-1]['prefix'])
+                bgpv4_stack = ipv4_stack.bgpv4
+                bgpv4_stack.name = 'BGP_%d_%d' % (i, routes)
+                bgpv4_stack.as_type = BGP_TYPE
+                bgpv4_stack.dut_address = tgen_ports[i-1]['peer_ip']
+                bgpv4_stack.local_address = tgen_ports[i-1]['ip']
+                bgpv4_stack.as_number = int(TGEN_AS_NUM)
+                route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group %d_%d" % (i, routes))[-1]
+                route_range.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=routes)
+                rx_flow_name.append(route_range.name)
+            return rx_flow_name
+
+        def create_v6_topo():
+            config.devices[0].ethernet.name = 'Ethernet 1'
+            config.devices[0].ethernet.mac = "00:00:00:00:00:01"
+            config.devices[0].ethernet.ipv6.name = 'IPv6 1'
+            config.devices[0].ethernet.ipv6.address = tgen_ports[0]['ipv6']
+            config.devices[0].ethernet.ipv6.gateway = tgen_ports[0]['peer_ipv6']
+            config.devices[0].ethernet.ipv6.prefix = int(tgen_ports[0]['ipv6_prefix'])
+            rx_flow_name = []
+            for i in range(2, 3):
+                if len(str(hex(i).split('0x')[1])) == 1:
+                    m = '0'+hex(i).split('0x')[1]
+                else:
+                    m = hex(i).split('0x')[1]
+                ethernet_stack = config.devices[i-1].ethernet
+                ethernet_stack.name = 'Ethernet %d' % i
+                ethernet_stack.mac = "00:00:00:00:00:%s" % m
+                ipv6_stack = ethernet_stack.ipv6
+                ipv6_stack.name = 'IPv6 %d' % i
+                ipv6_stack.address = tgen_ports[i-1]['ipv6']
+                ipv6_stack.gateway = tgen_ports[i-1]['peer_ipv6']
+                ipv6_stack.prefix = int(tgen_ports[i-1]['ipv6_prefix'])
+                bgpv6_stack = ipv6_stack.bgpv6
+                bgpv6_stack.name = r'BGP+ %d' % i
+                bgpv6_stack.as_type = BGP_TYPE
+                bgpv6_stack.dut_address = tgen_ports[i-1]['peer_ipv6']
+                bgpv6_stack.local_address = tgen_ports[i-1]['ipv6']
+                bgpv6_stack.as_number = int(TGEN_AS_NUM)
+                route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group %d_%d" % (routes, i))[-1]
+                route_range.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=routes)
+                rx_flow_name.append(route_range.name)
+            return rx_flow_name
+        conv_config.rx_rate_threshold = 90/(multipath)
+        if route_type == 'IPv4':
+            rx_flows = create_v4_topo()
+            flow = config.flows.flow(name='IPv4_Traffic_%d' % routes)[-1]
+        elif route_type == 'IPv6':
+            rx_flows = create_v6_topo()
+            flow = config.flows.flow(name='IPv6_Traffic_%d' % routes)[-1]
+        else:
+            raise Exception('Invalid route type given')
+        flow.tx_rx.device.tx_names = [config.devices[0].name]
+        flow.tx_rx.device.rx_names = rx_flows
+        flow.size.fixed = 1024
+        flow.rate.percentage = 100
+        flow.metrics.enable = True
+        flow.metrics.loss = True
+        return conv_config
+
+    for j in range(start_value, 100000000000, step_value):
+        logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(j))
+        conv_config = tgen_capacity(j)
+        cvg_api.set_config(conv_config)
+
+        """ Starting Traffic """
+        logger.info('Starting Traffic')
+        cs = cvg_api.convergence_state()
+        cs.transmit.state = cs.transmit.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Traffic To start")
+        flow_stats = get_flow_stats(cvg_api)
+        logger.info('Loss% : {}'.format(flow_stats[0].loss))
+        logger.info('Stopping Traffic')
+        cs = cvg_api.convergence_state()
+        cs.transmit.state = cs.transmit.STOP
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Traffic To stop")
+        if float(flow_stats[0].loss)>0.1:
+            if start_value == j:
+                max_routes = 'N/A'
+                raise Exception('FAIL: Loss observed in start value itself, set the start value less than : {} !!!!!!!!!!!!'.format(start_value))
+            else:
+                max_routes = j-step_value
+                logger.info('max_routes :{}'.format(max_routes))
+            break
+    logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
 
 def cleanup_config(duthost,
                    tgen_ports,

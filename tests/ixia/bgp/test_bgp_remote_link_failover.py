@@ -49,7 +49,7 @@ def test_bgp_convergence_for_remote_link_failover(cvg_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
     """
-    #convergence_test_iterations and multipath values can be modified as per user preference
+    #convergence_test_iterations, multipath, number_of_routes and route_type parameters can be modified as per user preference
     run_bgp_remote_link_failover_test(cvg_api,
                                       duthost,
                                       tgen_ports,
