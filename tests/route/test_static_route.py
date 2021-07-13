@@ -5,6 +5,7 @@ import time
 import natsort
 import random
 import re
+from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
@@ -25,6 +26,9 @@ pytestmark = [
 ]
 
 
+VLAN_BASE_MAC_PATTERN = "72060001{:04}"
+
+
 def skip_201911_and_older(duthost):
     """ Skip the current test if the DUT version is 201911 or older.
     """
@@ -38,19 +42,39 @@ def is_dualtor(tbinfo):
 
 
 def add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
-    for idx in range(len(nexthop_addrs)):
-        if ipv6:
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
-        else:
-            ptfhost.shell("ip addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
+    else:
+        vlan_host_map = defaultdict(dict)
+        for idx in range(len(nexthop_addrs)):
+            mac = VLAN_BASE_MAC_PATTERN.format(idx)
+            vlan_host_map[nexthop_devs[idx]][nexthop_addrs[idx]] = mac
+        arp_responder_conf = {}
+        for port in vlan_host_map:
+            arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+
+        with open("/tmp/from_t1.json", "w") as ar_config:
+            json.dump(arp_responder_conf, ar_config)
+        ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+
+        ptfhost.shell('supervisorctl reread && supervisorctl update')
+        ptfhost.shell('supervisorctl restart arp_responder')
 
 
 def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
-    for idx in range(len(nexthop_addrs)):
-        if ipv6:
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
-        else:
-            ptfhost.shell("ip addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
+    else:
+        ptfhost.shell('supervisorctl stop arp_responder')
+
+
+def clear_arp_ndp(duthost, ipv6=False):
+    if ipv6:
+        duthost.shell("sonic-clear ndp")
+    else:
+        duthost.shell("sonic-clear arp")
 
 
 def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ipv6=False):
@@ -119,6 +143,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 
 
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False, config_reload_test=False):
+    # Clean up arp or ndp
+    clear_arp_ndp(duthost, ipv6=ipv6)
+
     # Add ipaddresses in ptf
     add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
@@ -155,6 +182,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save if the saved config_db was updated
         if config_reload_test:
             duthost.shell('config save -y')
+
+        # Clean up arp or ndp
+        clear_arp_ndp(duthost, ipv6=ipv6)
 
 
 def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
