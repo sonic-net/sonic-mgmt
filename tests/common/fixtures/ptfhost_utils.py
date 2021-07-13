@@ -196,9 +196,8 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
     yield
 
-    if tbinfo['topo']['type'] == 't0':
-        logging.info("Stop running icmp_responder")
-        ptfhost.shell("supervisorctl stop icmp_responder")
+    logging.info("Stop running icmp_responder")
+    ptfhost.shell("supervisorctl stop icmp_responder")
 
 
 @pytest.fixture(scope='module', autouse=True)

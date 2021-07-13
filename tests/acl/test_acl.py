@@ -306,7 +306,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
                 )
             )
         else:
-            logger.info("Removing ACL table \"{}\" in namespace {}".format(acl_table_config["table_name"], namespace))
+            logger.info("Removing ACL table \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
