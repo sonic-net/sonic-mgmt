@@ -16,3 +16,7 @@ tests/metadata
 .vscode/
 .idea/
 
+# NDK files
+platform_ndk/platform_ndk_pb2_grpc.py
+platform_ndk/platform_ndk_pb2.py
+

@@ -223,7 +223,7 @@ test_t2_masic() {
      tacacs telemetry test_features.py test_interfaces.py test_nbr_health.py \
      test_procdockerstatsd.py testbed_setup  upgrade_path vlan voq"
 
-  ndk_tests="nokia/suites/platform/ndk"
+  ndk_tests="nokia/suites/platform/"
 
   echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c \"$tests\" -p $log_path -m individual -e \"$COMMON_EXTRA_ARGS\""
   echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c \"$tests\" -p $log_path -m individual -e \"$COMMON_EXTRA_ARGS\"" > $log_path/run_tests_cmd.txt

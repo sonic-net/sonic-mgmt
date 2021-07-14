@@ -1,0 +1,5629 @@
+{
+	"HW_CHASSIS_TYPE_IXR10": {
+		"screwdriver_cpm": {
+			"num_thermal_per_sfm": 5,
+			"max_sfm_num": 6,
+			"max_temp_thermal_num": 4,
+			"min_fan_speed": 50,
+		    "max_fan_speed": 100,
+			"num_fantray": 3,
+			"num_psu": 12,
+			"max_control_num": 2,
+			"max_line_num": 8,
+			"max_fabric_num": 6,
+			"control_max_power": 80,
+		    "line_max_power": 1000,
+		    "fantray_max_power": 500,
+		    "fabric_max_power": 415,
+			"product_name": "cpm2-ixr",
+			"total_sfm_imm_links": 36,
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 1,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10,
+				"num_pcon_device_per_sfm": 2,
+				"num_sfm_pcon_channel_per_device": 7
+
+			}
+		},
+		"vodka_32_4": {
+			"max_temp_thermal_num": 11,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 6,
+			"num_sfp": 36,
+			"product_name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 4,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		}
+	},
+	"HW_CHASSIS_TYPE_IXR6": {
+		"screwdriver_cpm": {
+			"min_fan_speed": 50,
+		    "max_fan_speed": 100,
+			"num_thermal_per_sfm": 4,
+			"num_fantray": 3,
+			"max_sfm_num": 6,
+			"num_psu": 6,
+			"max_temp_thermal_num": 4,
+			"max_line_num": 4,
+			"max_control_num": 2,
+			"max_fabric_num": 6,
+			"control_max_power": 80,
+		    "line_max_power": 1000,
+		    "fantray_max_power": 333,
+		    "fabric_max_power": 185,
+			"product_name": "cpm2-ixr",
+			"total_sfm_imm_links": 72,
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 1,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10,
+				"num_pcon_device_per_sfm": 1,
+				"num_sfm_pcon_channel_per_device": 7
+
+			}
+		},
+		"HURRICANE_R1": {
+			"max_temp_thermal_num": 13,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 6,
+			"num_sfp": 36,
+			"product_name": "imm36-400g-qsfpdd",
+			"control_max_power": 0,
+		    "line_max_power": 1000,
+		    "fantray_max_power": 500,
+		    "fabric_max_power": 415,
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 1,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		}
+	},
+	"HW_CHASSIS_TYPE_IXR10E":{
+		"hornet_cpm": {
+			"num_thermal_per_sfm": 5,
+			"max_sfm_num": 8,
+			"max_temp_thermal_num": 6,
+			"min_fan_speed": 50,
+		    "max_fan_speed": 100,
+			"num_fantray": 4,
+			"num_psu": 12,
+			"max_control_num": 2,
+			"max_line_num": 8,
+			"max_fabric_num": 8,
+			"control_max_power": 80,
+		    "line_max_power": 1000,
+		    "fantray_max_power": 500,
+		    "fabric_max_power": 415,
+			"product_name": "cpm4-ixr",
+			"total_sfm_imm_links": 0,
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 1,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10,
+				"num_pcon_device_per_sfm": 2,
+				"num_sfm_pcon_channel_per_device": 7
+
+			}
+		},
+		"eagle_36": {
+			"max_temp_thermal_num": 33,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 8,
+			"num_sfp": 36,
+			"product_name": "imm36-400g-qsfpdd",
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 5,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		},
+		"eagle_36_4": {
+			"max_temp_thermal_num": 31,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 8,
+			"num_sfp": 36,
+			"product_name": "imm36-400g-qsfpdd",
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 5,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		},
+		"falcon_60": {
+			"max_temp_thermal_num": 9,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 8,
+			"num_sfp": 60,
+			"product_name": "imm60-100g-qsfp28",
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 5,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		}
+	},
+	"HW_CHASSIS_TYPE_IXR10F":{
+		"hornet_cpm": {
+			"num_thermal_per_sfm": 5,
+			"max_sfm_num": 8,
+			"max_temp_thermal_num": 4,
+			"min_fan_speed": 50,
+		    "max_fan_speed": 100,
+			"num_fantray": 4,
+			"num_psu": 12,
+			"max_control_num": 2,
+			"max_line_num": 8,
+			"max_fabric_num": 8,
+			"control_max_power": 80,
+		    "line_max_power": 1000,
+		    "fantray_max_power": 500,
+		    "fabric_max_power": 415,
+			"product_name": "cpm2-ixr-e",
+			"total_sfm_imm_links": 0,
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 1,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10,
+				"num_pcon_device_per_sfm": 2,
+				"num_sfm_pcon_channel_per_device": 7
+
+			}
+		},
+		"falcon_60": {
+			"max_temp_thermal_num": 7,
+			"max_control_num": 2,
+		    "max_line_num": 8,
+			"max_fabric_num": 8,
+			"num_sfp": 60,
+			"product_name": "imm60-100g-qsfp28",
+			"hotswap": {
+				"min_current_in": 1,
+				"max_current_in": 5,
+				"min_power_in": 20,
+				"max_power_in": 60,
+				"min_hotswap_temp": 2,
+				"max_hotswap_temp": 5,
+				"sfm_min_current_in": 10,
+				"sfm_max_current_in": 40,
+				"sfm_min_power_in": 130,
+				"sfm_max_power_in": 200,
+				"sfm_min_voltage": 10,
+				"sfm_max_voltage": 25,
+				"min_power_watts": 100,
+				"max_power_watts": 400,
+				"sfm_min_temperature": 1,
+				"sfm_max_temperature": 5,
+				"sfm_min_power_watts": 150,
+				"sfm_max_power_watts": 300
+			},
+			"pcon": {
+				"num_pcon_device": 5,
+				"min_pcon_channel_current": 0,
+				"max_pcon_channel_current": 10
+			}
+		}
+	},
+	"ixr-cpm2-chassis4": {
+		"model": "3HE12458AA0401",
+		"serial": "NS193410077",
+		"base_mac": "14:7B:AC:B5:60:2F",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"chassis_serial_num": "NS1914F0202",
+		"chassis_part_num": "3HE11770AARA01",
+		"chassis_base_mac": "20:E0:9C:9A:E7:8F",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "INM4L00BRA",
+		"card_hwsku": "screwdriver_cpm",
+		"chassis_mfg_date": "04012019",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": false,
+				"direction": "invalid",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "NS1745F1121",
+				"part_number": "3HE11769AARA01",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "NS1802F0581",
+				"part_number": "3HE11769AARA01",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"7": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS1818W0081",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"8": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS1818W0085",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"9": {
+				"presence": false,
+				"status": false
+			},
+			"10": {
+				"idx": "10",
+				"presence": false,
+				"status": false
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			},
+			"23": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"7": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"8": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"17": {
+				"name": "SFM1",
+				"asics": "2"
+
+			},
+			"18": {
+				"name": "SFM2",
+				"asics": "2"
+
+			},
+			"19": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"20": {
+				"name": "SFM4",
+				"asics": "2"
+
+			},
+			"21": {
+				"name": "SFM5",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"22": {
+				"name": "SFM6",
+				"asics": "2"
+
+			}
+		}
+	},
+	"ixr-vdk-board4": {
+		"model": "",
+		"serial": "NS193410069",
+		"base_mac": "14:7B:AC:3A:C9:7F",
+		"mac_count": 2,
+		"my_slot": 7,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"mfg_date": "20190828",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-vdk-board7": {
+		"model": "",
+		"serial": "NS193410048",
+		"base_mac": "14:7B:AC:3A:C9:55",
+		"mac_count": 2,
+		"my_slot": 1,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"mfg_date": "20190909",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-vdk-board3": {
+		"model": "",
+		"serial": "NS193710031",
+		"base_mac": "24:21:24:05:81:51",
+		"mac_count": 2,
+		"my_slot": 8,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"mfg_date": "20191001",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"8": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": false
+			},
+			"2": {
+				"presence": false
+			},
+			"3": {
+				"presence": false
+			},
+			"4": {
+				"presence": false
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-vdk-board10": {
+		"model": "",
+		"serial": "NS193910016",
+		"base_mac": "14:7B:AC:3A:CA:15",
+		"mfg_date": "20191004",
+		"mac_count": 2,
+		"my_slot": 6,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"sfp": {
+			"13": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-vdk-board11": {
+		"model": "",
+		"serial": "NS193910016",
+		"base_mac": "14:7B:AC:3A:CA:15",
+		"mfg_date": "20191004",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"sfp": {
+			"13": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-vdk-board12": {
+		"model": "",
+		"serial": "NS193910016",
+		"base_mac": "14:7B:AC:3A:CA:15",
+		"mfg_date": "20191004",
+		"mac_count": 2,
+		"my_slot": 8,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"card_hwsku": "vodka_32_4",
+		"sfp": {
+			"13": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-cpm2-chassis5": {
+		"model": "3HE12458AA0401",
+		"serial": "NS193410083",
+		"base_mac": "14:7B:AC:B6:60:93",
+		"mac_count": 5,
+		"my_slot": 0,
+		"card_hwsku": "screwdriver_cpm",
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10",
+		"chassis_serial_num": "NS1802F1213",
+		"chassis_part_num": "3HE11770AARA01",
+		"chassis_base_mac": "20:E0:9C:99:2F:8F ",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "INM4L00BRA",
+		"chassis_mfg_date": "01152018",
+		"fan_trays": {
+		"0": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1745F0801",
+			"part_number": "3HE11769AARA01",
+			"fans": [
+				{
+					"name": "Fan0"
+				}
+			]
+		},
+		"1": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1751F0847",
+			"part_number": "3HE11769AARA01",
+			"fans": [
+				{
+					"name": "Fan1"
+				}
+			]
+		},
+		"2": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1745F1118",
+			"part_number": "3HE11769AARA01",
+			"fans": [
+				{
+					"name": "Fan2"
+				}
+			]
+		}
+	},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS2004W0416",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS2004W0786",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS2004W0741",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			}
+		},
+		"fabric": {
+			"17": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM2",
+				"status": "Online",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"20": {
+				"name": "SFM4",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"21": {
+				"name": "SFM5",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"22": {
+				"name": "SFM6",
+				"status": "Online",
+				"asics": "2"
+
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"7": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"8": {
+				"name": "imm32-100g-qsfp28+4-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		}
+	},
+	"ixr-cpm2-chassis1": {
+		"model": "",
+		"serial": "SD-R02-36",
+		"base_mac": "14:7B:AC:87:BA:C2",
+		"mac_count": 5,
+		"my_slot": 0,
+		"card_hwsku": "screwdriver_cpm",
+		"chassis_type": "HW_CHASSIS_TYPE_IXR6",
+		"chassis_serial_num": "NS1840F0200",
+		"chassis_part_num": "3HE11760AARA01",
+		"chassis_base_mac": "20:E0:9C:99:FF:8F",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "INM4K00BRA",
+		"chassis_mfg_date": "10032018",
+		"fan_trays": {
+		"0": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1833F1233",
+			"part_number": "3HE11759AARA01",
+			"fans": [
+				{
+					"name": "Fan0"
+				}
+			]
+		},
+		"1": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1843F1301",
+			"part_number": "3HE11759AARA01",
+			"fans": [
+				{
+					"name": "Fan1"
+				}
+			]
+		},
+		"2": {
+			"num_fans": 1,
+			"presence": true,
+			"status": "Online",
+			"direction": "exhaust",
+			"serial_number": "NS1843F0478",
+			"part_number": "3HE11759AARA01",
+			"fans": [
+				{
+					"name": "Fan2"
+				}
+			]
+		}
+	},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS1818W0042",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS1818W0039",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE11751AARA01",
+				"serial": "NS1818W0098",
+				"product_name": "psu-ixr-ac-hvdc-3000"
+			}
+		},
+		"fabric": {
+			"17": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM2",
+				"status": "Online"
+			},
+			"19": {
+				"name": "SFM3",
+				"status": "Online"
+			},
+			"20": {
+				"name": "SFM4",
+				"status": "Online"
+			},
+			"21": {
+				"name": "SFM5"
+			},
+			"22": {
+				"name": "SFM6"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			},
+			"23": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"4": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		}
+	},
+	"ixr-hr-board1": {
+		"model": "",
+		"serial": "HUR03-038",
+		"base_mac": "24:21:24:05:81:F7",
+		"mfg_date": "20190906",
+		"mac_count": 2,
+		"my_slot": 2,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR6",
+		"card_hwsku": "HURRICANE_R1",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"5": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			}
+		}
+	},
+	"ixr-hr-board3": {
+		"model": "",
+		"serial": "HUR02-019",
+		"base_mac": "24:21:24:05:81:97",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR6",
+		"card_hwsku": "HURRICANE_R1",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"3": {
+				"presence": true
+            },
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board3": {
+		"model": "",
+		"serial": "EAG2-02-020",
+		"base_mac": "40:7C:7D:BB:25:9F",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 2,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board4": {
+		"model": "",
+		"serial": "EAG2-02-028",
+		"base_mac": "40:7C:7D:BB:25:B5",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-cpm-chassis8": {
+		"model": "3HE16996AA0101",
+		"serial": "NS220910102",
+		"base_mac": "20:F4:4F:27:AF:CF",
+		"mfg_date": "20220314",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-007",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:80:CF:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"clei_number": "INCPALKGAA",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-016N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-008N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-015N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-006N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0014",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0021",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0037",
+				"product_name": "psu-ixr-ac-3000"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"4": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"asics": "2"
+
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"asics": "2"
+
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+
+			},
+			"21": {
+				"name": "SFM7",
+				"status": "Online",
+				"asics": "2"
+
+		},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+
+			}
+		}
+	},
+	"ixre-cpm-chassis10": {
+		"model": "",
+		"serial": "01211800009",
+		"base_mac": "20:F4:4F:27:A9:EA",
+		"mfg_date": "20210517",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-012",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:81:8F:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-034N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-035N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-045N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-050N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2115W0165",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2115W0241",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2115W0173",
+				"product_name": "psu-ixr-ac-3000"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"3": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"status": "Online",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"asics": "2"
+			},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+			}
+		}
+	},
+	"ixre-egl-board7": {
+		"model": "",
+		"serial": "EAG2-02-039",
+		"base_mac": "40:7C:7D:BB:26:11",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 5,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"5": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board8": {
+		"model": "",
+		"serial": "EAG2-02-029",
+		"base_mac": "40:7C:7D:BB:25:F9",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 6,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"6": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-cpm-chassis7": {
+		"model": "",
+		"serial": "01211800008",
+		"base_mac": "20:F4:4F:27:A8:EF",
+		"mfg_date": "20210517",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-003",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:81:47:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-001N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-004N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-002N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-003N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0044",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0034",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0035",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"4": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0032",
+				"product_name": "psu-ixr-ac-3000DI"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"asics": "2"
+
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+
+			},
+			"17": {
+				"name": "SFM3",
+				"asics": "2"
+
+			},
+			"18": {
+				"name": "SFM4",
+				"asics": "2"
+
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+
+			},
+			"21": {
+				"name": "SFM7",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+
+			}
+		}
+	},
+	"ixre-egl-board1": {
+		"model": "",
+		"serial": "EAG2-04-210",
+		"base_mac": "A4:7B:2C:E5:94:3B",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 1,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board2": {
+		"model": "",
+		"serial": "EAG2-02-023",
+		"base_mac": "40:7C:7D:BB:25:AB",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"4": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-cpm-chassis12": {
+		"model": "",
+		"serial": "01211000100",
+		"base_mac": "20:F4:4F:27:A8:63",
+		"mfg_date": "20210323",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-020",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:82:6F:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-029N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-028N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-027N",
+				"part_number": "",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-026N",
+				"part_number": "",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0019",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0011",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0010",
+				"product_name": "psu-ixr-ac-3000DI"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"8": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"status": "Online",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"asics": "2"
+			},
+			"22": {
+				"name": "SFM8",
+				"status": "Online",
+				"asics": "2"
+			}
+		}
+	},
+	"ixre-egl-board5": {
+		"model": "",
+		"serial": "EAG2-02-011",
+		"base_mac": "40:7C:7D:BB:25:97",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board6": {
+		"model": "",
+		"serial": "EAG2-02-032",
+		"base_mac": "40:7C:7D:BB:25:FF",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 5,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"5": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			}
+
+		}
+	},
+	"ixre-cpm-chassis9": {
+		"model": "",
+		"serial": "NS212610038",
+		"base_mac": "20:F4:4F:27:A9:B2",
+		"mfg_date": "20210714",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-020",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:82:6F:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-180",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-051N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT10-004-N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT10-003-N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0020",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0046",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0047",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"4": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0041",
+				"product_name": "psu-ixr-ac-3000"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"3": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"status": "Online",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"asics": "2"
+			},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+			}
+		}
+	},
+	"ixre-egl-board9": {
+		"model": "",
+		"serial": "EAG2-02-045",
+		"base_mac": "40:7C:7D:BB:26:21",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"9": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			}
+
+		}
+	},
+	"ixre-egl-board10": {
+		"model": "",
+		"serial": "EAG2-02-050",
+		"base_mac": "40:7C:7D:BB:26:39",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 8,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"8": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"10": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			}
+
+		}
+	},
+	"ixre-cpm-chassis11": {
+		"model": "",
+		"serial": "01211200052",
+		"base_mac": "20:F4:4F:27:A8:9F",
+		"mfg_date": "20210409",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "CB10-01-01-006",
+		"chassis_part_num": "3he16997AA",
+		"chassis_base_mac": "A8:24:B8:81:97:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-012N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-013N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-063",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "FT-017N",
+				"part_number": "3HE16993AA",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0045",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0043",
+				"product_name": "psu-ixr-ac-3000"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2114W0042",
+				"product_name": "psu-ixr-ac-3000"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			},
+			"23": {
+				"name": "cpm4-ixr",
+				"status": "Online",
+				"midplane_ip": "10.6.0.100"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"5": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"status": "Online",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"status": "Online",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"status": "Online",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"status": "Online",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"status": "Online",
+				"asics": "2"
+			},
+			"22": {
+				"name": "SFM8",
+				"status": "Online",
+				"asics": "2"
+			}
+		}
+	},
+	"ixre-egl-board16": {
+		"model": "",
+		"serial": "EAG2-02-016",
+		"base_mac": "40:7C:7D:BB:25:9D",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 5,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"8": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board15": {
+		"model": "",
+		"serial": "EAG2-02-043",
+		"base_mac": "40:7C:7D:BB:26:37",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 2,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board27": {
+		"model": "",
+		"serial": "EAG2-02-023",
+		"base_mac": "40:7C:7D:BB:25:AB",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 2,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"2": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"5": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-egl-board28": {
+		"model": "",
+		"serial": "EAG2-02-016",
+		"base_mac": "40:7C:7D:BB:25:9D",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board4": {
+		"model": "",
+		"serial": "FAL1-01-014",
+		"base_mac": "40:7C:7D:BB:25:DB",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+
+			"24": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board5": {
+		"model": "",
+		"serial": "FAL1-01-023",
+		"base_mac": "40:7C:7D:BB:26:55",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board6": {
+		"model": "",
+		"serial": "FAL1-01-026",
+		"base_mac": "40:7C:7D:BB:25:CB",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 5,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"5": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board7": {
+		"model": "",
+		"serial": "FAL1-01-028",
+		"base_mac": "40:7C:7D:BB:25:D9",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 7,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"15": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board8": {
+		"model": "",
+		"serial": "FAL1-01-027",
+		"base_mac": "40:7C:7D:BB:25:D7",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 5,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"24": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board2": {
+		"model": "",
+		"serial": "FAL1-01-010",
+		"base_mac": "40:7C:7D:BB:25:E9",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 8,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board3": {
+		"model": "",
+		"serial": "FAL1-01-008",
+		"base_mac": "40:7C:7D:BB:25:E1",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"27": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			}
+		}
+	},
+	"ixre-fal-board1": {
+		"model": "",
+		"serial": "FAL1-01-007",
+		"base_mac": "40:7C:7D:BB:25:E5",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 7,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"7": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"3": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-sup-chassis1": {
+		"model": "",
+		"serial": "NS212610052",
+		"base_mac": "20:F4:4F:27:A9:62",
+		"mfg_date": "20210714",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "10-01-02-002",
+		"chassis_part_num": "3HE16997AARA01",
+		"chassis_base_mac": "A8:24:B8:84:3F:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-0069",
+				"part_number": "3HE16993AA01",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-0068",
+				"part_number": "3HE16993AA01",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-0066",
+				"part_number": "3HE16993AA01",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-0067",
+				"part_number": "3HE16993AA01",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0062",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0060",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0126",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"7": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0063",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"8": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0059",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"9": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0129",
+				"product_name": "psu-ixr-ac-3000DI"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			},
+			"23": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"status": "Online",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"status": "Online",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"status": "Online",
+				"asics": "2"
+
+			},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+			}
+		}
+	},
+	"nokia-sup-chassis2": {
+		"model": "",
+		"serial": "NS212610051",
+		"base_mac": "20:F4:4F:27:A9:CB",
+		"mfg_date": "20210714",
+		"mac_count": 5,
+		"my_slot": 0,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"chassis_serial_num": "10-01-02-002",
+		"chassis_part_num": "3HE16997AARA01",
+		"chassis_base_mac": "A8:24:B8:84:27:6C",
+		"chassis_mac_count": 2048,
+		"chassis_clei_num": "",
+		"card_hwsku": "hornet_cpm",
+		"chassis_mfg_date": "09082021",
+		"fan_trays": {
+			"0": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-143",
+				"part_number": "3HE16993AARA01",
+				"fans": [
+					{
+						"name": "Fan0"
+					}
+				]
+			},
+			"1": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-142",
+				"part_number": "3HE16993AARA01",
+				"fans": [
+					{
+						"name": "Fan1"
+					}
+				]
+			},
+			"2": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-144",
+				"part_number": "3HE16993AARA01",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			},
+			"3": {
+				"num_fans": 1,
+				"presence": true,
+				"status": "Online",
+				"direction": "exhaust",
+				"serial_number": "10-119",
+				"part_number": "3HE16993AARA01",
+				"fans": [
+					{
+						"name": "Fan2"
+					}
+				]
+			}
+		},
+		"psu": {
+			"1": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0064",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"2": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2127W0294",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"3": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0065",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"7": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0061",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"8": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2119W0127",
+				"product_name": "psu-ixr-ac-3000DI"
+			},
+			"9": {
+				"presence": true,
+				"status": true,
+				"model": "3HE17002AARA01",
+				"serial": "NS2127W0324",
+				"product_name": "psu-ixr-ac-3000DI"
+			}
+		},
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			},
+			"23": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			},
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online",
+				"midplane_reachable": true
+			}
+		},
+		"fabric": {
+			"15": {
+				"name": "SFM1",
+				"status": "Online",
+				"asics": "2"
+			},
+			"16": {
+				"name": "SFM2",
+				"asics": "2"
+			},
+			"17": {
+				"name": "SFM3",
+				"asics": "2"
+			},
+			"18": {
+				"name": "SFM4",
+				"status": "Online",
+				"asics": "2"
+			},
+			"19": {
+				"name": "SFM5",
+				"asics": "2"
+			},
+			"20": {
+				"name": "SFM6",
+				"asics": "2"
+			},
+			"21": {
+				"name": "SFM7",
+				"status": "Online",
+				"asics": "2"
+			},
+			"22": {
+				"name": "SFM8",
+				"asics": "2"
+			}
+		}
+	},
+	"nokia-egl-board1": {
+		"model": "3HE12578AARA01",
+		"serial": "19688-0038",
+		"base_mac": "40:7C:7D:BB:26:0B",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 1,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-egl-board2": {
+		"model": "3HE12578AARA01",
+		"serial": "19688-0041",
+		"base_mac": "40:7C:7D:BB:26:1D",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 1,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "eagle_36",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"1": {
+				"name": "imm36-400g-qsfpdd",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-fal-board1": {
+		"model": "3HE16995AARA01",
+		"serial": "19855-0032",
+		"base_mac": "40:7C:7D:BB:26:D5",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-fal-board2": {
+		"model": "3HE16995AARA01",
+		"serial": "19855-0040",
+		"base_mac": "40:7C:7D:BB:26:FD",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-fal-board3": {
+		"model": "3HE16995AARA01",
+		"serial": "19855-0013",
+		"base_mac": "40:7C:7D:BB:27:0B",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 3,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"3": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	},
+	"nokia-fal-board4": {
+		"model": "3HE16995AARA01",
+		"serial": "19855-0037",
+		"base_mac": "40:7C:7D:BB:26:F9",
+		"mfg_date": "",
+		"mac_count": 2,
+		"my_slot": 4,
+		"chassis_type": "HW_CHASSIS_TYPE_IXR10E",
+		"card_hwsku": "falcon_60",
+		"control": {
+			"0": {
+				"name": "cpm2-ixr-e",
+				"status": "Online",
+				"midplane_ip": "10.0.5.16",
+				"midplane_reachable": true
+			},
+			"23": {
+				"midplane_ip": "10.0.5.16"
+			}
+		},
+		"line": {
+			"4": {
+				"name": "imm60-100g-qsfp28",
+				"status": "Online"
+			}
+		},
+		"sfp": {
+			"1": {
+				"presence": true
+			},
+			"2": {
+				"presence": true
+			},
+			"3": {
+				"presence": true
+			},
+			"4": {
+				"presence": true
+			},
+			"5": {
+				"presence": true
+			},
+			"6": {
+				"presence": true
+			},
+			"7": {
+				"presence": true
+			},
+			"8": {
+				"presence": true
+			},
+			"9": {
+				"presence": true
+			},
+			"10": {
+				"presence": true
+			},
+			"11": {
+				"presence": true
+			},
+			"12": {
+				"presence": true
+			},
+			"13": {
+				"presence": true
+			},
+			"14": {
+				"presence": true
+			},
+			"15": {
+				"presence": true
+			},
+			"16": {
+				"presence": true
+			},
+			"17": {
+				"presence": true
+			},
+			"18": {
+				"presence": true
+			},
+			"19": {
+				"presence": true
+			},
+			"20": {
+				"presence": true
+			},
+			"21": {
+				"presence": true
+			},
+			"22": {
+				"presence": true
+			},
+			"23": {
+				"presence": true
+			},
+			"24": {
+				"presence": true
+			},
+			"25": {
+				"presence": true
+			},
+			"26": {
+				"presence": true
+			},
+			"27": {
+				"presence": true
+			},
+			"28": {
+				"presence": true
+			},
+			"29": {
+				"presence": true
+			},
+			"30": {
+				"presence": true
+			},
+			"31": {
+				"presence": true
+			},
+			"32": {
+				"presence": true
+			},
+			"33": {
+				"presence": true
+			},
+			"34": {
+				"presence": true
+			},
+			"35": {
+				"presence": true
+			},
+			"36": {
+				"presence": true
+			},
+			"37": {
+				"presence": true
+			},
+			"38": {
+				"presence": true
+			},
+			"39": {
+				"presence": true
+			},
+			"40": {
+				"presence": true
+			},
+			"41": {
+				"presence": true
+			},
+			"42": {
+				"presence": true
+			},
+			"43": {
+				"presence": true
+			},
+			"44": {
+				"presence": true
+			},
+			"45": {
+				"presence": true
+			},
+			"46": {
+				"presence": true
+			},
+			"47": {
+				"presence": true
+			},
+			"48": {
+				"presence": true
+			},
+			"49": {
+				"presence": true
+			},
+			"50": {
+				"presence": true
+			},
+			"51": {
+				"presence": true
+			},
+			"52": {
+				"presence": true
+			},
+			"53": {
+				"presence": true
+			},
+			"54": {
+				"presence": true
+			},
+			"55": {
+				"presence": true
+			},
+			"56": {
+				"presence": true
+			},
+			"57": {
+				"presence": true
+			},
+			"58": {
+				"presence": true
+			},
+			"59": {
+				"presence": true
+			},
+			"60": {
+				"presence": true
+			}
+		}
+	}
+}
+
