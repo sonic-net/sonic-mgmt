@@ -408,16 +408,14 @@ def get_convergence_for_local_link_failover(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     rx_port_names = []
-    cvg_api.set_config(bgp_config)
     for i in range(1, len(bgp_config.config.ports)):
         rx_port_names.append(bgp_config.config.ports[i].name)
-
-    def get_avg_dpdp_convergence_time(port_name,
-                                      rx_port_names):
+    bgp_config.rx_rate_threshold = 90/(multipath-1)
+    cvg_api.set_config(bgp_config)
+    def get_avg_dpdp_convergence_time(port_name):
         """
         Args:
             port_name: Name of the port
-            rx_port_names:List of rx port names
         """
 
         table, avg, tx_frate, rx_frate = [], [], [], []
@@ -470,8 +468,8 @@ def get_convergence_for_local_link_failover(cvg_api,
     table = []
     """ Iterating link flap test on all the rx ports """
     for i, port_name in enumerate(rx_port_names):
-        table.append(get_avg_dpdp_convergence_time(port_name, rx_port_names))
-
+        #table.append(get_avg_dpdp_convergence_time(port_name, rx_port_names))
+        table.append(get_avg_dpdp_convergence_time(port_name))
     columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, stablefmt="psql"))
 

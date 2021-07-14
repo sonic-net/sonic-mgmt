@@ -179,9 +179,9 @@ Measure the convergence time when local link failure event happens with in the n
 Below table is the result of 3 way ECMP for 4 link flap iterations
 | Event Name | No. of IPv4 Routes  | Iterations  | Avg Calculated Data Convergence Time(ms)  |
 | :---:   | :-: | :-: | :-: |
-| Test_Port_2 Link Failure | 1000 | 4 | 4.112 |
-| Test_Port_3 Link Failure | 1000 | 4 | 4.336 |
-| Test_Port_4 Link Failure | 1000 | 4 | 4.219 |
+| Test_Port_2 Link Failure | 1000 | 4 | 14.112 |
+| Test_Port_3 Link Failure | 1000 | 4 | 14.336 |
+| Test_Port_4 Link Failure | 1000 | 4 | 14.219 |
 
 ### Test Case
 * sonic-mgmt/tests/ixia/bgp/test_bgp_local_link_failover.py 
