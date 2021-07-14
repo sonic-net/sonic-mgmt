@@ -37,7 +37,7 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
-pcie_devices_status_tbl_key = "PCIE_DEVICES|status"
+pcie_devices_status_tbl_key = "PCIE_DEVICES"
 status_field = "status"
 expected_pcied_devices_status = "PASSED"
 
