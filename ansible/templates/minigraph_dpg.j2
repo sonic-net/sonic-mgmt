@@ -19,6 +19,26 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
+      {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
+      {% if loopback4096_ip is defined %}
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ip[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ip[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ipv6[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ipv6[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {% endif %}
+      {% endif %}
       {%- if 'addl_loopbacks' in dual_tor_facts -%}
       {%- for loopback_num in dual_tor_facts['addl_loopbacks'][inventory_hostname] -%}
         {%- set loopback_facts = dual_tor_facts['addl_loopbacks'][inventory_hostname][loopback_num] -%}
