@@ -10,17 +10,17 @@
   - [Setup configuration](#Setup-configuration)
   - [Test methodology](#Test-methodology)
   - [Test cases](#Test-cases)
-    - [Test case # 1 – Failover convergence with remote link failure (route withdraw)](#test-case--1--convergence-performance-when-remote-link-fails-route-withdraw)
+    - [Test case # 1 – BGP Remote Link Failover Convergence (route withdraw)](#test-case--1--convergence-performance-when-remote-link-fails-route-withdraw)
       - [Test objective](#Test-objective)
       - [Test steps](#Test-steps)
       - [Test results](#Test-results)
       - [Test case](#Test-case)
-    - [Test case # 2 – RIB-IN Convergence](#Test-case--2--RIB-IN-Convergence)
+    - [Test case # 2 – BGP RIB-IN Convergence](#Test-case--2--RIB-IN-Convergence)
       - [Test objective](#Test-objective-1)
       - [Test steps](#Test-steps-1)
       - [Test results](#Test-results-1)
       - [Test case](#Test-case-1)
-    - [Test case # 3 - Failover convergence with local link failure](#Test-case--3--Failover-convergence-with-local-link-failure) 
+    - [Test case # 3 - BGP Local Link Failover Convergence](#Test-case--3--Failover-convergence-with-local-link-failure) 
       - [Test objective](#Test-objective-2)
       - [Test steps](#Test-steps-2)
       - [Test results](#Test-results-2)
@@ -63,7 +63,7 @@ Following test methodologies will be used for measuring convergence.
 * Route capacity can be measured by advertising routes in a linear search fashion. By doing this we can figure out the maximum routes a switch can learn and install in its RIB and then in its FIB to forward traffic without any loss.
 
 ## Test cases
-### Test case # 1 – Convergence performance when remote link fails (route withdraw)
+### Test case # 1 – BGP Remote Link Failover Convergence (route withdraw)
 #### Test objective
 Measure the convergence time when remote link failure event happens with in the network.
 
@@ -107,7 +107,7 @@ For above test case, below are the test results when multiple remote link fails.
 
 ### Test Case
 * sonic-mgmt/tests/ixia/bgp/test_bgp_remote_link_failover.py 
-### Test case # 2 – RIB-IN Convergence 
+### Test case # 2 – BGP RIB-IN Convergence 
 #### Test objective
 Measure the convergence time to install the routes in its RIB and then in its FIB to forward the packets after the routes are advertised.
 
@@ -153,7 +153,7 @@ In order to measure RIB-IN capacity of the switch, we can follow the same test m
 ### Test Case
 * sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_convergence.py 
 * sonic-mgmt/tests/ixia/bgp/test_bgp_rib_in_capacity.py 
-### Test case # 3 - Failover convergence with local link failure 
+### Test case # 3 - BGP Local Link Failover Convergence 
 #### Test objective
 Measure the convergence time when local link failure event happens with in the network.
 <p float="left">
