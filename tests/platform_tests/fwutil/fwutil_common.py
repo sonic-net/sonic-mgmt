@@ -7,7 +7,7 @@ from copy import deepcopy
 from tests.common.utilities import wait_until
 
 DEVICES_PATH="usr/share/sonic/device"
-TIMEOUT=1800
+TIMEOUT=3600
 REBOOT_TYPES = {
         "cold": "reboot",
         "warm": "warm-reboot",
@@ -139,8 +139,8 @@ def upload_platform(duthost, paths, next_image=None):
     for comp, dat in paths.items():
         duthost.copy(src=dat["firmware"], 
                 dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
-        if "install_file" in dat:
-            duthost.copy(src=dat["install_file"], 
+        if "install" in dat:
+            duthost.copy(src=dat["install"]["firmware"], 
                     dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
 
 def validate_versions(init, final, config, chassis, boot):
@@ -176,7 +176,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     if basepath is not None:
         # Install file is override if API implementation needs a different file for install / update
-        filepath = paths[component]["install_file"] if "install_file" in paths[component] else paths[component]["firmware"]
+        filepath = paths[component]["install"]["firmware"] if "install" in paths[component] else paths[component]["firmware"]
         command += " {}".format(os.path.join(basepath, os.path.basename(filepath)))
 
     if next_image is not None:
@@ -189,7 +189,11 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     task, res = duthost.command(command, module_ignore_errors=True, module_async=True)
     boot_type = boot if boot else paths[component]["reboot"][0]
-    auto_reboot = paths[component].get("auto_reboot", False)
+
+    if "install" in paths[component] and basepath is not None:
+        auto_reboot = paths[component]["install"].get("auto_reboot", False)
+    else:
+        auto_reboot = paths[component].get("auto_reboot", False)
 
     complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image)
 
