@@ -4,6 +4,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -38,7 +39,7 @@ def test_warm_reboot(request, get_advanced_reboot, advanceboot_loganalyzer):
 
 
 ### Testcases to verify abruptly failed reboot procedure ###
-def test_cancelled_fast_reboot(request, get_advanced_reboot, add_fail_step_to_reboot):
+def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_health, get_advanced_reboot):
     '''
     Negative fast reboot test case to verify DUT is left in stable state
     when fast reboot procedure abruptly ends.
@@ -51,7 +52,7 @@ def test_cancelled_fast_reboot(request, get_advanced_reboot, add_fail_step_to_re
 
 
 @pytest.mark.device_type('vs')
-def test_cancelled_warm_reboot(request, get_advanced_reboot, add_fail_step_to_reboot):
+def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_health, get_advanced_reboot):
     '''
     Negative warm reboot test case to verify DUT is left in stable state
     when warm reboot procedure abruptly ends.

@@ -3,6 +3,7 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.transceiver_utils import parse_transceiver_info
+from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
 test_report = dict()
 
@@ -54,6 +55,7 @@ def check_interfaces_and_transceivers(duthost, request):
     """
     logging.info("Check if all the interfaces are operational")
     check_interfaces = request.getfixturevalue("check_interfaces")
+    conn_graph_facts = request.getfixturevalue("conn_graph_facts")
     results = check_interfaces()
     failed = [result for result in results if "failed" in result and result["failed"]]
     if failed:
@@ -122,8 +124,9 @@ def get_test_report():
     return result
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
+    global test_report
     test_report = {}
     duthost = duthosts[rand_one_dut_hostname]
     check_services(duthost)
@@ -140,8 +143,36 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, pre_existing_cores)
-    pytest_assert(all(list(test_report.values())), "Health check failed after reboot: {}"
+    check_all = all([check == True for check in list(test_report.values())])
+    pytest_assert(check_all, "Health check failed after reboot: {}"
         .format(test_report))
+
+
+@pytest.fixture
+def add_fail_step_to_reboot(request, localhost, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    test_name = request.node.name
+    if "warm" in test_name:
+        reboot_script = "warm-reboot"
+    elif "fast" in test_name:
+        reboot_script = "fast-reboot"
+
+    cmd_format = "sed -i 's/{}/{}/' {}"
+    reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
+    original_line = 'set +e'
+    replaced_line = 'exit -1; set +e'
+    replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
+    logging.info("Modify {} to exit before set +e".format(reboot_script_path))
+    duthost.shell(replace_cmd)
+
+    yield
+
+    replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
+    logging.info("Revert {} script to original".format(reboot_script_path))
+    duthost.shell(replace_cmd)
+    # cold reboot DUT to restore any bad state caused by negative test
+    reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD)
 
 
 class RebootHealthError(Exception):
