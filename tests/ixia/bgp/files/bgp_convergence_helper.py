@@ -788,7 +788,7 @@ def get_RIB_IN_capacity(cvg_api,
         if float(flow_stats[0].loss)>0.1:
             if start_value == j:
                 max_routes = 'N/A'
-                raise Exception('FAIL: Loss observed in start value itself, set the start value less than : {} !!!!!!!!!!!!'.format(start_value))
+                raise Exception('FAIL:Max Routes: {}, Loss observed in start value itself, set the start value less than : {} !!!!!!!!!!!!'.format(max_routes,start_value))
             else:
                 max_routes = j-step_value
                 logger.info('max_routes :{}'.format(max_routes))
