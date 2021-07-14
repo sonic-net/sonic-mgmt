@@ -174,6 +174,7 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is avaliable on non-t0 testbed, so skip this fixture 
     if 't0' not in tbinfo['topo']['type']:
+        logger.info("Not running on a T0 testbed, not starting ICMP responder")
         yield
         return
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
@@ -203,43 +204,47 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
-    garp_config = {}
+    if tbinfo['topo']['type'] == 't0':
+        garp_config = {}
 
-    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    if 't0' in tbinfo['topo']['name']:
-        # For mocked dualtor testbed
-        mux_cable_table = {}
-        server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
-        for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
-            server_ipv4 = str(server_ipv4_base_addr + i)
-            mux_cable_table[intf] = {}
-            mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+        if 'dualtor' not in tbinfo['topo']['name']:
+            # For mocked dualtor testbed
+            mux_cable_table = {}
+            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
+                server_ipv4 = str(server_ipv4_base_addr + i)
+                mux_cable_table[intf] = {}
+                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        else:
+            # For physical dualtor testbed
+            mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+
+        logger.info("Generating GARP service config file")
+
+        for vlan_intf, config in mux_cable_table.items():
+            ptf_port_index = ptf_indices[vlan_intf]
+            server_ip = ip_interface(config['server_ipv4']).ip
+
+            garp_config[ptf_port_index] = {
+                                            'target_ip': '{}'.format(server_ip)
+                                        }
+
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
+
+        with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
+            template = Template(f.read())
+
+        ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
+        ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+        logger.info("Starting GARP Service on PTF host")
+        ptfhost.shell('supervisorctl update')
+        ptfhost.shell('supervisorctl start garp_service')
     else:
-        # For physical dualtor testbed
-        mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
-
-    logger.info("Generating GARP service config file")
-
-    for vlan_intf, config in mux_cable_table.items():
-        ptf_port_index = ptf_indices[vlan_intf]
-        server_ip = ip_interface(config['server_ipv4']).ip
-
-        garp_config[ptf_port_index] = {
-                                        'target_ip': '{}'.format(server_ip)
-                                      }
-
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
-
-    with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
-        template = Template(f.read())
-
-    ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
-    ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
-    logger.info("Starting GARP Service on PTF host")
-    ptfhost.shell('supervisorctl update')
-    ptfhost.shell('supervisorctl start garp_service')
+        logger.info("Not running on a T0 testbed, not starting GARP service")
 
     yield
 
-    logger.info("Stopping GARP service on PTF host")
-    ptfhost.shell('supervisorctl stop garp_service')
+    if tbinfo['topo']['type'] == 't0':
+        logger.info("Stopping GARP service on PTF host")
+        ptfhost.shell('supervisorctl stop garp_service')
