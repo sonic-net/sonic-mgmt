@@ -34,6 +34,12 @@ def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
         # Remove old dump files.
         duthost.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
 
+        # delete other log files that are more than a day old,
+        # this step is needed to remove some backup files or the debug files added by users
+        # which can create issue for log-analyzer
+        duthost.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
+            module_ignore_errors=True, executable="/bin/bash")
+
     # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
     if ptfhost:
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
