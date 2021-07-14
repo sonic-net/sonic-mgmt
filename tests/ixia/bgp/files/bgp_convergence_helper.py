@@ -468,7 +468,6 @@ def get_convergence_for_local_link_failover(cvg_api,
     table = []
     """ Iterating link flap test on all the rx ports """
     for i, port_name in enumerate(rx_port_names):
-        #table.append(get_avg_dpdp_convergence_time(port_name, rx_port_names))
         table.append(get_avg_dpdp_convergence_time(port_name))
     columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, stablefmt="psql"))
