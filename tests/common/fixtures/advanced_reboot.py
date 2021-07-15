@@ -70,7 +70,7 @@ class AdvancedReboot:
         self.localhost = localhost
         self.tbinfo = tbinfo
         self.creds = creds
-        self.moduleIgnoreErrors = False
+        self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
