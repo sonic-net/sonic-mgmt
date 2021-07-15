@@ -384,6 +384,7 @@ def parse_dpg(dpg, hname):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
+            vintftype = vintf.find(str(QName(ns, "Type")))
             vmbr_list = vintfmbr.split(';')
             vintf_node = vintf.find(str(QName(ns, "DhcpRelays")))
             if vintf_node is not None and vintf_node.text is not None:
@@ -398,6 +399,8 @@ def parse_dpg(dpg, hname):
                 vmbr_list[i] = port_alias_to_name_map[member]
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
+            if vintftype is not None:
+                vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
             ports.pop(vintfname)
 
