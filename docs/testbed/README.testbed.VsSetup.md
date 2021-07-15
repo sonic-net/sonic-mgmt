@@ -22,7 +22,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         ```
         sudo apt install python python-pip
         # v0.3.12b Jinja2 is required, lower version may cause uncompatible issue
-        pip install j2cli==0.3.12b0
+        sudo pip install j2cli==0.3.12b0
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
