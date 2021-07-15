@@ -21,6 +21,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
 
