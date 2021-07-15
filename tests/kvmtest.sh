@@ -129,6 +129,7 @@ test_t0() {
     test_procdockerstatsd.py \
     iface_namingmode/test_iface_namingmode.py \
     platform_tests/test_cpu_memory_usage.py \
+    platform_tests/test_kdump.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py"
@@ -182,6 +183,7 @@ test_t1_lag() {
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
+    platform_tests/test_kdump.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py"
