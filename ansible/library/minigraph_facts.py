@@ -757,7 +757,7 @@ def parse_xml(filename, hostname, asic_name=None):
 
         for pc_intf in pc_intfs:
             pc_intf['attachto'] = pc_intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
-            intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
+            pc_intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
             vlan_sub_intfs.append(pc_intf)
         results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
     elif resource_type is not None and 'Storage' in resource_type:
