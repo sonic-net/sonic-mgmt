@@ -70,6 +70,16 @@
  - 4 DUT ports are connected to VMs
  - PTF container has 4 injected ports and 28 directly connected ports
 
+
+### t0-56
+
+![](img/testbed-t0-56.png)
+
+ - Requires 8 VMs
+ - 8 DUT ports are connected to VMs
+ - PTF container has 8 injected ports and 48 directly connected ports
+ 
+ 
 ### t0-80
 
 ![](img/testbed-t0-80.png)
