@@ -7,7 +7,6 @@ Description:    This file contains the inner hash test for SONiC
 #---------------------------------------------------------------------
 import logging
 import random
-import json
 import time
 
 from ipaddress import ip_address, ip_network
@@ -479,7 +478,6 @@ class InnerHashTest(BaseTest):
         '''
 
         logging.info("%-10s \t %10s" % ("port(s)", "cnt"))
-        result = True
 
         total_hit_cnt = self.balancing_test_times*len(self.exp_port_list)
         nhs_with_packets_rcvd = 0

@@ -5,16 +5,13 @@ import time
 import json
 import logging
 import tempfile
-import random
 
 from datetime import datetime
 
 import pytest
-import requests
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
-from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
