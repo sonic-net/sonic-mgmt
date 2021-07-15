@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import operator
 import pytest
+import re
 
 from ptf import mask, testutils
 from scapy.all import IP, Ether
@@ -10,6 +11,7 @@ from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+
 
 def derive_queue_id_from_dscp(dscp):
     """ Derive queue id form DSCP using following mapping
@@ -38,19 +40,20 @@ def queue_stats_check(dut, exp_queue):
     -----------  -----  --------------  ---------------  -----------  --------------
     Ethernet124    UC1              10             1000            0             0
     """
-    result = re.search(r'\S+\s+UC\d\s+10+\s+\S+\s+\S+\s+\S+', queue_counter)
+    result = re.findall(r'\S+\s+UC%d\s+10+\s+\S+\s+\S+\s+\S+' % exp_queue, queue_counter)
 
-    if result != None:
-        output = result.group(0)
-        output_list = output.split()
-        rec_queue = int(output_list[1][2])
-        if rec_queue != exp_queue:
-            logging.debug("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
-        else:
-            logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
-            return True
-
+    if result:
+        for line in result:
+            rec_queue = int(line.split()[1][2])
+            if rec_queue != exp_queue:
+                logging.debug("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
+            else:
+                logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+                return True
+    else:
+        logging.debug("Could not find queue counter matches.")
     return False
+
 
 @pytest.fixture(scope="function")
 def tunnel_traffic_monitor(ptfadapter, tbinfo):
@@ -174,6 +177,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.existing = existing
 
         def __enter__(self):
+            # clear queue counters before IO to ensure _check_queue could get more precise result
+            self.standby_tor.shell("sonic-clear queuecounters")
             self.ptfadapter.dataplane.flush()
 
         def __exit__(self, *exc_info):
