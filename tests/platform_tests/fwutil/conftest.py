@@ -1,10 +1,13 @@
 import tarfile
 import json
 import pytest
+import logging
 
 from random import randrange
 
 from fwutil_common import show_firmware
+
+logger = logging.getLogger(__name__)
 
 DUT_HOME="/home/admin"
 DEVICES_PATH="/usr/share/sonic/device"
@@ -14,6 +17,9 @@ FS_WORK_TEMPLATE = "/host/image-{}/work"
 FS_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-fs"
 OVERLAY_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-overlay"
 
+def check_path_exists(path):
+    return duthost.stat(path = path)["stat"]["exists"] 
+
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
     if 'fw_pkg_name' in metafunc.fixturenames and val is not None:
@@ -21,18 +27,19 @@ def pytest_generate_tests(metafunc):
 
 @pytest.fixture(scope='module')
 def fw_pkg(fw_pkg_name):
+    logger.info("Unpacking firmware package to ./firmware")
+    os.mkdir("firmware")
     with tarfile.open(fw_pkg_name, "r:gz") as f:
-        f.extractall()
-        with open('firmware.json', 'r') as fw:
+        f.extractall("./firmware/")
+        with open('./firmware/firmware.json', 'r') as fw:
             fw_data = json.load(fw)
             yield fw_data
-        for m in f.getmembers():
-            subprocess.call("rm -rf {}".format(m.name), shell=True)
+    subprocess.call("rm -rf firmware", shell=True)
 
 @pytest.fixture(scope='function')
 def random_component(duthost, fw_pkg):
     chass = show_firmware(duthost)["chassis"].keys()[0]
-    components = fw_pkg["chassis"].get(chass, {})["component"].keys()
+    components = fw_pkg["chassis"].get(chass, {}).get("component", []).keys()
 
     if len(components) == 0:
         pytest.skip("No suitable components found in config file for platform {}.".format(duthost.facts['platform']))
@@ -41,6 +48,7 @@ def random_component(duthost, fw_pkg):
 
 @pytest.fixture(scope='function')
 def host_firmware(localhost, duthost):
+    logger.info("Starting local python server to test URL firmware update....")
     comm = "python3 -m http.server --directory {}".format(os.path.join(DEVICES_PATH, 
         duthost.facts['platform']))
     task, res = duthost.command(comm, module_ignore_errors=True, module_async=True)
@@ -63,7 +71,8 @@ def next_image(duthost, fw_pkg):
     if target is None:
         pytest.skip("No suitable image definitions found in config")
 
-    duthost.copy(src=fw_pkg["images"][target], dest=DUT_HOME)
+    logger.info("Installing new image {}".format(target))
+    duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest=DUT_HOME)
     remote_path = os.path.join(DUT_HOME, os.path.basename(fw_pkg["images"][target]))
     duthost.command("sonic_installer install -y {}".format(remote_path), module_ignore_errors=True)
 
@@ -74,18 +83,25 @@ def next_image(duthost, fw_pkg):
     fs_work = FS_WORK_TEMPLATE.format(target)
     overlay_mountpoint = OVERLAY_MOUNTPOINT_TEMPLATE.format(target)
 
-    duthost.command("mkdir -p {}".format(fs_mountpoint))
-    cmd = "mount -t squashfs {} {}".format(fs_path, fs_mountpoint)
-    duthost.command(cmd)
+    logger.info("Attempting to stage test firware onto newly-installed image.")
+    try:
+        wait_until(10, 1, check_path_exists, fs_rw)
 
-    duthost.command("mkdir -p {}".format(overlay_mountpoint))
-    cmd = "mount -n -r -t overlay -o lowerdir={},upperdir={},workdir={},rw overlay {}".format(
-        fs_mountpoint,
-        fs_rw,
-        fs_work,
-        overlay_mountpoint
-    )
-    duthost.command(cmd)
+        duthost.command("mkdir -p {}".format(fs_mountpoint))
+        cmd = "mount -t squashfs {} {}".format(fs_path, fs_mountpoint)
+        duthost.command(cmd)
+
+        duthost.command("mkdir -p {}".format(overlay_mountpoint))
+        cmd = "mount -n -r -t overlay -o lowerdir={},upperdir={},workdir={},rw overlay {}".format(
+            fs_mountpoint,
+            fs_rw,
+            fs_work,
+            overlay_mountpoint
+        )
+        duthost.command(cmd)
+    except Exception as e:
+        pytest.fail("Failed to setup next-image.")
+        duthost.command("sonic_installer set-default {}".format(current))
 
     yield overlay_mountpoint
 
