@@ -315,6 +315,8 @@ class VNET(BaseTest):
             if 'RUNNING' in output[0]:
                 break
             time.sleep(1)
+        else:
+            raise Exception("arp_responder state is not RUNNING! Output: %s" % output)
 
     def tearDown(self):
         if self.vxlan_enabled:
