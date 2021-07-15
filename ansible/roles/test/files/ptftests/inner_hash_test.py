@@ -263,8 +263,6 @@ class InnerHashTest(BaseTest):
 
         nvgre_hdr = scapy.NVGRE(vsid=nvgre_tni, flowid=nvgre_flowid)
 
-        #ip_tos = ip_make_tos(ip_tos, ip_ecn, ip_dscp)
-
         if (dl_vlan_enable):
             pkt = scapy.Ether(dst=eth_dst, src=eth_src)/ \
                 scapy.Dot1Q(prio=vlan_pcp, id=dl_vlan_cfi, vlan=vlan_vid)/ \
