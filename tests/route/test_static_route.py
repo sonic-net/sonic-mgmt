@@ -26,9 +26,6 @@ pytestmark = [
 ]
 
 
-VLAN_BASE_MAC_PATTERN = "72060001{:04}"
-
-
 def skip_201911_and_older(duthost):
     """ Skip the current test if the DUT version is 201911 or older.
     """
@@ -41,14 +38,14 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
-def add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
+def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
     if ipv6:
         for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
     else:
         vlan_host_map = defaultdict(dict)
         for idx in range(len(nexthop_addrs)):
-            mac = VLAN_BASE_MAC_PATTERN.format(idx)
+            mac = ptfadapter.dataplane.get_mac(0, nexthop_devs[idx]).replace(":", "")
             vlan_host_map[nexthop_devs[idx]][nexthop_addrs[idx]] = mac
 
         arp_responder_conf = {}
@@ -148,7 +145,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
     clear_arp_ndp(duthost, ipv6=ipv6)
 
     # Add ipaddresses in ptf
-    add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
     try:
         # Add static route
