@@ -91,8 +91,8 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        dut_kernel = duthost.setup()['ansible_facts']['ansible_kernel'].split('-')
-        if parse_version(dut_kernel[0]) > parse_version("4.9.0"):
+        dut_kernel = duthost.shell("cat /proc/version | awk '{ print $3 }' | cut -d '-' -f 1")["stdout"]
+        if parse_version(dut_kernel) > parse_version("4.9.0"):
             prefix = "sudo ip vrf exec mgmt "
         else:
             prefix = "sudo cgexec -g l3mdev:mgmt "
