@@ -32,6 +32,7 @@ class InnerHashTest(BaseTest):
 
     _required_params = [
         'fib_info',
+        'vxlan_port',
         'src_ports',
         'inner_src_ip_range',
         'inner_dst_ip_range',
@@ -76,6 +77,7 @@ class InnerHashTest(BaseTest):
 
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
+        self.vxlan_port = self.test_params['vxlan_port']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
         self.outer_dst_ip = self.outer_dst_ip_interval.get_first_ip()
 
@@ -97,6 +99,7 @@ class InnerHashTest(BaseTest):
         for outer_encap_format in outer_encap_formats:
             hit_count_map = {}
             for _ in range(0, self.balancing_test_times*len(self.exp_port_list)):
+                src_port = int(random.choice(self.src_ports))
                 logging.info('Checking {} hash key {}, src_port={}, exp_ports={}, dst_ip={}'\
                     .format(outer_encap_format, hash_key, src_port, self.exp_port_list, self.outer_dst_ip))
 
@@ -110,7 +113,7 @@ class InnerHashTest(BaseTest):
                 if self.symmetric_hashing and hash_key != 'ip-proto':
                     # Send the same packet with reversed tuples and validate that it lands on the same port
                     rand_src_port = int(random.choice(self.src_ports))
-                    (rPacket_port_index, _) = self.check_ip_route(hash_key, outer_encap_format, src_port, ip_dst, ip_src, dport, sport, ip_proto)
+                    (rPacket_port_index, _) = self.check_ip_route(hash_key, outer_encap_format, rand_src_port, ip_dst, ip_src, dport, sport, ip_proto)
                     assert packet_port_index == rPacket_port_index
 
                 hit_count_map[packet_port_index] = hit_count_map.get(packet_port_index, 0) + 1
@@ -137,14 +140,14 @@ class InnerHashTest(BaseTest):
         # ip_proto 2 is IGMP, should not be forwarded by router
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_ports = [2, 254]
+        skip_protos = [2, 254]
         if ipv6:
             # Skip ip_proto 0 for IPv6
             skip_ports.append(0)
 
         while True:
             ip_proto = random.randint(0, 255)
-            if ip_proto not in skip_ports:
+            if ip_proto not in skip_protos:
                 return ip_proto
 
 
@@ -368,7 +371,7 @@ class InnerHashTest(BaseTest):
                     ip_dst=outer_ip_dst,
                     ip_ttl=64,
                     udp_sport=outer_sport,
-                    udp_dport=4789,
+                    udp_dport=self.vxlan_port,
                     vxlan_vni=random.randint(1, 254)+20000,
                     with_udp_chksum=False,
                     inner_frame=pkt)
@@ -410,7 +413,7 @@ class InnerHashTest(BaseTest):
                     ipv6_src=outer_ip_src,
                     ipv6_dst=outer_ip_dst,
                     udp_sport=outer_sport,
-                    udp_dport=4789,
+                    udp_dport=self.vxlan_port,
                     vxlan_vni=random.randint(1, 254)+20000,
                     with_udp_chksum=False,
                     inner_frame=pkt)

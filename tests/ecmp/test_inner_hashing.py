@@ -1,3 +1,6 @@
+# Summary: Inner packet hashing test
+# How to run this test: sudo ./run_tests.sh -n <tb name> -i <inventory files> -u -m group -e --skip_sanity -l info -c ecmp/test_inner_hashing.py
+
 import time
 import json
 import logging
@@ -16,7 +19,8 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.disable_loganalyzer
 ]
 
 # Standard HASH_KEYs of 'src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto' varied in the inner packets sent and used to validate hashing
@@ -31,11 +35,31 @@ PTF_QLEN = 2000
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 FIB_INFO_FILE_DST = '/root/fib_info.txt'
 
+VXLAN_PORT = 13330
+DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
 @pytest.fixture(scope='module')
 def config_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+
+@pytest.fixture(scope='module')
+def setup(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    vxlan_switch_config = [{
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": VXLAN_PORT
+        },
+        "OP": "SET"
+    }]
+
+    logger.info("Copying vxlan.switch.json with data: " + str(vxlan_switch_config))
+
+    duthost.copy(content=json.dumps(vxlan_switch_config, indent=4), dest=DUT_VXLAN_PORT_JSON_FILE)
+    duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON_FILE))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    time.sleep(3)
 
 
 @pytest.fixture(scope='module')
@@ -85,6 +109,10 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     tmp_fib_info.flush()
 
     ptfhost.copy(src=tmp_fib_info.name, dest=FIB_INFO_FILE_DST)
+    msg = "Copied FIB info to PTF host '{}': local_path={}, remote_path={}"
+    logger.info(msg.format(ptfhost.hostname, tmp_fib_info.name, FIB_INFO_FILE_DST))
+
+    tmp_fib_info.close()
 
 
 @pytest.fixture(scope='module')
@@ -127,7 +155,8 @@ def ipver(request):
     return request.param
 
 
-def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, symmetric_hashing, build_fib):
+def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, symmetric_hashing, build_fib, setup):
+    logging.info("Executing inner hash test for " + ipver + " with symmetric_hashing set to " + str(symmetric_hashing))
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -150,6 +179,7 @@ def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, sy
                     "router_mac": router_mac,
                     "src_ports": vlan_ptf_ports,
                     "hash_keys": hash_keys,
+                    "vxlan_port": VXLAN_PORT, 
                     "inner_src_ip_range": ",".join(inner_src_ip_range),
                     "inner_dst_ip_range": ",".join(inner_dst_ip_range),
                     "outer_src_ip_range": ",".join(outer_src_ip_range),
