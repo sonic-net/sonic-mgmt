@@ -246,7 +246,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Et%d" % i] = "Ethernet%d" % i
     elif hwsku == "ACS-MSN4600C":
         for i in range(1, 65):
-            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
+            port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "msft_four_asic_vs":
         if asic_id is not None and asic_id in namespace_list['front_ns']:
             asic_offset = int(asic_id) * 4
