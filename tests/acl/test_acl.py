@@ -21,6 +21,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
     topo = tbinfo["topo"]["type"]
 
     vlan_ports = []
-    vlan_mac = ""
+    vlan_mac = None
 
     if topo == "t0":
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
@@ -120,8 +121,8 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
         config_facts = rand_selected_dut.get_running_config_facts()
         vlan_table = config_facts["VLAN"]
         vlan_name = list(vlan_table.keys())[0]
-        vlan_mac = vlan_table[vlan_name]["mac"]
-
+        if "mac" in vlan_table[vlan_name]:
+            vlan_mac = vlan_table[vlan_name]["mac"]
 
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
@@ -133,7 +134,7 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
 
     # For T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
     # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
-    downlink_dst_mac = vlan_mac if topo == "t0" else rand_selected_dut.facts["router_mac"]
+    downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
 
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
