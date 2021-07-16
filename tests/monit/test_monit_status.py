@@ -36,14 +36,14 @@ def stop_and_start_lldpmgrd(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     stop_command_result = duthost.command("docker exec lldp supervisorctl stop lldpmgrd")
     exit_code = stop_command_result["rc"]
     pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp' container!")
-    logger.info("'lldpmgrd' process in 'lldp' container was stopped.")
+    logger.info("'lldpmgrd' process in 'lldp' container is stopped.")
 
     if duthost.is_multi_asic:
         logger.info("Stopping 'lldpmgrd' process in 'lldp0' container ...")
         stop_command_result = duthost.command("docker exec lldp0 supervisorctl stop lldpmgrd")
         exit_code = stop_command_result["rc"]
         pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp0' container!")
-        logger.info("'lldpmgrd' process in 'lldp0' container was stopped.")
+        logger.info("'lldpmgrd' process in 'lldp0' container is stopped.")
 
     yield
 
@@ -51,14 +51,14 @@ def stop_and_start_lldpmgrd(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     start_command_result = duthost.command("docker exec lldp supervisorctl start lldpmgrd")
     exit_code = start_command_result["rc"]
     pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp' container!")
-    logger.info("'lldpmgrd' process in 'lldp' container was started.")
+    logger.info("'lldpmgrd' process in 'lldp' container is started.")
 
     if duthost.is_multi_asic:
-        logger.info("Stopping 'lldpmgrd' process in 'lldp0' container ...")
+        logger.info("Starting 'lldpmgrd' process in 'lldp0' container ...")
         start_command_result = duthost.command("docker exec lldp0 supervisorctl start lldpmgrd")
         exit_code = start_command_result["rc"]
         pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp0' container!")
-        logger.info("'lldpmgrd' process in 'lldp0' container was started.")
+        logger.info("'lldpmgrd' process in 'lldp0' container is started.")
 
 
 def check_monit_last_output(duthost):
