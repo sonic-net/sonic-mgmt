@@ -13,8 +13,9 @@ in .csv format etc.
 
 import ipaddr
 from netaddr import IPNetwork
+from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
-def increment_ip_address (ip, incr=1) :
+def increment_ip_address(ip, incr=1) :
     """
     Increment IP address by an integer number.
 
@@ -174,8 +175,8 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
 
         dut_hostname (str): hostname of the DUT
 
-    Return:
-        Return the name of the peer IXIA chassis
+    Returns:
+        The name of the peer IXIA chassis or None
     """
 
     device_conn = conn_data['device_conn']
@@ -190,6 +191,142 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
         return peer_devices[0]
     else:
         return None
+
+def get_peer_port(conn_data, dut_hostname, dut_intf):
+    """
+    Get the peer port of the DUT port
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+
+        {
+            u'device_conn': {
+                u'msr-s6100-dut-1': {
+                    u'Ethernet0': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port5',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet1': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port6',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet2': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port7',
+                        u'speed': u'40000'
+                    }
+                }
+            },
+            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
+            u'device_port_vlans': [
+                {
+                    u'Ethernet0': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet1': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet2': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    }
+                }
+            ],
+            u'device_vlan_list': [[]],
+            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
+            u'device_vlan_range': [[]]
+        }
+
+        dut_hostname (str): hostname of the DUT
+        dut_intf (str): name of DUT interface
+
+    Returns:
+        The name of the peer port or None
+    """
+    device_conn = conn_data['device_conn']
+    if dut_hostname not in device_conn:
+        return None
+
+    dut_device_conn = device_conn[dut_hostname]
+    if dut_intf not in dut_device_conn:
+        return None
+
+    return dut_device_conn[dut_intf]['peerport']
+
+
+def get_dut_intfs(conn_data, dut_hostname):
+    """
+    Get DUT's interfaces
+
+    Args:
+        conn_data (dict): the dictionary returned by conn_graph_fact.
+        Example format of the conn_data is given below:
+
+        {
+            u'device_conn': {
+                u'msr-s6100-dut-1': {
+                    u'Ethernet0': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port5',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet1': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port6',
+                        u'speed': u'40000'
+                    },
+                    u'Ethernet2': {
+                        u'peerdevice': u'msr-ixia-1',
+                        u'peerport': u'Card12/Port7',
+                        u'speed': u'40000'
+                    }
+                }
+            },
+            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
+            u'device_port_vlans': [
+                {
+                    u'Ethernet0': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet1': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    },
+                    u'Ethernet2': {
+                        u'mode': u'Access',
+                        u'vlanids': u'',
+                        u'vlanlist': []
+                    }
+                }
+            ],
+            u'device_vlan_list': [[]],
+            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
+            u'device_vlan_range': [[]]
+        }
+
+        dut_hostname (str): hostname of the DUT
+
+    Returns:
+        Return the list of interface names
+    """
+
+    device_conn = conn_data['device_conn']
+    if dut_hostname not in device_conn:
+        return None
+
+    dut_device_conn = device_conn[dut_hostname]
+    return list(dut_device_conn.keys())
 
 
 def pfc_class_enable_vector(prio_list):
@@ -379,3 +516,146 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
             return False
 
     return True
+
+def get_pfcwd_config_attr(host_ans, config_scope, attr):
+    """
+    Get PFC watchdog configuration attribute
+
+    Args:
+        host_ans: Ansible host instance of the device
+        config_scope (str): 'GLOBAL' or interface name
+        attr (str): config attribute name, e.g., 'detection_time'
+
+    Returns:
+        config attribute (str) or None
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if 'PFC_WD' not in config_facts.keys():
+        return None
+
+    pfcwd_config = config_facts['PFC_WD']
+    if config_scope not in pfcwd_config:
+        return None
+
+    config = pfcwd_config[config_scope]
+    if attr in config:
+        return config[attr]
+
+    return None
+
+def get_pfcwd_poll_interval(host_ans):
+    """
+    Get PFC watchdog polling interval
+
+    Args:
+        host_ans: Ansible host instance of the device
+
+    Returns:
+        Polling interval in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope='GLOBAL',
+                                attr='POLL_INTERVAL')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def get_pfcwd_detect_time(host_ans, intf):
+    """
+    Get PFC watchdog detection time of a given interface
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+
+    Returns:
+        Detection time in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope=intf,
+                                attr='detection_time')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def get_pfcwd_restore_time(host_ans, intf):
+    """
+    Get PFC watchdog restoration time of a given interface
+
+    Args:
+        host_ans: Ansible host instance of the device
+        intf (str): interface name
+
+    Returns:
+        Restoration time in ms (int) or None
+    """
+    val = get_pfcwd_config_attr(host_ans=host_ans,
+                                config_scope=intf,
+                                attr='restoration_time')
+
+    if val is not None:
+        return int(val)
+
+    return None
+
+def start_pfcwd(duthost):
+    """
+    Start PFC watchdog with default setting
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd start_default')
+
+def stop_pfcwd(duthost):
+    """
+    Stop PFC watchdog
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    duthost.shell('sudo pfcwd stop')
+
+def disable_packet_aging(duthost):
+    """
+    Disable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py disable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+def enable_packet_aging(duthost):
+    """
+    Enable packet aging feature (only on MLNX switches)
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+
+    Returns:
+        N/A
+    """
+    if isMellanoxDevice(duthost):
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command("docker exec syncd python /packets_aging.py enable")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")

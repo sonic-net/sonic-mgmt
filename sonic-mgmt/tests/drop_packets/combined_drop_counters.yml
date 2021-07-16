@@ -23,6 +23,8 @@ l2_l3:
     - "x86_64-dell.*"
     - "x86_64-arista.*"
     - "x86_64-cel_seastone.*"
+    - "x86_64-accton_as9516.*"
+    - "x86_64-accton_wedge100bf.*"
 
 acl_l2:
     - "x86_64-mlnx"

@@ -12,6 +12,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -183,7 +184,7 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
 
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)

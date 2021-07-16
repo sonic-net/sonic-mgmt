@@ -163,10 +163,11 @@ class Poller(object):
 class Responder(object):
     ARP_PKT_LEN = 60
     ARP_OP_REQUEST = 1
-    def __init__(self, db):
+    def __init__(self, db, vxlan_port):
         self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
         self.arp_pad = binascii.unhexlify('00' * 18)
         self.db = db
+        self.vxlan_port = vxlan_port
 
     def hexdump(self, data):
         print " ".join("%02x" % ord(d) for d in data)
@@ -236,7 +237,10 @@ class Responder(object):
             crc = self.calculate_header_crc(ipv4)
             ipv4 = ipv4[0:10] + crc + ipv4[12:]
             new_pkt += ipv4
-            new_pkt += binascii.unhexlify('c00012b5004c1280')              # udp
+            if self.vxlan_port:
+                new_pkt += binascii.unhexlify('c000%04x004c1280' % self.vxlan_port) # udp
+            else:
+                new_pkt += binascii.unhexlify('c00012b5004c1280') # udp
             new_pkt += binascii.unhexlify('08000000%06x00' % r.vxlan_id) # vxlan
 
             arp_reply = self.generate_arp_reply(binascii.unhexlify(r.mac), remote_mac, request_ip, remote_ip)
@@ -310,6 +314,7 @@ def parse_args():
     parser.add_argument('-f', '--config-file', help='file with configuration', required=True)
     parser.add_argument('-s', '--src-ip', help='Ferret endpoint ip', required=True)
     parser.add_argument('-a', '--asic-type', help='ASIC vendor name', type=str, required=False)
+    parser.add_argument('-p', '--vxlan-port', help='VXLAN port', type=int, required=False, default=None)
     args = parser.parse_args()
     if not os.path.isfile(args.config_file):
         print "Can't open config file '%s'" % args.config_file
@@ -317,17 +322,17 @@ def parse_args():
 
     global ASIC_TYPE
     ASIC_TYPE = args.asic_type
-    return args.config_file, args.src_ip
+    return args.config_file, args.src_ip, args.vxlan_port
 
 def main():
     db = {}
 
-    config_file, src_ip = parse_args()
+    config_file, src_ip, vxlan_port = parse_args()
     iface_names = extract_iface_names(config_file)
     rest = RestAPI(Ferret, db, src_ip)
     bpf_src = get_bpf_for_bgp()
     ifaces = [Interface(iface_name, bpf_src) for iface_name in iface_names]
-    responder = Responder(db)
+    responder = Responder(db, vxlan_port)
     p = Poller(rest, ifaces, responder)
     p.poll()
 

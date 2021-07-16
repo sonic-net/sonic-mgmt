@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common import config_reload
+from tests.common.helpers.dut_utils import get_disabled_container_list
 
 logger = logging.getLogger(__name__)
 
@@ -151,23 +152,6 @@ def get_program_info(duthost, container_name, program_name):
                     .format(program_name, program_status, program_pid))
 
     return program_status, program_pid
-
-
-def get_disabled_container_list(duthost):
-    """
-    @summary: Get the container/service names which are disabled
-    @return: A list includes the names of disabled containers/services
-    """
-    disabled_containers = []
-
-    container_status, succeeded = duthost.get_feature_status()
-    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
-
-    for container_name, status in container_status.items():
-        if status == "disabled":
-            disabled_containers.append(container_name)
-
-    return disabled_containers
 
 
 def is_container_running(duthost, container_name):
@@ -389,15 +373,16 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
-def test_containers_autorestart(duthosts, enum_dut_feature, rand_one_dut_hostname, tbinfo):
+def test_containers_autorestart(duthosts, enum_dut_feature, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
     dut_name, feature = decode_dut_port_name(enum_dut_feature)
-    pytest_require(dut_name == rand_one_dut_hostname and feature != "unknown",
-                   "Skip test on dut host {} (chosen {}) feature {}".format(dut_name, rand_one_dut_hostname, feature))
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature != "unknown",
+                   "Skip test on dut host {} (chosen {}) feature {}"
+                   .format(dut_name, enum_rand_one_per_hwsku_frontend_hostname, feature))
 
     duthost = duthosts[dut_name]
     run_test_on_single_container(duthost, feature, tbinfo)

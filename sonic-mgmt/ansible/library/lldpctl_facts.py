@@ -16,6 +16,8 @@ def gather_lldp(module, lldpctl_docker_cmd, skip_interface_pattern_list):
     lldp_entries = output.splitlines()
     skip_interface_pattern_str = "(?:% s)" % '|'.join(skip_interface_pattern_list) if skip_interface_pattern_list else None
     for entry in lldp_entries:
+        if 'unknown-tlv' in entry:
+            continue
         if entry.startswith("lldp"):
             path, value = entry.strip().split("=", 1)
             path = path.split(".")
@@ -41,7 +43,7 @@ def main():
              supports_check_mode=False)
 
     m_args = module.params
-    lldpctl_docker_cmd = "docker exec -i {} lldpctl -f keyvalue".format("lldp" + (str(m_args["asic_instance_id"]) if m_args["asic_instance_id"] else ""))
+    lldpctl_docker_cmd = "docker exec -i {} lldpctl -f keyvalue".format("lldp" + (str(m_args["asic_instance_id"]) if m_args["asic_instance_id"] is not None else ""))
     lldp_output = gather_lldp(module, lldpctl_docker_cmd, m_args["skip_interface_pattern_list"])
     try:
         data = {"lldpctl": lldp_output["lldp"] if lldp_output else lldp_output }

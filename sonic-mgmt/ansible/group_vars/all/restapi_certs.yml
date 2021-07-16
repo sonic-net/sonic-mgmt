@@ -1,0 +1,7 @@
+# Configure restapi server certificates
+
+restapi_certs:
+    server_key: "/etc/sonic/credentials/restapiserver.key"
+    server_crt: "/etc/sonic/credentials/restapiserver.crt"
+    subject: "client.restapi.test"
+    dir_path: "/etc/sonic/credentials"

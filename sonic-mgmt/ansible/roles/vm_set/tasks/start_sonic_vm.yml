@@ -17,6 +17,11 @@
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
 
+- name: Remove arp entry for {{ dut_name }}
+  shell: arp -d {{ mgmt_ip_address }}
+  become: yes
+  ignore_errors: yes
+
 - name: Device debug output
   debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
 

@@ -1,0 +1,43 @@
+# This Playbook announce IP routes to PTF docker container
+#
+# The PTF docker container has BGP sessions established with VMs. The VMs can learn IP routes from PTF docker and
+# populate the IP routes to DUT.
+#
+# To announce IP routes to PTF docker container, please use below command:
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos_vtb testbed_announce_routes.yml --vault-password-file=~/.password -l server_1 -e vm_set_name=first -e ptf_ip=10.255.0.255/23 -e topo=t0
+#
+# Parameters
+# -i veos_vtb                - inventory file
+# -l server_1                - this playbook have to be limited to run only on one server
+# -e vm_set_name=first       - the name of vm_set
+# -e ptf_ip=10.255.0.255/23  - the ip address and prefix of ptf container mgmt interface
+# -e topo=t0                 - the name of removed topo
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  pre_tasks:
+
+  - name: Check that variable vm_set_name is defined
+    fail: msg="Define vm_set_name variable with -e vm_set_name=something"
+    when: vm_set_name is not defined
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that topo is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: base_topo not in topologies
+
+  - name: Check that variable ptf_ip is defined
+    fail: msg="Define ptf ip variable with -e ptf_ip=something"
+    when: ptf_ip is not defined
+
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
+
+  tasks:
+  - include_tasks: roles/vm_set/tasks/announce_routes.yml

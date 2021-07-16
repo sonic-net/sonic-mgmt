@@ -5,6 +5,7 @@
     vm_names:     "{{ VM_hosts }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
+    topo: "{{ topology }}"
 
 - name: Check if cEOS image exists or not
   docker_image_info:
@@ -57,7 +58,7 @@
   docker_container:
     name: net_{{ vm_set_name }}_{{ vm_name }}
     image: debian:jessie
-    pull: yes
+    pull: no
     state: started
     restart: no
     tty: yes

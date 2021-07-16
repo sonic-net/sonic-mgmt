@@ -6,7 +6,7 @@ simulation:
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@docker-ptf:/#
@@ -17,6 +17,7 @@ devices:
     mgmt_intf_name: mgmt
     data_ports:
       - eth[0..32]
+      - backplane
 
   sonic_dut:
     platform: spitfire_f
@@ -25,13 +26,13 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/dt8.1/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_11.0/sonic-cisco-8000.bin
     linecard_types: [matilda32]
     vxr_sim_config:
-        shelf:
-            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.40.1_NPS1.76.1/npl
-            ConfigS1NpsuiteVer: 1.76.2
-            
+      shelf:
+        ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.1_NPS1.77.2/npl
+        ConfigS1NpsuiteVer: 1.77.2
+
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
@@ -57,8 +58,8 @@ device_groups:
 connections:
   hubs:
     hub0:
-      - docker_ptf.eth[0..26]
-      - sonic_dut.Ethernet[0..26]
+      - docker_ptf.eth[0..27]
+      - sonic_dut.Ethernet[0..27]
   custom:
     ptf_injected29:
       ports:
@@ -83,4 +84,4 @@ connections:
     backplane:
       ports:
       - veos[1..4].Ethernet9
-      - docker_ptf.eth32  
+      - docker_ptf.backplane  

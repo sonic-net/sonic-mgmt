@@ -32,3 +32,8 @@ user = {{ tacacs_ro_user }} {
 	login = des {{ tacacs_ro_user_passwd }}
 	member = netuser
 }
+
+user = {{ tacacs_jit_user }} {
+	login = des {{ tacacs_jit_user_passwd }}
+	member = {{ tacacs_jit_user_membership }}
+}

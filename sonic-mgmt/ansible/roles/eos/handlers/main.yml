@@ -14,7 +14,7 @@
     port: 22
     state: stopped
     delay: 10
-    timeout: 300
+    timeout: 600
   delegate_to: "{{ VM_host[0] }}"
   listen: "Update VM state"
 
@@ -24,6 +24,6 @@
     port: 22
     state: started
     delay: 10
-    timeout: 1200
+    timeout: 1500
   delegate_to: "{{ VM_host[0] }}"
   listen: "Update VM state"

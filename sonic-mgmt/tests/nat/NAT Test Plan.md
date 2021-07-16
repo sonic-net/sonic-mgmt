@@ -23,6 +23,14 @@
     - [test_nat_static_zones_basic_snat](#Test-case-test_nat_static_zones_basic_snat)
     - [test_nat_static_zones_basic_icmp_snat](#Test-case-test_nat_static_zones_basic_icmp_snat)
     - [test_nat_static_zones_napt_dnat_and_snat](#Test-case-test_nat_static_zones_napt_dnat_and_snat)
+    - [test_nat_static_iptables_add_remove](#Test-case-test_nat_static_iptables_add_remove)
+    - [test_nat_static_global_double_add](#Test-case-test_nat_static_global_double_add)
+    - [test_nat_static_interface_add_remove_interface_ip](#Test-case-test_nat_static_interface_add_remove_interface_ip)
+    - [test_nat_static_interface_add_remove_interface](#Test-case-test_nat_static_interface_add_remove_interface)
+    - [test_nat_static_redis_global_pool_binding](#Test-case-test_nat_static_redis_global_pool_binding)
+    - [test_nat_static_redis_napt](#Test-case-test_nat_static_redis_napt)
+    - [test_nat_static_redis_asic](#Test-case-test_nat_static_redis_asic)
+    - [test_nat_same_static_and_dynamic_rule](#Test-case-test_nat_same_static_and_dynamic_rule)
   - [Dynamic NAT](#Dynamic-NAT)
     - [test_nat_dynamic_basic](#Test-case-test_nat_dynamic_basic)
     - [test_nat_dynamic_basic_icmp](#Test-case-test_nat_dynamic_basic_icmp)
@@ -48,6 +56,13 @@
     - [test_nat_interfaces_flap_dynamic](#Test-case-test_nat_interfaces_flap_dynamic)
     - [test_nat_dynamic_zones](#Test-case-test_nat_dynamic_zones)
     - [test_nat_dynamic_zones_icmp](#Test-case-test_nat_dynamic_zones_icmp)
+    - [test_nat_dynamic_extremal_ports](#Test-case-test_nat_dynamic_extremal_ports)
+    - [test_nat_dynamic_single_host](#Test-case-test_nat_dynamic_single_host)
+    - [test_nat_dynamic_binding_remove](#Test-case-test_nat_dynamic_binding_remove)
+    - [test_nat_dynamic_iptable_snat](#Test-case-test_nat_dynamic_iptable_snat)
+    - [test_nat_dynamic_outside_interface_delete](#Test-case-test_nat_dynamic_outside_interface_delete)
+    - [test_nat_dynamic_nat_pools](#Test-case-test_nat_dynamic_nat_pools)
+    - [test_nat_dynamic_modify_bindings](#Test-case-test_nat_dynamic_modify_bindings)
 
 
 
@@ -548,6 +563,233 @@ Verify for static NAPT that there is no NAT when all interfaces zones configurat
 - Perform handshake
 - Send bidirectional traffic
 - Verify that traffic was SNAPT and DNAPT in both direction
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_iptables_add_remove
+
+### Test objective
+
+Verify IP table rules are updated when add/remove static NAT/NAPT entry, verify IP table rules are also programmed for the static NAT/NAPT entries
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Check that NAT entries are not present in iptables before adding
+- Apply Static NAPT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Check that NAT entries are present in iptables after adding
+- Remove NAT rule
+- Traffic send and check that NAT translation will not be performed for SNAT(host-tor)
+- Check that NAT entries are not present in iptables after removal
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_global_double_add
+
+### Test objective
+
+Verify behaviour by configuring same global IP between static NAT and NAPT is not allowed
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Check that NAT entries are not present in iptables before adding
+- Apply Static NAPT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Add static rule with overlapping global IP
+- Confirm that expected error occured
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_interface_add_remove_interface_ip
+
+### Test objective
+
+IP address remove/add - inside/outside interface - Verify the NAT translation rule and IP table rules are removed and added
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Check that NAT entries are not present in iptables before adding
+- Set NAT configuration for test
+- Create rule with CLI and set zones for interfaces: zone value from tested_zones for all interfaces, opposite zone value for tested interface
+- Send TCP/UDP traffic and check
+- Check that NAT entries are present in iptables after adding
+- Remove interface IP
+- Check that NAT entries are not present in iptables after removing interface IP
+- Readd interface IP
+- Check that NAT entries are present in iptables after readding interface IP
+- Send TCP/UDP traffic and confirm that restoring previous configuration went well
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_interface_add_remove_interface
+
+### Test objective
+
+Interface remove/add - inside/outside interface - Verify the corresponding Nat rules and Ip table rules are deleted
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Check that NAT entries are not present in iptables before adding
+- Set NAT configuration for test
+- Create rule with CLI and set zones for interfaces: zone value from tested_zones for all interfaces, opposite zone value for tested interface
+- Send TCP/UDP traffic and check
+- Check that NAT entries are present in iptables after adding
+- Remove interface (disable)
+- Check that NAT entries are still present in iptables after disabling interface
+- Readd interface (enable)
+- Check that NAT entries are present in iptables after enabling interface
+- Send TCP/UDP traffic and confirm that restoring previous configuration went well
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_redis_global_pool_binding
+
+### Test objective
+
+Verify config change in CONFIG_DB for NAT_GLOBAL, NAT_POOL and NAT_BINDINGS is in sync with APP_DB
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Confirm using redis that APP_DB is set properly before any changes are done (global timeout values)
+- Modify and confirm that APP_DB is updated properly (global timeout values)
+- Restore default values and confirm using redis that APP_DB is updated properly (global timeout values)
+- Apply Dynamic NAT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Confirm using redis that pool/binding CONFIG_DB and APP_DB is set properly before any changes are done
+- Modify switch configuration (by modifying existing and adding new pools/bindings) and confirm that pool and bindings APP_DB and CONFIG_DB are updated properly
+- Restore switch configuration back to original values and confirm using redis that pool and bindings APP_DB and CONFIG_DB are restored properly
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_redis_napt
+
+### Test objective
+
+Verify config change in CONFIG_DB for Static NAPT are in sync with APP_DB
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Confirm using redis that NAPT CONFIG_DB and APP_DB is set properly before any changes are done
+- Modify entries and add new one
+- Confirm using redis that NAPT CONFIG_DB and APP_DB is set properly after applying changes
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_static_redis_asic
+
+### Test objective
+
+Verify the NAT/NAPT entries in the system are in sync b/w APP_DB and ASIC_DB
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Send TCP/UDP traffic and check
+- Confirm that NAPT APP_DB is set properly using redis
+- Confirm that ASIC_DB SRC and DST are set properly using redis
+
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_same_static_and_dynamic_rule
+
+### Test objective
+
+Verify the behaviour when there is same NAPT rule for static and dynamic
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Apply Static NAPT config on DUT via CLI
+- Make sure static NAT translations have created
+- Send bidirectional traffic
+- Configure default rules for Dynamic NAT
+- Make sure static NAT translations are only one present
+- Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check static config takes precedence so verify as static
+- Make sure static NAT translations are only one present even after traffic
+- Make sure NAT counters have incremented
 
 
 ### Test teardown
@@ -1219,6 +1461,192 @@ Verify for dynamic NAT that there is no NAT when all interfaces zones configurat
 - Set inner interface (Vlan1000) zone configuration to 0
 - Send same traffic set from the inner network
 - Verify that ICMP packets have correct translated SRC IP and ICMP id value in the configured dynamic pool range
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_extremal_ports
+
+### Test objective
+
+Verify NAPT mapping for SSH/Telnet connection, verify NAPT with outbound TCP connections using high and low source ports
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data and L4 ports to be examined (port 22 for UDP only, port 22 is used by ssh daemon for TCP)
+- Configure default rules for Dynamic NAT
+- Perform series of TCP handshakes (host-tor -> leaf-tor)
+- Check translation numbers
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_single_host
+
+### Test objective
+
+Verify maximum number of UDP/TCP connections with single LAN host
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data and specific L4 ports
+- Configure default rules for Dynamic NAT
+- Set TCP/UDP timeouts to max value
+- Perform series of TCP handshakes (host-tor -> leaf-tor)
+- Check translation numbers
+- Restore default timeouts values
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_binding_remove
+
+### Test objective
+
+Verify IP table rule is removed when the Acl binding is deleted from NAT pool
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data and specific L4 ports
+- Configure default rules for Dynamic NAT
+- Confirm that binding is added
+- Send TCP/UDP traffic and check
+- Check that NAT entries are present in iptables after adding binding
+- Delete NAT bindings
+- Confirm that binding has been removed ('show nat config bindings' parse)
+- Send TCP/UDP traffic and check
+- Check that NAT entries are not present in iptables after removing binding
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_iptable_snat
+
+### Test objective
+
+Verify IP table rules are programmed as SNAT rules for TCP/UDP/ICMP IP protocol type
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Configure default rules for Dynamic NAT
+- Send TCP/UDP traffic and check
+- Check that IP table rules are programmed as SNAT rules for TCP/UDP/ICMP IP protocol type by using specific pattern
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_outside_interface_delete
+
+### Test objective
+
+Delete the outside interface IP address which has NAT/NAPT mapping and verify the corresponding IP table rules are also deleted
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Configure default rules for Dynamic NAT
+- Confirm that pool is added (parse nat configs)
+- Send TCP/UDP traffic and check
+- Check that NAT entries are present in iptables after adding
+- Remove outside interface IP
+- Check that NAT entries are not present in iptables after removing interface IP
+- Restore previous configuration
+- Send TCP/UDP traffic and confirm that restoring previous configuration went well
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_nat_pools
+
+### Test objective
+
+Verify IP table rules are also programmed for NAT_POOL to ACL bindings
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Check that NAT entries are not present in iptables before adding
+- Prepare and add configuration json file
+- Write json to db, remove temporary folders
+- Check that NAT entries are present in iptables after adding
+- Check traffic, zone 1 is not configured,  NAT translations are not expected
+- Setup zones
+- Check that NAT entries in iptables show correct zones after configuring zones
+- Perform TCP handshake (host-tor -> leaf-tor)
+- Send traffic and check the frame
+- Wait until nat translations will expire and check traffic one more time
+
+### Test teardown
+
+- apply_global_nat_config fixture(scope="module"):  remove temporary folders, reload DUT configuration
+- teardown fixture(scope="function"): remove all NAT related configuration
+
+
+## Test case test_nat_dynamic_modify_bindings
+
+### Test objective
+
+Verify IP table rules are updated when ACL binding to NAT pool is created or modified
+
+### Test set up
+
+- apply_global_nat_config fixture(scope="module"): enable and configures NAT globally
+
+### Test steps
+
+- Define network data
+- Configure default rules for Dynamic NAT
+- Check that NAT entries are present in iptables after adding
+- Send TCP/UDP traffic and check
+- Remove bindings
+- Check, if nat bindings (nat config) and iptables are empty
+- Send TCP/UDP traffic and check, NAT translations are not expected
+- Add the binding again and confirm it by checking iptables
+- Perform TCP handshake (host-tor -> leaf-tor)
+- Send TCP/UDP traffic and check, NAT translations are not expected
 
 ### Test teardown
 

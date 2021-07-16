@@ -363,6 +363,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client=ssh.open_sftp()
     #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
+    ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
+    ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
+    ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
+    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')  
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
@@ -370,18 +374,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     if topo_type in ['t0', 'dualtor-56']:
-        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
-        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
-    else:
-        ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-        ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
+    elif topo_type == 't1':
         ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
         ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
-        ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
-        ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
         ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
@@ -427,9 +423,9 @@ def reload_dut_with_newCFG(data):
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
-    cmd_list.append('ip address add 10.10.246.254/24 dev eth32')
-    cmd_list.append('ip -6 address add fc0a::ff/64 dev eth32')
-    cmd_list.append('for i in {0..32}; do /sbin/ifconfig eth$i mtu 9216 up; done')
+    cmd_list.append('ip address add 10.10.246.254/24 dev backplane')
+    cmd_list.append('ip -6 address add fc0a::ff/64 dev backplane')
+    cmd_list.append('for i in {0..%s}; do /sbin/ifconfig eth$i mtu 9216 up; done' % data['ptf_intf_count'])
     run_exec_cmds(data['docker_ptf']['HostAgent'], data['docker_ptf']['xr_redir22'], 'root', 'root', cmd_list)
 
 def add_vEOS_cfg(data):
@@ -487,6 +483,35 @@ def add_vEOS_cfg(data):
         print('Hit %s' % e)
     #finally:
     #    print(buff)
+
+    chan.send('./testbed-cli.sh -t testbed.csv -m veos announce-routes docker-ptf password.txt\n')
+    chan.settimeout(180)
+    buff = ''
+    err_buff = ''
+    rcv_timeout = 60
+    interval_length = 5
+
+    try:
+        while not chan.exit_status_ready():
+            if chan.recv_ready():
+                resp = chan.recv(9999)
+                print(resp.decode("ascii"))
+                buff += resp.decode("ascii")
+            else:
+                rcv_timeout -= interval_length
+            if rcv_timeout < 0:
+                break
+            else:
+                time.sleep(interval_length)
+
+            if chan.recv_stderr_ready():
+                error_buff = chan.recv_stderr(9999)
+                while error_buff:
+                    err_buff += error_buff.decode("ascii")
+                    error_buff = chan.recv_stderr(9999)
+                print(err_buff)
+    except Exception as e:
+        print('Hit %s' % e)
 
     ssh.close()
 
@@ -568,6 +593,7 @@ def main():
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     branch = args['branch']
+    ptf_intfcount = 32
     if device_type == 'sherman':
         dut_name = 'sherman-01'
         dut_prefix = "sherman"
@@ -581,7 +607,7 @@ def main():
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
         else:
-            base_topo_file = 'testbed-mth64-t0.yaml'
+            base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
@@ -593,6 +619,23 @@ def main():
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
         base_topo_file = 'testbed-mth64-t0-dualtor.yaml'
+    elif topo_type == 't1-64-lag':
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t1-64-lag.yaml'
+        else:
+            base_topo_file = 'testbed-mth64-t1-64-lag.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 24
+        ptf_intfcount = 64
+    elif topo_type == 't0-64':
+        os.system("cp sonic_t0_topo/* .")
+        vEOS_count = 4
+        ptf_intfcount = 64
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t0.yaml'
+        else:
+            base_topo_file = 'testbed-mth64-t0-64.yaml'
+
     print("USING BASE TOPO {}".format(base_topo_file))
 
     input_file = args['input_file']
@@ -613,6 +656,7 @@ def main():
             data[entry_key]['passwd'] = dut_passwd
 
     data['branch'] = branch
+    data['ptf_intf_count'] = ptf_intfcount
 
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
@@ -673,7 +717,7 @@ def main():
         print("Device name is sherman. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
-        print("Device name is mth32. To execute a pytest script:\n")
+        print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
@@ -694,10 +738,10 @@ def main():
     print("******************************************************************************************************************************************************************************\n")
     if device_type == 'sherman':
         print("Device name is sherman. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
 
