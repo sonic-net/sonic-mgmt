@@ -32,12 +32,21 @@ def pytest_runtest_setup(item):
         skip_tests_dict = read_skip_file(item, skip_tests_file_path)
         update_syspath_for_dynamic_import()
 
-        for test_prefix, skip_dict in skip_tests_dict.items():
-            if str(item.nodeid).startswith(test_prefix):
+        for test_prefix, skip_list_of_dicts in skip_tests_dict.items():
+            if test_in_skip_list(item, test_prefix):
                 logger.debug('Found custom skip condition: {}'.format(test_prefix))
-                skip_checkers_list = prepare_checkers(skip_dict, item)
-                skip_dict_result = run_checkers_in_parallel(skip_checkers_list)
-                make_skip_decision(skip_dict_result, skip_dict)
+                make_skip_decision(skip_list_of_dicts, item)
+
+
+def get_tests_to_be_skipped_path(skip_tests_file='tests_to_be_skipped_conditionally.yaml'):
+    """
+    Get path to file with dynamic skip information
+    :param skip_tests_file: skip test file name
+    :return: full path to skip test file name
+    """
+    custom_skip_folder_path = os.path.dirname(__file__)
+    custom_skip_tests_file_path = os.path.join(custom_skip_folder_path, skip_tests_file)
+    return custom_skip_tests_file_path
 
 
 def read_skip_file(item, skip_tests_file_path):
@@ -56,23 +65,115 @@ def read_skip_file(item, skip_tests_file_path):
     return skip_dictionary
 
 
-def get_tests_to_be_skipped_path(skip_tests_file='tests_to_be_skipped_conditionally.yaml'):
-    """
-    Get path to file with dynamic skip information
-    :param skip_tests_file: skip test file name
-    :return: full path to skip test file name
-    """
-    custom_skip_folder_path = os.path.dirname(__file__)
-    custom_skip_tests_file_path = os.path.join(custom_skip_folder_path, skip_tests_file)
-    return custom_skip_tests_file_path
-
-
 def update_syspath_for_dynamic_import():
     """
     Update sys.path by current folder to have possibility to load python modules dynamically
     """
     if os.path.dirname(__file__) not in sys.path:
         sys.path.append(os.path.dirname(__file__))
+
+
+def test_in_skip_list(item, test_prefix):
+    """
+    Check if current test in skip list
+    :param item: pytest test item
+    :param test_prefix: test prefix from  ignore yaml file
+    :return: True/False
+    """
+    if str(item.nodeid).startswith(test_prefix):
+        return True
+    return False
+
+
+def make_skip_decision(skip_list_of_dicts, item):
+    """
+    Make a final decision about whether to skip the test by combining the results of all the skip statements.
+    :param skip_list_of_dicts: list with data which we read from ignore yaml file
+    :param item: pytest test item
+    :return: None or pytest.skip in case when we need to skip test
+    """
+    skip_result_list = []
+
+    skip_dict_data, skip_list_data = prepare_skip_dict_and_list(skip_list_of_dicts)
+
+    # Do skip check for all OR conditions
+    skip_reason_str = update_skip_results(skip_dict_data, item, 'or', skip_result_list, skip_reason_str='')
+
+    # Do skip check for all AND conditions
+    for skip_dict in skip_list_data:
+        skip_reason_str = update_skip_results(skip_dict, item, 'and', skip_result_list, skip_reason_str)
+
+    # Make final decision
+    if any(skip_result_list):
+        pytest.skip(skip_reason_str)
+
+
+def prepare_skip_dict_and_list(skip_list_of_dicts):
+    """
+    Prepare skip dictionary and skip list
+    :param skip_list_of_dicts: list with data which we read from ignore yaml file
+    :return: dict and list with data
+    Example: list = [{'Redmine': [2597848], 'Platform': ['msn3']}]
+    dict = {'Redmine': [2597848], 'Platform': ['msn3']}
+    """
+    skip_dict = {}
+    skip_list = []
+    for skip_by in skip_list_of_dicts:
+        if len(skip_by) > 1:
+            # Skip items with AND condition between them
+            skip_list.append(skip_by)
+        else:
+            # Skip items with OR condition between them
+            skip_dict.update(skip_by)
+    return skip_dict, skip_list
+
+
+def update_skip_results(skip_dict, item, operand, skip_result_list, skip_reason_str):
+    """
+    Get results from skip checkers and update skip_result_list and skip_reason_str
+    :param skip_dict: dictionary with data which we read from ignore yaml file
+    :param item: pytest test item
+    :param operand: operand which will be used between skip by items, can be "or", "and"
+    :param skip_result_list: list which we update according to checkers results
+    :param skip_reason_str: skip reason string which we update according to checkers results
+    :return: skip_reason_str - string which contains skip reason
+    """
+    skip_required, skip_reason = get_checkers_result(skip_dict, item, operand)
+    skip_result_list.append(skip_required)
+    skip_reason_str += skip_reason
+    return skip_reason_str
+
+
+def get_checkers_result(skip_dict, item, operand='or'):
+    """
+    Get results about whether to skip the test by combining the results of all the skip statements.
+    :param skip_dict: dictionary with skip test case skip conditions
+    :param item: pytest build-in
+    :param operand: operand which will be used to make decision about skip
+    :return: True/False and string with skip reason
+    """
+    skip_reason = ''
+    checkers_result = []
+
+    skip_checkers_list = prepare_checkers(skip_dict, item)
+    skip_dict_result = run_checkers_in_parallel(skip_checkers_list)
+
+    for checker, checker_result in skip_dict_result.items():
+        if checker_result:
+            skip_reason += '\nTest skipped due to {}: {}'.format(checker, checker_result)
+            checkers_result.append(True)
+        else:
+            checkers_result.append(False)
+
+    if operand == 'or':
+        skip_required = any(checkers_result)
+    else:
+        skip_required = all(checkers_result)
+
+    if not skip_required:
+        skip_reason = ''
+
+    return skip_required, skip_reason
 
 
 def prepare_checkers(skip_dict, pytest_item_obj):
@@ -114,45 +215,6 @@ def run_checkers_in_parallel(skip_checkers_list):
         proc.join(timeout=60)
 
     return skip_dict_result
-
-
-def make_skip_decision(skip_dict_result, current_skip_dict):
-    """
-    Make a final decision about whether to skip the test by combining the results of all the skip statements.
-    :param skip_dict_result: dictionary with checkers result
-    :param current_skip_dict: dictionary with skip test case data
-    :return: None or pytest.skip in case when need to skip test case
-    """
-    skip_reason = ''
-    is_skip_by_platform_required = False
-    is_skip_by_issue_required = False
-    operand = 'or'
-
-    for checker, checker_result in skip_dict_result.items():
-        if checker == PLATFORM:
-            operand = current_skip_dict[PLATFORM].get('operand', 'or')
-            if checker_result:
-                skip_reason += '\nTest skipped due to Platform: {}'.format(checker_result)
-                is_skip_by_platform_required = True
-        else:
-            if checker_result:
-                is_skip_by_issue_required = True
-                skip_reason += '\nTest skipped by {} issue: {}'.format(checker, checker_result)
-
-    logger.debug('Making decision about skip test or run. '
-                 'Skip by issue: {}, Skip by Platform: {}, Operand: {}'.format(is_skip_by_issue_required,
-                                                                               is_skip_by_platform_required,
-                                                                               operand))
-
-    if operand == 'or':
-        is_skip_required = is_skip_by_issue_required or is_skip_by_platform_required
-    elif operand == 'and':
-        is_skip_required = is_skip_by_issue_required and is_skip_by_platform_required
-    else:
-        raise AssertionError('Operand "{}" is not supported'.format(operand))
-
-    if is_skip_required:
-        pytest.skip(skip_reason)
 
 
 class CustomSkipIf:

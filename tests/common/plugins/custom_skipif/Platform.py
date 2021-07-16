@@ -18,7 +18,7 @@ class SkipIf(CustomSkipIf):
         :return: updated skip_dict
         """
         current_platform = get_platform_type(self.pytest_item_obj)
-        for platform in self.ignore_list['platforms']:
+        for platform in self.ignore_list:
             if str(platform) in current_platform:
                 skip_dict_result[self.name] = platform
                 break

@@ -18,37 +18,39 @@ Code below will skip test if we have active issue in: ((GitHub or Jira or Redmin
 
 ````
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
-  GitHub:
+  - GitHub:
     - https://github.com/Azure/sonic-buildimage/issues/7602
     - https://github.com/Azure/sonic-buildimage/issues/7643
-  Jira:
+    Platform:
+      - msn4600
+  - Jira:
     - http://jira.aaa.com/1234
-  Redmine:
+    Platform:
+      - msn4600
+  - Redmine:
     - http://redmine.bbb.com/1234
-  Platform:
-    operand: "and"
-    platforms:
+    Platform:
       - msn4600
 ````
 
 ##### How to add additional issues/tickets system support(Jira, Redmine, etc.)
 To add support for additional issues/tickets system  we need to do next(example below for Redmine):
 - Create file called "Redmine.py"
-- In file "Readmine.py" create class with name "Redmine" and inherit it from "CustomSkipIf" class
+- In file "Readmine.py" create class with name "SkipIf" and inherit it from "CustomSkipIf" class
 ````
 from CustomSkipIf import CustomSkipIf
 
-class Redmine(CustomSkipIf):
-    def __init__(self, ignore_list, extra_params):
-        self.name = __name__
-        self.ignore_list = ignore_list
-        self.extra_params = extra_params
+class SkipIf(CustomSkipIf):
+    def __init__(self, ignore_list, pytest_item_obj):
+        super(SkipIf, self).__init__(ignore_list, pytest_item_obj)
+        self.name = 'Redmine'
 
     def is_skip_required(self, skip_dict):
-        # Implement here logic for check if Redmine issue is active       
-        is_issue_active, issue_url = check_if_issue_active()
+        is_issue_active, issue_id = is_redmine_issue_active(self.ignore_list)
         if is_issue_active:
+            issue_url = 'https://redmine.bbb.com/issues/{}'.format(issue_id)
             skip_dict[self.name] = issue_url
+
         return skip_dict
 ````
 - Add to file "tests_to_be_skipped_conditionally.yaml" skip item for specific test case by Redmine issue id
