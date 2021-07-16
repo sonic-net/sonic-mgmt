@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.asic('mellanox')
 ]
 
 # Standard HASH_KEYs of 'src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto' varied in the inner packets sent and used to validate hashing
