@@ -128,7 +128,6 @@ class Arista(object):
             # but wait for v4_routing_ok and v6_routing_ok
             if not quit_enabled:
                 cmd = self.queue.get()
-                self.log('Command received: cmd={}'.format(cmd))
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
