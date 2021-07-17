@@ -193,8 +193,12 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
 
             tdata['devices'][dut_name]['ansible']['ansible_host'] = data[vxr_device]['xr_mgmt_ip']
             tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data[vxr_device]['uname']
-            tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
-            tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+
+    tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['devices']['str-acs-serv-01']['ansible']['ansible_host'] = data['mux_sim']['xr_mgmt_ip'] + '/24'
+    tdata['host_vars']['str-acs-serv-01']['mgmt_gw'] = data['mux_sim']['xr_mgmt_ip']
+    tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -643,8 +647,8 @@ def main():
     if input_file is None:
         if clean_sim:
             os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
-        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {}".format(topo_yaml))
-        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py ports > vxr_ports.yaml")
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py start {}".format(topo_yaml))
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 
     with open(input_file) as f:
@@ -708,6 +712,8 @@ def main():
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
 
+    print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
         print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
@@ -725,11 +731,14 @@ def main():
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
 
-    print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
+    for (i, dut_entry) in enumerate(get_dut_entries(data)):
+        print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
+
+    print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):

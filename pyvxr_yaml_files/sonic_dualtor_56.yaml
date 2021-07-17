@@ -1,20 +1,26 @@
+simulation:
+    slurm_flags:
+        partition: bigmem_intel
+        hours: 120
+
 devices:
 
   mux_sim:
     platform: linux
     vcpu: 2
-    image: /auto/vxr/vxr_images/onie-sonic/mux_sim.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/mux_sim_v2.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@ubuntu:~#
     extended_pci_bus: True
     xr_port_redir: [22, 8080]
-    data_port_attributes: 
+    xr_config: /home/vxr/restart_mux.sh vms_1
+    data_port_attributes:
        transport: e1000
     data_ports:
-      - ptf[0..26]
-      - upper_tor[0..26]
-      - lower_tor[0..26]
+      - ptf[0..27]
+      - upper_tor[0..27]
+      - lower_tor[0..27]
 
   docker_ptf:
     platform: linux
@@ -28,19 +34,19 @@ devices:
     memory: '4G'
     mgmt_intf_name: mgmt
     data_ports:
-      - eth[0..32]
+      - eth[0..64]
 
   sonic_dut_0: &dut
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/dt8.1/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_11.0/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.40.1_NPS1.76.1/npl
-            ConfigS1NpsuiteVer: 1.76.2
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.1_NPS1.77.2/npl
+            ConfigS1NpsuiteVer: 1.77.2
 
   sonic_dut_1:
       <<: *dut
@@ -69,48 +75,310 @@ device_groups:
 
 connections:
   hubs:
+    mux_sim_to_ptf0:
+      - docker_ptf.eth0
+      - mux_sim.ptf0
+    mux_sim_to_ptf1:
+      - docker_ptf.eth2
+      - mux_sim.ptf1
+    mux_sim_to_ptf2:
+      - docker_ptf.eth4
+      - mux_sim.ptf2
+    mux_sim_to_ptf3:
+      - docker_ptf.eth6
+      - mux_sim.ptf3
+    mux_sim_to_ptf4:
+      - docker_ptf.eth8
+      - mux_sim.ptf4
+    mux_sim_to_ptf5:
+      - docker_ptf.eth10
+      - mux_sim.ptf5
+    mux_sim_to_ptf6:
+      - docker_ptf.eth16
+      - mux_sim.ptf6
+    mux_sim_to_ptf7:
+      - docker_ptf.eth18
+      - mux_sim.ptf7
+    mux_sim_to_ptf8:
+      - docker_ptf.eth20
+      - mux_sim.ptf8
+    mux_sim_to_ptf9:
+      - docker_ptf.eth22
+      - mux_sim.ptf9
+    mux_sim_to_ptf10:
+      - docker_ptf.eth24
+      - mux_sim.ptf10
+    mux_sim_to_ptf11:
+      - docker_ptf.eth26
+      - mux_sim.ptf11
+    mux_sim_to_ptf12:
+      - docker_ptf.eth28
+      - mux_sim.ptf12
+    mux_sim_to_ptf13:
+      - docker_ptf.eth30
+      - mux_sim.ptf13
+    mux_sim_to_ptf14:
+      - docker_ptf.eth32
+      - mux_sim.ptf14
+    mux_sim_to_ptf15:
+      - docker_ptf.eth34
+      - mux_sim.ptf15
+    mux_sim_to_ptf16:
+      - docker_ptf.eth36
+      - mux_sim.ptf16
+    mux_sim_to_ptf17:
+      - docker_ptf.eth38
+      - mux_sim.ptf17
+    mux_sim_to_ptf18:
+      - docker_ptf.eth44
+      - mux_sim.ptf18
+    mux_sim_to_ptf19:
+      - docker_ptf.eth46
+      - mux_sim.ptf19
+    mux_sim_to_ptf20:
+      - docker_ptf.eth48
+      - mux_sim.ptf20
+    mux_sim_to_ptf21:
+      - docker_ptf.eth50
+      - mux_sim.ptf21
+    mux_sim_to_ptf22:
+      - docker_ptf.eth52
+      - mux_sim.ptf22
+    mux_sim_to_ptf23:
+      - docker_ptf.eth54
+      - mux_sim.ptf23
 
-    mux_sim_to_ptf:
-      - docker_ptf.eth[0..11]
-      - mux_sim.ptf[0..11]
+    mux_sim_to_upper_tor0:
+      - mux_sim.upper_tor0
+      - sonic_dut_0.Ethernet0
+    mux_sim_to_upper_tor1:
+      - mux_sim.upper_tor1
+      - sonic_dut_0.Ethernet2
+    mux_sim_to_upper_tor2:
+      - mux_sim.upper_tor2
+      - sonic_dut_0.Ethernet4
+    mux_sim_to_upper_tor3:
+      - mux_sim.upper_tor3
+      - sonic_dut_0.Ethernet6
+    mux_sim_to_upper_tor4:
+      - mux_sim.upper_tor4
+      - sonic_dut_0.Ethernet8
+    mux_sim_to_upper_tor5:
+      - mux_sim.upper_tor5
+      - sonic_dut_0.Ethernet10
+    mux_sim_to_upper_tor6:
+      - mux_sim.upper_tor6
+      - sonic_dut_0.Ethernet16
+    mux_sim_to_upper_tor7:
+      - mux_sim.upper_tor7
+      - sonic_dut_0.Ethernet18
+    mux_sim_to_upper_tor8:
+      - mux_sim.upper_tor8
+      - sonic_dut_0.Ethernet20
+    mux_sim_to_upper_tor9:
+      - mux_sim.upper_tor9
+      - sonic_dut_0.Ethernet22
+    mux_sim_to_upper_tor10:
+      - mux_sim.upper_tor10
+      - sonic_dut_0.Ethernet24
+    mux_sim_to_upper_tor11:
+      - mux_sim.upper_tor11
+      - sonic_dut_0.Ethernet26
+    mux_sim_to_upper_tor12:
+      - mux_sim.upper_tor12
+      - sonic_dut_0.Ethernet28
+    mux_sim_to_upper_tor13:
+      - mux_sim.upper_tor13
+      - sonic_dut_0.Ethernet30
+    mux_sim_to_upper_tor14:
+      - mux_sim.upper_tor14
+      - sonic_dut_0.Ethernet32
+    mux_sim_to_upper_tor15:
+      - mux_sim.upper_tor15
+      - sonic_dut_0.Ethernet34
+    mux_sim_to_upper_tor16:
+      - mux_sim.upper_tor16
+      - sonic_dut_0.Ethernet36
+    mux_sim_to_upper_tor17:
+      - mux_sim.upper_tor17
+      - sonic_dut_0.Ethernet38
+    mux_sim_to_upper_tor18:
+      - mux_sim.upper_tor18
+      - sonic_dut_0.Ethernet44
+    mux_sim_to_upper_tor19:
+      - mux_sim.upper_tor19
+      - sonic_dut_0.Ethernet46
+    mux_sim_to_upper_tor20:
+      - mux_sim.upper_tor20
+      - sonic_dut_0.Ethernet48
+    mux_sim_to_upper_tor21:
+      - mux_sim.upper_tor21
+      - sonic_dut_0.Ethernet50
+    mux_sim_to_upper_tor22:
+      - mux_sim.upper_tor22
+      - sonic_dut_0.Ethernet52
+    mux_sim_to_upper_tor23:
+      - mux_sim.upper_tor23
+      - sonic_dut_0.Ethernet54
 
-    mux_sim_to_upper_tor:
-      - mux_sim.upper_tor[0..11]
-      - sonic_dut_0.Ethernet[0..11]
+    mux_sim_to_lower_tor0:
+      - mux_sim.lower_tor0
+      - sonic_dut_1.Ethernet0
+    mux_sim_to_lower_tor1:
+      - mux_sim.lower_tor1
+      - sonic_dut_1.Ethernet2
+    mux_sim_to_lower_tor2:
+      - mux_sim.lower_tor2
+      - sonic_dut_1.Ethernet4
+    mux_sim_to_lower_tor3:
+      - mux_sim.lower_tor3
+      - sonic_dut_1.Ethernet6
+    mux_sim_to_lower_tor4:
+      - mux_sim.lower_tor4
+      - sonic_dut_1.Ethernet8
+    mux_sim_to_lower_tor5:
+      - mux_sim.lower_tor5
+      - sonic_dut_1.Ethernet10
+    mux_sim_to_lower_tor6:
+      - mux_sim.lower_tor6
+      - sonic_dut_1.Ethernet16
+    mux_sim_to_lower_tor7:
+      - mux_sim.lower_tor7
+      - sonic_dut_1.Ethernet18
+    mux_sim_to_lower_tor8:
+      - mux_sim.lower_tor8
+      - sonic_dut_1.Ethernet20
+    mux_sim_to_lower_tor9:
+      - mux_sim.lower_tor9
+      - sonic_dut_1.Ethernet22
+    mux_sim_to_lower_tor10:
+      - mux_sim.lower_tor10
+      - sonic_dut_1.Ethernet24
+    mux_sim_to_lower_tor11:
+      - mux_sim.lower_tor11
+      - sonic_dut_1.Ethernet26
+    mux_sim_to_lower_tor12:
+      - mux_sim.lower_tor12
+      - sonic_dut_1.Ethernet28
+    mux_sim_to_lower_tor13:
+      - mux_sim.lower_tor13
+      - sonic_dut_1.Ethernet30
+    mux_sim_to_lower_tor14:
+      - mux_sim.lower_tor14
+      - sonic_dut_1.Ethernet32
+    mux_sim_to_lower_tor15:
+      - mux_sim.lower_tor15
+      - sonic_dut_1.Ethernet34
+    mux_sim_to_lower_tor16:
+      - mux_sim.lower_tor16
+      - sonic_dut_1.Ethernet36
+    mux_sim_to_lower_tor17:
+      - mux_sim.lower_tor17
+      - sonic_dut_1.Ethernet38
+    mux_sim_to_lower_tor18:
+      - mux_sim.lower_tor18
+      - sonic_dut_1.Ethernet44
+    mux_sim_to_lower_tor19:
+      - mux_sim.lower_tor19
+      - sonic_dut_1.Ethernet46
+    mux_sim_to_lower_tor20:
+      - mux_sim.lower_tor20
+      - sonic_dut_1.Ethernet48
+    mux_sim_to_lower_tor21:
+      - mux_sim.lower_tor21
+      - sonic_dut_1.Ethernet50
+    mux_sim_to_lower_tor22:
+      - mux_sim.lower_tor22
+      - sonic_dut_1.Ethernet52
+    mux_sim_to_lower_tor23:
+      - mux_sim.lower_tor23
+      - sonic_dut_1.Ethernet54
 
-    mux_sim_to_lower_tor:
-      - mux_sim.lower_tor[0..11]
-      - sonic_dut_1.Ethernet[0..11]
+  custom:
+    ptf_injected_dut_0_to_veos1_1:
+      ports:
+      - docker_ptf.eth12
+      - sonic_dut_0.Ethernet12
+      - veos1.Ethernet1
+    ptf_injected_dut_0_to_veos1_2:
+      ports:
+      - docker_ptf.eth13
+      - sonic_dut_0.Ethernet13
+      - veos1.Ethernet2
+    ptf_injected_dut_0_to_veos2_1:
+      ports:
+      - docker_ptf.eth14
+      - sonic_dut_0.Ethernet14
+      - veos2.Ethernet1
+    ptf_injected_dut_0_to_veos2_2:
+      ports:
+      - docker_ptf.eth15
+      - sonic_dut_0.Ethernet15
+      - veos2.Ethernet2
+    ptf_injected_dut_0_to_veos3_1:
+      ports:
+      - docker_ptf.eth40
+      - sonic_dut_0.Ethernet40
+      - veos3.Ethernet1
+    ptf_injected_dut_0_to_veos3_2:
+      ports:
+      - docker_ptf.eth41
+      - sonic_dut_0.Ethernet41
+      - veos3.Ethernet2
+    ptf_injected_dut_0_to_veos4_1:
+      ports:
+      - docker_ptf.eth42
+      - sonic_dut_0.Ethernet42
+      - veos4.Ethernet1
+    ptf_injected_dut_0_to_veos4_2:
+      ports:
+      - docker_ptf.eth43
+      - sonic_dut_0.Ethernet43
+      - veos4.Ethernet2
 
-    sonic_dut_0_to_veos1:
-      - sonic_dut_0.Ethernet[12..13]
-      - veos1.Ethernet[1..2]
+    ptf_injected_dut_1_to_veos1_1:
+      ports:
+      - docker_ptf.eth55
+      - sonic_dut_1.Ethernet12
+      - veos1.Ethernet3
+    ptf_injected_dut_1_to_veos1_2:
+      ports:
+      - docker_ptf.eth56
+      - sonic_dut_1.Ethernet13
+      - veos1.Ethernet4
+    ptf_injected_dut_1_to_veos2_1:
+      ports:
+      - docker_ptf.eth57
+      - sonic_dut_1.Ethernet14
+      - veos2.Ethernet3
+    ptf_injected_dut_1_to_veos2_2:
+      ports:
+      - docker_ptf.eth58
+      - sonic_dut_1.Ethernet15
+      - veos2.Ethernet4
+    ptf_injected_dut_1_to_veos3_1:
+      ports:
+      - docker_ptf.eth59
+      - sonic_dut_1.Ethernet40
+      - veos3.Ethernet3
+    ptf_injected_dut_1_to_veos3_2:
+      ports:
+      - docker_ptf.eth60
+      - sonic_dut_1.Ethernet41
+      - veos3.Ethernet4
+    ptf_injected_dut_1_to_veos4_1:
+      ports:
+      - docker_ptf.eth61
+      - sonic_dut_1.Ethernet42
+      - veos4.Ethernet3
+    ptf_injected_dut_1_to_veos4_2:
+      ports:
+      - docker_ptf.eth62
+      - sonic_dut_1.Ethernet43
+      - veos4.Ethernet4
 
-    sonic_dut_0_to_veos2:
-      - sonic_dut_0.Ethernet[14..15]
-      - veos2.Ethernet[1..2]
-
-    sonic_dut_0_to_veos3:
-      - sonic_dut_0.Ethernet[40..41]
-      - veos3.Ethernet[1..2]
-
-    sonic_dut_0_to_veos4:
-      - sonic_dut_0.Ethernet[42..43]
-      - veos4.Ethernet[1..2]
-
-    sonic_dut_1_to_veos1:
-      - sonic_dut_1.Ethernet[12..13]
-      - veos1.Ethernet[3..4]
-
-    sonic_dut_1_to_veos2:
-      - sonic_dut_1.Ethernet[14..15]
-      - veos2.Ethernet[3..4]
-
-    sonic_dut_1_to_veos3:
-      - sonic_dut_1.Ethernet[40..41]
-      - veos3.Ethernet[3..4]
-
-    sonic_dut_1_to_veos4:
-      - sonic_dut_1.Ethernet[42..43]
-      - veos4.Ethernet[3..4]
+    backplane:
+      ports:
+      - veos[1..4].Ethernet9
+      - docker_ptf.eth63  
 

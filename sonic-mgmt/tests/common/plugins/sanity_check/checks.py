@@ -422,12 +422,14 @@ def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_hos
         lower_tor_ping_tgt_ip = '10.10.10.2'
         ptf_arp_tgt_ip = '10.10.10.3'
 
-        upper_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
+        upper_tor_exp_pkt = testutils.simple_arp_packet(pktlen=42,
+                                                        eth_dst='ff:ff:ff:ff:ff:ff',
                                                         eth_src=upper_tor_intf_mac,
                                                         ip_snd=upper_tor_mgmt_ip,
                                                         ip_tgt=upper_tor_ping_tgt_ip,
                                                         hw_snd=upper_tor_intf_mac)
-        lower_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
+        lower_tor_exp_pkt = testutils.simple_arp_packet(pktlen=42,
+                                                        eth_dst='ff:ff:ff:ff:ff:ff',
                                                         eth_src=lower_tor_intf_mac,
                                                         ip_snd=lower_tor_mgmt_ip,
                                                         ip_tgt=lower_tor_ping_tgt_ip,
