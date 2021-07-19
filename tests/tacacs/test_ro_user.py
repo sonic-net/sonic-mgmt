@@ -66,7 +66,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         if "active (running)" in str(output):
             return
         else:
-            if current_attempt == TIMEOUT_LIMIT/SLEEP_TIME:
+            if current_attempt >= TIMEOUT_LIMIT/SLEEP_TIME:
                 pytest_assert(False, "hostcfgd did not start after {} seconds".format(TIMEOUT_LIMIT))
             else:
                 current_attempt += 1
