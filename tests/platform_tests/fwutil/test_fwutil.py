@@ -8,8 +8,21 @@ from fwutil_common import call_fwutil, show_firmware, upload_platform, find_patt
 DEVICES_PATH="/usr/share/sonic/device"
 
 def test_fwutil_show(duthost):
-    """Basic Validation that fwutil show runs without error"""
-    assert show_firmware(duthost)
+    """Tests that fwutil show has all components defined for platform"""
+    platform_comp = {}
+    duthost.fetch(dest=os.path.join("firmware", "platform_components_backup.json"), 
+            src=os.path.join(DEVICES_PATH, duthost.facts["platform"], "platform_components.json"),
+            flat=True)
+    with open(os.path.join("firmware", "platform_components_backup.json")) as f:
+        platform_comp = json.load(f)
+
+    versions = show_firmware(duthost)
+    chassis = versions["chassis"].keys()[0]
+
+    show_fw_comp_set = set(versions["chassis"][chassis]["component"].keys())
+    platform_comp_set = set(platform_comp["chassis"][chassis]["component"].keys())
+
+    assert show_fw_comp_set == platform_comp_set
 
 def test_fwutil_install_file(duthost, localhost, pdu_controller, fw_pkg, random_component):
     """Tests manually installing firmware to a component from a file."""

@@ -28,7 +28,10 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture(scope='module')
 def fw_pkg(fw_pkg_name):
     logger.info("Unpacking firmware package to ./firmware")
-    os.mkdir("firmware")
+    try:
+        os.mkdir("firmware")
+    except Exception as e:
+        pass # Already exists, thats fine
     with tarfile.open(fw_pkg_name, "r:gz") as f:
         f.extractall("./firmware/")
         with open('./firmware/firmware.json', 'r') as fw:
@@ -53,7 +56,8 @@ def host_firmware(localhost, duthost):
         duthost.facts['platform']))
     task, res = duthost.command(comm, module_ignore_errors=True, module_async=True)
     yield "http://localhost:8000/"
-    task.terminate()
+    logger.info("Stopping local python server.")
+    duthost.command('pkill -f "{}"'.format(comm), module_ignore_errors=True)
 
 @pytest.fixture(scope='function')
 def next_image(duthost, fw_pkg):
@@ -104,4 +108,7 @@ def next_image(duthost, fw_pkg):
         duthost.command("sonic_installer set-default {}".format(current))
 
     yield overlay_mountpoint
+
+    logger.info("Ensuring correct image is set to default boot.")
+    duthost.command("sonic_installer set-default {}".format(current))
 
