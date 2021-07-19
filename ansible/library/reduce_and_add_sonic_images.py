@@ -69,7 +69,7 @@ def setup_swap_if_necessary(module):
     if total < 2048 or avail < 1200:
         # Memory size or available amount is low, there is risk of OOM during new
         # image installation. Create a temporary swap file.
-        exec_command(module, cmd="sudo rm -f {0}; sudo fallocate -l 1G {0}; sudo chmod 600 {0}; sudo mkswap {0}; sudo swapon {0}".format('/host/swapfile'),
+        exec_command(module, cmd="if [[ -f {0} ]]; then sudo swapoff {0}; sudo rm -f {0}; fi; sudo fallocate -l 1G {0}; sudo chmod 600 {0}; sudo mkswap {0}; sudo swapon {0}".format('/host/swapfile'),
                      msg="Create a temporary swap file")
 
 
