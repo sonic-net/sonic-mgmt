@@ -57,8 +57,16 @@ class MultiAsicSonicHost(object):
             [list]: list of the services running the device
         """
         service_list = []
-        service_list+= self._DEFAULT_SERVICES
-        for asic in self.asics:
+        active_asics = self.asics
+        if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
+            active_asics = []
+            redis_out = self.command("redis-cli -h 10.0.5.16 -p 6380 -n 13  keys \"CHASSIS_ASIC_TABLE|asic*\"")
+            for a_asic_line in redis_out["stdout_lines"]:
+                a_asic_name = a_asic_line.split("|")[1]
+                a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
+                active_asics.append(a_asic_instance)
+        service_list += self._DEFAULT_SERVICES
+        for asic in active_asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
 
