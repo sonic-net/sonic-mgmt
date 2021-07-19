@@ -768,6 +768,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to shutdown
         """
+        logging.info("Shutting down {}".format(ifname))
         return self.command("sudo config interface shutdown {}".format(ifname))
 
     def shutdown_multiple(self, ifnames):
@@ -787,6 +788,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to bring up
         """
+        logging.info("Starting up {}".format(ifname))
         return self.command("sudo config interface startup {}".format(ifname))
 
     def no_shutdown_multiple(self, ifnames):
