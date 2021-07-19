@@ -27,6 +27,8 @@ def pytest_generate_tests(metafunc):
 
 @pytest.fixture(scope='module')
 def fw_pkg(fw_pkg_name):
+    if fw_pkg_name is None:
+        pytest.skip("No fw package specified.")
     logger.info("Unpacking firmware package to ./firmware")
     try:
         os.mkdir("firmware")
