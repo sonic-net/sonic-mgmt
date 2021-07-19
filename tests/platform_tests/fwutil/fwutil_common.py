@@ -74,18 +74,18 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
         wait_until(300, 30, duthost.critical_services_fully_started)
         time.sleep(60)
 
-    # Reboot back into original image if neccesary
-    if next_image:
-        logger.info("We booted into the new image... booting back into the image under test.")
-        duthost.command("sonic-installer set-default {}".format(current))
-        reboot(duthost, pdu_ctrl, COLD_REBOOT, pdu_delay)
-        logger.info("Waiting on switch to shutdown....")
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=150)
-        time.sleep(100)
-        logger.info("Waiting on switch to come up....")
-        localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
-        wait_until(300, 30, duthost.critical_services_fully_started)
-        time.sleep(60)
+        # Reboot back into original image if neccesary
+        if next_image and auto_reboot:
+            logger.info("We booted into the new image... booting back into the image under test.")
+            duthost.command("sonic-installer set-default {}".format(current))
+            reboot(duthost, pdu_ctrl, COLD_REBOOT, pdu_delay)
+            logger.info("Waiting on switch to shutdown....")
+            localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=150)
+            time.sleep(100)
+            logger.info("Waiting on switch to come up....")
+            localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
+            wait_until(300, 30, duthost.critical_services_fully_started)
+            time.sleep(60)
 
 def show_firmware(duthost):
     out = duthost.command("fwutil show status")
