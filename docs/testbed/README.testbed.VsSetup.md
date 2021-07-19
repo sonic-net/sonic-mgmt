@@ -75,7 +75,7 @@ To run the tests with a virtual SONiC device, we need a virtual SONiC image. The
 1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
-wget https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz -O sonic-vs.img.gz
+wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz" -O sonic-vs.img.gz
 ```
 
 2. Unzip the image and move it into `~/sonic-vm/images/`
