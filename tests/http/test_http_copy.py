@@ -16,6 +16,8 @@ HTTP_PORT = "8080"
 def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     """Test that HTTP (copy) can be used to download objects to the DUT"""
 
+    pytest.skip("---- test causes ptf docker to crash after the test is done, skipping until the issue is addressed")
+
     duthost = duthosts[rand_one_dut_hostname]
     ptf_ip = ptfhost.mgmt_ip
 
