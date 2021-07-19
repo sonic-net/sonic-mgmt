@@ -12,6 +12,9 @@ from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 
+
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
@@ -293,6 +296,8 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
+        self.pfc_wd['test_port_vlan_id'] = self.ports[port].get('test_port_vlan_id')
+        self.pfc_wd['rx_port_vlan_id'] = self.ports[port].get('rx_port_vlan_id')
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
@@ -409,6 +414,8 @@ class SendVerifyTraffic():
         self.pfc_wd_test_port_ids = pfc_params['test_port_ids']
         self.pfc_wd_test_neighbor_addr = pfc_params['test_neighbor_addr']
         self.pfc_wd_rx_neighbor_addr = pfc_params['rx_neighbor_addr']
+        self.pfc_wd_test_port_vlan_id = pfc_params['test_port_vlan_id']
+        self.pfc_wd_rx_port_vlan_id = pfc_params['test_port_vlan_id']
         self.port_type = pfc_params['port_type']
 
     def verify_tx_egress(self, action):
@@ -431,6 +438,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': action}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -457,6 +468,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': action}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -485,6 +500,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'forward'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -513,6 +532,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'forward'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -531,6 +554,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'dontcare'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
