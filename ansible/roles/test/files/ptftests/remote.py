@@ -3,6 +3,9 @@ Remote platform
 
 This platform uses physical ethernet interfaces.
 """
+import os
+import yaml
+
 
 ETH_PFX = 'eth'
 SUB_INTF_SEP = '.'
@@ -32,6 +35,14 @@ def get_ifaces():
 
 def build_ifaces_map(ifaces):
     """Build interface map for ptf to init dataplane."""
+    ptf_port_mapping_mode = "use_orig_interface"
+    constants_file = os.path.join(os.path.dirname(__file__), "constants.yaml")
+    if os.path.exists(constants_file):
+        with open(constants_file) as fd:
+            constants = yaml.load(fd)
+            ptf_port_mapping_mode = constants.get("PTF_PORT_MAPPING_MODE", ptf_port_mapping_mode)
+
+
     sub_ifaces = []
     iface_map = {}
     for iface in ifaces:
@@ -43,10 +54,15 @@ def build_ifaces_map(ifaces):
             iface_index = int(iface_suffix)
             iface_map[(0, iface_index)] = iface
 
-    # override those interfaces that has sub interfaces
-    for i, si in sub_ifaces:
-        iface_map[(0, i)] = si;
-    return iface_map
+    if ptf_port_mapping_mode == "use_sub_interface":
+        # override those interfaces that has sub interfaces
+        for i, si in sub_ifaces:
+            iface_map[(0, i)] = si;
+        return iface_map
+    elif ptf_port_mapping_mode == "use_orig_interface":
+        return iface_map
+    else:
+        raise ValueError("Unsupported ptf port mapping mode: %s" % ptf_port_mapping_mode)
 
 
 def platform_config_update(config):
