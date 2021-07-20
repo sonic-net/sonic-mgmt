@@ -2,10 +2,14 @@ import json
 import os
 import pytest
 import logging
+import yaml
 
 from ipaddress import ip_interface
 from jinja2 import Template
 from natsort import natsorted
+
+from tests.common import constants
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +67,21 @@ def copy_ptftests_directory(ptfhost):
 
     logger.info("Delete PTF test files from PTF host '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(ROOT_DIR, PTF_TESTS), state="absent")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def set_ptf_port_mapping_mode(ptfhost, request, tbinfo):
+    """Set per-module ptf port mapping mode used by ptftests on ptf."""
+    if "backend" in tbinfo["topo"]["name"]:
+        ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
+    else:
+        ptf_port_mapping_mode = "use_orig_interface"
+    logging.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
+    data = {
+        "PTF_PORT_MAPPING_MODE": ptf_port_mapping_mode
+    }
+    ptfhost.copy(content=yaml.dump(data), dest=os.path.join(ROOT_DIR, PTF_TESTS, "constants.yaml"))
+    return
 
 
 @pytest.fixture(scope="session", autouse=True)
