@@ -156,7 +156,8 @@ class LogAnalyzer:
         """
         Adds the marker to the syslog
         """
-        start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        #start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
 
         logging.debug("Adding start marker '{}'".format(start_marker))
