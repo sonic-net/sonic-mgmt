@@ -1,0 +1,119 @@
+
+name: RepoMerge_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+  github_sonic_mgmt_branch: master
+  mssonic_sonic_mgmt_branch: internal-test
+
+schedules:
+  - cron: "30 3 * * *"
+    displayName: Merge Github to sonic-mgmt-int
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+
+  - stage: RepoMerge
+    jobs:
+
+      - job: sonic_mgmt_merge
+        pool: nightly
+        timeoutInMinutes: 30
+        variables:
+          - group: GIT_SECRETS
+
+        steps:
+
+          - script: |
+              set -xe
+
+              FAILED=""
+
+              function perform_merge()
+              {
+                  github_branch=$1
+                  mssonic_branch=$2
+
+                  echo "=== Merging branch -${github_branch}- -${mssonic_branch}- ... ==="
+
+                  git config --global user.email "svc-acs@microsoft.com"
+                  git config --global user.name "Sonic Automation"
+
+                  # echo $InternalRepoUser_bak1
+                  # echo $InternalRepoPassword_bak1
+                  git remote remove github  || true
+                  git remote remove mssonic || true
+                  git remote add github  https://github.com/Azure/sonic-mgmt || true
+                  git remote add mssonic "https://reposync:${MSSONIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int" || true
+                  git remote remove origin || true
+
+                  git remote update
+                  git fetch mssonic -t
+
+                  git reset --hard github/master || true
+
+                  git checkout -b foo github/master || git checkout foo
+                  git branch -D ${mssonic_branch} || true
+                  git checkout -b ${mssonic_branch} mssonic/${mssonic_branch}
+                  git branch -D foo || true
+
+                  curr_tag=`git tag --contains HEAD`
+
+                  if [[ -z ${curr_tag} ]]; then
+                      curr_tag="${mssonic_branch}-`date '+%Y%m%d-%H%M'`.pre-merge"
+                      echo "Add a tag ${curr_tag} to current ${mssonic_branch} before rebasing ..."
+                      git tag ${curr_tag}
+                      RC=0
+                      git push mssonic ${curr_tag} || RC=$?
+                      if [[ ${RC} != 0 ]]; then
+                          git tag -d ${curr_tag}
+                          return 11
+                      fi
+                  fi
+
+                  post_tag="${mssonic_branch}-`date '+%Y%m%d-%H%M'`.post-merge"
+
+                  RC=0
+                  git pull github ${github_branch} --no-edit || RC=$?
+                  if [[ ${RC} != 0 ]]; then
+                      git reset --hard mssonic/${mssonic_branch} || true
+                      return 12
+                  fi
+
+                  head_tag=`git tag --contains HEAD`
+
+                  if [[ ${head_tag} == ${curr_tag} ]]; then
+                      echo "No change after merging ..."
+                  else
+                      post_tag="${mssonic_branch}-`date '+%Y%m%d-%H%M'`.post-merge"
+                      echo "Add a tag ${post_tag} to current ${mssonic_branch} after rebasing ..."
+                      git tag ${post_tag}
+                      RC=0
+                      git push mssonic ${post_tag} || RC=$?
+                      if [[ ${RC} != 0 ]]; then
+                          git tag -d ${post_tag}
+                          return 13
+                      fi
+                      git push mssonic ${mssonic_branch}
+                  fi
+              }
+
+              git gc --auto || true
+
+              public_branch=${{ variables.github_sonic_mgmt_branch }}
+              local_branch=${{ variables.mssonic_sonic_mgmt_branch }}
+
+              perform_merge ${public_branch} ${local_branch} || FAILED="${FAILED} ${public_branch}"
+
+              if [[ -n "${FAILED}" ]]; then
+                  echo "Failed to merge following public branches: ${FAILED} ..."
+                  exit 10
+              fi
+            env:
+              MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+            displayName: Merge sonic-mgmt
