@@ -9,54 +9,66 @@ Here is an example of how to manually get the testbed information when you want 
 - [```ansible/testbed.yaml```](/ansible/testbed.yaml) is the topology configuration file for the testbed .
 - [```ansible/lab```](/ansible/lab) [```ansible/inventory ```](/ansible/inventory ) are the inventory files for the testbed.
 
-*Note:All the samples come with phony data, the data might not exist in the real world, but the relation amount them are well organized, they are just used for the demo.*
+*Note: All the samples come with phony data, the data might not exist in the real world, but the relation amount them are well organized, they are just used for the demo.*
+
 
 ## Testbed example
-Say here, we want to use the DUT as the name `vms-s6000-t0-mock`, the testbed with the name `vms-s6000-t0-mock`.
-Then we can get the related information from [```ansible/testbed.csv```](/ansible/testbed.csv) or [```ansible/testbed.yaml```](/ansible/testbed.yaml).
+Say here, we want to use the DUT as the name `vlab-01`, the testbed with the name `vms-kvm-t0`.
+
+*`vlab-01` is set up by following the doc [KVM Testbed Setup](/docs/testbed/README.testbed.VsSetup.md). You can follow it to make it in your local environment.*
+
+Then we can get the related information from [```ansible/vtestbed.csv```](/ansible/vtestbed.csv) or [```ansible/vtestbed.yaml```](/ansible/vtestbed.yaml).
+
+*Notes: For virtual environment, the related files are [```ansible/vtestbed.csv```](/ansible/vtestbed.csv) or [```ansible/vtestbed.yaml```](/ansible/vtestbed.yaml) and [```ansible/veos_vtb```](/ansible/veos_vtb), and for physical environment, they are [```ansible/testbed.csv```](/ansible/testbed.csv) or [```ansible/testbed.yaml```](/ansible/testbed.yaml) and [```ansible/veos```](/ansible/veos).*
 
 ### Access the DUT
 
 ```
-grep 'vms-s6000-t0-mock' ./testbed.csv
-
-vms-s6000-t0-mock,vms2-1,t0,docker-ptf,vms2-1,1.2.4.17/23,,server_1,VM0100,vms-s6000-t0-mock,lab,True,****
+grep 'vlab-01' ./vtestbed.csv                          
+vms-kvm-t0,vms6-1,t0,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],veos_vtb,False,Tests virtual switch vm
 ```
 ```
-grep 'vms-s6000-t0-mock' -A 2 -B 11 ./testbed.yaml
+grep 'vlab-01' -A 4 -B 11 ./vtestbed.yaml 
 
-- conf-name: vms-s6000-t0-mock
-  group-name: vms2-1
+- conf-name: vms-kvm-t0
+  group-name: vms6-1
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: vms2-1
-  ptf_ip: 1.2.4.17/23
-  ptf_ipv6:
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
   server: server_1
   vm_base: VM0100
   dut:
-    - vms-s6000-t0-mock
-  inv_name:lab
-  auto_recover: 'True'
+    - vlab-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
 ```
 From the two output above, we can see, the content in that two files are same, the files format are different. 
 
-Here we get the information for `vms-s6000-t0-mock`.
+Here we get the information for `vlab-01`.
 
 Then we can check the inventory file as `inv_name`
 ```
-grep 'vms-s6000-t0-mock' -A 2 ./lab
-    vms-s6000-t0-mock:
-      ansible_host: 1.2.5.252
-      model: 07VJDK
+grep 'vlab-01' -A 2 ./veos_vtb
+        vlab-01:
+        vlab-02:
+        vlab-03:
+--
+        vlab-01:
+          ansible_host: 10.250.0.101
+          ansible_hostv6: fec0::ffff:afa:1
 ```
 this is the IP for the DUT.
 
 
-Then, you can use this ip `1.2.5.252` to access that DUT.
+Then, you can use this IP `10.250.0.101` to access that DUT.
 
 ```
-Linux vms-s6000-t0-mock 4.9.0-14-2-amd64 #1 SMP Debian 4.9.246-2 (2020-12-17) x86_64
+ssh admin@10.250.0.101
+admin@10.250.0.101's password: 
+Linux vlab-01 4.19.0-12-2-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
 You are on
   ____   ___  _   _ _  ____
  / ___| / _ \| \ | (_)/ ___|
@@ -65,73 +77,72 @@ You are on
  |____/ \___/|_| \_|_|\____|
 
 -- Software for Open Networking in the Cloud --
+
+Unauthorized access and/or use are prohibited.
+All-access and/or use are subject to monitoring.
+
+Help:    http://azure.github.io/SONiC/
+
+Last login: Fri Apr 23 08:38:36 2021 from 10.250.0.1
 ```
 
 ### Access PTF
-From above information, besides the DUT info, we also get other information, like PTF location.
+From the above information, besides the DUT info, we also get other information, like PTF location.
 ```
   ptf_image_name: docker-ptf
-  ptf: vms2-1
-  ptf_ip: 1.2.4.17/23
-  ptf_ipv6:
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
   server: server_1
 ```
-Find out what the PTF server alias.
+Find out what the PTF server alias is.
 ```
-grep 'server_1' -A 5 ./veos
+grep 'server_1' -A 5 ./veos_vtb
         server_1:
-        server_16:
-        server_17:
-        server_18:
-        server_20:
-        server_21:
+    lab:
+      hosts:
+        vlab-01:
+        vlab-02:
+        vlab-03:
 --
 server_1:
   vars:
-    host_var_file: host_vars/MOCK-ACS-SERV-1.yml
+    host_var_file: host_vars/STR-ACS-VSERV-01.yml
   children:
-    mock_vm_host_13:
-    vms_13:
+    vm_host_1:
+    vms_1:
 ```
-Then we can get the host for our PTF instance.
+Here, in `children` section, we get a element `vm_host_1`. Then we can get the host for our PTF instance.
 ```
-grep 'mock_vm_host_13' -A 5 ./veos         
-        mock_vm_host_13:
-        vm_host_16:
-        vm_host_17:
-        vm_host_18:
-        vm_host_20:
-        vm_host_21:
---
-mock_vm_host_13:
+grep '^vm_host_1' -A 5 ./veos_vtb 
+vm_host_1:
   hosts:
-    MOCK-ACS-SERV-1:
-      ansible_host: 1.2.3.246
+    STR-ACS-VSERV-01:
+      ansible_host: 172.17.0.1
+      ansible_user: use_own_value
 ```
 
-Then, there might be a question, we have a host IP address `1.2.3.246`, and a PTF ip address `1.2.4.17`, which one can we use to get accessed to that PTF? ``BOTH!``
+Then, there might be a question, we have a host IP address `172.17.0.1`, and a PTF ip address `10.250.0.102`, which one can we use to get accessed to that PTF? ``BOTH!``
 
 Let's check.
 
 Access from IP
 ```
-ssh root@1.2.4.17
-root@1.2.4.17's password: 
-Last login: Fri Jul  2 15:39:13 2021 from 1.2.3.30
-root@6794c6ae5f9b:~# 
+ssh root@10.250.0.102
+root@10.250.0.102's password: 
+Last login: Tue Jul 20 09:50:31 2021 from 10.250.0.1
+root@8d3f7f4475cd:~# 
 ```
 Access from host
 ```
-mock-acs-serv-1:~$ docker ps
-CONTAINER ID        IMAGE                                                COMMAND                  CREATED             STATUS              PORTS               NAMES
-6794c6ae5f9b        acs-repo.corp.mock.com:5000/docker-ptf:latest   "/usr/local/bin/supe…"   10 days ago         Up 10 days                              ptf_vms2-1
-93bd106d8ea8        acs-repo.corp.mock.com:5000/docker-ptf:latest   "/usr/local/bin/supe…"   3 months ago        Up 3 months                             ptf_v13-51
-184de617cbef        acs-repo.corp.mock.com:5000/docker-ptf:latest   "/usr/local/bin/supe…"   3 months ago        Up 3 months                             ptf_vms13-4
-5eef56eda0e5        acs-repo.corp.mock.com:5000/docker-ptf:latest   "/usr/local/bin/supe…"   3 months ago        Up 3 months                             ptf_vms13-5
-azure@mock-acs-serv-1:~$ docker exec -it ptf_vms2-1 bash
-root@6794c6ae5f9b:/# 
+docker ps
+
+4af0b31053ae   debian:jessie                                         "bash"                   3 months ago   Up 3 months                                                  net_vms6-1_VM0102
+3ac5d5af9cc1   debian:jessie                                         "bash"                   3 months ago   Up 3 months                                                  net_vms6-1_VM0101
+8d3f7f4475cd   sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/local/bin/supe…"   3 months ago   Up 3 months                                                  ptf_vms6-1
+fa3e18a6c4f4   docker-sonic-mgmt-richardyu                           "bash"                   3 months ago   Up 3 months   22/tcp                                         local-sonic-mgmt
 ```
-Then we can see, the docker id is identical `6794c6ae5f9b`.
+Then we can see, the docker id is identical `8d3f7f4475cd`.
 
 
 
@@ -141,4 +152,5 @@ For this article, some of the reference docs as:
 - [```Testbed Topologies```](/docs/testbed/README.testbed.Topology.md): Testbed topologies. 
 - [```Testbed Configuration```](/docs/testbed/README.testbed.Config.md): Introduction about Testbed configuration, mainly about the testbed.csv (Will be replaced by testbed.yaml). 
 - [```New Testbed Configuration```](/docs/testbed/README.new.testbed.Configuration.md): Introduction about Testbed configuration, mainly about the Testbed.yaml.
+- [```KVM Testbed Setup```](/docs/testbed/README.testbed.VsSetup.md)
   
