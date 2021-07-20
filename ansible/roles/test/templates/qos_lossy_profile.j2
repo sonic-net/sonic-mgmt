@@ -3,7 +3,7 @@
     "BUFFER_PROFILE": {
         "pg_lossy_TEST_profile": {
             "dynamic_th": "-8",
-            "pool": "[{{ buffer_pool_id }}]",
+            "pool": "{{ buffer_pool_id }}",
             {% if buffer_headroom.stdout != '0' %}
             "size": "{{ buffer_headroom.stdout }}"
             {% else %}
@@ -15,9 +15,9 @@
     "BUFFER_PG": {
         "{{ dut_switch_ports[src_port_id|int] }}|0-1": {
             {% if pfc_generate_buffer_profile == 'True' %}
-            "profile": "[BUFFER_PROFILE|pg_lossy_TEST_profile]"
+            "profile": "pg_lossy_TEST_profile"
             {% else %}
-            "profile": "[{{ buffer_profile }}]"
+            "profile": "{{ buffer_profile }}"
             {% endif %}
         }
     }

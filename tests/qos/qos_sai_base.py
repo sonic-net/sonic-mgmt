@@ -137,8 +137,14 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with computed buffer threshold
         """
-        db = "0" if self.isBufferInApplDb(dut_asic) else "4"
-        pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+        if self.isBufferInApplDb(dut_asic):
+            db = "0"
+            keystr = "BUFFER_POOL_TABLE:"
+        else:
+            db = "4"
+            keystr = "BUFFER_POOL|"
+
+        pool = keystr + bufferProfile["pool"].encode("utf-8")
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -161,14 +167,7 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        if self.isBufferInApplDb(dut_asic):
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL_TABLE:",''
-            )
-        else:
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL|",''
-            )
+        bufferPoolName = bufferProfile["pool"].encode("utf-8")
 
         bufferPoolVoid = dut_asic.run_redis_cmd(
             argv = [
@@ -201,12 +200,14 @@ class QosSaiBase(QosBase):
         if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
+            bufkeystr = "BUFFER_POOL_TABLE:"
         else:
             db = "4"
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
-        bufferProfileName = dut_asic.run_redis_cmd(
-            argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
-        )[0].encode("utf-8").translate(None, "[]")
+            bufkeystr = "BUFFER_POOL|"
+
+        bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
+            argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -269,13 +270,13 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
-        wredProfileName = dut_asic.run_redis_cmd(
+        wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
             argv = [
                 "redis-cli", "-n", "4", "HGET",
                 "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                 "wred_profile"
             ]
-        )[0].encode("utf-8").translate(None, "[]")
+        )[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -316,12 +317,12 @@ class QosSaiBase(QosBase):
             Returns:
                 SchedulerParam (dict): Map of scheduler parameters
         """
-        schedProfile = dut_asic.run_redis_cmd(
+        schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
             argv = [
                 "redis-cli", "-n", "4", "HGET",
                 "QUEUE|{0}|{1}".format(port, queue), "scheduler"
             ]
-        )[0].encode("utf-8").translate(None, "[]")
+        )[0].encode("utf-8")
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
