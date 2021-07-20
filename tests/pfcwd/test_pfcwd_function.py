@@ -11,6 +11,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
+from tests.common import constants
 
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
@@ -354,8 +355,10 @@ class SetupPfcwdFunc(object):
         """
         if self.pfc_wd['port_type'] == "vlan":
             self.ptf.script("./scripts/remove_ip.sh")
-            self.ptf.command("ifconfig eth{} {}".format(self.pfc_wd['test_port_id'],
-                                                        self.pfc_wd['test_neighbor_addr']))
+            ptf_port = 'eth%s' % self.pfc_wd['test_port_id']
+            if self.pfc_wd['test_port_vlan_id'] is not None:
+                ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
+            self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
             self.ptf.command("ping {} -c 10".format(vlan['addr']))
             self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
 
