@@ -94,6 +94,13 @@ test_t0() {
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=1vlan
     tests="\
+    snmp/test_snmp_cpu.py \
+    snmp/test_snmp_interfaces.py \
+    snmp/test_snmp_lldp.py \
+    snmp/test_snmp_pfc_counters.py \
+    snmp/test_snmp_queue.py \
+    snmp/test_snmp_loopback.py \
+    snmp/test_snmp_default_route.py \
     monit/test_monit_status.py \
     platform_tests/test_advanced_reboot.py \
     test_interfaces.py \
@@ -113,13 +120,6 @@ test_t0() {
     route/test_default_route.py \
     arp/test_neighbor_mac.py \
     arp/test_neighbor_mac_noptf.py \
-    snmp/test_snmp_cpu.py \
-    snmp/test_snmp_interfaces.py \
-    snmp/test_snmp_lldp.py \
-    snmp/test_snmp_pfc_counters.py \
-    snmp/test_snmp_queue.py \
-    snmp/test_snmp_loopback.py \
-    snmp/test_snmp_default_route.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
@@ -246,7 +246,7 @@ if [ x$test_suite == x"t0" ]; then
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
-    test_multi_asic_t1_lag 
+    test_multi_asic_t1_lag
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 else
