@@ -420,8 +420,8 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
         Whether the expected profile has been found within given time
     """
     def _check_pg_profile(duthost, pg, expected_profile):
-        profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
-        return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
+        profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout']
+        return (profile == expected_profile)
 
     if wait_until(10, 2, _check_pg_profile, duthost, pg, expected_profile):
         return True
@@ -701,13 +701,13 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
     detect_default_mtu(duthost, port_to_test)
 
-    original_pg_size = int(duthost.shell('redis-cli hget "{}" size'.format(profile))['stdout'])
+    original_pg_size = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(profile))['stdout'])
     original_pool_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout'])
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
-        original_pg_xoff = int(duthost.shell('redis-cli hget "{}" xoff'.format(profile))['stdout'])
+        original_pg_xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(profile))['stdout'])
         original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
         original_pg_xoff = None
@@ -962,12 +962,12 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
-    original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
+    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+    original_pg_size = duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_shp_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
-        original_pg_xoff = duthost.shell('redis-cli hget "{}" xoff'.format(original_profile))['stdout']
+        original_pg_xoff = duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(original_profile))['stdout']
     else:
         original_shp_size = None
         original_pg_xoff = None
@@ -1048,7 +1048,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         duthost.shell('config interface buffer priority-group lossless remove {}'.format(port_to_test))
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test))
 
-        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), original_profile.split(':')[1])
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), original_profile)
         check_pfc_enable(duthost, port_to_test, '3,4')
         check_pool_size(duthost,
                         pool_oid,
@@ -1395,8 +1395,8 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
-    original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
+    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+    original_pg_size = duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
 
     new_cable_len = '15m'
@@ -1408,7 +1408,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             pytest.skip('Shutdown port test skipped due to no lossy pg size defined')
 
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
-        original_pg_xoff = int(duthost.shell('redis-cli hget "{}" xoff'.format(original_profile))['stdout'])
+        original_pg_xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(original_profile))['stdout'])
         original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
         original_pg_xoff = None
