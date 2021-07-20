@@ -33,7 +33,7 @@
         defined_asic_list: ['td2', 'th', 'th2', 'spc1', 'spc2', 'spc3']
         speed_cablelen: "{{ lossless_buffer_profile }}"
 
-    - set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
+    - set_fact: speed_cablelen="{{speed_cablelen | regex_replace('pg_lossless_(.*)_profile', '\\1')}}"
 
     - name: Get asic type
       set_fact: asic_type="{{ item }}"

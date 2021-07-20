@@ -998,102 +998,102 @@
   },
   "BUFFER_QUEUE": {
     "Ethernet4|3-4": {
-      "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+      "profile": "egress_lossless_profile"
     },
     "Ethernet8|3-4": {
-      "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+      "profile": "egress_lossless_profile"
     },
     "Ethernet4|0-2": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet8|0-2": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet0|0-2": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet4|5-6": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet8|5-6": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet0|5-6": {
-      "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+      "profile": "egress_lossy_profile"
     },
     "Ethernet0|3-4": {
-      "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+      "profile": "egress_lossless_profile"
     }
   },
   "QUEUE": {
     "Ethernet4|4": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     },
     "Ethernet0|1": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|6": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet0|4": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     },
     "Ethernet0|0": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|5": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|1": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|0": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|2": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet0|3": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     },
     "Ethernet0|2": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|1": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|3": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     },
     "Ethernet8|5": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet0|6": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|4": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     },
     "Ethernet0|5": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|0": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|2": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet4|6": {
-      "scheduler": "[SCHEDULER|scheduler.0]"
+      "scheduler": "scheduler.0"
     },
     "Ethernet8|3": {
-      "scheduler": "[SCHEDULER|scheduler.1]",
-      "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]"
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
     }
   },
   "FEATURE": {
@@ -1243,24 +1243,24 @@
   },
   "PORT_QOS_MAP": {
     "Ethernet8": {
-      "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]",
-      "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
-      "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
-      "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
+      "dscp_to_tc_map": "AZURE",
+      "tc_to_queue_map": "AZURE",
+      "tc_to_pg_map": "AZURE",
+      "pfc_to_queue_map": "AZURE",
       "pfc_enable": "3,4"
     },
     "Ethernet4": {
-      "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]",
-      "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
-      "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
-      "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
+      "dscp_to_tc_map": "AZURE",
+      "tc_to_queue_map": "AZURE",
+      "tc_to_pg_map": "AZURE",
+      "pfc_to_queue_map": "AZURE",
       "pfc_enable": "3,4"
     },
     "Ethernet0": {
-      "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]",
-      "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
-      "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
-      "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
+      "dscp_to_tc_map": "AZURE",
+      "tc_to_queue_map": "AZURE",
+      "tc_to_pg_map": "AZURE",
+      "pfc_to_queue_map": "AZURE",
       "pfc_enable": "3,4"
     }
   },
@@ -1579,17 +1579,17 @@
   },
   "BUFFER_PROFILE": {
     "ingress_lossy_profile": {
-      "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+      "pool": "ingress_lossless_pool",
       "size": "0",
       "dynamic_th": "3"
     },
     "egress_lossless_profile": {
-      "pool": "[BUFFER_POOL|egress_lossless_pool]",
+      "pool": "egress_lossless_pool",
       "size": "0",
       "static_th": "12766208"
     },
     "egress_lossy_profile": {
-      "pool": "[BUFFER_POOL|egress_lossy_pool]",
+      "pool": "egress_lossy_pool",
       "size": "1518",
       "dynamic_th": "3"
     }
@@ -1601,13 +1601,13 @@
   },
   "BUFFER_PG": {
     "Ethernet0|0": {
-      "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+      "profile": "ingress_lossy_profile"
     },
     "Ethernet8|0": {
-      "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+      "profile": "ingress_lossy_profile"
     },
     "Ethernet4|0": {
-      "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+      "profile": "ingress_lossy_profile"
     }
   },
   "DHCP_SERVER": {
