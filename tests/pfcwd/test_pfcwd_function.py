@@ -418,7 +418,7 @@ class SendVerifyTraffic():
         self.pfc_wd_test_neighbor_addr = pfc_params['test_neighbor_addr']
         self.pfc_wd_rx_neighbor_addr = pfc_params['rx_neighbor_addr']
         self.pfc_wd_test_port_vlan_id = pfc_params['test_port_vlan_id']
-        self.pfc_wd_rx_port_vlan_id = pfc_params['test_port_vlan_id']
+        self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_type = pfc_params['port_type']
 
     def verify_tx_egress(self, action):

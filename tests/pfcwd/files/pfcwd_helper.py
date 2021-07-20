@@ -192,13 +192,15 @@ class TrafficPorts(object):
         vlan_members = vlan_details['members']
         vlan_type = vlan_details.get('type')
         vlan_id = vlan_details['vlanid']
+        rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]
+        rx_port_id = self.pfc_wd_rx_port_id if isinstance(self.pfc_wd_rx_port_id, list) else [self.pfc_wd_rx_port_id]
         for item in vlan_members:
             temp_ports[item] = {'test_neighbor_addr': self.vlan_nw,
-                                'rx_port': self.pfc_wd_rx_port,
+                                'rx_port': rx_port,
                                 'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                                 'peer_device': self.neighbors[item]['peerdevice'],
                                 'test_port_id': self.port_idx_info[item],
-                                'rx_port_id': self.pfc_wd_rx_port_id,
+                                'rx_port_id': rx_port_id,
                                 'test_port_type': 'vlan'
                                }
             if hasattr(self, 'pfc_wd_rx_port_vlan_id'):
