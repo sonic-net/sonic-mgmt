@@ -200,9 +200,12 @@ class TestChassisApi(PlatformApiTestBase):
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
-
-        syseeprom_type_codes_list = syseeprom_info_dict.keys()
-
+        
+        # case sensitive,so make all characters lowercase
+        syseeprom_type_codes_list = [key.lower() for key in syseeprom_info_dict.keys()]
+        VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [key.lower() for key in VALID_ONIE_TLVINFO_TYPE_CODES_LIST]
+        MINIMUM_REQUIRED_TYPE_CODES_LIST = [key.lower() for key in MINIMUM_REQUIRED_TYPE_CODES_LIST]
+        
         # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
         pytest_assert(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Invalid TlvInfo type code found")
 
