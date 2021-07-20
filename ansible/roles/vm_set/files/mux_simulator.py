@@ -250,7 +250,7 @@ class Mux(object):
 
         return True
 
-    def _active_standby_state_heper(self, active_side):
+    def _active_standby_state_helper(self, active_side):
         if active_side is None:
             active_side = random.choice([UPPER_TOR, LOWER_TOR])
         standby_side = LOWER_TOR if active_side == UPPER_TOR else LOWER_TOR
@@ -261,7 +261,7 @@ class Mux(object):
         self.standby_port = self.ports[standby_side]
 
     def _init_flows(self):
-        self._active_standby_state_heper(None)
+        self._active_standby_state_helper(None)
 
         self.flows = {
             'upstream': {
@@ -299,7 +299,14 @@ class Mux(object):
         for in_port, actions_desc in parsed:
             for field in actions_desc.split(','):
                 action, out_port = re.search(r'([^:]+)(?:\:"(\S+)")?', field).groups()
-                flows[in_port][out_port] = action
+                # In rare case, the muxy interfaces in PTF docker could be gone. Parsing the output may get None for
+                # 'out_port'. This will cause exception and crash mux-simulator server. Since mux-simulator is shared
+                # by multiple dualtor setups. Below check is to ensure that bad testbed don't crash mux-simulator
+                # and affect the good testbed.
+                if in_port is not None and out_port is not None and action in [OUTPUT, DROP]:
+                    flows[in_port][out_port] = action
+                else:
+                    self.debug('in_port={}, out_port={}, action={}'.format(in_port, out_port, action))
         self.debug('Parsed flows on bridge:\n{}'.format(json.dumps(flows, indent=2)))
 
         # Transform parsed flows to self.flows dict
@@ -310,7 +317,7 @@ class Mux(object):
                 self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
             else:
                 # From TOR to NIC, downstream flow
-                self._active_standby_state_heper(self.sides[in_port])
+                self._active_standby_state_helper(self.sides[in_port])
                 self.flows['downstream']['in_side'] = self.sides[in_port]
                 self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
 
@@ -382,7 +389,7 @@ class Mux(object):
                     self.bridge,
                     self.active_port))
                 # Immediately update state after flow config changed to ensure consistency
-                self._active_standby_state_heper(None)
+                self._active_standby_state_helper(None)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = []
 
@@ -391,14 +398,14 @@ class Mux(object):
                     new_active_port,
                     action_desc))
                 # Immediately update state after flow config changed to ensure consistency
-                self._active_standby_state_heper(new_active_side)
+                self._active_standby_state_helper(new_active_side)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = [NIC]
 
             else:
                 # If currently downstream flow action is drop, there should be no downstream flow config.
                 # Then no flow config change required, only need to update the state.
-                self._active_standby_state_heper(new_active_side)
+                self._active_standby_state_helper(new_active_side)
                 self.flows['downstream']['in_side'] = self.active_side
                 self.flows['downstream']['out_sides'] = []
 
@@ -437,7 +444,7 @@ class Mux(object):
                 self.bridge,
                 self.ports[active_side],
                 action_desc))
-            self._active_standby_state_heper(active_side)
+            self._active_standby_state_helper(active_side)
             self.flows['downstream']['in_side'] = active_side
             self.flows['downstream']['out_sides'] = [NIC]
 
