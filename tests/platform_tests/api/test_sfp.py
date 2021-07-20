@@ -176,6 +176,14 @@ class TestSfpApi(PlatformApiTestBase):
             return False
         return True
 
+    def is_xcvr_support_lpmode(self, xcvr_info_dict):
+        """Returns True if transceiver is support low power mode, False if not supported"""
+        xcvr_type = xcvr_info_dict["type"]
+        ext_identifier = xcvr_info_dict["ext_identifier"]
+        if not "QSFP" in xcvr_type or "Power Class 1" in ext_identifier:
+            return False
+        return True
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -452,7 +460,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_optical(info_dict):
+            if not self.is_xcvr_support_lpmode(info_dict):
                 logger.warning("test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
