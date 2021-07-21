@@ -7,7 +7,10 @@ from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
-
+def _raise_err(msg):
+        logger.error(msg)
+        raise Exception(msg)
+        
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -186,10 +189,6 @@ class EosHost(AnsibleHostBase):
             'output': 'json'
         }])['stdout'][0]        
 
-    def _raise_err(msg):
-        logger.error(msg)
-        raise Exception(msg)
-
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
             'command': 'show interfaces %s status' % interface_name,
@@ -225,7 +224,7 @@ class EosHost(AnsibleHostBase):
     def get_speed(self, interface_name):
         output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
         found_txt = re.search(r'Operational Speed: (\S+)', output['stdout'][0])
-        if found_txt == None:
+        if found_txt is None:
             _raise_err('Not able to extract interface %s speed from output: %s' % (interface_name, output['stdout']))
 
         v = found_txt.groups()[0]
@@ -260,7 +259,7 @@ class EosHost(AnsibleHostBase):
         """
         output = self.eos_command(commands=['show interfaces %s capabilities' % interface_name])
         found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
-        if found_txt == None:
+        if found_txt is None:
             _raise_err('Failed to find port speeds list in output: %s' % output['stdout'])
 
         speed_list = found_txt.groups()[0]
