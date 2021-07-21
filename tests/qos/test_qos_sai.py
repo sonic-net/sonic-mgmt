@@ -56,6 +56,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-C32'
     ]
 
+    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
+
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile
@@ -89,7 +91,10 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -137,9 +142,12 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
-            qosConfig = dutQosConfig["param"][portSpeedCableLength] 
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
-            qosConfig = dutQosConfig["param"]
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS:
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+            else:
+                qosConfig = dutQosConfig["param"]
 
 
         dst_port_count = set([
@@ -275,6 +283,9 @@ class TestQosSai(QosSaiBase):
         if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS or cmd_output['rc'] != 0:
             pytest.skip("Headroom pool watermark is not supported")
 
+        if not 'hdrm_pool_size' in qosConfig.keys():
+            pytest.skip("Headroom pool size is not enabled on this DUT")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
@@ -395,7 +406,7 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             qosConfig = dutQosConfig["param"]
- 
+
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -532,7 +543,10 @@ class TestQosSai(QosSaiBase):
         if pgProfile in dutQosConfig["param"][portSpeedCableLength].keys():
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
-            qosConfig = dutQosConfig["param"]
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and pgProfile in dutQosConfig["param"][portSpeedCableLength]["breakout"].keys():
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+            else:
+                qosConfig = dutQosConfig["param"]
 
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
@@ -584,7 +598,10 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -633,8 +650,11 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
 
-        if queueProfile == "wm_q_shared_lossless": 
-            qosConfig = dutQosConfig["param"][portSpeedCableLength] 
+        if queueProfile == "wm_q_shared_lossless":
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS:
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+            else:
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
             if queueProfile in dutQosConfig["param"][portSpeedCableLength].keys():

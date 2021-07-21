@@ -4,8 +4,6 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
-import json
-import re
 import logging
 from transceiver_utils import all_transceivers_detected
 
@@ -111,25 +109,10 @@ def get_port_map(dut, asic_index=None):
     @return: a dictionary containing the port map
     """
     logging.info("Retrieving port mapping from DUT")
-    if asic_index is not None:
-        asichost = dut.asic_instance(asic_index)
-        cfg_facts = asichost.config_facts(host=dut.hostname, source="persistent", verbose=False)['ansible_facts']
-    else:
-        # execute command on the DUT to get port map from config_db.json
-        validate_config_db_file_exist(dut)
-        get_cfg_facts_cmd = "cat /etc/sonic/config_db.json"
-        portmap_json_string = dut.command(get_cfg_facts_cmd)["stdout"]
-        cfg_facts = json.loads(portmap_json_string)
-    # parse the json
-    port_mapping_res = {}
-    port_mapping = cfg_facts.get("PORT", {})
-    for port, port_dict_info in port_mapping.items():
-        port_index = port_dict_info["index"]
-        port_mapping_res[port] = [int(port_index)]
-    return port_mapping_res
+    namespace = dut.get_namespace_from_asic_id(asic_index)
+    config_facts = dut.config_facts(host=dut.hostname, source="running",namespace=namespace)['ansible_facts']
+    port_mapping = config_facts['port_index_map']
+    for k,v in port_mapping.items():
+        port_mapping[k] = [v]
 
-
-def validate_config_db_file_exist(dut):   
-    config_db_stat = dut.stat(path="/etc/sonic/config_db.json")
-    if not config_db_stat["stat"]["exists"]: 
-        assert False, "No /etc/sonic/config_db.json found on dut - please load a valid config_db.json to switch"
+    return port_mapping

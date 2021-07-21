@@ -10,6 +10,7 @@ from datetime import datetime
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
@@ -126,7 +127,7 @@ def get_report_summary(analyze_result, reboot_type):
     return result_summary
 
 
-def analyze_syslog(duthost, messages, result, offset_from_kexec):
+def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
     if not messages:
         logging.error("Expected messages not found in syslog")
@@ -185,8 +186,12 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
             timings["time_span"] = (datetime.strptime(timestamps["Started"], FMT) -\
                 datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
-            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
-                datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            if "last_occurence" in timings:
+                timings["time_span"] = (datetime.strptime(timings["last_occurence"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            else:
+                timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
@@ -257,7 +262,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             pytest.skip('Testcase not supported for kvm')
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
-                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec'})
+                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
     marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
@@ -278,8 +283,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     offset_from_kexec = dict()
 
     for key, messages in result["expect_messages"].items():
-        if "syslog" in key:
-            analyze_syslog(duthost, messages, analyze_result, offset_from_kexec)
+        if "syslog" in key or "bgpd.log" in key:
+            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
         elif "sairedis.rec" in key:
             analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 
@@ -308,6 +313,19 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         json.dump(analyze_result, fp, indent=4)
     with open(summary_file_path, 'w') as fp:
         json.dump(result_summary, fp, indent=4)
+
+
+@pytest.fixture()
+def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+    """
+    This fixture is invoked at the test teardown for advanced-reboot SAD cases.
+    If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
+    a bad state. This fixture will restore state of neighbor interfaces, portchannels
+    and BGP sessions that were shutdown during the test.
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
 def pytest_addoption(parser):

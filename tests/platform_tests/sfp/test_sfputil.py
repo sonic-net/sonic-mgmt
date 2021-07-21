@@ -14,7 +14,11 @@ import pytest
 from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
+<<<<<<< HEAD
 from tests.common.platform.interface_utils import get_port_map, check_interface_status
+=======
+from tests.common.utilities import skip_version
+>>>>>>> 3403b65e0f19a8b4c33da737892af7b60ac0b1f4
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -43,6 +47,29 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     for intf in dev_conn:
         assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
         assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+
+@pytest.mark.parametrize("cmd_sfp_error_status", ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
+def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status):
+    """
+    @summary: Check SFP error status using 'sfputil show error-status' and 'sfputil show error-status --fetch-from-hardware'
+              This feature is supported on 202106 and above
+
+    @param: cmd_sfp_error_status: fixture representing the command used to test
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    skip_version(duthost, ["201811", "201911", "202012"])
+    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
+
+    logging.info("Check output of '{}'".format(cmd_sfp_error_status))
+    sfp_error_status = duthost.command(cmd_sfp_error_status)
+    for line in sfp_error_status["stdout_lines"][2:]:
+        if "Not implemented" in line: 
+            pytest.skip("Skip test as error status isn't supported")
+    parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
+    for intf in dev_conn:
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
+        assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
+
 
 def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts):
     """

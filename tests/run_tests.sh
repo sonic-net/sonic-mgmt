@@ -368,7 +368,14 @@ fi
 setup_test_options
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
-    prepare_dut
+    RESULT=0
+    prepare_dut || RESULT=$?
+    if [[ ${RESULT} != 0 ]]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        exit ${RESULT}
+    fi
 fi
 
 RC=0

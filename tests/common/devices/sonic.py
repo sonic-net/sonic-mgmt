@@ -32,7 +32,8 @@ class SonicHost(AnsibleHostBase):
 
 
     def __init__(self, ansible_adhoc, hostname,
-                 shell_user=None, shell_passwd=None):
+                 shell_user=None, shell_passwd=None,
+                 ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
         if shell_user and shell_passwd:
@@ -58,11 +59,20 @@ class SonicHost(AnsibleHostBase):
                 if pass_var in hostvars:
                     vm.extra_vars.update({pass_var: shell_passwd})
 
+        if ssh_user and ssh_passwd:
+            evars = {
+                'ansible_ssh_user': ssh_user,
+                'ansible_ssh_pass': ssh_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
+    def __repr__(self):
+        return '<SonicHost> {}'.format(self.hostname)
 
     @property
     def facts(self):
@@ -152,9 +162,30 @@ class SonicHost(AnsibleHostBase):
         facts["num_asic"] = self._get_asic_count(facts["platform"])
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
+        facts["mgmt_interface"] = self._get_mgmt_interface()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_mgmt_interface(self):
+        """
+        Gets the IPs of management interface
+        Output example
+
+            admin@ARISTA04T1:~$ show management_interface address
+            Management IP address = 10.250.0.54/24
+            Management Network Default Gateway = 10.250.0.1
+            Management IP address = 10.250.0.59/24
+            Management Network Default Gateway = 10.250.0.1
+
+        """
+        show_cmd_output = self.shell("show management_interface address", module_ignore_errors=True)
+        mgmt_addrs = []
+        for line in show_cmd_output["stdout_lines"]:
+            addr = re.match(r"Management IP address = (\d{0,3}\.\d{0,3}\.\d{0,3}\.\d{0,3})\/\d+", line)
+            if addr:
+                mgmt_addrs.append(addr.group(1))
+        return mgmt_addrs
 
     def _get_modular_chassis(self):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
@@ -507,6 +538,76 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
+    def get_pmon_daemon_db_value(self, daemon_db_table_key, field):
+        """
+        @summary: get db value in state db to check the daemon expected status
+        """
+        ret_val = None
+        get_db_value_cmd = 'redis-cli -n 6 hget "{}" {}'.format(daemon_db_table_key, field)
+
+        cmd_output = self.shell(get_db_value_cmd, module_ignore_errors=True)
+        if cmd_output['rc'] == 0:
+            ret_val = cmd_output['stdout']
+
+        return ret_val
+
+    def start_pmon_daemon(self, daemon_name):
+        """
+        @summary: start daemon in pmon docker using supervisorctl start command.
+        """
+        pmon_daemon_start_cmd = "docker exec pmon supervisorctl start {}".format(daemon_name)
+
+        self.shell(pmon_daemon_start_cmd, module_ignore_errors=True)
+
+    def stop_pmon_daemon_service(self, daemon_name):
+        """
+        @summary: stop daemon in pmon docker using supervisorctl stop command.
+        """
+        pmon_daemon_stop_cmd = "docker exec pmon supervisorctl stop {}".format(daemon_name)
+
+        self.shell(pmon_daemon_stop_cmd, module_ignore_errors=True)
+
+    def get_pmon_daemon_status(self, daemon_name):
+        """
+        @summary: get daemon status in pmon docker using supervisorctl status command.
+
+        @return: daemon_status - "RUNNING"/"STOPPED"/"EXITED"
+                 daemon_pid - integer number
+        """
+        daemon_status = None
+        daemon_pid = -1
+
+        daemon_info = self.shell("docker exec pmon supervisorctl status {}".format(daemon_name), module_ignore_errors=True)["stdout"]
+        if daemon_info.find(daemon_name) != -1:
+            daemon_status = daemon_info.split()[1].strip()
+            if daemon_status == "RUNNING":
+                daemon_pid = int(daemon_info.split()[3].strip(','))
+
+        logging.info("Daemon '{}' in the '{}' state with pid {}".format(daemon_name, daemon_status, daemon_pid))
+
+        return daemon_status, daemon_pid
+
+    def kill_pmon_daemon_pid_w_sig(self, pid, sig_name):
+        """
+        @summary: stop daemon in pmon docker using kill with a sig.
+
+        @return: True if it is stopped or False if not
+        """
+        if pid != -1 :
+            daemon_kill_sig_cmd = "docker exec pmon bash -c 'kill {} {}'".format(sig_name, pid)
+            self.shell(daemon_kill_sig_cmd, module_ignore_errors=True)
+
+    def stop_pmon_daemon(self, daemon_name, sig_name=None, pid=-1):
+        """
+        @summary: stop daemon in pmon docker.
+
+        @return: True if it is stopped or False if not
+        """
+        if sig_name is None:
+            self.stop_pmon_daemon_service(daemon_name)
+        else:
+            self.kill_pmon_daemon_pid_w_sig(pid, sig_name)
+
     def get_pmon_daemon_states(self):
         """
         @summary: get state list of daemons from pmon docker.
@@ -516,7 +617,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup', 'chassis_db_init']
 
         daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
@@ -843,25 +944,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
-    def get_bgp_statistic(self, stat):
-        """
-        Get the named bgp statistic
-
-        Args: stat - name of statistic
-
-        Returns: statistic value or None if not found
-
-        """
-        ret = None
-        bgp_facts = self.bgp_facts()['ansible_facts']
-        if stat in bgp_facts['bgp_statistics']:
-            ret = bgp_facts['bgp_statistics'][stat]
-        return ret
-
-    def check_bgp_statistic(self, stat, value):
-        val = self.get_bgp_statistic(stat)
-        return val == value
-
     def get_bgp_neighbors(self):
         """
         Get a diction of BGP neighbor states
@@ -1149,7 +1231,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         '''
         Get any interfaces belonging to a VLAN
         '''
-        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_members_facts = self.get_running_config_facts().get('VLAN_MEMBER', {})
         vlan_intfs = []
 
         for vlan in vlan_members_facts:
@@ -1516,9 +1598,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                (k.startswith("PortChannel") and not
                 self.is_backend_portchannel(k))
             ):
+                # Ping for some time to get ARP Re-learnt.
+                # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
-                        self.ping_v4(v["peer_ipv4"], ns_arg=ns_arg)
-                    ):
+                   self.ping_v4(v["peer_ipv4"], count=10, ns_arg=ns_arg)):
                     ip_ifaces[k] = {
                         "ipv4": v["ipv4"],
                         "peer_ipv4": v["peer_ipv4"],

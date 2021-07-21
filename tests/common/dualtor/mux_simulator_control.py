@@ -9,7 +9,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
-           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor']
+           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor', 'toggle_all_simulator_ports', 'get_mux_status', 'reset_simulator_port']
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def _post(server_url, data):
 
     Args:
         server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
-        data: data to post {"out_ports": ["nic", "upper_tor", "lower_tor"]}
+        data: data to post {"out_sides": ["nic", "upper_tor", "lower_tor"]}
     Returns:
         True if succeed. False otherwise
     """
@@ -137,7 +137,7 @@ def set_drop(url, recover_all_directions):
         """
         drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
     yield _set_drop
@@ -161,7 +161,7 @@ def set_output(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
     return _set_output
@@ -215,7 +215,7 @@ def recover_all_directions(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
+        data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
         pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
 
     return _recover_all_directions
@@ -388,10 +388,11 @@ def simulator_clear_flap_counters(url):
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def reset_simulator_port(url):
 
-    def _reset_simulator_port(interface_name):
+    def _reset_simulator_port(interface_name=None):
+        logger.warn("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
         server_url = url(interface_name=interface_name, action=RESET) 
         pytest_assert(_post(server_url, {}))
 
@@ -402,3 +403,11 @@ def reset_all_simulator_ports(url):
 
     server_url = url(action=RESET)
     pytest_assert(_post(server_url, {}))
+
+@pytest.fixture(scope='module')
+def get_mux_status(url):
+
+    def _get_mux_status(interface_name=None):
+        return _get(url(interface_name=interface_name))
+
+    return _get_mux_status
