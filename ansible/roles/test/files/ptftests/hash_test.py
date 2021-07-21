@@ -82,6 +82,9 @@ class HashTest(BaseTest):
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
+        # set the base mac here to make it persistent across calls of check_ip_route
+        self.base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
+
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
@@ -184,14 +187,13 @@ class HashTest(BaseTest):
         @param src_port: index of port to use for sending packet to switch
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         '''
-        base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
 
-        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
-            if hash_key == 'src-mac' else base_mac
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
 
@@ -262,15 +264,14 @@ class HashTest(BaseTest):
         @param dst_port_list: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
-        base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
         ip_src = self.src_ip_interval.get_random_ip() if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip() if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
 
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
 
-        src_mac = (base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
-            if hash_key == 'src-mac' else base_mac
+        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+            if hash_key == 'src-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
 
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
