@@ -584,7 +584,7 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=600)
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=1000)
         return result.values()
 
     @reset_ansible_local_tmp
