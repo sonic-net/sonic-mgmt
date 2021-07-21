@@ -12,6 +12,7 @@
 - [Minigraph](README.testbed.Minigraph.md)
 - [Command Line](README.testbed.Cli.md)
 - [Example](README.testbed.Example.md)
+  - [Manual check testbed info](/docs/testbed/README.testbed.Example.Config.md) 
 - [FAQ](README.testbed.FAQ.md)
 - [Internal](README.testbed.Internal.md)
 - [Kubernetes Setup](README.testbed.k8s.Setup.md)

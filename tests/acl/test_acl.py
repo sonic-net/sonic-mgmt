@@ -17,10 +17,11 @@ from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,6 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
-    pytest.mark.usefixtures('toggle_all_simulator_ports_to_rand_selected_tor')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -90,9 +90,12 @@ LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
+PACKETS_COUNT = "packets_count"
+BYTES_COUNT = "bytes_count"
+
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
+def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -104,25 +107,55 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
         A Dictionary with required test information.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
 
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    topo = tbinfo["topo"]["type"]
+
+    vlan_ports = []
+    vlan_mac = None
+
+    if topo == "t0":
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
+                      for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
+
+        config_facts = rand_selected_dut.get_running_config_facts()
+        vlan_table = config_facts["VLAN"]
+        vlan_name = list(vlan_table.keys())[0]
+        if "mac" in vlan_table[vlan_name]:
+            vlan_mac = vlan_table[vlan_name]["mac"]
 
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
     upstream_ports =  defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
+    upstream_port_id_to_router_mac_map = {}
+    downstream_port_id_to_router_mac_map = {}
 
-    topo = tbinfo["topo"]["type"]
+    # For T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
+    # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
+    downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
+
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
             downstream_ports[neighbor['namespace']].append(interface)
             downstream_port_ids.append(port_id)
+            downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
         elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
+            upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+
+    # If running on a dual ToR testbed, any uplink for either ToR is an acceptable
+    # source or destination port
+    if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
+        peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in peer_mg_facts['minigraph_neighbors'].items():
+            if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
+                port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
+                upstream_port_ids.append(port_id)
+                upstream_port_id_to_router_mac_map[port_id] = rand_unselected_dut.facts["router_mac"]
 
     # Get the list of LAGs
     port_channels = mg_facts["minigraph_portchannels"]
@@ -150,19 +183,13 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
             if namespace:
                 acl_table_ports[''] += port
 
-    vlan_ports = []
-    vlan_mac = duthost.facts["router_mac"]
-
-    if topo == "t0":
-        vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
-        
-        vlan_table = duthost.get_running_config_facts()['VLAN']
-        vlan_name = list(vlan_table.keys())[0]
-        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    dest_mac_mapping = {
+        "downlink->uplink": downstream_port_id_to_router_mac_map,
+        "uplink->downlink": upstream_port_id_to_router_mac_map
+    }
 
     setup_information = {
-        "router_mac": duthost.facts["router_mac"],
+        "destination_mac": dest_mac_mapping,
         "downstream_port_ids": downstream_port_ids,
         "upstream_port_ids": upstream_port_ids,
         "acl_table_ports": acl_table_ports,
@@ -174,12 +201,14 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, ptfadapter):
     logger.info("Gathered variables for ACL test:\n{}".format(pprint.pformat(setup_information)))
 
     logger.info("Creating temporary folder \"{}\" for ACL test".format(DUT_TMP_DIR))
-    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+    for duthost in duthosts:
+        duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
     yield setup_information
 
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
-    duthost.command("rm -rf {}".format(DUT_TMP_DIR))
+    for duthost in duthosts:
+        duthost.command("rm -rf {}".format(DUT_TMP_DIR))
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
@@ -268,7 +297,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
         if op == "add":
-            logger.info("Creating ACL table: \"{}\" in namesspace {}".format(acl_table_config["table_name"], namespace))
+            logger.info("Creating ACL table: \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command(
                 "config acl add table {} {} -s {} -p {}".format(
                     acl_table_config["table_name"],
@@ -278,7 +307,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
                 )
             )
         else:
-            logger.info("Removing ACL table \"{}\" in namesspace {}".format(acl_table_config["table_name"], namespace))
+            logger.info("Removing ACL table \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
@@ -298,7 +327,6 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
         The ACL table configuration.
 
     """
-    duthost = duthosts[rand_one_dut_hostname]
     table_name = "DATA_{}_{}_TEST".format(stage.upper(), ip_version.upper())
 
     acl_table_config = {
@@ -307,28 +335,32 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
         "table_stage": stage,
         "table_type": "L3" if ip_version == "ipv4" else "L3V6"
     }
-
     logger.info("Generated ACL table configuration:\n{}".format(pprint.pformat(acl_table_config)))
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
-    loganalyzer.load_common_config()
+    dut_to_analyzer_map = {}
 
-    try:
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-        with loganalyzer:
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
-    except LogAnalyzerError as err:
-        # Cleanup Config DB if table creation failed
-        logger.error("ACL table creation failed, attempting to clean-up...")
-        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
-        raise err
+    for duthost in duthosts:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
+        loganalyzer.load_common_config()
+        dut_to_analyzer_map[duthost] = loganalyzer
+
+        try:
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            with loganalyzer:
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
+        except LogAnalyzerError as err:
+            # Cleanup Config DB if table creation failed
+            logger.error("ACL table creation failed, attempting to clean-up...")
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+            raise err
 
     try:
         yield acl_table_config
     finally:
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-        with loganalyzer:
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+        for duthost, loganalyzer in dut_to_analyzer_map.items():
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
+            with loganalyzer:
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
 
 class BaseAclTest(object):
     """Base class for testing ACL rules.
@@ -383,7 +415,7 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, rand_one_dut_hostname, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo, ip_version):
+    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo, ip_version):
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -395,36 +427,38 @@ class BaseAclTest(object):
             populate_vlan_arp_entries: A function to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
-        loganalyzer.load_common_config()
+        dut_to_analyzer_map = {}
+        for duthost in duthosts:
+            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
+            loganalyzer.load_common_config()
+            dut_to_analyzer_map[duthost] = loganalyzer
 
-        try:
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-            with loganalyzer:
-                self.setup_rules(duthost, acl_table, ip_version)
-                time.sleep(5)
-                
-            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+            try:
+                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+                with loganalyzer:
+                    self.setup_rules(duthost, acl_table, ip_version)
 
-            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
 
-        except LogAnalyzerError as err:
-            # Cleanup Config DB if rule creation failed
-            logger.error("ACL rule application failed, attempting to clean-up...")
-            self.teardown_rules(duthost)
-            raise err
+                assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+
+            except LogAnalyzerError as err:
+                # Cleanup Config DB if rule creation failed
+                logger.error("ACL rule application failed, attempting to clean-up...")
+                self.teardown_rules(duthost)
+                raise err
 
         try:
             yield
         finally:
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-            with loganalyzer:
-                logger.info("Removing ACL rules")
-                self.teardown_rules(duthost)
+            for duthost, loganalyzer in dut_to_analyzer_map.items():
+                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+                with loganalyzer:
+                    logger.info("Removing ACL rules")
+                    self.teardown_rules(duthost)
 
     @pytest.yield_fixture(scope="class", autouse=True)
-    def counters_sanity_check(self, duthosts, rand_one_dut_hostname, acl_rules, acl_table):
+    def counters_sanity_check(self, duthosts, acl_rules, acl_table):
         """Validate that the counters for each rule in the rules list increased as expected.
 
         This fixture yields a list of rule IDs. The test case should add on to this list if
@@ -440,9 +474,10 @@ class BaseAclTest(object):
             acl_table: Fixture that sets up the ACL table.
 
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        acl_facts = defaultdict(dict)
         table_name = acl_table["table_name"]
-        acl_facts_before_traffic = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
+        for duthost in duthosts:
+            acl_facts[duthost]['before']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
         rule_list = []
         yield rule_list
@@ -453,23 +488,38 @@ class BaseAclTest(object):
         # Wait for orchagent to update the ACL counters
         time.sleep(self.ACL_COUNTERS_UPDATE_INTERVAL_SECS)
 
-        acl_facts_after_traffic = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
+        for duthost in duthosts:
+            acl_facts[duthost]['after']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
-        assert len(acl_facts_after_traffic) == len(acl_facts_before_traffic)
+        for duthost in duthosts:
+            assert len(acl_facts[duthost]['before']) == len(acl_facts[duthost]['after'])
 
         for rule in rule_list:
             rule = "RULE_{}".format(rule)
 
-            counters_before = acl_facts_before_traffic[rule]
+            counters_before = {
+                PACKETS_COUNT: 0,
+                BYTES_COUNT: 0
+            }
+            for duthost in duthosts:
+                counters_before[PACKETS_COUNT] += acl_facts[duthost]['before'][rule][PACKETS_COUNT]
+                counters_before[BYTES_COUNT] += acl_facts[duthost]['before'][rule][BYTES_COUNT]
             logger.info("Counters for ACL rule \"{}\" before traffic:\n{}"
                         .format(rule, pprint.pformat(counters_before)))
 
-            counters_after = acl_facts_after_traffic[rule]
+            counters_after = {
+                PACKETS_COUNT: 0,
+                BYTES_COUNT: 0
+            }
+            for duthost in duthosts:
+                counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
+                counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
+
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
                         .format(rule, pprint.pformat(counters_after)))
 
-            assert counters_after["packets_count"] > counters_before["packets_count"]
-            assert counters_after["bytes_count"] > counters_before["bytes_count"]
+            assert counters_after[PACKETS_COUNT] > counters_before[PACKETS_COUNT]
+            assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
@@ -492,10 +542,13 @@ class BaseAclTest(object):
 
         return True
 
+    @pytest.fixture(autouse=True)
     def get_src_port(self, setup, direction):
         """Get a source port for the current test."""
         src_ports = setup["downstream_port_ids"] if direction == "downlink->uplink" else setup["upstream_port_ids"]
-        return random.choice(src_ports)
+        src_port = random.choice(src_ports)
+        logger.info("Selected source port {}".format(src_port))
+        self.src_port = src_port
 
     def get_dst_ports(self, setup, direction):
         """Get the set of possible destination ports for the current test."""
@@ -509,10 +562,9 @@ class BaseAclTest(object):
         """Generate a TCP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             pkt = testutils.simple_tcp_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -525,7 +577,7 @@ class BaseAclTest(object):
                 pkt["IP"].proto = proto
         else:
             pkt = testutils.simple_tcpv6_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -546,10 +598,9 @@ class BaseAclTest(object):
         """Generate a UDP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_udp_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -559,7 +610,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_udpv6_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -572,10 +623,9 @@ class BaseAclTest(object):
         """Generate an ICMP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
-        dst_mac = setup["router_mac"] if direction == "uplink->downlink" else setup["vlan_mac"]
         if ip_version == "ipv4":
             return testutils.simple_icmp_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ip_dst=dst_ip,
                 ip_src=src_ip,
@@ -585,7 +635,7 @@ class BaseAclTest(object):
             )
         else:
             return testutils.simple_icmpv6_packet(
-                eth_dst=dst_mac,
+                eth_dst=setup["destination_mac"][direction][self.src_port],
                 eth_src=ptfadapter.dataplane.get_mac(0, 0),
                 ipv6_dst=dst_ip,
                 ipv6_src=src_ip,
@@ -805,7 +855,7 @@ class BaseAclTest(object):
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
 
         ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, self.get_src_port(setup, direction), pkt)
+        testutils.send(ptfadapter, self.src_port, pkt)
 
         if dropped:
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
@@ -827,7 +877,7 @@ class TestBasicAcl(BaseAclTest):
         table_name = acl_table["table_name"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
 
-        logger.info("Generating basic ACL rules config for ACL table \"{}\"".format(table_name))
+        logger.info("Generating basic ACL rules config for ACL table \"{}\" on {}".format(table_name, dut))
 
         dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}.json".format(table_name))
         dut.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE[ip_version]),

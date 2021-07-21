@@ -384,6 +384,7 @@ def parse_dpg(dpg, hname):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
+            vintftype = vintf.find(str(QName(ns, "Type")))
             vmbr_list = vintfmbr.split(';')
             vintf_node = vintf.find(str(QName(ns, "DhcpRelays")))
             if vintf_node is not None and vintf_node.text is not None:
@@ -398,6 +399,8 @@ def parse_dpg(dpg, hname):
                 vmbr_list[i] = port_alias_to_name_map[member]
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
+            if vintftype is not None:
+                vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
             ports.pop(vintfname)
 
@@ -757,7 +760,7 @@ def parse_xml(filename, hostname, asic_name=None):
 
         for pc_intf in pc_intfs:
             pc_intf['attachto'] = pc_intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
-            intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
+            pc_intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
             vlan_sub_intfs.append(pc_intf)
         results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
     elif resource_type is not None and 'Storage' in resource_type:

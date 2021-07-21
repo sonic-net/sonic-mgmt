@@ -11,6 +11,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,8 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 
 @pytest.fixture(autouse=True, scope="module")
 def modify_monit_config_and_restart(duthost):
-    """Backup Monit configuration file, then customize and restart it before testing. Restore original
-    Monit configuration file and restart it after testing.
+    """Backup Monit configuration files, then customize and restart it before testing.
+    Restore original Monit configuration files and restart Monit service after testing.
 
     Args:
         duthost: Hostname of DuT.
@@ -35,10 +36,14 @@ def modify_monit_config_and_restart(duthost):
     Returns:
         None.
     """
-    logger.info("Back up Monit configuration file ...")
+    logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/conf.d/monit_telemetry /tmp/")
 
+    temp_config_line = '    if status == 3 for 5 times within 10 cycles then exec "/usr/bin/restart_service telemetry"'
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
+    duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/monit_telemetry")
+    duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/monit_telemetry".format(temp_config_line))
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
     duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
 
@@ -47,8 +52,9 @@ def modify_monit_config_and_restart(duthost):
 
     yield
 
-    logger.info("Restore original Monit configuration ...")
+    logger.info("Restore original Monit configuration files on DuT '{}' ...".format(duthost.hostname))
     duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /tmp/monit_telemetry /etc/monit/conf.d/")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -58,7 +64,7 @@ def modify_monit_config_and_restart(duthost):
 
 
 def install_stress_utility(duthost, creds, container_name):
-    """Installs the 'stress' utility in container before testing.
+    """Installs the 'stress' utility in container.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -85,7 +91,7 @@ def install_stress_utility(duthost, creds, container_name):
 
 
 def remove_stress_utility(duthost, container_name):
-    """Removes the 'stress' utility from container after testing.
+    """Removes the 'stress' utility from container.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -117,9 +123,10 @@ def consume_memory(duthost, container_name, vm_workers):
     duthost.shell("docker exec {} stress -m {}".format(container_name, vm_workers), module_ignore_errors=True)
 
 
-def consume_memory_and_restart_container(duthost, container_name, vm_workers):
+def consume_memory_and_restart_container(duthost, container_name, vm_workers, loganalyzer, marker):
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
-    and checks whether the container can be stopped and restarted.
+    and checks whether the container can be stopped and restarted. Loganalyzer was leveraged
+    to check whether the log messages related to container stopped were generated.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -132,15 +139,14 @@ def consume_memory_and_restart_container(duthost, container_name, vm_workers):
 
     """
     thread_pool = ThreadPool()
-
     thread_pool.apply_async(consume_memory, (duthost, container_name, vm_workers))
 
-    logger.info("Waiting for '{}' container to be stopped ...".format(container_name))
-    stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
-                         CONTAINER_CHECK_INTERVAL_SECS,
-                         check_container_state, duthost, container_name, False)
-    pytest_assert(stopped, "Failed to stop '{}' container!".format(container_name))
-    logger.info("'{}' container is stopped.".format(container_name))
+    logger.info("Sleep 100 seconds to wait for the alerting messages from syslog...")
+    time.sleep(100)
+
+    logger.info("Checking the alerting messages related to container stopped ...")
+    loganalyzer.analyze(marker)
+    logger.info("Found all the expected alerting messages from syslog!")
 
     logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
@@ -211,7 +217,19 @@ def test_memory_checker(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostna
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
+
+    expected_alerting_messages = []
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_restart_due_to_memory")
+    loganalyzer.expect_regex = []
+    expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
+    expected_alerting_messages.append(".*Stopping Telemetry container.*")
+    expected_alerting_messages.append(".*Stopped Telemetry container.*")
+
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
+    marker = loganalyzer.init()
+
     install_stress_utility(duthost, creds, container_name)
-    consume_memory_and_restart_container(duthost, container_name, vm_workers)
+    consume_memory_and_restart_container(duthost, container_name, vm_workers, loganalyzer, marker)
+
     remove_stress_utility(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
