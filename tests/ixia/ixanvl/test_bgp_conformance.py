@@ -17,6 +17,7 @@ from .ixanvl_utils import emit_intf_block
 from .ixanvl_utils import emit_global_block
 from .ixanvl_utils import emit_bgp_global
 from .ixanvl_utils import delete_tmp_file
+from .ixanvl_utils import create_json_output
 
 pytestmark = [pytest.mark.disable_loganalyzer]
 
@@ -101,7 +102,8 @@ def test_anvl_bgp_run(duthost,
       logging.info(line)
 
     stdout.channel.recv_exit_status()
+    delete_tmp_file(ptfhost)
     scp.get('/opt/Ixia/IxANVL/bgp4.log')
 
-    delete_tmp_file(ptfhost)
+    create_json_output('bgp4.log')
     ixanvl_tester.close()
