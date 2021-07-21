@@ -86,22 +86,24 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = get_asic_with_pc(duthost)
-    voq_lag.verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic)
-    voq_lag.verify_lag_in_app_db(asic)
-    tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
-    voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id)
-    # to verify lag in remote asic db
-    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
-    voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id)
-    voq_lag.verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, tmp_lag_id)
-    voq_lag.verify_lag_in_app_db(asic, deleted=True)
-    voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id, deleted=True)
-    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
-    voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id, deleted=True)
+    try:
+        voq_lag.verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic)
+        voq_lag.verify_lag_in_app_db(asic)
+        tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
+        voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id)
+        # to verify lag in remote asic db
+        remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
+        voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id)
+        voq_lag.verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, tmp_lag_id)
+        voq_lag.verify_lag_in_app_db(asic, deleted=True)
+        voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id, deleted=True)
+        remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
+        voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id, deleted=True)
+    finally:
+        if voq_lag.is_lag_in_app_db(asic):
+            voq_lag.delete_lag(duthost, asic)
 
-
-def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                              enum_rand_one_asic_index, setup_teardown):
+def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
     """
     Test to verify when a LAG members is added/deleted via CLI on an ASIC,
      It is synced to remote ASIC_DB.
