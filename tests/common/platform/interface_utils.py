@@ -1,6 +1,7 @@
 """
 Helper script for checking status of interfaces
 
+
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
 import json
@@ -128,8 +129,7 @@ def get_port_map(dut, asic_index=None):
     return port_mapping_res
 
 
-def validate_config_db_file_exist(dut):
-    config_db_location_cmd = "ls /etc/sonic/config_db.json"
-    config_db_location_string = dut.command(config_db_location_cmd)["stdout"]
-    if re.search("No such file or directory", config_db_location_string):
-        assert False, "No /etc/sonic/config_db.json found on dut - please load a valid config_db.json to switch"
+def validate_config_db_file_exist(dut):   
+    config_db_stat = dut.stat(path="/etc/sonic/config_db.json")
+    if not config_db_stat["stat"]["exists"]: 
+  	assert False, "No /etc/sonic/config_db.json found on dut - please load a valid config_db.json to switch"
