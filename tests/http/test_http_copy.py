@@ -15,7 +15,7 @@ HTTP_PORT = "8080"
 
 def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     """Test that HTTP (copy) can be used to download objects to the DUT"""
-
+    
     duthost = duthosts[rand_one_dut_hostname]
     ptf_ip = ptfhost.mgmt_ip
 
@@ -24,7 +24,7 @@ def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     # Copies http server files to ptf
     ptfhost.copy(src="http/start_http_server.py", dest="/tmp/start_http_server.py")
     ptfhost.copy(src="http/stop_http_server.py", dest="/tmp/stop_http_server.py")
-    
+
     # Starts the http server on the ptf
     ptfhost.command("python /tmp/start_http_server.py", module_async=True)
 
