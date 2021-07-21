@@ -1,4 +1,6 @@
 import logging
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,59 @@ def collect_info(duthost):
         duthost.shell('ip addr')
         duthost.shell('grep . /sys/class/net/Ethernet*/address', module_ignore_errors=True)
         duthost.shell('grep . /sys/class/net/PortChannel*/address', module_ignore_errors=True)
+
+def create_json_output(filepath):
+    try:
+        with open(filepath,"r") as log_file:
+
+           summary ={"Number of tests run": "", "Number of tests passed": "", "Number of tests failed": "", "Number of tests inconclusive": ""}
+           test_suite ={}
+           test_name = ""
+           status =""
+           comment = ""
+           curr_line=""
+
+           for l in log_file.readlines():
+
+            if re.search("TEST_DESCRIPTION", l, re.I):
+                comment=""
+                status=""
+                test_name = curr_line.replace(">","").replace(" ","").replace("\n","")
+
+            if (test_name in l) and len(test_name)>0:
+                if(re.search("PASSED", l, re.I)):
+                    status="Passed"
+                elif(re.search("FAILED", l, re.I)):
+                    status="Failed"
+                elif (re.search("INCONCLUSIVE", l, re.I)):
+                    status ="Inconclusive"
+
+            if re.search("^!", l) and len(test_name)>1 and  len(comment)==0:
+                comment = l
+            curr_line= l
+
+            if(len(test_name)>0):
+               test_suite[test_name]={'status':status, 'comment':comment}
+
+            if(re.search("^Number of test", l)):
+                if(re.search("RUN", l, re.I)):
+                    summary["Number of tests run"]=l.replace(" ","").replace("\n","").split(":")[1]
+                elif(re.search("PASSED", l, re.I)):
+                    summary["Number of tests passed"]=l.replace(" ","").replace("\n","").split(":")[1]
+                elif(re.search("FAILED", l, re.I)):
+                    summary["Number of tests failed"]=l.replace(" ","").replace("\n","").split(":")[1]
+                elif (re.search("INCONCLUSIVE", l, re.I)):
+                    summary["Number of tests inconclusive"]=l.replace(" ","").replace("\n","").split(":")[1]
+
+           with open('TestCase_wise_report.json', 'w') as json_file:
+               json.dump(test_suite, json_file, indent=2)
+
+           with open('Summary.json', 'w') as summary_file:
+                json.dump(summary, summary_file, indent=4)
+
+    except:
+        print("Can't open file:", filepath)
+        return
 
 def increment_ipv4_addr(ipv4_addr, incr=1):
     octets = str(ipv4_addr).split('.')
