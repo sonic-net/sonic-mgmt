@@ -507,7 +507,6 @@ class DecapPacketTest(BaseTest):
                 logging.info('----------------------------------------------------------------------')
 
                 status = 'Failed'
-                error = None
 
                 try:
                     self.run_encap_combination_test(outer_pkt_type, inner_pkt_type)
