@@ -132,4 +132,4 @@ def get_port_map(dut, asic_index=None):
 def validate_config_db_file_exist(dut):   
     config_db_stat = dut.stat(path="/etc/sonic/config_db.json")
     if not config_db_stat["stat"]["exists"]: 
-  	assert False, "No /etc/sonic/config_db.json found on dut - please load a valid config_db.json to switch"
+        assert False, "No /etc/sonic/config_db.json found on dut - please load a valid config_db.json to switch"
