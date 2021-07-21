@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
 from tests.common.platform.interface_utils import get_port_map
+from tests.common.utilities import wait_until
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -452,6 +453,9 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
         self.assert_expectations()
 
+    def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
+        return state ==  sfp.get_lpmode(platform_api_conn, i)
+
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.candidate_sfp:
@@ -471,9 +475,7 @@ class TestSfpApi(PlatformApiTestBase):
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
-                lpmode = sfp.get_lpmode(platform_api_conn, i)
-                if self.expect(lpmode is not None, "Unable to retrieve transceiver {} low-power mode".format(i)):
-                    self.expect(lpmode == state, "Transceiver {} low-power is incorrect".format(i))
+                self.expect(wait_until(5, 1, self._check_lpmode_status, sfp, platform_api_conn, i, state), "Transceiver {} low-power is incorrect".format(i))
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
