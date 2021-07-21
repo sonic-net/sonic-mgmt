@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "00 23 * * SUN"
+  - cron: "0 4 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
-        internal
+        - internal
     always: true
 
 variables:
@@ -18,17 +18,30 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms13-t1-n3164-2
+    default: vms17-dual-t0-7050-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_201911)
+    default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
 
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
+
 stages:
-  - template: ./templates/nightly_test.yml
+  - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}

@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 14 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,29 +18,24 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms20-t1-dx010-6
+    default: vms18-t1-msn4600c-acs-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202012)
+    default: $(IMAGE_MLNX_202012)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
-  - name: PTF_PORTMAP
-    type: string
-    default: qos/files/mellanox/default_interface_to_front_map.ini
-    displayName: "PTF port map"
 
 stages:
-  - template: ./templates/nightly_test.yml
+  - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}

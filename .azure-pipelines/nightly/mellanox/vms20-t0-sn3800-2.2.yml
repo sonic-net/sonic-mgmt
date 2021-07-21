@@ -3,13 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-# schedules:
-#   - cron: "17 10 * * *"
-#     displayName: Nightly Scheduler
-#     branches:
-#       include:
-#         - internal
-#     always: true
+schedules:
+  - cron: "0 4 2-30/2 * *"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
@@ -18,17 +18,24 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms12-t1-lag-1
+    default: vms20-t0-sn3800-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202012)
+    default: $(IMAGE_MLNX_201911)
     displayName: "Image URL"
 
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: " "
+    displayName: "py_saithrift URL"
+
 stages:
-  - template: ./templates/nightly_test.yml
+  - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
