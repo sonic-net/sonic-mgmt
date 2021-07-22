@@ -22,7 +22,17 @@ pytestmark = [
 @pytest.fixture(scope='function')
 def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    initImage = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
     yield
+    """
+    Recover the image to image2 which is the image before doing this case.
+    """
+    currentImage = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
+    if initImage != currentImage:
+        logger.info("Re-install the image: {} to DUT" .format(initImage))
+        duthost.copy(src=BINARY_FILE_ON_LOCALHOST_2, dest=BINARY_FILE_ON_DUTHOST)
+        duthost.shell("sonic-installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
+        reboot(duthost, localhost, wait=120)
     logger.info('Remove temporary images')
     duthost.shell("rm -rf {}".format(BINARY_FILE_ON_DUTHOST))
     localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_1))
@@ -99,7 +109,7 @@ class ReadMACMetadata():
             duthost.copy(src=BINARY_FILE_ON_LOCALHOST_2, dest=BINARY_FILE_ON_DUTHOST)
 
         logger.info("Installing new SONiC image")
-        duthost.shell("sonic_installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
+        duthost.shell("sonic-installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
 
     def check_mtu_and_interfaces(self, duthost):
         logger.info("Verify that MAC address fits template XX:XX:XX:XX:XX:XX")
