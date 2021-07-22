@@ -90,6 +90,7 @@ all:
           - tgen-t1-3-lag
           - tgen-t0-35-3
           - mgmttor
+          - t2
 
 vm_host_1:
   hosts:
