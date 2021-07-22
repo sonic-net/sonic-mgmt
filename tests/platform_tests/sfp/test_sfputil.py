@@ -14,11 +14,8 @@ import pytest
 from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
-<<<<<<< HEAD
 from tests.common.platform.interface_utils import get_port_map, check_interface_status
-=======
 from tests.common.utilities import skip_version
->>>>>>> 3403b65e0f19a8b4c33da737892af7b60ac0b1f4
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
