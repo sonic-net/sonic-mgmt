@@ -24,7 +24,7 @@ devices:
 
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@docker-ptf:/#
@@ -34,19 +34,20 @@ devices:
     memory: '4G'
     mgmt_intf_name: mgmt
     data_ports:
-      - eth[0..64]
+      - eth[0..71]
+      - backplane
 
   sonic_dut_0: &dut
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_11.0/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/devpatha/azure-m/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.1_NPS1.77.2/npl
-            ConfigS1NpsuiteVer: 1.77.2
+            ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.43.0_NPS1.78.1/npl
+            ConfigS1NpsuiteVer: 1.78.1
 
   sonic_dut_1:
       <<: *dut
@@ -297,88 +298,88 @@ connections:
   custom:
     ptf_injected_dut_0_to_veos1_1:
       ports:
-      - docker_ptf.eth12
+      - docker_ptf.eth56
       - sonic_dut_0.Ethernet12
       - veos1.Ethernet1
     ptf_injected_dut_0_to_veos1_2:
       ports:
-      - docker_ptf.eth13
+      - docker_ptf.eth57
       - sonic_dut_0.Ethernet13
       - veos1.Ethernet2
     ptf_injected_dut_0_to_veos2_1:
       ports:
-      - docker_ptf.eth14
+      - docker_ptf.eth60
       - sonic_dut_0.Ethernet14
       - veos2.Ethernet1
     ptf_injected_dut_0_to_veos2_2:
       ports:
-      - docker_ptf.eth15
+      - docker_ptf.eth61
       - sonic_dut_0.Ethernet15
       - veos2.Ethernet2
     ptf_injected_dut_0_to_veos3_1:
       ports:
-      - docker_ptf.eth40
+      - docker_ptf.eth64
       - sonic_dut_0.Ethernet40
       - veos3.Ethernet1
     ptf_injected_dut_0_to_veos3_2:
       ports:
-      - docker_ptf.eth41
+      - docker_ptf.eth65
       - sonic_dut_0.Ethernet41
       - veos3.Ethernet2
     ptf_injected_dut_0_to_veos4_1:
       ports:
-      - docker_ptf.eth42
+      - docker_ptf.eth68
       - sonic_dut_0.Ethernet42
       - veos4.Ethernet1
     ptf_injected_dut_0_to_veos4_2:
       ports:
-      - docker_ptf.eth43
+      - docker_ptf.eth69
       - sonic_dut_0.Ethernet43
       - veos4.Ethernet2
 
     ptf_injected_dut_1_to_veos1_1:
       ports:
-      - docker_ptf.eth55
+      - docker_ptf.eth58
       - sonic_dut_1.Ethernet12
       - veos1.Ethernet3
     ptf_injected_dut_1_to_veos1_2:
       ports:
-      - docker_ptf.eth56
+      - docker_ptf.eth59
       - sonic_dut_1.Ethernet13
       - veos1.Ethernet4
     ptf_injected_dut_1_to_veos2_1:
       ports:
-      - docker_ptf.eth57
+      - docker_ptf.eth62
       - sonic_dut_1.Ethernet14
       - veos2.Ethernet3
     ptf_injected_dut_1_to_veos2_2:
       ports:
-      - docker_ptf.eth58
+      - docker_ptf.eth63
       - sonic_dut_1.Ethernet15
       - veos2.Ethernet4
     ptf_injected_dut_1_to_veos3_1:
       ports:
-      - docker_ptf.eth59
+      - docker_ptf.eth66
       - sonic_dut_1.Ethernet40
       - veos3.Ethernet3
     ptf_injected_dut_1_to_veos3_2:
       ports:
-      - docker_ptf.eth60
+      - docker_ptf.eth67
       - sonic_dut_1.Ethernet41
       - veos3.Ethernet4
     ptf_injected_dut_1_to_veos4_1:
       ports:
-      - docker_ptf.eth61
+      - docker_ptf.eth70
       - sonic_dut_1.Ethernet42
       - veos4.Ethernet3
     ptf_injected_dut_1_to_veos4_2:
       ports:
-      - docker_ptf.eth62
+      - docker_ptf.eth71
       - sonic_dut_1.Ethernet43
       - veos4.Ethernet4
 
     backplane:
       ports:
       - veos[1..4].Ethernet9
-      - docker_ptf.eth63  
+      - docker_ptf.backplane
 
