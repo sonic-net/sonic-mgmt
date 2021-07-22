@@ -117,10 +117,10 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot, advanceboot_neighbo
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
     lagMemberCnt = advancedReboot.getlagMemberCnt()
     prebootList = [
-         'neigh_bgp_down:2',             # Shutdown single BGP session on 2 remote devices (VMs) before reboot DUT
-         'dut_bgp_down:3',               # Shutdown 3 BGP sessions on DUT brefore rebooting it
-         'dut_lag_down:2',               # Shutdown 2 LAG sessions on DUT brefore rebooting it
-         'neigh_lag_down:3',             # Shutdown 1 LAG session on 3 remote devices (VMs) before reboot DUT
+        'neigh_bgp_down:2',             # Shutdown single BGP session on 2 remote devices (VMs) before reboot DUT
+        'dut_bgp_down:3',               # Shutdown 3 BGP sessions on DUT brefore rebooting it
+        'dut_lag_down:2',               # Shutdown 2 LAG sessions on DUT brefore rebooting it
+        'neigh_lag_down:3',             # Shutdown 1 LAG session on 3 remote devices (VMs) before reboot DUT
         # Shutdown 1 LAG member of 3 LAG sessions corresponding to 3 remote devices (VM)
         # on DUT
         DutLagMemberDown(duthost, nbrhosts, DatetimeSelector(3), PhyPropsPortSelector(duthost, 1)),

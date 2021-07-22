@@ -33,14 +33,23 @@ class SadOperation(object):
         raise NotImplementedError
 
 
-class PhyPropsPortSelector:
+class Selector(object):
+    """ Selector interface provides a select() method
+    to choose test objects from the input list. """
+
+    def select(self, objlist):
+        """ Choose test objects from objlist. """
+        raise NotImplementedError
+
+
+class PhyPropsPortSelector(Selector):
     """ Select the port based on physical port settings. """
 
     def __init__(self, duthost, count):
         self.duthost = duthost
         self.count = count
 
-    def select(self, in_ports):
+    def select(self, objlist):
         port_table = self.duthost.get_running_config_facts()["PORT"]
 
         def group_func(port):
@@ -56,13 +65,13 @@ class PhyPropsPortSelector:
         # If <self.count> is greater then the number of groups start over till we fill
         # the output list with the number of ports requested.
         # Assertion is raised when there are no enough ports.
-        port_items = [(name, attrs) for name, attrs in port_table.items() if name in in_ports]
+        port_items = [(name, attrs) for name, attrs in port_table.items() if name in objlist]
         assert len(port_items) >= self.count, "No enough ports to test, required at least {}".format(self.count)
         groups = [list(group) for _, group in groupby(sorted(port_items, key=group_func), key=group_func)]
         return [name for name, _ in islice(chain.from_iterable(zip(*groups)), self.count)]
 
 
-class DatetimeSelector:
+class DatetimeSelector(Selector):
     """ Select from list based on current datetime. """
 
     def __init__(self, count):
@@ -245,25 +254,27 @@ class NeighLagMemberDown(LagMemberDown):
 
     def setup(self, test_data):
         super(NeighLagMemberDown, self).setup(test_data)
-
-        for port in self.ports:
-            nbrname = self.dut_port_to_nbr[port]
-            nbrport = self.dut_port_to_nbr_port[port]
-            nbrhost = self.nbrhosts[nbrname]["host"]
-            nbrhost.shutdown(nbrport)
-
-            fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.shutdown(fanport)
+        self._change_ports_state(bring_up=False)
 
     def revert(self):
+        self._change_ports_state(bring_up=True)
+
+    def _change_ports_state(self, bring_up):
         for port in self.ports:
             nbrname = self.dut_port_to_nbr[port]
             nbrport = self.dut_port_to_nbr_port[port]
             nbrhost = self.nbrhosts[nbrname]["host"]
-            nbrhost.no_shutdown(nbrport)
+            if bring_up:
+                nbrhost.no_shutdown(nbrport)
+            else:
+                nbrhost.shutdown(nbrport)
 
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.no_shutdown(fanport)
+            if bring_up:
+                fanout.no_shutdown(fanport)
+            else:
+                fanout.shutdown(fanport)
+
 
     def __str__(self):
         return "neigh_lag_member_down:{}:{}".format(len(self.vms), len(self.ports))
