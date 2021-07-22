@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - 7050qx_ixia_run
+        - internal
     always: true
 
 variables:
