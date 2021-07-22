@@ -630,7 +630,7 @@ class TestStaticNat(object):
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table")
+                      "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Set NAT configuration for test
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
@@ -650,7 +650,7 @@ class TestStaticNat(object):
                 "SNAT all -- {} 0.0.0.0/0 mark match 0x2 to:{}".format(network_data.private_ip, network_data.public_ip)]
             }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table")
+                      "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Remove with CLI
         crud_remove = {"remove": {"action": "remove", "global_ip": network_data.public_ip, "local_ip": network_data.private_ip}}
         entries_table.update(crud_operations_basic(duthost, crud_remove))
@@ -662,7 +662,7 @@ class TestStaticNat(object):
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table")
+                      "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
 
     @pytest.mark.nat_static
     def test_nat_static_global_double_add(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
@@ -678,7 +678,7 @@ class TestStaticNat(object):
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table")
+                      "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Set NAT configuration for test
         network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
         apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data, network_data, direction, interface_type, nat_type,
@@ -991,8 +991,6 @@ class TestStaticNat(object):
 
     @pytest.mark.nat_static
     def test_nat_static_redis_asic(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env, protocol_type):
-        sai_nat_src_id = {"TCP": 1, "UDP": 2}[protocol_type]
-        sai_nat_dst_id = {"TCP": 2, "UDP": 1}[protocol_type]
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         nat_type = 'static_napt'
@@ -1012,8 +1010,11 @@ class TestStaticNat(object):
         db_rules_src = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'ASIC_DB SRC')
         db_rules_dst = get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, 'ASIC_DB DST')
         output = get_redis_val(duthost, 1, "NAT_ENTRY")
-        output_src = output[(list(output.keys())[sai_nat_src_id])]['value']
-        output_dst = output[(list(output.keys())[sai_nat_dst_id])]['value']
+        for count, entry in enumerate(output):
+            if 'SAI_NAT_TYPE_SOURCE_NAT' in str(entry):
+                output_src = output[(list(output.keys())[count])]['value']
+            if 'SAI_NAT_TYPE_DESTINATION_NAT"' in str(entry):
+                output_dst = output[(list(output.keys())[count])]['value']
         pytest_assert(db_rules_src["SAI_NAT_ENTRY_ATTR_SRC_IP"] == output_src["SAI_NAT_ENTRY_ATTR_SRC_IP"],
                       "Unexpected output \n Got:\n{}\n Expected:\n{}".format(output_src["SAI_NAT_ENTRY_ATTR_SRC_IP"], db_rules_src["SAI_NAT_ENTRY_ATTR_SRC_IP"]))
         pytest_assert(db_rules_src["SAI_NAT_ENTRY_ATTR_L4_SRC_PORT"] == output_src["SAI_NAT_ENTRY_ATTR_L4_SRC_PORT"],

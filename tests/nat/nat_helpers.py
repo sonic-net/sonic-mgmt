@@ -143,11 +143,12 @@ def dut_nat_iptables_status(duthost):
     index_prerouting = [i for i in range(0, len(entries)) if "PREROUTING" in entries[i]][0] + 2
     index_input = [i for i in range(0, len(entries)) if "INPUT" in entries[i]][0]
     index_postrouting = [i for i in range(0, len(entries)) if 'POSTROUTING' in entries[i]][0] + 2
+    index_output = [i for i in range(0, len(entries)) if "OUTPUT" in entries[i]][0]
     if any(['DOCKER' in entry for entry in entries]):
         index_docker = [i for i in range(0, len(entries)) if 'DOCKER' in entries[i]][0]
         postrouting = [el for el in entries[index_postrouting:index_docker] if len(el) > 1]
     else:
-        postrouting = [el for el in entries[index_postrouting:] if len(el) > 1]
+        postrouting = [el for el in entries[index_postrouting:index_output] if len(el) > 1]
     prerouting = [el for el in entries[index_prerouting:index_input] if len(el) > 0]
     nat_table_status["prerouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
                                       for el in prerouting]
@@ -1108,6 +1109,11 @@ def get_redis_val(duthost, db, key):
             if output["rc"]:
                 raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
             redis_dict = json.loads(output['stdout'])
+            for table in redis_dict:
+                if 'expireat' in redis_dict[table]:
+                    redis_dict[table].pop('expireat')
+                if 'ttl' in redis_dict[table]:
+                    redis_dict[table].pop('ttl')
             return redis_dict
         except Exception as e:
             return e.__str__()
