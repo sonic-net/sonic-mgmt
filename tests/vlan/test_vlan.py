@@ -14,6 +14,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -197,24 +198,18 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
     ptfhost.command('supervisorctl stop arp_responder')
 
     logger.info("Delete VLAN intf")
-    try:
-        for item in vlan_ports_list:
-            for i in vlan_ports_list[0]['permit_vlanid']:
-                duthost.command('ip route flush {}'.format(
-                    item['permit_vlanid'][i]['remote_ip']))
-
-        for vlan_port in vlan_ports_list:
-            for permit_vlanid in vlan_port["permit_vlanid"].keys():
-                if int(permit_vlanid) != vlan_port["pvid"]:
+    for vlan_port in vlan_ports_list:
+        for permit_vlanid in vlan_port["permit_vlanid"].keys():
+            if int(permit_vlanid) != vlan_port["pvid"]:
+                try:
                     ptfhost.command("ip link delete eth{idx}.{pvid}".format(
                     idx=vlan_port["port_index"][0],
                     pvid=permit_vlanid
                     ))
-    except RunAnsibleModuleFail as e:
-        logger.error(e)
+                except RunAnsibleModuleFail as e:
+                    logger.error(e)
 
-    duthost.shell("config reload -y &>/dev/null", executable="/bin/bash")
-
+    config_reload(duthost)
     # make sure Portchannels go up for post-test link sanity
     time.sleep(90)
 
@@ -417,7 +412,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet was not received")
         raise
-    
+
     logger.info("One Way Tagged Packet Transmission Works")
     logger.info("Tagged packet successfully sent from port {} to port {}".format(src_port[0], dst_port))
 
@@ -456,7 +451,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
     src_port = ports_for_test[0]
     dst_port = ports_for_test[-1]
 
-    src_mac = ptfadapter.dataplane.get_mac(0, src_port[0]) 
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
     dst_mac = ptfadapter.dataplane.get_mac(0, dst_port[0])
 
     transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
@@ -499,7 +494,7 @@ def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, d
     """
 
     # Add more supported platforms to the list as they are tested
-    qinq_switching_supported_platforms = ['mellanox']
+    qinq_switching_supported_platforms = ['mellanox', 'barefoot']
     if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
         pytest.skip("Unsupported platform")
 

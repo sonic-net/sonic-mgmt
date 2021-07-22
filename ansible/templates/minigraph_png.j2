@@ -1,5 +1,6 @@
   <PngDec>
     <DeviceInterfaceLinks>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
@@ -84,6 +85,7 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -100,6 +102,9 @@
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
+{% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
+	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
+{% endif %}
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
 {% set neighbor_hostname = dual_tor_facts['neighbor']['hostname'] %}
@@ -162,7 +167,9 @@
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
-{% if 'T1' in dev %}
+{% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
+{% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
@@ -208,6 +215,11 @@
         <SerialNumber i:nil="true"/>
         <Hostname>{{ asic }}</Hostname>
         <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
+{% for asic in fabric_info %}
+      <Device i:type="Asic">
+        <Hostname>{{ asic['asicname'] }}</Hostname>
       </Device>
 {% endfor %}
     </Devices>

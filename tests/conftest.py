@@ -15,14 +15,18 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
-
-from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.helpers.constants import (
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
+    ASIC_PARAM_TYPE_BACKEND
+)
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
@@ -49,7 +53,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan')
+                  'tests.vxlan',
+                  'tests.common.plugins.allure_server')
 
 
 def pytest_addoption(parser):
@@ -65,6 +70,10 @@ def pytest_addoption(parser):
 
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
+
+    # neighbor device type
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
+                    help="Neighbor devices type")
 
     ############################
     # pfc_asym options         #
@@ -346,21 +355,31 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 @pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, tbinfo, creds):
+def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
 
     vm_base = int(tbinfo['vm_base'][2:])
+    neighbor_type = request.config.getoption("--neighbor_type")
     devices = {}
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
-        devices[k] = {'host': EosHost(ansible_adhoc,
-                                      "VM%04d" % (vm_base + v['vm_offset']),
-                                      creds['eos_login'],
-                                      creds['eos_password'],
-                                      shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                      shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                      'conf': tbinfo['topo']['properties']['configuration'][k]}
+        if neighbor_type == "eos":
+            devices[k] = {'host': EosHost(ansible_adhoc,
+                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        creds['eos_login'],
+                                        creds['eos_password'],
+                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
+                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+        elif neighbor_type == "sonic":
+            devices[k] = {'host': SonicHost(ansible_adhoc,
+                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
+                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+        else:
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
     return devices
 
 @pytest.fixture(scope="module")
@@ -430,6 +449,14 @@ def vmhost(ansible_adhoc, request, tbinfo):
 def eos():
     """ read and yield eos configuration """
     with open('eos/eos.yml') as stream:
+        eos = yaml.safe_load(stream)
+        return eos
+
+
+@pytest.fixture(scope='session')
+def sonic():
+    """ read and yield sonic configuration """
+    with open('sonic/sonic.yml') as stream:
         eos = yaml.safe_load(stream)
         return eos
 
@@ -524,7 +551,7 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
         tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
         for m in tar.getmembers():
@@ -680,6 +707,28 @@ def enable_container_autorestart():
 
     return enable_container_autorestart
 
+@pytest.fixture(scope='module')
+def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+    """
+        Swap syncd on DUT host
+
+        Args:
+            request (Fixture): pytest request object
+            duthost (AnsibleHost): Device Under Test (DUT)
+
+        Returns:
+            None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    swapSyncd = request.config.getoption("--qos_swap_syncd")
+    try:
+        if swapSyncd:
+            docker.swap_syncd(duthost, creds)
+
+        yield
+    finally:
+        if swapSyncd:
+            docker.restore_default_syncd(duthost, creds)
 
 def get_host_data(request, dut):
     '''
@@ -768,6 +817,8 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            elif param_type == ASIC_PARAM_TYPE_BACKEND and ASIC_PARAM_TYPE_BACKEND in inv_data:
+                dut_asic_params = inv_data[ASIC_PARAM_TYPE_BACKEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
         if random_asic:
             asic_index_params.append(random.sample(dut_asic_params, 1))
@@ -927,22 +978,21 @@ def pytest_generate_tests(metafunc):
 
     asics_selected = None
     asic_fixture_name = None
+
+    if duts_selected is None:
+        tbname, tbinfo = get_tbinfo(metafunc)
+        duts_selected = [tbinfo["duts"][0]]
+
     if "enum_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
     elif "enum_frontend_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_frontend_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected,ASIC_PARAM_TYPE_FRONTEND)
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND)
+    elif "enum_backend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_backend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_BACKEND)
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
-        if duts_selected is None:
-            tbname, tbinfo = get_tbinfo(metafunc)
-            duts_selected = [tbinfo["duts"][0]]
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
 
@@ -1017,3 +1067,45 @@ def cleanup_cache_for_session(request):
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
+
+
+@pytest.fixture(scope='session')
+def duts_running_config_facts(duthosts):
+    """Return running config facts for all multi-ASIC DUT hosts
+
+    Args:
+        duthosts (DutHosts): Instance of DutHosts for interacting with DUT hosts.
+
+    Returns:
+        dict: {
+            <dut hostname>: [
+                {asic0_cfg_facts},
+                {asic1_cfg_facts}
+            ]
+        }
+    """
+    cfg_facts = {}
+    for duthost in duthosts:
+        cfg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
+            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+    return cfg_facts
+
+
+@pytest.fixture(scope='module')
+def duts_minigraph_facts(duthosts, tbinfo):
+    """Return minigraph facts for all DUT hosts
+
+    Args:
+        duthosts (DutHosts): Instance of DutHosts for interacting with DUT hosts.
+        tbinfo (object): Instance of TestbedInfo.
+
+    Returns:
+        dict: {
+            <dut hostname>: {dut_minigraph_facts}
+        }
+    """
+    return duthosts.get_extended_minigraph_facts(tbinfo)

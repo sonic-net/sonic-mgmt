@@ -428,6 +428,28 @@
                                         "destination-port": "179"
                                     }
                                 }
+                            },
+                            "29": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 29
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 1,
+                                        "source-ip-address": "20.0.0.10/32"
+                                    }
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "type": 3,
+                                        "code": 1
+                                    }
+                                }
                             }
                         }
                     }

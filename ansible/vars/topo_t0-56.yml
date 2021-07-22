@@ -159,16 +159,16 @@ configuration:
         - FC00::71
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.29/32
-        ipv6: 2064:100::1d/128
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.57/31
         ipv6: fc00::72/126
     bp_interface:
-      ipv4: 10.10.246.29/24
-      ipv6: fc0a::3a/64
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::1/64
 
   ARISTA02T1:
     properties:
@@ -181,16 +181,16 @@ configuration:
         - FC00::75
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.30/32
-        ipv6: 2064:100::1e/128
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.59/31
         ipv6: fc00::76/126
     bp_interface:
-      ipv4: 10.10.246.30/24
-      ipv6: fc0a::3d/64
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::2/64
 
   ARISTA03T1:
     properties:
@@ -203,16 +203,16 @@ configuration:
         - FC00::79
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.31/32
-        ipv6: 2064:100::1f/128
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.61/31
         ipv6: fc00::7a/126
     bp_interface:
-      ipv4: 10.10.246.31/24
-      ipv6: fc0a::3e/64
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::3/64
 
   ARISTA04T1:
     properties:
@@ -225,16 +225,16 @@ configuration:
         - FC00::7D
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.32/32
-        ipv6: 2064:100::20/128
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.63/31
         ipv6: fc00::7e/126
     bp_interface:
-      ipv4: 10.10.246.32/24
-      ipv6: fc0a::41/64
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::4/64
 
   ARISTA05T1:
     properties:
@@ -247,16 +247,16 @@ configuration:
         - FC00::81
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.33/32
-        ipv6: 2064:100::21/128
+        ipv4: 100.1.0.5/32
+        ipv6: 2064:100::5/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
     bp_interface:
-      ipv4: 10.10.246.33/24
-      ipv6: fc0a::3a/64
+      ipv4: 10.10.246.5/24
+      ipv6: fc0a::5/64
 
   ARISTA06T1:
     properties:
@@ -269,16 +269,16 @@ configuration:
         - FC00::85
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.34/32
-        ipv6: 2064:100::22/128
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126
     bp_interface:
-      ipv4: 10.10.246.34/24
-      ipv6: fc0a::3d/64
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::6/64
 
   ARISTA07T1:
     properties:
@@ -291,16 +291,16 @@ configuration:
         - FC00::89
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.35/32
-        ipv6: 2064:100::23/128
+        ipv4: 100.1.0.7/32
+        ipv6: 2064:100::7/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.69/31
         ipv6: fc00::8a/126
     bp_interface:
-      ipv4: 10.10.246.35/24
-      ipv6: fc0a::3e/64
+      ipv4: 10.10.246.7/24
+      ipv6: fc0a::7/64
 
   ARISTA08T1:
     properties:
@@ -313,13 +313,13 @@ configuration:
         - FC00::8D
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.36/32
-        ipv6: 2064:100::20/128
+        ipv4: 100.1.0.8/32
+        ipv6: 2064:100::8/128
       Ethernet1:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.71/31
         ipv6: fc00::8e/126
     bp_interface:
-      ipv4: 10.10.246.36/24
-      ipv6: fc0a::41/64
+      ipv4: 10.10.246.8/24
+      ipv6: fc0a::8/64

@@ -86,12 +86,16 @@ def ensure_no_l2_drops(duthost, asic_index, packets_count):
         pytest.fail("L2 'RX_DRP' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
 
-def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
+def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
     """ Verify drop counter incremented on specific interface """
-    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", ""))
-    check_drops_on_dut = lambda: packets_count == get_drops()
+    def get_drops_across_all_duthosts():
+        drop_list = [] 
+        for duthost in duthosts:
+            drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", "")))
+        return drop_list
+    check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()
     if not wait_until(5, 1, check_drops_on_dut):
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-            column_key, dut_iface, column_key, get_drops(), packets_count
+            column_key, dut_iface, column_key, get_drops_across_all_duthosts(), packets_count
         )
         pytest.fail(fail_msg)
