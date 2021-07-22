@@ -325,7 +325,7 @@ def pfc_class_enable_vector(prio_list):
     for p in prio_list:
         vector += (2**p)
 
-    return vector
+    return "{:x}".format(vector)
 
 
 def get_wred_profiles(host_ans):
