@@ -218,4 +218,3 @@ def get_snappi_port_location(intf):
     pytest_assert(keys.issubset(set(intf.keys())), "intf does not have all the keys")
 
     return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
-
