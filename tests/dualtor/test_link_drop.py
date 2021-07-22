@@ -16,6 +16,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -93,7 +94,7 @@ def test_active_link_drop_upstream(
     send_server_to_t1_with_action(
         upper_tor_host,
         verify=True,
-        delay=1,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
@@ -118,7 +119,7 @@ def test_active_link_drop_downstream_active(
     send_t1_to_server_with_action(
         upper_tor_host,
         verify=True,
-        delay=1,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
@@ -143,7 +144,7 @@ def test_active_link_drop_downstream_standby(
     send_t1_to_server_with_action(
         lower_tor_host,
         verify=True,
-        delay=1,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
