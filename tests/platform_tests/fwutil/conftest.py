@@ -56,7 +56,7 @@ def host_firmware(localhost, duthost):
     logger.info("Starting local python server to test URL firmware update....")
     comm = "python3 -m http.server --directory {}".format(os.path.join(DEVICES_PATH, 
         duthost.facts['platform']))
-    task, res = duthost.command(comm, module_ignore_errors=True, module_async=True)
+    duthost.command(comm, module_ignore_errors=True, module_async=True)
     yield "http://localhost:8000/"
     logger.info("Stopping local python server.")
     duthost.command('pkill -f "{}"'.format(comm), module_ignore_errors=True)
