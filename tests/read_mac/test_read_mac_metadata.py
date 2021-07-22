@@ -3,6 +3,7 @@ import logging
 
 from tests.common.utilities import wait
 from tests.common.utilities import wait_until
+from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from datetime import datetime
@@ -120,19 +121,11 @@ class ReadMACMetadata():
             pytest.fail("MAC entry does not exist")
 
         logger.info("Verify interfaces are UP and MTU == 9100")
-        check_interfaces = self.request.getfixturevalue("check_interfaces")
-        results = check_interfaces()
-        failed = [result for result in results if "failed" in result and result["failed"]]
-        if failed:
-            pytest.fail("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
+        checks.check_interfaces(duthost)
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         non_default_ports = [k for k,v in cfg_facts["PORT"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
-
-        # Not all topology has portchannel in config, therefore, only verify the status if portchannel exists.
-        non_default_portchannel = []
-        if "PORTCHANNEL" in cfg_facts:
-            non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+        non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
 
         if len(non_default_ports) != 0 or len(non_default_portchannel) != 0:
             pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}".format(non_default_ports,non_default_portchannel))
