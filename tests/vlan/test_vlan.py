@@ -116,6 +116,29 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
         # otherwise PortChannel RIFs are still referenced and won't be removed
         time.sleep(90)
 
+        logger.info("Create VLAN intf")
+        create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost)
+
+        logger.info("Copy arp_responder to ptfhost")
+
+        setUpArpResponder(vlan_ports_list, ptfhost)
+
+        extra_vars = {
+                'arp_responder_args': ''
+        }
+
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
+        ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
+
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
+
+        logger.info("Start arp_responder")
+        ptfhost.command('supervisorctl start arp_responder')
+
+        time.sleep(10)
+
         logger.info("Add vlans, assign IPs")
         for vlan in vlan_intfs_list:
             duthost.command('config vlan add {}'.format(vlan['vlan_id']))
@@ -153,9 +176,6 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
         # Make sure config applied
         time.sleep(30)
 
-        logger.info("Create VLAN intf")
-        create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost)
-
         logger.info("Configure route for remote IP")
         for item in vlan_ports_list:
             for i in vlan_ports_list[0]['permit_vlanid']:
@@ -163,26 +183,6 @@ def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_
                     item['permit_vlanid'][i]['remote_ip'],
                     item['permit_vlanid'][i]['peer_ip']
                     ))
-
-        logger.info("Copy arp_responder to ptfhost")
-
-        setUpArpResponder(vlan_ports_list, ptfhost)
-
-        extra_vars = {
-                'arp_responder_args': ''
-        }
-
-        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
-        ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
-
-        ptfhost.command('supervisorctl reread')
-        ptfhost.command('supervisorctl update')
-
-        logger.info("Start arp_responder")
-        ptfhost.command('supervisorctl start arp_responder')
-
-        time.sleep(10)
 
     # --------------------- Testing -----------------------
         yield
@@ -519,3 +519,4 @@ def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, d
 
     testutils.verify_packet(ptfadapter, transmit_qinq_pkt, dst_port)
     logger.info ("QinQ packet switching worked successfully...")
+
