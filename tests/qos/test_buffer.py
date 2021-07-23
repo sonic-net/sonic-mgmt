@@ -1562,6 +1562,9 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         new_profile_id, pool_id = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None)
 
+        # As comments at the beginning of the method, we don't check buffer pool size in this test case.
+        # The same for all the following steps.
+
         # Enable port auto negotiation first and then configure the advertised speed list
         logging.info('Enable port auto negotiation')
         duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
@@ -1569,9 +1572,6 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
-
-        # As comments at the beginning of the method, we don't check buffer pool size in this test case.
-        # The same for all the following steps.
 
         # Configure advertised speeds
         logging.info('Update advertised speeds to {}'.format(advertised_speeds_to_test))
