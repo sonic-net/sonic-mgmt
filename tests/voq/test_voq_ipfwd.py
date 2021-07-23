@@ -1050,13 +1050,11 @@ class TestFPLinkFlap(LinkFlap):
             # these don't decrement ttl
             check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld=my_src_fld, dst_ip_fld='my_ip', size=size,
                          ttl=ttl, ttl_change=0)
-            check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld=my_src_fld, dst_ip_fld='nbr_ip', size=size,
-                         ttl=ttl, ttl_change=0)
-            check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld=my_src_fld, dst_ip_fld='nbr_lb', size=size,
+            check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld='my_lb_ip', dst_ip_fld='nbr_ip', size=size,
                          ttl=ttl, ttl_change=0)
 
             vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
-            check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld=my_src_fld, src_ip_fld='nbr_lb',
+            check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
                          dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
             # end to end
