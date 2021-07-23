@@ -35,6 +35,11 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "memory_checker/test_memory_checker.py vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+    displayName: "Skip test scripts"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
