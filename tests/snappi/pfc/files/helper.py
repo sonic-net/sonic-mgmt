@@ -91,14 +91,7 @@ def run_pfc_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map)
 
-    """ Tgen config = testbed config + flow config """
     flows = testbed_config.flows
-
-    """
-    import json
-    config_json = json.dumps(config, indent=2, default=lambda x: x.__dict__)
-    print(config_json)
-    """
 
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]

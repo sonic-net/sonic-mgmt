@@ -1,6 +1,6 @@
 import pytest
 import random
-from tests.common.ixia.common_helpers import enable_packet_aging, start_pfcwd
+from tests.common.snappi.common_helpers import enable_packet_aging, start_pfcwd
 from tests.conftest import generate_priority_lists
 
 
