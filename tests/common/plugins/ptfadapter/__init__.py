@@ -5,6 +5,8 @@ import pytest
 from ptfadapter import PtfTestAdapter
 import ptf.testutils
 
+from tests.common import constants
+
 
 DEFAULT_PTF_NN_PORT = 10900
 DEFAULT_DEVICE_NUM = 0
@@ -72,6 +74,30 @@ def get_ifaces(netdev_output):
     return ifaces
 
 
+def get_ifaces_map(ifaces, ptf_port_mapping_mode):
+    """Get interface map."""
+    sub_ifaces = []
+    iface_map = {}
+    for iface in ifaces:
+        iface_suffix = iface.lstrip(ETH_PFX)
+        if "." in iface_suffix:
+            iface_index = int(iface_suffix.split(".")[0])
+            sub_ifaces.append((iface_index, iface))
+        else:
+            iface_index = int(iface_suffix)
+            iface_map[iface_index] = iface
+
+    if ptf_port_mapping_mode == "use_sub_interface":
+        # override those interfaces that has sub interface
+        for i, si in sub_ifaces:
+            iface_map[i] = si
+        return iface_map
+    elif ptf_port_mapping_mode == "use_orig_interface":
+        return iface_map
+    else:
+        raise ValueError("Unsupported ptf port mapping mode: %s" % ptf_port_mapping_mode)
+
+
 @pytest.fixture(scope='module')
 def ptfadapter(ptfhost, tbinfo, request):
     """return ptf test adapter object.
@@ -81,11 +107,16 @@ def ptfadapter(ptfhost, tbinfo, request):
     however if something goes really wrong in one test module it is safer
     to restart PTF before proceeding running other test modules
     """
+    # get ptf port mapping mode
+    if 'backend' in tbinfo['topo']['name']:
+        ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
+    else:
+        ptf_port_mapping_mode = 'use_orig_interface'
 
     # get the eth interfaces from PTF and initialize ifaces_map
     res = ptfhost.command('cat /proc/net/dev')
     ifaces = get_ifaces(res['stdout'])
-    ifaces_map = {int(ifname.replace(ETH_PFX, '')): ifname for ifname in ifaces}
+    ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
 
     # generate supervisor configuration for ptf_nn_agent
     ptfhost.host.options['variable_manager'].extra_vars.update({

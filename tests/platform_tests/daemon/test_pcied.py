@@ -16,12 +16,14 @@ from datetime import datetime
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -42,9 +44,9 @@ expected_pcied_devices_status = "PASSED"
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status is None:
-        pytest.fail("{} is not enabled in {}".format(daemon_name, duthost.facts('platform'), duthost.os_version))
+    daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
+    if daemon_en_status is False:
+        pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -118,7 +120,7 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
 
 
 
-def test_pmon_daemon_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
     @summary: This test case is to check the pcied stopped and restarted status 
     """
@@ -147,7 +149,7 @@ def test_pmon_daemon_stop_and_start_status(check_daemon_status, duthosts, rand_o
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_daemon_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
     @summary: This test case is to check the pcied terminated and restarted status
     """
@@ -176,7 +178,7 @@ def test_pmon_daemon_term_and_start_status(check_daemon_status, duthosts, rand_o
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_daemon_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
     @summary: This test case is to check the pcied killed unexpectedly (automatically restarted) status
     """

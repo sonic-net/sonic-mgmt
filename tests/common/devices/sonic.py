@@ -72,6 +72,8 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
+    def __repr__(self):
+        return '<SonicHost> {}'.format(self.hostname)
 
     @property
     def facts(self):
@@ -616,7 +618,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup', 'chassis_db_init']
 
         daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
@@ -1197,7 +1199,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         '''
         Get any interfaces belonging to a VLAN
         '''
-        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_members_facts = self.get_running_config_facts().get('VLAN_MEMBER', {})
         vlan_intfs = []
 
         for vlan in vlan_members_facts:
