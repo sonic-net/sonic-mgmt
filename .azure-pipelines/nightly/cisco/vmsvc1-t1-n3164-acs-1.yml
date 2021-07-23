@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "00 23 * * THU"
+  - cron: "00 23 * * FRI"
     displayName: Nightly Scheduler
     branches:
       include:
