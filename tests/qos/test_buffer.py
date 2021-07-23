@@ -1521,6 +1521,13 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
            - The maximum advertised speed should be taken in this case
         6. Configure advertised speed as all
            - The maximum supported speed should be taken into account for buffer calculation
+
+    Note:
+        The buffer pool size is not verified in this test because:
+        - Only the logic to generate effective speed is updated in port auto-negotiation,
+          which will affect only the buffer priority-groups and profiles on the port, which is verified in the test.
+        - The buffer pool size depends on the buffer priority-groups and profiles but not directly on the effective speed.
+          As buffer pool size has been verified in other test cases and checking it will consume more time, we don't repeat it here.
     """
     def _get_max_speed_from_list(speed_list_str):
         speed_list = natsorted(speed_list_str.split(','))
@@ -1562,6 +1569,9 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id)
+
+        # As comments at the beginning of the method, we don't check buffer pool size in this test case.
+        # The same for all the following steps.
 
         # Configure advertised speeds
         logging.info('Update advertised speeds to {}'.format(advertised_speeds_to_test))
