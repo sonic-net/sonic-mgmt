@@ -91,7 +91,7 @@ stages:
               scriptSource: 'inline'
               script: |
                 from __future__ import print_function
-                import os, imp
+                import os, imp, sys
 
                 testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
                 testbed_name = os.environ.get('TESTBED_NAME')
