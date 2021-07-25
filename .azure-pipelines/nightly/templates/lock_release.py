@@ -29,9 +29,12 @@ def lock_release(testbed, action, token, proxies):
         headers = {
             'Authorization': 'Bearer ' + token
         }
+        build_name = os.environ.get('BUILD_DEFINITIONNAME')
+        build_id = os.environ.get('BUILD_BUILDID')
+        user = '{}_{}'.format(build_name, build_id)
         params = {
             'name': testbed,
-            'user': 'Azure Pipeline',
+            'user': user,
             'force': 'yes'
         }
         if action == 'lock':
