@@ -164,10 +164,21 @@ class TestSfpApi(PlatformApiTestBase):
 
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
-        spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
-        compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
-        if compliance_code == "40GBASE-CR4":
-            return False
+        #For QSFP-DD specification compliance will return type as passive or active
+        if "QSFP-DD" in xcvr_info_dict["type"]:
+            spec_compliance = xcvr_info_dict["specification_compliance"]
+            if spec_compliance == "passive_copper_media_interface":
+              return False
+        else:
+            spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
+            if xcvr_info_dict["type_abbrv_name"] =="SFP":
+                compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
+                if compliance_code == "Passive Cable":
+                   return False
+            else:
+                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
+                if compliance_code == "40GBASE-CR4":
+                   return False
         return True
 
     def is_xcvr_resettable(self, xcvr_info_dict):
@@ -335,6 +346,11 @@ class TestSfpApi(PlatformApiTestBase):
     def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on the data we retrieve
         for i in self.candidate_sfp:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            # Determine whether the transceiver type supports TX Bias
+            if not self.is_xcvr_optical(info_dict):
+                logger.warning("test_get_tx_bias: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
             tx_bias = sfp.get_tx_bias(platform_api_conn, i)
             if self.expect(tx_bias is not None, "Unable to retrieve transceiver {} TX bias data".format(i)):
                 self.expect(isinstance(tx_bias, list) and (all(isinstance(item, float) for item in tx_bias)),
