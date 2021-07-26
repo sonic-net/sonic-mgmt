@@ -1,8 +1,11 @@
-import pytest
-import logging
 import json
-import time
+import logging
 import os
+import pytest
+import random
+import time
+
+from collections import defaultdict
 
 from jinja2 import Template
 from common.helpers.assertions import pytest_require
@@ -56,7 +59,28 @@ def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_cont
 def collect_dut_info(dut):
     status = dut.show_interface(command='status')['ansible_facts']['int_status']
     features, _ = dut.get_feature_status()
-    return { 'intf_status' : status, 'features' : features }
+
+    if dut.sonichost.is_multi_asic:
+        front_end_asics = dut.get_frontend_asic_ids()
+        back_end_asic = dut.get_backend_asic_ids()
+
+    asic_services = defaultdict(list)
+    for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
+        # for multi ASIC randomly select one frontend ASIC
+        # and one backend ASIC
+        if dut.sonichost.is_multi_asic:
+            fe = random.choice(front_end_asics)
+            be = random.choice(back_end_asic)
+            asic_services[service] = [
+                dut.get_docker_name(service, asic_index=fe),
+                dut.get_docker_name(service, asic_index=be)
+            ]
+
+    return {
+        "intf_status": status,
+        "features": features,
+        "asic_services": asic_services,
+    }
 
 
 def test_update_testbed_metadata(duthosts, tbinfo):
@@ -88,15 +112,10 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
-    cmd_disable_rate_limit = r"docker exec -i {} sed -i 's/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' /etc/rsyslog.conf"
-    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
             continue
-        cmds = []
-        cmds.append(cmd_disable_rate_limit.format(feature_name))
-        cmds.append(cmd_reload.format(feature_name))
-        duthost.shell_cmds(cmds=cmds)
+        duthost.disable_syslog_rate_limit(feature_name)
 
 def collect_dut_lossless_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']

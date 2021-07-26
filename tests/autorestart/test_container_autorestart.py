@@ -2,6 +2,7 @@
 Test the auto-restart feature of containers
 """
 import logging
+import re
 from collections import defaultdict
 
 import pytest
@@ -22,6 +23,7 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_NAME_REGEX = (r"([a-zA-Z_]+)(\d*)$")
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
@@ -29,7 +31,7 @@ def config_reload_after_tests(duthost):
     config_reload(duthost)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature):
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature_container):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -61,19 +63,19 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature
 
     """
     swss_syncd_teamd_regex = [
-            ".*ERR swss#orchagent.*removeLag.*",
-            ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
-            ".*ERR syncd#syncd.*brcm_sai*",
-            ".*ERR syncd#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
-            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
-            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
-            ".*ERR syncd#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
-            ".*ERR syncd#syncd.*processQuadEvent.*",
-            ".*WARNING syncd#syncd.*skipping since it causes crash.*",
-            ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-            ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-            ".*ERR swss#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
-            ".*ERR swss#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#orchagent.*removeLag.*",
+            ".*ERR syncd[0-9]*#syncd.*driverEgressMemoryUpdate.*",
+            ".*ERR syncd[0-9]*#syncd.*brcm_sai*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
+            ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
+            ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
+            ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
+            ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
@@ -93,7 +95,8 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature
         'teamd' : swss_syncd_teamd_regex,
     }
 
-    _, feature = decode_dut_port_name(enum_dut_feature)
+    _, container_name = decode_dut_port_name(enum_dut_feature_container)
+    feature = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
 
     if loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
@@ -307,9 +310,12 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
+    # bgp0 -> bgp, bgp -> bgp
+    feature_name = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
+
     # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
-    pytest_require(container_name not in skip_condition,
-                   "Skipping test for container {}".format(container_name))
+    pytest_require(feature_name not in skip_condition,
+                   "Skipping test for container {}".format(feature_name))
 
     is_running = is_container_running(duthost, container_name)
     pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
@@ -320,9 +326,9 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     logger.info("Start testing the container '{}'...".format(container_name))
 
     restore_disabled_state = False
-    if container_autorestart_states[container_name] == "disabled":
+    if container_autorestart_states[feature_name] == "disabled":
         logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
+        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
         restore_disabled_state = True
 
     # Currently we select 'rsyslogd' as non-critical processes for testing based on
@@ -338,7 +344,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     for critical_process in critical_process_list:
         # Skip 'dsserve' process since it was not managed by supervisord
         # TODO: Should remove the following two lines once the issue was solved in the image.
-        if container_name == "syncd" and critical_process == "dsserve":
+        if feature_name == "syncd" and critical_process == "dsserve":
             continue
 
         program_status, program_pid = get_program_info(duthost, container_name, critical_process)
@@ -364,7 +370,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
 
     if restore_disabled_state:
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
     if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
         config_reload(duthost)
@@ -373,17 +379,21 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
-def test_containers_autorestart(duthosts, enum_dut_feature, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def test_containers_autorestart(
+    duthosts, enum_dut_feature_container,
+    enum_rand_one_per_hwsku_frontend_hostname, tbinfo
+):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    dut_name, feature = decode_dut_port_name(enum_dut_feature)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature != "unknown",
-                   "Skip test on dut host {} (chosen {}) feature {}"
-                   .format(dut_name, enum_rand_one_per_hwsku_frontend_hostname, feature))
+    dut_name, feature = decode_dut_port_name(enum_dut_feature_container)
+    pytest_require(
+        dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature != "unknown",
+        "Skip test on dut host {} (chosen {}) feature {}"
+        .format(dut_name, enum_rand_one_per_hwsku_frontend_hostname, feature)
+    )
 
     duthost = duthosts[dut_name]
     run_test_on_single_container(duthost, feature, tbinfo)
-
