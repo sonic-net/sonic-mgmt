@@ -80,9 +80,7 @@ def test_in_skip_list(item, test_prefix):
     :param test_prefix: test prefix from  ignore yaml file
     :return: True/False
     """
-    if str(item.nodeid).startswith(test_prefix):
-        return True
-    return False
+    return str(item.nodeid).startswith(test_prefix)
 
 
 def make_skip_decision(skip_list_of_dicts, item):
@@ -93,39 +91,22 @@ def make_skip_decision(skip_list_of_dicts, item):
     :return: None or pytest.skip in case when we need to skip test
     """
     skip_result_list = []
+    skip_reason_str = ''
 
-    skip_dict_data, skip_list_data = prepare_skip_dict_and_list(skip_list_of_dicts)
-
-    # Do skip check for all OR conditions
-    skip_reason_str = update_skip_results(skip_dict_data, item, 'or', skip_result_list, skip_reason_str='')
-
-    # Do skip check for all AND conditions
-    for skip_dict in skip_list_data:
-        skip_reason_str = update_skip_results(skip_dict, item, 'and', skip_result_list, skip_reason_str)
+    for skip_dict_entry in skip_list_of_dicts:
+        if is_nested_dict(skip_dict_entry):
+            skip_reason_str = update_skip_results(skip_dict_entry, item, 'and', skip_result_list, skip_reason_str)
+        else:
+            skip_reason_str = update_skip_results(skip_dict_entry, item, 'or', skip_result_list, skip_reason_str)
 
     # Make final decision
     if any(skip_result_list):
         pytest.skip(skip_reason_str)
 
 
-def prepare_skip_dict_and_list(skip_list_of_dicts):
-    """
-    Prepare skip dictionary and skip list
-    :param skip_list_of_dicts: list with data which we read from ignore yaml file
-    :return: dict and list with data
-    Example: list = [{'Redmine': [2597848], 'Platform': ['msn3']}]
-    dict = {'Redmine': [2597848], 'Platform': ['msn3']}
-    """
-    skip_dict = {}
-    skip_list = []
-    for skip_by in skip_list_of_dicts:
-        if len(skip_by) > 1:
-            # Skip items with AND condition between them
-            skip_list.append(skip_by)
-        else:
-            # Skip items with OR condition between them
-            skip_dict.update(skip_by)
-    return skip_dict, skip_list
+def is_nested_dict(dict_obj):
+    nested_dict_min_len = 2
+    return len(dict_obj) >= nested_dict_min_len
 
 
 def update_skip_results(skip_dict, item, operand, skip_result_list, skip_reason_str):
