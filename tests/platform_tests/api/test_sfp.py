@@ -165,10 +165,9 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
-        if "QSFP-DD" in xcvr_info_dict["type"]:
-            spec_compliance = xcvr_info_dict["specification_compliance"]
-            if spec_compliance == "passive_copper_media_interface":
-              return False
+        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD":
+            if xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+               return False
         else:
             spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
             if xcvr_info_dict["type_abbrv_name"] =="SFP":
