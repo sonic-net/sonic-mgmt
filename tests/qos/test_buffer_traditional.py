@@ -12,10 +12,13 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 def load_lossless_info_from_pg_profile_lookup(duthost):
-    """Load test parameters from the json file. Called only once when the module is initialized
+    """Load pg_profile_lookup.ini to a dictionary. Called only once when the module is initialized
 
     Args:
         duthost: the DUT host object
+
+    Return:
+        The dictionary containing the information in pg_profile_lookup.ini
     """
     # Check the threshold mode
     threshold_mode = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" mode')['stdout']
@@ -99,16 +102,18 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         """
         profile_in_pg = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port))['stdout']
         buffer_profile_oid = None
+        default_lossless_pgs = ['3', '4']
 
         if expected_profile:
             if not _check_condition(profile_in_pg == expected_profile, "Buffer profile of lossless PG of port {} isn't the expected ({})".format(port, expected_profile), use_assert):
                 return None, False
 
             if pg_name_map:
-                for pg in ['3', '4']:
+                for pg in default_lossless_pgs:
                     buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
                     buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
                     buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
+                    logging.info("Checking admin-up port {} lossless PG {} in ASIC_DB ({})".format(port, pg, buffer_profile_oid_in_pg))
                     if buffer_profile_oid:
                         if not _check_condition(buffer_profile_oid == buffer_profile_oid_in_pg,
                                                 "Different OIDs in PG 3 ({}) and 4 ({}) in port {}".format(buffer_profile_oid, buffer_profile_oid_in_pg, port),
@@ -120,10 +125,11 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
             if not _check_condition(not profile_in_pg, "Buffer PG configured on admin down port {}".format(port), use_assert):
                 return None, False
             if pg_name_map:
-                for pg in ['3', '4']:
+                for pg in default_lossless_pgs:
                     buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
                     buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
                     buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
+                    logging.info("Checking admin-down port {} lossless PG {}".format(port, pg))
                     if not _check_condition(not buffer_profile_oid_in_pg or buffer_profile_oid_in_pg == 'oid:0x0',
                                             "Buffer PG configured on admin down port in ASIC_DB {}".format(port),
                                             use_assert):
@@ -160,7 +166,6 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
     lossless_pool_oid = None
     admin_up_ports = set()
     for port in configdb_ports:
-        logging.info("Checking port buffer information: {}".format(port))
         port_config = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port))['stdout'].split())
 
         if port_config.get('admin_status') == 'up':
@@ -169,12 +174,15 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
             speed = port_config['speed']
             expected_profile = '[BUFFER_PROFILE|pg_lossless_{}_{}_profile]'.format(speed, cable_length)
 
+            logging.info("Checking admin-up port {} buffer information: profile {}".format(port, expected_profile))
+
             buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, expected_profile)
 
             if expected_profile not in profiles_checked:
                 profile_info = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "{}"'.format(expected_profile[1:-1]))['stdout'].split())
                 pytest_assert(profile_info == default_lossless_profiles[(speed, cable_length)], "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, default_lossless_profiles[(speed, cable_length)]))
 
+                logging.info("Checking buffer profile {}: OID: {}".format(expected_profile, buffer_profile_oid))
                 if buffer_profile_oid:
                     # Further check the buffer profile in ASIC_DB
                     buffer_profile_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_profile_oid))['stdout']
@@ -198,7 +206,8 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
                               "PG {}|3-4 has different OID of profile from other PGs sharing the same profile {}".format(port, expected_profile))
         else:
-            # Port down. Make sure no lossless PG configured.
+            # Port admin down. Make sure no lossless PG configured.
+            logging.info("Checking admin-down port buffer information: {}".format(port))
             _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, None)
 
     port_to_shutdown = admin_up_ports.pop()
