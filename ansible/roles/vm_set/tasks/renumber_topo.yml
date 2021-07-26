@@ -21,6 +21,14 @@
       state: absent
     become: yes
 
+  - name: Try to login into docker registry
+    docker_login:
+      registry_url: "{{ docker_registry_host }}"
+      username: "{{ docker_registry_username }}"
+      password: "{{ docker_registry_password }}"
+    become: yes
+    when: docker_registry_username is defined and docker_registry_password is defined
+
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
