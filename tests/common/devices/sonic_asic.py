@@ -15,7 +15,6 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
@@ -48,12 +47,12 @@ class SonicAsic(object):
            for the namespace(asic)
 
            If the dut is multi asic, then the asic_id is appended t0 the
-            _DEFAULT_ASIC_SERVICES list
+            self.sonichost.DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
         """
         a_service = []
-        for service in self._DEFAULT_ASIC_SERVICES:
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
            a_service.append("{}{}".format(
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
@@ -174,7 +173,7 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self._DEFAULT_ASIC_SERVICES
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
         ):
             return service
 
@@ -182,7 +181,7 @@ class SonicAsic(object):
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self._DEFAULT_ASIC_SERVICES
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
         ):
             return service
 
