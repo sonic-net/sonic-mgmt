@@ -27,20 +27,22 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+@pytest.fixture(params=["pipe", "uniform"], scope='module')
+def ttl_dscp_mode(request, duthost):
+    mode = request.param
+    if mode == "uniform" and ("201811" in duthost.os_version or "201911" in duthost.os_version):
+        pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
+    
+    return mode
 
 @pytest.fixture(scope="module")
-def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts):
+def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts, ttl_dscp_mode):
 
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
-    # Initialize parameters
-    if "201811" in duthosts[0].os_version or "201911" in duthosts[0].os_version:
-        dscp_mode = "pipe"
-    else:
-        dscp_mode = "uniform"
-
     ecn_mode = "copy_from_outer"
-    ttl_mode = "pipe"
+    dscp_mode = ttl_dscp_mode
+    ttl_mode = ttl_dscp_mode
 
     # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthosts[0].host.options["variable_manager"]._hostvars[duthosts[0].hostname]
