@@ -14,7 +14,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_result = duthost.shell('show ip route 0.0.0.0/0 | grep "\*"')
 
     dut_result_nexthops = []

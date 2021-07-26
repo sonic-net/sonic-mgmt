@@ -203,7 +203,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
