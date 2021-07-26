@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: svcstr-n3164-acs-1
+    default: vmsvc1-t1-n3164-acs-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
