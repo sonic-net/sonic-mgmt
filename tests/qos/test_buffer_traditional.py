@@ -1,13 +1,7 @@
 import logging
-import os
-import sys
-import time
-import re
-import json
 
 import pytest
 
-from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -66,7 +60,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
        - If a lossless profile hasn't been checked, check whether lossless profile in CONFIG_DB aligns with
          - pg_profile_lookup.ini according to speed and cable length
          - information in ASIC_DB
-    2. Shutdown a port and check whether the lossless buffer PG has been remvoed
+    2. Shutdown a port and check whether the lossless buffer PG has been removed
     3. Startup the port and check whether the lossless PG has been readded.
     """
     def _check_condition(condition, message, use_assert):
@@ -213,7 +207,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
     port_to_shutdown = admin_up_ports.pop()
     expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port))['stdout']
     try:
-        # Shutdown the port and check whether the lossless PG has been remvoed
+        # Shutdown the port and check whether the lossless PG has been removed
         logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
         duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
         wait_until(60, 5, _check_port_buffer_info_and_return, duthost, port_to_shutdown, None)
