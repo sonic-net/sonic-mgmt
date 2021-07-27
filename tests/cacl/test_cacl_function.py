@@ -19,7 +19,7 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     dut_mgmt_ip = duthost.mgmt_ip
 
     # Ensure we can gather basic SNMP facts from the device
-    res = get_snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
+    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
 
     if 'ansible_facts' not in res:
         pytest.fail("Failed to retrieve SNMP facts from DuT!")
@@ -60,7 +60,7 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
         pytest.fail("SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
     # Ensure we CANNOT gather basic SNMP facts from the device
-    res = get_snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
                          module_ignore_errors=True)
 
     if 'ansible_facts' in res or "No SNMP response received before timeout" not in res.get('msg', ''):
