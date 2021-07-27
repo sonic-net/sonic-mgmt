@@ -282,7 +282,7 @@ def __run_traffic(api,
     Run traffic and capture packets
 
     Args:
-        api (obj): IXIA session
+        api (obj): SNAPPI session
         config (obj): experiment config
         all_flow_names (list): names of all the flows
         capture_port_name (str): name of the port to capture packets
