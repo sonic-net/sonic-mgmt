@@ -29,6 +29,7 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
+    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
 
     def __init__(self, ansible_adhoc, hostname,
@@ -71,6 +72,8 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
+    def __repr__(self):
+        return '<SonicHost> {}'.format(self.hostname)
 
     @property
     def facts(self):
@@ -615,7 +618,7 @@ class SonicHost(AnsibleHostBase):
         @return: dictionary of { service_name1 : state1, ... ... }
         """
         # some services are meant to have a short life span or not part of the daemons
-        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup']
+        exemptions = ['lm-sensors', 'start.sh', 'rsyslogd', 'start', 'dependent-startup', 'chassis_db_init']
 
         daemons = self.shell('docker exec pmon supervisorctl status', module_ignore_errors=True)['stdout_lines']
 
@@ -942,39 +945,6 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
 
         return nbinfo[str(neighbor_ip)]
 
-    def get_bgp_neighbors(self):
-        """
-        Get a diction of BGP neighbor states
-
-        Args: None
-
-        Returns: dictionary { (neighbor_ip : info_dict)* }
-
-        """
-        bgp_facts = self.bgp_facts()['ansible_facts']
-        return bgp_facts['bgp_neighbors']
-
-    def check_bgp_session_state(self, neigh_ips, state="established"):
-        """
-        @summary: check if current bgp session equals to the target state
-
-        @param neigh_ips: bgp neighbor IPs
-        @param state: target state
-        """
-        neigh_ips = [ip.lower() for ip in neigh_ips]
-        neigh_ok = []
-        bgp_facts = self.bgp_facts()['ansible_facts']
-        logging.info("bgp_facts: {}".format(bgp_facts))
-        for k, v in bgp_facts['bgp_neighbors'].items():
-            if v['state'] == state:
-                if k.lower() in neigh_ips:
-                    neigh_ok.append(k)
-        logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
-        if len(neigh_ips) == len(neigh_ok):
-            return True
-
-        return False
-
     def check_bgp_session_nsf(self, neighbor_ip):
         """
         @summary: check if bgp neighbor session enters NSF state or not
@@ -1229,7 +1199,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         '''
         Get any interfaces belonging to a VLAN
         '''
-        vlan_members_facts = self.get_running_config_facts()['VLAN_MEMBER']
+        vlan_members_facts = self.get_running_config_facts().get('VLAN_MEMBER', {})
         vlan_intfs = []
 
         for vlan in vlan_members_facts:

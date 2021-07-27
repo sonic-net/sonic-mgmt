@@ -8,6 +8,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                                                  # lgtm[py/unused-import]
 from tests.common.dualtor.tor_failure_utils import shutdown_tor_heartbeat                                                                       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
+from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -23,7 +24,7 @@ def test_active_tor_heartbeat_failure_upstream(
     Confirm switchover and disruption lasts < 1 second.
     """
     send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: shutdown_tor_heartbeat(upper_tor_host)
     )
     verify_tor_states(
@@ -41,7 +42,7 @@ def test_active_tor_heartbeat_failure_downstream_active(
     Confirm switchover and disruption lasts < 1 second.
     """
     send_t1_to_server_with_action(
-        upper_tor_host, verify=True, delay=1,
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: shutdown_tor_heartbeat(upper_tor_host)
     )
     verify_tor_states(
@@ -59,7 +60,7 @@ def test_active_tor_heartbeat_failure_downstream_standby(
     Confirm switchover and disruption lasts < 1 second.
     """
     send_t1_to_server_with_action(
-        lower_tor_host, verify=True, delay=1,
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: shutdown_tor_heartbeat(upper_tor_host)
     )
     verify_tor_states(
