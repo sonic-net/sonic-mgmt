@@ -192,7 +192,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname):
         ssh = start_SSH_connection(dut_mgmt_ip)
         ssh_connections.append(ssh)
         try:
-            stdin, stdout, stderr = ssh.exec_command("show mac", timeout=40)
+            stdin, stdout, stderr = ssh.exec_command("show mac", timeout=10)
             stdout.readlines()
         except socket.timeout:
             logging.debug("stdin: {}\n\nstdout: {}\n\nstderr:{}".format(stdin, stdout, stderr))
