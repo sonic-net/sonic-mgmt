@@ -45,6 +45,10 @@ ns3 = "http://www.w3.org/2001/XMLSchema-instance"
 ANSIBLE_USER_MINIGRAPH_PATH = os.path.expanduser('~/.ansible/minigraph')
 ANSIBLE_LOCAL_MINIGRAPH_PATH = '{}.xml'
 ANSIBLE_USER_MINIGRAPH_MAX_AGE = 86400  # 24-hours (in seconds)
+backend_device_types = ['BackEndToRRouter', 'BackEndLeafRouter']
+VLAN_SUB_INTERFACE_VLAN_ID = '10'
+VLAN_SUB_INTERFACE_SEPARATOR = '.'
+
 
 class minigraph_encoder(json.JSONEncoder):
     def default(self, obj):
@@ -52,6 +56,7 @@ class minigraph_encoder(json.JSONEncoder):
                       (ipaddress.IPv4Network, ipaddress.IPv6Network, ipaddress.IPv4Address, ipaddress.IPv6Address)):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
+
 
 def parse_asic_internal_link(link, asic_name, hostname):
     neighbors = {}
@@ -206,8 +211,6 @@ def parse_png(png, hname):
                 d_type = None
                 mgmt_addr = None
                 hwsku = None
-                if str(QName(ns3, "type")) in device.attrib:
-                    d_type = device.attrib[str(QName(ns3, "type"))]
 
                 for node in device:
                     if node.tag == str(QName(ns, "Address")):
@@ -218,9 +221,14 @@ def parse_png(png, hname):
                         name = node.text
                     elif node.tag == str(QName(ns, "HwSku")):
                         hwsku = node.text
+                    elif node.tag == str(QName(ns, "ElementType")):
+                        d_type = node.text
 
                 if name.lower() in namespace_list:
                     continue
+
+                if d_type is None and str(QName(ns3, "type")) in device.attrib:
+                    d_type = device.attrib[str(QName(ns3, "type"))]
 
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
@@ -276,6 +284,37 @@ def parse_host_loopback(dpg, hname):
 
 
 def parse_dpg(dpg, hname):
+
+    def _parse_intf(intfname, ipprefix):
+        ipn = ipaddress.IPNetwork(ipprefix)
+        ipaddr, prefix_len, addr_bits = ipn.ip, ipn.prefixlen, ipn.max_prefixlen
+        subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
+        ipmask = ipn.netmask
+
+        intf = {'addr': ipaddr, 'subnet': subnet, 'attachto': intfname, 'prefixlen': int(prefix_len)}
+        if isinstance(ipn, ipaddress.IPv4Network):
+            intf['mask'] = ipmask
+        else:
+            intf['mask'] = str(prefix_len)
+
+        # TODO: remove peer_addr after dependency removed
+        ipaddr_val = int(ipn.ip)
+        peer_addr_val = None
+        if int(prefix_len) == addr_bits - 2:
+            if ipaddr_val & 0x3 == 1:
+                peer_addr_val = ipaddr_val + 1
+            else:
+                peer_addr_val = ipaddr_val - 1
+        elif int(prefix_len) == addr_bits - 1:
+            if ipaddr_val & 0x1 == 0:
+                peer_addr_val = ipaddr_val + 1
+            else:
+                peer_addr_val = ipaddr_val - 1
+
+        if peer_addr_val is not None:
+            intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
+        return intf
+
     for child in dpg:
         hostname = child.find(str(QName(ns, "Hostname")))
         if hostname.text.lower() != hname.lower():
@@ -285,45 +324,22 @@ def parse_dpg(dpg, hname):
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
             intfalias = ipintf.find(str(QName(ns, "AttachTo"))).text
-            if port_alias_to_name_map.has_key(intfalias):
-                intfname = port_alias_to_name_map[intfalias]
-            else:
-                intfname = intfalias
+            intfname = port_alias_to_name_map.get(intfalias, intfalias)
             ipprefix = ipintf.find(str(QName(ns, "Prefix"))).text
-            ipn = ipaddress.IPNetwork(ipprefix)
-            ipaddr = ipn.ip
-            prefix_len = ipn.prefixlen
-            addr_bits = ipn.max_prefixlen
-            subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
-            ipmask = ipn.netmask
-
-            intf = {'addr': ipaddr, 'subnet': subnet}
-            if isinstance(ipn, ipaddress.IPv4Network):
-                intf['mask'] = ipmask
-            else:
-                intf['mask'] = str(prefix_len)
-            intf.update({'attachto': intfname, 'prefixlen': int(prefix_len)})
-
-            # TODO: remove peer_addr after dependency removed
-            ipaddr_val = int(ipn.ip)
-            peer_addr_val = None
-            if int(prefix_len) == addr_bits - 2:
-                if ipaddr_val & 0x3 == 1:
-                    peer_addr_val = ipaddr_val + 1
-                else:
-                    peer_addr_val = ipaddr_val - 1
-            elif int(prefix_len) == addr_bits - 1:
-                if ipaddr_val & 0x1 == 0:
-                    peer_addr_val = ipaddr_val + 1
-                else:
-                    peer_addr_val = ipaddr_val - 1
-
-            if peer_addr_val is not None:
-                intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
-            intfs.append(intf)
+            intfs.append(_parse_intf(intfname, ipprefix))
             ports[intfname] = {'name': intfname, 'alias': intfalias}
 
         lo_intfs = parse_loopback_intf(child)
+
+        subintfs = child.find(str(QName(ns, "SubInterfaces")))
+        if subintfs is not None:
+            for subintf in subintfs.findall(str(QName(ns, "SubInterface"))):
+                intfalias = subintf.find(str(QName(ns, "AttachTo"))).text
+                intfname = port_alias_to_name_map.get(intfalias, intfalias)
+                ipprefix = subintf.find(str(QName(ns, "Prefix"))).text
+                subintfvlan = subintf.find(str(QName(ns, "Vlan"))).text
+                subintfname = intfname + VLAN_SUB_INTERFACE_SEPARATOR + subintfvlan
+                intfs.append(_parse_intf(subintfname, ipprefix))
 
         mgmtintfs = child.find(str(QName(ns, "ManagementIPInterfaces")))
         mgmt_intf = None
@@ -368,6 +384,7 @@ def parse_dpg(dpg, hname):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
             vlanid = vintf.find(str(QName(ns, "VlanID"))).text
             vintfmbr = vintf.find(str(QName(ns, "AttachTo"))).text
+            vintftype = vintf.find(str(QName(ns, "Type")))
             vmbr_list = vintfmbr.split(';')
             vintf_node = vintf.find(str(QName(ns, "DhcpRelays")))
             if vintf_node is not None and vintf_node.text is not None:
@@ -382,6 +399,8 @@ def parse_dpg(dpg, hname):
                 vmbr_list[i] = port_alias_to_name_map[member]
                 ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
             vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
+            if vintftype is not None:
+                vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
             ports.pop(vintfname)
 
@@ -460,6 +479,7 @@ def parse_meta(meta, hname):
     ntp_servers = []
     mgmt_routes = []
     deployment_id = None
+    resource_type = None
     device_metas = meta.find(str(QName(ns, "Devices")))
     for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
         if device.find(str(QName(ns1, "Name"))).text == hname:
@@ -476,7 +496,9 @@ def parse_meta(meta, hname):
                     mgmt_routes = value_group
                 elif name == "DeploymentId":
                     deployment_id = value
-    return syslog_servers, ntp_servers, mgmt_routes, deployment_id
+                elif name == "ResourceType":
+                    resource_type = value
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type
 
 
 def get_console_info(devices, dev, port):
@@ -576,12 +598,14 @@ def parse_xml(filename, hostname, asic_name=None):
     neighbors = None
     devices = None
     hostname = None
+    resource_type = None
     syslog_servers = []
     dhcp_servers = []
     ntp_servers = []
     mgmt_routes = []
     bgp_peers_with_range = []
     deployment_id = None
+    is_storage_device = None
 
     if asic_name is not None:
         asic_id = asic_name[len('asic'):]
@@ -616,7 +640,7 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, asic_name)
@@ -625,6 +649,9 @@ def parse_xml(filename, hostname, asic_name=None):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
                 (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
+
+    current_device = [devices[key] for key in devices if key.lower() == hostname.lower()][0]
+    device_type = current_device['type']
 
     # Associate Port Channel to namespace
     try:
@@ -663,18 +690,30 @@ def parse_xml(filename, hostname, asic_name=None):
     phyport_intfs = []
     vlan_intfs = []
     pc_intfs = []
+    vlan_sub_intfs = []
     for intf in intfs:
         intfname = intf['attachto']
         if intfname[0:4] == 'Vlan':
             vlan_intfs.append(intf)
         elif intfname[0:11] == 'PortChannel':
             pc_intfs.append(intf)
+        elif VLAN_SUB_INTERFACE_SEPARATOR in intfname:
+            vlan_sub_intfs.append(intf)
         else:
             phyport_intfs.append(intf)
 
     if host_lo_intfs:
         lo_intfs += host_lo_intfs
 
+    results['minigraph_device_metadata'] = {
+        'bgp_asn': bgp_asn,
+        'deployment_id': deployment_id,
+        'hostname': hostname,
+        'hwsku': hwsku,
+        'device_type': device_type
+    }
+    if resource_type is not None:
+        results['minigraph_device_metadata']['resource_type'] = resource_type
     results['minigraph_interfaces'] = sorted(phyport_intfs, key=lambda x: x['attachto'])
     results['minigraph_vlan_interfaces'] = sorted(vlan_intfs, key=lambda x: x['attachto'])
     results['minigraph_portchannel_interfaces'] = sorted(pc_intfs, key=lambda x: x['attachto'])
@@ -695,7 +734,7 @@ def parse_xml(filename, hostname, asic_name=None):
     results['minigraph_hostname'] = hostname
     results['inventory_hostname'] = hostname
     if asic_name is None:
-        if devices != None:
+        if devices is not None:
             results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
             results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
     results['syslog_servers'] = syslog_servers
@@ -703,7 +742,35 @@ def parse_xml(filename, hostname, asic_name=None):
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id
+
+    if device_type in backend_device_types and vlan_sub_intfs:
+        results['minigraph_interfaces'] = []
+        results['minigraph_portchannel_interfaces'] = []
+        is_storage_device = True
+        results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
+    elif device_type in backend_device_types and (resource_type is None or 'Storage' in resource_type):
+        results['minigraph_interfaces'] = []
+        results['minigraph_portchannel_interfaces'] = []
+        is_storage_device = True
+
+        for intf in phyport_intfs:
+            intf['attachto'] = intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
+            intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
+            vlan_sub_intfs.append(intf)
+
+        for pc_intf in pc_intfs:
+            pc_intf['attachto'] = pc_intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
+            pc_intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
+            vlan_sub_intfs.append(pc_intf)
+        results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
+    elif resource_type is not None and 'Storage' in resource_type:
+        is_storage_device = True
+
+    if is_storage_device:
+        results['minigraph_device_metadata']['storage_device'] = "true"
+
     return results
+
 
 ports = {}
 port_alias_to_name_map = {}
