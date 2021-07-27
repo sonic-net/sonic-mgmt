@@ -457,8 +457,8 @@ class ReloadTest(BaseTest):
     def init_sad_oper(self):
         if self.sad_oper:
             self.log("Preboot/Inboot Operations:")
-            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.vlan_ports)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports), (log_info, fails) = self.sad_handle.setup()
+            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.vlan_ports, self.ports_per_vlan)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports, self.ports_per_vlan), (log_info, fails) = self.sad_handle.setup()
             self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
