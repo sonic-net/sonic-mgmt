@@ -182,6 +182,11 @@
       <AclInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
+          <InAcl>NTP_ACL</InAcl>
+          <AttachTo>NTP</AttachTo>
+          <Type>NTP</Type>
+        </AclInterface>
+        <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
           <Type>SNMP</Type>
