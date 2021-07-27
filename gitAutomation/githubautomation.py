@@ -16,14 +16,18 @@ for i in range(1,50):
         raise Exception(r.text)
     for bug in r.json():
         with open('bugslist.csv', 'a') as bugslist:
+            if bug['assignee'] is not None:
+                AssignedTo = bug['assignee']['login']
+            else:
+                AssignedTo = None
             try:
                 fieldnames = ['Title', 'Created', 'Closed', 'State', 'BugID', 'RaisedBy', 'AssignedTo', 'Labels']
                 writer = csv.DictWriter(bugslist, fieldnames=fieldnames)
                 writer.writerow({'Title': bug['title'], 'Created': bug['created_at'], 'Closed':bug['closed_at'],'State': bug['state'],
                                  'BugID': bug['number'], 'RaisedBy': bug['user']['login'],
-                                 'AssignedTo': bug['assignee']['login'], 'Labels':[str(ele['name']) for ele in bug['labels']] })
-            except:
-                pass
+                                 'AssignedTo': AssignedTo, 'Labels':[str(ele['name']) for ele in bug['labels']] })
+            except Exception as e:
+                print(e)
 
         # Creating JSON File
         try:
@@ -31,8 +35,8 @@ for i in range(1,50):
                                       'RaisedBy': bug['user']['login'],
                                      'AssignedTo': bug['assignee']['login'], 'Labels':[ele['name'] for ele in bug['labels']] }
             data.append(bugDict)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 with open('bugslist.json', 'w') as outfile:
     json.dump(data, outfile)
