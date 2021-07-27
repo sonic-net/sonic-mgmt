@@ -68,22 +68,6 @@ def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     # Confirm that the received file is identical to the original file
     pytest_assert(orig_checksum == new_checksum, "Original file differs from file sent to the DUT")
 
-    # Perform cleanup on DUT
-    duthost.command("sudo rm ./{}".format(test_file_name))
-
-    # Confirm cleanup occured succesfuly
-    file_stat = duthost.stat(path="./{}".format(test_file_name))
-
-    pytest_assert(not file_stat["stat"]["exists"], "DUT container could not be cleaned.")
-
-    # Delete file off ptf
-    ptfhost.command(("rm ./{}".format(test_file_name)))
-
-    # Ensure that file was removed correctly
-    file_stat = ptfhost.stat(path="./{}".format(test_file_name))
-
-    pytest_assert(not file_stat["stat"]["exists"], "PTF container could not be cleaned.")
-
     # Stops http server
     ptfhost.command("python /tmp/stop_http_server.py")
 
@@ -97,3 +81,19 @@ def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
         time.sleep(1)
 
     pytest_assert(not started, "HTTP Server could not be stopped.")
+
+    # Perform cleanup on DUT
+    duthost.file(path="./{}".format(test_file_name), state="absent")
+
+    # Confirm cleanup occured succesfuly
+    file_stat = duthost.stat(path="./{}".format(test_file_name))
+
+    pytest_assert(not file_stat["stat"]["exists"], "DUT container could not be cleaned.")
+
+    # Delete files off ptf and Ensure that files were removed
+    files_to_remove = ["./{}".format(test_file_name), "/tmp/start_http_server.py", "/tmp/stop_http_server.py"]
+
+    for file in files_to_remove:
+        ptfhost.file(path=file, state="absent")
+        file_stat = ptfhost.stat(path=file)
+        pytest_assert(not file_stat["stat"]["exists"], "PTF container could not be cleaned of {}.".format(files_to_remove))
