@@ -4,10 +4,31 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
+import re
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
 MAX_FAN_SPEED_THRESHOLD = 0.15
+
+def skip_ignored_broken_symbolinks(broken_symbolinks):
+    """
+    @summary: Check all the broken symbol links, skip the expected ones
+    """
+    # Currently some led bilinking related sysfs are expected to be broken after system boot up,
+    # so skip these expected sysfs and remove them from the check list
+    broken_symbolinks_updated = []
+    pattern = re.compile(".*led_.*_delay_(off|on)")
+
+    logging.info("broken_symbolinks: {}".format(broken_symbolinks))
+
+    for symbolink in broken_symbolinks.splitlines():
+        if not pattern.match(symbolink):
+            logging.info("not expected broken link: {}".format(symbolink))
+            broken_symbolinks_updated.append(pattern)
+        else:
+            logging.info("ignore expected broken link: {}".format(symbolink))
+
+    return broken_symbolinks_updated
 
 
 def check_sysfs(dut):
@@ -21,8 +42,9 @@ def check_sysfs(dut):
 
     logging.info("Check broken symbolinks")
     broken_symbolinks = sysfs_facts['symbolink_info']['broken_links']
-    assert len(broken_symbolinks) == 0, \
-        "Found some broken symbolinks: {}".format(str(broken_symbolinks))
+    broken_symbolinks_updated = skip_ignored_broken_symbolinks(broken_symbolinks)
+    assert len(broken_symbolinks_updated) == 0, \
+        "Found some broken symbolinks: {}".format(str(broken_symbolinks_updated))
 
     logging.info("Check ASIC related sysfs")
     try:
