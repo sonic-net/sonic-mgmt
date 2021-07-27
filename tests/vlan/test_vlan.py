@@ -5,7 +5,6 @@ import ptf.testutils as testutils
 from ptf.mask import Mask
 from collections import defaultdict
 
-import time
 import json
 import itertools
 import logging
