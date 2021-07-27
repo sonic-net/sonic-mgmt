@@ -33,6 +33,11 @@ parameters:
     default: $(SAITHRIFT_BRCM_PUBLIC)
     displayName: "py_saithrift URL"
 
+  # Test Control Parameters
+  - name: TEST_CONTROL
+    type: string
+    default: "-I 'platform_tests'"
+    displayName: "Testbed Control"
 stages:
   - template: ../templates/nightly_test.yml
     parameters:

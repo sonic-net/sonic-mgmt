@@ -219,7 +219,8 @@ stages:
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t $(TOPOLOGY_TYPE),any -r \
-                    -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC
+                    -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
+                    $TEST_CONTROL
 
                 exit 0
             env:
