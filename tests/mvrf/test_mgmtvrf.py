@@ -7,6 +7,7 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 from pkg_resources import parse_version
 
 pytestmark = [
@@ -105,7 +106,7 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        localhost.snmp_facts(host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():
