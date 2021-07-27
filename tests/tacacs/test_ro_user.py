@@ -1,4 +1,5 @@
 import pytest
+import time
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -8,6 +9,9 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+SLEEP_TIME      = 10
+TIMEOUT_LIMIT   = 120
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     res = localhost.shell("sshpass -p {} ssh "\
@@ -48,6 +52,24 @@ def ssh_remote_ban_run(localhost, remote_ip, username, password, cmd):
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
     return res['rc'] != 0 and "Make sure your account has RW permission to current device" in res['stderr']
 
+def wait_for_tacacs(localhost, remote_ip, username, password):
+    current_attempt = 0
+    cmd = 'systemctl status hostcfgd.service'
+    while (True):
+        # Wait for tacacs to finish configuration from hostcfgd
+        logger.info("Check if hostcfgd started and configured tacac attempt = {}".format(current_attempt))
+        time.sleep(SLEEP_TIME)
+        output = localhost.shell("sshpass -p {} ssh "\
+                        "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
+                        "{}@{} {}".format(
+        password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+        if "active (running)" in str(output):
+            return
+        else:
+            if current_attempt >= TIMEOUT_LIMIT/SLEEP_TIME:
+                pytest_assert(False, "hostcfgd did not start after {} seconds".format(TIMEOUT_LIMIT))
+            else:
+                current_attempt += 1
 
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -150,6 +172,9 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
             # all commands under the config tree
             'sudo config'
     ]
+
+    # Wait until hostcfgd started and configured tacas authorization
+    wait_for_tacacs(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'], creds_all_duts[duthost]['tacacs_ro_user_passwd'])
 
     for command in commands:
         banned = ssh_remote_ban_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
