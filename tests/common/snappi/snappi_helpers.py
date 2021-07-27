@@ -4,6 +4,7 @@ This module contains a definition of a simple helper class
 "SnappiFanoutManager" which can be used to manage cards and ports of Snappi
 chassis instead of reading it from fanout_graph_facts fixture.
 """
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.common_helpers import ansible_stdout_to_str
 from tests.common.reboot import logger
@@ -18,9 +19,11 @@ class SnappiFanoutManager():
         this method makes a  list of chassis connection-details out of it.
         So each chassis and details  associated with it can be accessed by
         a integer index (starting from 0)
+
         Args:
            fanout_data (dict): the dictionary returned by fanout_graph_fact.
            Example format of the fanout_data is given below
+
         {u'snappi-sonic': {
             u'device_conn': {
                     u'Card9/Port1': {
@@ -28,11 +31,13 @@ class SnappiFanoutManager():
                         u'peerport': u'Ethernet0',
                         u'speed': u'100000'
                     },
+
                     u'Card9/Port2': {
                         u'peerdevice': u'sonic-s6100-dut',
                         u'peerport': u'Ethernet4',
                         u'speed': u'100000'
                     },
+
                     u'Card9/Port3': {
                         u'peerdevice': u'sonic-s6100-dut',
                         u'peerport': u'Ethernet8',
@@ -98,11 +103,14 @@ class SnappiFanoutManager():
         anything. The rest of  the function then used to extract chassis
         information like "get_chassis_ip()" will the return the ip address
         of chassis 0 - the first chassis in the list.
+
         Note:
             Counting or indexing starts from 0. That is 0 = 1st chassis,
             1 = 2nd chassis ...
+
         Args:
            device_number (int): the chassis index (0 is the first)
+
         Returns:
            None
         """
@@ -127,10 +135,13 @@ class SnappiFanoutManager():
         chassis (selected earlier using get_fanout_device_details() function).
         Details of the chassis will be available like chassis IP, card, ports,
         peer port etc. in a dictionary format.
+
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected.
+
         Args:
             This function takes no argument.
+
         Returns:
             Details of the chassis connection as dictionary format.
         """
@@ -139,10 +150,13 @@ class SnappiFanoutManager():
     def get_chassis_ip(self):
         """This function returns IP address of a particular chassis
         (selected earlier using get_fanout_device_details() function).
+
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected.
+
         Args:
             This function takes no argument.
+
         Returns:
             The IP address
         """
@@ -152,11 +166,14 @@ class SnappiFanoutManager():
         """This function returns list of ports that are (1) associated with a
         chassis (selected earlier using get_fanout_device_details() function)
         and (2) connected to a peer device (SONiC DUT) as a list of dictionary.
+
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected. If you do not specify peer_device,
             this function will return all the ports of the chassis.
+
         Args:
             peer_device (str): hostname of the peer device
+
         Returns:
             Dictionary of chassis card port information.
         """
@@ -182,7 +199,9 @@ def get_snappi_port_location(intf):
     """
     Extracting location from interface, since Snappi Api accepts location
     in terms of chassis ip, card, and port in different format.
+
     Note: Interface must have the keys 'ip', 'card_id' and 'port_id'
+
     Args:
     intf (dict) : intf must contain the keys 'ip', 'card_id', 'port_id'.
         Example format :
@@ -191,6 +210,7 @@ def get_snappi_port_location(intf):
          'card_id': u'9',
          'speed': 100000,
          'peer_port': u'Ethernet0'}
+
     Returns: location in string format. Example: '10.36.78.5;1;2' where
     1 is card_id and 2 is port_id.
     """

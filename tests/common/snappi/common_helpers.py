@@ -5,7 +5,7 @@ to string, get IP address in a subnet, increment an IP address, get
 VLAN subnet etc.
 
 This file is also a placeholder for auxiliary function that are
-required for supporting automation with Ixia devices in future:
+required for supporting automation with Snappi devices in future:
 like collecting diagnostics, uploading and downloading files
 to/from API server, processing the statistics after obtaining them
 in .csv format etc.
@@ -13,11 +13,10 @@ in .csv format etc.
 
 import ipaddr
 from netaddr import IPNetwork
-from ipaddress import IPv6Network, IPv6Address
-from random import getrandbits
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
-def increment_ip_address(ip, incr=1) :
+
+def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
 
@@ -74,6 +73,7 @@ def get_vlan_subnet(host_ans):
     gw_addr = ansible_stdout_to_str(mg_vlan_intfs[0]['addr'])
     return gw_addr + '/' + str(prefix_len)
 
+
 def get_egress_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch
@@ -99,6 +99,7 @@ def get_egress_lossless_buffer_size(host_ans):
     egress_lossless_pool = buffer_pools[profile_name]
     return int(egress_lossless_pool['size'])
 
+
 def get_addrs_in_subnet(subnet, number_of_ip):
     """
     Get N IP addresses in a subnet.
@@ -121,86 +122,57 @@ def get_addrs_in_subnet(subnet, number_of_ip):
 
     return ip_addrs[:number_of_ip]
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
-    """
-    Get N IPv6 addresses in a subnet.
-    Args:
-        subnet (str): IPv6 subnet, e.g., '2001::1/64'
-        number_of_ip (int): Number of IP addresses to get
-    Return:
-        Return n IPv6 addresses in this subnet in a list.
-    """
-
-    subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
-
-    return ipv6_list
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
     """
-    Get the IXIA chassis connected to the DUT
-    Note that a DUT can only be connected to a IXIA chassis
+    Get the Snappi chassis connected to the DUT
+    Note that a DUT can only be connected to a Snappi chassis
 
     Args:
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
 
-        {
-            u'device_conn': {
-                u'msr-s6100-dut-1': {
-                    u'Ethernet0': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port5',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet1': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port6',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet2': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port7',
-                        u'speed': u'40000'
-                    }
-                }
-            },
-            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
-            u'device_port_vlans': [
-                {
-                    u'Ethernet0': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet1': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet2': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    }
-                }
-            ],
-            u'device_vlan_list': [[]],
-            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
-            u'device_vlan_range': [[]]
-        }
+        {u'device_conn': {u'sonic-s6100-dut':
+                        {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port1',
+                                        u'speed': u'100000'},
+                        u'Ethernet68': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port2',
+                                        u'speed': u'100000'},
+                        u'Ethernet72': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port3',
+                                        u'speed': u'100000'},
+                        u'Ethernet76': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port4',
+                                        u'speed': u'100000'}}},
+        u'device_console_info': {u'sonic-s6100-dut': {}},
+        u'device_console_link': {u'sonic-s6100-dut': {}},
+        u'device_info': {u'sonic-s6100-dut':
+                        {u'HwSku': u'Arista-7060CX-32S-C32',
+                                            u'Type': u'DevSonic'}},
+        u'device_pdu_info': {u'sonic-s6100-dut': {}},
+        u'device_pdu_links': {u'sonic-s6100-dut': {}},
+        u'device_port_vlans': {u'sonic-s6100-dut':
+                                {u'Ethernet64': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet68': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet72': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet76': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]}}},
+        u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
+        u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
+        u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
 
         dut_hostname (str): hostname of the DUT
 
     Returns:
-        The name of the peer IXIA chassis or None
+        The name of the peer Snappi chassis or None
     """
 
     device_conn = conn_data['device_conn']
@@ -216,6 +188,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     else:
         return None
 
+
 def get_peer_port(conn_data, dut_hostname, dut_intf):
     """
     Get the peer port of the DUT port
@@ -224,50 +197,42 @@ def get_peer_port(conn_data, dut_hostname, dut_intf):
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
 
-        {
-            u'device_conn': {
-                u'msr-s6100-dut-1': {
-                    u'Ethernet0': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port5',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet1': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port6',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet2': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port7',
-                        u'speed': u'40000'
-                    }
-                }
-            },
-            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
-            u'device_port_vlans': [
-                {
-                    u'Ethernet0': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet1': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet2': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    }
-                }
-            ],
-            u'device_vlan_list': [[]],
-            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
-            u'device_vlan_range': [[]]
-        }
+        {u'device_conn': {u'sonic-s6100-dut':
+                        {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port1',
+                                        u'speed': u'100000'},
+                        u'Ethernet68': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port2',
+                                        u'speed': u'100000'},
+                        u'Ethernet72': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port3',
+                                        u'speed': u'100000'},
+                        u'Ethernet76': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port4',
+                                        u'speed': u'100000'}}},
+        u'device_console_info': {u'sonic-s6100-dut': {}},
+        u'device_console_link': {u'sonic-s6100-dut': {}},
+        u'device_info': {u'sonic-s6100-dut':
+                        {u'HwSku': u'Arista-7060CX-32S-C32',
+                                            u'Type': u'DevSonic'}},
+        u'device_pdu_info': {u'sonic-s6100-dut': {}},
+        u'device_pdu_links': {u'sonic-s6100-dut': {}},
+        u'device_port_vlans': {u'sonic-s6100-dut':
+                                {u'Ethernet64': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet68': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet72': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet76': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]}}},
+        u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
+        u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
+        u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
 
         dut_hostname (str): hostname of the DUT
         dut_intf (str): name of DUT interface
@@ -294,50 +259,42 @@ def get_dut_intfs(conn_data, dut_hostname):
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
 
-        {
-            u'device_conn': {
-                u'msr-s6100-dut-1': {
-                    u'Ethernet0': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port5',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet1': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port6',
-                        u'speed': u'40000'
-                    },
-                    u'Ethernet2': {
-                        u'peerdevice': u'msr-ixia-1',
-                        u'peerport': u'Card12/Port7',
-                        u'speed': u'40000'
-                    }
-                }
-            },
-            u'device_info': [{u'HwSku': u'Dell-S6100', u'Type': u'DevSonic'}],
-            u'device_port_vlans': [
-                {
-                    u'Ethernet0': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet1': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    },
-                    u'Ethernet2': {
-                        u'mode': u'Access',
-                        u'vlanids': u'',
-                        u'vlanlist': []
-                    }
-                }
-            ],
-            u'device_vlan_list': [[]],
-            u'device_vlan_map_list': {u'msr-s6100-dut-1': []},
-            u'device_vlan_range': [[]]
-        }
+        {u'device_conn': {u'sonic-s6100-dut':
+                        {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port1',
+                                        u'speed': u'100000'},
+                        u'Ethernet68': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port2',
+                                        u'speed': u'100000'},
+                        u'Ethernet72': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port3',
+                                        u'speed': u'100000'},
+                        u'Ethernet76': {u'peerdevice': u'snappi-sonic',
+                                        u'peerport': u'Card4/Port4',
+                                        u'speed': u'100000'}}},
+        u'device_console_info': {u'sonic-s6100-dut': {}},
+        u'device_console_link': {u'sonic-s6100-dut': {}},
+        u'device_info': {u'sonic-s6100-dut':
+                        {u'HwSku': u'Arista-7060CX-32S-C32',
+                                            u'Type': u'DevSonic'}},
+        u'device_pdu_info': {u'sonic-s6100-dut': {}},
+        u'device_pdu_links': {u'sonic-s6100-dut': {}},
+        u'device_port_vlans': {u'sonic-s6100-dut':
+                                {u'Ethernet64': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet68': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet72': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]},
+                                u'Ethernet76': {u'mode': u'Access',
+                                                u'vlanids': u'2',
+                                                u'vlanlist': [2]}}},
+        u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
+        u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
+        u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
 
         dut_hostname (str): hostname of the DUT
 
@@ -369,6 +326,7 @@ def pfc_class_enable_vector(prio_list):
         vector += (2**p)
 
     return "{:x}".format(vector)
+
 
 def get_wred_profiles(host_ans):
     """
@@ -406,6 +364,7 @@ def get_wred_profiles(host_ans):
         return config_facts['WRED_PROFILE']
     else:
         return None
+
 
 def config_wred(host_ans, kmin, kmax, pmax, profile=None):
     """
@@ -461,6 +420,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
 
     return True
 
+
 def enable_ecn(host_ans, prio):
     """
     Enable ECN marking on a priority
@@ -473,6 +433,7 @@ def enable_ecn(host_ans, prio):
         N/A
     """
     host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+
 
 def disable_ecn(host_ans, prio):
     """
@@ -487,6 +448,7 @@ def disable_ecn(host_ans, prio):
     """
     host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
 
+
 def config_buffer_alpha(host_ans, profile, alpha_log2):
     """
     Configure buffer threshold (a.k.a., alpha)
@@ -500,6 +462,7 @@ def config_buffer_alpha(host_ans, profile, alpha_log2):
         N/A
     """
     host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
+
 
 def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     """
@@ -541,6 +504,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
 
     return True
 
+
 def get_pfcwd_config_attr(host_ans, config_scope, attr):
     """
     Get PFC watchdog configuration attribute
@@ -569,6 +533,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
 
     return None
 
+
 def get_pfcwd_poll_interval(host_ans):
     """
     Get PFC watchdog polling interval
@@ -587,6 +552,7 @@ def get_pfcwd_poll_interval(host_ans):
         return int(val)
 
     return None
+
 
 def get_pfcwd_detect_time(host_ans, intf):
     """
@@ -608,6 +574,7 @@ def get_pfcwd_detect_time(host_ans, intf):
 
     return None
 
+
 def get_pfcwd_restore_time(host_ans, intf):
     """
     Get PFC watchdog restoration time of a given interface
@@ -628,6 +595,7 @@ def get_pfcwd_restore_time(host_ans, intf):
 
     return None
 
+
 def start_pfcwd(duthost):
     """
     Start PFC watchdog with default setting
@@ -640,6 +608,7 @@ def start_pfcwd(duthost):
     """
     duthost.shell('sudo pfcwd start_default')
 
+
 def stop_pfcwd(duthost):
     """
     Stop PFC watchdog
@@ -651,6 +620,7 @@ def stop_pfcwd(duthost):
         N/A
     """
     duthost.shell('sudo pfcwd stop')
+
 
 def disable_packet_aging(duthost):
     """
@@ -667,6 +637,7 @@ def disable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
 
 def enable_packet_aging(duthost):
     """
