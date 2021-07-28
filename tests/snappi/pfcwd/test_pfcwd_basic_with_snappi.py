@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [ pytest.mark.topology('snappi') ]
 
-# @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-@pytest.mark.parametrize("trigger_pfcwd", [False])
+@pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(snappi_api,
                                           snappi_testbed_config,
                                           conn_graph_facts,
