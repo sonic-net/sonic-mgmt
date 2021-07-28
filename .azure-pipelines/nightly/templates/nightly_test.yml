@@ -217,14 +217,14 @@ stages:
                 cd tests
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
-                CMD=./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                CMD="./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
                     -s "$SKIP_SCRIPTS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t $(TOPOLOGY_TYPE),any -r \
                     -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
-                    $TEST_CONTROL
-                echo $CMD
+                    $TEST_CONTROL"
+                echo "$CMD"
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
