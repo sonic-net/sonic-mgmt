@@ -29,7 +29,7 @@ def skip_ignored_broken_symbolinks(broken_symbolinks):
 
     for symbolink in broken_symbolinks.splitlines():
         if not pattern.match(symbolink):
-            broken_symbolinks_updated.append(pattern)
+            broken_symbolinks_updated.append(symbolink)
         else:
             logging.info("ignore expected broken link: {}".format(symbolink))
 
