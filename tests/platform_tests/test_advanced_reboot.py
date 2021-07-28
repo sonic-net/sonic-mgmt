@@ -14,8 +14,8 @@ pytestmark = [
 
 ### Tetcases to verify normal reboot procedure ###
 @pytest.mark.usefixtures('get_advanced_reboot')
-def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+def test_fast_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer):
     '''
     Fast reboot test case is run using advacned reboot test fixture
 
