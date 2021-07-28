@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: http://100.127.20.23/installer/sonic/broadcom/internal-201811/sonic-aboot-broadcom.swi
+    default: $(IMAGE_BRCM_ABOOT_202012_SLIM)
     displayName: "Image URL"
 
   # Test Parameters
@@ -32,10 +32,16 @@ parameters:
     type: string
     default: $(SAITHRIFT_MLNX_PUBLIC)
     displayName: "py_saithrift URL"
+
   - name: SKIP_SCRIPTS
     type: string
     default: "test_nbr_health.py ixia/test_ixia_traffic.py"
     displayName: "Skip Scripts"
+
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--skip_sanity --allow_recover --showlocals --assert plain -rav --collect_techsupport False"
+    displayName: "Extra parameters"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -44,3 +50,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
