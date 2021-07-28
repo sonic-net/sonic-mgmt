@@ -108,6 +108,8 @@
       <Device Hostname="str-acs-serv-11" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str-acs-serv-12" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str-acs-serv-13" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-14" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-acs-serv-15" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-acs-fan-05" EndPort="Ethernet64/1" StartDevice="str-7260cx3-11" StartPort="Ethernet2/1"/>
@@ -4923,6 +4925,12 @@
     </DevicesL3Info>
     <DevicesL3Info Hostname="str-acs-serv-13">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.246/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str-acs-serv-14">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.30/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str-acs-serv-15">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.31/23"/>
     </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
