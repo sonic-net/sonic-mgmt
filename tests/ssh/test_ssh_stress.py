@@ -48,7 +48,7 @@ def start_SSH_connection(dut_mgmt_ip):
     """Starts SSH connection to provided IP"""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(dut_mgmt_ip, username="admin", password="password")
+    ssh.connect(dut_mgmt_ip, username="admin", password="password", allow_agent=False, look_for_keys=False)
 
     return ssh
 
