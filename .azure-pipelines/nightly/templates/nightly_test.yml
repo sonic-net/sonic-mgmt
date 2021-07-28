@@ -119,76 +119,76 @@ stages:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
 
-          # - task: PythonScript@0
-          #   displayName: Lock Testbed
-          #   inputs:
-          #     scriptSource: 'filePath'
-          #     scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-          #     arguments: lock
-          #   env:
-          #       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-          #       TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-          #       TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          - task: PythonScript@0
+            displayName: Lock Testbed
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
+              arguments: lock
+            env:
+                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
 
-          # - task: Bash@3
-          #   displayName: "Upgrade Image"
-          #   inputs:
-          #     targetType: 'inline'
-          #     script: |
-          #       set -x
+          - task: Bash@3
+            displayName: "Upgrade Image"
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
 
-          #       if [[ -z "$IMAGE_URL" ]]; then
-          #           echo "Skipping image upgrading ..."
-          #           exit 0
-          #       fi
+                if [[ -z "$IMAGE_URL" ]]; then
+                    echo "Skipping image upgrading ..."
+                    exit 0
+                fi
 
-          #       cd ansible
+                cd ansible
 
-          #       if [[ "$ALWAYS_INSTALL_NEW_IMAGE" == "true" && "$UPGRADE_TYPE" == "sonic" ]]; then
-          #           ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-          #               -i $(INVENTORY_NAME) \
-          #               -e testbed_name=${{ parameters.TESTBED_NAME }} \
-          #               -e image_url=$IMAGE_URL.PREV.1 \
-          #               -e upgrade_type=$UPGRADE_TYPE \
-          #               --vault-password-file password.txt \
-          #               -e pause_time=60 -vv || true
-          #       fi
-          #       ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-          #           -i $(INVENTORY_NAME) \
-          #           -e testbed_name=${{ parameters.TESTBED_NAME }} \
-          #           -e image_url=$IMAGE_URL \
-          #           -e upgrade_type=$UPGRADE_TYPE \
-          #           --vault-password-file password.txt \
-          #           -e pause_time=$PAUSE_TIME -vv
+                if [[ "$ALWAYS_INSTALL_NEW_IMAGE" == "true" && "$UPGRADE_TYPE" == "sonic" ]]; then
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                        -i $(INVENTORY_NAME) \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e image_url=$IMAGE_URL.PREV.1 \
+                        -e upgrade_type=$UPGRADE_TYPE \
+                        --vault-password-file password.txt \
+                        -e pause_time=60 -vv || true
+                fi
+                ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                    -i $(INVENTORY_NAME) \
+                    -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                    -e image_url=$IMAGE_URL \
+                    -e upgrade_type=$UPGRADE_TYPE \
+                    --vault-password-file password.txt \
+                    -e pause_time=$PAUSE_TIME -vv
 
-          #       sleep 180
-          #   env:
-          #     IMAGE_URL: ${{ parameters.IMAGE_URL }}
-          #     ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
-          #     UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
-          #     PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
+                sleep 180
+            env:
+              IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
+              UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+              PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
 
-          # - task: Bash@3
-          #   displayName: Deploy Minigraph
-          #   inputs:
-          #     targetType: 'inline'
-          #     script: |
-          #       set -x
+          - task: Bash@3
+            displayName: Deploy Minigraph
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
 
-          #       CONFIG_PARAMS=""
+                CONFIG_PARAMS=""
 
-          #       if [[ "$ENABLE_DATAACL" == "true" ]]; then
-          #         CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
-          #       fi
-          #       cd ansible
+                if [[ "$ENABLE_DATAACL" == "true" ]]; then
+                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                fi
+                cd ansible
 
-          #       # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
-          #       ./testbed-cli.sh deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
-          #       sleep 180
-          #   env:
-          #     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-          #     INVENTORY_NAME: $(INVENTORY_NAME)
-          #     ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+                # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
+                ./testbed-cli.sh deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                sleep 180
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
             displayName: Run Tests
@@ -217,14 +217,13 @@ stages:
                 cd tests
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
-                CMD="./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
                     -s "$SKIP_SCRIPTS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t $(TOPOLOGY_TYPE),any -r \
                     -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
-                    $TEST_CONTROL"
-                echo "$CMD"
+                    $TEST_CONTROL
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -234,68 +233,68 @@ stages:
               SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
               TEST_CONTROL: ${{ parameters.TEST_CONTROL }}
 
-          # - publish: tests/logs
-          #   displayName: "Archive test logs"
-          #   artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
-          #   condition: always()
+          - publish: tests/logs
+            displayName: "Archive test logs"
+            artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
+            condition: always()
 
-          # - task: PublishTestResults@2
-          #   displayName: Publish test results
-          #   inputs:
-          #     testResultsFiles: 'tests/logs/**/*.xml'
-          #     testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
-          #   condition: always()
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            inputs:
+              testResultsFiles: 'tests/logs/**/*.xml'
+              testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
+            condition: always()
 
-          # - task: PythonScript@0
-          #   displayName: Release Testbed
-          #   inputs:
-          #     scriptSource: 'filePath'
-          #     scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-          #     arguments: release
-          #   env:
-          #       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-          #       TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-          #       TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-          #   condition: always()
+          - task: PythonScript@0
+            displayName: Release Testbed
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
+              arguments: release
+            env:
+                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            condition: always()
 
-          # - task: CopyFiles@2
-          #   displayName: Collect result files
-          #   inputs:
-          #     Contents: |
-          #       tests/logs/**/*.xml
-          #       tests/logs/platform_tests/test_*_reboot*.json
-          #     TargetFolder: results
-          #     CleanTargetFolder: true
-          #   condition: succeededOrFailed()
+          - task: CopyFiles@2
+            displayName: Collect result files
+            inputs:
+              Contents: |
+                tests/logs/**/*.xml
+                tests/logs/platform_tests/test_*_reboot*.json
+              TargetFolder: results
+              CleanTargetFolder: true
+            condition: succeededOrFailed()
 
-          # - task: Bash@3
-          #   displayName: Upload Test Results
-          #   inputs:
-          #     targetType: 'inline'
-          #     script: |
-          #       set -x
-          #       echo "Activate python3 virtual environment"
-          #       source /var/AzDevOps/env-python3/bin/activate
+          - task: Bash@3
+            displayName: Upload Test Results
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                echo "Activate python3 virtual environment"
+                source /var/AzDevOps/env-python3/bin/activate
 
-          #       cd test_reporting
-          #       pip3 install -r requirements.txt
+                cd test_reporting
+                pip3 install -r requirements.txt
 
-          #       python3 junit_xml_parser.py -d ../results -o tr.json
+                python3 junit_xml_parser.py -d ../results -o tr.json
 
-          #       # temporary workaround to allow reboot timing data upload
-          #       # After recent test change, the file names get DUT name in them
-          #       # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-          #       reboot_path=../results/tests/logs/platform_tests/
-          #       mv $reboot_path/test_fast_reboot*_summary.json $reboot_path/test_fast_reboot_summary.json || true
-          #       mv $reboot_path/test_fast_reboot*_report.json  $reboot_path/test_fast_reboot_report.json || true
-          #       mv $reboot_path/test_warm_reboot*_summary.json $reboot_path/test_warm_reboot_summary.json || true
-          #       mv $reboot_path/test_warm_reboot*_report.json  $reboot_path/test_warm_reboot_report.json || true
-          #       report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
+                # temporary workaround to allow reboot timing data upload
+                # After recent test change, the file names get DUT name in them
+                # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
+                reboot_path=../results/tests/logs/platform_tests/
+                mv $reboot_path/test_fast_reboot*_summary.json $reboot_path/test_fast_reboot_summary.json || true
+                mv $reboot_path/test_fast_reboot*_report.json  $reboot_path/test_fast_reboot_report.json || true
+                mv $reboot_path/test_warm_reboot*_summary.json $reboot_path/test_warm_reboot_summary.json || true
+                mv $reboot_path/test_warm_reboot*_report.json  $reboot_path/test_warm_reboot_report.json || true
+                report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
 
-          #       python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
-          #   condition: succeededOrFailed()
-          #   env:
-          #     TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-          #     TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-          #     TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-          #     TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
+            condition: succeededOrFailed()
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
