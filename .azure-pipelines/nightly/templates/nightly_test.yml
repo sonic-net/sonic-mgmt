@@ -280,11 +280,11 @@ stages:
                 # temporary workaround to allow reboot timing data upload
                 # After recent test change, the file names get DUT name in them
                 # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-                mv ../results/test_fast_reboot*_summary.json ../results/test_fast_reboot_summary.json || true
-                mv ../results/test_fast_reboot*_report.json ../results/test_fast_reboot_report.json || true
-                mv ../results/test_warm_reboot*_summary.json ../results/test_warm_reboot_summary.json || true
-                mv ../results/test_warm_reboot*_report.json ../results/test_warm_reboot_report.json || true
-
+                reboot_path=../results/tests/logs/platform_tests/
+                mv $reboot_path/test_fast_reboot*_summary.json $reboot_path/test_fast_reboot_summary.json || true
+                mv $reboot_path/test_fast_reboot*_report.json  $reboot_path/test_fast_reboot_report.json || true
+                mv $reboot_path/test_warm_reboot*_summary.json $reboot_path/test_warm_reboot_summary.json || true
+                mv $reboot_path/test_warm_reboot*_report.json  $reboot_path/test_warm_reboot_report.json || true
                 report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
