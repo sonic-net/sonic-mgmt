@@ -20,6 +20,7 @@ SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
 
+
 def run_ecn_test(api,
                  testbed_config,
                  port_config_list,
@@ -123,7 +124,9 @@ def run_ecn_test(api,
 
     return result
 
+
 sec_to_nanosec = lambda x : x * 1e9
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -154,7 +157,7 @@ def __gen_traffic(testbed_config,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
-        Configurations of the data flow and the PFC pause storm (list)
+        N/A
 
     """
     rx_port_id = port_id
@@ -258,7 +261,7 @@ def __config_capture_ip_pkt(testbed_config, port_id):
         port_id (int): ID of DUT port to capture packets
 
     Returns:
-        Packet capture configuration (list)
+        N/A
     """
 
     """ We only capture IP packets """
