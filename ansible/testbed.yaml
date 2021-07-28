@@ -1113,6 +1113,21 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms21-t0-8102-01
+  group-name: vms21-8
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms21-8
+  ptf_ip: 10.64.246.231/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM2184
+  dut:
+    - str2-8102-01
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: vms21-dual-t0-7260
   group-name: vms21-6
   topo: dualtor-120
