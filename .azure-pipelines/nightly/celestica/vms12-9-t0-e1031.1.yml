@@ -26,7 +26,8 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202012_SLIM)
+    # FIXME: use this default when image issue is addressed: default: $(IMAGE_BRCM_202012_SLIM)
+    default: "http://100.127.20.23/installer/sonic/yinxi/warmboot/sonic-broadcom.bin"
     displayName: "Image URL"
 
   # Test Parameters
