@@ -33,9 +33,45 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "snmp/test_snmp_queue.py \
+              snmp/test_snmp_pfc_counters.py \
+              platform_tests/test_cont_warm_reboot.py \
+              platform_tests/test_reboot.py::test_warm_reboot \
+              platform_tests/test_reboot.py::test_fast_reboot \
+              arp/test_arp_dualtor.py \
+              arp/test_wr_arp.py \
+              route/test_route_perf.py \
+              qos/test_buffer.py \
+              qos/test_pfc_counters.py \
+              qos/test_pfc_pause.py \
+              qos/test_qos_sai.py \
+              pfc_asym/test_pfc_asym.py \
+              pfcwd/test_pfc_config.py \
+              pfcwd/test_pfcwd_all_port_storm.py \
+              pfcwd/test_pfcwd_function.py \
+              pfcwd/test_pfcwd_timer_accuracy.py \
+              pfcwd/test_pfcwd_warm_reboot.py \
+              pfc/test_unknown_mac.py \
+              nat/test_static_nat.py \
+              nat/test_dynamic_nat.py \
+              mvrf/test_mgmtvrf.py \
+              vrf/test_vrf.py \
+              vrf/test_vrf_attr.py \
+              system_health/test_system_health.py \
+              platform_tests/link_flap/test_cont_link_flap.py \
+              platform_tests/test_advanced_reboot.py \
+              vxlan/test_vnet_vxlan.py \
+              vxlan/test_vxlan_decap.py \
+              vxlan/test_vnet_route_leak.py"
+    displayName: "Skip Scripts"
+
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
