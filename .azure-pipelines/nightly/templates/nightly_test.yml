@@ -48,7 +48,8 @@ parameters:
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
   - name: TEST_CONTROL
-    type: ""
+    type: string
+    default: ""
 
 stages:
 
