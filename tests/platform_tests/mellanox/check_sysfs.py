@@ -10,12 +10,18 @@ from tests.common.utilities import wait_until
 
 MAX_FAN_SPEED_THRESHOLD = 0.15
 
+
 def skip_ignored_broken_symbolinks(broken_symbolinks):
     """
-    @summary: Check all the broken symbol links, skip the expected ones
+    @summary: Check all the broken symbol links found, remove the expected ones
+    examples for the expected broken symbol links:
+      /var/run/hw-management/led/led_psu2_green_delay_off
+      /var/run/hw-management/led/led_uid_blue_delay_on
+      /var/run/hw-management/led/led_fan_green_delay_on
+      /var/run/hw-management/led/led_status_red_delay_on
     """
-    # Currently some led bilinking related sysfs are expected to be broken after system boot up,
-    # so skip these expected sysfs and remove them from the check list
+    # Currently some led blinking related sysfs are expected to be broken after system boot up,
+    # so skip and remove them from the check list.
     broken_symbolinks_updated = []
     pattern = re.compile(".*led_.*_delay_(off|on)")
 
@@ -23,7 +29,6 @@ def skip_ignored_broken_symbolinks(broken_symbolinks):
 
     for symbolink in broken_symbolinks.splitlines():
         if not pattern.match(symbolink):
-            logging.info("not expected broken link: {}".format(symbolink))
             broken_symbolinks_updated.append(pattern)
         else:
             logging.info("ignore expected broken link: {}".format(symbolink))
