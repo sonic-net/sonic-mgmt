@@ -213,6 +213,11 @@ stages:
                     PARAMS="$PARAMS $EXTRA_PARAMS"
                 fi
 
+                EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
+                if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
+                fi
+
                 rm -fr results     # Clear any possible collected results of previous run
 
                 cd tests
@@ -222,7 +227,7 @@ stages:
                     -s "$SKIP_SCRIPTS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
-                    -t $(TOPOLOGY_TYPE),any -r \
+                    -t "$EXECUTION_TOPOLOGY" -r \
                     -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
                     $TEST_CONTROL
                 exit 0
