@@ -584,7 +584,13 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=1000)
+        timeout = 600
+        # Increase the timeout for multi-asic virtual switch DUT.
+        for node in duthosts.nodes:
+            if 'kvm' in node.sonichost.facts['platform'] and node.sonichost.is_multi_asic:
+                timeout = 1000
+                break
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout)
         return result.values()
 
     @reset_ansible_local_tmp
