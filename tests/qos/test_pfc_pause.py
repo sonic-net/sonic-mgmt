@@ -27,12 +27,12 @@ PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 PFC_PKT_COUNT = 1000000000
 
 PTF_FILE_REMOTE_PATH = '~/ptftests/pfc_pause_test.py'
-PTF_PKT_COUNT = 10
+PTF_PKT_COUNT = 50
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
 
 """ Maximum number of interfaces to test on a DUT """
-MAX_TEST_INTFS_COUNT = 1
+MAX_TEST_INTFS_COUNT = 4
 
 @pytest.fixture(scope="module", autouse=True)
 def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
