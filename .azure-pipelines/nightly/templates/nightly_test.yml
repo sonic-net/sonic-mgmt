@@ -29,7 +29,7 @@ parameters:
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
-    default: true
+    default: false
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
@@ -177,7 +177,8 @@ stages:
 
                 CONFIG_PARAMS=""
 
-                if [[ "$ENABLE_DATAACL" == "true" ]]; then
+                if [[ "$ENABLE_DATAACL" == "false" ]]; then
+                  # the underlaying template default is to enable data acl
                   CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
                 fi
                 cd ansible
