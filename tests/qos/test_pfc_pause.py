@@ -9,7 +9,6 @@ from qos_fixtures import lossless_prio_dscp_map
 from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys
 from tests.common import constants
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-#from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
