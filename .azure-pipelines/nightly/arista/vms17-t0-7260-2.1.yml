@@ -38,9 +38,11 @@ parameters:
     type: string
     default: "-I 'platform_tests'"
     displayName: "Testbed Control"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TEST_CONTROL: ${{ parameters.TEST_CONTROL }}

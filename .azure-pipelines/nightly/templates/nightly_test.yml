@@ -47,6 +47,9 @@ parameters:
   - name: SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+  - name: TEST_CONTROL
+    type: string
+    default: ""
 
 stages:
 
@@ -221,7 +224,6 @@ stages:
                     -t $(TOPOLOGY_TYPE),any -r \
                     -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
                     $TEST_CONTROL
-
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -229,6 +231,7 @@ stages:
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
               TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
               SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+              TEST_CONTROL: ${{ parameters.TEST_CONTROL }}
 
           - publish: tests/logs
             displayName: "Archive test logs"
