@@ -137,7 +137,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_d
         """Get bgp update packets from pcap file."""
         packets = sniff(
             offline=pcap_file,
-            lfilter=lambda p: bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
+            lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
         )
         return packets
 
