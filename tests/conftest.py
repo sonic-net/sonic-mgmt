@@ -365,7 +365,8 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
 
     devices = {}
-    if not tbinfo['vm_base']:
+    if not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
     vm_base = int(tbinfo['vm_base'][2:])
