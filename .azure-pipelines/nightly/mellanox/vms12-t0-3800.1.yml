@@ -33,9 +33,15 @@ parameters:
     default: " "
     displayName: "py_saithrift URL"
 
+  - name: TEST_CONTROL_INCLUDE
+    type: string
+    default: "platform_tests"
+    displayName: "INCLUDE Directories List" 
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TEST_CONTROL_INCLUDE: ${{ parameters.TEST_CONTROL_INCLUDE }}
