@@ -5,7 +5,6 @@ import ptf.testutils as testutils
 from ptf.mask import Mask
 from collections import defaultdict
 
-import time
 import json
 import itertools
 import logging
@@ -13,6 +12,8 @@ import logging
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
+
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 
 from tests.common.config_reload import config_reload
 
@@ -37,18 +38,16 @@ def vlan_intfs_list():
 
 
 @pytest.fixture(scope="module")
-def vlan_ports_list(cfg_facts, ptfhost):
+def vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts):
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
-    config_ports = cfg_facts['PORT']
+    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
-    config_port_indices = cfg_facts['port_index_map']
-    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-
+    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
     config_port_channel_members = [port_channel[1]['members'] for port_channel in config_portchannels.items()]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-
     pvid_cycle = itertools.cycle(vlan_id_list)
-
     # when running on t0 we can use the portchannel members
     if config_portchannels:
         for po in config_portchannels.keys()[:2]:
@@ -82,7 +81,8 @@ def vlan_ports_list(cfg_facts, ptfhost):
     return vlan_ports_list
 
 
-def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost):
+def create_vlan_interfaces(vlan_ports_list, ptfhost):
+    logger.info("Create PTF VLAN intfs")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port["permit_vlanid"].keys():
             if int(permit_vlanid) != vlan_port["pvid"]:
@@ -97,101 +97,94 @@ def create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost):
                    pvid=permit_vlanid
                 ))
 
+def shutdown_portchannels(duthost, portchannel_interfaces):
+    cmds = []
+    logger.info("Shutdown lags, flush IP addresses")
+    for portchannel, ips in portchannel_interfaces.items():
+        cmds.append('config interface shutdown {}'.format(portchannel))
+        for ip in ips:
+            cmds.append('config interface ip remove {} {}'.format(portchannel, ip))
+
+    duthost.shell_cmds(cmds=cmds)
+
+def create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list):
+    cmds = []
+    logger.info("Add vlans, assign IPs")
+    for vlan in vlan_intfs_list:
+        cmds.append('config vlan add {}'.format(vlan['vlan_id']))
+        cmds.append("config interface ip add Vlan{} {}".format(vlan['vlan_id'], vlan['ip'].upper()))
+
+    # Delete untagged vlans from interfaces to avoid error message
+    # when adding untagged vlan to interface that already have one
+    if '201911' not in duthost.os_version:
+        logger.info("Delete untagged vlans from interfaces")
+        for vlan_port in vlan_ports_list:
+            vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+            vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
+            try:
+                if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
+                    cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
+            except KeyError:
+                continue
+
+    logger.info("Add members to Vlans")
+    for vlan_port in vlan_ports_list:
+        for permit_vlanid in vlan_port['permit_vlanid'].keys():
+            cmds.append('config vlan member add {tagged} {id} {port}'.format(
+                tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
+                id=permit_vlanid,
+                port=vlan_port['dev']
+            ))
+
+    duthost.shell_cmds(cmds=cmds)
+
+def startup_portchannels(duthost, portchannel_interfaces):
+    cmds  =[]
+    logger.info("Bringup lags")
+    for portchannel in portchannel_interfaces:
+        cmds.append('config interface startup {}'.format(portchannel))
+
+    duthost.shell_cmds(cmds=cmds)
+
+def add_test_routes(duthost, vlan_ports_list):
+    cmds = []
+    logger.info("Configure route for remote IP")
+    for item in vlan_ports_list:
+        for i in vlan_ports_list[0]['permit_vlanid']:
+            cmds.append('ip route add {} via {}'.format(
+                item['permit_vlanid'][i]['remote_ip'],
+                item['permit_vlanid'][i]['peer_ip']
+                ))
+
+    duthost.shell_cmds(cmds=cmds)
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_intfs_list, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_intfs_list, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
-        # Generate vlan info
         portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
 
-        logger.info("Shutdown lags, flush IP addresses")
-        for portchannel, ips in portchannel_interfaces.items():
-            duthost.command('config interface shutdown {}'.format(portchannel))
-            for ip in ips:
-                duthost.command('config interface ip remove {} {}'.format(portchannel, ip))
+        shutdown_portchannels(duthost, portchannel_interfaces) 
 
-        # Wait some time for route, neighbor, next hop groups to be removed,
-        # otherwise PortChannel RIFs are still referenced and won't be removed
-        time.sleep(90)
+        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list)
 
-        logger.info("Add vlans, assign IPs")
-        for vlan in vlan_intfs_list:
-            duthost.command('config vlan add {}'.format(vlan['vlan_id']))
-            duthost.command("config interface ip add Vlan{} {}".format(vlan['vlan_id'], vlan['ip'].upper()))
+        startup_portchannels(duthost, portchannel_interfaces) 
 
-        # Delete untagged vlans from interfaces to avoid error message
-        # when adding untagged vlan to interface that already have one
-        if '201911' not in duthost.os_version:
-            logger.info("Delete untagged vlans from interfaces")
-            for vlan_port in vlan_ports_list:
-                vlan_members = cfg_facts.get('VLAN_MEMBER', {})
-                vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
-                try:
-                    if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
-                        duthost.command("config vlan member del {} {}".format(vid, vlan_port['dev']))
-                except KeyError:
-                    continue
+        create_vlan_interfaces(vlan_ports_list, ptfhost)
 
-        logger.info("Add members to Vlans")
-        for vlan_port in vlan_ports_list:
-            for permit_vlanid in vlan_port['permit_vlanid'].keys():
-                duthost.command('config vlan member add {tagged} {id} {port}'.format(
-                    tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
-                    id=permit_vlanid,
-                    port=vlan_port['dev']
-                ))
-
-        # Make sure config applied
-        time.sleep(30)
-
-        logger.info("Bringup lags")
-        for portchannel in portchannel_interfaces:
-            duthost.command('config interface startup {}'.format(portchannel))
-
-        # Make sure config applied
-        time.sleep(30)
-
-        logger.info("Create VLAN intf")
-        create_vlan_interfaces(vlan_ports_list, vlan_intfs_list, duthost, ptfhost)
-
-        logger.info("Configure route for remote IP")
-        for item in vlan_ports_list:
-            for i in vlan_ports_list[0]['permit_vlanid']:
-                duthost.command('ip route add {} via {}'.format(
-                    item['permit_vlanid'][i]['remote_ip'],
-                    item['permit_vlanid'][i]['peer_ip']
-                    ))
-
-        logger.info("Copy arp_responder to ptfhost")
+        add_test_routes(duthost, vlan_ports_list) 
 
         setUpArpResponder(vlan_ports_list, ptfhost)
-
-        extra_vars = {
-                'arp_responder_args': ''
-        }
-
-        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
-        ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
-
-        ptfhost.command('supervisorctl reread')
-        ptfhost.command('supervisorctl update')
-
-        logger.info("Start arp_responder")
-        ptfhost.command('supervisorctl start arp_responder')
-
-        time.sleep(10)
 
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
     finally:
-        tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_interfaces)
+        tearDown(vlan_ports_list, duthost, ptfhost)
 
 
-def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_interfaces):
+def tearDown(vlan_ports_list, duthost, ptfhost):
 
     logger.info("VLAN test ending ...")
     logger.info("Stop arp_responder")
@@ -210,23 +203,36 @@ def tearDown(vlan_ports_list, duthost, ptfhost, vlan_intfs_list, portchannel_int
                     logger.error(e)
 
     config_reload(duthost)
-    # make sure Portchannels go up for post-test link sanity
-    time.sleep(90)
-
 
 def setUpArpResponder(vlan_ports_list, ptfhost):
+    logger.info("Copy arp_responder to ptfhost")
     d = defaultdict(list)
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port["permit_vlanid"].keys():
             if int(permit_vlanid) == vlan_port["pvid"]:
                 iface = "eth{}".format(vlan_port["port_index"][0])
             else:
-                iface = "eth{}.{}".format(vlan_port["port_index"][0], permit_vlanid)
+                iface = "eth{}".format(vlan_port["port_index"][0])
+                # iface = "eth{}.{}".format(vlan_port["port_index"][0], permit_vlanid)
             d[iface].append(vlan_port["permit_vlanid"][permit_vlanid]["peer_ip"])
 
     with open('/tmp/from_t1.json', 'w') as file:
         json.dump(d, file)
     ptfhost.copy(src='/tmp/from_t1.json', dest='/tmp/from_t1.json')
+
+    extra_vars = {
+            'arp_responder_args': ''
+    }
+
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
+    ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
+
+    ptfhost.command('supervisorctl reread')
+    ptfhost.command('supervisorctl update')
+
+    logger.info("Start arp_responder")
+    ptfhost.command('supervisorctl start arp_responder')
 
 
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
@@ -314,7 +320,7 @@ def verify_icmp_packets(ptfadapter, vlan_ports_list, vlan_port, vlan_id):
 
 
 @pytest.mark.bsl
-def test_vlan_tc1_send_untagged(ptfadapter, vlan_ports_list):
+def test_vlan_tc1_send_untagged(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #1
     Verify packets egress without tag from ports whose PVID same with ingress port
@@ -332,7 +338,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, vlan_ports_list):
 
 
 @pytest.mark.bsl
-def test_vlan_tc2_send_tagged(ptfadapter, vlan_ports_list):
+def test_vlan_tc2_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #2
     Send tagged packets from each port.
@@ -352,7 +358,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, vlan_ports_list):
 
 
 @pytest.mark.bsl
-def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
+def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #3
     Send packets with invalid VLAN ID
@@ -377,7 +383,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, vlan_ports_list):
 
 
 @pytest.mark.bsl
-def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
+def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
@@ -432,7 +438,7 @@ def test_vlan_tc4_tagged_non_broadcast(ptfadapter, vlan_ports_list):
 
 
 @pytest.mark.bsl
-def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
+def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #5
     Send packets w/ src and dst specified over untagged ports in vlan
@@ -486,7 +492,7 @@ def test_vlan_tc5_untagged_non_broadcast(ptfadapter, vlan_ports_list, duthost):
     logger.info("Untagged packet successfully sent from port {} to port {}".format(dst_port[0], src_port))
 
 
-def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, duthost):
+def test_vlan_tc6_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, duthost, toggle_all_simulator_ports_to_rand_selected_tor):
     """
     Test case #6
     Send qinq packets w/ src and dst specified over tagged ports in vlan
