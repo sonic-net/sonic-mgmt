@@ -10,6 +10,7 @@ import requests
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
