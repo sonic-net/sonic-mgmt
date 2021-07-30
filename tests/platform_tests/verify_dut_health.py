@@ -33,6 +33,8 @@ def check_services(duthost):
     Perform a health check of services
     """
     logging.info("Wait until all critical services are fully started")
+    # Wait until 300 seconds after boot up since a part of the services has delayed start (e.g., snmp)
+    wait_until_uptime(duthost, 300)
 
     logging.info("Check critical service status")
     if not duthost.critical_services_fully_started():
