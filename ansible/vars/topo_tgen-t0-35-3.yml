@@ -55,13 +55,13 @@ topology:
         Vlan100:
           id: 100
           intfs: [5]
-          prefix: 192.168.100.1/21
+          prefix: 192.168.0.1/22
           prefix_v6: fc02:100::1/64
           tag: 100
         Vlan200:
           id: 200
           intfs: [6]
-          prefix: 192.168.200.1/21
+          prefix: 192.168.4.1/22
           prefix_v6: fc02:200::1/64
           tag: 200
 
