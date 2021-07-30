@@ -106,9 +106,9 @@ def test_pmon_fancontrol_running_status(duthosts, rand_one_dut_hostname):
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status == expected_running_status,
-                          "Pcied expected running status is {} but is {}".format(expected_running_status, daemon_status))
+                          "Fancontrol expected running status is {} but is {}".format(expected_running_status, daemon_status))
     pytest_assert(daemon_pid != -1,
-                          "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
+                          "Fancontrol expected pid is a positive integer but is {}".format(daemon_pid))
 
 
 def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
@@ -124,18 +124,18 @@ def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, ra
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
-                          "Pcied expected stopped status is {} but is {}".format(expected_stopped_status, daemon_status))
+                          "Fancontrol expected stopped status is {} but is {}".format(expected_stopped_status, daemon_status))
     pytest_assert(daemon_pid == -1,
-                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
+                          "Fancontrol expected pid is -1 but is {}".format(daemon_pid))
 
     duthost.start_pmon_daemon(daemon_name)
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "Fancontrol expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "Fancontrol expected pid is -1 but is {}".format(post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
@@ -153,18 +153,18 @@ def test_pmon_fancontrol_term_and_start_status(check_daemon_status, duthosts, ra
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_exited_status,
-                          "Pcied expected terminated status is {} but is {}".format(expected_exited_status, daemon_status))
+                          "Fancontrol expected terminated status is {} but is {}".format(expected_exited_status, daemon_status))
     pytest_assert(daemon_pid == -1,
-                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
+                          "Fancontrol expected pid is -1 but is {}".format(daemon_pid))
 
     duthost.start_pmon_daemon(daemon_name)
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "Fancontrol expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "Fancontrol expected pid is -1 but is {}".format(post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
@@ -182,14 +182,14 @@ def test_pmon_fancontrol_kill_and_start_status(check_daemon_status, duthosts, ra
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon got killed unexpectedly and it is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status != expected_running_status,
-                          "Pcied unexpected killed status is not {}".format(daemon_status))
+                          "Fancontrol unexpected killed status is not {}".format(daemon_status))
 
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "Fancontrol expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "Fancontrol expected pid is -1 but is {}".format(post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
