@@ -47,9 +47,15 @@ parameters:
   - name: SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
-  - name: TEST_CONTROL
+  # Test Control Parameters to skip or include directories
+  - name: TEST_CONTROL_SKIP
     type: string
-    default: ""
+    default: ' '
+    displayName: "SKIP Directories List"
+  - name: TEST_CONTROL_INCLUDE
+    type: string
+    default: ' '
+    displayName: "INCLUDE Directories List"
 
 stages:
 
@@ -229,7 +235,7 @@ stages:
                     -m individual \
                     -t "$EXECUTION_TOPOLOGY" -r \
                     -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
-                    $TEST_CONTROL
+                    -S "$TEST_CONTROL_SKIP" -I "$TEST_CONTROL_INCLUDE"
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -237,7 +243,8 @@ stages:
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
               TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
               SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-              TEST_CONTROL: ${{ parameters.TEST_CONTROL }}
+              TEST_CONTROL_SKIP: ${{ parameters.TEST_CONTROL_SKIP }}
+              TEST_CONTROL_INCLUDE: ${{ parameters.TEST_CONTROL_INCLUDE }}
 
           - publish: tests/logs
             displayName: "Archive test logs"
