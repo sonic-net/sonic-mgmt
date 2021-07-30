@@ -37,7 +37,8 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
-pcie_devices_status_tbl_key = "PCIE_DEVICES|status"
+pcie_devices_status_tbl_key = "PCIE_DEVICES"
+pcie_devices_status_tbl_key_m = "PCIE_DEVICES|status"
 status_field = "status"
 expected_pcied_devices_status = "PASSED"
 
@@ -110,14 +111,14 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status == expected_running_status,
-                          "Pcied expected running status is {} but is {}".format(expected_running_status, daemon_status))
+                          "{} expected running status is {} but is {}".format(daemon_name, expected_running_status, daemon_status))
     pytest_assert(daemon_pid != -1,
-                          "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
+                          "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
 
     daemon_db_value = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
-    pytest_assert(daemon_db_value == expected_pcied_devices_status,
-                          "Expected {} {} is {} but is {}".format(pcie_devices_status_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
-
+    daemon_db_value_m = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key_m, status_field)
+    if daemon_db_value != expected_pcied_devices_status and daemon_db_value_m != expected_pcied_devices_status:
+         logger.error("{} expected db value is not set".format(daemon_name))
 
 
 def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
@@ -133,18 +134,18 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
-                          "Pcied expected stopped status is {} but is {}".format(expected_stopped_status, daemon_status))
+                          "{} expected stopped status is {} but is {}".format(daemon_name, expected_stopped_status, daemon_status))
     pytest_assert(daemon_pid == -1,
-                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
+                          "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     duthost.start_pmon_daemon(daemon_name)
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
@@ -162,18 +163,18 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_on
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_exited_status,
-                          "Pcied expected terminated status is {} but is {}".format(expected_exited_status, daemon_status))
+                          "{} expected terminated status is {} but is {}".format(daemon_name, expected_exited_status, daemon_status))
     pytest_assert(daemon_pid == -1,
-                          "Pcied expected pid is -1 but is {}".format(daemon_pid))
+                          "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     duthost.start_pmon_daemon(daemon_name)
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
@@ -191,14 +192,14 @@ def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_on
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon got killed unexpectedly and it is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status != expected_running_status,
-                          "Pcied unexpected killed status is not {}".format(daemon_status))
+                          "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
 
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "Pcied expected restarted status is {} but is {}".format(expected_running_status, post_daemon_status))
+                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "Pcied expected pid is -1 but is {}".format(post_daemon_pid))
+                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
