@@ -1,0 +1,14 @@
+Value port (\S+)
+Value pg0 (\d+)
+Value pg1 (\d+)
+Value pg2 (\d+)
+Value pg3 (\d+)
+Value pg4 (\d+)
+Value pg5 (\d+)
+Value pg6 (\d+)
+Value pg7 (\d+)
+
+
+Start
+  ^\s*${port}\s+${pg0}\s+${pg1}\s+${pg2}\s+${pg3}\s+${pg4}\s+${pg5}\s+${pg6}\s+${pg7}\s*$$ -> Record
+  ^\s*${pg0}\s+${pg1}\s+${pg2}\s+${pg3}\s+${pg4}\s+${pg5}\s+${pg6}\s+${pg7}\s*$$ -> Record

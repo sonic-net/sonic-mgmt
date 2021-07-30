@@ -1,0 +1,119 @@
+- name: Install packages that allow apt to be used over HTTPS
+  apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  environment: "{{ proxy_env | default({}) }}"
+  vars:
+    packages:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg-agent
+    - software-properties-common
+
+- name: Add an apt signing key for docker
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Add apt repository for stable version
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+    state: present
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install docker and its dependencies
+  apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Configure docker daemon
+  copy:
+    src: 'daemon.json'
+    dest: '/etc/docker/daemon.json'
+
+- name: Ensure docker.service.d dir exists
+  file: >
+    path=/etc/systemd/system/docker.service.d
+    recurse=yes
+    state=directory
+
+- name: Set docker proxies
+  template:
+    src: 'docker-proxy.j2'
+    dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+  when: proxy_env['https_proxy'] is defined
+
+- name: Enable docker systemd service
+  service:
+    name: 'docker'
+    state: 'started'
+    enabled: 'yes'
+
+- name: Ensure net.d directory exists for dummy CNI configuration
+  file: >
+    path=/etc/cni/net.d
+    recurse=yes
+    state=directory 
+
+- name: Add dummy CNI configuration
+  copy:
+    src: '10-flannel.conflist'
+    dest: '/etc/cni/net.d/10-flannel.conflist'
+
+- name: Reboot the machine
+  reboot:
+
+- name: Add an apt signing key for Kubernetes
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Adding apt repository for Kubernetes
+  apt_repository:
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: kubernetes.list
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Install Kubernetes binaries
+  apt: 
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+      - kubelet={{ KUBERNETES_VERSION }} 
+      - kubeadm={{ KUBERNETES_VERSION }} 
+      - kubectl={{ KUBERNETES_VERSION }}
+  environment: "{{ proxy_env | default({}) }}"
+
+- name: Restart kubelet
+  service:
+    name: kubelet
+    daemon-reload: yes
+    state: restarted
+
+- name: Let iptables see bridged traffic
+  command: modprobe br_netfilter
+
+- name: Disable SWAP
+  command: swapoff -a
+
+- name: Initialize Master Leader
+  include_tasks: init_master_leader.yml
+  when: master_leader is defined
+
+- name: Join Master Members
+  include_tasks: join_master_member.yml
+  when: master_member is defined

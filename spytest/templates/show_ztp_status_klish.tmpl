@@ -1,0 +1,35 @@
+Value Filldown AdminMode (True|False)
+Value Filldown Service (\S+\s*\S+|\S+)
+Value Filldown Status (\S+\s*\S+|\S+)
+Value Filldown Source (\S+\s*\S+|\S+)
+Value Filldown Runtime (\S+\s*\S+)
+Value Filldown TimeStamp (\S+\s+\S+\s*\S+)
+Value Filldown Version (\S+)
+Value Filldown FileName (\S+)
+Value Filldown FileStatus (\S+\s*\S+|\S+)
+Value Filldown FileTimeStamp (\S+\s+\S+\s*\S+)
+Value Filldown IgnoreResult (True|False)
+Value Filldown HaltOnFailure (True|False)
+Value Filldown FileRuntime (\S+\s*\S+)
+
+Start
+  ^\s*$$
+  ^\s*ZTP Service is not running\s*$$
+  ^\s*(=)+\s*$$
+  ^\s*(-)+\s*$$
+  ^\s*ZTP\s*$$
+  ^\s*ZTP\s*Admin\s*Mode\s*:\s*${AdminMode}\s*$$ -> Record
+  ^\s*ZTP\s*Service\s*:\s*${Service}\s*$$ -> Record
+  ^\s*ZTP\s*Status\s*:\s*${Status}\s*$$ -> Record
+  ^\s*ZTP\s*Source\s*:\s*${Source}\s*$$ -> Record
+  ^\s*ZTP\s*Runtime\s*:\s*${Runtime}\s*$$ -> Record
+  ^\s*ZTP\s*Timestamp\s*:\s*${TimeStamp}\s*$$ -> Record
+  ^\s*ZTP\s*JSON\s*Version\s*:\s*${Version}\s*$$ -> Record
+  ^\s*${FileName}\s*$$ -> Record
+  ^\s*Status\s*:\s*${FileStatus}\s*$$ -> Record
+  ^\s*Runtime\s*:\s*${FileRuntime}\s*$$ -> Record
+  ^\s*Timestamp\s*:\s*${FileTimeStamp}\s*$$ -> Record
+  ^\s*Ignore\s+Result\s*:\s*${IgnoreResult}\s*$$ -> Record
+  ^\s*Halt\s+on\s+Failure\s*:\s*${HaltOnFailure}\s*$$ -> Record
+
+EOF

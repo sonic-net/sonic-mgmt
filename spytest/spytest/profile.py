@@ -14,8 +14,8 @@ class Profile(object):
         self.tc_cmds = []
         self.tg_cmd_time = 0
         self.tg_cmds = []
-        self.infra_cmd_time = 0
-        self.infra_cmds = []
+        self.helper_cmd_time = 0
+        self.helper_cmds = []
         self.cmds = []
         self.profile_ids = dict()
         self.canbe_parallel = []
@@ -37,13 +37,13 @@ class Profile(object):
         thid = logger.get_thread_name()
         if dut:
             if pid > 0 and thid == "T0000: ":
-                [pstart_time, pdut, pmsg, pdata] = self.profile_ids[pid-1]
+                [_, pdut, pmsg, _] = self.profile_ids[pid-1]
                 if pmsg == msg and dut != pdut:
                     self.canbe_parallel.append([start_time, msg, dut, pdut])
             if "spytest-helper.py" in msg:
-                self.infra_cmds.append([start_time, thid, dut, msg, cmd_time])
-                self.infra_cmd_time = self.infra_cmd_time + cmd_time
-                self.cmds.append([start_time, thid, "INFRA", dut, msg, cmd_time])
+                self.helper_cmds.append([start_time, thid, dut, msg, cmd_time])
+                self.helper_cmd_time = self.helper_cmd_time + cmd_time
+                self.cmds.append([start_time, thid, "HELPER", dut, msg, cmd_time])
             else:
                 self.tc_cmds.append([start_time, thid, dut, msg, cmd_time])
                 self.tc_cmd_time = self.tc_cmd_time + cmd_time
@@ -78,8 +78,8 @@ class Profile(object):
         stats.tc_cmds = self.tc_cmds
         stats.tg_cmd_time = self.tg_cmd_time
         stats.tg_cmds = self.tg_cmds
-        stats.infra_cmd_time = self.infra_cmd_time
-        stats.infra_cmds = self.infra_cmds
+        stats.helper_cmd_time = self.helper_cmd_time
+        stats.helper_cmds = self.helper_cmds
         stats.cmds = self.cmds
         stats.canbe_parallel = self.canbe_parallel
         stats.pnfound = self.pnfound

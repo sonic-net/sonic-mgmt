@@ -1,0 +1,107 @@
+---
+
+- conf-name: vms-kvm-t0
+  group-name: vms6-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-t0-64
+  group-name: vms6-1
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-t1-lag
+  group-name: vms6-2
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf-02
+  ptf_ip: 10.250.0.106/24
+  ptf_ipv6: fec0::ffff:afa:6/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-03
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-t0-2
+  group-name: vms6-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-03
+  ptf_ip: 10.250.0.108/24
+  ptf_ipv6: fec0::ffff:afa:8/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-04
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-dual-t0
+  group-name: vms6-4
+  topo: dualtor
+  ptf_image_name: docker-ptf
+  ptf: ptf-04
+  ptf_ip: 10.250.0.109/24
+  ptf_ipv6: fec0::ffff:afa:9/64
+  server: server_1
+  vm_base: VM0108
+  dut:
+    - vlab-05
+    - vlab-06
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Dual-TOR testbed
+
+- conf-name: vms-kvm-multi-asic-t1-lag
+  group-name: vms6-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf-05
+  ptf_ip: 10.250.0.110/24
+  ptf_ipv6: fec0::ffff:afa:a/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-07
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests multi-asic virtual switch vm
+
+- conf-name: vms-kvm-four-asic-t1-lag
+  group-name: vms6-4
+  topo: t1-8-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf-05
+  ptf_ip: 10.250.0.110/24
+  ptf_ipv6: fec0::ffff:afa:a/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-08
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests multi-asic virtual switch vm

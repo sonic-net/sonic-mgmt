@@ -1,0 +1,20 @@
+################################################
+#ERRDISABLE Information
+#Errdisable Cause    Status
+#------------------  --------
+#udld                enabled
+#bpduguard           disabled
+#Timeout for Auto-recovery:  300 seconds
+###############################################
+Value INTERVAL (\d+)
+Value UDLD (\S+)
+Value BPDUGUARD (\S+)
+
+Start
+  ^\s*udld\s*${UDLD}\s*$$
+  ^\s*bpduguard\s*${BPDUGUARD}\s*$$
+  ^\s*Timeout for Auto-recovery:\s*${INTERVAL}\s*seconds\s*$$ -> Record
+
+EOF
+
+

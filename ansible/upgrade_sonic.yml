@@ -4,11 +4,51 @@
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=sonic" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 # upgrade via onie:
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
-
+# upgrade DUTs listed in testbed
+#   ansible-playbook upgrade-sonic.yaml -i lab -e "testbed_name=vms1-1" -e "testbed_file=testbed.csv" -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 - hosts: all
   gather_facts: no
   tasks:
 
+    - name: Add DUTs defined in testbed
+      block:
+        - name: Set default testbed file
+          set_fact:
+            testbed_file: testbed.csv
+          when: testbed_file is not defined
+
+        - name: Gather testbed information
+          test_facts:
+            testbed_name: "{{ testbed_name }}"
+            testbed_file: "{{ testbed_file }}"
+
+        - name: Stop upgrade if the target DUT doesn't belong to the testbed
+          fail: msg="The upgrade target doesn't belong to the testbed {{ testbed_name }}"
+          when: ansible_play_hosts | length == 1 and inventory_hostname not in testbed_facts['duts']
+
+        - name: Create upgrade targets group
+          add_host:
+            name: "{{ item }}"
+            groups: upgrade_targets
+          loop: "{{ testbed_facts['duts'] }}"
+      delegate_to: localhost
+      run_once: True
+      when:
+        - testbed_name is defined
+
+    - name: Add DUTs if no testbed present
+      add_host:
+        name: "{{ item }}"
+        groups: upgrade_targets
+      loop: "{{ ansible_play_hosts }}"
+      delegate_to: localhost
+      run_once: True
+      when:
+        - testbed_name is not defined
+
+- hosts: upgrade_targets
+  gather_facts: no
+  tasks:
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
@@ -63,7 +103,7 @@
 
         # Reboot may need some time to update firmware firstly.
         # Increasing the async time to 300 seconds to avoid reboot being interrupted.
-        - name: Reboot the switch {{ inventory_hostname }}
+        - name: Reboot switch
           become: true
           shell: reboot
           async: 300
@@ -73,7 +113,7 @@
       when: upgrade_type == "sonic"
 
     # Delay 180 seconds to wait for firmware updating before reboot, then start polling switch
-    - name: Wait for switch {{ inventory_hostname }} to come back (to SONiC)
+    - name: Wait for switch to come back (to SONiC)
       local_action: wait_for
       args:
         host: "{{ real_ansible_host }}"

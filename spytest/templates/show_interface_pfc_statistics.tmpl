@@ -1,0 +1,20 @@
+Value Port (\S+)
+Value Filldown PORT_MODE (received|transmitted)
+Value PFC0 (\S+)
+Value PFC1 (\S+)
+Value PFC2 (\S+)
+Value PFC3 (\S+)
+Value PFC4 (\S+)
+Value PFC5 (\S+)
+Value PFC6 (\S+)
+Value PFC7 (\S+)
+
+
+Start
+  ^Flow\s*Control\s*frames\s*${PORT_MODE}
+  ^\s*Interface\s+PFC0\s+PFC1\s+PFC2\s+PFC3\s+PFC4\s+PFC5\s+PFC6\s+PFC7\s*$$
+  ^\s*(\-\s*)*\s*$$
+  ^\s*${Port}\s+${PFC0}\s+${PFC1}\s+${PFC2}\s+${PFC3}\s+${PFC4}\s+${PFC5}\s+${PFC6}\s+${PFC7}\s*$$ -> Record
+  ^$$
+
+EOF

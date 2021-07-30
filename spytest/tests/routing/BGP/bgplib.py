@@ -3,26 +3,24 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 ##############################################################################################
 
-from spytest.tgen.tg import *
-from spytest.tgen.tgen_utils import *
 import random
 import pprint
-from spytest import st
-from spytest.dicts import SpyTestDict
+
+from spytest import st, SpyTestDict
+from spytest.tgen.tg import tgen_obj_dict
+from spytest.utils import filter_and_select
+
 import apis.routing.ip as ipapi
 import apis.routing.bgp as bgpapi
 import apis.routing.route_map as rmapapi
 import apis.switching.portchannel as poapi
 import apis.switching.vlan as vlanapi
-import utilities.utils as utils_obj
 import BGP.resource as res_data_obj
-import utilities.common as utils
-from spytest.utils import filter_and_select
 
+import utilities.common as utils
+#import utilities.utils as utils_obj
 
 # Global vars
-global fast_start, tg_info, topo_info, loopback_info, static_rt_info, fixed_nw_info, tg_connected_routers
-global as_info, bgp_password, underlay_info
 fast_start = True  # To Enable parallel config
 tg_info = SpyTestDict()
 topo_info = SpyTestDict()
@@ -76,7 +74,7 @@ def l3tc_underlay_config_unconfig(config='yes', config_type='phy'):
             # for physical interface underlay just store the underlay link info
             if config_type == 'phy':
                 link_index = 1
-                for local, partner, remote in st.get_dut_links(data[leaf], data[spine]):
+                for local, _, remote in st.get_dut_links(data[leaf], data[spine]):
                     if link_index <= max_mem:
                         underlay_info['links'][leaf][spine].append([local, remote])
                     link_index += 1
@@ -87,7 +85,7 @@ def l3tc_underlay_config_unconfig(config='yes', config_type='phy'):
                 ve_int_name = 'Vlan'+str(vlan_id)
                 underlay_info['links'][leaf][spine].append([ve_int_name, ve_int_name])
                 link_index = 1
-                for local, partner, remote in st.get_dut_links(data[leaf], data[spine]):
+                for local, _, remote in st.get_dut_links(data[leaf], data[spine]):
                     if link_index <= max_mem:
                         local_lag_mbrs.append(local)
                         remote_lag_mbrs.append(remote)
@@ -100,7 +98,7 @@ def l3tc_underlay_config_unconfig(config='yes', config_type='phy'):
                 remote_lag_mbrs = []
                 underlay_info['links'][leaf][spine].append([po_name, po_name])
                 link_index = 1
-                for local, partner, remote in st.get_dut_links(data[leaf], data[spine]):
+                for local, _, remote in st.get_dut_links(data[leaf], data[spine]):
                     if link_index <= max_mem:
                         local_lag_mbrs.append(local)
                         remote_lag_mbrs.append(remote)
@@ -152,8 +150,8 @@ def l3tc_underlay_ve_lag_config_unconfig(config, dut1, dut2, vlan_id, po_name, m
         # del po from vlan
         [out, exceptions] = \
             utils.exec_all(fast_start,
-                           [[vlanapi.delete_vlan_member, dut1, vlan_id, po_name],
-                            [vlanapi.delete_vlan_member, dut2, vlan_id, po_name]])
+                           [[vlanapi.delete_vlan_member, dut1, vlan_id, po_name, True],
+                            [vlanapi.delete_vlan_member, dut2, vlan_id, po_name, True]])
         st.log([out, exceptions])
 
         # del po and delete members
@@ -277,7 +275,7 @@ def l3tc_vrfipv4v6_address_leafspine_loopback_config_unconfig(config='yes', conf
     thread4_info = []
     thread6_info = []
     loop_back_int_create = []
-    for j, leaf in enumerate(data['leaf_routers'], start=0):
+    for _, leaf in enumerate(data['leaf_routers'], start=0):
         loopback1 = "{}.{}.{}.{}".format(i, i+1, i+2, i+3)
         loopback6addr_1 = "{}::{}".format(6000+i, i)
         loopback_info['ipv4'][leaf] = loopback1
@@ -290,7 +288,7 @@ def l3tc_vrfipv4v6_address_leafspine_loopback_config_unconfig(config='yes', conf
                              config])
         i += 1
 
-    for j, spine in enumerate(data['spine_routers'], start=0):
+    for _, spine in enumerate(data['spine_routers'], start=0):
         loopback1 = "{}.{}.{}.{}".format(i, i+1, i+2, i+3)
         loopback6addr_1 = "{}::{}".format(6000+i, i)
         loopback_info['ipv4'][spine] = loopback1
@@ -353,7 +351,7 @@ def l3tc_vrfipv4v6_static_route_leafspine_config_unconfig(config='yes', vrf_type
                 dut_port_list = [each for each in topo_info[afamily][dut_name] if each[2] in dut_name_map]
                 for port_idx, each_port in enumerate(dut_port_list, start=1):
                     port_rmt_ip4 = each_port[4]
-                    port_lnk_num = each_port[5]
+                    #port_lnk_num = each_port[5]
 
                     staticip = "{}.{}.{}.0/24".format(data['ipv4_static_addres_first_octet'], dut_idx, port_idx)
                     nexthop = port_rmt_ip4
@@ -377,7 +375,7 @@ def l3tc_vrfipv4v6_static_route_leafspine_config_unconfig(config='yes', vrf_type
                 dut_port_list = [each for each in topo_info[afamily][dut_name] if each[2] in dut_name_map]
                 for port_idx, each_port in enumerate(dut_port_list, start=1):
                     port_rmt_ip6 = each_port[4]
-                    port_lnk_num = each_port[5]
+                    #port_lnk_num = each_port[5]
 
                     staticip = "{}:{}:{}::2/64".format(data['ipv6_static_addres_first_octet'], dut_idx, port_idx)
                     nexthop = port_rmt_ip6
@@ -416,15 +414,15 @@ def l3tc_vrfipv4v6_address_leafspine_ping_test(vrf_type='all', config_type='all'
     for leaf in data['leaf_routers']:
         for spine in data['spine_routers']:
             link = 1
-            for local, remote in underlay_info['links'][leaf][spine]:
+            for local, _ in underlay_info['links'][leaf][spine]:
                 if config_type == 'ipv4' or config_type == 'all':
-                    ipaddr1 = "{}.{}.{}.1".format(ipv4_adr, k, link)
+                    #ipaddr1 = "{}.{}.{}.1".format(ipv4_adr, k, link)
                     ipaddr2 = "{}.{}.{}.2".format(ipv4_adr, k, link)
                     if not ipapi.ping(data[leaf], ipaddr2, family='ipv4', count=ping_count):
                         st.log("{}- {} configured on {} - ping failed".format(data[leaf], local, ipaddr2))
                         result = False
                 if config_type == 'ipv6' or config_type == 'all':
-                    ip6addr_1 = "{}:{}:{}::1".format(ipv6_adr, k, link)
+                    #ip6addr_1 = "{}:{}:{}::1".format(ipv6_adr, k, link)
                     ip6addr_2 = "{}:{}:{}::2".format(ipv6_adr, k, link)
                     if not ipapi.ping(data[leaf], ip6addr_2, family='ipv6', count=ping_count):
                         st.log("{}- {} configured on {} - ping v6 failed".format(data[leaf], local, ip6addr_2))
@@ -449,7 +447,7 @@ def l3tc_vrfipv4v6_address_leafspine_bgp_config(config='yes', vrf_type='all', co
     ipv6_adr = data['ipv6_addres_first_octet']
     spine_as = int(data['spine_as'])
     leaf_as = int(data['leaf_as'])
-    if kwargs.has_key('rr_enable'):
+    if 'rr_enable' in kwargs:
         leaf_as = spine_as
 
     result = True
@@ -464,7 +462,7 @@ def l3tc_vrfipv4v6_address_leafspine_bgp_config(config='yes', vrf_type='all', co
                 link = 1
                 if config == 'add':
                     spine_neigh_list, leaf_neigh_list, spine_neigh6_list, leaf_neigh6_list = [], [], [], []
-                    for local, remote in underlay_info['links'][leaf][spine]:
+                    for _, _ in underlay_info['links'][leaf][spine]:
                         if config_type == 'ipv4' or config_type == 'all':
                             ipaddr1 = "{}.{}.{}.1".format(ipv4_adr, k, link)
                             ipaddr2 = "{}.{}.{}.2".format(ipv4_adr, k, link)
@@ -524,8 +522,8 @@ def l3tc_vrfipv4v6_bgp_network_leafspine_config_unconfig(config='yes', vrf_type=
     fixed_nw_info['ipv6'] = SpyTestDict()
 
     result = True
-    thread4_info = []
-    thread6_info = []
+    #thread4_info = []
+    #thread6_info = []
 
     dut_name_map = SpyTestDict()
     dut_name_list = {each:[] for each in data['spine_routers'] + data['leaf_routers']}
@@ -542,8 +540,8 @@ def l3tc_vrfipv4v6_bgp_network_leafspine_config_unconfig(config='yes', vrf_type=
             if config_type == 'ipv4' or config_type == 'all':
                 afamily = 'ipv4'
                 dut_port_list = [each for each in topo_info[afamily][dut_name] if each[2] in dut_name_map]
-                for port_idx, each_port in enumerate(dut_port_list, start=1):
-                    port_lnk_num = each_port[5]
+                for port_idx, _ in enumerate(dut_port_list, start=1):
+                    #port_lnk_num = each_port[5]
                     networkip = "{}.{}.{}.0/24".format(data['ipv4_nw_addres_first_octet'], dut_idx, port_idx)
 
                     if config == 'yes':
@@ -567,8 +565,8 @@ def l3tc_vrfipv4v6_bgp_network_leafspine_config_unconfig(config='yes', vrf_type=
             if config_type == 'ipv6' or config_type == 'all':
                 afamily = 'ipv6'
                 dut_port_list = [each for each in topo_info[afamily][dut_name] if each[2] in dut_name_map]
-                for port_idx, each_port in enumerate(dut_port_list, start=1):
-                    port_lnk_num = each_port[5]
+                for port_idx, _ in enumerate(dut_port_list, start=1):
+                    #port_lnk_num = each_port[5]
                     networkip = "{}:{}:{}::2/64".format(data['ipv6_nw_addres_first_octet'], dut_idx, port_idx)
 
                     fixed_nw_info[afamily][dut_name].append(networkip)
@@ -618,7 +616,7 @@ def l3tc_vrfipv4v6_address_leafspine_bgp_check(config_type='all'):
         spine_neigh_list, leaf_neigh_list, spine_neigh6_list, leaf_neigh6_list = [], [], [], []
         for spine in data['spine_routers']:
             link = 1
-            for local, remote in underlay_info['links'][leaf][spine]:
+            for _, _ in underlay_info['links'][leaf][spine]:
                 if config_type == 'ipv4' or config_type == 'all':
                     ipaddr1 = "{}.{}.{}.1".format(ipv4_adr, k, link)
                     ipaddr2 = "{}.{}.{}.2".format(ipv4_adr, k, link)
@@ -632,16 +630,18 @@ def l3tc_vrfipv4v6_address_leafspine_bgp_check(config_type='all'):
                     leaf_neigh6_list.append(ip6addr_1)
                 link += 1
             k += 1
-
+        #import pdb;pdb.set_trace()
         if config_type == 'ipv4' or config_type == 'all':
             neigh_list = list(set(spine_neigh_list))
-            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv4', neighbor=neigh_list, state='Established'):
+            #if not bgpapi.verify_bgp_summary(data[leaf], family='ipv4',shell="vtysh", neighbor=neigh_list, state='Established'):
+            if not utils.poll_wait(bgpapi.verify_bgp_summary, 120,data[leaf], family='ipv4',shell="vtysh", neighbor=neigh_list, state='Established'):
                 st.log("{} - Neighbor {} is failed to Establish".format(data[leaf], neigh_list))
                 result = False
 
         if config_type == 'ipv6' or config_type == 'all':
             neigh_list = list(set(spine_neigh6_list))
-            if not bgpapi.verify_bgp_summary(data[leaf], family='ipv6', neighbor=neigh_list, state='Established'):
+            #if not bgpapi.verify_bgp_summary(data[leaf], family='ipv6', shell="vtysh", neighbor=neigh_list, state='Established'):
+            if not utils.poll_wait(bgpapi.verify_bgp_summary, 120, data[leaf], family='ipv6', shell="vtysh", neighbor=neigh_list, state='Established'):
                 st.log("{} - Neighbor {} is failed to Establish".format(data[leaf], neigh_list))
                 result = False
 
@@ -662,16 +662,16 @@ def l3tc_vrfipv4v6_address_leafspine_tg_config_unconfig(config='yes', vrf_type='
     global tg_connected_routers
     config = 'add' if config == 'yes' else 'remove'
     max_mem = int(data['l3_max_tg_links_each_leaf_spine'])
-    mas_addr_spine = data['mac_addres_tg_src_spine']
-    mas_addr_leaf = data['mac_addres_tg_src_leaf']
-    ipv4_adr_spine = data['ipv4_addres_first_octet_tg_spine']
-    ipv6_adr_spine = data['ipv6_addres_first_octet_tg_spine']
+    #mas_addr_spine = data['mac_addres_tg_src_spine']
+    #mas_addr_leaf = data['mac_addres_tg_src_leaf']
+    #ipv4_adr_spine = data['ipv4_addres_first_octet_tg_spine']
+    #ipv6_adr_spine = data['ipv6_addres_first_octet_tg_spine']
     ipv4_adr_leaf = data['ipv4_addres_first_octet_tg_leaf']
     ipv6_adr_leaf = data['ipv6_addres_first_octet_tg_leaf']
-    tg_in_spine = sum([len(st.get_tg_links(data[spine])) for spine in data['spine_routers']])
-    tg_in_leaf = sum([len(st.get_tg_links(data[leaf])) for leaf in data['leaf_routers']])
-    mac_list_spine = utils_obj.get_mac_address(mas_addr_spine, start=1, end=tg_in_spine+1, step=1)
-    mac_list_leaf = utils_obj.get_mac_address(mas_addr_leaf, start=1, end=tg_in_leaf+1, step=1)
+    #tg_in_spine = sum([len(st.get_tg_links(data[spine])) for spine in data['spine_routers']])
+    #tg_in_leaf = sum([len(st.get_tg_links(data[leaf])) for leaf in data['leaf_routers']])
+    #mac_list_spine = utils_obj.get_mac_address(mas_addr_spine, start=1, end=tg_in_spine+1, step=1)
+    #mac_list_leaf = utils_obj.get_mac_address(mas_addr_leaf, start=1, end=tg_in_leaf+1, step=1)
 
     result = True
 
@@ -805,7 +805,7 @@ def l3tc_vrfipv4v6_address_leafspine_tg_bgp_config(config='yes', vrf_type='all',
                 tg_as = spine_tg_as
                 dut_as = spine_as
 
-            for local, partner, remote in st.get_tg_links(data[device_type]):
+            for local, _, _ in st.get_tg_links(data[device_type]):
                 if link <= max_mem:
                     if config_type == 'ipv4' or config_type == 'all':
                         ipaddr1 = "{}.{}.{}.1".format(ipv4_adr_leaf, j, link)
@@ -813,7 +813,7 @@ def l3tc_vrfipv4v6_address_leafspine_tg_bgp_config(config='yes', vrf_type='all',
                         tg_neigh_list.append(ipaddr2)
                         leaf_neigh_list.append(ipaddr1)
                         if class_reconfig == "No":
-                            [tg, tg_ph_x, h1, ip_info] = tg_info[device_type]['ipv4'][local]
+                            [tg, _, h1, _] = tg_info[device_type]['ipv4'][local]
                             rv = config_bgp_on_tg(tg, h1, dut_as, tg_as+j-1, ipaddr1, action='start', af='ipv4')
                             tg_info[device_type]['ipv4'][local].append(rv)
 
@@ -823,7 +823,7 @@ def l3tc_vrfipv4v6_address_leafspine_tg_bgp_config(config='yes', vrf_type='all',
                         tg_neigh6_list.append(ip6addr_2)
                         leaf_neigh6_list.append(ip6addr_1)
                         if class_reconfig == "No":
-                            [tg, tg_ph_x, h1, ip_info] = tg_info[device_type]['ipv6'][local]
+                            [tg, _, h1, _] = tg_info[device_type]['ipv6'][local]
                             rv = config_bgp_on_tg(tg, h1, dut_as, tg_as+j-1, ip6addr_1, action='start', af='ipv6')
                             tg_info[device_type]['ipv6'][local].append(rv)
 
@@ -839,6 +839,7 @@ def l3tc_vrfipv4v6_address_leafspine_tg_bgp_config(config='yes', vrf_type='all',
                 bgpapi.config_bgp_multi_neigh_use_peergroup(data[device_type], local_asn=dut_as,
                                                             peer_grp_name='leaf_tg6', remote_asn=tg_as+j-1,
                                                             neigh_ip_list=tg_neigh6_list, family='ipv6', activate=1)
+                
 
     else:
         bgpapi.cleanup_bgp_config([data[dut] for dut in data['leaf_routers']+data['spine_routers']])
@@ -859,10 +860,10 @@ def l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', vrf_type='al
 
     config = 'add' if config == 'yes' else 'remove'
     max_mem = int(data['l3_max_tg_links_each_leaf_spine'])
-    mas_addr_spine = data['mac_addres_tg_src_spine']
-    mas_addr_leaf = data['mac_addres_tg_src_leaf']
-    ipv4_adr_spine = data['ipv4_addres_first_octet_tg_spine']
-    ipv6_adr_spine = data['ipv6_addres_first_octet_tg_spine']
+    #mas_addr_spine = data['mac_addres_tg_src_spine']
+    #mas_addr_leaf = data['mac_addres_tg_src_leaf']
+    #ipv4_adr_spine = data['ipv4_addres_first_octet_tg_spine']
+    #ipv6_adr_spine = data['ipv6_addres_first_octet_tg_spine']
     ipv4_adr_leaf = data['ipv4_addres_first_octet_tg_leaf']
     ipv6_adr_leaf = data['ipv6_addres_first_octet_tg_leaf']
 
@@ -870,7 +871,7 @@ def l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', vrf_type='al
     leaf_as = int(data['leaf_as'])
     leaf_tg_as = int(data['leaf_tg_as'])
     spine_tg_as = int(data['spine_tg_as'])
-    if kwargs.has_key('rr_enable'):
+    if 'rr_enable' in kwargs:
         spine_tg_as = spine_as
         leaf_as = spine_as
 
@@ -886,14 +887,14 @@ def l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', vrf_type='al
                 tg_as = spine_tg_as
                 dut_as = spine_as
 
-            for local, partner, remote in st.get_tg_links(data[device_type]):
+            for local, _, _ in st.get_tg_links(data[device_type]):
                 if link <= max_mem:
                     if config_type == 'ipv4' or config_type == 'all':
                         ipaddr1 = "{}.{}.{}.1".format(ipv4_adr_leaf, j, link)
                         ipaddr2 = "{}.{}.{}.2".format(ipv4_adr_leaf, j, link)
                         tg_neigh_list.append(ipaddr2)
                         leaf_neigh_list.append(ipaddr1)
-                        [tg, tg_ph_x, h1, ip_info] = tg_info[device_type]['ipv4'][local]
+                        [tg, _, h1, _] = tg_info[device_type]['ipv4'][local]
                         rv = config_bgp_on_tg(tg, h1, dut_as, tg_as, ipaddr1, action='start', af='ipv4')
                         tg_info[device_type]['ipv4'][local].append(rv)
 
@@ -903,7 +904,7 @@ def l3tc_vrfipv4v6_address_leafspine_rr_tg_bgp_config(config='yes', vrf_type='al
                         tg_neigh6_list.append(ip6addr_2)
                         leaf_neigh6_list.append(ip6addr_1)
 
-                        [tg, tg_ph_x, h1, ip_info] = tg_info[device_type]['ipv6'][local]
+                        [tg, _, h1, _] = tg_info[device_type]['ipv6'][local]
                         rv = config_bgp_on_tg(tg, h1, dut_as, tg_as, ip6addr_1, action='start', af='ipv6')
                         tg_info[device_type]['ipv6'][local].append(rv)
 
@@ -1015,17 +1016,17 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
     if dut_type == '':
         return rv
     # For 1:1 mode TG handled here, dut_type over written
-    if 'spine' in ','.join(tg_connected_routers) and nodes >= 2:
+    if 'spine' in ','.join(tg_connected_routers) and int(nodes) >= 2:
         dut_type = "leaf-spine"
 
     final_rv = SpyTestDict()
     if dut_type in ['leaf-spine', 'spine-leaf']:
         temp = {}
-        for i, spine in enumerate(data['spine_routers'], start=1):
+        for _, spine in enumerate(data['spine_routers'], start=1):
             tg_list = st.get_tg_links(data[spine])
             if int(max_tg_links) <= len(tg_list):
                 temp[spine] = tg_list
-        for i, leaf in enumerate(data['leaf_routers'], start=1):
+        for _, leaf in enumerate(data['leaf_routers'], start=1):
             tg_list = st.get_tg_links(data[leaf])
             if int(max_tg_links) <= len(tg_list):
                 temp[leaf] = tg_list
@@ -1044,7 +1045,7 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
 
     elif dut_type == 'spine':
         temp = {}
-        for i, spine in enumerate(data['spine_routers'], start=1):
+        for _, spine in enumerate(data['spine_routers'], start=1):
             tg_list = st.get_tg_links(data[spine])
             if int(max_tg_links) <= len(tg_list):
                 temp[spine] = tg_list
@@ -1059,7 +1060,7 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
 
     elif dut_type == 'leaf':
         temp = {}
-        for i, leaf in enumerate(data['leaf_routers'], start=1):
+        for _, leaf in enumerate(data['leaf_routers'], start=1):
             tg_list = st.get_tg_links(data[leaf])
             if int(max_tg_links) <= len(tg_list):
                 temp[leaf] = tg_list
@@ -1287,6 +1288,8 @@ def configure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     :param config_items:
     :return:
     """
+    cli_type = st.get_ui_type(dut2, cli_type="")
+    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else ("klish" if cli_type in ["rest-patch","rest-put"] else cli_type)
 
     use_global_rmap = rmapapi.RouteMap("UseGlobal")
     use_global_rmap.add_permit_sequence('10')
@@ -1322,45 +1325,49 @@ def configure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
                       config_type_list=["routeMap"], routeMap='UseGlobal', diRection='in')
 
     leaf_ip_acl_11 = ipapi.AccessList("11")
-    leaf_ip_acl_11.add_match_deny_sequence('102.1.1.0/24')
-    leaf_ip_acl_11.add_match_permit_sequence('any')
+    leaf_ip_acl_11.add_match_deny_sequence('102.1.1.0/24', rule_seq="1")
+    leaf_ip_acl_11.add_match_permit_sequence('any', rule_seq="2")
 
     leaf_ip_acl_12 = ipapi.AccessList("12", family='ipv6')
-    leaf_ip_acl_12.add_match_deny_sequence('102:1::/64')
-    leaf_ip_acl_12.add_match_permit_sequence('any')
+    leaf_ip_acl_12.add_match_deny_sequence('102:1::/64', rule_seq="3")
+    leaf_ip_acl_12.add_match_permit_sequence('any', rule_seq="4")
 
     leaf_prefix_list_202 = ipapi.PrefixList("PREFIXOUT")
-    leaf_prefix_list_202.add_match_deny_sequence('202.1.1.0/24')
-    leaf_prefix_list_202.add_match_permit_sequence('any')
+    leaf_prefix_list_202.add_match_deny_sequence('202.1.1.0/24', seq_num="5")
+    leaf_prefix_list_202.add_match_permit_sequence('any', seq_num="6")
 
     leaf_prefix_list_202_v6 = ipapi.PrefixList("PREFIXOUT6", family='ipv6')
-    leaf_prefix_list_202_v6.add_match_deny_sequence('202:1::/64')
-    leaf_prefix_list_202_v6.add_match_permit_sequence('any')
+    leaf_prefix_list_202_v6.add_match_deny_sequence('202:1::/64', seq_num="7")
+    leaf_prefix_list_202_v6.add_match_permit_sequence('any', seq_num="8")
 
     aspath_acl = bgpapi.ASPathAccessList("FILTER")
     aspath_acl.add_match_deny_sequence(['{}'.format(topo['dut1_as'])])
 
+    aspath_acl6 = bgpapi.ASPathAccessList("FILTER6")
+    aspath_acl6.add_match_deny_sequence(['{}'.format(topo['dut1_as'])])
+
     leaf1_cmd = leaf_ip_acl_11.config_command_string() + leaf_ip_acl_12.config_command_string() \
                 + leaf_prefix_list_202.config_command_string() + leaf_prefix_list_202_v6.config_command_string() \
-                + aspath_acl.config_command_string()
+                + aspath_acl.config_command_string() + aspath_acl6.config_command_string()
     config_items['dut2'].append(leaf_ip_acl_11)
     config_items['dut2'].append(leaf_ip_acl_12)
     config_items['dut2'].append(leaf_prefix_list_202)
     config_items['dut2'].append(leaf_prefix_list_202_v6)
     config_items['dut2'].append(aspath_acl)
+    config_items['dut2'].append(aspath_acl6)
 
     leaf_prefix_list_101 = ipapi.PrefixList("MATCHPREFIX1")
-    leaf_prefix_list_101.add_match_permit_sequence('101.1.1.0/24')
-    leaf_prefix_list_101.add_match_deny_sequence('any')
+    leaf_prefix_list_101.add_match_permit_sequence('101.1.1.0/24', seq_num="9")
+    leaf_prefix_list_101.add_match_deny_sequence('any', seq_num="10")
     leaf_prefix_list_102 = ipapi.PrefixList("MATCHPREFIX2")
-    leaf_prefix_list_102.add_match_permit_sequence('102.1.1.0/24')
-    leaf_prefix_list_102.add_match_deny_sequence('any')
+    leaf_prefix_list_102.add_match_permit_sequence('102.1.1.0/24', seq_num="11")
+    leaf_prefix_list_102.add_match_deny_sequence('any', seq_num="12")
     leaf_prefix_list_101_v6 = ipapi.PrefixList("MATCHPREFIX61", family='ipv6')
-    leaf_prefix_list_101_v6.add_match_permit_sequence('101:1::/64')
-    leaf_prefix_list_101_v6.add_match_deny_sequence('any')
+    leaf_prefix_list_101_v6.add_match_permit_sequence('101:1::/64', seq_num="13")
+    leaf_prefix_list_101_v6.add_match_deny_sequence('any', seq_num="14")
     leaf_prefix_list_102_v6 = ipapi.PrefixList("MATCHPREFIX62", family='ipv6')
-    leaf_prefix_list_102_v6.add_match_permit_sequence('102:1::/64')
-    leaf_prefix_list_102_v6.add_match_deny_sequence('any')
+    leaf_prefix_list_102_v6.add_match_permit_sequence('102:1::/64', seq_num="15")
+    leaf_prefix_list_102_v6.add_match_deny_sequence('any', seq_num="16")
 
     leaf1_cmd += leaf_prefix_list_101.config_command_string() + leaf_prefix_list_102.config_command_string() \
                  + leaf_prefix_list_101_v6.config_command_string() + leaf_prefix_list_102_v6.config_command_string()
@@ -1391,7 +1398,8 @@ def configure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     config_items['dut2'].append(leaf_rmap_setprops)
     config_items['dut2'].append(leaf_rmap_setprops_v6)
 
-    st.vtysh_config(dut2, leaf1_cmd)
+    st.config(dut2, leaf1_cmd, type=cli_type)
+    #st.vtysh_config(dut2, leaf1_cmd)
 
 
 def unconfigure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
@@ -1403,6 +1411,10 @@ def unconfigure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     :param config_items:
     :return:
     """
+
+    cli_type = st.get_ui_type(dut1, cli_type="")
+    cli_type = "vtysh" if cli_type in ['click', "vtysh"] else (
+        "klish" if cli_type in ["rest-patch", "rest-put"] else cli_type)
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '101.1.1.0/24', config='no')
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '102.1.1.0/24', config='no')
     bgpapi.config_bgp_network_advertise(dut1, topo['dut1_as'], '101:1::/64', addr_family='ipv6', config='no')
@@ -1431,8 +1443,9 @@ def unconfigure_base_for_route_adv_and_filter(dut1, dut2, topo, config_items):
     for item in reversed(config_items['dut1']):
         spine1_cmd += item.unconfig_command_string()
 
-    st.vtysh_config(dut2, leaf1_cmd)
-    st.vtysh_config(dut1, spine1_cmd)
+
+    st.config(dut2, leaf1_cmd, type=cli_type)
+    st.config(dut1, spine1_cmd,type=cli_type)
 
 
 def show_bgp_neighbors(dut, af='ipv4'):

@@ -1,13 +1,21 @@
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>{{ dut_name }}</name>
-  <memory unit='KiB'>2048000</memory>
-  <currentMemory unit='KiB'>2048000</currentMemory>
+{% if hwsku  == 'msft_four_asic_vs' %}
+  <memory unit='GB'>8</memory>
+  <vcpu placement='static'>10</vcpu>
+{% elif hwsku == 'msft_multi_asic_vs' %}
+  <memory unit='GB'>8</memory>
+  <vcpu placement='static'>16</vcpu>
+{% else %}
+  <memory unit='KiB'>3072000</memory>
+  <currentMemory unit='KiB'>3072000</currentMemory>
   <vcpu placement='static'>4</vcpu>
+{% endif %}
   <resource>
     <partition>/machine</partition>
   </resource>
   <os>
-    <type arch='x86_64' machine='pc-i440fx-1.5'>hvm</type>
+    <type arch='x86_64' machine='q35'>hvm</type>
     <boot dev='hd'/>
   </os>
   <features>
@@ -45,6 +53,7 @@
       <alias name='balloon0'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </memballoon>
+    <watchdog model='i6300esb'/>
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'/>
 </domain>

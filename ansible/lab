@@ -1,52 +1,150 @@
-[sonic_sn2700_40]
-str-msn2700-01    ansible_host=10.251.0.188
+all:
+  children:
+    lab:
+      vars:
+        mgmt_subnet_mask_length: 24
+      children:
+        sonic:
+          children:
+            sonic_sn2700_40:
+            sonic_s6000:
+            sonic_s6100:
+            sonic_a7260:
+            sonic_multi_asic:
+            sonic_multi_asic_2:
+        fanout:
+          hosts:
+            str-7260-10:
+              ansible_host: 10.251.0.13
+            str-7260-11:
+              ansible_host: 10.251.0.234
+            str-msn2700-02:
+              ansible_host: 10.251.0.235
+              os: sonic
+    ptf:
+      hosts:
+        ptf_ptf1:
+          ansible_host: 10.255.0.188
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
+        ptf_vms1-1:
+          ansible_host: 10.255.0.178
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
+        ptf_vms6-1:
+          ansible_host: 10.250.0.100
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
 
-[sonic_sn2700_40:vars]
-hwsku="ACS-MSN2700"
-iface_speed='40000'
+sonic_sn2700_40:
+  vars:
+    hwsku: ACS-MSN2700
+    iface_speed: 40000
+  hosts:
+    str-msn2700-01:
+      ansible_host: 10.251.0.188
+      model: MSN2700-CS2FO
+      serial: MT1234X56789
+      base_mac: 24:8a:07:12:34:56
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FO"
+        "0x23": "MT1234X56789"
+        "0x24": "24:8a:07:12:34:56"
+        "0x25": "12/07/2016"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0008-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0xFBA1E964"
 
-[sonic_s6000]
-lab-s6000-01      ansible_host=10.251.0.189
-vlab-01           ansible_host=10.250.0.101
-vlab-03           ansible_host=10.250.0.105
+sonic_s6000:
+  vars:
+    hwsku: Force10-S6000
+    iface_speed: 40000
+  hosts:
+    lab-s6000-01:
+      ansible_host: 10.251.0.189
+      ansible_hostv6: fec0::ffff:afa:9
+    vlab-01:
+      ansible_host: 10.250.0.101
+      ansible_hostv6: fec0::ffff:afa:1
+    vlab-03:
+      ansible_host: 10.250.0.105
+      ansible_hostv6: fec0::ffff:afa:5
+    vlab-04:
+      ansible_host: 10.250.0.107
+      ansible_hostv6: fec0::ffff:afa:7
+    vlab-05:
+      ansible_host: 10.250.0.110
+      ansible_hostv6: fec0::ffff:afa:a
+    vlab-06:
+      ansible_host: 10.250.0.111
+      ansible_hostv6: fec0::ffff:afa:b
+    vlab-t2-01:
+      ansible_host: 10.250.0.120
+      ansible_hostv6: fec0::ffff:afa:10
+    vlab-t2-02:
+      ansible_host: 10.250.0.121
+      ansible_hostv6: fec0::ffff:afa:11
+    vlab-t2-sup:
+      ansible_host: 10.250.0.122
+      ansible_hostv6: fec0::ffff:afa:12
+      card_type: supervisor
 
-[sonic_s6000:vars]
-hwsku="Force10-S6000"
-iface_speed='40000'
+sonic_s6100:
+  vars:
+    hwsku: Force10-S6100
+    iface_speed: 40000
+  hosts:
+    lab-s6100-01:
+      ansible_host: 10.251.0.190
+    vlab-02:
+      ansible_host: 10.250.0.102
 
-[sonic_s6100]
-lab-s6100-01      ansible_host=10.251.0.190
-vlab-02           ansible_host=10.250.0.102
+sonic_a7260:
+  vars:
+    hwsku: Arista-7260CX3-C64
+    iface_speed: 100000
+  hosts:
+    lab-a7260-01:
+      ansible_host: 10.251.0.191
+      model: DCS-7260CX3-64
+      serial: SSJ12345678
+      base_mac: 76:34:ab:08:cd:a0
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504B0"
+        "0x23": "SSJ12345678"
+        "0x24": "7634ab08cda0"
+        "0x25": "2017/06/07 12:36:05"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal7-7.2.3-pcie2x4-12345678"
 
-[sonic_s6100:vars]
-hwsku="Force10-S6100"
-iface_speed='40000'
+sonic_multi_asic:
+  vars:
+    hwsku: msft_multi_asic_vs
+    iface_speed: 40000
+    num_asics: 6
+    start_topo_service: True
+    frontend_asics: [0,1,2,3]
+  hosts:
+    vlab-07:
+      ansible_host: 10.250.0.109
+      ansible_hostv6: fec0::ffff:afa:9
 
-[sonic_a7260]
-lab-a7260-01      ansible_host=10.251.0.191    hwsku="Arista-7260CX3-D108C8"
-
-[sonic_a7260:vars]
-iface_speed='100000'
-
-[sonic:children]
-sonic_sn2700_40
-sonic_s6000
-sonic_s6100
-sonic_a7260
-
-[ptf]
-ptf_ptf1    ansible_host=10.255.0.188 ansible_ssh_user=root ansible_ssh_pass=root
-ptf_vms1-1  ansible_host=10.255.0.178 ansible_ssh_user=root ansible_ssh_pass=root
-ptf_vms6-1  ansible_host=10.250.0.100 ansible_ssh_user=root ansible_ssh_pass=root
-
-[lab:children]
-sonic
-fanout
-
-[lab:vars]
-mgmt_subnet_mask_length="24"
-
-[fanout]
-str-7260-10       ansible_host=10.251.0.13
-str-7260-11       ansible_host=10.251.0.234
-str-msn2700-02    ansible_host=10.251.0.235 os=sonic
+sonic_multi_asic_2:
+  vars:
+    hwsku: msft_four_asic_vs
+    iface_speed: 40000
+    num_asics: 4
+    start_topo_service: True
+    frontend_asics: [0,1]
+  hosts:
+    vlab-08:
+      ansible_host: 10.250.0.112
+      ansible_hostv6: fec0::ffff:afa:c

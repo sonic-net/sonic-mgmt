@@ -31,7 +31,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.16/32"
+                                        "destination-ip-address": "192.168.0.4/32"
                                     }
                                 }
                             },
@@ -46,7 +46,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.16.2.0/32"
+                                        "destination-ip-address": "192.168.136.1/32"
                                     }
                                 }
                             },
@@ -228,7 +228,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.17/32"
+                                        "destination-ip-address": "192.168.0.8/32"
                                     }
                                 }
                             },
@@ -243,7 +243,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.16.3.0/32"
+                                        "destination-ip-address": "192.168.144.1/32"
                                     }
                                 }
                             },
@@ -426,6 +426,28 @@
                                 "transport": {
                                     "config": {
                                         "destination-port": "179"
+                                    }
+                                }
+                            },
+                            "29": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 29
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 1,
+                                        "source-ip-address": "20.0.0.10/32"
+                                    }
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "type": 3,
+                                        "code": 1
                                     }
                                 }
                             }

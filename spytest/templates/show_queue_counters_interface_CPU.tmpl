@@ -1,0 +1,18 @@
+#Value PORT (\S+)
+Value TXQ (\S+)
+Value PKTS_COUNT (\S+)
+Value BYTE_COUNT (\S+)
+Value PPS (\d+)
+Value BPS (\d+)
+Value BIT_RATE (\d+)
+Value PKTS_DROP (\S+)
+Value BYTE_DROP (\S+)
+
+Start
+  ^(-+\s*)*$$
+  ^TxQ\s+Counter/pkts\s+Counter/bytes\s+Rate/PPS\s+Rate/BPS\s+Rate/bPS\s+Drop/pkts\s+Drop/bytes
+  ^(-+\s*)*$$
+  ^${TXQ}\s+${PKTS_COUNT}\s+${BYTE_COUNT}\s+${PPS}/s\s+${BPS}/s\s+${BIT_RATE}/s\s+${PKTS_DROP}\s+${BYTE_DROP} -> Record 
+
+EOF
+

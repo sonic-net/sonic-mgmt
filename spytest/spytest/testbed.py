@@ -1,28 +1,26 @@
 import os
-import sys
 import re
 import copy
 import json
 import shutil
-import logging
 import tempfile
-import yaml
+from random import Random
 from itertools import permutations
 from collections import OrderedDict
 
 from spytest.ordyaml import OrderedYaml
 from spytest.dicts import SpyTestDict
+from spytest.logger import getNoneLogger
+import spytest.env as env
+
 import utilities.common as utils
 
 testbeds_root = os.path.join(os.path.dirname(__file__), '..')
 testbeds_root = os.path.join(os.path.abspath(testbeds_root), "testbeds")
 
 class Testbed(object):
-    """
-    todo: Update Documentation
-    """
 
-    def __init__(self, filename=None, logger=None, cfg=None, flex_dut=False):
+    def __init__(self, filename=None, logger=None, cfg=None, flex_dut=False, flex_port=False):
         """
         Construction of Testbed object
         :param filename:
@@ -31,29 +29,34 @@ class Testbed(object):
         :type logger:
         """
         self._paths = []
-        self._paths.append(os.getenv("SPYTEST_USER_ROOT"))
+        self._paths.append(env.get("SPYTEST_USER_ROOT"))
         self._paths.append(testbeds_root)
         self.validation_errors = []
         self.oyaml = None
         self.offset = None
         self.common_tgen_ports = True
+        self.expand_yaml = False
         self.cfg = cfg
+        self.ignore_constraints = env.get("SPYTEST_TESTBED_IGNORE_CONSTRAINTS", "")
+        if self.ignore_constraints:
+            self.ignore_constraints = utils.split_byall(self.ignore_constraints, True)
         if cfg:
-            self.flex_dut = cfg.flex_dut
+            self.flex_dut = bool(env.get("SPYTEST_FLEX_DUT", "1") == "1")
+            self.flex_port = bool(env.get("SPYTEST_FLEX_PORT", "0") == "1")
             self.filemode = cfg.filemode
             self.exclude_devices = cfg.exclude_devices
             self.include_devices = cfg.include_devices
         else:
             self.flex_dut = flex_dut
+            self.flex_port = flex_port
             self.filemode = False
-            self.exclude_devices = None
-            self.include_devices = None
+            self.exclude_devices = env.get("SPYTEST_TESTBED_EXCLUDE_DEVICES")
+            self.include_devices = env.get("SPYTEST_TESTBED_INCLUDE_DEVICES")
         if self.exclude_devices:
             self.exclude_devices = utils.split_byall(self.exclude_devices, True)
         if self.include_devices:
             self.include_devices = utils.split_byall(self.include_devices, True)
-        self.derived = SpyTestDict()
-        self.derived.devices = None
+        self.derived = SpyTestDict(duts=None, down_ports=None)
         self.topology = SpyTestDict()
         self.devices = SpyTestDict()
         self.colors = SpyTestDict()
@@ -66,14 +69,15 @@ class Testbed(object):
         self.build_default_errors()
         self.links = SpyTestDict()
         self.reserved_links = SpyTestDict()
+        self.unconnected_links = SpyTestDict()
         self.params = SpyTestDict()
         self.global_params = SpyTestDict()
-        self.devices_state = SpyTestDict()
-        self.devices_port_state = SpyTestDict()
-        self.pertest_topo_checking = False
         self.valid = False
-        self.logger = logger or logging.getLogger()
+        self.logger = logger or getNoneLogger()
         self._load_and_check(filename)
+
+    def _debug(self, msg):
+        self.logger.debug(msg)
 
     def _locate(self, filename):
         for path in self._paths:
@@ -100,11 +104,6 @@ class Testbed(object):
         pass
 
     def is_valid(self):
-        """
-        todo: Update Documentation
-        :return:
-        :rtype:
-        """
         return self.valid
 
     def get_file_path(self):
@@ -121,12 +120,19 @@ class Testbed(object):
                 retval["alias"] = dinfo.alias
                 retval["ip"] = dinfo.access.ip
                 retval["port"] = dinfo.access.port
+                retval["rest_ip"] = dinfo.access.get("rest_ip", None)
+                retval["rest_port"] = dinfo.access.get("rest_port", None)
+                retval["rest_protocol"] = dinfo.access.get("rest_protocol", None)
                 retval["mgmt_ipmask"] = dinfo.access.get("mgmt_ipmask" , None)
                 retval["mgmt_gw"] = dinfo.access.get("mgmt_gw" , None)
                 retval["username"] = dinfo.credentials.username
                 retval["password"] = dinfo.credentials.password
                 retval["altpassword"] = dinfo.credentials.altpassword
+                retval["auth"] = dinfo.credentials.get("auth", None)
                 retval["errors"] = self.get_error(dut_id, None)
+                mgmt_ifname = env.get("SPYTEST_MGMT_IFNAME", "eth0")
+                mgmt_ifname = self.get_device_param(dut_id, "mgmt_ifname", mgmt_ifname)
+                dinfo.access.mgmt_ifname = mgmt_ifname
                 restore_build = self.get_build(dut_id, "restore")
                 current_build = self.get_build(dut_id, "current")
                 if restore_build:
@@ -154,24 +160,23 @@ class Testbed(object):
         return None
 
     def get_device_info(self, name, dtype=None):
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if not dtype or dinfo.type == dtype:
                 if dinfo["__name__"] == name:
                     return dinfo
         return None
 
-    def get_device_alias(self, name, only=False):
-        for dut, dinfo in self.topology.devices.items():
+    def get_device_alias(self, name, only=False, retid=False):
+        for _, dinfo in self.topology.devices.items():
             if dinfo.__name__ == name or dinfo.__name0__ == name:
-                if only:
-                    return dinfo.alias
+                if only: return dinfo.__name0__ if retid else dinfo.alias
                 return "{}({})".format(dinfo.__name0__, dinfo.alias)
-        return "UNKNOWN"
+        return "UNKNOWN-DEVICE-{}".format(name)
 
     def _load_and_check(self, filename):
         # testbed file order: argument, env, default
         if not filename:
-            filename = os.getenv("SPYTEST_TESTBED_FILE", "testbed.yaml")
+            filename = env.get("SPYTEST_TESTBED_FILE", "testbed.yaml")
         if self._load_yaml(filename):
             self.valid = True
             if self._build_link_info():
@@ -261,7 +266,7 @@ class Testbed(object):
         models = dict()
         for dev in self.get_device_names("DUT"):
             tinfo = self.get_rps(dev)
-            if tinfo == None:
+            if tinfo is None:
                 continue
             if tinfo.ip not in models:
                 models[tinfo.ip] = tinfo.model
@@ -272,7 +277,7 @@ class Testbed(object):
                 self.valid = False
         for dev in self.get_device_names("DUT"):
             tinfo = self.get_rps(dev)
-            if tinfo == None or tinfo.model == "vsonic":
+            if tinfo is None or tinfo.model == "vsonic":
                 continue
             if tinfo.ip not in outlets:
                 outlets[tinfo.ip] = []
@@ -294,10 +299,12 @@ class Testbed(object):
         pairs = dict()
         for dev in self.get_device_names():
             for local, partner, remote in self.get_links(dev):
-                alias = self.get_device_alias(dev)
-                pair = "{}/{}".format(alias, local)
-                palias = self.get_device_alias(partner)
-                to = "{}/{}".format(palias, remote)
+                #alias = self.get_device_alias(dev)
+                #pair = "{}/{}".format(alias, local)
+                pair = "{}/{}".format(dev, local)
+                #palias = self.get_device_alias(partner)
+                #to = "{}/{}".format(palias, remote)
+                to = "{}/{}".format(partner, remote)
                 if pair in pairs:
                     msg = "Duplicate Links {} {} connecting to {}"
                     msg = msg.format(pairs[pair], to, pair)
@@ -358,6 +365,46 @@ class Testbed(object):
                 return False
         return True
 
+    def _override_link_params(self):
+        if self.cfg and self.cfg.link_param:
+            for d,l,k,v in self.cfg.link_param:
+                self._override_link_param(d,l,k,v)
+
+    def _override_link_param(self, d,l,k,v):
+        for dut, dinfo in self.topology.devices.items():
+            if d != "__all__" and d != dut: continue
+            if not dinfo or "interfaces" not in dinfo: continue
+            for link, linfo in dinfo.interfaces.items():
+                if l != "__all__" and l != link: continue
+                msg = "Change Link {}/{} Param {} to {}"
+                msg = msg.format(dut, l, k, v)
+                self.logger.warning(msg)
+                linfo[k] = v
+
+    def _override_dev_params(self):
+        if self.cfg and self.cfg.dev_param:
+            for d,k,v in self.cfg.dev_param:
+                self._override_dev_param(d, k, v)
+
+    def _override_dev_param(self, d, k, v):
+        found = False
+        for devname, dinfo in self.devices.items():
+            if "params" not in dinfo:
+                dinfo.params = SpyTestDict()
+            valid = ["__all__", devname]
+            try: valid.append(dinfo.__name0__)
+            except Exception: pass
+            if d in valid:
+                msg = "Change Device {} Param {} from '{}' to '{}'"
+                msg = msg.format(devname, k, dinfo.params.get(k, ""), v)
+                self.logger.warning(msg)
+                dinfo.params[k] = v
+                found = True
+        if not found:
+            msg = "Failed to Change Device {} Param {} to '{}'"
+            msg = msg.format(d, k, v)
+            self.logger.warning(msg)
+
     def _build_link_info(self):
         #utils.print_data(self.topology, "self.topology-1")
 
@@ -378,11 +425,8 @@ class Testbed(object):
                     msg = msg.format(dev)
                     self.logger.warning(msg)
 
-        connected_links = []
-        reserved_links = []
         # add devices if missing in topology but present in connections
-        add_devices = []
-        unreserved_devices = SpyTestDict()
+        add_devices, unreserved_devices = [], SpyTestDict()
 
         # removed reserved/ignored devices from topology
         for dut, dinfo in self.topology.devices.items():
@@ -390,21 +434,33 @@ class Testbed(object):
                 unreserved_devices[dut] = dinfo
         self.topology.devices = unreserved_devices
 
+        # remove invalid interface sections
         for dut, dinfo in self.topology.devices.items():
-            #utils.print_data(dinfo, "dinfo - {}".format(dut))
             if not dinfo or "interfaces" not in dinfo:
                 continue
             if not isinstance(dinfo.interfaces, dict):
                 msg = "interfaces section of {} is invalid - ignoring".format(dut)
                 self.logger.warning(msg)
-                #self.valid = False
                 del dinfo.interfaces
                 continue
+
+        # override link params from command line
+        self._override_link_params()
+
+        connected_links, reserved_links, unconnected_links = [], [], []
+        for dut, dinfo in self.topology.devices.items():
+            if not dinfo or "interfaces" not in dinfo:
+                continue
+
+            # verify and collect connected links
             for link, linfo in dinfo.interfaces.items():
                 if "reserved" in linfo:
-                    msg = "Reserved link: {}/{}".format(dut, link)
-                    self.logger.debug(msg)
+                    self._debug("Reserved link: {}/{}".format(dut, link))
                     reserved_links.append([dut, link, linfo])
+                    continue
+                EndDevice = linfo.get("EndDevice", "")
+                if not EndDevice:
+                    unconnected_links.append([dut, link, linfo])
                     continue
                 if "EndDevice" not in linfo:
                     msg = "EndDevice is not specified for interface {}/{}".format(dut, link)
@@ -423,14 +479,15 @@ class Testbed(object):
                     self.valid = False
                     continue
                 if self._is_ignored_device(EndDevice):
-                    msg = "EndDevice {} is reserved ignoring {}/{}".format(EndDevice, dut, link)
-                    self.logger.debug(msg)
+                    self._debug("EndDevice {} is reserved ignoring {}/{}".format(EndDevice, dut, link))
                     reserved_links.append([dut, link, linfo])
                     continue
+
                 connected_links.append([dut, link, linfo])
                 if EndDevice not in self.topology.devices:
                     add_devices.append(EndDevice)
             del self.topology.devices[dut]["interfaces"]
+
         for dut, dinfo in self.topology.devices.items():
             if dut not in self.devices:
                 msg = "Device {} is not present in devices section".format(dut)
@@ -443,7 +500,9 @@ class Testbed(object):
                 else:
                     props = dict()
                 self.topology.devices[dut] = self.devices[dut]
-                self.topology.devices[dut]["topo_props"] = props
+                if props:
+                    self.topology.devices[dut]["topo_props"] = props
+
         for dut in add_devices:
             self.topology.devices[dut] = self.devices[dut]
         #utils.print_data(self.topology, "self.topology-2")
@@ -478,6 +537,16 @@ class Testbed(object):
             self.reserved_links[link_name] = ent
         #utils.print_yaml(self.reserved_links, "self.reserved_links")
 
+        for dut, link, linfo in unconnected_links:
+            ent = SpyTestDict({
+                "from_port": link, "from_dut": self.devices[dut].__name__
+            })
+            exclude = ["EndDevice", "EndPort"]; exclude.extend(ent.keys())
+            utils.copy_items(linfo, ent, exclude=exclude)
+            link_name = "{}-{}".format(ent.from_dut, ent.from_port)
+            self.unconnected_links[link_name] = ent
+        #utils.print_yaml(self.unconnected_links, "self.unconnected_links")
+
         self.links = SpyTestDict()
         for dut, link, linfo in connected_links:
             ent = SpyTestDict({
@@ -485,9 +554,9 @@ class Testbed(object):
                 "to_port": linfo.EndPort, "to_dut": self.devices[linfo.EndDevice].__name__,
                 "from_type": self.devices[dut].type,
                 "to_type": self.devices[linfo.EndDevice].type,
-                "speed": linfo.get("speed")
             })
-            ent.params = None if "params" not in linfo else linfo.params
+            exclude = ["EndDevice", "EndPort"]; exclude.extend(ent.keys())
+            utils.copy_items(linfo, ent, exclude=exclude)
             link_name = "{}-{}-{}-{}".format(ent.from_dut, ent.from_port,
                                              ent.to_dut, ent.to_port)
 
@@ -497,15 +566,15 @@ class Testbed(object):
                 "from_port": linfo.EndPort, "from_dut": self.devices[linfo.EndDevice].__name__,
                 "to_type": self.devices[dut].type,
                 "from_type": self.devices[linfo.EndDevice].type,
-                "speed": linfo.get("speed")
             })
+            exclude = ["EndDevice", "EndPort"]; exclude.extend(ent.keys())
+            utils.copy_items(linfo, ent, exclude=exclude)
             link_name2 = "{}-{}-{}-{}".format(ent.from_dut, ent.from_port,
-                                             ent.to_dut, ent.to_port)
+                                              ent.to_dut, ent.to_port)
             if link_name2 not in self.links:
                 self.links[link_name] = ent
             else:
-                msg = "Ignoring duplicate link {} existing {}".format(link_name, link_name2)
-                self.logger.debug(msg)
+                self._debug("Ignoring duplicate link {} existing {}".format(link_name, link_name2))
 
         # add link name variables
         link_indexes = SpyTestDict()
@@ -529,7 +598,7 @@ class Testbed(object):
     def _load_yaml(self, filename):
         errs = []
         try:
-            user_root = os.getenv("SPYTEST_USER_ROOT")
+            user_root = env.get("SPYTEST_USER_ROOT")
             if user_root:
                 self.oyaml = OrderedYaml(filename, [user_root, testbeds_root])
             else:
@@ -539,6 +608,17 @@ class Testbed(object):
                 self.logger.error(errs)
                 return None
             obj = self.oyaml.get_data()
+
+            # override section names
+            if self.cfg and self.cfg.change_section:
+                for k,v in self.cfg.change_section:
+                    if v in obj:
+                        obj[k] = obj[v]
+                        msg = "Override Section {} with {}".format(k, v)
+                    else:
+                        msg = "Missing Section {} to override {}".format(v, k)
+                    self.logger.warning(msg)
+
             #utils.print_yaml(obj, "TESTBED FILE CONTENT")
             if "devices" not in obj:
                 errs.append("devices not found")
@@ -569,7 +649,7 @@ class Testbed(object):
             else:
                 self.speeds = obj["speeds"]
             if "instrument" not in obj:
-                self.logger.debug("instrument section not found")
+                self._debug("instrument section not found")
             else:
                 self.instrument = obj["instrument"]
             self.params = obj["params"]
@@ -595,15 +675,20 @@ class Testbed(object):
 
             # override device properties from command line
             if self.cfg and self.cfg.dev_prop:
-                for k,v in self.cfg.dev_prop:
-                    for dev, dinfo in self.devices.items():
-                        if dinfo.properties:
+                for d,k,v in self.cfg.dev_prop:
+                    for devname, dinfo in self.devices.items():
+                        if "properties" not in dinfo:
+                            dinfo.properties = SpyTestDict()
+                        if d == "__all__" or d == devname:
                             dinfo.properties[k] = v
+
+            # override device parameters from command line
+            self._override_dev_params()
 
             # override ixnetwork from command line
             if self.cfg and self.cfg.ixserver:
                 ix_server = ",".join(self.cfg.ixserver)
-                for dev, dinfo in self.devices.items():
+                for _, dinfo in self.devices.items():
                     if dinfo.device_type == "TGEN" and dinfo.properties:
                         dinfo.properties["ix_server"] = ix_server
 
@@ -638,24 +723,22 @@ class Testbed(object):
                     return None
                 if prop not in dinfo.properties:
                     if not defprop:
-                        print("'{}' not set in properties for {}".format(prop, d))
+                        self._debug("'{}' not set in properties for {}".format(prop, d))
                         return None
                     msg = "'{}' not set in properties for {} assuming '{}'".format(prop, d, defprop)
                     if prop != "instrument":
-                        self.logger.debug(msg)
+                        self._debug(msg)
                     ref = defprop
                 else:
                     ref = dinfo.properties[prop]
                 table_object = getattr(self, table)
                 if not table_object or ref not in table_object:
-                    msg = "{}/{} is not found".format(table, ref)
-                    self.logger.debug(msg)
+                    self._debug("{}/{} is not found".format(table, ref))
                     return None
                 if not subprop or not table_object[ref]:
                     return table_object[ref]
                 if subprop not in table_object[ref]:
-                    msg = "{} is not specified in {}/{}".format(subprop, table, ref)
-                    self.logger.info(msg)
+                    self._debug("{} is not specified in {}/{}".format(subprop, table, ref))
                     return None
                 return table_object[ref][subprop]
         return None
@@ -669,42 +752,15 @@ class Testbed(object):
         return dinfo.device_type
 
     def get_service(self, dut, name):
-        """
-        todo: Update Documentation
-        :param name:
-        :type name:
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
         return self._get_dut_property(dut, "services", "services", name)
 
     def get_config(self, dut, scope):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :param scope:
-        :type scope:
-        :return:
-        :rtype:
-        """
         return self._get_dut_property(dut, "config", "configs", scope)
 
     def get_config_file_path(self, file_name):
         return self._locate(file_name)
 
     def get_build(self, dut, scope):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :param scope:
-        :type scope:
-        :return:
-        :rtype:
-        """
         return self._get_dut_property(dut, "build", "builds", scope)
 
     def get_error(self, dut, scope):
@@ -713,7 +769,7 @@ class Testbed(object):
     def get_speed(self, dut, scope=None):
         rv = self._get_dut_property(dut, "speed", "speeds", scope, None)
         if not rv: rv = SpyTestDict()
-        for local, partner, remote in self.get_links(dut):
+        for local, _, _ in self.get_links(dut):
             value = self.get_link_param(dut, local, "speed", None)
             if value: rv[local] = value
         return rv
@@ -722,15 +778,6 @@ class Testbed(object):
         return self._get_dut_property(dut, "instrument", "instrument", scope, "default")
 
     def get_param(self, name, default):
-        """
-        todo: Update Documentation
-        :param name:
-        :type name:
-        :param default:
-        :type default:
-        :return:
-        :rtype:
-        """
         if not self.global_params:
             return default
         if not name:
@@ -740,33 +787,24 @@ class Testbed(object):
         return self.global_params[name]
 
     def get_device_param(self, dut, name, default):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :param name:
-        :type name:
-        :param default:
-        :type default:
-        :return:
-        :rtype:
-        """
         for d, dinfo in self.topology.devices.items():
             if dinfo["__name__"] == dut:
-                if "properties" not in dinfo:
-                    print("properties not availbale for {}".format(d))
-                    return default
-                if "params" not in dinfo.properties:
-                    print("params not set in properties for {}".format(d))
-                    return default
 
                 # check for per dut params overriden
                 if "params" in dinfo and name in dinfo.params:
                     return dinfo.params[name]
 
+                if "properties" not in dinfo:
+                    self._debug("properties not availbale for {}".format(d))
+                    return default
+
+                if "params" not in dinfo.properties:
+                    self._debug("params not set in properties for {}".format(d))
+                    return default
+
                 ref = dinfo.properties.params
                 if ref not in self.params:
-                    print("params {} not found".format(ref))
+                    self._debug("params {} not found".format(ref))
                     return default
                 if not name:
                     return self.params[ref]
@@ -774,6 +812,29 @@ class Testbed(object):
                     return default
                 return self.params[ref][name]
         return default
+
+    def _get_link_param(self, dut, link, linfo, name):
+
+        # see if there is paramater overriden
+        if name in linfo:
+            return linfo[name]
+
+        if "params" not in linfo or linfo.params is None:
+            self._debug("params not set in properties for {}".format(link))
+            return None
+
+        ref = linfo.params
+        if ref not in self.params:
+            self._debug("params {} not found".format(ref))
+            return None
+
+        if not name:
+            return self.params[ref]
+
+        if name not in self.params[ref]:
+            return None
+
+        return self.params[ref][name]
 
     def get_link_param(self, dut, local, name, default):
         for link, linfo in self.links.items():
@@ -783,33 +844,52 @@ class Testbed(object):
                 pass
             else:
                 continue
-
-            # see if there is paramater overriden
-            if name in linfo:
-                return linfo[name]
-
-            if "params" not in linfo or linfo.params is None:
-                print("params not set in properties for {}".format(link))
-                return default
-            ref = linfo.params
-            if ref not in self.params:
-                print("params {} not found".format(ref))
-                return default
-            if not name:
-                return self.params[ref]
-            if name not in self.params[ref]:
-                return default
-            return self.params[ref][name]
+            rv = self._get_link_param(dut, link, linfo, name)
+            if rv is not None: return  rv
         return default
 
-    def get_breakout(self, dut):
+    def get_breakout(self, dut, portList=None, section=None):
         retval = []
+
+        # verify if the dut is valid
         dinfo = self.get_device_info(dut)
-        if dinfo:
-            breakout = dinfo.get("breakout")
-            if breakout:
-                for port, option in breakout.items():
-                    retval.append([port, option])
+        if not dinfo:
+            return retval
+
+        # check if port list given for matching
+        if portList is None:
+            match_ports = None
+        else:
+            match_ports = utils.make_list(portList)
+
+        # init breakout dictionary
+        bod = SpyTestDict()
+
+        # read breakout from devices section
+        breakout = dinfo.get(section or "breakout")
+        if breakout:
+            for port, option in breakout.items():
+                bod[port] = option
+
+        # override breakout mode from interfaces section
+        for port, _, _ in self.get_links(dut):
+            option = self.get_link_param(dut, port, "breakout-mode", None)
+            if option is not None:
+                bod[port] = option
+
+        for link, linfo in self.unconnected_links.items():
+            if dut in [linfo.from_dut]:
+                option = self._get_link_param(dut, link, linfo, "breakout-mode")
+                if option is not None:
+                    bod[linfo.from_port] = option
+
+        # filter results
+        for port, option in bod.items():
+            if match_ports is None:
+                retval.append([port, option])
+            elif port in match_ports:
+                retval.append([port, option])
+
         return retval
 
     def get_device_names(self, dtype=None):
@@ -818,11 +898,14 @@ class Testbed(object):
         :return: device names of given type
         :rtype: list
         """
-        if self.flex_dut:
-            if dtype == "DUT" and self.derived.devices:
-                return self.derived.devices
         retval = []
-        for dut, dinfo in self.topology.devices.items():
+        if self.flex_dut and self.derived.duts:
+            if dtype == "DUT":
+                return self.derived.duts
+            if dtype is None:
+                retval.extend(self.derived.duts)
+                dtype = "TG"
+        for _, dinfo in self.topology.devices.items():
             if not dtype or dinfo["type"] == dtype:
                 name = dinfo["__name__"]
                 if name not in retval:
@@ -830,47 +913,79 @@ class Testbed(object):
         return retval
 
     def get_rerved_links(self, dut):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
         retval = []
-        for link, linfo in self.reserved_links.items():
+        for _, linfo in self.reserved_links.items():
             if linfo["from_dut"] == dut:
                 retval.append(linfo["from_port"])
         return retval
 
-    def get_links(self, dut, peer=None, dtype=None):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :return:
-        :rtype:
-        """
+    def _build_link(self, link, linfo, rev, name=False, ifmap={}, native_map={}):
+        if rev:
+            rv = [linfo["to_port"], linfo["from_dut"], linfo["from_port"]]
+            if linfo["to_type"] == "DUT":
+                rv[0] = self.map_port_name(linfo["to_dut"], linfo["to_port"], ifmap, native_map)
+            if linfo["from_type"] == "DUT":
+                rv[2] = self.map_port_name(linfo["from_dut"], linfo["from_port"], ifmap, native_map)
+        else:
+            rv = [linfo["from_port"], linfo["to_dut"], linfo["to_port"]]
+            if linfo["from_type"] == "DUT":
+                rv[0] = self.map_port_name(linfo["from_dut"], linfo["from_port"], ifmap, native_map)
+            if linfo["to_type"] == "DUT":
+                rv[2] = self.map_port_name(linfo["to_dut"], linfo["to_port"], ifmap, native_map)
+        if name:
+            rv.append(link)
+        return rv
+
+    def _is_valid_dut(self, dut, dtype):
+        if not self.flex_dut or dtype == 'TG':
+            return True
+        if not self.derived.duts:
+            return True
+        if dut in self.derived.duts:
+            return True
+        return False
+
+    def _is_valid_port(self, from_dut, from_port, to_dut, to_port):
+        if not self.flex_port:
+            return True
+        if not self.derived.down_ports:
+            return True
+        if from_dut in self.derived.down_ports:
+            if from_port in self.derived.down_ports[from_dut]:
+                return False
+        if to_dut in self.derived.down_ports:
+            if to_port in self.derived.down_ports[to_dut]:
+                return False
+        return True
+
+    def get_links(self, dut, peer=None, dtype=None, name=False, ifmap={}, native_map={}):
         retval = []
         for link, linfo in self.links.items():
+            from_type, to_type = linfo["from_type"], linfo["to_type"]
+            from_dut, to_dut = linfo["from_dut"], linfo["to_dut"]
+            from_port, to_port = linfo["from_port"], linfo["to_port"]
             if peer:
-                if linfo["from_dut"] == dut and linfo["to_dut"] == peer:
-                    if not dtype or dtype == linfo["to_type"]:
-                        retval.append([linfo["from_port"], linfo["to_dut"],
-                                       linfo["to_port"]])
-                if linfo["to_dut"] == dut and linfo["from_dut"] == peer:
-                    if not dtype or dtype == linfo["from_type"]:
-                        retval.append([linfo["to_port"], linfo["from_dut"],
-                                       linfo["from_port"]])
+                if from_dut == dut and to_dut == peer:
+                    if not dtype or dtype == to_type:
+                        if not self._is_valid_dut(to_dut, to_type): continue
+                        if not self._is_valid_port(from_dut, from_port, to_dut, to_port): continue
+                        retval.append(self._build_link(link, linfo, False, name, ifmap, native_map))
+                if to_dut == dut and from_dut == peer:
+                    if not dtype or dtype == from_type:
+                        if not self._is_valid_dut(from_dut, from_type): continue
+                        if not self._is_valid_port(from_dut, from_port, to_dut, to_port): continue
+                        retval.append(self._build_link(link, linfo, True, name, ifmap, native_map))
             else:
-                if linfo["from_dut"] == dut:
-                    if not dtype or dtype == linfo["to_type"]:
-                        retval.append([linfo["from_port"], linfo["to_dut"],
-                                       linfo["to_port"]])
-                if linfo["to_dut"] == dut:
-                    if not dtype or dtype == linfo["from_type"]:
-                        retval.append([linfo["to_port"], linfo["from_dut"],
-                                       linfo["from_port"]])
+                if from_dut == dut:
+                    if not dtype or dtype == to_type:
+                        if not self._is_valid_dut(to_dut, to_type): continue
+                        if not self._is_valid_port(from_dut, from_port, to_dut, to_port): continue
+                        retval.append(self._build_link(link, linfo, False, name, ifmap, native_map))
+                if to_dut == dut:
+                    if not dtype or dtype == from_type:
+                        if not self._is_valid_dut(from_dut, from_type): continue
+                        if not self._is_valid_port(from_dut, from_port, to_dut, to_port): continue
+                        retval.append(self._build_link(link, linfo, True, name, ifmap, native_map))
         return retval
 
     def get_tg_info(self, tg):
@@ -881,7 +996,7 @@ class Testbed(object):
         :return: properties dictionary
         :rtype: dict
         """
-        for ent, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if dinfo.type == "TG":
                 if not tg or dinfo["__name__"] == tg:
                     rv = SpyTestDict()
@@ -890,11 +1005,25 @@ class Testbed(object):
                     rv.type = dinfo.properties.type
                     rv.version = dinfo.properties.version
                     rv.card = getattr(dinfo.properties, "card", "")
+                    rv.speed = getattr(dinfo.properties, "speed", "")
                     if "ix_server" in dinfo.properties:
                         rv.ix_server = dinfo.properties.ix_server
                     if "ix_port" in dinfo.properties:
                         rv.ix_port = dinfo.properties.ix_port
                     return rv
+        return None
+
+    def get_ts(self, dut):
+        """
+        Returns Terminal Server details read from testbed file for given DUT
+        :param dut: DUT identifier
+        :type dut: basestring
+        :return: Terminal Server parameters dictionary
+        :rtype: dict
+        """
+        rv = self.get_device_info(dut)
+        if rv and "ts" in rv:
+            return rv["ts"]
         return None
 
     def get_rps(self, dut):
@@ -910,7 +1039,16 @@ class Testbed(object):
             return rv["rps"]
         return None
 
-    def get_testbed_vars(self):
+    def map_port_name(self, dut, port, ifmap=None, native_map=None):
+        if ifmap is None or native_map is None:
+            return port
+        if dut not in native_map or native_map[dut]:
+            return port
+        if dut not in ifmap or port not in ifmap[dut]:
+            return port
+        return ifmap[dut][port]
+
+    def get_testbed_vars(self, ifmap=None, native_map=None):
         """
         returns the testbed variables in a dictionary
         :return: testbed variables dictionary
@@ -940,12 +1078,12 @@ class Testbed(object):
                 (from_dev, to_dev) = (rv[from_name], rv[to_name])
                 links = self.get_links(from_dev, to_dev)
                 lnum = 1
-                for local, partner, remote in links:
+                for local, _, remote in links:
                     lname1 = "{}{}P{}".format(from_name, to_name, lnum)
                     lname2 = "{}{}P{}".format(to_name, from_name, lnum)
                     lnum = lnum + 1
-                    rv[lname1] = local
-                    rv[lname2] = remote
+                    rv[lname1] = self.map_port_name(from_dev, local, ifmap, native_map)
+                    rv[lname2] = self.map_port_name(to_dev, remote, ifmap, native_map)
         if self.common_tgen_ports:
             for to_index in range(1, dut_index):
                 lnum = 1
@@ -954,12 +1092,12 @@ class Testbed(object):
                     to_name = "D{}".format(to_index)
                     (from_dev, to_dev) = (rv[from_name], rv[to_name])
                     links = self.get_links(from_dev, to_dev)
-                    for local, partner, remote in links:
+                    for local, _, remote in links:
                         lname1 = "T1{}P{}".format(to_name, lnum)
                         lname2 = "{}T1P{}".format(to_name, lnum)
                         lnum = lnum + 1
                         rv[lname1] = local
-                        rv[lname2] = remote
+                        rv[lname2] = self.map_port_name(to_dev, remote, ifmap, native_map)
                         rv.tgen_ports[lname1] = [from_name, tg_types[from_name], local]
         else:
             for from_index in range(1, tg_index):
@@ -969,12 +1107,12 @@ class Testbed(object):
                     (from_dev, to_dev) = (rv[from_name], rv[to_name])
                     links = self.get_links(from_dev, to_dev)
                     lnum = 1
-                    for local, partner, remote in links:
+                    for local, _, remote in links:
                         lname1 = "{}{}P{}".format(from_name, to_name, lnum)
                         lname2 = "{}{}P{}".format(to_name, from_name, lnum)
                         lnum = lnum + 1
                         rv[lname1] = local
-                        rv[lname2] = remote
+                        rv[lname2] = self.map_port_name(to_dev, remote, ifmap, native_map)
                         rv.tgen_ports[lname1] = [from_name, tg_types[from_name], local]
 
         return rv
@@ -993,19 +1131,27 @@ class Testbed(object):
                         dinfo.credentials.altpassword))
         return "\n".join(retval) if string else retval
 
-    def get_topo(self):
-        retval = []
-        exclude = []
-        for dut, dinfo in self.topology.devices.items():
+    def get_topo(self, name0=True, props=False):
+        retval, exclude = [], []
+        for dut in self.get_device_names():
+            dinfo = self.get_device_info(dut)
+            dname = dinfo.__name0__ if name0 else dinfo.__name__
             partners = OrderedDict()
-            for local, partner, remote in self.get_links(dut):
+            for _, partner, _ in self.get_links(dut):
                 partners[partner] = partners.setdefault(partner, 0) + 1
             for partner in partners:
                 if "{}--{}".format(dut, partner) in exclude:
                     continue
                 exclude.append("{}--{}".format(partner, dut))
                 pdinfo = self.get_device_info(partner)
-                retval.append("{}{}:{}".format(dinfo.__name0__,pdinfo.__name0__, partners[partner]))
+                pdname = pdinfo.__name0__ if name0 else pdinfo.__name__
+                retval.append("{}{}:{}".format(dname, pdname, partners[partner]))
+            if not partners:
+                retval.append("{}".format(dname))
+            if props:
+                for pname in ["model", "model1", "model2"]:
+                    pval = self.get_device_param(dut, pname, None)
+                    if pval: retval.append("{}{}:{}".format(dname, pname.upper(), pval))
         return ",".join(retval) if retval else "D1"
 
     def _check_min_links(self, from_type, to_type, res, errs):
@@ -1022,22 +1168,11 @@ class Testbed(object):
             errs.append("no_link")
             return [False, from_dev, to_dev]
 
-        if self.pertest_topo_checking and int(res.group(3)) > 0:
-            if from_type == 'D' and not self.devices_state[from_dev]:
-                errs.append("dut_down")
-                return [False, from_dev, to_dev]
-            if to_type == 'D' and not self.devices_state[to_dev]:
-                errs.append("dut_down")
-                return [False, from_dev, to_dev]
-            for local, partner, remote in links:
-                if not self.devices_port_state["{}:{}".format(from_dev, local)]:
-                    errs.append("link_down")
-                    return [False, from_dev, to_dev]
         return [True, from_dev, to_dev]
 
     @staticmethod
     def _split_args(*args):
-        sep=os.getenv("SPYTEST_TOPO_SEP", None)
+        sep = env.get("SPYTEST_TOPO_SEP")
         arg_list = []
         for arg in args:
             arg_list.extend(utils.split_byall(arg, sep=sep))
@@ -1076,6 +1211,12 @@ class Testbed(object):
             elif re.compile(r"^D\d+MODEL[:=]\S+$").match(arg):
                 res = re.search(r"^D(\d+)MODEL[:=](\S+)$", arg)
                 properties.setdefault("D{}".format(res.group(1)), dict())["MODEL"] = res.group(2)
+            elif re.compile(r"^D\d+MODEL1[:=]\S+$").match(arg):
+                res = re.search(r"^D(\d+)MODEL1[:=](\S+)$", arg)
+                properties.setdefault("D{}".format(res.group(1)), dict())["MODEL1"] = res.group(2)
+            elif re.compile(r"^D\d+MODEL2[:=]\S+$").match(arg):
+                res = re.search(r"^D(\d+)MODEL2[:=](\S+)$", arg)
+                properties.setdefault("D{}".format(res.group(1)), dict())["MODEL2"] = res.group(2)
             elif re.compile(r"^D\d+CHIP[:=]\S+$").match(arg):
                 res = re.search(r"^D(\d+)CHIP[:=](\S+)$", arg)
                 properties.setdefault("D{}".format(res.group(1)), dict())["CHIP"] = res.group(2)
@@ -1091,6 +1232,12 @@ class Testbed(object):
             elif re.compile(r"^MODEL[:=]\S+$").match(arg):
                 res = re.search(r"^MODEL[:=](\S+)$", arg)
                 properties.setdefault(None, dict())["MODEL"] = res.group(1)
+            elif re.compile(r"^MODEL1[:=]\S+$").match(arg):
+                res = re.search(r"^MODEL1[:=](\S+)$", arg)
+                properties.setdefault(None, dict())["MODEL1"] = res.group(1)
+            elif re.compile(r"^MODEL2[:=]\S+$").match(arg):
+                res = re.search(r"^MODEL2[:=](\S+)$", arg)
+                properties.setdefault(None, dict())["MODEL2"] = res.group(1)
             elif re.compile(r"^CHIP[:=]\S+$").match(arg):
                 res = re.search(r"^CHIP[:=](\S+)$", arg)
                 properties.setdefault(None, dict())["CHIP"] = res.group(1)
@@ -1108,36 +1255,60 @@ class Testbed(object):
             elif re.compile(r"^TGCARD[:=]\S+$").match(arg):
                 res = re.search(r"^TGCARD[:=](\S+)$", arg)
                 properties.setdefault(None, dict())["TGCARD"] = res.group(1)
+            elif re.compile(r"^TGSPEED[:=]\S+$").match(arg):
+                res = re.search(r"^TGSPEED[:=](\S+)$", arg)
+                properties.setdefault(None, dict())["TGSPEED"] = res.group(1)
             else:
                 errs.append("{}: unsupported".format(arg))
                 requests.append([None, None, 0, arg])
         if errs:
             print("parse_topology--errors", errs)
+        if not requests:
+            res = re.search(r"^D(\d+)T(\d+):(\d+)$", "D1T1:0")
+            requests.append(["D", "T", res, arg])
         return [requests, properties, errs]
 
     @staticmethod
-    def ensure_tgen_model_and_card(logger, tb, properties, errs=[]):
+    def ensure_tgen_model_and_card(logger, tb, properties, errs):
+
+        l_errs = errs or []
 
         # check tg model requirements
-        for tg in tb.get_device_names("TG"):
-            if not Testbed.check_tgen_model(logger, tb, tg, properties):
-                errs.append("no_tgen_model")
+        if "TG" not in tb.ignore_constraints:
+            for tg in tb.get_device_names("TG"):
+                if not Testbed.check_tgen_model(logger, tb, tg, properties):
+                    l_errs.append("no_tgen_model")
 
         # check tg card requirements
-        for tg in tb.get_device_names("TG"):
-            if not Testbed.check_tgen_card(logger, tb, tg, properties):
-                errs.append("no_tgen_card")
+        if "TGCARD" not in tb.ignore_constraints:
+            for tg in tb.get_device_names("TG"):
+                if not Testbed.check_tgen_card(logger, tb, tg, properties):
+                    l_errs.append("no_tgen_card")
 
-        return errs
+        # check tg speed requirements
+        if "TGSPEED" not in tb.ignore_constraints:
+            for tg in tb.get_device_names("TG"):
+                if not Testbed.check_tgen_speed(logger, tb, tg, properties):
+                    l_errs.append("no_tgen_speed")
 
-    def ensure_min_topology(self, *args):
+        return l_errs
+
+    def ensure_min_topology(self, *args, **kwargs):
+        if env.get("SPYTEST_TESTBED_RANDOMIZE_DEVICES", "0") != "0":
+            rv = self.ensure_min_topology_random(*args, **kwargs)
+            if rv != None: return rv
+            # follow through to report the error
+        return self.ensure_min_topology_norandom(*args, **kwargs)
+
+    def ensure_min_topology_norandom(self, *args, **kwargs):
         [requests, properties, errs] = self.parse_topology(*args)
         if errs: return [errs, properties]
 
-        logger = None #self.logger
+        debug = kwargs.get("debug", 0)
+        logger = self.logger if debug else None
 
         # bailout if TG card/model is not satified
-        Testbed.ensure_tgen_model_and_card(logger, self, properties, errs)
+        errs = Testbed.ensure_tgen_model_and_card(logger, self, properties, [])
         if errs: return [errs, properties]
 
         topo_dinfo = OrderedDict()
@@ -1161,27 +1332,65 @@ class Testbed(object):
                 topo_dinfo[dinfo.__name0__] = dinfo
 
         # check model requirements
-        for dut in topo_dinfo:
-            if not Testbed.check_model(logger, self, dut, dut, properties):
-                errs.append("no_dut_model")
+        match_dut_model = kwargs.get("match_dut_model", 1)
+        if match_dut_model and not errs:
+            for dut, dinfo in topo_dinfo.items():
+                if not Testbed.check_model(logger, self, dut, dinfo.__name__, properties):
+                    errs.append("no_dut_model")
 
         # check chip requirements
-        for dut in topo_dinfo:
-            if not Testbed.check_chip(logger, self, dut, dut, properties):
-                errs.append("no_dut_chip")
+        match_dut_chip = kwargs.get("match_dut_chip", 1)
+        if match_dut_chip and not errs:
+            for dut, dinfo in topo_dinfo.items():
+                if not Testbed.check_chip(logger, self, dut, dinfo.__name__, properties):
+                    errs.append("no_dut_chip")
+
+        # check if name is enforced
+        match_dut_name = kwargs.get("match_dut_name", 0)
+        if match_dut_name and not errs:
+            for dut, dinfo in topo_dinfo.items():
+                if not Testbed.check_dut_name(logger, self, dut, dinfo.__name__, properties):
+                    errs.append("no_dut_name")
 
         # bail out on errors if not flex dut
         if not errs or not self.flex_dut:
             return [errs, properties]
 
-        [setup_list, properties, errs2] = self.identify_topology(logger, self, None, 1, *args)
+        Testbed.trace2(logger, "------------ FLEX START --------------------")
+        [setup_list, properties, _] = self.identify_topology(logger, self, None, 1, *args)
+        Testbed.trace2(logger, "------------ FLEX END --------------------")
         if not setup_list:
             return [errs, properties]
-        self.derived.devices = setup_list[0]
+        self.derived.duts = setup_list[0]
         return [[], properties]
 
-    def reset_derived_devices(self):
-        self.derived.devices = None
+    def ensure_min_topology_random(self, *args, **kwargs):
+        debug = kwargs.get("debug", 0)
+        logger = self.logger if debug else None
+
+        [_, properties, errs] = self.parse_topology(*args)
+        if errs: return [errs, properties]
+        [setup_list, properties, errs] = self.identify_topology_randomise(logger,
+                                         self, None, 100, True, *args)
+        if not setup_list:
+            return None
+        seed = utils.get_random_seed()
+        Random(seed).shuffle(setup_list)
+        self.derived.duts = setup_list[0]
+        return [[], properties]
+
+    def reset_derived(self):
+        self.derived.duts = None
+        self.derived.down_ports = None
+
+    def set_port_down(self, dut, port):
+        if not self.flex_port:
+            return
+        if not self.derived.down_ports:
+            self.derived.down_ports = {}
+        if dut not in self.derived.down_ports:
+            self.derived.down_ports[dut] = []
+        self.derived.down_ports[dut].append(port)
 
     @staticmethod
     def sort_topo_dict(topo_dict):
@@ -1189,8 +1398,8 @@ class Testbed(object):
         l = len(topo_list)
         for i in range(0, l):
             for j in range(0, l-i-1):
-                [a_from_dev, a_from_index, a_to_dev, a_to_index, a_count] = topo_dict.get(topo_list[j])
-                [b_from_dev, b_from_index, b_to_dev, b_to_index, b_count] = topo_dict.get(topo_list[j+1])
+                [a_from_dev, a_from_index, a_to_dev, a_to_index, _] = topo_dict.get(topo_list[j])
+                [b_from_dev, b_from_index, b_to_dev, b_to_index, _] = topo_dict.get(topo_list[j+1])
                 if a_from_dev > b_from_dev or a_from_index > b_from_index or \
                    a_to_dev > b_to_dev or a_to_index > b_to_index:
                     tmp = topo_list[j]
@@ -1255,37 +1464,49 @@ class Testbed(object):
         return False
 
     @staticmethod
-    def check_model(log, tb, dut, dut_tb, props):
-        need = None
-        if None in props:
-            if "MODEL" in props[None]:
-                need = props[None]["MODEL"]
+    def read_need(name, dut, props):
+        for d in [dut, None]:
+            if d in props and name in props[d]:
+                return props[d][name]
+        return None
 
-        if dut in props:
-            if "MODEL" in props[dut]:
-                need = props[dut]["MODEL"]
+    @staticmethod
+    def trace_need_has(log, dut, dut_tb, props, name, phase, need, has=None):
+        if not log:
+            return
+        if has is None:
+            msg = "{}:{} DEV:{}/{} NEED:{} REQ:{}".format(phase, name, dut, dut_tb, need, props)
+        else:
+            msg = "{}:{} DEV:{}/{} NEED:{} HAS:{} REQ:{}".format(phase, name, dut, dut_tb, need, has, props)
+        Testbed.trace2(log, msg)
 
-        Testbed.trace2(log, "check_model_0", dut, dut_tb, props, need)
+    @staticmethod
+    def check_model_prefix(log, tb, dut, dut_tb, props, prefix=""):
+        model_name = "MODEL{}".format(prefix)
+        has, need = None, Testbed.read_need(model_name, dut, props)
+
+        Testbed.trace_need_has(log, dut, dut_tb, props, model_name, "CHK", need, None)
         if need:
-            has = tb.get_device_param(dut_tb, "model", None)
-            Testbed.trace2(log, "check_model_1", dut, dut_tb, props, need, has)
+            has = tb.get_device_param(dut_tb, model_name.lower(), None)
             if has is None:
+                Testbed.trace_need_has(log, dut, dut_tb, props, model_name, "FAIL-NFOUND", need, has)
                 return False
             if not re.compile(need, re.IGNORECASE).match(has):
+                Testbed.trace_need_has(log, dut, dut_tb, props, model_name, "FAIL-NMATCH", need, has)
                 return False
+        Testbed.trace_need_has(log, dut, dut_tb, props, model_name, "PASS", need, has)
         return True
 
     @staticmethod
+    def check_model(log, tb, dut, dut_tb, props):
+        rv = Testbed.check_model_prefix(log, tb, dut, dut_tb, props, "")
+        rv = rv and Testbed.check_model_prefix(log, tb, dut, dut_tb, props, "1")
+        rv = rv and Testbed.check_model_prefix(log, tb, dut, dut_tb, props, "2")
+        return rv
+
+    @staticmethod
     def check_chip(log, tb, dut, dut_tb, props):
-        need = None
-        if None in props:
-            if "CHIP" in props[None]:
-                need = props[None]["CHIP"]
-
-        if dut in props:
-            if "CHIP" in props[dut]:
-                need = props[dut]["CHIP"]
-
+        has, need = None, Testbed.read_need("CHIP", dut, props)
         Testbed.trace2(log, "check_chip_0", dut, dut_tb, props, need)
         if need:
             has = tb.get_device_param(dut_tb, "chip", None)
@@ -1295,11 +1516,7 @@ class Testbed(object):
 
     @staticmethod
     def check_tgen_model(log, tb, tg, props):
-        need = None
-        if None in props:
-            if "TGEN" in props[None]:
-                need = props[None]["TGEN"]
-
+        has, need = None, Testbed.read_need("TGEN", None, props)
         Testbed.trace2(log, "check_tgen_model", tg, props, need)
         if need:
             iginfo = tb.get_tg_info(tg)
@@ -1310,16 +1527,23 @@ class Testbed(object):
 
     @staticmethod
     def check_tgen_card(log, tb, tg, props):
-        need = None
-        if None in props:
-            if "TGCARD" in props[None]:
-                need = props[None]["TGCARD"]
-
+        has, need = None, Testbed.read_need("TGCARD", None, props)
         Testbed.trace2(log, "check_tgen_card", tg, props, need)
         if need:
             iginfo = tb.get_tg_info(tg)
             has = getattr(iginfo, "card", "")
             Testbed.trace2(log, "check_tgen_card", tg, props, need, has)
+            return Testbed.check_need_has(need, has)
+        return True
+
+    @staticmethod
+    def check_tgen_speed(log, tb, tg, props):
+        has, need = None, Testbed.read_need("TGSPEED", None, props)
+        Testbed.trace2(log, "check_tgen_speed", tg, props, need)
+        if need:
+            iginfo = tb.get_tg_info(tg)
+            has = getattr(iginfo, "speed", "")
+            Testbed.trace2(log, "check_tgen_speed", tg, props, need, has)
             return Testbed.check_need_has(need, has)
         return True
 
@@ -1341,11 +1565,7 @@ class Testbed(object):
 
     @staticmethod
     def check_dut_names_any(log, dut_list, props):
-        need = None
-        if None in props:
-            if "NAMES" in props[None]:
-                need = props[None]["NAMES"]
-
+        has, need = None, Testbed.read_need("NAMES", None, props)
         if need and "|" not in need:
             dut_list_new = []
             for dut in need.split(","):
@@ -1358,15 +1578,7 @@ class Testbed(object):
 
     @staticmethod
     def check_dut_name(log, tb, dut, dut_tb, props):
-        need = None
-        if None in props:
-            if "NAME" in props[None]:
-                need = props[None]["NAME"]
-
-        if dut in props:
-            if "NAME" in props[dut]:
-                need = props[dut]["NAME"]
-
+        has, need = None, Testbed.read_need("NAME", dut, props)
         Testbed.trace2(log, "check_dut_name", dut, dut_tb, props, need)
         if need:
             has = dut_tb
@@ -1377,11 +1589,7 @@ class Testbed(object):
 
     @staticmethod
     def check_dut_names(log, tb, perm_list, props):
-        need = None
-        if None in props:
-            if "NAMES" in props[None]:
-                need = props[None]["NAMES"]
-
+        has, need = None, Testbed.read_need("NAMES", None, props)
         Testbed.trace2(log, "check_dut_names", perm_list, props, need)
         if need:
             has = ",".join(perm_list)
@@ -1398,13 +1606,28 @@ class Testbed(object):
 
     @staticmethod
     def identify_topology(log, tb, rdict, num, *args):
+        return Testbed.identify_topology_randomise(log, tb, rdict, num, False, *args)
+
+    def get_links_cached(self, from_dev, to_dev, dev_type, cache):
+        if from_dev not in cache:
+            cache[from_dev] = {}
+        if to_dev not in cache[from_dev]:
+            cache[from_dev][to_dev] = {}
+        if dev_type in cache[from_dev][to_dev]:
+            return cache[from_dev][to_dev][dev_type]
+        entries = self.get_links(from_dev, to_dev, dev_type)
+        cache[from_dev][to_dev][dev_type] = entries
+        return entries
+
+    @staticmethod
+    def identify_topology_randomise(log, tb, rdict, num, randomise, *args):
 
         # normalize the topo and get the DUTs needed in topo
         arg_list = Testbed._split_args(*args)
         [requests, properties, req_duts, errs] = Testbed.normalize_topo(*arg_list)
 
         # bailout if TG card/model is not satified
-        Testbed.ensure_tgen_model_and_card(log, tb, properties, errs)
+        errs = Testbed.ensure_tgen_model_and_card(log, tb, properties, errs)
         if errs:
             Testbed.trace2(log, "tgen requirements not met", errs, properties)
             return [None, None, None]
@@ -1412,20 +1635,21 @@ class Testbed(object):
         # build available duts by excluding used ones from all
         used_list = []
         if rdict:
-            for reqid, duts in rdict.items():
+            for _, duts in rdict.items():
                 used_list.extend(duts)
         dut_list = []
         for dut in tb.get_device_names("DUT"):
             if dut not in used_list:
                 dut_list.append(dut)
-        #print(dut_list)
+
+        links_cache = {}
 
         found_setups = []
         for setup in range(0, num):
           dut_list2 = []
           used_list = [j for i in found_setups for j in i]
           for dut in dut_list:
-              if dut not in used_list:
+              if dut not in used_list or randomise:
                   dut_list2.append(dut)
           if not Testbed.check_dut_name_any(log, dut_list2, properties):
             continue
@@ -1435,6 +1659,8 @@ class Testbed(object):
           found_match = []
           perm_iterator = permutations(dut_list2, len(req_duts))
           for perm in perm_iterator:
+            if randomise and [item for item in perm] in found_setups:
+                continue
             perm_list = list(perm)
             perm_dict = {"D{}".format(i+1) : item for i, item in enumerate(perm_list)}
             Testbed.trace2(log, perm, perm_list, perm_dict)
@@ -1469,7 +1695,7 @@ class Testbed(object):
                         found_match = []
                         break
                     # check if tg links are suffient
-                    entries = tb.get_links(dut1, None, "TG")
+                    entries = tb.get_links_cached(dut1, None, "TG", links_cache)
                     if len(entries) < count:
                         Testbed.trace2(log, "no match tg links", arg, len(entries), count, dut1_req, dut1)
                         found_match = []
@@ -1505,7 +1731,7 @@ class Testbed(object):
                         Testbed.trace2(log, "no matching dut-2 chip", arg, count, dut2_req, dut2)
                         found_match = []
                         break
-                    entries = tb.get_links(dut1, dut2, "DUT")
+                    entries = tb.get_links_cached(dut1, dut2, "DUT", links_cache)
                     if len(entries) < count:
                         Testbed.trace2(log, "no match dut links", arg, len(entries), count, perm_list, dut1, dut2)
                         found_match = []
@@ -1518,7 +1744,6 @@ class Testbed(object):
               found_setups.append(found_match)
               break
 
-        #import pdb;pdb.set_trace()
         if not found_setups:
             Testbed.trace2(log, "not found match", "req_duts", req_duts, properties)
             return [None, None, None]
@@ -1526,19 +1751,15 @@ class Testbed(object):
         # have match - create mini testbed
         setup_list = []
         for setup in found_setups:
-            #new_rdict = OrderedDict()
             dut_names = []
             for dut in setup:
-                #dinfo = tb.get_device_info(dut)
-                #new_rdict[dut] = dinfo.alias
                 dut_names.append(dut)
-            #setup_list.append(new_rdict)
             setup_list.append(dut_names)
 
         return [setup_list, properties, errs]
 
     def get_device_name(self, name):
-        for dut, dinfo in self.topology.devices.items():
+        for _, dinfo in self.topology.devices.items():
             if dinfo["__name0__"] == name:
                 return dinfo["__name__"]
         return None
@@ -1549,13 +1770,13 @@ class Testbed(object):
     def get_verifier(self, default="NA"):
         try:
             return self.topology.properties.verifier
-        except:
+        except Exception:
             return default
 
     def get_config_profile(self, default="NA"):
         try:
             return self.topology.properties.profile
-        except:
+        except Exception:
             return default
 
     def save_visjs(self, used=[]):
@@ -1613,6 +1834,16 @@ class Testbed(object):
                 result.links.append(link)
         return json.dumps(result, indent=4)
 
+    def _copy_link_params(self, src, dst):
+        exclude = ["EndDevice", "EndPort"]
+        exclude.extend(["from_port", "from_dut"])
+        exclude.extend(["to_port", "to_dut"])
+        exclude.extend(["from_type", "to_type"])
+        exclude.extend(["__name1__", "__name2__"])
+        exclude.extend(["__name3__", "__name4__"])
+        exclude.extend(dst.keys())
+        utils.copy_items(src, dst, exclude=exclude)
+
     def rebuild_topo_file(self, devices, properties):
         used_devices = dict()
         topology = SpyTestDict()
@@ -1621,7 +1852,14 @@ class Testbed(object):
             topology[dinfo.alias] = SpyTestDict()
             topology[dinfo.alias].interfaces = SpyTestDict()
             used_devices[dut] = 1
-            for local, partner, remote in self.get_links(dut):
+
+            for _, linfo in self.unconnected_links.items():
+                if dut not in [linfo.from_dut]: continue
+                link_ent = SpyTestDict()
+                self._copy_link_params(linfo, link_ent)
+                topology[dinfo.alias].interfaces[linfo.from_port] = link_ent
+
+            for local, partner, remote, name in self.get_links(dut, name=True):
                 pdinfo = self.get_device_info(partner)
                 link_ent = SpyTestDict()
                 if pdinfo.type == "TG":
@@ -1638,6 +1876,7 @@ class Testbed(object):
                         used_devices[partner] = 1
                 else:
                     link_ent.reserved = True
+                self._copy_link_params(self.links[name], link_ent)
                 topology[dinfo.alias].interfaces[local] = link_ent
         d2 = copy.deepcopy(self.oyaml.obj)
         dev_nodes = SpyTestDict()
@@ -1652,7 +1891,7 @@ class Testbed(object):
 
         # save current config files
         for d, dinfo in d2.devices.items():
-            if dinfo["type"] != "DUT":
+            if not self.expand_yaml or dinfo["type"] != "DUT":
                 continue
             dut = dinfo.__name__
             current_configs[dut] = self.get_config(dut, "current")
@@ -1663,11 +1902,12 @@ class Testbed(object):
                 elif dut in properties and "CONFIG" in properties[dut]:
                     current_configs[dut] = self.read_config_file(properties[dut]["CONFIG"])
             except Exception as e:
-                print("exception", str(e))
+                msg = "exception: {}".format(str(e))
+                self.logger.error(msg)
 
         # change config profile and replace global config files
         for d, dinfo in d2.devices.items():
-            if dinfo["type"] != "DUT":
+            if not self.expand_yaml or dinfo["type"] != "DUT":
                 continue
             dut = dinfo.__name__
             dinfo.properties.config = "config-{}".format(dinfo.alias)
@@ -1683,7 +1923,7 @@ class Testbed(object):
                 del dev_nodes[d].__name0__
                 del dev_nodes[d].alias
 
-        return yaml.dump(d2, default_flow_style=False)
+        return self.oyaml.dump(self.expand_yaml, d2)
 
     def validate_testbed(self, tb_list=[]):
         tg_ips = []
@@ -1712,7 +1952,7 @@ class Testbed(object):
             new_filename = os.path.join(fp2, filename)
             shutil.move(fp.name, new_filename)
             return new_filename
-        except:
+        except Exception:
             return fp.name
 
     @staticmethod
@@ -1722,100 +1962,6 @@ class Testbed(object):
             obj = oyaml.get_data()
             assert(isinstance(obj.current, list))
             return obj.current
-        except:
+        except Exception:
             return None
-
-    def _unit_tests(self):
-        for d in self.get_device_names("DUT"):
-            print("DUT--NAME: " + d)
-        utils.print_yaml(self.links, "LINKS")
-        print("get_service(D1,ftp): ", self.get_service("D101", "ftp"))
-        print("get_service(D1,tftp): ", self.get_service("D101", "tftp"))
-        print("get_service(D1,None): ", self.get_service("D101", None))
-        print("get_rps(D1): ", self.get_rps("D101"))
-        print("get_links(D1): ", self.get_links("D101"))
-        print("get_links(D2): ", self.get_links("D102"))
-        print("get_links(D3): ", self.get_links("D103"))
-        print("get_links(D1,D2): ", self.get_links("D101", "D102"))
-        print("get_links(D1,D3): ", self.get_links("D101", "D103"))
-        print("get_links(D2,D3): ", self.get_links("D102", "D103"))
-        print("get_links(D3,D2): ", self.get_links("D103", "D102"))
-        print("get_testbed_vars(): ", self.get_testbed_vars())
-
-
-if __name__ == "__main__":
-    logging.basicConfig()
-    log = logging.getLogger()
-    log.setLevel(logging.DEBUG)
-    def_filename = "../testbeds/sample_sonic_terminal_1d.yaml"
-    file_name = sys.argv[1] if len(sys.argv) >= 2 else def_filename
-    t = Testbed(file_name)
-    t.flex_dut = True
-    print(t.get_speed("D1", None))
-    #print(t.identify_topology(None, t, None, 1, "D1T1:1", "CHIP=td2|th2"))
-    #print(t.identify_topology(None, t, None, 1, "D1T1:1", "CHIP=!td3"))
-    #print(t.identify_topology(None, t, None, 1, "D1T1:1", "CHIP=td3"))
-    #print(t.identify_topology(None, t, None, 1, "D1T1:1", "TGCARD=t1|t2"))
-    #print(t.identify_topology(None, t, None, 1, "D1"))
-    print(t.ensure_min_topology("D1D2:1 D2D3:1 D3D4:1 TGEN=stc|ixia"))
-    print(t.ensure_min_topology("D1D2:1 D2D3:1 D3D4:1 TGEN=stc"))
-    print(t.ensure_min_topology("D1D2:1 D2D3:1 D3D4:1 TGEN=ixia"))
-    sys.exit(0)
-    o = t.topology
-    with open('expanded-v2.yml', 'w') as outfile:
-        yaml.dump(o, outfile, default_flow_style=False)
-    topo = o
-    for dd, d_info in topo.devices.items():
-        utils.print_data(d_info, "{}".format(dd))
-    utils.print_yaml(topo, "topology")
-    print(t.ensure_min_topology("D1T1:20"))
-    print(t.ensure_min_topology("D1D2:20"))
-    print(t.get_all_files())
-    print(t.get_device_alias("D101"))
-    print(t.parse_topology("D1T1:1", "D1D2:1"))
-    print(t.parse_topology("D1T1:1", "D1CONFIG:test.yaml", "D1MODEL:AS7712", "CONFIG:abc.yaml", "MODEL:AS7712"))
-    print(t.get_device_param("D101", "model", "unknown"))
-    print(t.get_build("D101", None))
-    print(t.get_error("D101", None))
-    print(t.get_breakout("D101"))
-    with open('all.json', 'w') as outfile:
-        outfile.write(t.save_visjs())
-    t._unit_tests()
-    print(t.get_device_names())
-    for dd in t.get_device_names("DUT"):
-        print(dd, t.get_device_alias(dd), t.get_rerved_links(dd))
-    print("VALID", t.valid, t._validate())
-    print(t.get_speed("D101", None))
-    print(t.get_speed("D101", "Ethernet43"))
-    print(t.get_device_param("D101", "show_delay", "1"))
-    print(t.get_device_param("D101", "hostname", "unknown"))
-    print(t.ensure_min_topology("D1D2:3", "D2D3:3"))
-    print(t.ensure_min_topology("D1D2:3", "D1D3:3"))
-    #print(t.ensure_min_topology("D1T1:1", "TGEN:ixia2"))
-    #print(t.identify_topology(None, t, None, 1, "D1T1:1", "TGEN:ixia"))
-    ##print(t.identify_topology(None, t, None, 1, "D1D2:6 D2D3:4 D2D4:4 D4:D5:6 D5D6:4"))
-    tbvars = t.get_testbed_vars()
-    print("get_testbed_vars(): ", tbvars)
-    for dd in t.get_device_names("DUT"):
-        print("DUT--NAME: " + dd)
-        print("get_links({}): ", dd, t.get_links(dd))
-    for dd in t.get_device_names("TG"):
-        print("DUT--NAME: " + dd)
-        print("get_links({}): ", dd, t.get_links(dd))
-    print("========================================")
-    print(t.normalize_topo("D1D24", "D1NAME:DUT-8", "D2NAME:DUT-4"))
-    print("========================================")
-    #print(t.get_raw())
-    print(t.identify_topology(None, t, None, 2, "D1 D2 D3 D4", "NAMES:DUT-1,DUT-2,DUT-7,DUT-8|DUT-5,DUT-6,DUT-3,DUT-4"))
-    print(t.identify_topology(None, t, None, 2, "D1T1:4 D1D2:6 D2D3:3 D1D3:3 D2T1:2 D3T1:2"))
-    print("========================================")
-    t.flex_dut = True
-    print(t.identify_topology(None, t, None, 2, "D1T1:1", "D2T1:2", "D1D2:2", "D1MODEL:Accton-AS7326-56X", "D2MODEL:Accton-AS7326-56X"))
-    print(t.ensure_min_topology("D1T1:1", "D2T1:2", "D1D2:2", "D1MODEL:Accton-AS7326-56X", "D2MODEL:Accton-AS7326-56X2" ))
-    print(t.identify_topology(log, t, None, 2, "D1 D2 D3 D4 NAMES:DUT-1,DUT-2,DUT-7,DUT-8|DUT-5,DUT-6,DUT-3,DUT-4"))
-    print(t.get_access())
-    print(t.ensure_min_topology("D1", "CONSOLE_ONLY"))
-    print(t.get_topo())
-    print(t.ensure_min_topology("D1", "CHIP=TD3|TD2"))
-    breakout_options = t.get_device_param("SS4-2", "breakout", None)
 

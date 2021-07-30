@@ -12,6 +12,7 @@ import subprocess
 import datetime
 import traceback
 import sys
+import socket
 import threading
 from collections import defaultdict
 from pprint import pprint
@@ -22,13 +23,14 @@ from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
+from device_connection import DeviceConnection
 
 
 class ArpTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
 
-        log_file_name = '/root/wr_arp_test.log'
+        log_file_name = '/tmp/wr_arp_test.log'
         self.log_fp = open(log_file_name, 'a')
         self.log_fp.write("\nNew test:\n")
 
@@ -46,6 +48,7 @@ class ArpTest(BaseTest):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print "%s : %s" % (current_time, message)
         self.log_fp.write("%s : %s\n" % (current_time, message))
+        self.log_fp.flush()
 
         return
 
@@ -59,19 +62,14 @@ class ArpTest(BaseTest):
 
         return stdout, stderr, return_code
 
-    def ssh(self, cmds):
-        ssh_cmds = ["ssh", "-oStrictHostKeyChecking=no", "-oServerAliveInterval=2", "admin@" + self.dut_ssh]
-        ssh_cmds.extend(cmds)
-        stdout, stderr, return_code = self.cmd(ssh_cmds)
-        if stdout != []:
-            self.log("stdout from dut: '%s'" % str(stdout))
-        if stderr != []:
-            self.log("stderr from dut '%s'" % str(stderr))
-        self.log("return code from dut: '%s'" % str(return_code))
+    def dut_exec_cmd(self, cmd):
+        self.log("Executing cmd='{}'".format(cmd))
+        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=30)
+        self.log("return_code={}, stdout={}, stderr={}".format(return_code, stdout, stderr))
 
         if return_code == 0:
             return True, str(stdout)
-        elif return_code == 255 and 'Timeout, server' in stderr and 'not responding' in stderr:
+        elif return_code == 255:
             return True, str(stdout)
         else:
             return False, "return code: %d. stdout = '%s' stderr = '%s'" % (return_code, str(stdout), str(stderr))
@@ -81,14 +79,14 @@ class ArpTest(BaseTest):
             cmd = q_from.get()
             if cmd == 'WR':
                 self.log("Rebooting remote side")
-                res, res_text = self.ssh(["sudo", "warm-reboot", "-c", self.ferret_ip])
+                res, res_text = self.dut_exec_cmd("sudo warm-reboot -c {}".format(self.ferret_ip))
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
                     q_to.put('error: %s' % res_text)
             elif cmd == 'uptime':
                 self.log("Check uptime remote side")
-                res, res_text = self.ssh(["uptime", "-s"])
+                res, res_text = self.dut_exec_cmd("uptime -s")
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
@@ -102,11 +100,22 @@ class ArpTest(BaseTest):
         self.log("Quiting from dut_thr")
         return
 
+    def test_port_thr(self):
+        self.log("test_port_thr started")
+        while time.time() < self.stop_at:
+            for test in self.tests:
+                for port in test['acc_ports']:
+                    nr_rcvd = self.testPort(port)
+                    self.records[port][time.time()] = nr_rcvd
+        self.log("Quiting from test_port_thr")
+        return
+
     def readMacs(self):
         addrs = {}
         for intf in os.listdir('/sys/class/net'):
-            with open('/sys/class/net/%s/address' % intf) as fp:
-                addrs[intf] = fp.read().strip()
+            if os.path.isdir('/sys/class/net/%s' % intf):
+                with open('/sys/class/net/%s/address' % intf) as fp:
+                    addrs[intf] = fp.read().strip()
 
         return addrs
 
@@ -182,6 +191,13 @@ class ArpTest(BaseTest):
         config = self.get_param('config_file')
         self.ferret_ip = self.get_param('ferret_ip')
         self.dut_ssh = self.get_param('dut_ssh')
+        self.dut_username = self.get_param('dut_username')
+        self.dut_password = self.get_param('dut_password')
+        self.dut_alt_password=self.get_param('alt_password')
+        self.dut_connection = DeviceConnection(self.dut_ssh,
+                                            username=self.dut_username,
+                                            password=self.dut_password,
+                                            alt_password=self.dut_alt_password)
         self.how_long = int(self.get_param('how_long', required=False, default=300))
 
         if not os.path.isfile(config):
@@ -241,22 +257,29 @@ class ArpTest(BaseTest):
             self.req_dut('quit')
             self.assertTrue(False, "DUT returned error for first uptime request")
 
-        records = defaultdict(dict)
-        stop_at = time.time() + self.how_long
-        rebooted = False
-        while time.time() < stop_at:
-            for test in self.tests:
-                for port in test['acc_ports']:
-                    nr_rcvd = self.testPort(port)
-                    records[port][time.time()] = nr_rcvd
-            if not rebooted:
-                result = self.req_dut('WR')
-                if result.startswith('ok'):
-                    rebooted = True
-                else:
-                    self.log("Error in WR")
-                    self.req_dut('quit')
-                    self.assertTrue(False, "Error in WR")
+        self.records = defaultdict(dict)
+        self.stop_at = time.time() + self.how_long
+
+        test_port_thr = threading.Thread(target=self.test_port_thr)
+        test_port_thr.setDaemon(True)
+        test_port_thr.start()
+
+        self.log("Issuing WR command")
+        result = self.req_dut('WR')
+        if result.startswith('ok'):
+            self.log("WR OK!")
+        else:
+            self.log("Error in WR")
+            self.req_dut('quit')
+            self.assertTrue(False, "Error in WR")
+
+        self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
+
+        test_port_thr.join(timeout=self.how_long)
+        if test_port_thr.isAlive():
+            self.log("Timed out waiting for warm reboot")
+            self.req_dut('quit')
+            self.assertTrue(False, "Timed out waiting for warm reboot")
 
         uptime_after = self.req_dut('uptime')
         if uptime_after.startswith('error'):
@@ -272,7 +295,7 @@ class ArpTest(BaseTest):
 
         # check that every port didn't have pauses more than 25 seconds
         pauses = defaultdict(list)
-        for port, data in records.items():
+        for port, data in self.records.items():
             was_active = True
             last_inactive = None
             for t in sorted(data.keys()):

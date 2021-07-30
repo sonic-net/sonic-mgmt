@@ -1,0 +1,30 @@
+all:
+  children:
+    example-ixia:
+      children:
+        ixia_chassis:
+        sonic:
+    ptf:
+      hosts:
+        example-ixia-ptf-1:
+          ansible_host: 10.0.0.30
+
+ixia_chassis:
+  hosts:
+    example-ixia-1:
+      ansible_host: 10.0.0.20
+      os: ixia
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+  children:
+    sonic_dell64_40
+
+sonic_dell64_40:
+  vars:
+    hwsku: Force10-S6100
+    iface_speed: 40000
+  hosts:
+    example-s6100-dut-1:
+      ansible_host: 10.0.0.10

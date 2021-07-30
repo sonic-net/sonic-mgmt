@@ -7,7 +7,7 @@ Value st_tcntx (\d+)
 Value st_tcnrx (\d+)
 
 Start
-  ^VLAN\s+${st_vid}\s+-\s+STP\s+instance\s+${st_inst}$$
+  ^VLAN\s+${st_vid}\s+-\s+R?STP\s+instance\s+${st_inst}$$
   ^(-+\s*)*$$
   ^PortNum\s+BPDU\s+Tx\s+BPDU\s+Rx\s+TCN\s+Tx\s+TCN\s+Rx$$
   ^${st_portno}\s+${st_bpdutx}\s+${st_bpdurx}\s+${st_tcntx}\s+${st_tcnrx}\s*$$ -> Record

@@ -1,0 +1,6 @@
+#cloud-config
+hostname: "{{ vm_name  }}"
+
+password: "{{ k8s_master_password }}"
+chpasswd: { expire: False }
+ssh_pwauth: True

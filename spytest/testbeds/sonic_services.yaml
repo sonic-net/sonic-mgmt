@@ -35,7 +35,7 @@ snmptrap:
 tacacs:
   hosts: [{ip: 10.59.143.179, username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 1},
-          {ip: 10.52.132.214, username: root, password: lvl7india,
+          {ip: 10.52.140.51, username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 2},
           {ip: 10.52.145.181, username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 3},
@@ -51,11 +51,11 @@ tacacs:
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 8}]
 
 radius:
-  hosts: [{ip: 10.52.132.214, username: test, password: test,
+  hosts: [{ip: 10.52.145.181, username: test, password: test,
            timeout: 5, passkey: Lvl7india, udp_port: 1812, auth_type: pap, priority: 8},
           {ip: '10.52.1.1', username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 2},
-          {ip: '10.52.145.181', username: root, password: lvl7india,
+          {ip: '10.52.140.51', username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 3},
           {ip: "4001::1", username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 4},
@@ -81,7 +81,7 @@ radius:
   logs_path: {path: '/var/log/auth.log'}
   cisco_acs_server: {ip: 10.52.136.77, username: qauser, password: qauser123, passkey: lvl7india}
   radius_conf_files: {path: '/usr/share/sonic/templates/radius_nss.conf.j2', backup_path: '/usr/share/sonic/templates/radius_nss_bkp.conf.j2'}
-  ro_user: {username: test1, password: password}
+  ro_user: {username: test1, password: password, password1: test1}
 
 syslog:
   ip: 192.168.1.1
@@ -92,7 +92,7 @@ syslog:
 
 ntp:
   default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
-  host: [162.246.94.71,192.111.144.114,47.190.36.230]
+  host: [50.205.244.20,  104.194.8.227, 50.205.244.107]
 
 smtp:
   host: smtphost.broadcom.com
@@ -114,18 +114,18 @@ ansible:
   upgrade_path: http://10.130.64.137:4321/sonic-broadcom.bin
 
 ztp:
-  dhcp: {inband: {ip: 10.52.139.214, username: admin, password: broadcom,
+  dhcp: {inband: {ip: 10.52.139.224, username: admin, password: broadcom,
          config_file: /etc/dhcp/dhcpd.conf, static_ip: 192.168.2.1, interface: Ethernet46,
-                  home_path: /home/admin/www, port: 0},
+                  home_path: /home/admin/www, port: 0, subnet: 24, client_ip: 192.168.2.101},
           outofband: {ip: 10.52.139.122, username: vmuser, password: broadcom,
                       config_file: /etc/dhcp/dhcpd.conf, static_ip: 192.168.1.1, interface: eth0,
-                      home_path: /home/vmuser/www, port: 0}}
-  dhcpv6: {inband: {ip: 10.52.139.214, username: admin, password: broadcom,
+                      home_path: /home/vmuser/www, port: 0, subnet: 24, client_ip: 192.168.1.18}}
+  dhcpv6: {inband: {ip: 10.52.139.224, username: admin, password: broadcom,
                     config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2001:db8:aad:aaa::99", interface: Ethernet46,
-                    home_path: /home/admin/www, port: 0},
+                    home_path: /home/admin/www, port: 0, subnet: 64, client_ip: "2001:db8:aad:aaa::90"},
            outofband: {ip: 10.52.139.122, username: vmuser, password: broadcom,
                        config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2002:db8:aad:aaa::99", interface: eth0,
-                       home_path: /home/vmuser/www, port: 0}}
+                       home_path: /home/vmuser/www, port: 0, subnet: 64, client_ip: "2002:db8:aad:aaa::90"}}
   config_path: /sonic-ztp/json
   firmware_path: /sonic-ztp/firmware
   provision_script_path: /sonic-ztp/provisioning_scripts
@@ -138,6 +138,7 @@ ztp:
   docker_image: docker-teamd.gz
   docker_component_name: teamd
   minigraph_file: minigraph_as7726.xml
+  breakout: [Ethernet44, 4x10]
 
 
 http:
@@ -168,9 +169,9 @@ vm_server:
   password: broadcom
 
 dhcp_relay:
-  connected_port: Ethernet2
-  server_ip: 1.1.1.1
-  serverv6_ip: 1111::1
+  connected_port: Ethernet45
+  server_ip: 172.16.40.210
+  serverv6_ip: 2072::210
   ipv6_link_local_intf: Ethernet0
   ipv6_link_local_server_ip: 12.1.1.2
   ipv6_link_local_network: 12.1.1.0/24
@@ -184,8 +185,8 @@ mod:
   protoc_path: /projects/scid/tools/protobuf/bin/protoc
 
 dhcp_server_vxlan:
-    server_mgmt_ip: 10.59.130.241
-    dhcp_server_ip: 172.16.0.241
-    dhcp_server_ipv6: 2072::241
+    server_mgmt_ip: 10.59.130.210
+    dhcp_server_ip: 172.16.40.210
+    dhcp_server_ipv6: 2072::210
     username: root
-    password: stratax120
+    password: broadcom

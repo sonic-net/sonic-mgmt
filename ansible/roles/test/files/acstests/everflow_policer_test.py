@@ -8,6 +8,7 @@ Usage:          Examples of how to use:
 
 import sys
 import time
+import datetime
 import logging
 
 import ptf
@@ -22,7 +23,7 @@ logger = logging.getLogger('EverflowPolicerTest')
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
-    NUM_OF_TOTAL_PACKETS = 500
+    NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
 
 
@@ -104,13 +105,16 @@ class EverflowPolicerTest(BaseTest):
         logger.info(msg)
         msg = "cbs={}".format(self.cbs)
         logger.info(msg)
+        msg = "send_time={}".format(self.send_time)
+        logger.info(msg)
         msg = "tolerance={}".format(self.tolerance)
         logger.info(msg)
-        msg = "min_range={}".format(self.min_range)
+        msg = "min_range={}".format(self.min_rx_pps)
         logger.info(msg)
-        msg = "max_range={}".format(self.max_range)
+        msg = "max_range={}".format(self.max_rx_pps)
         logger.info(msg)
-
+        msg = "check_ttl={}".format(self.check_ttl)
+        logger.info(msg)
 
     def setUp(self):
         '''
@@ -133,7 +137,9 @@ class EverflowPolicerTest(BaseTest):
         self.meter_type = self.test_params['meter_type']
         self.cir = int(self.test_params['cir'])
         self.cbs = int(self.test_params['cbs'])
+        self.send_time = int(self.test_params['send_time'])
         self.tolerance = int(self.test_params['tolerance'])
+        self.check_ttl = self.test_params['check_ttl']
 
         assert_str = "meter_type({0}) not in {1}".format(self.meter_type, str(self.METER_TYPES))
         assert self.meter_type in self.METER_TYPES, assert_str
@@ -142,8 +148,7 @@ class EverflowPolicerTest(BaseTest):
         assert_str = "cbs({}) > 0".format(self.cbs)
         assert self.cbs > 0, assert_str
 
-        self.min_range = self.cbs - (self.cbs / 100) * self.tolerance
-        self.max_range = self.cbs + (self.cbs / 100) * self.tolerance
+        self.min_rx_pps, self.max_rx_pps = self.cbs * (1 - self.tolerance/100.), self.cbs * (1 + self.tolerance/100.)
 
         self.base_pkt = testutils.simple_tcp_packet(
                 eth_dst = self.router_mac,
@@ -169,18 +174,22 @@ class EverflowPolicerTest(BaseTest):
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        if self.check_ttl == 'False':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
         self.dataplane.flush()
 
         count = 0
+        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
-            testutils.send_packet(self, self.src_port, self.base_pkt)
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
                 count += 1
             elif count == 0:
                 assert_str = "The first original packet is not recieved"
                 assert count > 0, assert_str # Fast failure without waiting for full iteration
+            else:
+                break # No more packets available
 
         logger.info("Recieved {} original packets".format(count))
 
@@ -208,10 +217,6 @@ class EverflowPolicerTest(BaseTest):
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
 
-        if self.asic_type in ["barefoot"]:
-            import binascii
-            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
-
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
                 ip_src = self.session_src_ip,
@@ -225,7 +230,15 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["mellanox"]:
             exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
         elif self.asic_type in ["barefoot"]:
-            exp_pkt['GRE'].proto = 0x22eb # Barefoot specific
+            exp_pkt = testutils.ipv4_erspan_pkt(
+                eth_src = self.router_mac,
+                ip_src = self.session_src_ip,
+                ip_dst = self.session_dst_ip,
+                ip_dscp = self.session_dscp,
+                ip_ttl = self.session_ttl,
+                inner_frame = str(payload),
+                ip_id = 0,
+                sgt_other=0x4)
         else:
             exp_pkt['GRE'].proto = 0x88be
 
@@ -233,35 +246,57 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_exp_pkt.set_do_not_care(38*8, len(payload)*8)  # don't match payload, payload will be matched by match_payload(pkt)
+
+        if exp_pkt.haslayer(scapy.ERSPAN_III):
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "timestamp")
+
+        # don't match payload, payload will be matched by match_payload(pkt)
+        payload_offset = len(exp_pkt) - len(payload)
+        masked_exp_pkt.set_do_not_care(payload_offset*8, len(payload)*8)
+
+        if self.check_ttl == 'False':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
         def match_payload(pkt):
             if self.asic_type in ["mellanox"]:
                 pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:] # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
+            elif self.asic_type == "barefoot":
+                pkt = scapy.Ether(pkt).load
             else:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
+        # send some amount to absorb CBS capacity
+        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
         self.dataplane.flush()
 
-        count = 0
-        testutils.send_packet(self, self.src_port, self.base_pkt, count=self.NUM_OF_TOTAL_PACKETS)
-        for i in range(0,self.NUM_OF_TOTAL_PACKETS):
+        end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.send_time)
+        tx_pkts = 0
+        while datetime.datetime.now() < end_time:
+            testutils.send_packet(self, self.src_port, str(self.base_pkt))
+            tx_pkts += 1
+
+        rx_pkts = 0
+        while True:
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None and match_payload(rcv_pkt):
-                count += 1
-            elif count == 0:
-                assert_str = "The first mirrored packet is not recieved"
-                assert count > 0, assert_str # Fast failure without waiting for full iteration
+                rx_pkts += 1
             else:
                 break # No more packets available
 
-        logger.info("Received {} mirrored packets after rate limiting".format(count))
+        tx_pps = tx_pkts / self.send_time
+        rx_pps = rx_pkts / self.send_time
 
-        return count
+        logger.info("Sent {} packets".format(tx_pkts))
+        logger.info("Received {} mirrored packets after rate limiting".format(rx_pkts))
+        logger.info("TX PPS {}".format(tx_pps))
+        logger.info("RX PPS {}".format(rx_pps))
+
+        return rx_pkts, tx_pps, rx_pps
 
 
     def runTest(self):
@@ -288,6 +323,11 @@ class EverflowPolicerTest(BaseTest):
         testutils.add_filter(self.greFilter)
 
         # Send traffic and verify the mirroed traffic is rate limited
-        count = self.checkMirroredFlow()
-        assert_str = "min({1}) <= count({0}) <= max({2})".format(count, self.min_range, self.max_range)
-        assert count >= self.min_range and count <= self.max_range, assert_str
+        rx_pkts, tx_pps, rx_pps = self.checkMirroredFlow()
+
+        assert_str = "Transmition rate is lower then policer rate limiting." \
+                     "Most probably slow testbed server issue: tx_pps({}) <= rx_pps_max({})".format(tx_pps, self.max_rx_pps)
+        assert tx_pps > self.max_rx_pps, assert_str
+
+        assert_str = "min({1}) <= pps({0}) <= max({2})".format(rx_pps, self.min_rx_pps, self.max_rx_pps)
+        assert rx_pps >= self.min_rx_pps and rx_pps <= self.max_rx_pps, assert_str

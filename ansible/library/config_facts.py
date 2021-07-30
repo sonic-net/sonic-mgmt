@@ -23,7 +23,7 @@ options:
             - Set to "running" for running config, or "persistent" for persistent config from /etc/sonic/config_db.json
 '''
 
-PERSISTENT_CONFIG_PATH = "/etc/sonic/config_db.json"
+PERSISTENT_CONFIG_PATH = "/etc/sonic/config_db{}.json"
 TABLE_NAME_SEPARATOR = '|'
 
 def format_config(json_data):
@@ -63,18 +63,29 @@ def format_config(json_data):
 
 def create_maps(config):
     """ Create a map of SONiC port name to physical port index """
-
-    port_name_list = config["PORT"].keys()
-    port_name_list_sorted = natsorted(port_name_list)
-
     port_index_map = {}
-    for idx, val in enumerate(port_name_list_sorted):
-        port_index_map[val] = idx
+    port_name_to_alias_map = {}
+    port_alias_to_name_map = {}
 
-    port_name_to_alias_map = { name : v['alias'] for name, v in config["PORT"].iteritems()}
+    if 'PORT' in config:
+        port_name_list = config["PORT"].keys()
+        port_name_list_sorted = natsorted(port_name_list)
 
-    # Create inverse mapping between port name and alias
-    port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}
+        #get the port_index from config_db if available
+        port_index_map = {
+            name: int(v['index'])
+            for name, v in config['PORT'].iteritems()
+            if 'index' in v
+        }
+        if not port_index_map:
+            #if not available generate an index
+            for idx, val in enumerate(port_name_list_sorted):
+                port_index_map[val] = idx
+
+        port_name_to_alias_map = { name : v['alias'] if 'alias' in v else '' for name, v in config["PORT"].iteritems()}
+
+        # Create inverse mapping between port name and alias
+        port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}
 
     return {
     'port_name_to_alias_map' : port_name_to_alias_map,
@@ -83,9 +94,11 @@ def create_maps(config):
     }
 
 
-def get_running_config(module):
-
-    rt, out, err = module.run_command("sonic-cfggen -d --print-data")
+def get_running_config(module, namespace):
+    cmd = "sonic-cfggen -d --print-data"
+    if namespace:
+        cmd += " -n {}".format(namespace)
+    rt, out, err = module.run_command(cmd)
     if rt != 0:
         module.fail_json(msg="Failed to dump running config! {}".format(err))
     json_info = json.loads(out)
@@ -111,6 +124,7 @@ def main():
             host=dict(required=True),
             source=dict(required=True, choices=["running", "persistent"]),
             filename=dict(),
+            namespace=dict(default=None),
         ),
         supports_check_mode=True
     )
@@ -118,16 +132,20 @@ def main():
     m_args = module.params
     try:
         config = {}
-        
+        namespace = m_args['namespace']
         if m_args["source"] == "persistent":
             if 'filename' in m_args and m_args['filename'] is not None:
                 cfg_file_path = "%s" % m_args['filename']
             else:
-                cfg_file_path = PERSISTENT_CONFIG_PATH
+                if namespace is not None:
+                    asic_index = namespace.split("asic")[1]
+                    cfg_file_path = PERSISTENT_CONFIG_PATH.format(asic_index)
+                else:
+                    cfg_file_path = PERSISTENT_CONFIG_PATH.format("")
             with open(cfg_file_path, "r") as f:
                 config = json.load(f)
-        elif m_args["source"] == "running":    
-            config = get_running_config(module)
+        elif m_args["source"] == "running":
+            config = get_running_config(module, namespace)
         results = get_facts(config)
         module.exit_json(ansible_facts=results)
     except Exception as e:

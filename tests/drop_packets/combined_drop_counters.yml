@@ -1,0 +1,33 @@
+# In this file should be defined regular expressions to match specific device platform which has combined:
+# - L2 and L3 drop counters
+# - ACL and L2 drop counters
+# If platform have separate drop counters, those platforms must not be in the list.
+# File content is a list of regular expressions defined in yaml format
+#
+# Platform name can be obtained by calling CLI command: show platform summary
+#
+# Example:
+# root@sonic:/home/admin# show platform summary
+# Platform: x86_64-mlnx_msn2740-r0
+# HwSKU: ACS-MSN2740
+# ASIC: mellanox
+
+# File content example:
+# l2_l3:
+#   - "x86_64-mlnx"
+#   - "x86_64-dell.*"
+# acl:
+#   - "x86_64-mlnx"
+#   - "x86_64-dell.*"
+l2_l3:
+    - "x86_64-dell.*"
+    - "x86_64-arista.*"
+    - "x86_64-cel_seastone.*"
+    - "x86_64-accton_as9516.*"
+    - "x86_64-accton_wedge100bf.*"
+
+acl_l2:
+    - "x86_64-mlnx"
+    - "x86_64-dell.*"
+    - "x86_64-arista.*"
+    - "x86_64-cel_seastone.*"

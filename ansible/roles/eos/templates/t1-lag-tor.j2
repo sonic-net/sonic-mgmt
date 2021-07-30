@@ -41,7 +41,11 @@ ip routing
 ip routing vrf MGMT
 ipv6 unicast-routing
 !
+{% if vm_mgmt_gw is defined %}
+ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
+{% else %}
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
+{% endif %}
 !
 interface Management {{ mgmt_if_index }}
  description TO LAB MGMT SWITCH
@@ -59,6 +63,7 @@ interface {{ name }}
  description LOOPBACK
 {% else %}
  no switchport
+ no shutdown
 {% endif %}
 {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
@@ -75,6 +80,7 @@ interface {{ name }}
 interface {{ bp_ifname }}
  description backplane
  no switchport
+ no shutdown
 {% if host['bp_interface']['ipv4'] is defined %}
  ip address {{ host['bp_interface']['ipv4'] }}
 {% endif %}

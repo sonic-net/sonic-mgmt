@@ -1,0 +1,48 @@
+Value Interface (\S+)
+Value Status (\w+)
+Value Line_Protocol (\w+)
+Value Hardware (\S+)
+Value Index (\d+)
+Value IP (\S+)
+Value IPv6 (\S+)
+Value MTU (\d+)
+Value Speed (\w+)
+Value Autoneg (\S+)
+Value RX_packets (\d+)
+Value RX_octets (\d+)
+Value RX_multicasts (\d+)
+Value RX_broadcasts (\d+)
+Value RX_unicasts (\d+)
+Value RX_error (\d+)
+Value RX_discarded (\d+)
+Value TX_packets (\d+)
+Value TX_octets (\d+)
+Value TX_multicasts (\d+)
+Value TX_broadcasts (\d+)
+Value TX_unicasts (\d+)
+Value TX_error (\d+)
+Value TX_discarded (\d+)
+
+Start
+  ^\s*${Interface} is ${Status}, line protocol is ${Line_Protocol}
+  ^\s*Hardware is ${Hardware}
+  ^\s*Interface index is ${Index}
+  ^\s*Mode of IPV4 address assignment: ${IP}
+  ^\s*Mode of IPV6 address assignment: ${IPv6}
+  ^\s*IP MTU ${MTU} bytes
+  ^\s*LineSpeed ${Speed}, Auto-negotiation ${Autoneg}
+  ^\s*Input statistics: -> RX_Stats
+  ^\s*Output statistics: -> TX_Stats
+
+RX_Stats
+  ^\s*${RX_packets} packets, ${RX_octets} octets
+  ^\s*${RX_multicasts} Multicasts, ${RX_broadcasts} Broadcasts, ${RX_unicasts} Unicasts
+  ^\s*${RX_error} error, ${RX_discarded} discarded -> Start
+
+TX_Stats
+  ^\s*${TX_packets} packets, ${TX_octets} octets
+  ^\s*${TX_multicasts} Multicasts, ${TX_broadcasts} Broadcasts, ${TX_unicasts} Unicasts
+  ^\s*${TX_error} error, ${TX_discarded} discarded -> Record Start
+
+EOF
+

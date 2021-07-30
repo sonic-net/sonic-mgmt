@@ -1,0 +1,9 @@
+Value field_name ([^\n]+)
+Value field_value ([^\n]+)
+
+Start
+  ^\s*\S*\s*"${field_name}"\s*$$ -> VALUE_STATE
+
+VALUE_STATE
+  ^\s*\S*\s*"${field_value}"\s*$$ -> Record Start
+

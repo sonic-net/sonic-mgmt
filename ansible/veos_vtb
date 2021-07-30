@@ -1,0 +1,260 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_1:
+    eos:
+      children:
+        vms_1:
+    servers:
+      vars:
+        topologies:
+          - t1
+          - t1-lag
+          - t1-64-lag
+          - t1-8-lag
+          - t1-64-lag-clet
+          - t1-backend
+          - t0
+          - t0-16
+          - t0-56
+          - t0-52
+          - ptf32
+          - ptf64
+          - t0-64
+          - t0-64-32
+          - t0-116
+          - t0-backend
+          - dualtor
+          - dualtor-56
+          - dualtor-120
+          - t2-vs
+      children:
+        server_1:
+    lab:
+      hosts:
+        vlab-01:
+        vlab-02:
+        vlab-03:
+        vlab-04:
+        vlab-05:
+        vlab-06:
+        vlab-07:
+        vlab-08:
+    ptf:
+      hosts:
+        ptf-01:
+          ansible_host: 10.250.0.102
+          ansible_hostv6: fec0::ffff:afa:2
+        ptf-02:
+          ansible_host: 10.250.0.106
+          ansible_hostv6: fec0::ffff:afa:6
+        ptf-03:
+          ansible_host: 10.250.0.108
+          ansible_hostv6: fec0::ffff:afa:8
+        ptf-04:
+          ansible_host: 10.250.0.109
+          ansible_hostv6: fec0::ffff:afa:9
+        ptf-05:
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
+      vars:
+          ansible_user: root
+          ansible_password: root
+    sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
+        ansible_connection: multi_passwd_ssh
+        ansible_altpassword: YourPaSsWoRd
+      hosts:
+        vlab-01:
+          ansible_host: 10.250.0.101
+          ansible_hostv6: fec0::ffff:afa:1
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9000
+          ansible_password: password
+          ansible_user: admin
+        vlab-02:
+          ansible_host: 10.250.0.102
+          ansible_hostv6: fec0::ffff:afa:2
+          type: kvm
+          hwsku: Force10-S6100
+          serial_port: 9000
+          ansible_password: password
+          ansible_user: admin
+        vlab-03:
+          ansible_host: 10.250.0.105
+          ansible_hostv6: fec0::ffff:afa:5
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9001
+          ansible_password: password
+          ansible_user: admin
+        vlab-04:
+          ansible_host: 10.250.0.107
+          ansible_hostv6: fec0::ffff:afa:7
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9002
+          ansible_password: password
+          ansible_user: admin
+        vlab-05:
+          ansible_host: 10.250.0.110
+          ansible_hostv6: fec0::ffff:afa:a
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9003
+          ansible_password: password
+          ansible_user: admin
+        vlab-06:
+          ansible_host: 10.250.0.111
+          ansible_hostv6: fec0::ffff:afa:b
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9004
+          ansible_password: password
+          ansible_user: admin
+        vlab-07:
+          ansible_host: 10.250.0.109
+          ansible_hostv6: fec0::ffff:afa:9
+          type: kvm
+          hwsku: msft_multi_asic_vs
+          serial_port: 9005
+          num_asics: 6
+          ansible_password: password
+          ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1,2,3]
+        vlab-08:
+          ansible_host: 10.250.0.112
+          ansible_hostv6: fec0::ffff:afa:c
+          type: kvm
+          hwsku: msft_four_asic_vs
+          serial_port: 9005
+          num_asics: 4
+          ansible_password: password
+          ansible_user: admin
+          iface_speed: 40000
+          start_topo_service: True
+          frontend_asics: [0,1]
+        vlab-simx-01:
+          ansible_host: 10.250.0.103
+          ansible_hostv6: fec0::ffff:afa:3
+          type: simx
+          hwsku: MSN2700
+        vlab-simx-02:
+          ansible_host: 10.250.0.104
+          ansible_hostv6: fec0::ffff:afa:4
+          type: simx
+          hwsku: MSN3700
+        vlab-t2-01:
+          ansible_host: 10.250.0.120
+          ansible_hostv6: fec0::ffff:afa:10
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9020
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 1
+        vlab-t2-02:
+          ansible_host: 10.250.0.121
+          ansible_hostv6: fec0::ffff:afa:11
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9021
+          ansible_password: password
+          ansible_user: admin
+          slot_num: 2
+        vlab-t2-sup:
+          ansible_host: 10.250.0.122
+          ansible_hostv6: fec0::ffff:afa:12
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9022
+          ansible_password: password
+          ansible_user: admin
+          card_type: supervisor
+          slot_num: 3
+
+# The groups below are helpers to limit running playbooks to a specific server only
+server_1:
+  vars:
+    host_var_file: host_vars/STR-ACS-VSERV-01.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+vm_host_1:
+  hosts:
+    STR-ACS-VSERV-01:
+      ansible_host: 172.17.0.1
+      ansible_user: use_own_value
+
+vms_1:
+  hosts:
+    VM0100:
+      ansible_host: 10.250.0.51
+    VM0101:
+      ansible_host: 10.250.0.52
+    VM0102:
+      ansible_host: 10.250.0.53
+    VM0103:
+      ansible_host: 10.250.0.54
+    VM0104:
+      ansible_host: 10.250.0.55
+    VM0105:
+      ansible_host: 10.250.0.56
+    VM0106:
+      ansible_host: 10.250.0.57
+    VM0107:
+      ansible_host: 10.250.0.58
+    VM0108:
+      ansible_host: 10.250.0.59
+    VM0109:
+      ansible_host: 10.250.0.60
+    VM0110:
+      ansible_host: 10.250.0.61
+    VM0111:
+      ansible_host: 10.250.0.62
+    VM0112:
+      ansible_host: 10.250.0.63
+    VM0113:
+      ansible_host: 10.250.0.64
+    VM0114:
+      ansible_host: 10.250.0.65
+    VM0115:
+      ansible_host: 10.250.0.66
+    VM0116:
+      ansible_host: 10.250.0.67
+    VM0117:
+      ansible_host: 10.250.0.68
+    VM0118:
+      ansible_host: 10.250.0.69
+    VM0119:
+      ansible_host: 10.250.0.70
+    VM0120:
+      ansible_host: 10.250.0.71
+    VM0121:
+      ansible_host: 10.250.0.72
+    VM0122:
+      ansible_host: 10.250.0.73
+    VM0123:
+      ansible_host: 10.250.0.74
+    VM0124:
+      ansible_host: 10.250.0.75
+    VM0125:
+      ansible_host: 10.250.0.76
+    VM0126:
+      ansible_host: 10.250.0.77
+    VM0127:
+      ansible_host: 10.250.0.78
+    VM0128:
+      ansible_host: 10.250.0.79
+    VM0129:
+      ansible_host: 10.250.0.80
+    VM0130:
+      ansible_host: 10.250.0.81
+    VM0131:
+      ansible_host: 10.250.0.82

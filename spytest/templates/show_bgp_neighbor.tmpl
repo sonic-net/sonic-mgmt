@@ -51,11 +51,12 @@ Start
   ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*external\s*link
   ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*internal\s*link
   ^\s*Member of peer-group ${PEERGROUP} for session parameters\s*$$
-  ^\s*BGP\s+version\s+${BGPVERSION},\s+remote\s+router\s+ID\s+${REMROUTERID},\s+local\s+router\s+ID\s+${LOCALROUTERID}\s*$$
+  ^\s*BGP\s+version\s+${BGPVERSION},\s+remote\s+router\s+ID\s+${REMROUTERID}\s?,\s+local\s+router\s+ID\s+${LOCALROUTERID}\s*$$
   ^\s*BGP\s+state\s+=\s+${STATE},\s*up\s*for\s*.*
   ^\s*BGP\s+state\s+=\s+${STATE}
   ^\s*Last\s+read\s+${LASTREAD},\s+Last\s+write\s+${LASTWRITE}
   ^\s*Hold time is ${HOLDTIME}, keepalive interval is ${KEEPALIVE} seconds\s*$$
+  ^\s*Hold time is ${HOLDTIME}\s+seconds, keepalive interval is ${KEEPALIVE} seconds\s*$$
   ^\s*Neighbor capabilities:
   ^\s*${ASBYTE} Byte AS: advertised
   ^\s*Address Family IPv4 Unicast: ${IPV4UCASTNCAP}
@@ -65,13 +66,13 @@ Start
   ^\s*End-of-RIB received: ${ENDOFRIBRCV}
   ^\s*Graceful Restart Capabilty: ${GRCAPABILITY}
   ^\s*Message statistics:\s*$$
-  ^\s*Inq depth is ${INQDEPTH}\s*$$
-  ^\s*Outq depth is ${OUTQDEPTH}\s*$$
+  ^\s*In[qQ] depth is ${INQDEPTH}\s*$$
+  ^\s*Out[qQ] depth is ${OUTQDEPTH}\s*$$
   ^\s*Sent\s*Rcvd\s*$$
   ^\s*Opens:\s*${OPENSENT}\s*${OPENRCVD}\s*$$
   ^\s*Notifications:\s*${NOTIFICATIONSENT}\s*${NOTIFICATIONRCVD}\s*$$
   ^\s*Updates:\s*${UPDATESENT}\s*${UPDATERCVD}\s*$$
-  ^\s*Keepalives:\s*${KEEPALIVESENT}\s*${KEEPALIVERCVD}\s*$$
+  ^\s*Keepalive(s?):\s*${KEEPALIVESENT}\s*${KEEPALIVERCVD}\s*$$
   ^\s*Route Refresh:\s*${ROUTEREFRESHSENT}\s*${ROUTEREFRESHRCVD}\s*$$
   ^\s*Capability:\s*${CAPABLITYSENT}\s*${CAPABILITYRCVD}\s*$$
   ^\s*Total:\s*${SENTTOTAL}\s*${RCVDTOTAL}\s*$$
@@ -79,6 +80,7 @@ Start
   ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*NOTIFICATION\s*sent\s*\(\s*${BGPDOWNREASON}\)
   ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*NOTIFICATION\s*received\s*\(\s*${BGPDOWNREASON}\)
   ^\s*Last\s*reset\s*${BGPLASTRESET},\s*due\s*to\s*${BGPDOWNREASON}
+  ^\s*Last\s*reset\s*${BGPLASTRESET},\s*Last\s*reset\s*reason\s*${BGPDOWNREASON}$$
   ^\s*Last\s*reset\s*${BGPLASTRESET},\s*${BGPDOWNREASON}$$
   ^\s*BFD: Type: ${BFDTYPE} hop
   ^\s*Detect Multiplier: ${BFDMultiplier}, Min Rx interval: ${BFDRXINTR}, Min Tx interval: ${BFDTXINTR}

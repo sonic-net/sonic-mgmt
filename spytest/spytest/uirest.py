@@ -4,6 +4,8 @@ import copy
 import random
 import json
 from spytest.logger import Logger
+from spytest.st_time import get_timenow
+import spytest.env as env
 
 class UIRest(object):
     def __init__(self, logger=None, testbed_vars=None):
@@ -42,7 +44,7 @@ class UIRest(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
 
         #print("Updated modes - configs", replaced_mode_values)
@@ -71,11 +73,8 @@ class UIRest(object):
                                         changed_value = replaced_mode_values[val_list[0]]
                                     else:
                                         changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
-                                    if isinstance(changed_value, list):
-                                        replaced_cmd_params[key] = changed_value
-                                    else:
-                                        replaced_cmd_params[key] = changed_value
-        except:
+                                    replaced_cmd_params[key] = changed_value
+        except Exception:
             pass
 
         #print("Updated cmd params - configs", replaced_cmd_params)
@@ -96,7 +95,7 @@ class UIRest(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
 
         #print("Updated modes - actions", replaced_mode_values)
@@ -125,11 +124,8 @@ class UIRest(object):
                                         changed_value = replaced_mode_values[val_list[0]]
                                     else:
                                         changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
-                                    if isinstance(changed_value, list):
-                                        replaced_cmd_params[key] = changed_value
-                                    else:
-                                        replaced_cmd_params[key] = changed_value
-        except:
+                                    replaced_cmd_params[key] = changed_value
+        except Exception:
             pass
 
         #print("Updated cmd params - actions", replaced_cmd_params)
@@ -150,7 +146,7 @@ class UIRest(object):
                                 if key not in replaced_mode_values:
                                     changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, value, "path")
                                     replaced_mode_values[key] = changed_value
-        except:
+        except Exception:
             pass
 
         #print("Updated modes - pre-configs", replaced_mode_values)
@@ -179,11 +175,8 @@ class UIRest(object):
                                         changed_value = replaced_mode_values[val_list[0]]
                                     else:
                                         changed_value = self._uirest_get_valueset_for_param(all_params, path_plus_op, key, type_or_upd_value, "parameter")
-                                    if isinstance(changed_value, list):
-                                        replaced_cmd_params[key] = changed_value
-                                    else:
-                                        replaced_cmd_params[key] = changed_value
-        except:
+                                    replaced_cmd_params[key] = changed_value
+        except Exception:
             pass
 
         #print("Updated cmd params - pre-configs", replaced_cmd_params)
@@ -196,10 +189,11 @@ class UIRest(object):
 
         minIndex = 0
         maxIndex = 1
+        if env.get("SPYTEST_UI_POSITIVE_CASES_ONLY", "0") != "0":
+            maxIndex = 1
 
         for index in range(minIndex, maxIndex):
             copied_step = copy.deepcopy(stepentry)
-            no_need_to_add = False
 
             try:
                 if "pre-configs" in copied_step.keys():
@@ -270,9 +264,6 @@ class UIRest(object):
                         config_step.update({"data": data})
                         config_step.update({"valid": cfg_valid})
 
-                if no_need_to_add:
-                    continue
-
                 if "actions" in copied_step.keys():
                     for action_step in copied_step["actions"]:
                         path = action_step.get("path", None)
@@ -293,22 +284,21 @@ class UIRest(object):
                                 if key in matches_str:
                                     arg_datatype_str = all_data_args[path_plus_op][key]
                                     if "boolean" in arg_datatype_str:
-                                        datastr = datastr.replace("\"{{" + key + "}}\"", value)
+                                        matches_str = matches_str.replace("\"{{" + key + "}}\"", value)
                                     elif "integer" in arg_datatype_str or "number" in arg_datatype_str or isinstance(value, int):
                                         matches_str = matches_str.replace("\"{{" + key + "}}\"", str(value))
                                     else:
                                         matches_str = matches_str.replace("{{" + key + "}}", str(value))
                             matches = json.loads(matches_str)
-                            
+
                         # Update the step values with replaced data
                         action_step.update({"path": path})
                         if matches:
                             action_step.update({"match": matches})
                         action_step.update({"valid": action_valid})
 
-                if not no_need_to_add:
-                    changed_steps.append(copied_step)
-            except:
+                changed_steps.append(copied_step)
+            except Exception:
                 pass
 
         #print("Changed Steps", changed_steps)
@@ -323,17 +313,13 @@ class UIRest(object):
 
         #print("_uirest_get_valueset_for_param:", param_name, param_type)
         if isinstance(param_type, list):
-            if datatype in ["path", "match"]:
-                retval = random.choice(param_type)
-            else:
-                retval = random.choice(param_type)
+            # Later need to differentiate this for path, parameter, match
+            retval = random.choice(param_type)
         elif param_type in ["integer", "number", "double", "string", "boolean"]:
             if param_type in ["integer", "number", "double"]:
                 int_vals = range(0,65536)
-                if datatype in ["path", "match"]:
-                    retval = random.choice(int_vals)
-                else:
-                    retval = random.choice(int_vals)
+                # Later need to differentiate this for path, parameter, match
+                retval = random.choice(int_vals)
             elif param_type in ["string"]:
                 is_interface_in_path = "interface={"+param_name+"}"
                 is_ipaddress_in_path = "address={"+param_name+"}"
@@ -341,16 +327,8 @@ class UIRest(object):
                 mac_address_names = ["mac-address", "source-mac", "destination-mac"]
 
                 if is_interface_in_path in path_plus_op:
-                    if datatype in ["path", "match"]:
-                        if self.tb_vars.connected_ports:
-                            retval = self.tb_vars.connected_ports[0]
-                        else:
-                            retval = self.tb_vars.free_ports[0]
-                    else:
-                        if self.tb_vars.connected_ports:
-                            retval = self.tb_vars.connected_ports[0]
-                        else:
-                            retval = self.tb_vars.free_ports[0]
+                    # Later need to differentiate this for path, parameter, match
+                    retval = random.choice(self.tb_vars.free_ports)
                 elif param_name in mac_address_names:
                     retval = ':'.join(''.join(random.choice(string.hexdigits).lower() for _ in range(2)) for _ in range(6))
                 elif is_ipaddress_in_path in path_plus_op:
@@ -358,23 +336,22 @@ class UIRest(object):
                         retval = ':'.join(''.join(random.choice(string.hexdigits).lower() for _ in range(4)) for _ in range(8))
                     else:
                         retval = '.'.join(str(random.randint(0, 255)) for _ in range(4))
+                elif "hostname" in param_name:
+                    # Later need to differentiate this for path, parameter, match
+                    retval = "sonic"
                 else:
                     letters = string.ascii_letters + string.digits + '_-'
                     minLen = 1
                     maxLen = 64
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    # Later need to differentiate this for path, parameter, match
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
             elif param_type in ["boolean"]:
                 bool_vals = ["false", "true"]
-                if datatype in ["path", "match"]:
-                    retval = random.choice(bool_vals)
-                else:
-                    retval = random.choice(bool_vals)
+                # Later need to differentiate this for path, parameter, match
+                retval = random.choice(bool_vals)
         elif param_type in all_params:
-            #param_dict = all_params[param_type]
+            # Later need to differentiate this for path, parameter, match
             retval = self._uirest_get_valueset_for_param_from_clilist(param_name, param_type, all_params, datatype)
 
         #print("Random_value:", retval)
@@ -391,19 +368,26 @@ class UIRest(object):
                                "IP_ADDR_MASK", "IPADDR_NN", "IPV4_ADDR_ABC",
                                "IPV4_IPV6_NETWORK", "IPV4_OR_IPV6_ADDR", "INT32_OR_IP_ADDR",
                                "IPV4V6_ADDR", "IPV6_ADDR", "IPV6_ADDR_MASK", "DOTTED_QUAD", "AA_NN_IPADDR_NN",
-                               "HOSTNAME_OR_IPADDR", "HOSTNAME_OR_IPV4_ADDR", "RD", "RT"]
+                               "HOSTNAME_OR_IPADDR", "HOSTNAME_OR_IPV4_ADDR", "RD", "RT", "OSPF_INT_OR_IP_ADDR", "AREA_NUM_DOT"]
 
         if param_type.startswith("SPYTEST_"):
+            if param_name == "bgp_instance":
+                retval = 1
+                return retval
+
+            if param_name in ["bgp_vrf_name", "ospf_vrf_name"]:
+                retval = "Vrf_test"
+                return retval
+
+            if param_name == "domain_id":
+                retval = 1
+                return retval
+
             if method in ["integer", "unsignedInteger"]:
-                (min, max) = re.match(r'(\d+)\.\.(\d+)', pattern).groups()
-                retval = random.randint(int(min), int(max))
+                (minv, maxv) = re.match(r'(\d+)\.\.(\d+)', pattern).groups()
+                retval = random.randint(int(minv), int(maxv))
             if method == "UINT" and "INTERFACE" in param_type:
-                if self.tb_vars.connected_ports:
-                    retval = self.tb_vars.connected_ports[0]
-                else:
-                    retval = self.tb_vars.free_ports[0]
-                if datatype not in ["path", "match"]:
-                    retval = re.sub("Ethernet", "", retval)
+                retval = random.choice(self.tb_vars.free_ports)
             if method in ["select"]:
                 choices = re.findall(r"(\S+)\(\S+\)", pattern)
                 retval = random.choice(choices)
@@ -423,84 +407,113 @@ class UIRest(object):
                         break
         elif method:
             if method in ["integer", "unsignedInteger"]:
-                (min, max) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', pattern).groups()
-                if datatype in ["path", "match"]:
-                    retval = random.randint(int(min), int(max))
-                else:
-                    #if min == max:
-                    #    retval = [int(min), None, None, int(min)-1, int(max)+1]
-                    #else:
-                    #    randNum = random.randint(int(min), int(max))
-                    #    retval = [int(min), int(max), randNum, int(min)-1, int(max)+1]
-                    retval = random.randint(int(min), int(max))
+                if param_name in ["as-num-dot", "asnum", "as-number"]:
+                    retval = 1
+                    return retval
+
+                (minv, maxv) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', pattern).groups()
+                retval = random.randint(int(minv), int(maxv))
             elif method in ["select"]:
-                if "(" in pattern:
+                if param_type == "INTF_TYPE":
+                    tmp_choices = re.findall(r"(\S+)", pattern)
+                    choices = []
+                    for tmp in tmp_choices:
+                        choices.append(re.sub(r"\(\S+\)", "", tmp))
+                elif "(" in pattern:
                     choices = re.findall(r"(\S+)\(\S+\)", pattern)
                 else:
                     choices = re.findall(r"(\S+)", pattern)
-                if datatype in ["path", "match"]:
-                    retval = random.choice(choices)
-                else:
-                    #retval = [choices[0], choices[-1], random.choice(choices), None, None]
-                    retval = random.choice(choices)
+                retval = random.choice(choices)
             elif method in ["regexp_select"]:
                 if param_type == "PHY_INTERFACE":
-                    if self.tb_vars.connected_ports:
-                        retval = self.tb_vars.connected_ports[0]
-                    else:
-                        retval = self.tb_vars.free_ports[0]
+                    retval = random.choice(self.tb_vars.free_ports)
                 elif param_type == "VLAN_INTERFACE":
                     vid_pattern = all_params["VLAN_ID"].get("pattern", None)
-                    (min, max) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', vid_pattern).groups()
-                    if datatype in ["argument", "match"]:
-                        retval = "Vlan {}".format(random.randint(int(min), int(max)))
-                    else:
-                        retval = "Vlan {}".format(random.randint(int(min), int(max)))
+                    (minv, maxv) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', vid_pattern).groups()
+                    retval = "Vlan {}".format(random.randint(int(minv), int(maxv)))
                 elif param_type == "PO_INTERFACE":
-                    po_pattern = all_params["LAG_ID"].get("pattern", None)
-                    (min, max) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', po_pattern).groups()
-                    if datatype in ["argument", "match"]:
-                        retval = "PortChannel{}".format(random.randint(int(min), int(max)))
-                    else:
-                        retval = "PortChannel{}".format(random.randint(int(min), int(max)))
+                    po_pattern = all_params["PO_INTERFACE"].get("ext_pattern", None)
+                    (minv, maxv) = re.match(r'PortChannel\(([-+]?\d+)\-([-+]?\d+)\)', po_pattern).groups()
+                    retval = "PortChannel{}".format(random.randint(int(minv), int(maxv)))
                 elif param_type == "LOOPBACK_INTERFACE":
-                    lb_pattern = all_params["LOOPBACK_NUM"].get("pattern", None)
-                    (min, max) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', lb_pattern).groups()
-                    if datatype in ["argument", "match"]:
-                        retval = "Loopback{}".format(random.randint(int(min), int(max)))
-                    else:
-                        retval = "Loopback{}".format(random.randint(int(min), int(max)))
+                    lb_pattern = all_params["LOOPBACK_INTERFACE"].get("ext_pattern", None)
+                    (minv, maxv) = re.match(r'Loopback\(([-+]?\d+)\-([-+]?\d+)\)', lb_pattern).groups()
+                    retval = "Loopback{}".format(random.randint(int(minv), int(maxv)))
+                elif param_type == "MGMT_INTERFACE":
+                    mg_pattern = all_params["MGMT_INTERFACE"].get("ext_pattern", None)
+                    retval = re.sub(r"Management\(|\)", "", mg_pattern)
+                    retval = "Management{}".format(retval)
                 else:
                     retval = "TODO";  # TODO
             else:
                 retval = "TODO"; # TODO
         else:
             if param_type == "UINT":
-                if param_name.startswith("phy-if-"):
-                    if self.tb_vars.connected_ports:
-                        retval = self.tb_vars.connected_ports[0]
-                    else:
-                        retval = self.tb_vars.free_ports[0]
-                    if datatype not in ["path", "match"]:
-                        retval = re.sub("Ethernet", "", retval)
-                        #retval = [retval, None, None, None, None]
+                if param_name.startswith("phy-if-") or param_name in ["if-id", "PLK", "ifnum", "ptp_port_number"]:
+                    retval = random.choice(self.tb_vars.free_ports)
                 elif param_name == "zone":
-                    min = 0
-                    max = 3
-                    if datatype in ["path", "match"]:
-                        retval = str(random.randint(min, max))
-                    else:
-                        #retval = [min, max, random.randint(min, max), min-1, max+1]
-                        retval = str(random.randint(min, max))
+                    minv = 0
+                    maxv = 3
+                    retval = str(random.randint(minv, maxv))
+                elif param_name == "pid-no":
+                    minv = 1
+                    maxv = 255
+                    retval = str(random.randint(minv, maxv))
+                elif param_name == "sampling-rate-val":
+                    minv = 1
+                    maxv = 65535
+                    retval = str(random.randint(minv, maxv))
                 else:
-                    min = 0
-                    max = 65535
-                    if datatype in ["path", "match"]:
-                        retval = random.randint(min, max)
-                    else:
-                        #retval = [min, max, random.randint(min, max), min-1, max+1]
-                        retval = random.randint(min, max)
+                    minv = 0
+                    maxv = pow(2, 32) - 1
+                    retval = random.randint(minv, maxv)
             elif param_type.startswith("STRING") or param_type.startswith("HOSTNAME_STR"):
+                if param_name.startswith("ifId"):
+                    retval = random.choice(self.tb_vars.free_ports)
+                    retval = re.sub("Ethernet", "", retval)
+                    return retval
+
+                intf_names = ["phy-if-id", "interface", "interfacename", "interface-name", "intf-name", "mrouter-if-name"]
+                intf_names.extend(["grp-if-name", "donor-interface", "ifname", "ifName", "ifName1", "src-phy-if-id"])
+                if param_name in intf_names:
+                    retval = random.choice(self.tb_vars.free_ports)
+                    return retval
+
+                if "WITH_PIPE" in param_type and param_name == "cmd":
+                    retval = random.choice(["ls", "whoami", "hostname"])
+                    return retval
+
+                if param_name == "rl":
+                    choices = ["admin", "operator"]
+                    retval = random.choice(choices)
+                    return retval
+
+                if param_name == "date":
+                    retval = get_timenow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                    return retval
+
+                if param_name in ["vrf-name"] and param_type in ["STRING", "STRING_15"]:
+                    retval = "Vrf_test"
+                    return retval
+
+                vrf_string_types = ["STRING", "STRING_15", "STRING_63"]
+                if param_name in ["vrfname", "vrf-name"] and param_type in vrf_string_types:
+                    minLen = 1
+                    maxLen = 11
+                    if param_type.startswith("STRING_"):
+                        maxLen = int(re.sub("STRING_", "", param_type))
+                        maxLen = maxLen - 4
+                    letters = string.ascii_letters + string.digits
+                    stringLength = random.randint(minLen, maxLen)
+                    retval = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
+                    return retval
+
+                if param_name in ["route-map-name"] and param_type in ["STRING"]:
+                    param_type = "STRING_63"
+
+                if param_name in ["session-name"] and param_type in ["STRING"]:
+                    param_type = "STRING_72"
+
                 if param_type.startswith("STRING"):
                     search_pattern = "{}_".format("STRING")
                 elif param_type.startswith("HOSTNAME_STR"):
@@ -526,19 +539,12 @@ class UIRest(object):
                         try:
                             minLen = int(min_part)
                             maxLen = int(max_part)
-                        except:
+                        except Exception:
                             pass
                     else:
                         maxLen = 64
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        #randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        #retval = [minStr, maxStr, randStr, None, None]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -552,7 +558,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type.startswith("PASSWORD_STR"):
                 minLen = 1
@@ -563,14 +569,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        #randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        #retval = [minStr, maxStr, randStr, None, None]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -584,7 +583,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ip_address_patterns:
                 min_ipv4_mask = "1"
@@ -610,18 +609,10 @@ class UIRest(object):
                         rand_ipv4_address = "{}:{}".format(rand_ipv4_address, aa_nn_val)
                         rand_ipv6_address = "{}:{}".format(rand_ipv6_address, aa_nn_val)
 
-                    if datatype in ["path", "match"]:
-                        if "V6" in param_type:
-                            retval = rand_ipv6_address
-                        else:
-                            retval = rand_ipv4_address
+                    if "V6" in param_type:
+                        retval = rand_ipv6_address
                     else:
-                        if "V6" in param_type:
-                            #retval = [None, None, rand_ipv6_address, None, None]
-                            retval = rand_ipv6_address
-                        else:
-                            #retval = [None, None, rand_ipv4_address, None, None]
-                            retval = rand_ipv4_address
+                        retval = rand_ipv4_address
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -635,19 +626,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
-            elif param_type in ["MAC_ADDR"]:
+            elif param_type in ["MAC_ADDR", "FBS_MAC_ADDR", "ACL_MAC_ADDR"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    rand_mac_address = ':'.join(''.join(random.choice(string.hexdigits).lower() for _ in range(2)) for _ in range(6))
-                    if datatype in ["path", "match"]:
-                        retval = rand_mac_address
-                    else:
-                        #retval = [None, None, rand_mac_address, None, None]
-                        retval = rand_mac_address
+                    retval = ':'.join(''.join(random.choice(string.hexdigits).lower() for _ in range(2)) for _ in range(6))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -661,22 +647,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["HEX_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = "0x0"
-                    rand_hex_str = '0x' + ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
-                    max_hex_str = "0xFFFFFF"
-                    invalid_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
-                    if datatype in ["path", "match"]:
-                        retval = rand_hex_str
-                    else:
-                        #retval = [min_hex_str, max_hex_str, rand_hex_str, None, invalid_hex_str]
-                        retval = rand_hex_str
+                    retval = '0x' + ''.join(random.choice(string.hexdigits).lower() for _ in range(6))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -690,22 +668,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["PTP_V6SCOPE_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = "0x0"
-                    rand_hex_str = '0x' + random.choice(string.hexdigits).lower()
-                    max_hex_str = "0xF"
-                    invalid_hex_str = random.choice(string.hexdigits).lower()
-                    if datatype in ["path", "match"]:
-                        retval = rand_hex_str
-                    else:
-                        #retval = [min_hex_str, max_hex_str, rand_hex_str, None, invalid_hex_str]
-                        retval = rand_hex_str
+                    retval = '0x' + random.choice(string.hexdigits).lower()
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -719,7 +689,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["TACACS_KEY", "RADIUS_KEY"]:
                 minLen = 1
@@ -730,15 +700,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        #minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        #maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        #randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        #invalidMaxStr = ''.join(random.choice(letters) for i in range(maxLen+1))
-                        #retval = [minStr, maxStr, randStr, None, invalidMaxStr]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -752,7 +714,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["RADIUS_VRF"]:
                 minLen = 1
@@ -763,17 +725,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        #retval = ''.join(random.choice(letters) for i in range(stringLength))
-                        retval = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        #minStr = 'Vrf_' + ''.join(random.choice(letters) for i in range(minLen))
-                        #maxStr = 'Vrf_' + ''.join(random.choice(letters) for i in range(maxLen))
-                        #randStr = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
-                        #invalidMaxStr = 'Vrf_' + ''.join(random.choice(letters) for i in range(maxLen + 1))
-                        #invalidMinStr = ''.join(random.choice(letters) for i in range(maxLen + 1))
-                        #retval = [minStr, maxStr, randStr, invalidMinStr, invalidMaxStr]
-                        retval = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -787,20 +739,15 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
-            elif param_type == "FILE_TYPE":
+            elif param_type in ["FILE_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
                     letters = string.ascii_letters
-                    randStr = "file://" + ''.join(random.choice(letters) for i in range(10))
-                    if datatype in ["path", "match"]:
-                        retval = randStr
-                    else:
-                        #retval = [None, None, randStr, None, None]
-                        retval = randStr
+                    retval = "file://" + ''.join(random.choice(letters) for i in range(10))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -814,19 +761,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
-            elif param_type == "AA_NN":
+            elif param_type in ["AA_NN"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    rand_aa_nn_val = "{}:{}".format(str(random.randint(0, 65535)), str(random.randint(0, 65535)))
-                    if datatype in ["path", "match"]:
-                        retval = rand_aa_nn_val
-                    else:
-                        #retval = [None, None, rand_aa_nn_val, None, None]
-                        retval = rand_aa_nn_val
+                    retval = "{}:{}".format(str(random.randint(0, 65535)), str(random.randint(0, 65535)))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -840,19 +782,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
-            elif param_type == "KDUMP_MEMORY":
+            elif param_type in ["KDUMP_MEMORY"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    rand_kdump_val = "0M-2G:256M,2G-4G:320M,4G-8G:384M,8G-:448M"
-                    if datatype in ["path", "match"]:
-                        retval = rand_kdump_val
-                    else:
-                        #retval = [None, None, rand_kdump_val, None, None]
-                        retval = rand_kdump_val
+                    retval = "0M-2G:256M,2G-4G:320M,4G-8G:384M,8G-:448M"
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -866,23 +803,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["AUTH_KEY_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
-                    rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(30))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(34))
-                    if datatype in ["path", "match"]:
-                        retval = rand_hex_str
-                    else:
-                        #retval = [min_hex_str, max_hex_str, rand_hex_str, invalid_hex_str1, invalid_hex_str2]
-                        retval = rand_hex_str
+                    retval = ''.join(random.choice(string.hexdigits).lower() for _ in range(32))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -896,23 +824,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["SHA_AUTH_KEY_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
-                    rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(38))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(42))
-                    if datatype in ["path", "match"]:
-                        retval = rand_hex_str
-                    else:
-                        #retval = [min_hex_str, max_hex_str, rand_hex_str, invalid_hex_str1, invalid_hex_str2]
-                        retval = rand_hex_str
+                    retval = ''.join(random.choice(string.hexdigits).lower() for _ in range(40))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -926,23 +845,14 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["ENGINE_ID_TYPE"]:
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    min_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(10))
-                    max_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(64))
-                    rand_hex_str = ''.join(random.choice(string.hexdigits).lower() for _ in range(random.randint(10, 64)))
-                    invalid_hex_str1 = ''.join(random.choice(string.hexdigits).lower() for _ in range(9))
-                    invalid_hex_str2 = ''.join(random.choice(string.hexdigits).lower() for _ in range(65))
-                    if datatype in ["path", "match"]:
-                        retval = rand_hex_str
-                    else:
-                        #retval = [min_hex_str, max_hex_str, rand_hex_str, invalid_hex_str1, invalid_hex_str2]
-                        retval = rand_hex_str
+                    retval = ''.join(random.choice(string.hexdigits).lower() for _ in range(random.randint(10, 64)))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -956,7 +866,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["OID_IDENTIFIER"]:
                 minLen = 1
@@ -967,16 +877,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
-                        #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -990,7 +891,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["SNMP_IDENTIFIER"]:
                 minLen = 1
@@ -1001,16 +902,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
-                        #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -1024,7 +916,7 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["LINE"]:
                 minLen = 1
@@ -1035,16 +927,7 @@ class UIRest(object):
                     iter_count += 1
                     if iter_count > 5: break
                     stringLength = random.randint(minLen, maxLen)
-                    if datatype in ["path", "match"]:
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
-                    else:
-                        minStr = ''.join(random.choice(letters) for i in range(minLen))
-                        maxStr = ''.join(random.choice(letters) for i in range(maxLen))
-                        randStr = ''.join(random.choice(letters) for i in range(stringLength))
-                        invalidStr1 = ''.join(random.choice(letters) for i in range(minLen - 1))
-                        invalidStr2 = ''.join(random.choice(letters) for i in range(maxLen + 1))
-                        #retval = [minStr, maxStr, randStr, invalidStr1, invalidStr2]
-                        retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -1058,21 +941,17 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
             elif param_type in ["VLAN_RANGE"]:
-                min = 1
-                max = 4094
+                minv = 1
+                maxv = 4094
                 iter_count = 0
                 while True:
                     iter_count += 1
                     if iter_count > 5: break
-                    randNum = random.randint(min, max)
-                    if datatype in ["path", "match"]:
-                        retval = randNum
-                    else:
-                        #retval = [min, max, randNum, min-1, max+1]
-                        retval = randNum
+                    randNum = random.randint(minv, maxv)
+                    retval = randNum
                     try:
                         if isinstance(retval, list):
                             all_correct_values = True
@@ -1086,8 +965,104 @@ class UIRest(object):
                         else:
                             if re.match(pattern, retval):
                                 break
-                    except:
+                    except Exception:
                         break
+            elif param_type in ["STR_ASN_LST"]:
+                req_pattern = all_params["RANGE_1_4294967295"].get("pattern", None)
+                (minv, maxv) = re.match(r'([-+]?\d+)\.\.([-+]?\d+)', req_pattern).groups()
+                iter_count = 0
+                while True:
+                    iter_count += 1
+                    if iter_count > 5: break
+                    retval = random.randint(minv, maxv)
+                    try:
+                        if isinstance(retval, list):
+                            all_correct_values = True
+                            for each_val in retval[:-2]:
+                                if each_val:
+                                    if not re.match(pattern, str(each_val)):
+                                        all_correct_values = False
+                                        break
+                            if all_correct_values:
+                                break
+                        else:
+                            if re.match(pattern, retval):
+                                break
+                    except Exception:
+                        break
+            elif param_type in ["VRF_NAME"]:
+                minLen = 1
+                maxLen = 11
+                letters = string.ascii_letters + string.digits + '_-'
+                stringLength = random.randint(minLen, maxLen)
+                retval = 'Vrf_' + ''.join(random.choice(letters) for i in range(stringLength))
+            elif param_type in ["SFLOW_AGENT"]:
+                retval = random.choice(self.tb_vars.free_ports)
+            elif param_type in ["PCP_VALUE_MASK"]:
+                randNum1 = random.choice(range(0,8))
+                randNum2 = random.choice([i for i in range(0,8) if i not in [randNum1]])
+                retval = "{}/{}".format(randNum1, randNum2)
+            elif param_type in ["ETHERTYPE_VALUE"]:
+                iter_count = 0
+                while True:
+                    iter_count += 1
+                    if iter_count > 5: break
+                    retval = '0x1' + ''.join(random.choice(string.hexdigits).lower() for _ in range(3))
+                    try:
+                        if isinstance(retval, list):
+                            all_correct_values = True
+                            for each_val in retval[:-2]:
+                                if each_val:
+                                    if not re.match(pattern, each_val):
+                                        all_correct_values = False
+                                        break
+                            if all_correct_values:
+                                break
+                        else:
+                            if re.match(pattern, retval):
+                                break
+                    except Exception:
+                        break
+            elif param_type in ["DESCRIPTION"]:
+                minLen = 1
+                maxLen = 256
+                letters = string.ascii_letters + string.digits + '_-'
+                iter_count = 0
+                while True:
+                    iter_count += 1
+                    if iter_count > 5: break
+                    stringLength = random.randint(minLen, maxLen)
+                    retval = ''.join(random.choice(letters) for i in range(stringLength))
+                    try:
+                        if isinstance(retval, list):
+                            all_correct_values = True
+                            for each_val in retval:
+                                if each_val:
+                                    if not re.match(pattern, each_val):
+                                        all_correct_values = False
+                                        break
+                            if all_correct_values:
+                                break
+                        else:
+                            if re.match(pattern, retval):
+                                break
+                    except Exception:
+                        break
+            elif param_type in ["VTEP_NAME"]:
+                minLen = 1
+                maxLen = 58
+                letters = string.ascii_letters + string.digits + '_-'
+                stringLength = random.randint(minLen, maxLen)
+                retval = 'Vtep_' + ''.join(random.choice(letters) for i in range(stringLength))
+            elif param_type in ["ACL_REMARK"]:
+                minLen = 1
+                maxLen = 256
+                letters = string.ascii_letters + string.digits + '_-'
+                stringLength = random.randint(minLen, maxLen)
+                retval = ''.join(random.choice(letters) for i in range(stringLength))
+            elif param_type in ["AUTH_TYPES"]:
+                choices = ['password', 'cert', 'jwt', 'none']
+                retval = random.choice(choices)
 
             # TODO: Need to do for other types such as IP, HOSTNAME , etc.
 

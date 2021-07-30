@@ -72,6 +72,13 @@ class Fib():
         elif ip.version is 6:
             return self._ipv6_lpm_dict[str(ip)]
 
+    def __contains__(self, ip):
+        ip_obj = ip_address(unicode(ip))
+        if ip_obj.version == 4:
+            return self._ipv4_lpm_dict.contains(ip)
+        elif ip_obj.version == 6:
+            return self._ipv6_lpm_dict.contains(ip)
+
     def ipv4_ranges(self):
         return self._ipv4_lpm_dict.ranges()
 

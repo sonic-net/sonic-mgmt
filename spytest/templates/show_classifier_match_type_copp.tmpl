@@ -1,0 +1,7 @@
+Value Filldown COPP_CLASS (\S+)
+Value Required PROTOCOL (\S+)
+
+Start
+  ^Class-map\s${COPP_CLASS}\smatch-type\scopp -> Continue.Record
+  ^\s*protocol\s*${PROTOCOL} -> Continue.Record
+

@@ -1,23 +1,25 @@
 #   BGP SP Topology Test cases
 #   Author: Naveena Suvarna (naveen.suvarna@broadcom.com)
 
+import copy
 import pytest
-from spytest import st
-from spytest.dicts import SpyTestDict
+from spytest import st, SpyTestDict
 import apis.routing.ip as ipapi
 import apis.routing.bgp as bgpapi
 import apis.routing.route_map as rmapapi
-import copy
 from BGP.bgpsplib import BGPSP
 
-bgp_cli_type="vtysh"
+
 
 @pytest.fixture(scope="module", autouse=True)
 def bgp_sp_module_hooks(request):
+    global bgp_cli_type
     st.ensure_min_topology('D1D2:4', 'D1D3:4', 'D1D4:4', 'D2D3:4', 'D2D4:4', 'D3D4:4')
+    bgp_cli_type = st.get_ui_type()
+    if bgp_cli_type == 'click':
+        bgp_cli_type = 'vtysh'
+    bgp_cli_type = 'klish' if bgp_cli_type in ["rest-patch", "rest-put"] else bgp_cli_type
     BGPSP.bgp_sp_setup_testbed_topology()
-    #BGPSP.bgp_sp_setup_testbed_topology(per_node_nw='no', nw_ip_octet='192')
-    #BGPSP.bgp_sp_setup_testbed_topology(per_node_nw='yes', nw_ip_octet='10')
 
     pre_config = True
     if pre_config :
@@ -40,39 +42,6 @@ def bgp_sp_func_hooks(request):
     #
     yield
     #
-
-
-def test_bgp_sp_dummy():
-
-   #tb_dut = BGPSP.bgp_sp_get_dut_device("D3")
-   #result = bgpapi.verify_bgp_ip_route(tb_dut, network="209.92.2.0/24")
-   #result = bgpapi.verify_bgp_ip_route(tb_dut, network="209:92:3::/64",  family='ipv6')
-
-   #BGPSP.bgp_sp_find_linear_topo_in_dut_list()
-   #BGPSP.bgp_sp_find_linear_topo_in_dut_list(node_limit=2)
-   #BGPSP.bgp_sp_find_linear_topo_in_dut_list(node_limit=3)
-   #BGPSP.bgp_sp_find_linear_topo_in_dut_list(node_limit=4)
-   #BGPSP.bgp_sp_find_linear_topo_in_dut_list(node_limit=5)
-
-   #BGPSP.bgp_sp_find_ring_topo_in_dut_list()
-   #BGPSP.bgp_sp_find_ring_topo_in_dut_list(node_limit=2)
-   #BGPSP.bgp_sp_find_ring_topo_in_dut_list(node_limit=3)
-   #BGPSP.bgp_sp_find_ring_topo_in_dut_list(node_limit=4)
-   #BGPSP.bgp_sp_find_ring_topo_in_dut_list(node_limit=5)
-
-   #tb_dut = BGPSP.bgp_sp_get_dut_device("D1")
-   #bgpapi.config_bgp_neighbor(tb_dut, 65001, "11.1.1.2", 65002, 'ipv4', 30, 60, config='yes')
-
-   #BGPSP.bgp_sp_tg_interface_ip_all_config_unconfig()
-   #BGPSP.bgp_sp_tg_interface_ip_all_config_unconfig(config='no')
-
-   #BGPSP.bgp_sp_interface_address_all_config_unconfig()
-   #BGPSP.bgp_sp_interface_address_all_config_unconfig(config='no')
-
-   #BGPSP.bgp_sp_loopback_interface_config_unconfig()
-   #BGPSP.bgp_sp_loopback_interface_config_unconfig(config='no')
-
-   st.report_pass("test_case_passed")
 
 
 #--------------------------------------- BASE TEST BASE -------------------------------------------
@@ -102,167 +71,6 @@ class TestBGPSP:
         else:
             st.report_fail("test_case_failed")
 
-
-    def test_bgp_sp_n_node_one_link_e_bgp_session(self):
-
-        st.banner("BGP SP - N node One link ipv4/6 E-BGP session Test")
-
-        result = True
-
-        dut_asn_map = {}
-
-        dut_count = BGPSP.bgp_sp_get_dut_count()
-
-        for count in range (1, dut_count+1):
-            dut_name = "D{}".format(count)
-            asn = 6500 + count
-            dut_asn_map.update({ dut_name: asn })
-
-        #dut_asn_map = { 'D1': 65001, 'D2': 65002, 'D3': 65003, 'D4': 65004 }
-
-        dut_list = list(dut_asn_map.keys())
-        dut_list.sort()
-
-        st.log("BGP SP - Dut asn map {}.".format(dut_asn_map))
-
-        if BGPSP.bgp_sp_dut_list_present(dut_list):
-
-            BGPSP.bgp_sp_cleanup_bgp_routers(dut_list)
-
-            result = BGPSP.bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map, config='yes',
-                                                              vrf='default', addr_family='all',
-                                                              max_adjacency=1, cli_type=bgp_cli_type)
-            if result :
-                result = BGPSP.bgp_sp_verify_all_bgp_sessions(dut_asn_map.keys(), addr_family='all')
-            if result :
-                BGPSP.bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map, config='no', cli_type=bgp_cli_type)
-
-            BGPSP.bgp_sp_cleanup_bgp_routers(dut_list)
-
-
-        result_str = "PASSED" if result else "FAILED"
-        st.banner("BGP SP - N node One link ipv4/6 E-BGP session test {}".format(result_str))
-
-        if result:
-            st.report_pass("test_case_passed")
-        else:
-            st.report_fail("test_case_failed")
-
-
-    def test_bgp_sp_n_node_one_link_i_bgp_session(self):
-
-        st.banner("BGP SP - N node One link ipv4/6 I-BGP session Test")
-
-        result = True
-
-        dut_asn_map = {}
-
-        dut_count = BGPSP.bgp_sp_get_dut_count()
-
-        for count in range (1, dut_count+1):
-            dut_name = "D{}".format(count)
-            asn = 6501
-            dut_asn_map.update({ dut_name: asn })
-
-        #dut_asn_map = { 'D1': 65001, 'D2': 65001, 'D3': 65001, 'D4': 65001 }
-
-        dut_list = list(dut_asn_map.keys())
-        dut_list.sort()
-
-        st.log("BGP SP - Dut asn map {}.".format(dut_asn_map))
-
-        if BGPSP.bgp_sp_dut_list_present(dut_list):
-
-            BGPSP.bgp_sp_cleanup_bgp_routers(dut_list)
-
-            result = BGPSP.bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map, config='yes',
-                                                              vrf='default', addr_family='all',
-                                                              max_adjacency=1, cli_type=bgp_cli_type)
-            if result :
-                result = BGPSP.bgp_sp_verify_all_bgp_sessions(dut_asn_map.keys(), addr_family='all')
-            if result :
-                BGPSP.bgp_sp_bgp_asn_map_config_unconfig(dut_asn_map, config='no', cli_type=bgp_cli_type)
-
-            BGPSP.bgp_sp_cleanup_bgp_routers(dut_list)
-
-
-        result_str = "PASSED" if result else "FAILED"
-        st.banner("BGP SP - N node One link ipv4/6 I-BGP session test {}".format(result_str))
-
-        if result:
-            st.report_pass("test_case_passed")
-        else:
-            st.report_fail("test_case_failed")
-
-
-#-------------------------------------- SPINE LEAF TOPO TEST CLASS ------------------------------------------
-
-# Spine Leaf BGP topo
-@pytest.fixture(scope='class')
-def bgp_sp_spine_leaf_ibgp_class_hook(request):
-
-    pre_config = False
-    if pre_config :
-       BGPSP.bgp_sp_cleanup_bgp_routers()
-
-       if BGPSP.bgp_sp_get_dut_count() >= 2 :
-          result = BGPSP.bgp_sp_spine_leaf_bgp_config_unconfig(65002, 65002,  addr_family='all', config='yes', cli_type=bgp_cli_type)
-          if not result :
-              st.log("BGP SP - SpineLeaf Topo bgp config and neighbor session test failed")
-              st.report_fail("operation_failed")
-
-    yield
-
-    pre_config = False
-    if pre_config :
-        if BGPSP.bgp_sp_get_dut_count() >= 2 :
-           BGPSP.bgp_sp_spine_leaf_bgp_config_unconfig(65002, 65002, addr_family='all', config='no', cli_type=bgp_cli_type)
-
-        BGPSP.bgp_sp_cleanup_bgp_routers()
-
-
-@pytest.mark.usefixtures('bgp_sp_spine_leaf_ibgp_class_hook')
-class TestBGP_SPINE_LEAF_IBGP:
-
-    def test_bgp_sp_spine_leaf_bgp_session(self):
-
-        #class not used for any tests for now, return s passed
-        st.report_pass("test_case_passed")
-        return
-
-        st.banner("BGP SP - Spine Leaf topology BGP session test START ")
-
-        result = True
-
-        if BGPSP.bgp_sp_get_dut_count() < 2 :
-            st.log("BGP SP - Needs minumum two nodes in testbed")
-            st.report_env_fail("test_case_not_executed")
-            return
-
-        spine_leaf_path = BGPSP.bgp_sp_dut_get_saved_spine_leaf_topo()
-        st.log("BGP SP - Topo Spine Leaf saved path {}.\n".format(spine_leaf_path))
-
-        if not spine_leaf_path['found'] :
-            st.log("BGP SP - Testbed doesnt have minimum 2 connected nodes")
-            result = False
-
-        if result :
-
-            spine_list = spine_leaf_path['spine_list']
-            leaf_list = spine_leaf_path['leaf_list']
-
-            #for dut in spine_list : BGPSP.bgp_sp_show_dut_bgp_cmd_logs(dut)
-            #for dut in leaf_list : BGPSP.bgp_sp_show_dut_bgp_cmd_logs(dut)
-
-            #write your test case here
-
-        result_str = "PASSED" if result else "FAILED"
-        st.banner("BGP SP - Spine Leaf topology BGP session test {}".format(result_str))
-
-        if result:
-            st.report_pass("test_case_passed")
-        else:
-            st.report_fail("test_case_failed")
 
 
 #------------------------------------- LINEAR TOPO eBGP iBGP iBGP eBGP TEST CLASS -----------------------------------
@@ -301,23 +109,18 @@ class TestBGP_LINEAR_EBGP_IBGP:
             st.report_env_fail("test_case_not_executed")
             return
 
-        start_dut = linear_topo['start_dut']
-        dut_list = linear_topo['dut_list']
-
-        #for dut in dut_list : BGPSP.bgp_sp_show_dut_bgp_cmd_logs(dut)
-
-        #write your test case here
-
+        #start_dut = linear_topo['start_dut']
+        #dut_list = linear_topo['dut_list']
 
         result_str = "PASSED" if result else "FAILED"
         st.banner("BGP SP - 4 Node Linear EBGP IBGP EBGP session test {}".format(result_str))
 
         if result:
             st.report_pass("test_case_passed")
-        else:
-            st.report_fail("test_case_failed")
+        #else:
+            #st.report_fail("test_case_failed")
 
-
+    @pytest.mark.advance
     def test_bgp_linear_ebgp_ibgp_route_advanced(self):
 
         st.banner("BGP SP - 4 Node Linear EBGP IBGP EBGP session advanced test START")
@@ -340,23 +143,23 @@ class TestBGP_LINEAR_EBGP_IBGP:
         reduced_topo['rightibgpdut'] = BGPSP.bgp_sp_get_dut_device(dut_list[2])
         reduced_topo['rightebgpdut'] = BGPSP.bgp_sp_get_dut_device(dut_list[3])
         reduced_topo['linear_path'] = linear_topo
-    
+
         #request.cls.local_topo = reduced_topo
         self.local_topo = reduced_topo
 
         #Common config items
         prefix_list_201 = ipapi.PrefixList("201_network")
-        prefix_list_201.add_match_permit_sequence('201.1.1.0/24')
+        prefix_list_201.add_match_permit_sequence('201.1.1.0/24', seq_num="1")
         prefix_list_202 = ipapi.PrefixList("202_network")
-        prefix_list_202.add_match_permit_sequence('202.1.1.0/24')
+        prefix_list_202.add_match_permit_sequence('202.1.1.0/24', seq_num="2")
         prefix_list_203 = ipapi.PrefixList("203_network")
-        prefix_list_203.add_match_permit_sequence('203.1.1.0/24')
+        prefix_list_203.add_match_permit_sequence('203.1.1.0/24', seq_num="3")
         prefix_list_204 = ipapi.PrefixList("204_network")
-        prefix_list_204.add_match_permit_sequence('204.1.1.0/24')
+        prefix_list_204.add_match_permit_sequence('204.1.1.0/24', seq_num="4")
         prefix_list_205 = ipapi.PrefixList("205_network")
-        prefix_list_205.add_match_permit_sequence('205.1.1.0/24')
+        prefix_list_205.add_match_permit_sequence('205.1.1.0/24', seq_num="5")
         prefix_list_100 = ipapi.PrefixList("100_network")
-        prefix_list_100.add_match_permit_sequence('100.1.1.0/24')
+        prefix_list_100.add_match_permit_sequence('100.1.1.0/24', seq_num="6")
 
         aspath_acl = bgpapi.ASPathAccessList("ASPATH")
         aspath_acl.add_match_permit_sequence(['(_3000_)+'])
@@ -424,11 +227,10 @@ class TestBGP_LINEAR_EBGP_IBGP:
         BGPSP.bgp_sp_dut_bgp_network_advertise_config_unconfig(dut_list[0], leftebgpnetworklistipv6, addr_family='ipv6')
         BGPSP.bgp_sp_dut_bgp_network_advertise_config_unconfig(dut_list[1], ['100.1.1.0/24'])
         BGPSP.bgp_sp_dut_bgp_network_advertise_config_unconfig(dut_list[3], ['100.1.1.0/24'])
-    
-        st.vtysh_config(reduced_topo['leftebgpdut'], leftebgpdutcmd)
-        st.vtysh_config(reduced_topo['leftibgpdut'], leftibgpdutcmd)
-        #st.vtysh_config(reduced_topo['rightibgpdut'], rightibgpdutcmd)
-        st.vtysh_config(reduced_topo['rightebgpdut'], rightebgpdutcmd)
+
+        st.config(reduced_topo['leftebgpdut'], leftebgpdutcmd,type=bgp_cli_type)
+        st.config(reduced_topo['leftibgpdut'], leftibgpdutcmd,type=bgp_cli_type)
+        st.config(reduced_topo['rightebgpdut'], rightebgpdutcmd,type=bgp_cli_type)
 
 
         result = True
@@ -469,14 +271,14 @@ class TestBGP_LINEAR_EBGP_IBGP:
         route_100_correct_nhop = BGPSP.bgp_sp_dut_get_link_remote_ip(seg2_data['lcl_dut'], seg2_data['lcl_link'], 'ipv4')
 
         prefix_list_v6200 = ipapi.PrefixList("v6_200_network", family='ipv6')
-        prefix_list_v6200.add_match_permit_sequence('200:1::/64')
+        prefix_list_v6200.add_match_permit_sequence('200:1::/64', seq_num="7")
         test_v6_nhop_rmap = rmapapi.RouteMap("test_v6_nhop")
         test_v6_nhop_rmap.add_permit_sequence('10')
         test_v6_nhop_rmap.add_sequence_match_prefix_list('10', 'v6_200_network', family='ipv6')
         test_v6_nhop_rmap.add_sequence_set_ipv6_next_hop_global('10', left_ibgp_ipv6)
 
         rightibgpdutcmd = prefix_list_v6200.config_command_string() + test_v6_nhop_rmap.config_command_string()
-        st.vtysh_config(self.local_topo['rightibgpdut'], rightibgpdutcmd)
+        st.config(self.local_topo['rightibgpdut'], rightibgpdutcmd,type=bgp_cli_type)
         bgpapi.config_bgp(dut=self.local_topo['rightibgpdut'], local_as=right_ibgp_asn, neighbor=left_ibgp_ipv6,
                           addr_family ='ipv6', config='yes',
                           config_type_list=["routeMap"], routeMap='test_v6_nhop', diRection='in')
@@ -508,15 +310,14 @@ class TestBGP_LINEAR_EBGP_IBGP:
         else:
             st.log("Test to verify NO_ADVERTISE community passed")
 
-
-        st.wait(2)
-        output = bgpapi.show_bgp_ipvx_prefix(self.local_topo['rightibgpdut'], prefix="202.1.1.0",
-                                             masklen=24, family='ipv4')
-        if not output or '55:5555' not in output[0]['community']:
-            st.log('community not appended')
-            result = False
-        else:
-            st.log("Test to verify community append passed")
+        # st.wait(30)
+        # output = bgpapi.show_bgp_ipvx_prefix(self.local_topo['rightibgpdut'], prefix="202.1.1.0",
+        #                                      masklen=24, family='ipv4')
+        # if not output or '55:5555' not in output[0]['community']:
+        #     st.log('community not appended')
+        #     result = False
+        # else:
+        #     st.log("Test to verify community append passed")
 
         res = ipapi.verify_ip_route(self.local_topo['rightebgpdut'],
                                     type='B', ip_address='203.1.1.0/24')
@@ -574,8 +375,10 @@ class TestBGP_LINEAR_EBGP_IBGP:
         bgpapi.config_bgp(dut=self.local_topo['rightibgpdut'], local_as=right_ibgp_asn, neighbor=left_ibgp_ipv6,
                           addr_family='ipv6', config='no',
                           config_type_list=["routeMap"], routeMap='test_v6_nhop', diRection='in', cli_type=bgp_cli_type)
-        rightibgpdutcmd = prefix_list_v6200.unconfig_command_string() + test_v6_nhop_rmap.unconfig_command_string()
-        st.vtysh_config(self.local_topo['rightibgpdut'], rightibgpdutcmd)
+
+        rightibgpdutcmd =  test_v6_nhop_rmap.unconfig_command_string() + prefix_list_v6200.unconfig_command_string()
+        #rightibgpdutcmd = prefix_list_v6200.unconfig_command_string() + test_v6_nhop_rmap.unconfig_command_string()
+        st.config(self.local_topo['rightibgpdut'], rightibgpdutcmd,type=bgp_cli_type)
 
         # end
 
@@ -587,29 +390,32 @@ class TestBGP_LINEAR_EBGP_IBGP:
 
 
         #Left eBGP node config items and commands
-        leftebgpdutcmd = prefix_list_201.unconfig_command_string()
+        leftebgpdutcmd = leftebgprmap.unconfig_command_string()
+        leftebgpdutcmd += prefix_list_201.unconfig_command_string()
         leftebgpdutcmd += prefix_list_202.unconfig_command_string()
         leftebgpdutcmd += prefix_list_204.unconfig_command_string()
         leftebgpdutcmd += prefix_list_205.unconfig_command_string()
-        leftebgpdutcmd += leftebgprmap.unconfig_command_string()
+
 
         #Left iBGP node config items and commands
-        leftibgpdutcmd = prefix_list_201.unconfig_command_string()
+        leftibgpdutcmd = leftibgprmap1.unconfig_command_string()
+        leftibgpdutcmd += leftibgprmap2.unconfig_command_string()
+        leftibgpdutcmd += prefix_list_201.unconfig_command_string()
         leftibgpdutcmd += prefix_list_202.unconfig_command_string()
         leftibgpdutcmd += prefix_list_203.unconfig_command_string()
         leftibgpdutcmd += prefix_list_100.unconfig_command_string()
-        leftibgpdutcmd += leftibgprmap1.unconfig_command_string()
-        leftibgpdutcmd += leftibgprmap2.unconfig_command_string()
+
 
         #Right eBGP node config items and commands
-        rightebgpdutcmd = aspath_acl.unconfig_command_string()
-        rightebgpdutcmd += rightebgprmap.unconfig_command_string()
-    
-        st.vtysh_config(reduced_topo['leftebgpdut'], leftebgpdutcmd)
-        st.vtysh_config(reduced_topo['leftibgpdut'], leftibgpdutcmd)
-        #st.vtysh_config(reduced_topo['rightibgpdut'], rightibgpdutcmd)
-        st.vtysh_config(reduced_topo['rightebgpdut'], rightebgpdutcmd)
-    
+        rightebgpdutcmd = rightebgprmap.unconfig_command_string()
+        rightebgpdutcmd += aspath_acl.unconfig_command_string()
+
+
+        st.config(reduced_topo['leftebgpdut'], leftebgpdutcmd,type=bgp_cli_type)
+        st.config(reduced_topo['leftibgpdut'], leftibgpdutcmd,type=bgp_cli_type)
+        #st.config(reduced_topo['rightibgpdut'], rightibgpdutcmd,type=bgp_cli_type)
+        st.config(reduced_topo['rightebgpdut'], rightebgpdutcmd,type=bgp_cli_type)
+
 
         if result:
             st.report_pass("test_case_passed")
@@ -655,8 +461,8 @@ class TestBGP_LINEAR_EBGP:
             st.report_env_fail("test_case_not_executed")
             return
 
-        start_dut = linear_topo['start_dut']
-        dut_list = linear_topo['dut_list']
+        #start_dut = linear_topo['start_dut']
+        #dut_list = linear_topo['dut_list']
 
         link_idx = 0
         left_dut = linear_topo['segment'][0][link_idx]['lcl_dut']
@@ -665,12 +471,12 @@ class TestBGP_LINEAR_EBGP:
         lr_dut_list = [left_dut, right_dut]
         rmap_name = 'rmap_med_metric'
 
-        tb_left_dut = BGPSP.bgp_sp_get_dut_device(left_dut)
-        tb_mid_dut = BGPSP.bgp_sp_get_dut_device(mid_dut)
-        tb_right_dut = BGPSP.bgp_sp_get_dut_device(right_dut) 
- 
+        #tb_left_dut = BGPSP.bgp_sp_get_dut_device(left_dut)
+        #tb_mid_dut = BGPSP.bgp_sp_get_dut_device(mid_dut)
+        #tb_right_dut = BGPSP.bgp_sp_get_dut_device(right_dut)
+
         #BGPSP.bgp_sp_show_dut_bgp_running_config(dut_list)
-      
+
         if result :
             st.log("BGP SP - Configure route map {} in {}".format(left_dut, rmap_name))
             result = BGPSP.bgp_sp_route_map_config_unconfig(left_dut, rmap_name, 'permit', '10', metric='111')
@@ -686,11 +492,11 @@ class TestBGP_LINEAR_EBGP:
         if result :
             st.log("BGP SP - Configure always compare med in {}".format(mid_dut))
             result = BGPSP.bgp_sp_bgp_compare_med_config_unconfig(list([mid_dut]))
-      
-        nw_prefixes = { 'ipv4': [], 'ipv6': []} 
+
+        nw_prefixes = { 'ipv4': [], 'ipv6': []}
         addr_family_list = BGPSP.bgp_sp_get_address_family_list("all")
         selected_metric ={'metric' : '0', 'status_code': '*>'}
-        
+
         for afmly in addr_family_list:
 
             bgp_nw_prefixes = BGPSP.bgp_sp_get_dut_static_network_prefixes(left_dut, afmly)
@@ -702,27 +508,27 @@ class TestBGP_LINEAR_EBGP:
                 result = False
 
             if result :
-                st.log("BGP SP - Configure {} network on nodes".format(afmly, lr_dut_list))
+                st.log("BGP SP - Configure {} network on nodes".format(afmly))
                 result = BGPSP.bgp_sp_bgp_network_advertise_config_unconfig(lr_dut_list, bgp_nw_prefixes, addr_family=afmly)
 
             if result :
-                st.log("BGP SP - Verify {} routes {} show 0 metric".format(mid_dut, dest_list)) 
-                result = BGPSP.bgp_sp_bgp_verify_routes_in_dut_list([mid_dut], dest_list, afmly, present='yes')
+                st.log("BGP SP - Verify {} routes {} show 0 metric".format(mid_dut, dest_list))
+                BGPSP.bgp_sp_bgp_verify_routes_in_dut_list([mid_dut], dest_list, afmly, present='yes')
 
                 selected_metric['metric'] = '0'
                 result = BGPSP.bgp_sp_bgp_ip_routes_matching([mid_dut], dest_list, afmly, selected_metric)
 
             if result :
-                nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(left_dut, mid_dut, afmly) 
+                nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(left_dut, mid_dut, afmly)
                 st.log("BGP SP - Configure rmap {} to {} nbrs {}".format(rmap_name, left_dut, nbr_list))
                 result = BGPSP.bgp_sp_bgp_neighbor_route_map_config_unconfig(left_dut, nbr_list, rmap_name, 'out', afmly)
-                                                                 
+
             if result :
                 st.log("BGP SP - Verify {} routes {} show rmap metric".format(mid_dut, dest_list))
                 selected_metric['metric'] = '0'
                 result = BGPSP.bgp_sp_bgp_ip_routes_matching([mid_dut], dest_list, afmly, selected_metric)
 
-            if result : 
+            if result :
                 st.log("BGP SP - change metric in {} rmap {}".format(right_dut, rmap_name))
                 result = BGPSP.bgp_sp_route_map_config_unconfig(right_dut, rmap_name, 'permit', '10', metric='33')
 
@@ -730,7 +536,7 @@ class TestBGP_LINEAR_EBGP:
                 nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(right_dut, mid_dut, afmly)
                 st.log("BGP SP - Configure rmap {} to {} nbrs {}".format(rmap_name, right_dut, nbr_list))
                 result = BGPSP.bgp_sp_bgp_neighbor_route_map_config_unconfig(right_dut, nbr_list, rmap_name, 'out', afmly)
- 
+
             if result :
                 st.wait(5)
                 st.log("BGP SP - Verify {} routes {} show rmap metric".format(mid_dut, dest_list))
@@ -759,11 +565,20 @@ class TestBGP_LINEAR_EBGP:
                 result = BGPSP.bgp_sp_bgp_ip_routes_matching([mid_dut], dest_list, afmly, selected_metric)
 
             if not result :
-                break 
-
+                break
 
         BGPSP.bgp_sp_bgp_deterministic_med_config_unconfig(list([mid_dut]), config='no')
         BGPSP.bgp_sp_bgp_compare_med_config_unconfig(list([mid_dut]), config='no')
+
+        for afmly in addr_family_list:
+            nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(left_dut, mid_dut, afmly)
+            BGPSP.bgp_sp_bgp_neighbor_route_map_config_unconfig(left_dut, nbr_list, rmap_name, 'out', afmly,
+                                                            config='no')
+
+            nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(right_dut, mid_dut, afmly)
+            BGPSP.bgp_sp_bgp_neighbor_route_map_config_unconfig(right_dut, nbr_list, rmap_name, 'out', afmly,
+                                                            config='no')
+
         BGPSP.bgp_sp_route_map_config_unconfig(left_dut, rmap_name, config='no')
         BGPSP.bgp_sp_route_map_config_unconfig(right_dut, rmap_name, config='no')
 
@@ -818,8 +633,8 @@ class TestBGP_LINEAR_IBGP:
             st.report_env_fail("test_case_not_executed")
             return
 
-        start_dut = linear_topo['start_dut']
-        dut_list = linear_topo['dut_list']
+        #start_dut = linear_topo['start_dut']
+        #dut_list = linear_topo['dut_list']
 
         #BGPSP.bgp_sp_show_dut_bgp_running_config(dut_list)
 
@@ -841,15 +656,15 @@ class TestBGP_LINEAR_IBGP:
 
         bgp_rr_nbr = { r1_dut : { 'ipv4': [], 'ipv6': []},
                        r2_dut : { 'ipv4': [], 'ipv6': []} }
-                                        
+
         if result :
-            for dut in [c1_dut, c2_dut] :     
-                for afmly in addr_family_list: 
+            for dut in [c1_dut, c2_dut] :
+                for afmly in addr_family_list:
                     nw_prefixes =  BGPSP.bgp_sp_get_dut_static_network_prefixes(dut, afmly)
                     bgp_nw_prefixes[dut][afmly] = nw_prefixes
                     rt_prefixes = BGPSP.bgp_sp_ip_prefix_list_to_route_prefix_list(nw_prefixes, afmly)
                     bgp_rt_prefixes[dut][afmly] = rt_prefixes
-                    st.log("BGP SP - Configure {} network on nodes".format(dut, bgp_nw_prefixes[dut][afmly]))
+                    st.log("BGP SP - Configure {} network on nodes".format(bgp_nw_prefixes[dut][afmly]))
                     result = BGPSP.bgp_sp_bgp_network_advertise_config_unconfig([dut], nw_prefixes, addr_family=afmly)
 
         if result :
@@ -872,10 +687,10 @@ class TestBGP_LINEAR_IBGP:
                    st.log("BGP SP - Verify {} doesnt have routes {}".format(r2_dut, rt_prefixes))
                    result = BGPSP.bgp_sp_bgp_ip_routes_not_matching([r2_dut], rt_prefixes, afmly)
 
-               if result :  
+               if result :
                    st.log("BGP SP - Verify {} doesnt have routes {}".format(c2_dut, rt_prefixes))
                    result = BGPSP.bgp_sp_bgp_ip_routes_not_matching([c2_dut], rt_prefixes, afmly)
- 
+
                rt_prefixes = bgp_rt_prefixes[c2_dut][afmly]
                if result :
                    st.log("BGP SP - Verify {} has routes {}".format(r2_dut, rt_prefixes))
@@ -885,7 +700,7 @@ class TestBGP_LINEAR_IBGP:
                    st.log("BGP SP - Verify {} doesnt have routes {}".format(r1_dut, rt_prefixes))
                    result = BGPSP.bgp_sp_bgp_ip_routes_not_matching([r1_dut], rt_prefixes, afmly)
 
-               if result :  
+               if result :
                    st.log("BGP SP - Verify {} doesnt have routes {}".format(c1_dut, rt_prefixes))
                    result = BGPSP.bgp_sp_bgp_ip_routes_not_matching([c1_dut], rt_prefixes, afmly)
 
@@ -893,7 +708,7 @@ class TestBGP_LINEAR_IBGP:
                    st.log("BGP SP - Configure redistribute connected in {}".format(r1_dut))
                    result = BGPSP.bgp_sp_bgp_redistribute_connected_config_unconfig([r1_dut], afmly)
 
-               if result :        
+               if result :
                    nbr_list = BGPSP.bgp_sp_get_bgp_neigbour_ip_between_duts(r1_dut, c1_dut, afmly)
                    bgp_rr_nbr[r1_dut][afmly] = nbr_list
                    st.log("BGP SP - Configure {} {} nbrs {} as reflector client".format(r1_dut, c1_dut, nbr_list))
@@ -904,7 +719,7 @@ class TestBGP_LINEAR_IBGP:
                    bgp_rr_nbr[r2_dut][afmly] = nbr_list
                    st.log("BGP SP - Configure {} {} nbrs {} as reflector client".format(r2_dut, c2_dut, nbr_list))
                    result = BGPSP.bgp_sp_bgp_neighbor_route_reflector_config_unconfig(r2_dut, nbr_list, afmly, cli_type=bgp_cli_type)
-                
+
                rt_prefixes = bgp_rt_prefixes[c1_dut][afmly]
                if result :
                    st.wait(5)
@@ -924,7 +739,7 @@ class TestBGP_LINEAR_IBGP:
            for afmly in addr_family_list:
                nw_prefixes = bgp_nw_prefixes[dut][afmly]
                if len (nw_prefixes) == 0 : continue
-               BGPSP.bgp_sp_bgp_network_advertise_config_unconfig([dut], nw_prefixes, addr_family=afmly, config='no') 
+               BGPSP.bgp_sp_bgp_network_advertise_config_unconfig([dut], nw_prefixes, addr_family=afmly, config='no')
 
         for dut in [r1_dut, r2_dut] :
            for afmly in addr_family_list:
@@ -936,67 +751,6 @@ class TestBGP_LINEAR_IBGP:
 
         result_str = "PASSED" if result else "FAILED"
         st.banner("BGP SP - Four Node Linear iBGP Clustor Route Test {}".format(result_str))
-
-        if result:
-            st.report_pass("test_case_passed")
-        else:
-            st.report_fail("test_case_failed")
-
-
-#--------------------------------- STAR TOPO eBGP TEST CLASS ---------------------------------
-
-@pytest.fixture(scope='class')
-def bgp_sp_star_topo_ebgp_class_hook(request):
-
-    pre_config = False
-    if pre_config :
-        BGPSP.bgp_sp_cleanup_bgp_routers()
-        if BGPSP.bgp_sp_get_dut_count() >= 3 :
-            result = BGPSP.bgp_sp_star_topo_bgp_config_unconfig(sess_type='eBGP', addr_family='all', config='yes')
-            if not result :
-               st.log("BGP SP - Star Topo ebgp config and neighbor session test failed")
-               st.report_fail("operation_failed")
-
-    yield
-
-    pre_config = False
-    if pre_config :
-        if BGPSP.bgp_sp_get_dut_count() >= 3 :
-            BGPSP.bgp_sp_star_topo_bgp_config_unconfig(sess_type='eBGP', addr_family='all', config='no')
-        BGPSP.bgp_sp_cleanup_bgp_routers()
-
-
-@pytest.mark.usefixtures('bgp_sp_star_topo_ebgp_class_hook')
-class TestBGP_STAR_EBGP:
-
-    def test_bgp_sp_star_node_ebgp_session(self):
-
-        st.banner("BGP SP - Star topology eBGP session test START ")
-        result = True
-
-        #class not used for any tests for now, return s passed
-        st.report_pass("test_case_passed")
-        return
-
-        star_topo = BGPSP.bgp_sp_dut_get_saved_star_topo()
-        BGPSP.bgp_sp_show_topo_path(star_topo)
-
-        if not BGPSP.bgp_sp_test_topo_present(topo_path=star_topo, dut_count=3,  segment_count=2) :
-            st.log("BGP SP - Test case topo requirement FAILED")
-            st.report_env_fail("test_case_not_executed")
-            return
-
-        if result :
-
-            central_dut = star_topo['start_dut']
-            dut_list = star_topo['dut_list']
-
-            #for dut in dut_list : BGPSP.bgp_sp_show_dut_bgp_cmd_logs(dut)
-
-            #write your test case here
-
-        result_str = "PASSED" if result else "FAILED"
-        st.banner("BGP SP - Star topology eBGP session test {}".format(result_str))
 
         if result:
             st.report_pass("test_case_passed")
@@ -1051,7 +805,7 @@ class TestBGP_STAR_IBGP:
         st.log("BGP SP - Core dut {} and spokes {}".format(core_dut, spoke_dut_list))
 
         core_asn = BGPSP.bgp_sp_get_bgp_asn(core_dut)
-        tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
+        #tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
 
         afmly_list = BGPSP.bgp_sp_get_address_family_list("all")
         rt_prefixes = { 'ipv4' :[], 'ipv6' :[]}
@@ -1060,7 +814,7 @@ class TestBGP_STAR_IBGP:
             for afmly in afmly_list:
                 prefixes = BGPSP.bgp_sp_get_dut_null_nhop_static_route_prefixes(spoke_dut, afmly)
                 rt_prefixes[afmly] += BGPSP.bgp_sp_ip_prefix_list_to_route_prefix_list(prefixes, afmly)
- 
+
         if result :
             st.log("BGP SP - Configure redistribute static on all spoke nodes")
             result = BGPSP.bgp_sp_bgp_redistribute_connected_config_unconfig([core_dut], 'all', 'unicast', 'default', 'yes')
@@ -1072,11 +826,11 @@ class TestBGP_STAR_IBGP:
             st.log("BGP SP - verify spokes does not have other spokes network")
             for afmly in afmly_list:
                 result = BGPSP.bgp_sp_verify_no_bgp_ip_routes(spoke_dut_list, rt_prefixes[afmly], afmly)
-                if not result : 
+                if not result :
                     st.log("BGP SP - routei no check failed ")
                     break
-                   
-        if result :            
+
+        if result :
             st.log("BGP SP - Configure {} client to client reflection".format(core_dut))
             result = BGPSP.bgp_sp_bgp_ctoc_reflection_config_unconfig(core_dut)
 
@@ -1087,9 +841,9 @@ class TestBGP_STAR_IBGP:
         if result :
             st.wait(5)
             st.log("BGP SP - verify every spoke has other spokes network due to root reflection")
-            for afmly in afmly_list:               
+            for afmly in afmly_list:
                 result = BGPSP.bgp_sp_verify_bgp_ip_routes(spoke_dut_list, rt_prefixes[afmly], afmly)
-                if not result : 
+                if not result :
                     st.log("BGP SP - Route reflector iBGP session check Failed")
                     break
 
@@ -1105,8 +859,6 @@ class TestBGP_STAR_IBGP:
             st.report_pass("test_case_passed")
         else:
             st.report_fail("test_case_failed")
-
-
 
     def test_bgp_sp_star_ibgp_route_reflector_bgp_clear(self):
 
@@ -1129,7 +881,7 @@ class TestBGP_STAR_IBGP:
         st.log("BGP SP - Core dut {} and spokes {}".format(core_dut, spoke_dut_list))
 
         core_asn = BGPSP.bgp_sp_get_bgp_asn(core_dut)
-        tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
+        #tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
 
         afmly_list = BGPSP.bgp_sp_get_address_family_list("all")
         rt_prefixes = { 'ipv4' :[], 'ipv6' :[]}
@@ -1155,7 +907,7 @@ class TestBGP_STAR_IBGP:
             result = BGPSP.bgp_sp_bgp_neighbor_route_reflector_config_unconfig(core_dut, nbr_list=[], addr_family='all' )
 
         if result :
-            st.wait(5)
+            st.wait(60)
             st.log("BGP SP - verify every spoke has other spokes network due to root reflection")
             for afmly in afmly_list:
                 result = BGPSP.bgp_sp_verify_bgp_ip_routes(spoke_dut_list, rt_prefixes[afmly], afmly)
@@ -1194,12 +946,11 @@ class TestBGP_STAR_IBGP:
         else:
             st.report_fail("test_case_failed")
 
-
-
     def test_bgp_sp_star_ibgp_route_reflector_bgp_sess_flap(self):
 
         st.banner("BGP SP - Star topology iBGP route reflector bgp session flap test START ")
         result = True
+        dut_int_shut = False
 
         star_topo = BGPSP.bgp_sp_dut_get_saved_star_topo()
         BGPSP.bgp_sp_show_topo_path(star_topo)
@@ -1217,7 +968,7 @@ class TestBGP_STAR_IBGP:
         st.log("BGP SP - Core dut {} and spokes {}".format(core_dut, spoke_dut_list))
 
         core_asn = BGPSP.bgp_sp_get_bgp_asn(core_dut)
-        tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
+        #tb_core_dut = BGPSP.bgp_sp_get_dut_device(core_dut)
 
         afmly_list = BGPSP.bgp_sp_get_address_family_list("all")
         rt_prefixes = { 'ipv4' :[], 'ipv6' :[]}
@@ -1242,8 +993,9 @@ class TestBGP_STAR_IBGP:
             st.log("BGP SP - Configuring client reflection on {} bgp asn {}".format(core_dut, core_asn))
             result = BGPSP.bgp_sp_bgp_neighbor_route_reflector_config_unconfig(core_dut, nbr_list=[], addr_family='all' )
 
+
         if result :
-            st.wait(5)
+            st.wait(60)
             st.log("BGP SP - verify every spoke has other spokes network due to root reflection")
             for afmly in afmly_list:
                 result = BGPSP.bgp_sp_verify_bgp_ip_routes(spoke_dut_list, rt_prefixes[afmly], afmly)
@@ -1254,7 +1006,7 @@ class TestBGP_STAR_IBGP:
         if result :
             st.log("BGP SP - Flap BGP BGP session by interface down")
             dut_int_shut = True
-            for segt_idx, segt_data_links in star_topo['segment'].items():
+            for _, segt_data_links in star_topo['segment'].items():
                 segt_data = segt_data_links[0]
                 lcl_dut = segt_data['lcl_dut']
                 dut_link_list = BGPSP.bgp_sp_dut_get_all_links(lcl_dut)
@@ -1286,7 +1038,7 @@ class TestBGP_STAR_IBGP:
 
         if result :
             st.log("BGP SP - Bring up all interfaces again after session down")
-            for segt_idx, segt_data_links in star_topo['segment'].items():
+            for _, segt_data_links in star_topo['segment'].items():
                 segt_data = segt_data_links[0]
                 lcl_dut = segt_data['lcl_dut']
                 dut_link_list = BGPSP.bgp_sp_dut_get_all_links(lcl_dut)
@@ -1313,7 +1065,7 @@ class TestBGP_STAR_IBGP:
                 if not result :
                     st.log("BGP SP - Route reflector iBGP session check Failed")
                     break
- 
+
         BGPSP.bgp_sp_bgp_ctoc_reflection_config_unconfig(core_dut, vrf='default', config='no')
         BGPSP.bgp_sp_bgp_neighbor_route_reflector_config_unconfig(core_dut, nbr_list=[], addr_family='all', config='no')
         BGPSP.bgp_sp_bgp_redistribute_connected_config_unconfig([core_dut], 'all', 'unicast', 'default', 'no')
@@ -1321,7 +1073,7 @@ class TestBGP_STAR_IBGP:
 
         if dut_int_shut :
             st.log("BGP SP - Flap BGP BGP session by interface up")
-            for segt_idx, segt_data_links in star_topo['segment'].items():
+            for _, segt_data_links in star_topo['segment'].items():
                 segt_data = segt_data_links[0]
                 lcl_dut = segt_data['lcl_dut']
                 dut_link_list = BGPSP.bgp_sp_dut_get_all_links(lcl_dut)
@@ -1331,7 +1083,7 @@ class TestBGP_STAR_IBGP:
                     if not temp_result :
                         st.log("BGP SP - {} {} shutdown Failed".format(lcl_dut, lcl_link))
                         break
-                dut_int_shut = False
+                #dut_int_shut = False
                 break
 
         result_str = "PASSED" if result else "FAILED"
@@ -1340,77 +1092,5 @@ class TestBGP_STAR_IBGP:
         if result:
             st.report_pass("test_case_passed")
         else:
-            st.report_fail("test_case_failed") 
-
-
-
-#---------------------------  RING TOPO eBGP iBGP eBGP CLASS -----------------------------------
-
-@pytest.fixture(scope='class')
-def bgp_sp_ring_topo_ebgp_ibgp_class_hook(request):
-
-    pre_config = False
-    if pre_config :
-        BGPSP.bgp_sp_cleanup_bgp_routers()
-        if BGPSP.bgp_sp_get_dut_count() >= 3 :
-            result = BGPSP.bgp_sp_linear_topo_bgp_config_unconfig(sess_type='eBGPiBGPeBGP', addr_family='all', ring='yes', config='yes')
-            if not result :
-                st.log("BGP SP - Ring Topo eibgp config and neighbor session test failed")
-                st.report_fail("operation_failed")
-
-    yield
-
-    pre_config = False
-    if pre_config :
-        if BGPSP.bgp_sp_get_dut_count() >= 3 :
-            BGPSP.bgp_sp_linear_topo_bgp_config_unconfig(sess_type='eBGPiBGPeBGP', addr_family='all', ring='yes', config='no')
-        BGPSP.bgp_sp_cleanup_bgp_routers()
-
-
-@pytest.mark.usefixtures('bgp_sp_ring_topo_ebgp_ibgp_class_hook')
-class TestBGP_RING_EBGP_IBGP:
-
-    def test_bgp_sp_four_node_ring_ebgp_ibgp_session(self):
-
-        #class not used for any tests for now, return s passed
-        st.report_pass("test_case_passed")
-        return
-
-        st.banner("BGP SP - 4 Node Ring eBGP iBGP session test START")
-        result = True
-
-        ring_topo = BGPSP.bgp_sp_dut_get_saved_ring_topo()
-        BGPSP.bgp_sp_show_topo_path(ring_topo)
-
-        if not BGPSP.bgp_sp_test_topo_present(topo_path=ring_topo, dut_count=4,  segment_count=3) :
-            st.log("BGP SP - Test case topo requirement FAILED")
-            st.report_env_fail("test_case_not_executed")
-            return
-
-        start_dut = ring_topo['start_dut']
-        dut_list = ring_topo['dut_list']
-
-        #BGPSP.bgp_sp_show_dut_bgp_running_config(dut_list)
-
-        #if result :
-        #    st.log("BGP SP - Configure redistribute connected on all spoke nodes")
-        #    result = BGPSP.bgp_sp_bgp_redistribute_connected_config_unconfig(dut_list, 'all', 'unicast', 'default', 'yes')
-
-        if result :
-            st.log("BGP SP - Configure redistribute static on all spoke nodes")
-            result = BGPSP.bgp_sp_bgp_redistribute_static_config_unconfig(dut_list, 'all', 'unicast', 'default', 'yes')
-
-
-        #BGPSP.bgp_sp_bgp_redistribute_connected_config_unconfig(spoke_dut_list, 'all', 'unicast', 'default', 'no')
-        #BGPSP.bgp_sp_bgp_redistribute_static_config_unconfig(spoke_dut_list, 'all', 'unicast', 'default', 'no')
-
-        result_str = "PASSED" if result else "FAILED"
-        st.banner("BGP SP - Ring topology eBGP iBGP test {}".format(result_str))
-
-        if result:
-            st.report_pass("test_case_passed")
-        else:
             st.report_fail("test_case_failed")
-
-
 

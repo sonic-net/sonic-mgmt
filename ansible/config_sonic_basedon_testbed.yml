@@ -41,21 +41,29 @@
         testbed_file: testbed.csv
       when: testbed_file is not defined
 
-    - name: Set default dut index
-      set_fact:
-        dut_index: 0
-      when: dut_index is not defined
-
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
-      when: testbed_facts['duts'][dut_index] != inventory_hostname
+      when: inventory_hostname not in testbed_facts['duts']
+
+    - name: Set default num_asic
+      set_fact:
+        num_asics: 1
+      when: num_asics is not defined
+
+    - name: Set default dut index
+      set_fact:
+        dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
 
     - name: set testbed_type
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
+
+    - name: set ptf image name
+      set_fact:
+        ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
 
     - name: set vm
       set_fact:
@@ -63,8 +71,76 @@
       when: "testbed_facts['vm_base'] != ''"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
     delegate_to: localhost
+
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    delegate_to: localhost
+    ignore_errors: true
+
+  - name: find interface name mapping and individual interface speed if defined from dut
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
+    when: deploy is defined and deploy|bool == true
+
+  - name: find interface name mapping and individual interface speed if defined with local data
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      num_asic: "{{ num_asics }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      start_switchid: "{{ start_switchid | default(0) }}"
+    delegate_to: localhost
+    when: deploy is not defined or deploy|bool == false
+
+  - name: find and generate fabric ASIC infomation
+    fabric_info:
+      num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
+      asics_host_basepfx: "{{ asics_host_ip | default(None) }}"
+      asics_host_basepfx6: "{{ asics_host_ipv6 | default(None) }}"
+
+  - name: set all VoQ system ports information
+    set_fact:
+      all_sysports: "{{ all_sysports | default( [] ) + hostvars[item]['sysports'] }}"
+    when: hostvars[item]['sysports'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all VoQ information for iBGP
+    set_fact:
+      all_inbands: "{{ all_inbands | default( [] ) + [ hostvars[item]['voq_inband_ip'] ] }}"
+      all_hostnames: "{{ all_hostnames | default( [] ) + [ item ] }}"
+    when: hostvars[item]['voq_inband_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: find all enabled host_interfaces
+    set_fact:
+      host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
+
+  - name: find all vlan interface names for T0 topology
+    set_fact:
+      vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
+    with_items: "{{ host_if_indexes }}"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: set default dualtor facts
+    set_fact:
+      dual_tor_facts: {}
+    when: "'dualtor' not in topo"
+
+  - name: gather dual ToR information
+    dual_tor_facts:
+      hostname: "{{ inventory_hostname }}"
+      testbed_facts: "{{ testbed_facts }}"
+      hostvars: "{{ hostvars }}"
+      vm_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_intfs: "{{ vlan_intfs }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -72,7 +148,7 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo or 'docker-keysight-api-server' in ptf_image %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
@@ -80,47 +156,151 @@
     delegate_to: localhost
     when: "VM_topo | bool"
 
-  - name: find interface name mapping and individual interface speed if defined
-    port_alias: hwsku="{{ hwsku }}"
-
-  - name: find all enabled host_interfaces
-    set_fact:
-      host_if_indexes: "{{ vm_topo_config['host_interfaces'] | difference(vm_topo_config['disabled_host_interfaces']) }}"
-
-  - name: find all vlan interface names for T0 topology
-    set_fact:
-      vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
-    with_items: "{{ host_if_indexes }}"
-    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
-
   - name: find all vlan configurations for T0 topology
     vlan_config:
       vm_topo_config: "{{ vm_topo_config }}"
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when: "('host_interfaces' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find downlink portchannel configuration for T0 topology
+    set_fact:
+      portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
+    delegate_to: localhost
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find any tunnel configurations
+    tunnel_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      tunnel_config: "{{ tunnel_config | default(None) }}"
+    delegate_to: localhost
 
   - name: find all interface indexes mapping connecting to VM
     set_fact:
-      interface_to_vms: "{{ interface_to_vms|default({}) | combine({ item.key: item.value['interface_indexes'] }) }}"
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface indexes connecting to VM
     set_fact:
-      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes']}}"
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
 
   - name: find all interface names
     set_fact:
-      intf_names: "{{ intf_names | default({}) | combine({item.key: port_alias[item.value[0]|int:item.value[-1]|int+1] }) }}"
-    with_dict: "{{ interface_to_vms }}"
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
+
+  # create map of VM to asic interface names
+  - name: find all interface asic names
+    set_fact:
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms }}"
+      - "ports"
+    when: front_panel_asic_ifnames != [] 
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
+
+  - block:
+    - name: Init telemetry keys
+      set_fact:
+        server_key_t: ""
+        server_cer_t: ""
+        dsmsroot_key_t: ""
+        dsmsroot_cer_t: ""
+        dir_path_t: ""
+        subject_server: ""
+        subject_client: ""
+
+    - name: read server key
+      set_fact:
+        server_key_t: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
+
+    - name: read server cer
+      set_fact:
+        server_cer_t: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
+
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key_t: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
+
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer_t: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path_t: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
+
+    - name: read server subject
+      set_fact:
+        subject_server: "{{ telemetry_certs['subject_server'] }}"
+      when: telemetry_certs['subject_server'] is defined
+    
+    - name: read client subject
+      set_fact:
+        subject_client: "{{ telemetry_certs['subject_client'] }}"
+      when: telemetry_certs['subject_client'] is defined
+
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_cer_t }}"
+        server_key: "{{ server_key_t }}"
+        dsmsroot_cer: "{{ dsmsroot_cer_t }}"
+        dsmsroot_key: "{{ dsmsroot_key_t }}"
+        cert_subject: "{{ subject_server }}"
+        root_subject: "{{ subject_client }}"
+    
+    when: deploy is defined and deploy|bool == true
+
+  - block:
+    - name: Init restapi keys
+      set_fact:
+        server_key_t: ""
+        server_crt_t: ""
+        dir_path_t: ""
+        subject_t: ""
+
+    - name: read server key
+      set_fact:
+        server_key_t: "{{ restapi_certs['server_key'] }}"
+      when: restapi_certs['server_key'] is defined
+
+    - name: read server crt
+      set_fact:
+        server_crt_t: "{{ restapi_certs['server_crt'] }}"
+      when: restapi_certs['server_crt'] is defined
+
+    - name: read subject
+      set_fact:
+        subject_t: "{{ restapi_certs['subject'] }}"
+      when: restapi_certs['subject'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path_t: "{{ restapi_certs['dir_path'] }}"
+      when: restapi_certs['dir_path'] is defined
+
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_crt_t }}"
+        server_key: "{{ server_key_t }}"
+        cert_subject: "{{ subject_t }}"
+    when: deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
@@ -140,8 +320,8 @@
         delegate_to: localhost
 
       - name: debug print stat_result
-        debug: 
-            msg: Stat result is {{ stat_result }}
+        debug:
+          msg: Stat result is {{ stat_result }}
 
       - name: Copy corresponding configlet files if exist
         copy: src=vars/configlet/{{ topo }}/
@@ -154,15 +334,20 @@
             core_key: ""
             core_proxy: ""
 
+      - name: Test if core_analyzer.rc.json exists
+        stat:
+            path: /etc/sonic/core_analyzer.rc.json
+        register: rc_stat
+
       - name: read account key
         set_fact:
             core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
-        when: corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
 
       - name: read https proxy
         set_fact:
             core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
-        when: corefile_uploader['env']['https_proxy'] is defined
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
 
       - name: Put secret in core_analyzer.rc.json
         lineinfile:
@@ -220,9 +405,26 @@
 
       - debug: msg={{ docker_status.stdout_lines }}
 
+      - name: start topology service for multi-asic platform
+        become: true
+        shell: systemctl start topology.service
+        when: start_topo_service is defined and start_topo_service|bool == true
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
+
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
 
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
@@ -237,4 +439,10 @@
         become: true
         shell: config save -y
         when: save is defined and save|bool == true
+
+      - name: cleanup all cached facts
+        shell: python ../tests/common/cache/facts_cache.py
+        delegate_to: localhost
+        ignore_errors: true
+
     when: deploy is defined and deploy|bool == true

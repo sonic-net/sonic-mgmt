@@ -1,0 +1,5 @@
+
+================== INSTALLATION ===========================
+- install dependencies
+  -- execute bin/upgrade_requirements.sh
+===========================================================

@@ -1,0 +1,20 @@
+Value Port (\S+\(\s*\d+\))
+Value Link (\S+)
+Value Speed (\S+)
+Value Duplex (\S+)
+Value LinkScan (\S+)
+Value AutoNeg (\S+)
+Value STP_State (\S+)
+Value Pause (\S+)
+Value Discard (\S+)
+Value Ops (\S+)
+Value InterfaceType (\S+)
+Value MaxFrames (\d+)
+Value loopback (\S+)
+
+
+Start
+  ^\s*${Port}\s+${Link}\s+${Speed}\s+${Duplex}\s+${LinkScan}\s+${AutoNeg}\s+${STP_State}\s+${Pause}\s+${Discard}\s+${Ops}\s+${InterfaceType}\s+${MaxFrames}\s+${loopback}\s*$$ -> Record
+  ^\s*${Port}\s+${Link}\s+${Speed}\s+${Duplex}\s+${LinkScan}\s+${AutoNeg}\s+${STP_State}\s+${Pause}\s+${Discard}\s+${Ops}\s+${InterfaceType}\s+${MaxFrames}\s*$$ -> Record
+  ^\s*${Port}\s+${Link}\s+${Speed}\s+${Duplex}\s+${LinkScan}\s+${AutoNeg}\s+${STP_State}\s+${Discard}\s+${Ops}\s+${InterfaceType}\s+${MaxFrames}\s+${loopback}\s*$$ -> Record
+  ^\s*${Port}\s+${Link}\s+${Speed}\s+${Duplex}\s+${LinkScan}\s+${AutoNeg}\s+${STP_State}\s+${Discard}\s+${Ops}\s+${InterfaceType}\s+${MaxFrames}\s*$$ -> Record

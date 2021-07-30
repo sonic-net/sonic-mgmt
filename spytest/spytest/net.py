@@ -6,22 +6,21 @@ import re
 import tempfile
 import logging
 import traceback
-import random
 import signal
 import time
 import copy
 import math
 import shlex
-import threading
 import subprocess
 from inspect import currentframe
 from collections import OrderedDict
 
 import utilities.common as utils
+import utilities.parallel as putils
 
 from spytest import profile
 from spytest.dicts import SpyTestDict
-from spytest.logger import Logger
+from spytest.logger import Logger, get_thread_name
 from spytest.template import Template
 from spytest.access.connection import DeviceConnection, DeviceConnectionTimeout
 from spytest.access.connection import DeviceFileUpload, DeviceFileDownload
@@ -29,13 +28,16 @@ from spytest.access.connection import initDeviceConnectionDebug
 from spytest.ansible import ansible_playbook
 from spytest.prompts import Prompts
 from spytest.rest import Rest
+from spytest.gnmi import gNMI
+from spytest.gnmi.translator import toRest, toGNMI
 from spytest.ordyaml import OrderedYaml
 from spytest.uicli import UICLI
 from spytest.uirest import UIRest
 from spytest.st_time import get_timenow
 from spytest.st_time import get_elapsed
 from spytest.uignmi import UIGnmi
-
+import spytest.env as env
+import spytest.syslog as syslog
 
 lldp_prompt = r"\[lldpcli\]\s*#\s*$"
 regex_login = r"\S+\s+login:\s*$"
@@ -43,9 +45,15 @@ regex_login_anywhere = r"\S+\s+login:\s*"
 regex_password = r"[Pp]assword:\s*$"
 regex_password_anywhere = r"[Pp]assword:\s*"
 regex_onie = r"\s*ONIE:/ #\s*$"
+regex_grub_rescue = r"\s*grub rescue>\s*$"
 regex_onie_sleep = r"\s*Info: Sleeping for [0-9]+ seconds\s*"
 regex_onie_resque = r"\s+Please press Enter to activate this console.\s*$"
 sonic_mgmt_hostname = "--sonic-mgmt--"
+nl = "\n"
+end_exit = nl.join(["end", "exit"])
+no_more_regex = r"\| no-more$"
+no_more_suffix = " | no-more"
+#no_more_suffix = ""
 
 class Net(object):
 
@@ -62,10 +70,11 @@ class Net(object):
         self.topo = SpyTestDict({"duts": OrderedDict()})
         self.tmpl = dict()
         self.rest = dict()
+        self.gnmi = dict()
         self.syslogs = dict()
-        self.is_vsonic_cache = dict()
         self.memory_checks = dict()
         self.skip_trans_helper = dict()
+        self.last_mode = dict()
         self.image_install_status = OrderedDict()
         self.devices_used_in_tc = OrderedDict()
         self.devices_used_collection = False
@@ -73,8 +82,10 @@ class Net(object):
         self.trace_callback_support = False
         self.module_start_time = None
         self.module_max_timeout = self.cfg.module_max_timeout
+        self.module_max_timeout_triggered = False
         self.tc_start_time = None
         self.tc_max_timeout = self.cfg.tc_max_timeout
+        self.tc_max_timeout_triggered = False
         self.tc_get_tech_support = False
         self.tc_fetch_core_files = False
         self.fcli = 1 if self.cfg.faster_cli else 0
@@ -84,27 +95,26 @@ class Net(object):
         self.prevent_list = []
         self.wa = None
         self.prev_testcase = None
-        if os.getenv("SPYTEST_LIVE_TRACE_OUTPUT"):
+        if env.get("SPYTEST_LIVE_TRACE_OUTPUT", "0") != "0":
             self.trace_callback_support = True
-        self.use_sample_data = os.getenv("SPYTEST_USE_SAMPLE_DATA", None)
-        self.debug_find_prompt = bool(os.getenv("SPYTEST_DEBUG_FIND_PROMPT"))
-        self.dry_run_cmd_delay = os.getenv("SPYTEST_DRYRUN_CMD_DELAY", "0")
+        self.use_sample_data = bool(env.get("SPYTEST_USE_SAMPLE_DATA", "0") != "0")
+        self.cmd_tmpl_cache = dict()
+        self.debug_find_prompt = bool(env.get("SPYTEST_DEBUG_FIND_PROMPT", "0") != "0")
+        self.dry_run_cmd_delay = env.get("SPYTEST_DRYRUN_CMD_DELAY", "0")
         self.dry_run_cmd_delay = int(self.dry_run_cmd_delay)
-        self.connect_retry_delay = 5
+        self.connect_retry_delay = 4
         self.orig_time_sleep = time.sleep
-        #time.sleep = self.wait
         self.force_console_transfer = False
         self.max_cmds_once = 100
-        self.kdump_supported = bool(os.getenv("SPYTEST_KDUMP_ENABLE", "1") == "1")
         self.pending_downloads = dict()
-        self.log_dutid_fmt = os.getenv("SPYTEST_LOG_DUTID_FMT", "LABEL")
-        self.dut_log_lock = threading.Lock()
+        self.log_dutid_fmt = env.get("SPYTEST_LOG_DUTID_FMT", "LABEL")
+        self.dut_log_lock = putils.Lock()
 
     def is_use_last_prompt(self):
-        fcli = os.getenv("SPYTEST_FASTER_CLI_OVERRIDE", None)
+        fcli = env.get("SPYTEST_FASTER_CLI_OVERRIDE")
         if fcli is not None:
             self.fcli = 1 if fcli != "0" else 0
-        fcli_last_prompt = os.getenv("SPYTEST_FASTER_CLI_LAST_PROMPT", "1")
+        fcli_last_prompt = env.get("SPYTEST_FASTER_CLI_LAST_PROMPT", "1")
         self.use_last_prompt = True if fcli_last_prompt != "0" else False
         return self.use_last_prompt
 
@@ -120,6 +130,9 @@ class Net(object):
         access["tryssh"] = False
         access["filemode"] = False
         access["current_prompt_mode"] = "unknown-prompt"
+        access["cli_lock"] = putils.Lock()
+        access["cli_current_thread"] = ""
+        access["cli_current_command"] = ""
 
         return access
 
@@ -160,6 +173,8 @@ class Net(object):
         access = self._get_dev_access(devname)
         if name2 in access:
             return access[name2]
+        if index != 0:
+            return None
         if name in access:
             return access[name]
         return None
@@ -176,11 +191,12 @@ class Net(object):
     def _get_cli_prompt(self, devname, index=0):
         return self._get_param(devname, "normal-user-cli-prompt", index)
 
-    def _switch_connection(self, devname, index=0):
+    def _switch_connection(self, devname, index=0, line=None):
         access = self._get_dev_access(devname)
         old = access["current_handle"]
         if old != index:
-            msg = "switching from handle {} to {}".format(old, index)
+            line = line or currentframe().f_back.f_lineno
+            msg = "{} switching from handle {} to {}".format(line, old, index)
             self.dut_log(devname, msg, lvl=logging.WARNING)
             access["current_handle"] = index
             self._set_last_prompt(access, None)
@@ -195,6 +211,12 @@ class Net(object):
 
     def is_vsonic_device(self, devname):
         return bool(self.tb.get_device_type(devname) in ["vsonic"])
+
+    def is_kdump_supported(self, devname):
+        if env.get("SPYTEST_KDUMP_ENABLE", "1") == "1":
+            if self.wa.is_feature_supported("show-kdump-status-command", devname):
+                return True
+        return False
 
     def _is_console_connection(self, devname, connection_param=None):
         if not connection_param:
@@ -222,19 +244,47 @@ class Net(object):
             return self._switch_connection(devname, 0)
 
         # switch to ssh
-        if recover == False:
+        if recover is False:
             return self._switch_connection(devname, 1)
+            #if self._switch_connection(devname, 1):
+            #    hndl = self._get_handle(devname, 1)
+            #    if hndl and not hndl.is_alive():
+            #        hndl.disconnect()
+            #        return self._tryssh_init(devname, False)
+            #else:
+            #    return False
 
         # reconnect? and switch to ssh
         if not reconnect:
             return self._switch_connection(devname, 1)
+            #if self._switch_connection(devname, 1):
+            #    hndl = self._get_handle(devname, 1)
+            #    if hndl and not hndl.is_alive():
+            #        hndl.disconnect()
+            #        return self._tryssh_init(devname, False)
+            #else:
+            #    return False
 
         # reconnect and switch to ssh
         hndl = self._get_handle(devname, 1)
         if hndl: hndl.disconnect()
         return self._tryssh_init(devname, False)
 
-    def dut_log(self, devname, msg, skip_general=False, lvl=logging.INFO, cond=True):
+    def cmd_fmt(self, cmd):
+        cmd = cmd.replace("\r", "")
+        cmd = cmd.replace(nl, "\\n")
+        return cmd
+
+    def cmd_log(self, devname, fcli, msg):
+        dst = ["all", "dut", "cmd", "module"]
+        prefix = "FCMD" if fcli else "SCMD"
+        self.dut_log(devname, "{}: {}".format(prefix, msg), dst=dst)
+
+    def cli_log(self, devname, msg):
+        dst = ["all", "dut", "cli", "module"]
+        self.dut_log(devname, msg, dst=dst)
+
+    def dut_log(self, devname, msg, lvl=logging.INFO, cond=True, dst=None, prefix=""):
         if not cond:
             return
         if self.dut_log_lock: self.dut_log_lock.acquire()
@@ -248,10 +298,11 @@ class Net(object):
                 dut_name = access["alias"]
             else:
                 dut_name = self._get_dut_label(devname)
-            self.logger.dut_log(dut_name, msg, lvl,
-                                skip_general, True, conn=conn)
+            self.logger.dut_log(dut_name, msg, lvl, True, conn=conn,
+                                dst=dst, prefix=prefix)
         except Exception as e:
-            print("dut_log", e)
+            msg = self._traceback_exception(devname, traceback.format_exc())
+            print("dut_log", msg, e)
         finally:
             if self.dut_log_lock: self.dut_log_lock.release()
 
@@ -262,56 +313,50 @@ class Net(object):
 
     def register_devices(self, _topo):
         for devname in _topo["duts"]:
-            device_model = "sonic"
             dut = _topo["duts"][devname]
             self._init_dev(devname)
             self.set_console_only(bool(not self.tryssh), False)
             access = self._get_dev_access(devname)
+            if "ip" not in dut:
+                msg = "'ipaddr' parameter missing in topology input"
+                raise ValueError(msg)
             self._copy_value(dut, access, ["sshcon_username", "sshcon_password"])
-            if "dut_name" in dut:
-                access.update({"dut_name": dut["dut_name"]})
+            self._copy_value(dut, access, ["dut_name", "access_model"])
             if "alias" in dut:
                 access.update({"alias0": dut["alias"]})
                 access.update({"alias": dut["alias"]})
-            if "access_model" in dut:
-                access.update({"access_model": dut["access_model"]})
-            if "device_model" in dut:
-                device_model = dut["device_model"]
-                access.update({"device_model": device_model})
-            if "username" in dut:
-                access.update({"username": dut["username"]})
-            if "password" in dut:
-                access.update({"password": dut["password"]})
-            if "altpassword" in dut:
-                access.update({"altpassword": dut["altpassword"]})
-            if "onie_image" in dut:
-                access.update({"onie_image": dut["onie_image"]})
-            if "errors" in dut:
-                access.update({"errors": dut["errors"]})
-            if "mgmt_ipmask" in dut:
-                access.update({"mgmt_ipmask": dut["mgmt_ipmask"]})
-            if "mgmt_gw" in dut:
-                access.update({"mgmt_gw": dut["mgmt_gw"]})
-            if "port" in dut:
-                access.update({"port": dut["port"]})
-            if "ip" in dut:
-                access.update({"ip": dut["ip"]})
-            else:
-                msg = "'ipaddr' parameter missing in topology input"
-                raise ValueError(msg)
-            if os.getenv("SPYTEST_SWAP_PASSWORD"):
+            device_model = dut.get("device_model", "sonic")
+            access.update({"device_model": device_model})
+            self._copy_value(dut, access, ["username", "password", "altpassword"])
+            if "auth" in dut:
+                access.update({"testbed_auth": dut["auth"]})
+            self._copy_value(dut, access, ["onie_image", "errors"])
+            self._copy_value(dut, access, ["mgmt_ipmask", "mgmt_gw"])
+            self._copy_value(dut, access, ["port", "ip", "mgmt_ifname"])
+            if env.get("SPYTEST_SWAP_PASSWORD", "0") != "0":
                 if "password" in access and "altpassword" in access:
                     password = access["password"]
                     access["password"] = access["altpassword"]
                     access["altpassword"] = password
-            self.tmpl.update({devname: Template(device_model)})
             self.rest.update({devname: Rest(logger=self.logger)})
+            self.gnmi.update({devname: gNMI(logger=self.logger, devName=devname)})
+
+            self.gnmi[devname].configure(ip      = dut.get('gnmi_ip', access.get('ip')),
+                                         port    = dut.get('gnmi_port', 8080),
+                                         username= dut.get('gnmi_username', access['username']),
+                                         password= dut.get('gnmi_password', access['password']))
+        self.register_templates()
 
     def unregister_devices(self):
         for _devname in self.topo["duts"]:
             self._disconnect_device(_devname)
-
         self.topo["duts"] = {}
+
+    def register_templates(self):
+        for _devname in self.topo["duts"]:
+            access = self._get_dev_access(_devname)
+            device_model = access["device_model"]
+            self.tmpl.update({_devname: Template(device_model)})
 
     def _trace_received(self, devname, cmd, hndl, msg1, msg2, line):
         if msg1:
@@ -319,22 +364,33 @@ class Net(object):
         if msg2:
             self.dut_log(devname, "{}: {}".format(line, msg2))
         profile.prompt_nfound(cmd)
+        retval = ""
         try:
             self.dut_log(devname, "============={}: DATA Rcvd ============".format(line))
-            for msg in "".join(hndl.get_cached_read_data()).split("\n"):
+            retval = "".join(hndl.get_cached_read_data())
+            for msg in retval.split(nl):
                 if not msg: continue
                 msg = msg.strip()
                 if not msg: continue
                 self.dut_log(devname, "'{}'".format(msg))
             self.dut_log(devname, "======================================")
-        except:
+        except Exception:
             self.dut_log(devname, "{}: DATA Rcvd: {}".format(line, "UNKNOWN"))
+        return retval
 
-    def _find_prompt(self, access, net_connect=None, count=15, sleep=2, recovering=False):
+    def _handle_find_prompt(self, hndl, attempt):
+        if attempt > 0:
+            output = hndl.find_prompt(delay_factor=2)
+        else:
+            output = hndl.find_prompt()
+        return output
+
+    def _find_prompt_old(self, access, net_connect=None, count=15, sleep=2, line=None, recovering=False):
         device = access["devname"]
         hndl = self._get_handle(device) if not net_connect else net_connect
-        line = currentframe().f_back.f_lineno
+        line = line or currentframe().f_back.f_lineno
         for i in range(count):
+            wait_time = sleep*(i+1)
             try:
                 ########### Try connecting again #####################
                 if not self._is_console_connection(device):
@@ -342,40 +398,62 @@ class Net(object):
                         self.dut_log(device, "Trying to read prompt after reconnecting")
                         if not self.reconnect(devname=device):
                             if sleep > 0:
-                                time.sleep(sleep)
+                                msg = "Waiting for {} secs before reconnect again..".format(wait_time)
+                                self.dut_log(device, msg, lvl=logging.WARNING)
+                                time.sleep(wait_time)
                             continue
                         hndl = self._get_handle(device)
                 ########### Try connecting again #####################
                 if not hndl:
                     self.dut_log(device, "Failed to read prompt: Null handle")
                 else:
-                    for j in range(5):
-                        output = hndl.find_prompt()
+                    for _ in range(5):
+                        output = self._handle_find_prompt(hndl, i)
                         access["last-prompt"] = output
                         if hndl.verify_prompt(output):
                             break
                         self.dut_log(device, "{}: invalid-prompt: {}".format(line, output))
-                        self._check_error(access, "\n", output)
+                        self._check_error(access, nl, output)
                     output = utils.to_string(output)
                     if self.debug_find_prompt:
                         self.dut_log(device, "find-prompt({}): {}".format(line, output))
                     try:
                         prompts = access["prompts"]
                         access["current_prompt_mode"] = prompts.get_mode_for_prompt(output)
-                    except:
+                    except Exception:
                         access["current_prompt_mode"] = "unknown-prompt"
                     return output
-            except:
+            except Exception:
                 msg1 = utils.stack_trace(traceback.format_exc())
                 msg2 = "Failed to read prompt .. handle: '{}', try: {}".format(hndl, i)
                 self._trace_received(device, "find_prompt", hndl, msg1, msg2, line)
-            if not hndl: break
-            if not hndl.is_alive():
-                hndl = None
-            if sleep > 0: time.sleep(sleep)
+
+            try:
+                if not hndl: break
+                if hndl and not hndl.is_alive():
+                    hndl = None
+            except Exception: pass
+
+            if sleep > 0:
+                msg = "Waiting for {} secs before retry..".format(wait_time)
+                self.dut_log(device, msg, lvl=logging.WARNING)
+                time.sleep(wait_time)
+
+            if i % 2 == 0:
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    msg = "Trying CTRL+C: attempt {}..".format(i)
+                    self.dut_log(device, msg, lvl=logging.WARNING)
+                    try: hndl.send_command_timing("\x03")
+                    except Exception: self.dut_log(device, "Failed to send CTRL+C", lvl=logging.ERROR)
+            elif i % 2 == 1:
+                if env.get("SPYTEST_RECOVERY_CTRL_Q", "1") == "1":
+                    msg = "Trying CTRL+Q: attempt {}..".format(i)
+                    self.dut_log(device, msg, lvl=logging.WARNING)
+                    try: hndl.send_command_timing("\x11")
+                    except Exception: self.dut_log(device, "Failed to send CTRL+Q", lvl=logging.ERROR)
 
         # dump sysrq traces
-        if hndl and os.getenv("SPYTEST_SYSRQ_ENABLE"):
+        if hndl and env.get("SPYTEST_SYSRQ_ENABLE", "0") != "0":
             try:
                 output = hndl.sysrq_trace()
                 if output:
@@ -384,17 +462,45 @@ class Net(object):
                 print(exp)
 
         # recover using RPS and report result
-        if self.wa:
+        if not self.wa:
+            msg = "Failed to find prompt - no recovery"
+            self.dut_log(device, msg, lvl=logging.ERROR)
+        else:
             try:
+                if self.wa.is_tech_support_onerror("console_hang"):
+                    if self._get_handle_index(device) == 0:
+                        if self._get_handle(device, 1) is None:
+                            [hndl, ipaddr] = self._connect_to_device_ssh(device)
+                            if hndl:
+                                self._set_handle(device, hndl, 1)
+                                self.init_normal_prompt(device, 1)
+                                self._switch_connection(device, 1, line=line)
+                                self.set_login_timeout(device)
+                                self.generate_tech_support(device, "console_hang")
+                                hndl.disconnect()
+                                self._set_handle(device, None, 1)
+                            else:
+                                linets = currentframe().f_back.f_lineno
+                                self.dut_log(device, "{} failed to ssh {}".format(linets, ipaddr))
+                        else:
+                            self._switch_connection(device, 1)
+                            self.generate_tech_support(device, "console_hang")
+                        self._switch_connection(device, 0)
+                    else:
+                        self._switch_connection(device, 0)
+                        self.generate_tech_support(device, "console_hang")
+                        self._switch_connection(device, 1)
+
                 if self._get_handle_index(device) == 0:
-                    msg = "Console hang proceeding with RPS Reboot"
-                    self.dut_log(device, msg, lvl=logging.WARNING)
-                    self.wa.do_rps(device, "reset")
+                    if not self._rps_reset_console_hang(device):
+                        msg = "Failed to perform RPS reboot"
+                        self.dut_log(device, msg, lvl=logging.ERROR)
+                        os._exit(15)
                     if not self.wa.session_init_completed:
                         if not recovering:
                             # try finding the prompt once again
                             # as the session init is not completed
-                            return self._find_prompt(access, recovering=True)
+                            return self._find_prompt_old(access, line=line, recovering=True)
                         msg = "Failed to recover the DUT even after RPS reboot"
                         self.dut_log(device, msg, lvl=logging.ERROR)
                         os._exit(15)
@@ -408,13 +514,147 @@ class Net(object):
                     # Switch connection to console handle
                     self._switch_connection(device, 0)
                     # Find Prompt on console handle
-                    self._find_prompt(access)
+                    self._find_prompt_old(access, line=line)
             except Exception as exp:
                 print(exp)
             self.wa.report_env_fail("console_hang_observed")
+            ######################### TODO #############################
+            ###### check the console if not accesible use reset console
+            ###### to recover and if you fail so call os.exit(0)
+            ###########################################################
         sys.exit(0)
 
-    def _connect_to_device2(self, device, retry, msgs):
+    def _find_prompt_new2(self, access, net_connect=None, count=15, sleep=2, line=None):
+        device = access["devname"]
+        line = line or currentframe().f_back.f_lineno
+        hndl = self._get_handle(device) if not net_connect else net_connect
+        for i in range(count):
+            try:
+                ########### Try connecting again #####################
+                if not self._is_console_connection(device):
+                    if (i > 0 and not net_connect) or not hndl:
+                        self.dut_log(device, "Trying to read prompt after reconnecting")
+                        if not self.reconnect(devname=device):
+                            if sleep > 0:
+                                time.sleep(sleep*(i+1))
+                            continue
+                        hndl = self._get_handle(device)
+                ########### Try connecting again #####################
+                if not hndl:
+                    self.dut_log(device, "Failed to read prompt: Null handle")
+                else:
+                    for _ in range(5):
+                        output = self._handle_find_prompt(hndl, i)
+                        access["last-prompt"] = output
+                        if hndl.verify_prompt(output):
+                            break
+                        self.dut_log(device, "{}: invalid-prompt: {}".format(line, output))
+                        self._check_error(access, nl, output)
+                    output = utils.to_string(output)
+                    if self.debug_find_prompt:
+                        self.dut_log(device, "find-prompt({}): {}".format(line, output))
+                    try:
+                        prompts = access["prompts"]
+                        access["current_prompt_mode"] = prompts.get_mode_for_prompt(output)
+                    except Exception:
+                        access["current_prompt_mode"] = "unknown-prompt"
+                    return output
+            except Exception:
+                msg1 = utils.stack_trace(traceback.format_exc())
+                msg2 = "Failed to read prompt .. handle: '{}', try: {}".format(hndl, i)
+                self._trace_received(device, "find_prompt", hndl, msg1, msg2, line)
+
+            try:
+                if not hndl: break
+                if hndl and not hndl.is_alive():
+                    hndl = None
+            except Exception: pass
+            if sleep > 0: time.sleep(sleep*(i+1))
+
+        # dump sysrq traces
+        if hndl and env.get("SPYTEST_SYSRQ_ENABLE", "0") != "0":
+            try:
+                output = hndl.sysrq_trace()
+                if output:
+                    self.dut_log(device, output, lvl=logging.WARNING)
+            except Exception as exp:
+                print(exp)
+
+        return None
+
+    def _find_prompt_new(self, access, net_connect=None, count=15, sleep=2, line=None):
+
+        line = line or currentframe().f_back.f_lineno
+        devname = access["devname"]
+        prompt = self._find_prompt_new2(access, net_connect, count, sleep, line)
+        if prompt: return prompt
+
+        # recover using console reset and report result
+        net_connect = self._recover_reset_console(devname, 2)
+        if net_connect:
+            if self._find_prompt_new2(access, net_connect, 2, sleep, line):
+                if self.wa: self.wa.report_env_fail("console_hang_reset_recovered")
+                sys.exit(0)
+
+        # recover switching from tryssh and report result
+        if self._get_handle_index(devname) != 0:
+            hndl = self._get_handle(devname) if not net_connect else net_connect
+            # Disconnect the handle
+            if hndl: hndl.disconnect()
+            # Set the ssh handle in access as None
+            self._set_handle(devname, None, 1)
+            # tryssh as False
+            access["tryssh"] = False
+            # Switch connection to console handle
+            self._switch_connection(devname, 0)
+            # Find Prompt on console handle
+            if self._find_prompt_new(access, line=line):
+                if self.wa: self.wa.report_env_fail("console_hang_reset_recovered")
+                sys.exit(0)
+
+        # report if not able to recover
+        if not self.wa:
+            msg = "RECOVERY FAILED"
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+            os._exit(15)
+
+        # recover using RPS and report result
+        if not self._rps_reset_console_hang(devname):
+            msg = "Failed to perform RPS reboot"
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+            os._exit(15)
+
+        if self._find_prompt_new(access, line=line):
+            if self.wa: self.wa.report_env_fail("console_hang_rps_recovered")
+            sys.exit(0)
+
+        # node is dead
+        if self.wa: self.wa.report_env_fail2("console_hang_node_dead")
+        msg = "Failed to recover the DUT even after RPS reboot"
+        self.dut_log(devname, msg, lvl=logging.ERROR)
+        os._exit(15)
+
+    def _find_prompt_locked(self, access, net_connect=None, count=15, sleep=2, line=None):
+        line = line or currentframe().f_back.f_lineno
+        if env.get("SPYTEST_NEW_FIND_PROMPT", "0") == "0":
+            retval = self._find_prompt_old(access, net_connect, count, sleep, line)
+        else:
+            retval = self._find_prompt_new(access, net_connect, count, sleep, line)
+        return retval
+
+    def _find_prompt(self, access, net_connect=None, count=15, sleep=2, line=None):
+        line = line or currentframe().f_back.f_lineno
+        self._cli_lock(access, "find-prompt", line)
+        retval = self._find_prompt_locked(access, net_connect, count, sleep, line)
+        self._cli_unlock(access, line)
+        return retval
+
+    def _msg_append_log(self, msg, msgs, devname):
+        msgs.append(msg)
+        if devname:
+            self.dut_log(devname, msg)
+
+    def _connect_to_device2(self, cinfo, retry, msgs, devname=None):
         connected = False
         net_connect = None
         count = 0
@@ -422,13 +662,15 @@ class Net(object):
             try:
                 if count > 0:
                     if self.connect_retry_delay > 0:
-                        time.sleep(self.connect_retry_delay)
-                    msgs.append("Re-Trying %d.." % (count + 1))
-                net_connect = DeviceConnection(logger=self.logger, **device)
+                        time.sleep(self.connect_retry_delay*count)
+                    self._msg_append_log("Re-Trying {}..".format(count + 1),
+                                         msgs, devname)
+                dut_label = self._get_dut_label(devname) if devname else None
+                net_connect = DeviceConnection(devname=dut_label, logger=self.logger, **cinfo)
                 connected = True
                 break
             except DeviceConnectionTimeout:
-                msgs.append("Timed-out..")
+                self._msg_append_log("Timed-out..", msgs, devname)
                 count += 1
                 if count > retry:
                     break
@@ -442,19 +684,21 @@ class Net(object):
             net_connect.set_logger(self.logger)
             return net_connect
 
-        msgs.append("Cannot connect: {}:{}".format(device["ip"], device["port"]))
+        msg = "Cannot connect: {}:{}".format(cinfo["ip"], cinfo["port"])
+        self._msg_append_log(msg, msgs, devname)
 
         return None
 
-    def _connect_to_device(self, device, access, retry=0):
+    def _connect_to_device(self, device, access, retry=0, recover=False):
         msgs = []
-        net_connect = self._connect_to_device2(device, retry, msgs)
         devname = access["devname"]
-        for msg in msgs:
-            self.dut_log(devname, msg)
+        net_connect = self._connect_to_device2(device, retry, msgs, devname)
         if net_connect:
             self.dut_log(devname, "Connected ...", lvl=logging.DEBUG)
-            prompt = self._find_prompt(access, net_connect)
+            if recover:
+                prompt = self._find_prompt_locked(access, net_connect)
+            else:
+                prompt = self._find_prompt(access, net_connect)
             self._set_param(devname, "prompt", prompt)
         return net_connect
 
@@ -463,17 +707,18 @@ class Net(object):
             hndl = self._get_handle(devname)
             if hndl:
                 try:
-                    hndl.send_command_timing("\x03")
-                except:
+                    if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                        hndl.send_command_timing("\x03")
+                except Exception:
                     pass
                 hndl.disconnect()
                 self._set_handle(devname, None)
 
     def trace_callback_set(self, devname, val):
-        def trace_callback(self, msg):
+        def trace_callback(self, devname, msg):
             try:
-                print(msg)
-            except:
+                self.dut_log(devname, msg, prefix="LIVE: ")
+            except Exception:
                 pass
         if not self.trace_callback_support:
             return
@@ -485,30 +730,33 @@ class Net(object):
         func = getattr(self._get_handle(devname), "trace_callback_set")
         if func:
             if val:
-                func(trace_callback, self)
+                func(trace_callback, self, devname)
             else:
-                func(None, None)
+                func(None, None, None)
 
     def disable_ztp(self, devname):
-        if self.cfg.pde or self.cfg.community_build:
+        if self.cfg.pde or not self.wa.is_feature_supported("ztp", devname):
             pass # nothing to be done
         elif "ztp" not in self.prevent_list:
-            self._exec(devname, "sudo ztp disable -y", None,
-                       "normal-user", delay_factor=6)
+            self.wa.hooks.ztp_disable(devname)
 
     def show_dut_time(self, devname):
         date=self._exec(devname, "date -u +'%Y-%m-%d %H:%M:%S'", None, "normal-user", trace_dut_log=2)
         self.dut_log(devname, "=== UTC Date on the device {}".format(date))
 
-    def is_vsonic(self, dut):
-        if dut in self.is_vsonic_cache:
-            return self.is_vsonic_cache[dut]
-        output = self.show_new(dut,'ls /etc/sonic/bcmsim.cfg',skip_tmpl=True)
-        val = not bool(re.search(r'No such file or directory',output))
-        self.is_vsonic_cache[dut] = val
-        return val
+    def fix_hostname(self, devname):
+        self.dut_log(devname, "=== reinit prompt for dhcp ipaddr in hostname")
+        self._enter_linux(devname)
+        index = self._get_handle_index(devname)
+        self.init_normal_prompt(devname, index)
+
+    def set_pagination(self, devname):
+        if not no_more_suffix:
+            self.config(devname, "terminal length 0", type="klish", conf=False)
 
     def set_login_timeout(self, devname):
+        self.fix_hostname(devname)
+        self.set_pagination(devname)
         if self.is_vsonic_device(devname):
             self._exec(devname, "echo 3 | sudo tee /proc/sys/kernel/printk", None, "normal-user")
         if self.is_sonic_device(devname):
@@ -524,7 +772,7 @@ class Net(object):
             return access["hostname"]
 
         hostname_cmd = "sudo vtysh -c 'show running-config | include hostname'"
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+        cli_prompt = self._get_cli_prompt(devname)
         output = self._send_command(access, hostname_cmd, cli_prompt,
                                     skip_error_check=True)
         if "Error response from daemon" in output or \
@@ -541,7 +789,7 @@ class Net(object):
             return self.read_vtysh_hostname(devname, retry)
 
         access["hostname"] = "sonic"
-        for line in [_f for _f in str(output).split("\n") if _f]:
+        for line in [_f for _f in str(output).split(nl) if _f]:
             if line.startswith("hostname"):
                 access["hostname"] = line.replace("hostname", "").strip()
         msg = "Hostname in vtysh: {}".format(access["hostname"])
@@ -551,54 +799,51 @@ class Net(object):
 
     # phase 0: init 1: upgrade 2: reboot
     def do_post_reboot(self, devname, phase=2, ifa=True, kdump=True, max_ready_wait=0):
+        sys_status = True
         self.set_login_timeout(devname)
         if self.is_sonic_device(devname):
             self.disable_ztp(devname)
             self.read_vtysh_hostname(devname)
-            self.wa.wait_system_status(devname, max_time=max_ready_wait)
+            sys_status = self.wa.wait_system_status(devname, max_time=max_ready_wait)
         self._set_mgmt_ip(devname)
         if phase in [0, 1]:
             self.reset_restinit(devname)
         self._fetch_mgmt_ip(devname, 5, 2)
         self.wa.instrument(devname, "post-reboot")
 
-        if os.getenv("SPYTEST_DATE_SYNC", "0") != "0":
+        if env.get("SPYTEST_DATE_SYNC", "1") != "0":
             cmd_date = "sudo date --set='{}'".format(get_timenow().strftime("%c"))
             self._exec(devname, cmd_date, None, "normal-user")
 
         ##################################################################
-        # tasks after every upgrade
-        if phase in [0, 1]:
-            self.wa.hooks.ensure_upgrade(devname)
+        # tasks after every reboot
+        self.wa.hooks.post_reboot(devname, bool(phase in [0, 1]))
         ##################################################################
 
         # show date on the device
         self.show_dut_time(devname)
 
         (exec_reboot, reboot_ifa, reboot_kdump) = (False, ifa, kdump)
-        if ifa and os.getenv("SPYTEST_IFA_ENABLE"):
+        if ifa and env.get("SPYTEST_IFA_ENABLE", "0") != "0":
             try:
-                self.config_new(devname, "ifa -config -enable -y", expect_reboot=True)
+                self.wa.hooks.ifa_enable(devname)
                 exec_reboot = True
                 reboot_ifa = False
             except Exception as exp:
                 msg = "Failed enable IFA ({})".format(exp)
                 self.dut_log(devname, msg, lvl=logging.WARNING)
-        if kdump and self.kdump_supported and not self.is_vsonic_device(devname):
+        if kdump and self.is_kdump_supported(devname) and not self.is_vsonic_device(devname):
             try:
-                cmd = "sudo show kdump status"
-                output = self.show_new(devname, cmd, skip_tmpl=True, skip_error_check=True)
-                if (("Kdump Administrative Mode:  Enabled" not in output) or
-                    ("Kdump Operational State:    Ready" not in output)):
-                    self.config_new(devname, "config kdump enable")
-                    self.config_new(devname, "config save -y")
+                if self.wa.hooks.kdump_enable(devname):
                     exec_reboot = True
                     reboot_kdump = False
             except Exception as exp:
                 msg = "Failed to enable KDUMP ({})".format(exp)
                 self.dut_log(devname, msg, lvl=logging.WARNING)
         if exec_reboot:
-            self.do_post_reboot(devname, phase, reboot_ifa, reboot_kdump, max_ready_wait)
+            sys_status = self.do_post_reboot(devname, phase, reboot_ifa, reboot_kdump, max_ready_wait)
+
+        return sys_status
 
     def connect_to_device_current(self, devname, retry=0):
         access = self._get_dev_access(devname)
@@ -616,7 +861,7 @@ class Net(object):
         self._set_prompt(devname, "normal-user", prompt)
         return prompt2
 
-    def connect_to_device(self, devname, retry=0, recon=False):
+    def _init_connection_param(self, devname):
         connection_param = {
             'access_model': 'sonic_ssh',
             'username': 'admin',
@@ -627,30 +872,26 @@ class Net(object):
         }
         access = self._get_dev_access(devname)
 
-        if "access_model" in access:
-            connection_param.update({"access_model": access["access_model"]})
-        if "username" in access:
-            connection_param.update({"username": access["username"]})
-        if "password" in access:
-            connection_param.update({"password": access["password"]})
-        if "altpassword" in access:
-            connection_param.update({"altpassword": access["altpassword"]})
-        if "verbose" in access:
-            connection_param.update({"verbose": access["verbose"]})
-        if "port" in access:
-            connection_param.update({"port": access["port"]})
-        if "mgmt_ipmask" in access:
-            connection_param.update({"mgmt_ipmask": access["mgmt_ipmask"]})
-        if "mgmt_gw" in access:
-            connection_param.update({"mgmt_gw": access["mgmt_gw"]})
-        if "addl_auth" in access:
-            connection_param.update({"addl_auth": access["addl_auth"]})
-
+        self._copy_value(access, connection_param, ["access_model", "verbose"])
+        self._copy_value(access, connection_param, ["ip", "port"])
+        self._copy_value(access, connection_param, ["username", "password", "altpassword"])
+        self._copy_value(access, connection_param, ["mgmt_ipmask", "mgmt_gw"])
+        self._copy_value(access, connection_param, ["addl_auth"])
         self._copy_value(access, connection_param, ["sshcon_username", "sshcon_password"])
+
         connection_param['net_devname'] = devname
         connection_param['net_login'] = self._net_login
+        return connection_param
 
-        connection_param['ip'] = access["ip"]
+    def connect_to_device(self, devname, retry=0, recon=False):
+
+        access = self._get_dev_access(devname)
+        connection_param = self._init_connection_param(devname)
+        dut_label = self._get_dut_label(devname)
+
+        # update addl auth
+        access["connection_param"] = connection_param
+        self.add_addl_auth(devname, None, None)
 
         access["filemode"] = self.cfg.filemode
         access["devname"] = devname
@@ -665,31 +906,46 @@ class Net(object):
                       connection_param['ip'], connection_param['port']))
 
         if not self.cfg.filemode:
-            access["connection_param"] = connection_param
-            net_connect = self._connect_to_device(connection_param,
-                                                  access, retry=retry)
+            if self.wa.get_cfg_load_image(devname) != "none":
+                if env.get("SPYTEST_BOOT_FROM_GRUB", "0") == "1" and not self.wa.session_init_completed:
+                    if not self.moveto_grub_mode(devname):
+                        msg = "Failed to bring the device {} to GRUB mode".format(dut_label)
+                        self.dut_log(devname, msg, lvl=logging.ERROR)
+                        return False
+
+            net_connect = self._connect_to_device(connection_param, access, retry=retry)
+
             if not net_connect:
-                dut_label = self._get_dut_label(devname)
                 msg = "Failed to connect to device {}".format(dut_label)
                 self.dut_log(devname, msg, lvl=logging.ERROR)
 
-                if os.getenv("SPYTEST_RECOVERY_MECHANISMS", "0") != "0":
-                    if not self.wa.session_init_completed and \
-                            self._is_console_connection(devname, connection_param) and \
-                            self.is_sonic_device(devname):
-                        msg = "Trying RPS Reboot to recover the device {}".format(dut_label)
-                        self.dut_log(devname, msg, lvl=logging.WARNING)
-                        self.wa.do_rps(devname, "reset", recon=False)
-                        net_connect = self._connect_to_device(connection_param,
-                                                              access, retry=retry)
-                        if not net_connect:
-                            msg = "Failed to connect to device {} even after RPS reboot".format(dut_label)
-                            self.dut_log(devname, msg, lvl=logging.ERROR)
-                            return False
-                    else:
-                        return False
-                else:
+                if env.get("SPYTEST_RECOVERY_MECHANISMS", "1") == "0":
+                    # no recovery enabled
                     return False
+
+                if not self._is_console_connection(devname, connection_param):
+                    # cannot recover non-console runs
+                    return False
+
+                if not self.is_sonic_device(devname):
+                    # cannot recover non-sonic device
+                    return False
+
+                if not net_connect:
+                    net_connect = self._recover_reset_console(devname, retry)
+
+                if not net_connect and not self.wa.session_init_completed:
+                    if env.get("SPYTEST_BOOT_FROM_GRUB", "0") == "2":
+                        msg = "Performing RPS reboot and taking the DUT '{}' to ONIE mode".format(dut_label)
+                        self.dut_log(devname, msg, lvl=logging.INFO)
+                        if not self.moveto_grub_mode(devname):
+                            return False
+                        net_connect = self._connect_to_device(connection_param, access, retry=retry)
+                    else:
+                        net_connect = self._recover_rps_reboot(devname, retry)
+
+            if not net_connect:
+                return False
 
             self._set_handle(devname, net_connect)
             prompt2 = self.init_normal_prompt(devname)
@@ -699,21 +955,41 @@ class Net(object):
             if not self.wa.session_init_completed:
                 self.image_install_status[devname] = False
 
-            ##################################################################
-            # detect if we are in ONIE discovery prompt
-            if self._is_console_connection(devname, connection_param):
+            for _ in range(1):
+
+                if not self._is_console_connection(devname, connection_param):
+                    break # nothing to do non console connection
+
+                # check if we are in onie diag-shell
+                self.dut_log(devname, "CHK: diag-shell {}".format(self._get_param(devname, "prompt")))
+                if r"root\@\(none\)\:\/\#" in self._get_param(devname, "prompt"):
+                    self.recover_from_onie(devname, False, False, prompt="DIAG-SHELL")
+                    self.init_normal_prompt(devname)
+
+                # detect if we are in ONIE discovery prompt
                 if "ONIE" in self._get_param(devname, "prompt"):
                     if not self.recover_from_onie(devname, True):
                         if not self.recover_from_onie(devname, False):
                             return False
                     self.init_normal_prompt(devname)
-            ##################################################################
-            # Ensure that we are at normal user mode to be able to
-            # continue after reboot from test scripts
-            if self._is_console_connection(devname, connection_param) and \
-                self.is_sonic_device(devname):
+
+                # detect if we are in ONIE rescue prompt
+                if "grub rescue" in self._get_param(devname, "prompt"):
+                    if not self.recover_from_grub_rescue(devname, True):
+                        if not self.recover_from_onie(devname, True):
+                            return False
+                    self.init_normal_prompt(devname)
+
+                # check if this is sonic device
+                if not self.is_sonic_device(devname):
+                    break
+
+                ##################################################################
+                # Ensure that we are at normal user mode to be able to
+                # continue after reboot from test scripts
+                ##################################################################
                 try:
-                    prompt = self._get_param(devname, "normal-user-cli-prompt")
+                    prompt = self._get_cli_prompt(devname)
                     output = self._send_command(access, "?", ufcli=False,
                                                 trace_dut_log=0, skip_error_check=True)
                     if "command not found" not in output:
@@ -724,13 +1000,13 @@ class Net(object):
                         prompt = self._exit_docker(devname, prompt)
 
                     self._enter_linux(devname, prompt)
-                    prompt = self.init_normal_prompt(devname)
+                    self.init_normal_prompt(devname)
                     output = self._send_command(access, "whoami", skip_error_check=True, ufcli=False)
                     if "Unknown command" in output:
                         self._exit_vtysh(devname, onconnect=1)
-                        prompt = self.init_normal_prompt(devname)
+                        self.init_normal_prompt(devname)
                         output = self._send_command(access, "whoami")
-                    whoami = output.split("\n")[0].strip()
+                    whoami = output.split(nl)[0].strip()
                     if connection_param["username"] != whoami:
                         msg = "current user {} is not same in testbed {}"
                         msg = msg.format(whoami, connection_param["username"])
@@ -738,7 +1014,7 @@ class Net(object):
                         prompt_terminator = r"([#|\$]\s*$|{})".format(regex_login)
                         self._send_command(access, "exit", prompt_terminator)
                         self._enter_linux(devname)
-                        prompt = self.init_normal_prompt(devname)
+                        self.init_normal_prompt(devname)
                 except Exception as exp:
                     msg = "Please report this issue ({})".format(exp)
                     self.logger.error(msg)
@@ -749,12 +1025,10 @@ class Net(object):
             connection_param["mgmt-ip"] = None
 
             # wait for short time when we are going to upgrade
-            max_ready_wait = 0 if self.cfg.skip_load_image else 1
+            max_ready_wait = 0 if self.wa.get_cfg_load_image(devname) == "none" else 1
             if not recon:
-                if not self.cfg.community_build:
-                    self.config_new(devname, "sonic-clear logging", skip_error_check=True)
-                self.dut_log(devname, "reading initial version")
-                self.show_new(devname, "show version", skip_tmpl=True, skip_error_check=True)
+                self.wa.hooks.sonic_clear_logging(devname)
+                self._show_version(devname, "reading initial version")
                 self.do_post_reboot(devname, phase=0, max_ready_wait=max_ready_wait)
             else:
                 self.set_login_timeout(devname)
@@ -765,40 +1039,113 @@ class Net(object):
         else:
             self._set_param(devname, "normal-user-cli-prompt", "dummy")
 
-        prompt = self._get_param(devname, "normal-user-cli-prompt")
+        prompt = self._get_cli_prompt(devname)
         msg = "Prompt at the connection finish: '{}' ".format(prompt.replace("\\", ""))
         self.dut_log(devname, msg)
         self.show_dut_time(devname)
 
         return True
 
+    def _recover_reset_console(self, devname, retry):
+        connection_param = self._init_connection_param(devname)
+        access = self._get_dev_access(devname)
+        dut_label = self._get_dut_label(devname)
+
+        if not self._is_console_connection(devname, connection_param):
+            return None
+
+        if env.get("SPYTEST_RESET_CONSOLES", "0") == "0":
+            # no kill consoles enabled
+            msg = "Terminal server console reset is not enabled"
+            self.dut_log(devname, msg, lvl=logging.DEBUG)
+            return None
+
+        if not self.tb.get_ts(devname):
+            # no terminal server information in testbed file
+            msg = "Terminal server information is not available for {}".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+            return None
+
+        msg = "Trying terminal server console reset to recover {}".format(dut_label)
+        self.dut_log(devname, msg, lvl=logging.WARNING)
+        self.wa.do_ts(devname, "show-kill")
+        net_connect = self._connect_to_device(connection_param, access,
+                                              retry=2 if retry else 0, recover=True)
+        if net_connect:
+            msg = "Recovered {} after console session reset".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.WARNING)
+        else:
+            msg = "Failed to connect to {} even after terminal server console reset".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+
+        return net_connect
+
+    def _rps_reset_console_hang(self, devname):
+        if env.get("SPYTEST_ONCONSOLE_HANG", "recover") == "dead":
+            if self.wa: self.wa.report_env_fail2("console_hang_node_dead")
+            msg = "Bailout the node from run for manual inspection"
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+            if self.wa: self.wa.set_node_dead(devname)
+            os._exit(15)
+
+        msg = "Console hang proceeding with RPS Reboot"
+        self.dut_log(devname, msg, lvl=logging.WARNING)
+        return self.wa.do_rps(devname, "reset")
+
+    def _recover_rps_reboot(self, devname, retry):
+        access = self._get_dev_access(devname)
+        connection_param = self._init_connection_param(devname)
+        dut_label = self._get_dut_label(devname)
+
+        msg = "Trying RPS reboot to recover {}".format(dut_label)
+        self.dut_log(devname, msg, lvl=logging.WARNING)
+        self.wa.do_rps(devname, "reset", recon=False)
+        net_connect = self._connect_to_device(connection_param, access,
+                                              retry=2 if retry else 0)
+        if net_connect:
+            msg = "Recovered {} after RPS reboot".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.WARNING)
+        else:
+            msg = "Failed to connect to {} even after RPS reboot".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+        return net_connect
+
+    def _show_version(self, devname, msg):
+        self.set_pagination(devname)
+        try:
+            self.dut_log(devname, msg)
+            return self.wa.hooks.show_version(devname)
+        except Exception:
+            msg = utils.stack_trace(traceback.format_exc())
+            self.dut_log(devname, msg, lvl=logging.WARNING)
+
     def _tryssh_init(self, devname, init=True):
         access = self._get_dev_access(devname)
-        if not access["tryssh"] and not access.get("static-mgmt-ip"):
+        if not access["tryssh"] or access["filemode"]:
             return True
 
-        if access["filemode"]:
-            return True
-
+        line = currentframe().f_back.f_lineno
         old = access["connection_param"].get("mgmt-ip")
         if access["tryssh"] and not init:
             self._fetch_mgmt_ip(devname, 5, 2)
             new = access["connection_param"].get("mgmt-ip")
             if old != new:
-                self.dut_log(devname, "IP address changed from {} to {}".format(old, new))
+                msg = "{} IP address changed from {} to {}".format(line, old, new)
+                self.dut_log(devname, msg)
 
         if init and not old:
-            self.dut_log(devname, "Trying to get the device mgmt-ip..")
+            msg = "{} Trying to get the device mgmt-ip..".format(line)
+            self.dut_log(devname, msg)
             self._fetch_mgmt_ip(devname, 5, 2)
 
         [hndl, ipaddr] = self._connect_to_device_ssh(devname)
         if hndl:
             self._set_handle(devname, hndl, 1)
             self.init_normal_prompt(devname, 1)
-            self._switch_connection(devname, 1)
+            self._switch_connection(devname, 1, line=line)
             self.set_login_timeout(devname)
             return True
-        self.dut_log(devname, "Failed to ssh connect {}".format(ipaddr))
+        self.dut_log(devname, "{} failed to ssh {}".format(line, ipaddr))
         access["tryssh"] = False
         self._set_handle(devname, None, 1)
         return False
@@ -818,22 +1165,30 @@ class Net(object):
         hndl = self._connect_to_device2(device, 0, msgs)
         return [hndl, device["ip"]]
 
+    def _renew_mgmt_ip(self, devname):
+        mgmt_ifname = self.get_mgmt_ifname(devname)
+        self.wa.hooks.renew_mgmt_ip(devname, mgmt_ifname)
+
     def _set_mgmt_ip(self, devname):
         access = self._get_dev_access(devname)
         access["static-mgmt-ip"] = False
-        if access["filemode"]:
-            return
 
         # no need to set static mgmt ip if not run from terminal
         connection_param = access["connection_param"]
         if not self._is_console_connection(devname):
-            return
+            return False
 
         # check if mgmt option is specified in testbed
         mgmt_ipmask = connection_param.get("mgmt_ipmask", None)
         mgmt_gw = connection_param.get("mgmt_gw", None)
         if not mgmt_ipmask or not mgmt_gw:
-            return
+            if env.get("SPYTEST_ONREBOOT_RENEW_MGMT_IP", "0") != "0":
+                self._renew_mgmt_ip(devname)
+            return False
+
+        # no-op when not enabled
+        if env.get("SPYTEST_SET_STATIC_IP", "1") != "1":
+            return False
 
         # TODO: check if mgmt is already used in network
         #utils.ipcheck(mgmt)
@@ -842,13 +1197,11 @@ class Net(object):
         if prompt is None:
             prompt = self._find_prompt(access)
         self._set_param(devname, "prompt", prompt)
-        cmd = "sudo /sbin/ifconfig eth0 {}".format(mgmt_ipmask)
-        cmd = "{};sudo /sbin/route add default gw {}".format(cmd, mgmt_gw)
-        self._send_command(access, cmd)
+        self.wa.hooks.set_mgmt_ip_gw(devname, mgmt_ipmask, mgmt_gw)
         access["static-mgmt-ip"] = True
         self.rest_init(devname, True, access.get("username"), access.get("password"), access.get("altpassword"))
-
-        #self._apply_remote(devname, "set-mgmt-ip", ["static", mgmt_ipmask, mgmt_gw])
+        self.gnmi_init(devname, True)
+        return True
 
     def _fetch_mgmt_ip(self, devname, try_again=3, wait_for_ip=0):
         if not self.is_sonic_device(devname): return
@@ -879,37 +1232,28 @@ class Net(object):
         if not self._is_console_connection(devname):
             connection_param["mgmt-ip"] = None
             self.rest_init(devname, access.get("username"), access.get("password"), access.get("altpassword"), True)
+            self.gnmi_init(devname, True)
             return
 
         prompt = self._enter_linux_exit_vtysh(devname)
         if prompt is None:
             prompt = self._find_prompt(access)
         self._set_param(devname, "prompt", prompt)
-        no_ifconfig = True
+        mgmt_ifname = self.get_mgmt_ifname(devname)
         try:
-            if not no_ifconfig:
-                output = self._send_command(access, "/sbin/ifconfig eth0")
-                data = self._textfsm_apply(devname, "unix_ifcfg.tmpl", output)[0]
-                access["connection_param"]["mgmt-ip"] = data[4][0].encode('ascii')
-                self._send_command(access, "/sbin/ip route list dev eth0", skip_error_check=True)
-            else:
-                try:
-                    output = self._send_command(access, "/sbin/ip route list dev eth0", skip_error_check=True)
-                    data = self._textfsm_apply(devname, "linux/ip_route_list_dev.tmpl", output)[0]
-                    access["connection_param"]["mgmt-ip"] = data[1].encode('ascii')
-                except:
-                    msg = "Unable to get the ip address of eth0 from '/sbin/ip route list'. Falling back to 'ifconfig'.."
-                    self.dut_log(devname, msg, lvl=logging.WARNING)
-                    output = self._send_command(access, "/sbin/ifconfig eth0")
-                    data = self._textfsm_apply(devname, "unix_ifcfg.tmpl", output)[0]
-                    access["connection_param"]["mgmt-ip"] = data[4][0].encode('ascii')
-            msg = "eth0: {}".format(access["connection_param"]["mgmt-ip"])
+            output = self.wa.hooks.get_mgmt_ip(devname, mgmt_ifname)
+            if not output:
+                output = []
+                raise Exception("Failed to get the ip address of {}".format(mgmt_ifname))
+            access["connection_param"]["mgmt-ip"] = output
+            msg = "{}: {}".format(mgmt_ifname, access["connection_param"]["mgmt-ip"])
             self.dut_log(devname, msg)
             self.rest_init(devname, access.get("username"), access.get("password"), access.get("altpassword"), True)
+            self.gnmi_init(devname, True)
             self.check_pending_downloads(devname)
-        except:
-            msg1 = "Failed to read ip address of eth0"
-            msg2 = "Failed to read ip address of eth0..Retrying"
+        except Exception:
+            msg1 = "Failed to read ip address of {}".format(mgmt_ifname)
+            msg2 = "Failed to read ip address of {}..Retrying".format(mgmt_ifname)
             msg = msg2 if try_again > 0 else msg1
             self.dut_log(devname, msg, lvl=logging.WARNING)
             self.dut_log(devname, "{}: Rcvd: '{}'".format(try_again, output))
@@ -927,12 +1271,14 @@ class Net(object):
             connection_param["mgmt-ip"] = None
 
     def connect_all_devices(self, faster_init=False):
-        [retvals, exceptions] = utils.exec_foreach(faster_init, self.topo["duts"],
-                                     self.connect_to_device, 10)
+        retry_count = env.get("SPYTEST_CONNECT_DEVICES_RETRY", "10")
+        retry_count = utils.integer_parse(retry_count, 10)
+        [rvs, exps] = utils.exec_foreach(faster_init, self.topo["duts"],
+                                         self.connect_to_device, retry_count)
 
         for devname in self.topo["duts"]:
-            connected = retvals.pop(0)
-            exception = exceptions.pop(0)
+            connected = rvs.pop(0)
+            exception = exps.pop(0)
             if not connected:
                 msg = "Failed to connect to device"
             elif exception:
@@ -968,6 +1314,7 @@ class Net(object):
         actions = []
         matched_result = None
         matched_err = ""
+        matched_severity = None
         for err, errinfo in list(access["errors"].items()):
             #self.logger.debug("COMPARE-CMD: {} vs {}".format(errinfo.command, cmd))
             if re.compile(errinfo.command).match(cmd):
@@ -978,6 +1325,7 @@ class Net(object):
                     actions = utils.make_list(errinfo.action)
                     matched_err = err
                     matched_result = errinfo.get("result", None)
+                    matched_severity = errinfo.get("severity", None)
                     break
         if not matched_err:
             return output
@@ -992,30 +1340,88 @@ class Net(object):
         for action in actions:
             if action == "reboot":
                 self.dut_log(devname, output, lvl=logging.WARNING)
-                out = self.recover(devname, "Rebooting match {} action".format(matched_err))
-                new_output.append(out)
+                self.recover(devname, "Rebooting match {} action".format(matched_err))
                 self._report_error(matched_result, cmd)
             elif action == "raise":
                 if not self.wa.session_init_completed:
                     return output
                 if skip_raise:
-                    msg = "Skipped error checking. Even though detected pattern: '{}'".format(matched_err)
-                    self.dut_log(devname, msg, lvl=logging.WARNING)
-                    return output
+                    if env.get("SPYTEST_CHECK_SKIP_ERROR", "0") == "0":
+                        msg = "Skipped error checking but detected pattern: {} command: {}".format(matched_err, cmd)
+                        self.dut_log(devname, msg, lvl=logging.WARNING)
+                        self.wa.alert(msg, type="IGNORED ERROR", lvl=logging.WARNING)
+                        return output
+                    else:
+                        skip_flag = 1
+                        if matched_severity is not None and matched_severity <= 3:
+                            skip_flag = 0
+                        if skip_flag == 1:
+                            msg = "Skipped error checking but detected pattern:: {} command: {}".format(matched_err, cmd)
+                            self.dut_log(devname, msg, lvl=logging.WARNING)
+                            self.wa.alert(msg, type="IGNORED ERROR", lvl=logging.WARNING)
+                            return output
                 msg = "Error: failed to execute '{}'".format(cmd)
                 self.dut_log(devname, msg, lvl=logging.WARNING)
                 self.dut_log(devname, output, lvl=logging.WARNING)
                 if not self._report_error(matched_result, cmd):
-                    self.dut_log(devname, "detected pattern: {}".format(matched_err))
+                    msg = "detected pattern: {} executing '{}'".format(matched_err, cmd)
+                    self.dut_log(devname, msg, lvl=logging.ERROR)
+                    self.wa.alert(msg, type="ERROR", lvl=logging.ERROR)
                     raise ValueError("Command '{}' returned error".format(cmd))
-        return '\n'.join(new_output)
+        return nl.join(new_output)
 
     def _trace_cli(self, access, cmd):
+        if "spytest-helper.py" in cmd: return
+        if cmd.startswith("date -u +"): return
         # trace the CLI commands in CSV file, to be used to measure coverage
         # module,function,cli-mode,command
-        #pass
-        try: self.wa._trace_cli(access["devname"], access["current_prompt_mode"], cmd)
-        except: pass
+        try: self.wa._trace_cli(access["dut_name"], access["current_prompt_mode"], cmd)
+        except Exception: pass
+
+    def _cli_lock(self, access, cmd, line=None):
+        detect = env.get("SPYTEST_DETECT_CONCURRENT_ACCESS", "0")
+        if detect == "0": return
+        cmd = self.cmd_fmt(cmd)
+        line = line or currentframe().f_back.f_lineno
+        devname = access["devname"]
+        thid = get_thread_name()
+        if not access["cli_lock"].acquire(False):
+            msg = "Thread {} is already executing '{}' from {}"
+            msg = msg.format(access["cli_current_thread"], access["cli_current_command"], line)
+            self.dut_log(devname, msg, lvl=logging.WARNING)
+            if thid != access["cli_current_thread"]:
+                #access["cli_lock"].acquire()
+                if not access["cli_lock"].acquire(timeout=300):
+                    msg = "CLI LOCK NOT Acquired even after 300 seconds to execute {} from {}"
+                    self.dut_log(devname, msg.format(cmd, line), lvl=logging.ERROR)
+                    return
+        if detect == "2":
+            self.dut_log(devname, "CLI LOCK Acquired to execute {} from {}".format(cmd, line), lvl=logging.DEBUG)
+        access["cli_current_thread"] = get_thread_name()
+        access["cli_current_command"] = cmd
+
+    def _cli_unlock(self, access, line=None):
+        detect = env.get("SPYTEST_DETECT_CONCURRENT_ACCESS", "0")
+        if detect == "0": return
+        line = line or currentframe().f_back.f_lineno
+        devname = access["devname"]
+        cmd = self.cmd_fmt(access["cli_current_command"])
+        access["cli_current_thread"] = ""
+        access["cli_current_command"] = ""
+        pmsg = "CLI LOCK Released after executing {} from {}".format(cmd, line)
+        fmsg = "CLI LOCK Release Failed after executing {} from {}".format(cmd, line)
+        try:
+            access["cli_lock"].release()
+            if detect == "2":
+                self.dut_log(devname, pmsg, lvl=logging.DEBUG)
+        except Exception:
+            self.dut_log(devname, fmsg, lvl=logging.DEBUG)
+
+    def _traceback_exception(self, devname, entries, line=None, ex=None, msg=None):
+        line1 = line or currentframe().f_back.f_lineno
+        msg1 = [msg or "Exception at {}".format(line1)]
+        msg1.extend(utils.stack_trace(entries))
+        return msg1
 
     def _try(self, access, line, new_line, fcli, cmd, expect_string, delay_factor, **kwargs):
         output = ""
@@ -1026,27 +1432,30 @@ class Net(object):
             self.devices_used_in_tc[devname] = True
 
         ctrl_c_used = False
+        found_not_req_prompt = False
+        reconnect_wait = 5
+        trace_dump = []
         while attempt < 3:
             try:
                 if not self._get_handle(devname):
                     self.connect_to_device_current(devname)
                 if attempt != 0:
-                    msg = "cmd: {} attempt {}..".format(cmd, attempt)
+                    msg = "cmd: {} attempt {} ref: {}".format(cmd, attempt, line)
                     self.dut_log(devname, msg, lvl=logging.WARNING)
                     msg = "Disconnecting the device {} connection ..".format(devname)
                     self.dut_log(devname, msg, lvl=logging.WARNING)
                     self._disconnect_device(devname)
                     msg = "Reconnecting to the device {} ..".format(devname)
                     self.dut_log(devname, msg, lvl=logging.WARNING)
+                    self.wait(reconnect_wait)
                     self.connect_to_device_current(devname)
                 hndl = self._get_handle(devname)
                 if not hndl:
                     msg = "Device not connected: attempt {}..".format(attempt)
                     self.dut_log(devname, msg, lvl=logging.WARNING)
-                    reconnect_wait = 5
                     msg = "Waiting for {} secs before re-attempting connection to Device {}..".format(reconnect_wait, devname)
                     self.dut_log(devname, msg, lvl=logging.WARNING)
-                    self.wait(reconnect_wait)
+                    self.wait(reconnect_wait, check_max_timeout=False)
                     attempt += 1
                     continue
                 if attempt != 0:
@@ -1054,8 +1463,19 @@ class Net(object):
                     self.dut_log(devname, msg, lvl=logging.WARNING)
                     hndl.send_command_timing("")
                 elif new_line:
-                    output = hndl.send_command_new(fcli, cmd, expect_string, delay_factor, **kwargs)
-                    self._trace_cli(access, cmd)
+                    self._cli_lock(access, cmd)
+                    try:
+                        output = hndl.send_command_new(fcli, cmd, expect_string, delay_factor, **kwargs)
+                        self._trace_cli(access, cmd)
+                    except Exception as exp:
+                        self._cli_unlock(access)
+                        msg = "cmd: {} attempt {} ref: {}".format(cmd, attempt, line)
+                        self.dut_log(devname, msg, lvl=logging.WARNING)
+                        msg = self._traceback_exception(devname, traceback.format_exc())
+                        self.wa.alert(msg, type="WARN", lvl=logging.ERROR)
+                        self.dut_log(devname, msg, lvl=logging.WARNING)
+                        raise exp
+                    self._cli_unlock(access)
                 else:
                     output = hndl.send_command_timing(cmd, normalize=False)
                 hndl.clear_buffer()
@@ -1070,17 +1490,31 @@ class Net(object):
                 self.dut_log(devname, msg)
                 if self._get_handle(devname):
                     hndl = self._get_handle(devname)
-                    line = currentframe().f_back.f_lineno
-                    self._trace_received(devname, cmd, hndl, None, None, line)
+                    line2 = currentframe().f_back.f_lineno
+                    tmp_trace_dump = self._trace_received(devname, cmd, hndl, None, None, line2)
+                    if """% Error: Invalid input detected at "^" marker.""" in tmp_trace_dump:
+                        if attempt == 0:
+                            msg = "Retry to rule out any sluggish terminal server issue"
+                            self.dut_log(devname, msg, lvl=logging.WARNING)
+                            attempt += 1
+                            fcli = 0
+                            continue
+                    trace_dump.append(tmp_trace_dump)
                     try:
                         if attempt == 0:
                             msg = "Trying CR: attempt {}.. cmd '{}' ..".format(attempt, cmd)
                             self.dut_log(devname, msg, lvl=logging.WARNING)
-                            #output = hndl.send_command(fcli, "", expect_string)
                             hndl.send_command_timing("")
-                            output = hndl.find_prompt()
+                            output = self._handle_find_prompt(hndl, attempt)
                             hndl.clear_buffer()
                             if hndl.verify_prompt(output):
+                                output2 = output.replace("\\", "")
+                                msg = "Got the prompt '{}' after trying CR ..".format(output2)
+                                self.dut_log(devname, msg, lvl=logging.WARNING)
+                                if not re.search(expect_string, output2):
+                                    msg = "Got a prompt '{}' other than required prompt '{}' after trying CR ..".format(output2, expect_string)
+                                    self.dut_log(devname, msg, lvl=logging.WARNING)
+                                    found_not_req_prompt = True
                                 break
                     except Exception as cr_ex:
                         msg = "Unable to find prompt even after trying CR .."
@@ -1088,17 +1522,19 @@ class Net(object):
                         t = "Exception {} occurred while trying CR.. (attempt {}) line: {} cmd: {} exception: {}"
                         msg = t.format(type(cr_ex).__name__, attempt, line, cmd, cr_ex)
                         self.dut_log(devname, msg)
-                        line = currentframe().f_back.f_lineno
-                        self._trace_received(devname, "", hndl, None, None, line)
+                        line2 = currentframe().f_back.f_lineno
+                        tmp_trace_dump = self._trace_received(devname, "", hndl, None, None, line2)
+                        trace_dump.append(tmp_trace_dump)
                     try:
-                        msg = "Trying CTRL+C: attempt {}..".format(attempt)
-                        self.dut_log(devname, msg, lvl=logging.WARNING)
-                        hndl.send_command_timing("\x03")
-                        hndl.clear_buffer()
-                        ctrl_c_used = True
-                        # TODO: Need to check for both testcase and module on result setting.
-                        #if self.tc_start_time:
-                        #    self.wa.report_scripterror("command_failed_recovered_using_ctrlc", cmd)
+                        if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                            msg = "Trying CTRL+C: attempt {}..".format(attempt)
+                            self.dut_log(devname, msg, lvl=logging.WARNING)
+                            hndl.send_command_timing("\x03")
+                            hndl.clear_buffer()
+                            ctrl_c_used = True
+                            # TODO: Need to check for both testcase and module on result setting.
+                            #if self.tc_start_time:
+                            #    self.wa.report_scripterror("command_failed_recovered_using_ctrlc", cmd)
                     except Exception as ex2:
                         if self.wa.is_shutting_down():
                             self.dut_log(devname, "run shutting down", lvl=logging.WARNING)
@@ -1110,38 +1546,54 @@ class Net(object):
                         self.dut_log(devname, msg, lvl=logging.WARNING)
                 attempt += 1
 
+        if trace_dump:
+            self._check_error(access, cmd, nl.join(trace_dump), False)
+
         if ctrl_c_used:
-            if self.tc_start_time:
-                self.wa.report_fail("command_failed_recovered_using_ctrlc", cmd)
-            elif self.module_start_time:
+            if self.module_start_time:
                 msg = "Command '{}' failed to give prompt during module config, recovered using CTRL+C".format(cmd)
                 self.wa.report_config_fail("module_config_failed", msg)
+            elif self.wa.session_init_completed:
+                self.wa.report_fail("command_failed_recovered_using_ctrlc", cmd)
+            else:
+                msg = "Command '{}' failed to give prompt recovered using CTRL+C".format(cmd)
+                self.dut_log(devname, msg, lvl=logging.WARNING)
+
+        if found_not_req_prompt:
+            if self.module_start_time:
+                msg = "Command '{}' failed to give required prompt during module config, recovered using CR".format(cmd)
+                self.wa.report_config_fail("module_config_failed", msg)
+            elif self.wa.session_init_completed:
+                self.wa.report_fail("command_failed_recovered_using_cr", cmd)
+            else:
+                msg = "Command '{}' failed to give prompt recovered using CR".format(cmd)
+                self.dut_log(devname, msg, lvl=logging.WARNING)
 
         return output
 
     def _send_command(self, access, cmd, expect=None, skip_error_check=False,
                       delay_factor=0, trace_dut_log=3, new_line=True,
-                      ufcli=True, **kwargs):
+                      ufcli=True, line=None, **kwargs):
         output = ""
 
         # use default delay factor if not specified
         delay_factor = 2 if delay_factor == 0 else delay_factor
         fcli = self.fcli if ufcli else 0
+        line = line or currentframe().f_back.f_lineno
 
         devname = access["devname"]
 
         if trace_dut_log in [1, 3]:
-            cmd_log = cmd.replace("\r", "")
-            cmd_log = cmd_log.replace("\n", "\\n")
+            trace_cmd = self.cmd_fmt(cmd)
 
             # disable faster-cli if there are new lines
             if not fcli or delay_factor > 2:
-                self.dut_log(devname, "SCMD: {}".format(cmd_log))
-            elif cmd.count("\n") > 0:
-                self.dut_log(devname, "SCMD: {}".format(cmd_log))
+                self.cmd_log(devname, False, trace_cmd)
+            elif cmd.count(nl) > 0:
+                self.cmd_log(devname, False, trace_cmd)
                 fcli = 0
             else:
-                self.dut_log(devname, "FCMD: {}".format(cmd_log))
+                self.cmd_log(devname, True, trace_cmd)
 
         if not access["filemode"]:
             if not expect:
@@ -1150,23 +1602,55 @@ class Net(object):
                 expect_string = expect
 
             pid = profile.start(cmd, access["dut_name"])
-            line = currentframe().f_back.f_lineno
             #self.dut_log(devname, "EXPECT: {}".format(expect_string))
             output = self._try(access, line, new_line, fcli,
                                cmd, expect_string, delay_factor, **kwargs)
             profile.stop(pid)
 
             if trace_dut_log in [2, 3]:
-                self.dut_log(devname, output)
+                self.cli_log(devname, output)
 
-            self._check_tc_timeout(access)
+            self._check_timeout(access)
 
-        elif self.dry_run_cmd_delay > 0:
-            time.sleep(self.dry_run_cmd_delay)
+        else:
+            self._trace_cli(access, cmd)
+            if self.dry_run_cmd_delay > 0:
+                time.sleep(self.dry_run_cmd_delay)
 
         output = self._check_error(access, cmd, output, skip_error_check)
 
         return output
+
+    def _send_command_confirm(self, access, cmd, expect, skip_error_check=False,
+                              delay_factor=0, trace_dut_log=3, new_line=True,
+                              ufcli=True, line=None, confirm="y", **kwargs):
+
+        confirm_prompts = []
+        all_prompts = [expect]
+        confirm_prompts.append(r"(.*y\/n\](\:)*\s*)$")
+        confirm_prompts.append(r"(.*y\/N\](\:)*\s*)$")
+        confirm_prompts.append(r"(.*Y\/n\](\:)*\s*)$")
+        confirm_prompts.append(r"(.*Y\/N\](\:)*\s*)$")
+        all_prompts.extend(confirm_prompts)
+        expected_prompt_with_confirm = "|".join(all_prompts)
+
+        op = self._send_command(access, cmd, expected_prompt_with_confirm,
+                                skip_error_check, delay_factor, trace_dut_log,
+                                new_line, ufcli, line, **kwargs)
+        if not re.match(r".*y\/n\]\:?\s*$", op, re.IGNORECASE|re.DOTALL):
+            return op
+
+        op_lines = [op]
+        op = self._send_command(access, str(confirm), expect,
+                                skip_error_check, delay_factor, trace_dut_log,
+                                new_line, ufcli, line, **kwargs)
+        op_lines.append(op)
+        op = self._send_command(access, "", expect,
+                                skip_error_check, delay_factor, trace_dut_log,
+                                new_line, ufcli, line, **kwargs)
+        op_lines.append(op)
+        return nl.join(op_lines)
+
 
     def do_pre_rps(self, devname, op):
         self._tryssh_switch(devname)
@@ -1225,12 +1709,7 @@ class Net(object):
 
         dbg = self.debug_find_prompt
 
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
-
+        prompt = self._find_prompt(access)
         if not prompt:
             prompt = self._find_prompt(access)
         prompt2 = prompt.replace("\\", "")
@@ -1246,19 +1725,21 @@ class Net(object):
             try:
                 hndl.send_command_timing("exit")
                 new_prompt = self._find_prompt(access)
-            except:
+            except Exception:
                 pass
         else:
             try:
-                hndl.send_command_timing("\x03")
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    hndl.send_command_timing("\x03")
                 hndl.send_command_timing("end")
-                hndl.send_command_timing("\x03")
+                if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                    hndl.send_command_timing("\x03")
                 hndl.send_command_timing("exit")
                 new_prompt = self._find_prompt(access)
-            except:
+            except Exception:
                 pass
 
-        msg = "prompt after recovery({})".format(new_prompt.replace("\\", ""))
+        msg = "prompt after change({})".format(new_prompt.replace("\\", ""))
         self.dut_log(devname, msg, lvl=logging.DEBUG)
         self._set_last_prompt(access, new_prompt)
         return new_prompt
@@ -1269,7 +1750,7 @@ class Net(object):
         self._enter_linux(devname)
 
     def _enter_linux(self, devname, prompt=None):
-        for i in range(10):
+        for _ in range(10):
             (rv, known_prompt) = self._enter_linux_once(devname, prompt)
             if rv:
                 return known_prompt
@@ -1283,12 +1764,7 @@ class Net(object):
 
         dbg = self.debug_find_prompt
 
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
-
+        prompt = self._find_prompt(access)
         if not prompt:
             prompt = self._find_prompt(access)
         prompt2 = prompt.replace("\\", "")
@@ -1297,21 +1773,19 @@ class Net(object):
 
         if re.compile(lldp_prompt).match(prompt2):
             try:
-                cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-                output = self._send_command(access, "exit", cli_prompt)
+                cli_prompt = self._get_cli_prompt(devname)
+                self._send_command(access, "exit", cli_prompt)
                 self._set_last_prompt(access, cli_prompt)
-            except:
-                output = ""
+            except Exception:
                 self._set_last_prompt(access, None)
             return (True, None)
 
         if sonic_mgmt_hostname in prompt2:
             try:
-                cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-                prompt = self._exit_docker(devname, prompt)
+                cli_prompt = self._get_cli_prompt(devname)
+                self._exit_docker(devname, prompt)
                 self._set_last_prompt(access, cli_prompt)
-            except:
-                output = ""
+            except Exception:
                 self._set_last_prompt(access, None)
             return (True, None)
 
@@ -1384,10 +1858,10 @@ class Net(object):
             hndl.altpassword = altpwd
             output = hndl.extended_login(output)
             return (True, output)
-        except:
+        except Exception:
             msg1 = utils.stack_trace(traceback.format_exc())
-            msg2 = "Failed to change default password"
-            msg2 = "Unexpected messages on console - trying to recover"
+            msg2 = "Failed to change default password."
+            msg2 = msg2 + " Unexpected messages on console - trying to recover"
             self._trace_received(device, "change_default_pwd", hndl, msg1, msg2, line)
             return (False, "")
 
@@ -1396,29 +1870,21 @@ class Net(object):
         if access["filemode"]:
             return
 
-        hostname = "sonic"
-        if "hostname" in access and access["hostname"]:
-            hostname = access["hostname"]
-
+        hostname = access.get("hostname", "sonic")
         prompt_terminator = r"([#|\$]\s*$)"
         if onconnect:
-            self._send_command(access, "end\r\nexit", prompt_terminator)
+            self._send_command(access, end_exit, prompt_terminator)
             self._set_last_prompt(access, None)
             return
 
-        if self.is_use_last_prompt():
-            if not prompt:
-                prompt = access["last-prompt"]
-            elif prompt != access["last-prompt"]:
-                prompt = None
-
+        prompt = self._find_prompt(access)
         if not prompt:
             prompt = self._find_prompt(access)
         prompt2 = prompt.replace("\\", "")
         if re.compile(regex_password).match(prompt2):
             self._send_command(access, access["password"], prompt_terminator, ufcli=False)
-        if prompt.startswith(hostname):
-            self._send_command(access, "end\r\nexit", prompt_terminator)
+        if prompt2.startswith(hostname):
+            self._send_command(access, end_exit, prompt_terminator)
             self._set_last_prompt(access, None)
 
     def _enter_linux_exit_vtysh(self, devname, prompt=None):
@@ -1429,6 +1895,15 @@ class Net(object):
         access["last-prompt"] = prompt
         if mode and "vtysh" in mode:
             access["last-prompt"] = None #TEMP#
+        if prompt:
+            self._set_current_prompt_mode(access, prompt)
+
+    def _set_current_prompt_mode(self, access, prompt):
+        try:
+            prompts = access["prompts"]
+            access["current_prompt_mode"] = prompts.get_mode_for_prompt(prompt)
+        except Exception:
+            access["current_prompt_mode"] = "unknown-prompt"
 
     def _exec_mode_change(self, devname, l_cmd, to_prompt, from_prompt):
         devname = self._check_devname(devname)
@@ -1441,7 +1916,7 @@ class Net(object):
 
     def _exec(self, devname, cmd, expect=None, mode=None,
               skip_error_check=False, delay_factor=0,
-              expect_reboot=False, trace_dut_log=3, ufcli=True):
+              trace_dut_log=3, ufcli=True):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         if access["filemode"]:
@@ -1457,27 +1932,20 @@ class Net(object):
                                       trace_dut_log=trace_dut_log,
                                       delay_factor=delay_factor, ufcli=ufcli)
 
-        # get current prompt or reuse the prompt
-        last_prompt = access["last-prompt"]
-        if self.is_use_last_prompt():
-            prompt = last_prompt
-        else:
-            prompt = None
+        # get current prompt
+        prompt = self._find_prompt(access)
         if prompt is None:
             prompt = self._find_prompt(access)
-            prompt2 = prompt.replace("\\", "")
             prompt = self._enter_linux(devname, prompt)
             if prompt is None:
                 prompt = self._find_prompt(access)
         prompt2 = prompt.replace("\\", "")
 
         # arrive at vtysh prompt based on hostname
-        hostname = "sonic"
-        if "hostname" in access and access["hostname"]:
-            hostname = access["hostname"]
+        hostname = access.get("hostname", "sonic")
         vtysh_prompt = "{}#".format(hostname)
         vtysh_config_prompt = "{}(config)#".format(hostname)
-        vtysh_maybe_config_prompt = r"{}#|{}\(config.*\)#".format(hostname, hostname)
+        vtysh_maybe_config_prompt = r"{0}#|{0}\(config.*\)#".format(hostname)
 
         # lldp shell commands
         if mode == "lldp-user":
@@ -1488,7 +1956,7 @@ class Net(object):
                 try:
                     prompt = self._exit_docker(devname, prompt)
                     prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     pass
                 self._set_last_prompt(access, prompt)
             elif prompt.startswith(hostname):
@@ -1496,15 +1964,15 @@ class Net(object):
                 msg = msg.format(prompt, cmd)
                 self.dut_log(devname, msg)
                 try:
-                    cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-                    self._send_command(access, "end\r\nexit", cli_prompt)
+                    cli_prompt = self._get_cli_prompt(devname)
+                    self._send_command(access, end_exit, cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
                     prompt = self._find_prompt(access)
                     prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
 
-            if prompt == self._get_param(devname, "normal-user-cli-prompt"):
+            if prompt == self._get_cli_prompt(devname):
                 self.dut_log(devname, "trying to enter into lldpcli({}) while executing {}".format(prompt, cmd))
                 self._send_command(access, "docker exec -it lldp lldpcli", lldp_prompt)
                 self._set_last_prompt(access, lldp_prompt, "lldp")
@@ -1512,10 +1980,10 @@ class Net(object):
 
             if prompt2 == lldp_prompt and cmd == "exit":
                 try:
-                    cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+                    cli_prompt = self._get_cli_prompt(devname)
                     output = self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt, "lldp")
-                except:
+                except Exception:
                     output = ""
                     self._set_last_prompt(access, None)
                 return output
@@ -1537,10 +2005,10 @@ class Net(object):
                 msg = msg.format(prompt, cmd)
                 self.dut_log(devname, msg)
                 try:
-                    cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+                    cli_prompt = self._get_cli_prompt(devname)
                     self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
             elif prompt2.startswith(sonic_mgmt_hostname):
                 msg = "trying to change from sonic-mgmt({}) while executing {}"
@@ -1548,8 +2016,7 @@ class Net(object):
                 self.dut_log(devname, msg)
                 try:
                     prompt = self._exit_docker(devname, prompt)
-                    prompt2 = prompt.replace("\\", "")
-                except:
+                except Exception:
                     pass
                 self._set_last_prompt(access, prompt)
             elif prompt.startswith(hostname):
@@ -1557,34 +2024,14 @@ class Net(object):
                 msg = msg.format(prompt, cmd)
                 self.dut_log(devname, msg)
                 try:
-                    cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-                    self._send_command(access, "end\r\nexit", cli_prompt)
+                    cli_prompt = self._get_cli_prompt(devname)
+                    self._send_command(access, end_exit, cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     self._set_last_prompt(access, None)
-            if not expect_reboot:
-                return self._send_command(access, cmd, expect, skip_error_check,
-                                          trace_dut_log=trace_dut_log,
-                                          delay_factor=delay_factor, ufcli=ufcli)
-            # special case where the show may result into reboot
-            expect = "|".join([self._get_param(devname, "prompt"), regex_login])
-            delay_factor = 6 if delay_factor < 6 else delay_factor
-
-            try:
-                self._tryssh_switch(devname)
-                output = self._send_command(access, cmd, expect, True,
-                                            delay_factor=delay_factor, ufcli=ufcli)
-                prompt = self._find_prompt(access)
-                if prompt != self._get_param(devname, "prompt"):
-                    self._enter_linux(devname, prompt)
-                    self.do_post_reboot(devname)
-                    self._tryssh_switch(devname, True)
-                else:
-                    self._tryssh_switch(devname, False)
-            except Exception as exp:
-                self._tryssh_switch(devname, False)
-                raise exp
-            return output
+            return self._send_command(access, cmd, expect, skip_error_check,
+                                      trace_dut_log=trace_dut_log,
+                                      delay_factor=delay_factor, ufcli=ufcli)
 
         if prompt2.startswith(sonic_mgmt_hostname):
             msg = "trying to change from sonic-mgmt({}) while executing {}"
@@ -1593,12 +2040,12 @@ class Net(object):
             try:
                 prompt = self._exit_docker(devname, prompt)
                 prompt2 = prompt.replace("\\", "")
-            except:
+            except Exception:
                 pass
             self._set_last_prompt(access, prompt)
 
         # we need to go to vtysh for below cases
-        if prompt == self._get_param(devname, "normal-user-cli-prompt"):
+        if prompt == self._get_cli_prompt(devname):
             self.dut_log(devname, "trying to enter into vtysh({}) while executing {}".format(prompt, cmd))
             self._exec_mode_change(devname, "sudo vtysh\r\nterminal length 0", vtysh_prompt, prompt)
             self._set_last_prompt(access, vtysh_prompt)
@@ -1612,10 +2059,10 @@ class Net(object):
                 return output
             if prompt2 == vtysh_prompt and cmd == "exit":
                 try:
-                    cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+                    cli_prompt = self._get_cli_prompt(devname)
                     output = self._send_command(access, "exit", cli_prompt)
                     self._set_last_prompt(access, cli_prompt)
-                except:
+                except Exception:
                     output = ""
                     self._set_last_prompt(access, None)
                 return output
@@ -1668,12 +2115,21 @@ class Net(object):
         return ""
 
     def change_prompt(self, devname, tomode=None, **kwargs):
-        return self._change_prompt(devname, tomode, None, **kwargs)
+        self.last_mode[devname] = self._change_prompt(devname, tomode, None, **kwargs)
+        return self.last_mode[devname]
+
+    def _send_mode_command(self, access, cmd, expected_prompt, from_prompt, indent):
+        #msg = "{} cmd: {} expected: {}".format(ident, cmd, expected_prompt)
+        #self.dut_log(devname, msg)
+        line = currentframe().f_back.f_lineno
+        output = self._send_command(access, cmd, expected_prompt, line=line)
+        return output
 
     def _change_prompt(self, devname, tomode=None, startmode=None, **kwargs):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         prompts = access["prompts"]
+        ifname_type = self.wa.get_cfg_ifname_type(devname)
 
         dbg = self.debug_find_prompt
 
@@ -1683,15 +2139,21 @@ class Net(object):
 
         # Identify the current prompt
         if startmode:
-            prompt = prompts.get_prompt_for_mode(startmode)
+            prompt = prompts.get_prompt_for_mode(startmode, ifname_type)
         else:
             prompt = None
 
         # Identify the current mode
         if not prompt or prompt == "unknown-mode":
-            for i in range(3):
+            for _ in range(3):
                 prompt = self._find_prompt(access)
-                startmode = prompts.get_mode_for_prompt(prompt)
+                last_prompt = None
+                if self.last_mode.get(devname):
+                    last_prompt = prompts.get_prompt_for_mode(self.last_mode.get(devname), ifname_type)
+                if last_prompt and re.match(last_prompt, prompt.replace("\\", "")):
+                    startmode = self.last_mode.get(devname)
+                else:
+                    startmode = prompts.get_mode_for_prompt(prompt)
                 if startmode != "unknown-prompt":
                     break
 
@@ -1704,6 +2166,7 @@ class Net(object):
         if not tomode:
             msg = "Returning current mode {} as provided tomode is None.".format(startmode)
             self.dut_log(devname, msg, lvl=logging.DEBUG, cond=dbg)
+            access["current_prompt_mode"] = startmode
             return startmode
 
         # Return invalid if given prompt is not present.
@@ -1717,7 +2180,7 @@ class Net(object):
 
         # Check whether do we need to move previous level to come back to same prompt with different values.
         if startmode == "login_prompt":
-            start_prompt = prompts.get_prompt_for_mode(startmode)
+            start_prompt = prompts.get_prompt_for_mode(startmode, ifname_type)
             msg = "DUT enterted into '{}({})'. Recovering to normal mode.".format(startmode, start_prompt)
             self.dut_log(devname, msg, lvl=logging.ERROR)
             self._enter_linux(devname)
@@ -1731,25 +2194,28 @@ class Net(object):
         if startmode == tomode:
             change_required = prompts.check_move_for_parent_of_frommode(prompt, startmode, **kwargs)
             if change_required:
-                [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(startmode)
-                self._send_command(access, cmd, expected_prompt)
-                startmode = prompts.modes[startmode][0]
+                [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(startmode, ifname_type)
+                ident = "re-enter with different value"
+                self._send_mode_command(access, cmd, expected_prompt, prompt, ident)
+                startmode = prompts.get_mode(startmode, ifname_type)[0]
             else:
                 msg = "Returning as current mode is equal to required mode."
                 self.dut_log(devname, msg, lvl=logging.DEBUG, cond=dbg)
+                access["current_prompt_mode"] = tomode
                 return tomode
         else:
             # Check whether do we need to go back to parent for both the modes.
-            change_required = prompts.check_move_for_parent_of_tomode(prompt, tomode, **kwargs)
+            change_required = prompts.check_move_for_parent_of_tomode(prompt, tomode, ifname_type, **kwargs)
             if change_required:
-                if startmode != prompts.modes[tomode][0]:
-                    required_mode = prompts.modes[tomode][0]
+                if startmode != prompts.get_mode(tomode, ifname_type)[0]:
+                    required_mode = prompts.get_mode(tomode, ifname_type)[0]
                 else:
-                    required_mode = prompts.modes[startmode][0]
-                while startmode != required_mode and prompts.modes[startmode][0] != "":
-                    [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(startmode)
-                    self._send_command(access, cmd, expected_prompt)
-                    startmode = prompts.modes[startmode][0]
+                    required_mode = prompts.get_mode(startmode, ifname_type)[0]
+                while startmode != required_mode and prompts.get_mode(startmode, ifname_type)[0] != "":
+                    [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(startmode, ifname_type)
+                    ident = "goto parent mode"
+                    self._send_mode_command(access, cmd, expected_prompt, prompt, ident)
+                    startmode = prompts.get_mode(startmode, ifname_type)[0]
 
         # Identify the list of backward and forward modes we need to move.
         modeslist_1 = []
@@ -1757,7 +2223,7 @@ class Net(object):
         while srcMode != "":
             modeslist_1.append(srcMode)
             if srcMode in prompts.modes:
-                srcMode = prompts.modes[srcMode][0]
+                srcMode = prompts.get_mode(srcMode, ifname_type)[0]
                 continue
             srcMode = ""
 
@@ -1766,7 +2232,7 @@ class Net(object):
         while dstMode != "":
             modeslist_2.insert(0, dstMode)
             if dstMode in prompts.modes:
-                dstMode = prompts.modes[dstMode][0]
+                dstMode = prompts.get_mode(dstMode, ifname_type)[0]
                 continue
             dstMode = ""
 
@@ -1783,35 +2249,40 @@ class Net(object):
         #self.dut_log(devname, "backward_modes: {}".format(backward_modes))
         #self.dut_log(devname, "forward_modes: {}".format(forward_modes))
 
+        # Add alt_port_names when arg 'range' in used
+        if 'range' in kwargs:
+            kwargs['alt_port_names'] = self.wa.alt_port_names[devname]
+
         # Move back for each backward mode.
         for mode in backward_modes:
-            [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(mode)
+            [cmd, expected_prompt] = prompts.get_backward_command_and_prompt(mode, ifname_type)
             if cmd.strip() == "" or expected_prompt.strip() == "":
                 continue
-            msg = "Backward command to execute: {} ; Expected Prompt: {}".format(cmd, expected_prompt)
-            #self.dut_log(devname, msg)
-            self._send_command(access, cmd, expected_prompt)
+            self._send_mode_command(access, cmd, expected_prompt, prompt, "backward")
 
         # Move ahead for each forward mode.
         # Get the command by substituting with required values from the given arguments.
         for mode in forward_modes:
-            [cmd, expected_prompt] = prompts.get_forward_command_and_prompt_with_values(mode, **kwargs)
+            [cmd, expected_prompt] = prompts.get_forward_command_and_prompt_with_values(mode, ifname_type, **kwargs)
             if cmd.strip() == "" or expected_prompt.strip() == "":
                 continue
-            msg = "Forward command to execute: {} ; Expected Prompt: {}".format(cmd, expected_prompt)
-            #self.dut_log(devname, msg)
-            self._send_command(access, cmd, expected_prompt)
+            self._send_mode_command(access, cmd, expected_prompt, prompt, "forward")
 
         # Identify the current prompt, check and return appropriately.
-        for i in range(3):
-            prompt = self._find_prompt(access)
-            endmode = prompts.get_mode_for_prompt(prompt)
+        for _ in range(3):
+            prompt = self._find_prompt(access).replace("\\", "")
+            expected_prompt = prompts.get_prompt_for_mode(tomode, ifname_type)
+            if re.match(expected_prompt, prompt):
+                endmode = tomode
+            else:
+                endmode = prompts.get_mode_for_prompt(prompt)
             if endmode != "unknown-prompt":
                 break
 
         if endmode == tomode:
             msg = "Successfully changed the prompt from {} to {}.".format(startmode, endmode)
             self.dut_log(devname, msg, lvl=logging.DEBUG)
+            access["current_prompt_mode"] = tomode
             return tomode
         return "unknown-mode"
 
@@ -1819,6 +2290,7 @@ class Net(object):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         prompts = access["prompts"]
+        ifname_type = self.wa.get_cfg_ifname_type(devname)
 
         if access["filemode"]:
             self.dut_log(devname, cmd)
@@ -1829,17 +2301,18 @@ class Net(object):
             if frommode in prompts.sudo_include_prompts:
                 if not cmd.startswith("sudo "):
                     cmd = "sudo " + cmd
-            expected_prompt = prompts.get_prompt_for_mode(frommode)
+            expected_prompt = prompts.get_prompt_for_mode(frommode, ifname_type)
             output = self._send_command(access, cmd, expected_prompt, skip_error_check, delay_factor=delay_factor)
             return output
         msg = "Unable to change the prompt mode to {}.".format(mode)
         self.dut_log(devname, msg, lvl=logging.ERROR)
         raise ValueError(msg)
 
-    def cli_show(self, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False, delay_factor=0, **kwargs):
+    def cli_show(self, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False, delay_factor=0, yes_no='y', **kwargs):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         prompts = access["prompts"]
+        ifname_type = self.wa.get_cfg_ifname_type(devname)
 
         if access["filemode"]:
             self.dut_log(devname, cmd)
@@ -1848,13 +2321,19 @@ class Net(object):
         frommode = self.change_prompt(devname, mode, **kwargs)
         if frommode not in ["unknown-mode", "unknown-prompt"]:
             actual_cmd = cmd
-            if not re.search(r"\| no-more$", cmd.strip()) and frommode.startswith("mgmt"):
-                cmd = cmd + " | no-more"
+            if not re.search(no_more_regex, cmd.strip()) and frommode.startswith("mgmt"):
+                cmd = cmd + no_more_suffix
             if frommode not in prompts.do_exclude_prompts:
                 if not cmd.startswith("do "):
                     cmd = "do " + cmd
-            expected_prompt = prompts.get_prompt_for_mode(frommode)
-            output = self._send_command(access, cmd, expected_prompt, skip_error_check, delay_factor=delay_factor)
+            expected_prompt = prompts.get_prompt_for_mode(frommode, ifname_type)
+            output = self._send_command(access, cmd, expected_prompt,
+                                        skip_error_check, delay_factor=delay_factor)
+            if '[y/N]:' in output:
+                output += self._send_command(access, yes_no, expected_prompt,
+                                            skip_error_check, delay_factor=delay_factor)
+            output = self._fill_sample_data(devname, cmd, skip_error_check,
+                                            skip_tmpl, output)
             if skip_tmpl:
                 return output
             return self._tmpl_apply(devname, actual_cmd, output)
@@ -1870,10 +2349,17 @@ class Net(object):
             return d
         return None
 
+    def _trace_tmpl(self, cmd, tmpl):
+        if cmd not in self.cmd_tmpl_cache:
+            msg = "TEMPLATE USED: {}: {}".format(tmpl, cmd)
+            self.wa._ftrace(msg)
+        self.cmd_tmpl_cache[cmd] = tmpl
+
     def _tmpl_apply(self, devname, cmd, output):
         try:
-            parsed = self.tmpl[devname].apply(output, cmd)
-            self.logger.debug(parsed)
+            [tmpl, parsed] = self.tmpl[devname].apply(output, cmd)
+            self.dut_log(devname, str(parsed), lvl=logging.DEBUG)
+            self._trace_tmpl(cmd, tmpl)
             return parsed
         except Exception as e:
             self.logger.exception(e)
@@ -1882,12 +2368,24 @@ class Net(object):
     def _textfsm_apply(self, devname, tmpl_file, output):
         return self.tmpl[devname].apply_textfsm(tmpl_file, output)
 
-    def _fill_sample_data(self, devname, cmd, skip_error_check, output):
+    def _fill_sample_data(self, devname, cmd, skip_error_check,
+                          skip_tmpl, output):
         if self.cfg.filemode and not output and self.use_sample_data:
-            output = self.tmpl[devname].read_sample(cmd)
-            self.dut_log(devname, output)
-            access = self._get_dev_access(devname)
-            output = self._check_error(access, cmd, output, skip_error_check)
+            [tmpl, output] = self.tmpl[devname].read_sample(cmd)
+            if not output:
+                output = ""
+                if cmd not in self.cmd_tmpl_cache:
+                    if skip_tmpl:
+                        msg = "SKIP SAMPLE DATA: {}: {}".format(tmpl, cmd)
+                    else:
+                        msg = "ADD SAMPLE DATA: {}: {}".format(tmpl, cmd)
+                    self.wa._ftrace(msg)
+                    self.dut_log(devname, msg, lvl=logging.WARNING)
+            else:
+                self.dut_log(devname, output)
+                access = self._get_dev_access(devname)
+                output = self._check_error(access, cmd, output, skip_error_check)
+            self._trace_tmpl(cmd, tmpl)
         return output
 
     def clear_config(self, devname, method="reload"):
@@ -1901,30 +2399,19 @@ class Net(object):
         largs = [method]
         if devname:
             return self._apply_remote(devname, "apply-base-config", largs)
-        else:
-            for dev_name in self.topo["duts"]:
-                self._apply_remote(dev_name, "apply-base-config", largs)
-            return True
+        for dev_name in self.topo["duts"]:
+            self._apply_remote(dev_name, "apply-base-config", largs)
+        return True
 
-    def config_db_reload(self, devname, save=False):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :param save:
-        :type save:
-        :return:
-        :rtype:
-        """
-
+    def config_db_reload(self, devname, save=False, max_time=0):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
         save_cmd = 'sudo config save -y'
         reload_cmd = 'sudo config reload -y'
 
-        if os.getenv("SPYTEST_HELPER_CONFIG_DB_RELOAD", "yes") != "no":
-            largs = ["yes" if save else "no"]
+        if env.get("SPYTEST_HELPER_CONFIG_DB_RELOAD", "yes") != "no":
+            largs = ["yes" if save else "no", max_time]
             output = self._apply_remote(devname, "config-reload", largs)
             return output
 
@@ -1937,11 +2424,11 @@ class Net(object):
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
-        prompt = self._get_param(devname, "normal-user-cli-prompt")
+        prompt = self._get_cli_prompt(devname)
         if save:
             self._send_command(access, save_cmd, prompt, False, 1)
 
-        output = self._send_command(access, reload_cmd, prompt, True, 3)
+        output = self._send_command(access, reload_cmd, prompt, True, 9)
 
         return output
 
@@ -1953,70 +2440,65 @@ class Net(object):
                 self.dut_log(devname, cmd)
             return
 
-        vtysh_mode_flag = False
-        vtysh_config_mode_flag = False
-
-        hostname = "sonic"
-        if "hostname" in access and access["hostname"]:
-            hostname = access["hostname"]
-        vtysh_prompt = "{}#".format(hostname)
-
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
+        mode_flag = ""
         for cmd in cmdlist:
             if not cmd.strip():
-                #self.logger.warning("skipping empty line")
                 continue
 
             if cmd == "vtysh" or cmd == "sudo vtysh":
-                vtysh_mode_flag = True
+                mode_flag = "vtysh"
+                continue
+            elif cmd.startswith("sonic-cli"):
+                mode_flag = "klish"
+                continue
+            elif cmd.startswith("sudo sonic-cli"):
+                mode_flag = "klish"
+                continue
+            elif cmd == "configure terminal" and mode_flag == "vtysh":
+                mode_flag = "vtysh-config"
+                continue
+            elif cmd == "configure terminal" and mode_flag == "klish":
+                mode_flag = "klish-config"
                 continue
 
-            if cmd == "configure terminal" and vtysh_mode_flag:
-                vtysh_config_mode_flag = True
-                continue
-
-            if vtysh_config_mode_flag:
-                self.config_new(devname, cmd, type="vtysh", conf=True)
-            elif vtysh_mode_flag:
-                self.config_new(devname, cmd, type="vtysh", conf=False)
+            if mode_flag == "vtysh-config":
+                self.config(devname, cmd, type="vtysh", conf=True)
+            elif mode_flag == "vtysh":
+                self.config(devname, cmd, type="vtysh", conf=False)
+            elif mode_flag == "klish-config":
+                self.config(devname, cmd, type="klish", conf=True)
+            elif mode_flag == "klish":
+                self.config(devname, cmd, type="klish", conf=False)
             else:
-                self.config_new(devname, cmd)
+                self.config(devname, cmd)
 
-            prompt = self._find_prompt(access)
-            prompt2 = prompt.replace("\\", "")
-
-            if prompt == self._get_param(devname, "normal-user-cli-prompt"):
-                vtysh_mode_flag = False
-                vtysh_config_mode_flag = False
-
-            if prompt == vtysh_prompt or prompt2 == vtysh_prompt:
-                vtysh_mode_flag = True
-                vtysh_config_mode_flag = False
-
-            if re.compile(r"{}\(.*\)#".format(hostname)).match(prompt2):
-                vtysh_mode_flag = True
-                vtysh_config_mode_flag = True
+            current_mode = self._change_prompt(devname)
+            if current_mode == "mgmt-user":
+                mode_flag = "klish"
+            elif current_mode.startswith("mgmt"):
+                mode_flag = "klish-config"
+            elif current_mode == "vtysh-user":
+                mode_flag = "vtysh"
+            elif current_mode.startswith("vtysh"):
+                mode_flag = "vtysh-config"
+            elif current_mode.startswith("normal"):
+                mode_flag = ""
 
         # ensure we are in sonic mode after we exit
-        self._exit_vtysh(devname)
+        if mode_flag == "":
+            self._exit_vtysh(devname)
+        else:
+            self._exit_docker(devname)
 
     def apply_json(self, devname, data):
-        """
-        todo: Update Documentation
-        :param devname:
-        :type devname:
-        :param data:
-        :type data:
-        :return:
-        :rtype:
-        """
         devname = self._check_devname(devname)
         try:
             obj = json.loads(data)
             indented = json.dumps(obj, indent=4)
-        except:
+        except Exception:
             self.logger.warning("invalid json - trying to fix")
             # remove trailing object comma
             regex = re.compile(
@@ -2029,25 +2511,25 @@ class Net(object):
             try:
                 obj = json.loads(data)
                 indented = json.dumps(obj, indent=4)
-            except:
+            except Exception:
                 raise ValueError("invalid json data")
 
         # write json content into file
-        for retry in range(3):
-            src_file = tempfile.mktemp()
+        for _ in range(3):
+            src_file = self.wa.mktemp()
             src_fp = open(src_file, "w")
             src_fp.write(indented)
             src_fp.close()
             if os.path.exists(src_file) and os.path.getsize(src_file) != 0:
-                msg = "Created a tmp file {}. Size of the file {} ..".format(src_file, os.path.getsize(src_file))
+                msg = "Created temp json file {} of size {} ..".format(src_file, os.path.getsize(src_file))
                 self.dut_log(devname, msg, lvl=logging.WARNING)
                 break
             else:
-                msg = "Failed to create a tmp file {}.. Retrying again..".format(src_file)
+                msg = "Failed to create temp json file {}.. Retrying again..".format(src_file)
                 self.dut_log(devname, msg, lvl=logging.WARNING)
 
         applied = False
-        for retry in range(3):
+        for _ in range(3):
             # transfer the file
             access = self._get_dev_access(devname)
             dst_file = self._upload_file(access, src_file)
@@ -2061,11 +2543,11 @@ class Net(object):
             self._enter_linux_exit_vtysh(devname)
 
             check_file_cmd = "ls -lrt {}".format(dst_file)
-            output = self.config_new(devname, check_file_cmd, skip_error_check=True)
+            self.config(devname, check_file_cmd, skip_error_check=True)
 
             # execute the command.
             config_cmd = "config load -y {}".format(dst_file)
-            output = self.config_new(devname, config_cmd, skip_error_check=True)
+            output = self.config(devname, config_cmd, skip_error_check=True)
             if 'Path "{}" does not exist.'.format(dst_file) not in output:
                 applied = True
                 break
@@ -2088,33 +2570,65 @@ class Net(object):
             dst_file = "/tmp/apply_json2.json"
             self._save_json_to_remote_file(devname, data, dst_file)
             config_cmd = "config load -y {}".format(dst_file)
-            self.config_new(devname, config_cmd)
+            self.config(devname, config_cmd)
 
-    def recover_from_onie(self, devname, install):
+    def recover_from_grub_rescue(self, devname, install):
+        msg = "Device Stuck in 'grub rescue' prompt"
+        self.dut_log(devname, msg, lvl=logging.ERROR)
+        os._exit(15)
+
+    def moveto_grub_mode(self, devname):
+        dut_label = self._get_dut_label(devname)
+        msg = "Performing RPS reboot and taking the DUT '{}' to ONIE mode".format(dut_label)
+        self.dut_log(devname, msg, lvl=logging.INFO)
+        if not self.wa.moveto_grub_mode(devname):
+            msg = "Failed to bring the device {} to GRUB mode".format(dut_label)
+            self.dut_log(devname, msg, lvl=logging.ERROR)
+            return False
+        msg = "Successfully got the device {} to GRUB mode".format(dut_label)
+        self.dut_log(devname, msg, lvl=logging.INFO)
+        return True
+
+    def reboot_and_onie_grub_rescue(self, devname):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
-        self._send_command(access, "onie-discovery-stop")
-        self._send_command(access, "onie-stop")
+        msg = "Trying to recover from ONIE with reboot"
+        self.dut_log(devname, msg, lvl=logging.WARNING)
+        for _ in range(2):
+            expect = "|".join([regex_login, regex_onie, regex_onie_sleep, regex_grub_rescue])
+            self.trace_callback_set(devname, True)
+            self._send_command(access, "reboot", expect, True, 3)
+            self.trace_callback_set(devname, False)
+            prompt2 = self._find_prompt(access).replace("\\", "")
+            if not re.compile(regex_grub_rescue).match(prompt2):
+                break
+            msg = "Trying to recover from grub rescue with reboot"
+            self.dut_log(devname, msg, lvl=logging.WARNING)
+            self.recover_from_grub_rescue(devname, True)
 
-        if install and self.cfg.skip_load_image:
-            msg = "Skip install from ONIE"
+    def recover_from_onie(self, devname, install, stop_disc=True, prompt="ONIE"):
+        devname = self._check_devname(devname)
+        access = self._get_dev_access(devname)
+        if stop_disc:
+            self._send_command(access, "onie-discovery-stop")
+            self._send_command(access, "onie-stop")
+
+        if install and self.wa.get_cfg_load_image(devname) == "none":
+            msg = "Skip install from {}".format(prompt)
             self.dut_log(devname, msg, lvl=logging.WARNING)
             return False
 
         if not install:
             try:
-                msg = "Trying to recover from ONIE with reboot"
-                self.dut_log(devname, msg, lvl=logging.WARNING)
-                expect = "|".join([regex_login, regex_onie, regex_onie_sleep])
-                self._send_command(access, "reboot", expect, True, 3)
+                self.reboot_and_onie_grub_rescue(devname)
                 if self.wait_onie_or_login(devname) == 2:
                     # reboot took the device into login prompt
                     return True
                 msg = "Failed to take device into login - try loading image"
                 self.dut_log(devname, msg, lvl=logging.ERROR)
                 # pass through installation
-            except:
-                msg = "Failed to recover from ONIE with reboot"
+            except Exception:
+                msg = "Failed to recover from {} with reboot".format(prompt)
                 self.dut_log(devname, msg, lvl=logging.ERROR)
                 os._exit(15)
                 return False
@@ -2125,15 +2639,12 @@ class Net(object):
         else:
             onie_image = access["onie_image"]
         if not onie_image:
-            msg = "No image is specified to load from ONIE"
+            msg = "No image is specified to load from {}".format(prompt)
             self.dut_log(devname, msg, lvl=logging.ERROR)
             return False
         if not self.onie_nos_install(devname, onie_image):
-            if os.getenv("SPYTEST_RECOVERY_MECHANISMS", "0") != "0":
-                expect = "|".join([regex_login, regex_onie, regex_onie_sleep])
-                msg = "Trying to recover from ONIE with reboot as it failed to download the image"
-                self.dut_log(devname, msg, lvl=logging.WARNING)
-                self._send_command(access, "reboot", expect, True, 3)
+            if env.get("SPYTEST_RECOVERY_MECHANISMS", "1") != "0":
+                self.reboot_and_onie_grub_rescue(devname)
                 if self.wait_onie_or_login(devname) == 1:
                     if not self.onie_nos_install(devname, onie_image):
                         return False
@@ -2191,6 +2702,29 @@ class Net(object):
             self.wait(1)
         return 0
 
+    def update_onie_grub_config(self, devname, mode):
+
+        # Grub commands for image download.
+        cmds, errs = self.wa.hooks.get_onie_grub_config(devname, mode)
+        upgrade_image_cmd = ";".join(cmds)
+
+        # Issue the grub commands.
+        skip_error_check = False if self.wa.session_init_completed else True
+        self.trace_callback_set(devname, True)
+        cli_prompt = self._get_cli_prompt(devname)
+        access = self._get_dev_access(devname)
+        output = self._send_command(access, upgrade_image_cmd, cli_prompt,
+                                    skip_error_check, 18)
+        self.trace_callback_set(devname, False)
+
+        for err_pattern in errs:
+            if err_pattern in output:
+                msg = "ONIE GRUB config failed matching error '{}' in mode {}".format(err_pattern, mode)
+                self.dut_log(devname, msg, logging.ERROR)
+                return msg
+
+        return output
+
     def upgrade_onie_image1(self, devname, url, max_ready_wait=0):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -2200,32 +2734,16 @@ class Net(object):
                 self.dut_log(devname, "Image already upgraded during the time of DUT connect using ONIE process.")
                 return True
 
-        upgrade_image_cmd = ";".join("""
-        sudo apt-get -f install -y grub-common
-        sudo mkdir -p /mnt/onie-boot/
-        sudo mount /dev/sda2 /mnt/onie-boot/
-        sudo /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o rescue
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set diag_mode=none
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set onie_mode=rescue
-        sudo grub-editenv /host/grub/grubenv set next_entry=ONIE
-        sudo grub-reboot --boot-directory=/host/ ONIE
-        sudo umount /mnt/onie-boot/
-        """.strip().splitlines())
-
-        self.dut_log(devname, "Upgrading image from onie '{}'.".format(url))
+        self.dut_log(devname, "Upgrading image from onie1 '{}'.".format(url))
 
         if access["filemode"]:
-            return
+            return None
 
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
-        # Issue sonic installer command.
-        skip_error_check = False if self.wa.session_init_completed else True
-        self.trace_callback_set(devname, True)
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-        self._send_command(access, upgrade_image_cmd, cli_prompt, skip_error_check, 18)
-        self.trace_callback_set(devname, False)
+        # update ONIE configuration
+        self.update_onie_grub_config(devname, "rescue")
 
         # we need to download the helper files again
         self.skip_trans_helper[devname] = dict()
@@ -2233,21 +2751,20 @@ class Net(object):
         # Issue reboot command and look for ONIE rescue mode.
         if not self.reboot(devname, onie=True):
             msg = "Reboot failed as unable to get the onie rescue mode."
-            self.dut_log(devname, msg, False, logging.ERROR)
+            self.dut_log(devname, msg, logging.ERROR)
             raise ValueError(msg)
 
         self._send_command(access, "\r\n", regex_onie)
         if not self.onie_nos_install(devname, url):
             msg = "Image download failed using onie-nos-install."
-            self.dut_log(devname, msg, False, logging.ERROR)
+            self.dut_log(devname, msg, logging.ERROR)
             raise ValueError(msg)
 
-        self.dut_log(devname, "reading version after upgrade")
-        self.show_new(devname, "show version", skip_tmpl=True, skip_error_check=True)
+        self._show_version(devname, "reading version after upgrade")
         self.do_post_reboot(devname, max_ready_wait=max_ready_wait, phase=1)
         return True
 
-    def upgrade_onie_image2(self, devname, url, max_ready_wait=0):
+    def _upgrade_onie_image2(self, devname, url, max_ready_wait=0):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
@@ -2260,7 +2777,7 @@ class Net(object):
         dut_image_location = "/host/onie-installer-x86_64"
 
         if access["filemode"]:
-            return
+            return None
 
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
@@ -2268,25 +2785,35 @@ class Net(object):
         # Download the image from url to /host/onie-installer-x86_64 location.
         download_image_cmd = "sudo curl --retry 15 -o {} {}".format(dut_image_location, url)
 
+        download_delay_factor = 18
         # Issue the download_image_cmd command.
         for count in range(3):
             skip_error_check = False if self.wa.session_init_completed else True
             self.trace_callback_set(devname, True)
-            cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+            cli_prompt = self._get_cli_prompt(devname)
             self.dut_log(devname, "Trying image download using curl command, iteration {}".format(count+1))
+            start_time = time.time()
             output = self._send_command(access, download_image_cmd, cli_prompt,
-                                        skip_error_check, delay_factor=18,
+                                        skip_error_check, delay_factor=download_delay_factor,
                                         trace_dut_log=1)
+            end_time = time.time()
             self.trace_callback_set(devname, False)
 
             if re.search(r"curl:\s+\(\d+\)", output):
-                errorline = [m for m in output.split("\n") if re.search(r"curl:\s+\(\d+\)", m)]
+                errorline = [m for m in output.split(nl) if re.search(r"curl:\s+\(\d+\)", m)]
                 errorline = str("".join(errorline))
                 msg = "Image download to host location failed using curl command. Error: '{}'"
                 msg = msg.format(errorline)
-                self.dut_log(devname, msg, False, logging.ERROR)
+                self.dut_log(devname, msg, logging.ERROR)
                 if count >=2:
-                    raise ValueError(msg)
+                    return msg
+                continue
+
+            if (end_time - start_time) > (download_delay_factor * 100):
+                msg = "Image download to host location failed. Error: 'Took more than 30 mins to download'"
+                self.dut_log(devname, msg, logging.ERROR)
+                if count >=2:
+                    return msg
                 continue
 
             # Check for the downloaded file type.
@@ -2294,35 +2821,42 @@ class Net(object):
             file_output = self._send_command(access, filetype_cmd, cli_prompt,
                                         skip_error_check, delay_factor=1)
             if not re.search(r"binary\s+data", file_output):
-                errorline = file_output.split("\n")[0]
+                errorline = file_output.split(nl)[0]
                 msg = "Image downloaded to host location is not a proper image type. File type: '{}'"
                 msg = msg.format(errorline)
-                self.dut_log(devname, msg, False, logging.ERROR)
-                raise ValueError(msg)
+                self.dut_log(devname, msg, logging.ERROR)
+                return msg
 
             self.dut_log(devname, "Image downloaded to host location successfully.")
             break
 
-        # Grub commands for image download.
-        upgrade_image_cmd = ";".join("""
-        sudo apt-get -f install -y grub-common
-        sudo mkdir -p /mnt/onie-boot/
-        sudo mount /dev/sda2 /mnt/onie-boot/
-        sudo /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o install
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set diag_mode=none
-        sudo grub-editenv /mnt/onie-boot/grub/grubenv set onie_mode=install
-        sudo grub-editenv /host/grub/grubenv set next_entry=ONIE
-        sudo grub-reboot --boot-directory=/host/ ONIE
-        sudo umount /mnt/onie-boot/
-        """.strip().splitlines())
+        #Get the version info from the downloaded file.
+        if env.get("SPYTEST_ABORT_ON_VERSION_MISMATCH", "2") == "2" and not self.wa.session_init_completed:
+            cli_prompt = self._get_cli_prompt(devname)
+            image_version_grep_cmd = "grep -a 'image_version=' {}".format(dut_image_location)
+            self.trace_callback_set(devname, True)
+            output = self._send_command(access, image_version_grep_cmd, cli_prompt,
+                                        skip_error_check, 3)
+            output = nl.join(output.split(nl)[:-1])
+            image_versionname = re.sub(r"image_version=|\"", "", output)
 
-        # Issue the grub commands.
-        skip_error_check = False if self.wa.session_init_completed else True
-        self.trace_callback_set(devname, True)
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-        output = self._send_command(access, upgrade_image_cmd, cli_prompt,
-                                    skip_error_check, 18)
-        self.trace_callback_set(devname, False)
+            image_nosname_grep_cmd = "grep -a '^NOS_NAME=' {}".format(dut_image_location)
+            output = self._send_command(access, image_nosname_grep_cmd, cli_prompt,
+                                        skip_error_check, 3)
+            output = nl.join(output.split(nl)[:-1])
+            image_nosname = re.sub(r"NOS_NAME=|\"", "", output)
+            self.trace_callback_set(devname, False)
+
+            next_loading_img_ver = None
+            if image_versionname and image_nosname:
+                next_loading_img_ver = image_nosname + "-" + image_versionname
+            else:
+                msg = "Unable to get the Software Version from the downloaded file '{}'."
+                msg = msg.format(dut_image_location)
+                self.dut_log(devname, msg, logging.WARNING)
+
+        # update ONIE configuration
+        self.update_onie_grub_config(devname, "install")
 
         # we need to download the helper files again
         self.skip_trans_helper[devname] = dict()
@@ -2335,13 +2869,33 @@ class Net(object):
             reboot_flag = self.reboot(devname)
         if not reboot_flag:
             msg = "Reboot failed after the image download using onie install."
-            self.dut_log(devname, msg, False, logging.ERROR)
-            raise ValueError(msg)
+            self.dut_log(devname, msg, logging.ERROR)
+            return msg
 
-        self.dut_log(devname, "reading version after upgrade")
-        self.show_new(devname, "show version", skip_tmpl=True, skip_error_check=True)
+        loaded_image_version_dict = self._show_version(devname, "reading version after upgrade")
+        loaded_image_version = loaded_image_version_dict.get("version", None)
+        if loaded_image_version:
+            loaded_image_version = loaded_image_version.strip("'")
+        if env.get("SPYTEST_ABORT_ON_VERSION_MISMATCH", "2") == "2" and not self.wa.session_init_completed:
+            if next_loading_img_ver and next_loading_img_ver != loaded_image_version:
+                if loaded_image_version not in next_loading_img_ver:
+                    msg = "Downloaded file version '{}' and loaded image version '{}' are different."
+                    msg = msg.format(next_loading_img_ver, loaded_image_version)
+                    self.dut_log(devname, msg, logging.ERROR)
+                    return msg
+
         self.do_post_reboot(devname, max_ready_wait=max_ready_wait, phase=1)
         return True
+
+    def upgrade_onie_image2(self, devname, url, max_ready_wait=0):
+        rv = self._upgrade_onie_image2(devname, url, max_ready_wait)
+        if rv in [False, True, None]:
+            return rv
+        if "failed using curl command" in str(rv):
+            msg = "Failed to upgrade the image using curl, try using ONIE directly"
+            self.dut_log(devname, msg, logging.ERROR)
+            return self.upgrade_onie_image1(devname, url, max_ready_wait)
+        raise ValueError(rv)
 
     def upgrade_image(self, devname, url, skip_reboot=False, migartion=True, max_ready_wait=0):
         """
@@ -2363,10 +2917,6 @@ class Net(object):
                 self.dut_log(devname, "Image already upgraded during the time of DUT connect using ONIE process.")
                 return True
 
-        if migartion:
-            upgrade_image_cmd = "sudo sonic_installer install {} -y".format(url)
-        else:
-            upgrade_image_cmd = "sudo sonic_installer install --skip_migration {} -y".format(url)
         self.dut_log(devname, "Upgrading image from '{}'.".format(url))
 
         if access["filemode"]:
@@ -2375,35 +2925,30 @@ class Net(object):
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
-        # Issue sonic installer command.
         skip_error_check = False if self.wa.session_init_completed else True
-        self.trace_callback_set(devname, True)
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-        output = self._send_command(access, upgrade_image_cmd, cli_prompt,
-                                    skip_error_check, 18)
-        self.trace_callback_set(devname, False)
+        retval = self.wa.hooks.upgrade_image(devname, url, 1800, skip_error_check, migartion)
+        return self.finish_upgrade_image(devname, url, retval, skip_reboot, max_ready_wait)
 
-        if re.search("Installed SONiC base image SONiC-OS successfully", output):
-            prompt = self._find_prompt(access)
-            if prompt == self._get_param(devname, "normal-user-cli-prompt"):
-                if skip_reboot:
-                    msg = "Image upgraded successfully."
-                    self.dut_log(devname, msg)
-                elif self.reboot(devname, max_ready_wait=max_ready_wait):
-                    self._enter_linux(devname, prompt)
-                    msg = "Image upgraded and rebooted successfully."
-                    self.dut_log(devname, msg)
-                else:
-                    msg = "Reboot failed after the image download."
-                    self.dut_log(devname, msg, False, logging.ERROR)
-                    raise ValueError(msg)
-        elif re.search("Not installing SONiC version", output) and \
-                re.search("as current running SONiC has the same version", output):
+    def finish_upgrade_image(self, devname, url, retval, skip_reboot, max_ready_wait):
+        devname = self._check_devname(devname)
+        if retval == "success":
+            if skip_reboot:
+                msg = "Image upgraded successfully."
+                self.dut_log(devname, msg)
+            elif self.reboot(devname, max_ready_wait=max_ready_wait):
+                self._enter_linux(devname)
+                msg = "Image upgraded and rebooted successfully."
+                self.dut_log(devname, msg)
+            else:
+                msg = "Reboot failed after the image download."
+                self.dut_log(devname, msg, logging.ERROR)
+                raise ValueError(msg)
+        elif retval == "skipped":
             msg = "No need to upgrade as the image is already of same version."
             self.dut_log(devname, msg)
         else:
             msg = "Image not loaded on to the device using URL: {}".format(url)
-            self.dut_log(devname, msg, False, logging.ERROR)
+            self.dut_log(devname, msg, logging.ERROR)
             raise ValueError(msg)
         return True
 
@@ -2418,12 +2963,13 @@ class Net(object):
 
     def reboot(self, devname, method="normal", skip_port_wait=False,
                onie=False, skip_exception=False, skip_fallback=False,
-               max_ready_wait=0):
+               ret_logs=False, max_ready_wait=0, internal=True):
 
         try:
             self._tryssh_switch(devname)
             rv = self._reboot(devname, method, skip_port_wait, onie,
-                              skip_exception, skip_fallback, max_ready_wait)
+                              skip_exception, skip_fallback, ret_logs=ret_logs,
+                              max_ready_wait=max_ready_wait, internal=internal)
             self._tryssh_switch(devname, True)
         except Exception as e:
             msg = utils.stack_trace(traceback.format_exc())
@@ -2437,7 +2983,7 @@ class Net(object):
 
     def _reboot(self, devname, method="normal", skip_port_wait=False,
                 onie=False, skip_exception=False, skip_fallback=False,
-                max_ready_wait=0):
+                ret_logs=False, max_ready_wait=0, internal=True):
 
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -2465,7 +3011,7 @@ class Net(object):
         self._switch_connection(devname, 0)
         # just incase if we are in SSH mode
 
-        user_mode = self._get_param(devname, "normal-user-cli-prompt")
+        user_mode = self._get_cli_prompt(devname)
 
         # check if the reboot needs confirmation and handle accordingly
         output = self._send_command(access, "fast-reboot -h", user_mode,
@@ -2481,6 +3027,8 @@ class Net(object):
         # Issue reboot command.
         self.wa.instrument(devname, "pre-reboot")
         self.trace_callback_set(devname, True)
+        reboot_delay_factor = 10
+        cmd_timetaken = None
         if not self._is_console_connection(devname):
             reboot_static_wait = 120
             if onie:
@@ -2488,7 +3036,7 @@ class Net(object):
             ssh_patterns = r"(systemctl daemon-reload|requested COLD shutdown|[#|\$]\s*$)"
             output = self._send_command(access, reboot_cmd, ssh_patterns, True, 1)
             msg = "Waiting for '{}' secs after reboot on SSH.".format(reboot_static_wait)
-            self.dut_log(devname, msg, False)
+            self.dut_log(devname, msg)
             self.wait(reboot_static_wait)
             if not onie:
                 reboot_polling_time = 120
@@ -2497,36 +3045,56 @@ class Net(object):
                 while time_left > 0:
                     retval = utils.ipcheck(dut_mgmt_ip)
                     msg = "Pinging IP : '{}' : {}".format(dut_mgmt_ip, retval)
-                    self.dut_log(devname, msg, False)
+                    self.dut_log(devname, msg)
                     if retval:
                         break
                     time_left = time_left - 2
                 if time_left == 0:
-                    msg = "Dut IP '{}' is not reachable even after pinging for '{}' secs after reboot on SSH"
+                    msg = "DUT IP '{}' is not reachable even after pinging for '{}' secs after reboot on SSH"
                     msg = msg.format(dut_mgmt_ip, reboot_polling_time)
-                    self.dut_log(devname, msg, False, logging.ERROR)
+                    self.dut_log(devname, msg, logging.ERROR)
                     return False
             self._disconnect_device(devname)
             wait_after_ping = 30
             msg = "Waiting for '{}' secs before attempting connection via SSH.".format(wait_after_ping)
-            self.dut_log(devname, msg, False)
+            self.dut_log(devname, msg)
             self.wait(wait_after_ping)
             retry_count = 0
             while retry_count < 10:
                 retval = self.connect_to_device(devname)
                 msg = "Connection attempt : '{}', Status: '{}'".format(retry_count, retval)
-                self.dut_log(devname, msg, False)
+                self.dut_log(devname, msg)
                 if retval:
                     break
                 retry_count = retry_count + 1
                 self.wait(10)
         elif onie:
-            output = self._send_command(access, reboot_cmd, regex_onie_resque, True, 6)
+            self._send_command(access, reboot_cmd, regex_onie_resque, True, reboot_delay_factor)
             return True
         else:
-            expect = "|".join([user_mode, regex_login, regex_login_anywhere])
-            output = self._send_command(access, reboot_cmd, expect, True, 6)
+            if internal:
+                expect = "|".join([user_mode, regex_login, regex_login_anywhere])
+                cmd_starttime = get_timenow()
+                output = self._send_command(access, reboot_cmd, expect, True, reboot_delay_factor)
+                cmd_timetaken = get_elapsed(cmd_starttime, False)
+                if cmd_timetaken < 100:
+                    msg = "Not expecting the command to finish in '{}' secs."
+                    msg = msg.format(cmd_timetaken)
+                    msg = msg + " So waiting for a static period of 10 mins."
+                    self.dut_log(devname, msg, lvl=logging.WARNING)
+                    self.wait(600)
+            else:
+                output = self.wa.hooks.dut_reboot(devname, method=method)
         self.trace_callback_set(devname, False)
+
+        if not internal:
+            if self.cfg.reboot_wait:
+                msg = "Waiting for '{}' secs after reboot.".format(self.cfg.reboot_wait)
+                self.dut_log(devname, msg)
+                self.wait(self.cfg.reboot_wait)
+            if ret_logs:
+                return output
+            return True
 
         reboot_status = False
         result_set = ["DUTFail", "reboot_failed"]
@@ -2539,8 +3107,8 @@ class Net(object):
                 self.dut_log(devname, msg)
                 self.wait(5) # wait for any kernel messages to show up
                 self._enter_linux(devname, prompt)
-                self.do_post_reboot(devname, max_ready_wait=max_ready_wait)
-                reboot_status = True
+                reboot_status = self.do_post_reboot(devname, max_ready_wait=max_ready_wait)
+                if internal: reboot_status = True
                 break
 
             if re.compile(regex_login_anywhere).match(prompt2):
@@ -2552,11 +3120,11 @@ class Net(object):
                 if not self._is_console_connection(devname):
                     msg = "Device Reboot ({}) Completed..".format(reboot_cmd)
                     self.dut_log(devname, msg)
-                    self.do_post_reboot(devname, max_ready_wait=max_ready_wait)
-                    reboot_status = True
+                    reboot_status = self.do_post_reboot(devname, max_ready_wait=max_ready_wait)
+                    if internal: reboot_status = True
                     break
                 msg = "Device Reboot ({}) Failed.".format(reboot_cmd)
-                self.dut_log(devname, msg, False, logging.ERROR)
+                self.dut_log(devname, msg, logging.ERROR)
                 if flag_fast_warm_reboot and not skip_fallback:
                     msg = "Performing normal Reboot as ({}) failed.".format(reboot_cmd)
                     self.dut_log(devname, msg)
@@ -2568,22 +3136,23 @@ class Net(object):
 
             msg = "Prompt '{}' is neither login nor usermode."
             msg = msg.format(prompt)
-            self.dut_log(devname, msg, False, logging.ERROR)
+            self.dut_log(devname, msg, logging.ERROR)
             try_count = try_count - 1
 
         if not reboot_status:
             self._report_error(result_set, reboot_cmd)
         elif self.cfg.reboot_wait:
             msg = "Waiting for '{}' secs after reboot.".format(self.cfg.reboot_wait)
-            self.dut_log(devname, msg, False)
+            self.dut_log(devname, msg)
             self.wait(self.cfg.reboot_wait)
-
+        if ret_logs:
+            return output
         return reboot_status
 
     def wait_system_reboot(self, devname):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
-        self._send_command(access, "\n", regex_login, True, 6)
+        self._send_command(access, nl, regex_login, True, 6)
         try_count = 3
         while try_count > 0:
             prompt = self._find_prompt(access)
@@ -2592,16 +3161,15 @@ class Net(object):
                 msg = "Device Reboot Completed."
                 self.dut_log(devname, msg)
                 self._enter_linux(devname, prompt)
-                self.do_post_reboot(devname)
-                return True
+                return self.do_post_reboot(devname)
             try_count = try_count - 1
 
         return False
 
     def _transfer_base64(self, access, src_file, dst_file):
         devname = access["devname"]
-        prompt = self._get_param(devname, "normal-user-cli-prompt")
-        script_cmd = "rm -f {}.tmp {}".format(dst_file, dst_file)
+        prompt = self._get_cli_prompt(devname)
+        script_cmd = "rm -f {0}.tmp {0}".format(dst_file)
         self._exec(devname, script_cmd, prompt)
         redir = ">"
         lines = utils.b64encode(src_file)
@@ -2617,12 +3185,12 @@ class Net(object):
                 script_cmd = "echo {} {} {}.tmp".format(line, redir, dst_file)
                 self._send_command(access, script_cmd, prompt, True)
                 redir = ">>"
-        script_cmd = "base64 -d {}.tmp > {}".format(dst_file, dst_file)
+        script_cmd = "base64 -d {0}.tmp > {0}".format(dst_file)
         self._exec(devname, script_cmd, prompt)
 
     def _transfer_base64_small(self, access, src_file, dst_file):
         script_cmds = []
-        script_cmd = "rm -f {}.tmp {}".format(dst_file, dst_file)
+        script_cmd = "rm -f {0}.tmp {0}".format(dst_file)
         script_cmds.append(script_cmd)
         redir = ">"
         lines = utils.b64encode(src_file)
@@ -2630,24 +3198,20 @@ class Net(object):
             script_cmd = "echo {} {} {}.tmp".format(line, redir, dst_file)
             script_cmds.append(script_cmd)
             redir = ">>"
-        script_cmd = "base64 -d {}.tmp > {}".format(dst_file, dst_file)
+        script_cmd = "base64 -d {0}.tmp > {0}".format(dst_file)
         script_cmds.append(script_cmd)
 
         script_cmd = ";".join(script_cmds)
         devname = access["devname"]
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+        cli_prompt = self._get_cli_prompt(devname)
         self._exec(devname, script_cmd, cli_prompt)
 
-    def _save_json_to_remote_file(self, devname, data, dst_file):
+    def _save_json_to_remote_file(self, devname, data, dst_file, do_indent = False):
         devname = self._check_devname(devname)
-        do_indent = False
         try:
-            if do_indent:
-                obj = json.loads(data)
-                indented = json.dumps(obj, indent=4)
-            else:
-                indented = data
-        except:
+            obj = json.loads(data)
+            indented = json.dumps(obj, indent=4) if do_indent else data
+        except Exception:
             self.logger.warning("invalid json - trying to fix")
             # remove trailing object comma
             regex = re.compile(
@@ -2659,8 +3223,8 @@ class Net(object):
             data = regex.sub("]", data)
             try:
                 obj = json.loads(data)
-                indented = json.dumps(obj, indent=4)
-            except:
+                indented = json.dumps(obj, indent=4) if do_indent else data
+            except Exception:
                 raise ValueError("invalid json data")
 
         access = self._get_dev_access(devname)
@@ -2671,7 +3235,7 @@ class Net(object):
             self._echo_text_to_file(access, indented, dst_file)
 
     def _echo_text_to_file(self, access, content, dst_file, prefix=""):
-        str_list = content.split("\n")
+        str_list = content.split(nl)
         if prefix:
             str_list.insert(0, prefix)
         return self._echo_list_to_file(access, str_list, dst_file)
@@ -2683,23 +3247,26 @@ class Net(object):
         self.dut_log(devname, msg)
         redir = ">"
         for clist in utils.split_list(str_list, l_split):
-            content = "\n".join(clist)
+            content = nl.join(clist)
             script_cmd = "printf '{}\n' {} {}\n".format(content, redir, dst_file)
-            cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+            cli_prompt = self._get_cli_prompt(devname)
             self._exec(devname, script_cmd, cli_prompt, ufcli=False, trace_dut_log=1)
             redir = ">>"
 
         return dst_file
 
     def _upload_file(self, access, src_file, dst_file=None):
+        return self._upload_file1(access, src_file, dst_file, self.force_console_transfer)
+
+    def _upload_file1(self, access, src_file, dst_file=None, force_console_transfer=False):
         if not dst_file:
             dst_file = "/tmp/{}".format(os.path.basename(src_file))
-        msg = "Transfer: SRC: {} DST: {}".format(src_file, dst_file)
         devname = access["devname"]
+        msg = "Transfer: SRC({}): {} DST({}): {}".format("SVR/VDI", src_file, devname, dst_file)
         self.dut_log(devname, msg)
         if access["filemode"]:
             return dst_file
-        if self.force_console_transfer:
+        if force_console_transfer:
             self._transfer_base64(access, src_file, dst_file)
             return dst_file
         try:
@@ -2722,7 +3289,7 @@ class Net(object):
             self.skip_trans_helper[devname] = dict()
 
         if src_file not in self.skip_trans_helper[devname]:
-            prompt = self._get_param(devname, "normal-user-cli-prompt")
+            prompt = self._get_cli_prompt(devname)
             src_file2 = "%s/%s" % (os.path.basename(os.path.dirname(src_file)),
                                    os.path.basename(src_file))
             remote_file = os.path.join(remote_dir, src_file2)
@@ -2731,34 +3298,60 @@ class Net(object):
                 script_cmd = "sudo md5sum {}".format(remote_file)
                 output = self._send_command(access, script_cmd, prompt, False)
                 try:
-                    md5sum2 = output.split("\n")[0].strip()
+                    md5sum2 = output.split(nl)[0].strip()
                     if utils.md5(src_file) == md5sum2.split(" ")[0].strip():
                         skip_transfer = True
-                except:
+                        self.skip_trans_helper[devname][src_file] = remote_file
+                except Exception:
                     pass
             if not skip_transfer:
-                dst_file = self._upload_file(access, src_file)
-                script_cmd = "sudo mkdir -p {} && sudo cp -f {} {}".format(
-                    os.path.dirname(remote_file), dst_file, remote_file)
-                output = self._send_command(access, script_cmd, prompt, False, 6)
-            self.skip_trans_helper[devname][src_file] = remote_file
+                done = False
+                self.skip_trans_helper[devname][src_file] = None
+                max_iters = 6
+                for i in range(1,max_iters):
+                    self.dut_log(devname, "Trying to upload file '{}'. attempt '{}'".format(src_file, i))
+                    fct = bool(i == (max_iters-1))
+                    dst_file = self._upload_file1(access, src_file, force_console_transfer=fct)
+                    if fct:
+                        ls_script_cmd = "sudo ls -lrt {}".format(os.path.dirname(dst_file))
+                    else:
+                        ls_script_cmd = "sudo ls -lrt {}".format(dst_file)
+                    output = self._send_command(access, ls_script_cmd, prompt, False)
+                    if "No such file or directory" not in output:
+                        done = True
+                        break
+                if not done:
+                    self._send_command(access, "sudo df", prompt, False)
+                else:
+                    script_cmd = "sudo mkdir -p {} && sudo cp -f {} {}".format(
+                        os.path.dirname(remote_file), dst_file, remote_file)
+                    self._send_command(access, script_cmd, prompt, False, 6)
+                    self.skip_trans_helper[devname][src_file] = remote_file
 
         return self.skip_trans_helper[devname][src_file]
 
     def _upload_file3(self, access, src_file, dst_file):
         remote_dir = os.path.dirname(dst_file)
 
-        tmp_file = self._upload_file(access, src_file)
+        devname = access["devname"]
+        prompt = self._get_cli_prompt(devname)
+        for i in range(1, 6):
+            self.dut_log(devname, "Trying to upload file '{}'. attempt '{}'".format(src_file, i))
+            tmp_file = self._upload_file(access, src_file)
+            ls_script_cmd = "sudo ls -lrt {}".format(tmp_file)
+            output = self._send_command(access, ls_script_cmd, prompt, False)
+            if "No such file or directory" not in output: break
+
         if remote_dir:
             script_cmd = "sudo mkdir -p {} && sudo cp -f {} {}".format(
                 remote_dir, tmp_file, dst_file)
             devname = access["devname"]
-            cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+            cli_prompt = self._get_cli_prompt(devname)
             self._send_command(access, script_cmd, cli_prompt, False, 6)
 
     def _download_file(self, access, src_file, dst_file):
         devname = access["devname"]
-        msg = "Download: SRC: {} DST: {}".format(src_file, dst_file)
+        msg = "Download: SRC({}): {} DST({}): {}".format(devname, src_file, "SVR/VDI", dst_file)
         self.dut_log(devname, msg)
         if not access["filemode"]:
             connection_param = access["connection_param"]
@@ -2768,15 +3361,23 @@ class Net(object):
                 self.dut_log(devname, msg)
                 DeviceFileDownload(self._get_handle(devname), src_file,
                                    dst_file, connection_param)
+                if os.path.exists(dst_file):
+                    tmp_filesize = str(os.stat(dst_file).st_size)
+                    msg = "Downloaded file '{}' exists with size '{}' on SVR/VDI".format(dst_file, tmp_filesize)
+                    self.dut_log(devname, msg)
+                else:
+                    msg = "Downloaded file '{}' not-exists on SVR/VDI".format(dst_file)
+                    self.dut_log(devname, msg)
+                    return "FAIL"
             except Exception as e:
                 try:
                     self.dut_log(devname, "SFTP Failed - Doing transfer using filedata on console")
                     cmd = "file {}".format(src_file)
-                    output = self.show_new(devname, cmd, skip_tmpl=True, skip_error_check=True)
+                    output = self.show(devname, cmd, skip_tmpl=True, skip_error_check=True)
                     if "ASCII" in output:
                         cmd = "cat {}".format(src_file)
-                        output = self.show_new(devname, cmd, skip_tmpl=True, skip_error_check=True)
-                        content =output[:output.rfind('\n')]
+                        output = self.show(devname, cmd, skip_tmpl=True, skip_error_check=True)
+                        content = output[:output.rfind(nl)]
                         dst_fp = open(dst_file, "w")
                         dst_fp.write(content)
                         dst_fp.close()
@@ -2801,36 +3402,32 @@ class Net(object):
         # TODO: download the pending files
         self.pending_downloads[devname] = []
 
-    def _add_port_wait(self, args_str, wait, poll, is_community):
-        args_str = args_str + " --port-init-wait {}".format(wait)
-        if poll:
-            args_str = args_str + " --poll-for-ports yes"
+    def _get_routing_mode(self, devname):
+        if self.wa.is_feature_supported("routing-mode-seperated-by-default", devname):
+            routing_mode = "separated"
         else:
-            args_str = args_str + " --poll-for-ports no"
-        if is_community:
-            args_str = args_str + " --community-build"
-        return args_str
+            routing_mode = "split"
+        return os.getenv("SPYTEST_ROUTING_CONFIG_MODE", routing_mode)
+
+    def _add_config_method(self, devname, args_str):
+        load_config_method = self.cfg.load_config_method
+        if load_config_method in ["none"]:
+            if self._get_routing_mode(devname) in ["seperated"]:
+                load_config_method = "force-reload"
+            else:
+                load_config_method = "reload"
+        return args_str + " --load-config-method {}".format(load_config_method)
 
     def _add_core_dump_flags(self, args_str, value_list):
-        core_flag = value_list.pop(0)
-        dump_flag = value_list.pop(0)
-        if core_flag != "none":
-            core_flag = "YES"
-        else:
-            core_flag = "NO"
-        if dump_flag != "none":
-            dump_flag = "YES"
-        else:
-            dump_flag = "NO"
-        if value_list:
-            clear_flag = value_list.pop(0)
-        else:
-            clear_flag = False
-        if clear_flag:
-            clear_flag = "YES"
-        else:
-            clear_flag = "NO"
-        args_str = ",".join([core_flag, dump_flag, clear_flag])
+        core_flag = value_list[0]
+        dump_flag = value_list[1]
+        clear_flag = value_list[2]
+        misc_flag = value_list[3]
+        core_flag = "YES" if core_flag else "NO"
+        dump_flag = "YES" if dump_flag else "NO"
+        clear_flag = "YES" if clear_flag else "NO"
+        misc_flag = "YES" if misc_flag else "NO"
+        args_str = ",".join([core_flag, dump_flag, clear_flag, misc_flag])
         return args_str
 
     def _port_breakout_options(self, devname):
@@ -2844,7 +3441,7 @@ class Net(object):
                 retval = " --breakout-native"
 
         # handle case when breakout is not specified
-        if not retval and self.cfg.native_port_breakout:
+        if not retval and self.cfg.breakout_mode != "script":
             retval = " --breakout-native"
 
         # custom port breakout
@@ -2869,7 +3466,6 @@ class Net(object):
         return retval
 
     def make_local_file_path(self, devname, filepath, suffix, ts=None):
-        access = self._get_dev_access(devname)
         dut_label = self._get_dut_label(devname)
         if ts is None: ts = time.strftime("%Y%m%d%H%M")
         if filepath:
@@ -2879,71 +3475,100 @@ class Net(object):
             file_name = "{0}_{1}_{2}".format(ts, dut_label, suffix)
         return str(os.path.join(self.logger.logdir, file_name))
 
-    def _apply_remote(self, devname, option_type, value_list=[]):
+    def _upload_helper_file(self, devname, filename):
+        if not filename:
+            self._upload_helper_file(devname, "port_breakout.py")
+            self._upload_helper_file(devname, "click-helper.py")
+            self._upload_helper_file(devname, "asan.bashrc")
+            helper = self._upload_helper_file(devname, "spytest-helper.py")
+        else:
+            helper = os.path.join(os.path.dirname(__file__), "remote", filename)
+            helper = os.path.abspath(helper)
+            access = self._get_dev_access(devname)
+            helper = self._upload_file2(devname, access, helper, md5check=True)
+        if not helper:
+            msg = "Failed to upload helper file(s)"
+            raise ValueError(msg)
+        return helper
+
+    def _init_clean(self, devname, core, dump, misc=False):
+        largs = [core, dump, self.cfg.clear_tech_support, misc]
+        self._apply_remote(devname, "init-clean", largs)
+
+    def _apply_remote(self, devname, option_type, value_list=None):
+        value_list = value_list or []
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
         # ensure we are in sonic mode
         self._enter_linux_exit_vtysh(devname)
 
+        # transfer the python file, which is used to apply the files remotely.
+        helper = self._upload_helper_file(devname, "spytest-helper.py")
+
         if option_type == "port-defaults" and value_list[0]:
-            helper = os.path.join(os.path.dirname(__file__),
-                              "remote", "port_breakout.py")
-            helper = os.path.abspath(helper)
-            helper = self._upload_file2(devname, access, helper, md5check=True)
+            self._upload_helper_file(devname, "port_breakout.py")
 
         if option_type == "dump-click-cmds":
-            helper = os.path.join(os.path.dirname(__file__),
-                              "remote", "click-helper.py")
-            helper = os.path.abspath(helper)
-            helper = self._upload_file2(devname, access, helper, md5check=True)
+            helper = self._upload_helper_file(devname, "click-helper.py")
 
-        # transfer the python file, which is used to apply the files remotely.
-        helper = os.path.join(os.path.dirname(__file__),
-                              "remote", "spytest-helper.py")
-        helper = os.path.abspath(helper)
-        helper = self._upload_file2(devname, access, helper, md5check=True)
+        if option_type == "asan-config":
+            self._upload_helper_file(devname, "asan.bashrc")
+
+        if option_type == "service-start":
+            service_name = value_list[0]
+            self._upload_helper_file(devname, "service-{}".format(service_name))
 
         args_str = ""
         script_cmd = None
         skip_error_check = False
         execute_in_console = False
         delay_factor = 6
+        live_tracing = True
+        check_signature = env.get("SPYTEST_CHECK_HELPER_SIGNATURE", "0")
 
         # Depending on the option value, do the pre tasks.
         if option_type == "apply-configs":
+            execute_in_console = True
             # transfer the cfg files
             dst_file_list = []
-            method = value_list.pop(0)
-            for name in value_list:
+            method = value_list[0]
+            for name in value_list[1:]:
                 for src_file in utils.make_list(name):
                     dst_file = self._upload_file2(devname, access, src_file)
-                    dst_file_list.append(dst_file)
+                    if dst_file: dst_file_list.append(dst_file)
             args_str = '"' + '" "'.join(dst_file_list) + '"'
             args_str = args_str + " --apply-file-method " + method
             self.dut_log(devname, "Applying config files remotely '{}'".format(args_str))
             skip_error_check = True
         elif option_type == "run-test":
-            timeout = value_list.pop(0)
-            args_str = " ".join(value_list)
+            timeout = value_list[0]
+            args_str = " ".join(value_list[1:])
             delay_factor = int(math.ceil((timeout * 1.0) / 100))
         elif option_type == "init-ta-config":
-            profile_name = value_list.pop(-1).lower()
-            args_str = self._add_core_dump_flags(args_str, value_list)
+            execute_in_console = True
+            profile_name = value_list[-1].lower()
+            args_str = self._add_core_dump_flags(args_str, value_list[:-1])
             args_str = args_str + " --config-profile {}".format(profile_name)
-            if os.getenv("SPYTEST_NTP_CONFIG_INIT", "0") != "0":
+            if env.get("SPYTEST_NTP_CONFIG_INIT", "0") != "0":
                 args_str = args_str + " --env SPYTEST_NTP_CONFIG_INIT 1"
-            if os.getenv("SPYTEST_CLEAR_MGMT_INTERFACE", "0") != "0":
+            if env.get("SPYTEST_CLEAR_MGMT_INTERFACE", "0") != "0":
                 args_str = args_str + " --env SPYTEST_CLEAR_MGMT_INTERFACE 1"
-            if os.getenv("SPYTEST_CLEAR_DEVICE_METADATA_HOSTNAME", "0") != "0":
+            if env.get("SPYTEST_CLEAR_DEVICE_METADATA_HOSTNAME", "0") != "0":
                 args_str = args_str + " --env SPYTEST_CLEAR_DEVICE_METADATA_HOSTNAME 1"
-        elif option_type in ["save-base-config", "save-module-config"]:
+            routing_mode = self._get_routing_mode(devname)
+            if routing_mode != "":
+                args_str = args_str + " --env SPYTEST_ROUTING_CONFIG_MODE " + routing_mode
+        elif option_type in ["save-base-config", "save-module-config", "reset-intf-naming-mode", "rewrite-ta-config"]:
+            execute_in_console = True
             # no arguments are required to create ta config
             args_str = ""
+        elif option_type in ["apply-init-config"]:
+            execute_in_console = True
+            args_str = self._add_config_method(devname, "")
         elif option_type in ["apply-base-config", "apply-module-config"]:
             execute_in_console = True
-            apply_ta_config_method = value_list[0]
-            args_str = " {}".format(apply_ta_config_method)
+            args_str = self._add_config_method(devname, "")
             skip_error_check = True
         elif option_type == "disable-debug":
             # no arguments are required to disabling debug messages on to console
@@ -2952,20 +3577,22 @@ class Net(object):
             # no arguments are required to enabling debug messages on to console
             args_str = ""
         elif option_type == "syslog-check":
+            live_tracing = False
             args_str = value_list[0]
             args_str = args_str + " --phase '{} {}'".format(value_list[1], value_list[2])
             skip_error_check = True
-            delay_factor = 3
+            delay_factor = 9
         elif option_type == "sairedis":
             args_str = value_list[0]
             skip_error_check = True
-            delay_factor = 3
+            delay_factor = 9
         elif option_type == "set-mgmt-ip":
+            execute_in_console = True
             args_str = " {} ".format(value_list[0])
             args_str = args_str + " --ip-addr-mask {}".format(value_list[1])
             args_str = args_str + " --gw-addr {}".format(value_list[2])
         elif option_type == "fetch-core-files":
-            if self.kdump_supported:
+            if self.is_kdump_supported(devname):
                 args_str = "collect_kdump"
             else:
                 args_str = "none"
@@ -2977,10 +3604,12 @@ class Net(object):
             skip_error_check = True
             delay_factor = 12
         elif option_type == "init-clean":
+            execute_in_console = True
             args_str = self._add_core_dump_flags(args_str, value_list)
         elif option_type == "update-reserved-ports":
-            port_list = value_list.pop(0)
-            args_str = ' '.join(port_list)
+            live_tracing = False
+            port_list = value_list[0]
+            args_str = ' '.join(port_list[1:])
         elif option_type == "port-defaults":
             execute_in_console = True
             args_str = ""
@@ -2989,41 +3618,94 @@ class Net(object):
                 args_str = args_str + self._port_breakout_options(devname)
             if value_list[1]:
                 args_str = args_str + " --speed {}".format(' '.join(map(str,value_list[1])))
+            args_str = self._add_config_method(devname, args_str)
             skip_error_check = True
         elif option_type == "config-reload":
             execute_in_console = True
             args_str = value_list[0]
+            args_str = self._add_config_method(devname, args_str)
+            delay_factor = int(math.ceil((value_list[1] * 1.0) / 100))
+            delay_factor = 9 if delay_factor < 9 else delay_factor
+            skip_error_check = True
         elif option_type == "wait-for-ports":
-            args_str = self._add_port_wait(args_str, value_list[0], value_list[1], value_list[2])
+            args_str = value_list[0]
         elif option_type == "config-profile":
-            args_str = value_list.pop(0).lower()
-            execute_in_console = bool(args_str != "na")
+            args_str = value_list[0].lower()
+            #execute_in_console = bool(args_str != "na")
+            execute_in_console = True
         elif option_type == "dump-click-cmds":
+            check_signature = "0"
+            option_type = ""
+            args_str = env.get("SPYTEST_CLICK_HELPER_ARGS", "")
+        elif option_type == "asan-config":
             pass
+        elif option_type == "service-start":
+            args_str = value_list[0]
+            count = int((len(value_list)-1)/2)
+            for index in range(1, count, 2):
+                name = value_list[index*2 + 1]
+                value = value_list[index*2 + 2]
+                args_str = args_str + " --env {} {}".format(name, value)
+        elif option_type == "service-stop":
+            args_str = value_list[0]
+        elif option_type == "service-get":
+            args_str = value_list[0]
         else:
             msg = "Unknown option {} for remote operation".format(option_type)
             self.dut_log(devname, msg, lvl=logging.ERROR)
             raise ValueError(msg)
 
+        ############################################################
         # Construct the command that need to be executed on the DUT.
-        if self.cfg.community_build and "--community-build" not in args_str:
-            args_str = args_str + " --community-build"
-        if self.cfg.load_config_method == "replace": args_str = args_str + " --use-config-replace"
-        script_cmd = "sudo python {} --{} {}  ".format(helper, option_type, args_str)
+        ############################################################
+        if option_type:
+            script_cmd = "sudo python {} --{} {}  ".format(helper, option_type, args_str)
+        else:
+            script_cmd = "sudo python {} {}  ".format(helper, args_str)
         #self.dut_log(devname, "Using command: {}".format(script_cmd))
+        ############################################################
 
         try:
+            # switch to console if we expect management connection loss
             if execute_in_console:
                 self._tryssh_switch(devname)
-            self.trace_callback_set(devname, True)
-            cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
-            output = self._send_command(access, script_cmd, cli_prompt,
-                                        skip_error_check, delay_factor,
-                                        trace_dut_log=1)
+                if not access["filemode"]:
+                    cli_prompt = self._get_cli_prompt(devname)
+                    curr_prompt = self._find_prompt(access)
+                    # ensure we are in sonic mode
+                    if curr_prompt != cli_prompt:
+                        msg = "Console prompt mode '{}' is not correct .. Trying to enter the correct mode '{}'."
+                        msg = msg.format(curr_prompt.replace("\\", ""), cli_prompt.replace("\\", ""))
+                        self.dut_log(devname, msg, lvl=logging.WARNING)
+                        self._enter_linux_exit_vtysh(devname)
+
+            # enable live tracing for debugging
+            self.trace_callback_set(devname, live_tracing)
+
+            ################## Execute script and verify Signature #############
+            signature = "################ SPYTEST-HELPER ####################"
+            output = ""
+            for i in range(3):
+                cli_prompt = self._get_cli_prompt(devname)
+                output = self._send_command(access, script_cmd, cli_prompt,
+                                            skip_error_check, delay_factor,
+                                            trace_dut_log=1)
+                if check_signature == "0" or re.search(signature, output):
+                    break
+                msg = "Failed to execute the command {} Try: {}".format(script_cmd, i)
+                self.dut_log(devname, msg, lvl=logging.ERROR)
+            output = output.replace(signature, "")
+            ####################################################################
+
+            # disable live tracing
             self.trace_callback_set(devname, False)
+
+            # trace output
             self.dut_log(devname, output)
-            if execute_in_console:
-                self._tryssh_switch(devname, True)
+
+            # restore to tryssh if we switched to console before executing
+            if execute_in_console: self._tryssh_switch(devname, True)
+
         except Exception as exp:
             msg = utils.stack_trace(traceback.format_exc())
             self.dut_log(devname, msg, lvl=logging.WARNING)
@@ -3031,11 +3713,57 @@ class Net(object):
                 self._tryssh_switch(devname, False)
             raise exp
 
-        if option_type in ["run-test", "syslog-check"]:
+        if option_type in ["run-test", ""]:
             return output
 
+        if option_type == "syslog-check":
+            if re.search("NO-SYSLOGS-CAPTURED", output):
+                self.dut_log(devname, output)
+                return output
+            elif re.search("SYSLOGS_CAPTURED_FILE", output):
+                # Get the remote file name from the output data.
+                remote_file_path = ""
+                for line in output.strip().split("\n"):
+                    match = re.match(r'SYSLOGS_CAPTURED_FILE:\s+((/etc/spytest/syslog.txt))', str(line).strip())
+                    if match:
+                        remote_file_path = match.group(1)
+                        break
+                if remote_file_path:
+                    # Construct the local file name.
+                    local_file_path = self.make_local_file_path(devname, "_".join(value_list[1:]),
+                                             "syslog.txt", value_list[0])
+                    # Perform the file download if any files found.
+                    retval = self._download_file(access, remote_file_path, local_file_path)
+                    if re.search("FAIL", retval):
+                        self.add_pending_download(devname, remote_file_path, local_file_path)
+                        msg = "Downloading syslog file - Failed."
+                        self.dut_log(devname, msg, lvl=logging.ERROR)
+                        raise ValueError(msg)
+                    msg = "Downloaded the captured syslog data to the file '{}'."
+                    self.dut_log(devname, msg.format(local_file_path), lvl=logging.INFO)
+
+                    try:
+                        cmdlist = utils.read_lines(local_file_path)
+                        retval = [line.strip() for line in cmdlist if syslog.match(value_list[0], line)]
+                        self.dut_log(devname, "=" * 17 + " MATCHED SYSLOG " + "=" * 17, lvl=logging.INFO)
+                        if len(retval) < 1000:
+                            self.dut_log(devname, retval, lvl=logging.INFO)
+                        else:
+                            msg = "lot of syslog messages - refer to {}".format(local_file_path)
+                            self.dut_log(devname, msg, lvl=logging.INFO)
+                        self.dut_log(devname, "=" * 50, lvl=logging.INFO)
+                        retval = nl.join(retval)
+                    except Exception:
+                        retval = "Error: Exception occurred while reading the syslog captured file '{}'".format(local_file_path)
+                    return retval
+                else:
+                    msg = "Failed to get the syslog file '/etc/spytest/syslog.txt'"
+                    self.dut_log(devname, msg, lvl=logging.ERROR)
+            else:
+                return output
+
         process_apply_config = True
-        fetch_mgmt_ip = True
+        fetch_mgmt_ip = False
         if re.search("Error", output) or re.search("No such file or directory", output):
             msg = "Failed to execute the command {}".format(script_cmd)
             self.dut_log(devname, msg, lvl=logging.ERROR)
@@ -3053,7 +3781,7 @@ class Net(object):
                     pc_msg = "***** TESTCASE '{}' CONFIG CLEANUP NOT DONE *****".format(self.prev_testcase)
                     self.logger.warning(pc_msg)
                 if re.search("REBOOT REQUIRED", output) or \
-                        apply_ta_config_method in ["reboot", "force_reboot"]:
+                        self.cfg.load_config_method in ["reboot", "force_reboot"]:
                     self.recover(devname, "Reboot after applying TA configuration")
 
         if option_type == "dump-click-cmds":
@@ -3061,7 +3789,7 @@ class Net(object):
                 time.strftime("%Y_%m_%d_%H_%M"), devname)
             local_file_path = str(os.path.join(self.logger.logdir, file_name))
             utils.write_file(local_file_path, "")
-            for line in output.strip().split("\n")[:-1]:
+            for line in output.strip().split(nl)[:-1]:
                 utils.write_file(local_file_path, "{}\n".format(line), "a")
 
         if option_type == "fetch-core-files":
@@ -3072,7 +3800,7 @@ class Net(object):
                 # Get the remote file name from the output data.
                 #remote_file_path = "/tmp/allcorefiles.tar.gz"
                 remote_file_path = ""
-                for line in output.strip().split("\n"):
+                for line in output.strip().split(nl):
                     match = re.match(r'CORE-FILES:\s+(\S+.tar.gz)', str(line).strip())
                     if match:
                         remote_file_path = match.group(1)
@@ -3088,7 +3816,7 @@ class Net(object):
                         msg = "Downloading core files - Failed."
                         self.dut_log(devname, msg, lvl=logging.ERROR)
                         raise ValueError(msg)
-            if self.kdump_supported:
+            if self.is_kdump_supported(devname):
                 if re.search("NO-KDUMP-FILES", output):
                     msg = "No kdump files found on the DUT."
                     self.dut_log(devname, msg)
@@ -3096,7 +3824,7 @@ class Net(object):
                     # Get the remote file name from the output data.
                     #remote_file_path = "/tmp/allcorefiles.tar.gz"
                     remote_file_path = ""
-                    for line in output.strip().split("\n"):
+                    for line in output.strip().split(nl):
                         match = re.match(r'KDUMP-FILES:\s+(\S+.tar.gz)', str(line).strip())
                         if match:
                             remote_file_path = match.group(1)
@@ -3116,14 +3844,14 @@ class Net(object):
         if option_type == "get-tech-support":
             if re.search("NO-DUMP-FILES", output):
                 self.dut_log(devname, output)
-                output = self.show_new(devname, "cat /tmp/show_tech_support.log",
+                output = self.show(devname, "cat /tmp/show_tech_support.log",
                                        skip_error_check=True, skip_tmpl=True)
                 self.dut_log(devname, output)
                 raise ValueError("Failed to fetch tech support")
             else:
                 # Get the remote file name from the output data.
                 remote_file_path = ""
-                for line in output.strip().split("\n"):
+                for line in output.strip().split(nl):
                     match = re.match(r'DUMP-FILES:\s+(\S+.tar.gz)', str(line).strip())
                     if match:
                         remote_file_path = match.group(1)
@@ -3149,7 +3877,7 @@ class Net(object):
             else:
                 # Get the remote file name from the output data.
                 remote_file_path = ""
-                for line in output.strip().split("\n"):
+                for line in output.strip().split(nl):
                     match = re.match(r'SAI-REDIS-FILE:\s+(/etc/spytest/sairedis.txt)', str(line).strip())
                     if match:
                         remote_file_path = match.group(1)
@@ -3176,11 +3904,13 @@ class Net(object):
         return True
 
     def generate_tech_support(self, devname, name):
-        for retry in range(2):
+        if self.wa.has_get_tech_support("none"):
+            return
+        for _ in range(2):
             try:
                 self._apply_remote(devname, "get-tech-support", [name])
                 break
-            except:
+            except Exception:
                 continue
 
     def save_sairedis(self, devname, phase, name):
@@ -3192,7 +3922,7 @@ class Net(object):
 
         if phase == "pre-module-prolog":
             if self.cfg.save_sairedis in ["module"]:
-                self._apply_remote(devname, "sairedis", ["clean", name])
+                self._apply_remote(devname, "sairedis", ["clear", name])
         elif phase == "post-module-epilog":
             if self.cfg.save_sairedis in ["module"]:
                 self._apply_remote(devname, "sairedis", ["read", name])
@@ -3203,16 +3933,30 @@ class Net(object):
             if self.cfg.save_sairedis in ["test"]:
                 self._apply_remote(devname, "sairedis", ["read", name])
 
-    def do_memory_checks(self, devname, phase, name):
-        if self.cfg.memory_check in ["none"]:
-            return
+    def extract_int(self, output, prefix, suffix, default=0):
+        try:
+            for line in output.split("\n"):
+                match = r"\s*{}\s*(\d+)\s*{}".format(prefix, suffix)
+                z0 = re.match(match, line)
+                if z0: return int(z0.groups()[0])
+        except Exception: pass
+        return default
 
-        if phase == "pre-module-prolog":
-            show = True
+    def do_memory_checks(self, devname, phase, name):
+        MemAvailable, CpuUtilization = 0, 0.0
+
+        if self.cfg.memory_check in ["none"]:
+            return [MemAvailable, CpuUtilization]
+        elif phase == "pre-module":
+            show = bool(self.cfg.memory_check in ["module"])
+        elif phase == "post-module":
+            show = bool(self.cfg.memory_check in ["module"])
+        elif phase == "pre-module-prolog":
+            show = bool(self.cfg.memory_check in ["module"])
         elif phase == "post-module-prolog":
-            show = True
+            show = bool(self.cfg.memory_check in ["module"])
         elif phase == "post-module-epilog":
-            show = True
+            show = bool(self.cfg.memory_check in ["module"])
         elif phase == "pre-test":
             show = bool(self.cfg.memory_check in ["test"])
         elif phase == "post-test":
@@ -3227,25 +3971,32 @@ class Net(object):
             if devname in self.memory_checks:
                 file_path = self.memory_checks[devname]
             else:
-                file_path = self.make_local_file_path(devname, "", "all.log",
-                                                      "memory_utilization")
+                file_path = self.make_local_file_path(devname, "", "all.log", "memory_utilization")
                 self.memory_checks[devname] = file_path
                 utils.write_file(file_path, "")
             utils.write_file(file_path, "\n================ {} {} =================\n".format(phase, name), "a")
             output = self._exec(devname, "cat /proc/meminfo", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
             utils.write_file(file_path, "\n --------------------------------\n", "a")
+            MemAvailable = self.extract_int(output, "MemAvailable:", "kB")
             output = self._exec(devname, "docker stats -a --no-stream", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
             utils.write_file(file_path, "\n --------------------------------\n", "a")
             output = self._exec(devname, "top -b -n 1", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
             utils.write_file(file_path, "\n --------------------------------\n", "a")
+            for line in output.split("\n"):
+                z = re.match(r"\s*%Cpu\(s\):.*,\s+([-+]?\d*\.\d+|\d+)\s+id,\s+", line)
+                if z:
+                    try: CpuUtilization = round(100.0 - float(z.groups()[0]), 2)
+                    except Exception: CpuUtilization = 0.0
+                    break
             output = self._exec(devname, "pstree -p", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
             utils.write_file(file_path, "\n --------------------------------\n", "a")
             output = self._exec(devname, "free -mlh", mode="normal-user", skip_error_check=True, trace_dut_log=1)
             utils.write_file(file_path, output, "a")
+        return [MemAvailable, CpuUtilization]
 
     def do_syslog_checks(self, devname, phase, name):
         if self.cfg.syslog_check in ["none"]:
@@ -3267,26 +4018,18 @@ class Net(object):
             lvl = "none"
         elif phase == "post-test":
             lvl = self.cfg.syslog_check
+        elif phase.startswith("module_topology_check_"):
+            lvl = self.cfg.syslog_check
         else:
             lvl = "none"
 
         output = self._apply_remote(devname, "syslog-check", [lvl, phase, name])
-        syslog_levels = self.wa.syslog_levels
-        if lvl in syslog_levels:
-            index = syslog_levels.index(lvl)
-            needed = "|".join(syslog_levels[:index+1])
-            regex = r"^\S+\s+\d+\s+\d+:\d+:\d+(\.\d+){{0,1}}\s+\S+\s+({})\s+"
-            cre = re.compile(regex.format(needed.upper()))
-            for line in output.split("\n"):
-                if cre.search(line):
-                    self.syslogs[devname].append([devname, msgtype, line])
-
+        dut_name = self._get_dut_label(devname)
         access = self._get_dev_access(devname)
-        if access["filemode"]:
-            if lvl != "none":
-                val = random.randint(1, 1000)
-                val = len(self.syslogs[devname])
-                self.syslogs[devname].append([devname, msgtype, "test syslog {}".format(val)])
+        entries = syslog.parse(lvl, msgtype, dut_name, output, access["filemode"])
+        failmsg = syslog.store(self.syslogs[devname], entries)
+        if failmsg is not None:
+            self.wa.report_dut_fail("unexpected_syslog_msg", failmsg)
 
         return output
 
@@ -3306,27 +4049,25 @@ class Net(object):
 
     def do_audit(self, phase, dut, func_name, res):
         if phase != "post-test": return
-        if self.tc_get_tech_support and self.cfg.get_tech_support in ["onerror"]:
+        if self.tc_get_tech_support and self.wa.has_get_tech_support("onerror"):
             self.generate_tech_support(dut, func_name)
-            self._apply_remote(dut, "init-clean", ["none", self.cfg.get_tech_support, self.cfg.clear_tech_support])
-        elif self.cfg.get_tech_support in ["always"]:
+            self._init_clean(dut, False, True)
+        elif self.wa.has_get_tech_support("always"):
             self.generate_tech_support(dut, func_name)
-            self._apply_remote(dut, "init-clean", ["none", self.cfg.get_tech_support, self.cfg.clear_tech_support])
-        elif self.cfg.get_tech_support in ["onfail"] and \
-           res.lower() in ["fail", "xfail", "dutfail"]:
+            self._init_clean(dut, False, True)
+        elif self.wa.has_get_tech_support("onfail") and res.lower() in ["fail", "xfail", "dutfail"]:
             self.generate_tech_support(dut, func_name)
-            self._apply_remote(dut, "init-clean", ["none", self.cfg.get_tech_support, self.cfg.clear_tech_support])
+            self._init_clean(dut, False, True)
 
-        if self.tc_fetch_core_files and self.cfg.fetch_core_files in ["onerror"]:
+        if self.tc_fetch_core_files and self.wa.has_fetch_core_files("onerror"):
             self._apply_remote(dut, "fetch-core-files", [func_name])
-            self._apply_remote(dut, "init-clean", [self.cfg.fetch_core_files, "none", self.cfg.clear_tech_support])
-        elif self.cfg.fetch_core_files in ["always"]:
+            self._init_clean(dut, True, False)
+        elif self.wa.has_fetch_core_files("always"):
             self._apply_remote(dut, "fetch-core-files", [func_name])
-            self._apply_remote(dut, "init-clean", [self.cfg.fetch_core_files, "none", self.cfg.clear_tech_support])
-        elif self.cfg.fetch_core_files in ["onfail"] and \
-           res.lower() in ["fail", "xfail", "dutfail"]:
+            self._init_clean(dut, True, False)
+        elif self.wa.has_fetch_core_files("onfail") and res.lower() in ["fail", "xfail", "dutfail"]:
             self._apply_remote(dut, "fetch-core-files", [func_name])
-            self._apply_remote(dut, "init-clean", [self.cfg.fetch_core_files, "none", self.cfg.clear_tech_support])
+            self._init_clean(dut, True, False)
 
     def apply_files(self, devname, file_list, method="incremental"):
         """
@@ -3343,6 +4084,10 @@ class Net(object):
                 val_list = [method]
                 val_list.extend(filepath)
                 self._apply_remote(devname, "apply-configs", val_list)
+            elif filepath == "__reboot__":
+                msg = "Applying __reboot__"
+                self.dut_log(devname, msg, lvl=logging.WARNING)
+                self.reboot(devname, skip_port_wait=True)
             elif filepath.endswith('.cmds'):
                 msg = "Applying commands from {}".format(filepath)
                 self.dut_log(devname, msg)
@@ -3357,32 +4102,12 @@ class Net(object):
         self.set_login_timeout(devname)
 
     def run_script(self, devname, timeout, script_path, *args):
-        """
-        todo: Update Documentation
-        :param dut:
-        :type dut:
-        :param timeout: in secs
-        :type timeout:
-        :param script_path:
-        :type script_path:
-        :return:
-        :rtype:
-        """
         val_list = [timeout, script_path]
         for arg in args:
             val_list.append(arg)
         return self._apply_remote(devname, "run-test", val_list)
 
     def enable_disable_console_debug_msgs(self, devname, flag):
-        """
-        todo: Update Documentation
-        :param devname:
-        :type devname:
-        :param flag:
-        :type flag:
-        :return:
-        :rtype:
-        """
         if flag:
             self._apply_remote(devname, "enable-debug")
         else:
@@ -3399,6 +4124,11 @@ class Net(object):
             return connection_param["mgmt-ip"]
         return connection_param['ip']
 
+    def get_mgmt_ifname(self, devname):
+        devname = self._check_devname(devname)
+        access = self._get_dev_access(devname)
+        return access.get("mgmt_ifname", "eth0")
+
     def get_mgmt_ip(self, devname):
         addr = self._get_mgmt_ip(devname)
         if not addr:
@@ -3406,7 +4136,7 @@ class Net(object):
             try:
                 self._fetch_mgmt_ip(devname)
                 addr = self._get_mgmt_ip(devname)
-            except:
+            except Exception:
                 addr = ""
         return addr
 
@@ -3418,6 +4148,7 @@ class Net(object):
             return ""
 
         ip = self.get_mgmt_ip(devname)
+
         device = dict()
         if not username and not password:
             device = copy.copy(access["connection_param"])
@@ -3441,6 +4172,8 @@ class Net(object):
         msgs = []
         net_connect = self._connect_to_device2(device, 0, msgs)
         if not net_connect:
+            msg = nl.join(msgs)
+            self.dut_log(devname, msg, lvl=logging.WARNING)
             return None
 
         output = []
@@ -3453,7 +4186,10 @@ class Net(object):
                 output.append("Exception: {}".format(e))
 
         net_connect.disconnect()
-        return "\n".join(output)
+        access["last-prompt"] = None
+        output = nl.join(output)
+        self.dut_log(devname, output, lvl=logging.INFO)
+        return output
 
     def exec_remote(self, ipaddress, username, password, scriptpath, wait_factor=2):
         # Check the reachability
@@ -3524,7 +4260,7 @@ class Net(object):
     def change_passwd(self, devname, username, password):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+        cli_prompt = self._get_cli_prompt(devname)
 
         if access["filemode"]:
             return ""
@@ -3532,27 +4268,30 @@ class Net(object):
         err_flag = 0
         self._enter_linux_exit_vtysh(devname)
 
-        delay_factor = 3 # so that --faster-cli is not used
-        prompt_terminator = r"Enter new UNIX password:\s*$|{}\s*$".format(cli_prompt)
-        output = self._send_command(access, "sudo passwd {}".format(username), prompt_terminator, delay_factor=delay_factor)
-        self.logger.debug("OUTPUT: {}".format(output))
-        if re.search("Enter new UNIX password:", output):
-            output = self._send_command(access, password, r"Retype new UNIX password:\s*$", delay_factor=delay_factor)
+        for _ in range(0,3):
+            delay_factor = 3 # so that --faster-cli is not used
+            prompt_terminator = r"Enter new UNIX password:\s*$|{}\s*$".format(cli_prompt)
+            output = self._send_command(access, "sudo passwd {}".format(username), prompt_terminator, delay_factor=delay_factor)
             self.logger.debug("OUTPUT: {}".format(output))
-            if re.search(".*UNIX password:", output):
-                output = self._send_command(access, password, cli_prompt, delay_factor=delay_factor)
+            if re.search("Enter new UNIX password:", output):
+                output = self._send_command(access, password, r"Retype new UNIX password:\s*$", delay_factor=delay_factor)
                 self.logger.debug("OUTPUT: {}".format(output))
-                if not re.search("password updated successfully", output):
+                if re.search(".*NIX password:", output):
+                    output = self._send_command(access, password, cli_prompt, delay_factor=delay_factor)
+                    self.logger.debug("OUTPUT: {}".format(output))
+                    if not re.search("password updated successfully", output):
+                        err_flag = 1
+                else:
                     err_flag = 1
+            elif re.search("does not exist", output):
+                err_flag = 2
             else:
                 err_flag = 1
-        elif re.search("does not exist", output):
-            err_flag = 2
-        else:
-            err_flag = 1
 
-        # Handling for worst case when required prompts didn't match.
-        self._send_command(access, "\n\n\n", cli_prompt)
+            # Handling for worst case when required prompts didn't match.
+            self._send_command(access, "\n\n\n", cli_prompt)
+
+            if err_flag == 0: break
 
         if err_flag == 2:
             return "user not found"
@@ -3586,7 +4325,7 @@ class Net(object):
 
         return self._download_file(access, src_file, dst_file)
 
-    def _run_ansible_script(self, playbook, hosts, username, password, filemode=False):
+    def _run_ansible_script(self, playbook, hosts, username, password, filemode=False, **kwargs):
 
         hosts = utils.make_list(hosts)
 
@@ -3597,11 +4336,11 @@ class Net(object):
             return ""
 
         try: logs_path = self.wa.get_logs_path()
-        except: logs_path = None
+        except Exception: logs_path = None
 
         output = ""
         try:
-            output = ansible_playbook(playbook, hosts, username, password, logs_path)
+            output = ansible_playbook(playbook, hosts, username, password, logs_path, **kwargs)
         except Exception as e:
             self.logger.error(e)
             raise ValueError(e)
@@ -3612,7 +4351,7 @@ class Net(object):
         self.logger.info(output)
         return output
 
-    def ansible_dut(self, devname, playbook):
+    def ansible_dut(self, devname, playbook, **kwargs):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         host = None
@@ -3629,18 +4368,18 @@ class Net(object):
 
         output = ""
         try:
-            output = self._run_ansible_script(playbook, host, username, password, access["filemode"])
-        except:
+            output = self._run_ansible_script(playbook, host, username, password, access["filemode"], **kwargs)
+        except Exception:
             password = access["altpassword"]
-            output = self._run_ansible_script(playbook, host, username, password, access["filemode"])
+            output = self._run_ansible_script(playbook, host, username, password, access["filemode"], **kwargs)
         return output
 
-    def ansible_service(self, service_data, playbook):
+    def ansible_service(self, service_data, playbook, **kwargs):
         host = service_data["ip"]
         username = service_data["username"]
         password = service_data["password"]
 
-        return self._run_ansible_script(playbook, host, username, password, service_data["filemode"])
+        return self._run_ansible_script(playbook, host, username, password, service_data["filemode"], **kwargs)
 
     def _check_dut_state(self, devname):
         devname = self._check_devname(devname)
@@ -3656,28 +4395,49 @@ class Net(object):
 
         # Issue command.
         try:
-            cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+            cli_prompt = self._get_cli_prompt(devname)
             output = self._send_command(access, cmd, cli_prompt, True, 1)
 
             prompt = self._find_prompt(access)
             if prompt == cli_prompt and re.search("^up", output):
                 return True
-        except:
+        except Exception:
             return False
         return False
 
-    def add_addl_auth(self, devname, username, password):
+    def add_addl_auth(self, devname, username, password, reset=False):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
-        if "addl_auth" not in access:
+
+        if "addl_auth" not in access or reset:
             access["addl_auth"] = []
-        access["addl_auth"].append([username, password])
+
+        testbed_auth = access.get("testbed_auth", None)
+        if testbed_auth and isinstance(testbed_auth, list):
+            count = int(len(testbed_auth)/2)
+            for index in range(0, count, 2):
+                tb_username = testbed_auth[index*2]
+                tb_password = testbed_auth[index*2 + 1]
+                found = False
+                for au_username, au_password in access["addl_auth"]:
+                    if tb_username == au_username and tb_password == au_password:
+                        found = True
+                        break
+                if not found:
+                    access["addl_auth"].append([tb_username, tb_password])
+                    #msg = "Auth From Testbed {}/{}".format(tb_username, tb_password)
+                    #self.dut_log(devname, msg)
+
+        if username:
+            access["addl_auth"].append([username, password])
+
         if "connection_param" in access:
             access["connection_param"]["addl_auth"] = access["addl_auth"]
 
     def module_init_start(self, module_max_timeout, fcli, tryssh):
         self.module_start_time = get_timenow()
         self.module_max_timeout = module_max_timeout
+        self.module_max_timeout_triggered = False
         self.fcli = fcli
         self.tryssh = tryssh
         self.tc_start_time = None
@@ -3697,6 +4457,7 @@ class Net(object):
     def function_init_start(self, tc_max_timeout):
         self.module_start_time = None
         self.tc_max_timeout = tc_max_timeout
+        self.tc_max_timeout_triggered = False
         self.tc_get_tech_support = False
         self.tc_fetch_core_files = False
         for devname in self.topo["duts"]:
@@ -3710,13 +4471,9 @@ class Net(object):
                            self._session_close_dut)
 
     def init_per_test(self, devname):
-        devname = self._check_devname(devname)
-        access = self._get_dev_access(devname)
-        if "addl_auth" in access:
-            del access["addl_auth"]
-        if "connection_param" in access:
-            if "addl_auth" in access["connection_param"]:
-                del access["connection_param"]["addl_auth"]
+
+        # remove addl auth
+        self.add_addl_auth(devname, None, None, reset=True)
 
     def set_workarea(self, waobj=None):
         self.wa = waobj
@@ -3761,29 +4518,40 @@ class Net(object):
 
     def set_prev_tc(self, prev_tc=None):
         self.prev_testcase = prev_tc
+        for devname in self.topo["duts"]:
+            access = self._get_dev_access(devname)
+            if access["filemode"]:
+                continue
+            self._set_last_prompt(access, None)
 
     def tg_wait(self, val):
         self.wait(val, True)
 
-    def wait(self, val, is_tg=False):
+    def wait(self, val, is_tg=False, check_max_timeout=True):
         profile.wait(val, is_tg)
         if self.cfg.filemode:
             return
-        self._check_tc_timeout(None, val)
+        if not check_max_timeout:
+            self.orig_time_sleep(val)
+            return
+        self._check_timeout(None, val)
         left = val
         while left > 0:
-            self._check_tc_timeout(None)
+            self._check_timeout(None)
             if left <= 5:
                 self.orig_time_sleep(left)
                 break
             self.orig_time_sleep(5)
             left = left - 5
 
-    def _check_tc_timeout(self, access, add_time=0):
+    def _check_timeout(self, access, add_time=0):
         retval = None
         if self.module_max_timeout and self.module_start_time:
             time_taken = get_elapsed(self.module_start_time, False)
             time_taken = time_taken + add_time
+            if self.module_max_timeout_triggered:
+                # spare somemore time to cleanup
+                time_taken = time_taken + 180
             if time_taken > self.module_max_timeout:
                 msg = "Max time '{}' reached. Exiting the module init"
                 msg = msg.format(self.module_max_timeout)
@@ -3792,12 +4560,16 @@ class Net(object):
                 else:
                     self.logger.error(msg)
                 if self.wa:
+                    self.module_max_timeout_triggered = True
                     self.wa.report_timeout("module_init_max_timeout")
                 sys.exit(0)
             retval = self.module_max_timeout - time_taken
         elif self.tc_max_timeout and self.tc_start_time:
             time_taken = get_elapsed(self.tc_start_time, False)
             time_taken = time_taken + add_time
+            if self.tc_max_timeout_triggered:
+                # spare somemore time to cleanup
+                time_taken = time_taken + 180
             if time_taken > self.tc_max_timeout:
                 msg = "Max time '{}' reached. Exiting the testcase"
                 msg = msg.format(self.tc_max_timeout)
@@ -3806,6 +4578,7 @@ class Net(object):
                 else:
                     self.logger.error(msg)
                 if self.wa:
+                    self.tc_max_timeout_triggered = True
                     self.wa.report_timeout("test_case_max_timeout")
                 sys.exit(0)
             retval = self.tc_max_timeout - time_taken
@@ -3836,7 +4609,7 @@ class Net(object):
 
     def profiling_start(self, msg, max_time):
         self.profile_max_timeout_msg = None
-        left = self._check_tc_timeout(None)
+        left = self._check_timeout(None)
         if left is None:
             return profile.start(msg, data=left)
         if max_time == 0:
@@ -3855,9 +4628,43 @@ class Net(object):
         left = profile.stop(pid)
         self._timeout_cancel(left)
 
+    def open_config(self, dut, template, var={}, action=None, method=None, data=None, json=None, **kwargs):
+        ocType = env.get("SPYTEST_OPENCONFIG_API", "GNMI").lower()
+        if ocType == 'gnmi':
+            path, action, data = toGNMI(template, var, action or method, data=data or json)
+            return self.gnmi_send(dut, path, action=action, data=data, **kwargs)
+        path, method, json = toRest(template, var, method or action, json=json or data)
+        return self.rest_send(dut, api=path, method=method, json=json, retAs='', verify=False, **kwargs)
+
+    def gnmi_init(self, dut, cached=False):
+        if not cached:
+            self._fetch_mgmt_ip(dut)
+        ip = self.get_mgmt_ip(dut)
+        self.gnmi[dut].reinit(ip)
+
+    def gnmi_create(self, dut, path, data, *args, **kwargs):
+        return self.gnmi[dut].create(path, *args, data=data, **kwargs)
+
+    def gnmi_update(self, dut, path, data, *args, **kwargs):
+        return self.gnmi[dut].update(path, *args, data=data, **kwargs)
+
+    def gnmi_replace(self, dut, path, data, *args, **kwargs):
+        return self.gnmi[dut].replace(path, *args, data=data, **kwargs)
+
+    def gnmi_delete(self, dut, path, *args, **kwargs):
+        return self.gnmi[dut].delete(path, *args, **kwargs)
+
+    def gnmi_get(self, dut, path, *args, **kwargs):
+        return self.gnmi[dut].get(path, *args, **kwargs)
+
+    def gnmi_send(self, dut, path, *args, **kwargs):
+        return self.gnmi[dut].send(path, *args, **kwargs)
+
     def rest_init(self, dut, username, password, altpassword, cached=False):
         access = self._get_dev_access(dut)
         access["curr_pwd"] = None
+        if not self.wa.is_feature_supported("rest", dut):
+            return
         if not cached:
             self._fetch_mgmt_ip(dut)
         ip = self._get_mgmt_ip(dut)
@@ -3890,6 +4697,9 @@ class Net(object):
     def rest_apply(self, dut, data):
         return self.rest[dut].apply(data)
 
+    def rest_send(self, dut, api='', method='get', params=None, data=None, retAs='json', **kwargs):
+        return self.rest[dut].send(dut,  method=method, api=api, params=params, data=data, retAs=retAs, **kwargs)
+
     def get_credentials(self, dut):
         access = self._get_dev_access(dut)
         retList = [access.get("username")]
@@ -3900,17 +4710,27 @@ class Net(object):
     def _parse_cli_opts(self, **kwargs):
         opts = SpyTestDict()
         opts.ctype = kwargs.get("type", "click")
+        opts.exec_mode = kwargs.get("exec_mode", None)
+        if opts.ctype == "click" and opts.exec_mode is not None:
+            if opts.exec_mode.startswith("mgmt"):
+                opts.ctype = "klish"
+            elif opts.exec_mode.startswith("vtysh"):
+                opts.ctype = "vtysh"
+            elif opts.exec_mode.startswith("lldp"):
+                opts.ctype = "lldp"
         opts.skip_tmpl = kwargs.get("skip_tmpl", False)
         opts.skip_error_check = kwargs.get("skip_error_check", False)
         opts.expect_reboot = kwargs.get("expect_reboot", False)
+        opts.expect_ipchange = kwargs.get("expect_ipchange", False)
         opts.max_time = kwargs.get("max_time", 0)
         opts.sudo = kwargs.get("sudo", None)
         if opts.sudo is None:
             opts.sudo = True if opts.ctype == "click" else False
-        opts.sep = ";" if opts.ctype == "click" else "\n"
+        opts.sep = ";" if opts.ctype == "click" else nl
         opts.conf = kwargs.get("conf", True)
         opts.confirm = kwargs.get("confirm", None)
         opts.faster_cli = bool(kwargs.get("faster_cli", True))
+        opts.trace_log = int(kwargs.get("trace_log",3))
         opts.delay_factor = int(math.ceil((opts.max_time * 1.0) / 100))
         opts.cmds_delay_factor = 3 if opts.delay_factor <=3 else opts.delay_factor
         return opts
@@ -3941,6 +4761,8 @@ class Net(object):
                 if is_show:
                     if current_mode == "mgmt-user":
                         return ("", op, current_mode)
+                    if cmd.startswith("do "):
+                        return ("", op, "mgmt-any-config")
                     return ("do ", op, "mgmt-any-config")
                 else:
                     if current_mode == "mgmt-user":
@@ -3963,6 +4785,8 @@ class Net(object):
                 if is_show:
                     if current_mode == "vtysh-user":
                         return ("", op, current_mode)
+                    if cmd.startswith("do "):
+                        return ("", op, "vtysh-any-config")
                     return ("do ", op, "vtysh-any-config")
                 else:
                     if current_mode == "vtysh-user":
@@ -4006,86 +4830,42 @@ class Net(object):
     def parse_show(self, devname, cmd, output):
         return self._tmpl_apply(devname, cmd, output)
 
-    def show_new(self, devname, cmd, **kwargs):
+    def show(self, devname, cmd, **kwargs):
         opts = self._parse_cli_opts(**kwargs)
-        (prefix, op, expect_mode) = self._change_mode(devname, True, cmd, opts)
+
+        # switch to console if the command can cause IP change
+        if opts.expect_ipchange: self._tryssh_switch(devname)
 
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         prompts = access["prompts"]
-        if access["filemode"]:
-            self.dut_log(devname, cmd)
-            return ""
+        ifname_type = self.wa.get_cfg_ifname_type(devname)
 
-        if expect_mode in ["unknown-mode", "unknown-prompt"]:
-            msg = "Unknown prompt/mode."
-            self.dut_log(devname, msg, lvl=logging.ERROR)
-            raise ValueError(msg)
+        prefix = ""
+        if opts.exec_mode:
+            frommode = self.change_prompt(devname, opts.exec_mode, **kwargs)
+            if frommode in ["unknown-mode", "unknown-prompt"]:
+                msg = "Unable to change the prompt mode to {}.".format(opts.exec_mode)
+                self.dut_log(devname, msg, lvl=logging.ERROR)
+                raise ValueError(msg)
+            expected_prompt = prompts.get_prompt_for_mode(frommode, ifname_type)
+            if frommode not in prompts.do_exclude_prompts:
+                if not cmd.startswith("do "):
+                    prefix = "do "
+        else:
+            (prefix, _, expect_mode) = self._change_mode(devname, True, cmd, opts)
+            if expect_mode in ["unknown-mode", "unknown-prompt"]:
+                msg = "Unknown prompt/mode."
+                self.dut_log(devname, msg, lvl=logging.ERROR)
+                raise ValueError(msg)
+            expected_prompt = prompts.get_prompt_for_mode(expect_mode, ifname_type)
 
         actual_cmd = cmd
-        if opts.ctype == "klish" and not re.search(r"\| no-more$", cmd.strip()):
-            cmd = cmd + " | no-more"
+        if opts.ctype == "klish" and not re.search(no_more_regex, cmd.strip()):
+            if cmd.startswith("show ") or cmd.startswith("do show "):
+                cmd = cmd + no_more_suffix
 
         cmd = prefix + cmd
-
-        expected_prompt = prompts.get_prompt_for_mode(expect_mode)
-
-        if opts.expect_reboot:
-            # adjust delay and prompt when expecting reboot
-            expect = "|".join([expected_prompt, regex_login])
-            opts.delay_factor = utils.max(6, opts.delay_factor)
-            try:
-                self._tryssh_switch(devname)
-                output = self._send_command(access, cmd, expect, True,
-                                            ufcli=opts.faster_cli,
-                                            delay_factor=opts.delay_factor)
-                prompt = self._find_prompt(access)
-                if prompt != expected_prompt:
-                    self._enter_linux(devname, prompt)
-                    self.do_post_reboot(devname)
-                    self._tryssh_switch(devname, True)
-                else:
-                    self._tryssh_switch(devname, False)
-            except Exception as exp:
-                self._tryssh_switch(devname, False)
-                raise exp
-        else:
-            output = self._send_command(access, cmd, expected_prompt,
-                        opts.skip_error_check, ufcli=opts.faster_cli,
-                        delay_factor=opts.delay_factor)
-
-        if opts.skip_tmpl:
-            return output
-
-        return self._tmpl_apply(devname, actual_cmd, output)
-
-    def config_new(self, devname, cmd, **kwargs):
-        opts = self._parse_cli_opts(**kwargs)
-        cmd_list = self._build_cmd_list(cmd, opts)
-        if not cmd_list: return ""
-
-        (prefix, op, expect_mode) = self._change_mode(devname, False, cmd, opts)
-
-        devname = self._check_devname(devname)
-        access = self._get_dev_access(devname)
-        prompts = access["prompts"]
-
-        if expect_mode in ["unknown-mode", "unknown-prompt"]:
-            msg = "Unknown prompt/mode."
-            self.dut_log(devname, msg, lvl=logging.ERROR)
-            raise ValueError(msg)
-
-        if len(cmd_list) > 10 and opts.ctype == "click":
-            self._enter_linux_exit_vtysh(devname)
-            # execute the command.
-            cmd_list.insert(0, "#!/bin/bash\n")
-            self._echo_list_to_file(access, cmd_list, "/tmp/config.sh")
-            max_run_time = len(cmd_list) * 2
-            return self.run_script(devname, max_run_time, "/tmp/config.sh")
-
-        # need to revisit if klish support multiple commands
-        expected_prompt = prompts.get_prompt_for_mode(expect_mode)
-        if opts.ctype != "klish": cmd_list = [opts.sep.join(cmd_list)]
 
         # add confirmation prompts if specified
         confirm_prompts = []
@@ -4097,7 +4877,106 @@ class Net(object):
             confirm_prompts.append(r"(.*Y\/N\](\:)*\s*)$")
             all_prompts.extend(confirm_prompts)
         expected_prompt_with_confirm = "|".join(all_prompts)
-        expected_prompt_re = re.compile(expected_prompt)
+
+        if opts.confirm:
+            op_lines = []
+            op = self._send_command(access, cmd, expected_prompt_with_confirm,
+                                    opts.skip_error_check, ufcli=opts.faster_cli,
+                                    trace_dut_log=opts.trace_log,
+                                    delay_factor=opts.delay_factor)
+            op_lines.append(op)
+            if re.match(r".*y\/n\]\:?\s*$", op, re.IGNORECASE | re.DOTALL):
+                if opts.expect_reboot:
+                    op = self._send_cmd_expect_reboot(devname, str(opts.confirm), expected_prompt, opts)
+                    op_lines.append(op)
+                else:
+                    op = self._send_command(access, str(opts.confirm), expected_prompt,
+                                            opts.skip_error_check, new_line=False,
+                                            ufcli=opts.faster_cli,
+                                            trace_dut_log=opts.trace_log,
+                                            delay_factor=opts.delay_factor)
+                    op_lines.append(op)
+                    op = self._send_command(access, "", expected_prompt,
+                                            opts.skip_error_check, new_line=True,
+                                            ufcli=opts.faster_cli,
+                                            trace_dut_log=opts.trace_log,
+                                            delay_factor=opts.delay_factor)
+                    op_lines.append(op)
+            output = nl.join(op_lines)
+        elif opts.expect_reboot:
+            output = self._send_cmd_expect_reboot(devname, cmd, expected_prompt, opts)
+        else:
+            output = self._send_command(access, cmd, expected_prompt,
+                                        opts.skip_error_check, ufcli=opts.faster_cli,
+                                        trace_dut_log=opts.trace_log,
+                                        delay_factor=opts.delay_factor)
+
+        # switch back from console
+        if opts.expect_ipchange: self._tryssh_switch(devname, True, True)
+
+        output = self._fill_sample_data(devname, cmd, opts.skip_error_check,
+                                        opts.skip_tmpl, output)
+        if opts.skip_tmpl:
+            return output
+
+        return self._tmpl_apply(devname, actual_cmd, output)
+
+    def config(self, devname, cmd, **kwargs):
+        opts = self._parse_cli_opts(**kwargs)
+        cmd_list = self._build_cmd_list(cmd, opts)
+        if not cmd_list: return ""
+
+        devname = self._check_devname(devname)
+        access = self._get_dev_access(devname)
+        prompts = access["prompts"]
+        ifname_type = self.wa.get_cfg_ifname_type(devname)
+
+        if access["filemode"]:
+            self.dut_log(devname, cmd)
+            return ""
+
+        # switch to console if the command can cause IP change
+        if opts.expect_ipchange: self._tryssh_switch(devname)
+
+        if opts.exec_mode:
+            frommode = self.change_prompt(devname, opts.exec_mode, **kwargs)
+            if frommode in ["unknown-mode", "unknown-prompt"]:
+                msg = "Unable to change the prompt mode to {}.".format(opts.exec_mode)
+                self.dut_log(devname, msg, lvl=logging.ERROR)
+                raise ValueError(msg)
+            expected_prompt = prompts.get_prompt_for_mode(frommode, ifname_type)
+        else:
+            (_, op, expect_mode) = self._change_mode(devname, False, cmd, opts)
+            if expect_mode in ["unknown-mode", "unknown-prompt"]:
+                msg = "Unknown prompt/mode."
+                self.dut_log(devname, msg, lvl=logging.ERROR)
+                raise ValueError(msg)
+            # need to revisit if klish support multiple commands
+            expected_prompt = prompts.get_prompt_for_mode(expect_mode, ifname_type)
+
+        if not opts.confirm and not opts.expect_reboot and not opts.expect_ipchange:
+            if len(cmd_list) > 10 and opts.ctype == "click":
+                self._enter_linux_exit_vtysh(devname)
+                # execute the command.
+                cmd_list.insert(0, "#!/bin/bash\n")
+                self._echo_list_to_file(access, cmd_list, "/tmp/config.sh")
+                max_run_time = len(cmd_list) * 2
+                return self.run_script(devname, max_run_time, "/tmp/config.sh")
+
+            if env.get("SPYTEST_SPLIT_COMMAND_LIST", "0") == "0":
+                if opts.ctype != "klish": cmd_list = [opts.sep.join(cmd_list)]
+
+        # add confirmation prompts if specified
+        confirm_prompts = []
+        all_prompts = [expected_prompt]
+        if opts.confirm:
+            confirm_prompts.append(r"(.*y\/n\](\:)*\s*)$")
+            confirm_prompts.append(r"(.*y\/N\](\:)*\s*)$")
+            confirm_prompts.append(r"(.*Y\/n\](\:)*\s*)$")
+            confirm_prompts.append(r"(.*Y\/N\](\:)*\s*)$")
+            all_prompts.extend(confirm_prompts)
+        expected_prompt_with_confirm = "|".join(all_prompts)
+        #expected_prompt_re = re.compile(expected_prompt)
 
         # execute individual commands
         op_lines = []
@@ -4105,6 +4984,7 @@ class Net(object):
             if opts.confirm:
                 op = self._send_command(access, l_cmd, expected_prompt_with_confirm,
                                         opts.skip_error_check, ufcli=opts.faster_cli,
+                                        trace_dut_log=opts.trace_log,
                                         delay_factor=opts.delay_factor)
 
                 # do we really get list?
@@ -4124,22 +5004,87 @@ class Net(object):
                 #if expected_prompt_re.match(op2): continue
 
                 # matched with the confirmation prompt
-                op = self._send_command(access, str(opts.confirm), expected_prompt,
-                                        opts.skip_error_check, new_line=False,
-                                        ufcli=opts.faster_cli,
-                                        delay_factor=opts.delay_factor)
-                op_lines.append(op)
-                op = self._send_command(access, "", expected_prompt,
-                                        opts.skip_error_check, new_line=True,
-                                        ufcli=opts.faster_cli,
-                                        delay_factor=opts.delay_factor)
+                if re.match(r".*y\/n\]\:?\s*$", op, re.IGNORECASE|re.DOTALL):
+                    if opts.expect_reboot:
+                        op = self._send_cmd_expect_reboot(devname, str(opts.confirm), expected_prompt, opts)
+                        op_lines.append(op)
+                    else:
+                        op = self._send_command(access, str(opts.confirm), expected_prompt,
+                                                opts.skip_error_check, new_line=False,
+                                                ufcli=opts.faster_cli,
+                                                trace_dut_log=opts.trace_log,
+                                                delay_factor=opts.delay_factor)
+                        op_lines.append(op)
+                        op = self._send_command(access, "", expected_prompt,
+                                                opts.skip_error_check, new_line=True,
+                                                ufcli=opts.faster_cli,
+                                                trace_dut_log=opts.trace_log,
+                                                delay_factor=opts.delay_factor)
+                        op_lines.append(op)
+            elif opts.expect_reboot:
+                op = self._send_cmd_expect_reboot(devname, l_cmd, expected_prompt, opts)
                 op_lines.append(op)
             else:
                 op = self._send_command(access, l_cmd, expected_prompt,
-                        opts.skip_error_check, ufcli=opts.faster_cli,
-                        delay_factor=opts.delay_factor)
+                                        opts.skip_error_check, ufcli=opts.faster_cli,
+                                        trace_dut_log=opts.trace_log,
+                                        delay_factor=opts.delay_factor)
                 op_lines.append(op)
-        return "\n".join(op_lines)
+
+        # switch back from console
+        if opts.expect_ipchange: self._tryssh_switch(devname, True, True)
+
+        return nl.join(op_lines)
+
+    def _send_cmd_expect_reboot(self, devname, cmd, expected_prompt, opts, new_line=True):
+        devname = self._check_devname(devname)
+        access = self._get_dev_access(devname)
+        output = ""
+
+        # adjust delay and prompt when expecting reboot
+        expect = "|".join([expected_prompt, regex_login, regex_login_anywhere])
+        opts.delay_factor = utils.max(6, opts.delay_factor)
+
+        skip_waiting = False
+        exclude_cmds = ["show", "sudo show", "do show", "sudo ztp status"]
+        for pattern in exclude_cmds:
+            if cmd.startswith(pattern):
+                skip_waiting = True
+
+        try:
+            self._tryssh_switch(devname)
+            cmd_starttime = get_timenow()
+            output = self._send_command(access, cmd, expect, True,
+                                    ufcli=opts.faster_cli,
+                                    trace_dut_log=opts.trace_log,
+                                    delay_factor=opts.delay_factor)
+            cmd_timetaken = get_elapsed(cmd_starttime, False)
+            prompt = None
+            user_mode = self._get_cli_prompt(devname)
+            if expected_prompt.replace("\\", "") in output:
+                prompt = expected_prompt
+            if user_mode.replace("\\", "") in output:
+                prompt = user_mode
+            if not prompt:
+                prompt = self._find_prompt(access)
+            if not skip_waiting:
+                if (prompt == expected_prompt or prompt == user_mode) and cmd_timetaken < 100:
+                    msg = "Identified the same/user prompt '{0}' or '{1}' with in '{2}' secs."
+                    msg = msg.format(expected_prompt, user_mode, cmd_timetaken)
+                    msg = msg + " So waiting for a static period of 5 mins."
+                    self.dut_log(devname, msg, lvl=logging.WARNING)
+                    self.wait(300)
+                    prompt = self._find_prompt(access)
+            if prompt != expected_prompt:
+                self._enter_linux(devname, prompt)
+                self.do_post_reboot(devname)
+                self._tryssh_switch(devname, True)
+            else:
+                self._tryssh_switch(devname, False)
+        except Exception as exp:
+            self._tryssh_switch(devname, False)
+            raise exp
+        return output
 
     def exec_ssh_remote_dut(self, devname, ipaddress, username, password, command=None, timeout=30):
         devname = self._check_devname(devname)
@@ -4153,7 +5098,7 @@ class Net(object):
 
         check_cmd = "which sshpass"
         update_install_cmd = "sudo apt-get update;sudo apt-get -f install -y sshpass"
-        cli_prompt = self._get_param(devname, "normal-user-cli-prompt")
+        cli_prompt = self._get_cli_prompt(devname)
 
         # Check if sshpass exists, if not update and install
         output = self._send_command(access, check_cmd, cli_prompt,
@@ -4162,7 +5107,7 @@ class Net(object):
         if "sshpass" not in output:
             output = self._send_command(access, update_install_cmd, cli_prompt, ufcli=False,
                                         skip_error_check=True)
-            self.dut_log(devname, "Command '{}' Output: '{}'.".format(check_cmd, update_install_cmd))
+            self.dut_log(devname, "Command '{}' Output: '{}'.".format(check_cmd, output))
 
         # Construct the sshpass command.
         exec_command = "sshpass -p '{}' ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout={} {}@{} {}"
@@ -4178,13 +5123,12 @@ class Net(object):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
-        if access["filemode"]:
-            return [False, 0, 0, [], []]
+        #if access["filemode"]:
+            #return [False, 0, 0, [], []]
 
         msg = "Using script: script({})".format(scriptname)
         self.logger.info(msg)
 
-        output = ""
         data = None
         script_module = os.path.splitext(os.path.basename(scriptname))[0]
         try:
@@ -4210,6 +5154,7 @@ class Net(object):
         confirmation_mappings = cmd_mapfile_data.confirmation_mappings if "confirmation_mappings" in cmd_mapfile_data else SpyTestDict()
         non_config_mode_mappings = cmd_mapfile_data.non_config_mode_mappings if "non_config_mode_mappings" in cmd_mapfile_data else SpyTestDict()
         ignore_commands = cmd_mapfile_data.ignore_commands if "ignore_commands" in cmd_mapfile_data else SpyTestDict()
+        skip_patterns = cmd_mapfile_data.skip_patterns if "skip_patterns" in cmd_mapfile_data else []
 
         msg = "Using autogen params file: params_file({})".format(autogen_params_file)
         self.logger.info(msg)
@@ -4236,7 +5181,7 @@ class Net(object):
             all_params.update(params_mapfile_data)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
         error_patterns.extend([".*No such file or directory.*", ".*can't open file .*"])
 
@@ -4246,6 +5191,7 @@ class Net(object):
             tb_vars["connected_ports"].append(each_link[0])
         tb_vars["free_ports"] = self.wa.get_free_ports(devname)
         tb_vars["all_ports"] = self.wa.get_all_ports(devname)
+        tb_vars["free_port_alias"] = self.wa.get_other_names(devname, tb_vars["free_ports"])
 
         uicli = UICLI(self.logger, tb_vars, script_module)
 
@@ -4284,7 +5230,7 @@ class Net(object):
                 all_step_results = []
                 for changed_step in changed_steps:
                     single_steps_results = self._execute_uicli_step(uicli, devname, changed_step, error_patterns,
-                                 ignore_commands, confirmation_mappings, non_config_mode_mappings, missing_actions_cfg_cmds)
+                                 ignore_commands, skip_patterns, confirmation_mappings, non_config_mode_mappings, missing_actions_cfg_cmds)
                     #uicli.uicli_log(",".join(single_steps_results))
                     all_step_results.extend(single_steps_results)
 
@@ -4321,7 +5267,7 @@ class Net(object):
 
         return [True, pass_count, fail_count, passed_list, failed_list]
 
-    def _execute_uicli_step(self, uicli, devname, stepentry, error_patterns, ignore_commands,
+    def _execute_uicli_step(self, uicli, devname, stepentry, error_patterns, ignore_commands, skip_patterns,
                             confirmation_mappings, non_config_mode_mappings, missing_actions_cfg_cmds):
         steps_results = []
         cfg_cmds = []
@@ -4370,8 +5316,8 @@ class Net(object):
                         is_show_cmd = False
                         if config_step_cmd.startswith("show"):
                             is_show_cmd = True
-                            if not re.search(r"\| no-more$", config_step_cmd.strip()):
-                                config_step_cmd = config_step_cmd + " | no-more"
+                            if not re.search(no_more_regex, config_step_cmd.strip()):
+                                config_step_cmd = config_step_cmd + no_more_suffix
 
                         cfg_cmds.append(config_step_cmd)
                         current_cmd = config_step_cmd
@@ -4390,17 +5336,18 @@ class Net(object):
 
                         #import pdb; pdb.set_trace()
                         #try:
-                        #    output = self.config_new(devname, config_step_cmd, type="klish",
+                        #    output = self.config(devname, config_step_cmd, type="klish",
                         #                             skip_error_check=True, conf=is_step_conf)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
-                        output = self.config_new(devname, current_cmd, type="klish",
+                        output = self.config(devname, current_cmd, type="klish",
                                                  skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
 
                         hndl_after_cmd = self._get_handle(devname)
 
@@ -4438,19 +5385,8 @@ class Net(object):
                                     break
                         else:
                             found_error = False
-                            #skip_patterns = [".*Error: Entry not found.*", ".*Error: OID info not found in.*", ".*Error: Exceeds.*"]
-                            skip_patterns = [".*Error: Entry not found.*", ".*Error: OID info not found in.*", ".*Error: Exceeds.*",
-                                             ".*Error: Invalid VLAN.*", ".*Error: mclag not configured.*",
-                                             ".*Error: L3 Configuration exists for Interface.*", ".*Error:.*It's not a L2 interface.*",
-                                             ".*Error: Not supported prefix length.*", ".*Error: Untagged VLAN.*configuration.*exist for Interface:.*",
-                                             ".*Error: Priority value should be multiple of.*", ".*Error: PortChannel does not exist:.*", ".*Error: Invalid PortChannel:.*",
-                                             ".*Error: This object is not supported in this build.*", ".*Error: This object is not supported in this platform.*",
-                                             ".*Error: Retrieving data from VLAN table for VLAN:.*", ".*Error: Neighbor.*not found.*",
-                                             ".*Error: Retrieving data from LOOPBACK_INTERFACE table for Loopback:.*",
-                                             ".*Error: Fallback option cannot be configured for an already existing PortChannel:.*",
-                                             ".*Error: Cannot configure Mode for an existing PortChannel.*"]
                             for err_patt in error_patterns:
-                                if (is_show_cmd and re.search(".*Error:.*", err_patt)):
+                                if (config_step_isvalid and is_show_cmd and re.search(".*Error:.*", err_patt)):
                                     continue
                                 is_skippable = False
                                 for skip_patt in skip_patterns:
@@ -4510,8 +5446,8 @@ class Net(object):
                         is_show_cmd = False
                         if config_step_cmd.startswith("show"):
                             is_show_cmd = True
-                            if not re.search(r"\| no-more$", config_step_cmd.strip()):
-                                config_step_cmd = config_step_cmd + " | no-more"
+                            if not re.search(no_more_regex, config_step_cmd.strip()):
+                                config_step_cmd = config_step_cmd + no_more_suffix
 
                         cfg_cmds.append(config_step_cmd)
                         current_cmd = config_step_cmd
@@ -4530,17 +5466,18 @@ class Net(object):
 
                         #import pdb; pdb.set_trace()
                         #try:
-                        #    output = self.config_new(devname, config_step_cmd, type="klish",
+                        #    output = self.config(devname, config_step_cmd, type="klish",
                         #                             skip_error_check=True, conf=is_step_conf)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
-                        output = self.config_new(devname, current_cmd, type="klish",
+                        output = self.config(devname, current_cmd, type="klish",
                                                  skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
 
                         hndl_after_cmd = self._get_handle(devname)
 
@@ -4578,19 +5515,8 @@ class Net(object):
                                     break
                         else:
                             found_error = False
-                            #skip_patterns = [".*Error: Entry not found.*", ".*Error: OID info not found in.*", ".*Error: Exceeds.*"]
-                            skip_patterns = [".*Error: Entry not found.*", ".*Error: OID info not found in.*", ".*Error: Exceeds.*",
-                                             ".*Error: Invalid VLAN.*", ".*Error: mclag not configured.*",
-                                             ".*Error: L3 Configuration exists for Interface.*", ".*Error:.*It's not a L2 interface.*",
-                                             ".*Error: Not supported prefix length.*", ".*Error: Untagged VLAN.*configuration.*exist for Interface:.*",
-                                             ".*Error: Priority value should be multiple of.*", ".*Error: PortChannel does not exist:.*", ".*Error: Invalid PortChannel:.*",
-                                             ".*Error: This object is not supported in this build.*", ".*Error: This object is not supported in this platform.*",
-                                             ".*Error: Retrieving data from VLAN table for VLAN:.*", ".*Error: Neighbor.*not found.*",
-                                             ".*Error: Retrieving data from LOOPBACK_INTERFACE table for Loopback:.*",
-                                             ".*Error: Fallback option cannot be configured for an already existing PortChannel:.*",
-                                             ".*Error: Cannot configure Mode for an existing PortChannel.*"]
                             for err_patt in error_patterns:
-                                if (is_show_cmd and re.search(".*Error:.*", err_patt)):
+                                if (config_step_isvalid and is_show_cmd and re.search(".*Error:.*", err_patt)):
                                     continue
                                 is_skippable = False
                                 for skip_patt in skip_patterns:
@@ -4642,10 +5568,13 @@ class Net(object):
                             action_matches = []
 
                         skip_tmpl_value = False
-                        for match in action_matches:
-                            if not isinstance(match, dict):
-                                skip_tmpl_value = True
-                                break
+                        if action_matches:
+                            for match in action_matches:
+                                if not isinstance(match, dict):
+                                    skip_tmpl_value = True
+                                    break
+                        else:
+                            skip_tmpl_value = True
 
                         current_cmd = action_step_cmd
 
@@ -4658,17 +5587,34 @@ class Net(object):
 
                         #import pdb; pdb.set_trace()
                         #try:
-                        #    output = self.show_new(devname, action_step_cmd, type="klish",
+                        #    output = self.show(devname, action_step_cmd, type="klish",
                         #                           skip_error_check=True, skip_tmpl=skip_tmpl_value)
-                        #except:
+                        #except Exception:
                         #    pass
                         hndl_before_cmd = self._get_handle(devname)
-                        output = self.show_new(devname, action_step_cmd, type="klish",
-                                               skip_error_check=True, skip_tmpl=True)
+                        if current_cmd.startswith("show"):
+                            output = self.show(devname, current_cmd, type="klish",
+                                                   skip_error_check=True, skip_tmpl=True)
+                        else:
+                            is_step_conf = True
+                            if any(re.match(key, current_cmd) for key in non_config_mode_mappings.keys()):
+                                is_step_conf = False
+
+                            confirm_command = False
+                            if any(re.match(key, current_cmd) for key in confirmation_mappings.keys()):
+                                confirm_command = next((confirmation_mappings.get(key) \
+                                                        for key in confirmation_mappings.keys() if
+                                                        re.match(key, current_cmd)), 'N')
+
+                            output = self.config(devname, current_cmd, type="klish",
+                                                     skip_error_check=True, conf=is_step_conf, confirm=confirm_command)
 
                         if not isinstance(output, list) and re.search("Syntax error:", output):
-                            hndl = self._get_handle(devname)
-                            hndl.send_command_timing("\x03")
+                            if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
+                                hndl = self._get_handle(devname)
+                                hndl.send_command_timing("\x03")
+
+                        output = nl.join(output.split(nl)[:-1])
 
                         if not skip_tmpl_value:
                             output = self._tmpl_apply(devname, action_step_cmd, output)
@@ -4697,7 +5643,7 @@ class Net(object):
                                     if match.strip() != "" and re.search(match, output):
                                         found_match = True
 
-                                if not action_step_isvalid:
+                                if output and not action_step_isvalid:
                                     found_match = not found_match
 
                                 if not found_match:
@@ -4714,7 +5660,7 @@ class Net(object):
                                     found_error = True
                                     break
 
-                            if not action_step_isvalid:
+                            if output and not action_step_isvalid:
                                 found_error = not found_error
 
                             if found_error:
@@ -4735,8 +5681,8 @@ class Net(object):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
-        if access["filemode"]:
-            return [False, 0, 0]
+        #if access["filemode"]:
+            #return [False, 0, 0]
 
         msg = "Using script: script({})".format(scriptname)
         self.logger.info(msg)
@@ -4758,7 +5704,6 @@ class Net(object):
         uicli_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_cli", "json_scripts")
         autogen_params_file = os.path.join(os.path.abspath(uicli_scripts_root), "all_params.json")
 
-        mappings_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "mappings")
         uirest_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts")
         #uirest_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts_test")
 
@@ -4794,7 +5739,7 @@ class Net(object):
             raise ValueError(e)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
 
         tb_vars = SpyTestDict()
@@ -4803,6 +5748,7 @@ class Net(object):
             tb_vars["connected_ports"].append(each_link[0])
         tb_vars["free_ports"] = self.wa.get_free_ports(devname)
         tb_vars["all_ports"] = self.wa.get_all_ports(devname)
+        tb_vars["free_port_alias"] = self.wa.get_other_names(devname, tb_vars["free_ports"])
 
         uirest = UIRest(self.logger, tb_vars)
 
@@ -4997,8 +5943,8 @@ class Net(object):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
 
-        if access["filemode"]:
-            return ""
+        #if access["filemode"]:
+            #return ""
 
         msg = "Using script: script({})".format(scriptname)
         self.logger.info(msg)
@@ -5020,7 +5966,6 @@ class Net(object):
         uicli_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_cli", "json_scripts")
         autogen_params_file = os.path.join(os.path.abspath(uicli_scripts_root), "all_params.json")
 
-        mappings_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_gnmi", "mappings")
         uignmi_scripts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "ui_rest", "json_scripts")
 
         path_args_file = os.path.join(os.path.abspath(uignmi_scripts_root), "path_args.json")
@@ -5055,7 +6000,7 @@ class Net(object):
             raise ValueError(e)
 
         error_patterns = []
-        for err, errinfo in list(access["errors"].items()):
+        for _, errinfo in list(access["errors"].items()):
             error_patterns.append(errinfo.search)
 
         tb_vars = SpyTestDict()
@@ -5064,6 +6009,7 @@ class Net(object):
             tb_vars["connected_ports"].append(each_link[0])
         tb_vars["free_ports"] = self.wa.get_free_ports(devname)
         tb_vars["all_ports"] = self.wa.get_all_ports(devname)
+        tb_vars["free_port_alias"] = self.wa.get_other_names(devname, tb_vars["free_ports"])
 
         uignmi = UIGnmi(self.logger, tb_vars)
 
@@ -5229,51 +6175,46 @@ class Net(object):
             container_crash_err_strngs = ["transport is closing", "connection refused", "Error response from daemon:"]
             docker_crash = False
             docker_status_cmd = "docker inspect -f '{{.State.Running}}' telemetry"
-            # output = self.config_new(devname, command, skip_error_check=True)
             output = self._run_gnmi_command(command)
             self.logger.debug("OUTPUT : {}".format(output))
             for rm_cmd in rm_cmds:
                 self._run_gnmi_command(rm_cmd)
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config_new(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration +=1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
+            if not output.get("error"):
+                return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration +=1
+                    if iteration > 3 and "true" in status_output:
                         return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
+                    continue
                 else:
-                    self.logger.info(output.get("error"))
-                    return False
-            return output
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         else:
             self.logger.info("Could not find JSON CONTENT for SET operation")
             return False
@@ -5288,9 +6229,8 @@ class Net(object):
         :return:
         """
         self.logger.info("Performing GNMI GET OPERATION ...")
-        skip_tmpl = kwargs.get('skip_tmpl', False)
+        #skip_tmpl = kwargs.get('skip_tmpl', False)
 
-        result = dict()
         try:
             kwargs.update({"devname": devname})
             command = self._prepare_gnmi_command(xpath, **kwargs)
@@ -5298,49 +6238,43 @@ class Net(object):
             container_crash_err_strngs = ["transport is closing", "connection refused", "Error response from daemon:"]
             docker_crash = False
             output = self._run_gnmi_command(command)
-            # output = self.show(devname, command, skip_tmpl=skip_tmpl, skip_error_check=True)
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config_new(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or (
-                                "transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration += 1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
-                        return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
-                else:
-                    self.logger.info(output.get("error"))
-                    return False
-            else:
+            if not output.get("error"):
                 return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or (
+                        "transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration += 1
+                    if iteration > 3 and "true" in status_output:
+                        return False
+                    continue
+                else:
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         except Exception as e:
             self.logger.error(e)
             return False
@@ -5362,48 +6296,43 @@ class Net(object):
             docker_crash = False
             docker_status_cmd = "docker inspect -f '{{.State.Running}}' telemetry"
             output = self._run_gnmi_command(command)
-            # output = self.config_new(devname, command, skip_error_check=True)
             self.logger.debug("OUTPUT : {}".format(output))
-            if output.get("error"):
-                for err_code_str in container_crash_err_strngs:
-                    if err_code_str in output.get("error"):
-                        self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
-                        docker_crash = True
-                        break
-                if not docker_crash:
-                    self.logger.info(output.get("error"))
-                    return False
-                if docker_crash:
-                    timeout = 300
-                    curr_time = 0
-                    wait_time = 10
-                    iteration = 1
-                    check_flag = True
-                    itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
-                    while curr_time < timeout:
-                        status_output = self.config_new(devname, docker_status_cmd, skip_error_check=True)
-                        self.logger.info(itr_msg.format(iteration, wait_time))
-                        if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
-                            self.wait(wait_time)
-                            curr_time += wait_time
-                            check_flag = False
-                            iteration +=1
-                            if iteration > 3 and "true" in status_output:
-                                return False
-                            continue
-                        else:
-                            check_flag = True
-                            break
-                    if not check_flag:
-                        self.logger.info("ERROR code observed with telemetry docker...")
+            if not output.get("error"):
+                return output
+            for err_code_str in container_crash_err_strngs:
+                if err_code_str in output.get("error"):
+                    self.logger.info("Observed {} error, may be telemetry docker got crashed".format(err_code_str))
+                    docker_crash = True
+                    break
+            if not docker_crash:
+                self.logger.info(output.get("error"))
+                return False
+            timeout = 300
+            curr_time = 0
+            wait_time = 10
+            iteration = 1
+            check_flag = True
+            itr_msg = "ITERATION {} : Observed that telemetry docker is not running or crashed, hence waiting for {} secs"
+            while curr_time < timeout:
+                status_output = self.config(devname, docker_status_cmd, skip_error_check=True)
+                self.logger.info(itr_msg.format(iteration, wait_time))
+                if ("true" not in status_output) or ("transport is closing" in output.get("error") and "true" in status_output):
+                    self.wait(wait_time)
+                    curr_time += wait_time
+                    check_flag = False
+                    iteration +=1
+                    if iteration > 3 and "true" in status_output:
                         return False
-                    if curr_time >= timeout:
-                        self.logger.info("Max retries reached")
-                        return False
+                    continue
                 else:
-                    self.logger.info(output.get("error"))
-                    return False
-            return output
+                    check_flag = True
+                    break
+            if not check_flag:
+                self.logger.info("ERROR code observed with telemetry docker...")
+                return False
+            if curr_time >= timeout:
+                self.logger.info("Max retries reached")
+                return False
         except Exception as e:
             self.logger.error(e)
             return False
@@ -5415,15 +6344,11 @@ class Net(object):
         insecure = kwargs.get('insecure', '')
         username = kwargs.get('username', credentials[0])
         password = kwargs.get('password', credentials[3])
-        # gnmi_utils_path = kwargs.get("gnmi_utils_path", ".")
         gnmi_utils_path = "/tmp"
         cert = kwargs.get('cert')
         action = kwargs.get("action", "get")
         pretty = kwargs.get('pretty')
-        logstostderr = kwargs.get('logstostderr')
         mode = kwargs.get('mode', '--update')
-        docker_path = kwargs.get("docker_path")
-        docker_command = "docker exec -it telemetry bash"
         if action == "get":
             gnmi_command = 'gnmi_get -xpath {} -target_addr {}:{}'.format(xpath, ip_address, port)
             """
@@ -5498,14 +6423,15 @@ class Net(object):
         kwargs.update({"action":action})
         kwargs.update({"skip_tmpl":True})
         if action == "get":
-            return self._gnmi_get(devname, xpath, **kwargs)
+            rv = self._gnmi_get(devname, xpath, **kwargs)
         elif action == "set":
-            return self._gnmi_set(devname, xpath, **kwargs)
+            rv = self._gnmi_set(devname, xpath, **kwargs)
         elif action == "delete":
-            return self._gnmi_delete(devname, xpath, **kwargs)
+            rv = self._gnmi_delete(devname, xpath, **kwargs)
         else:
             self.logger.info("Invalid operation for GNMI -- {}".format(action))
-            return False
+            rv = False
+        return rv
 
     def _run_gnmi_command(self, command):
         result = dict()

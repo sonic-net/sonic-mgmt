@@ -1,50 +1,133 @@
   <CpgDec>
     <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     <PeeringSessions>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
-{% if vm_topo_config['vm'][vm]['peer_ipv4'] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+{% if vm_asic_ifnames is defined %}
+      <BGPSession>
+        <MacSec>false</MacSec>
+        <StartRouter>{{ vm_asic_ifnames[vm][0].split('-')[1] }}</StartRouter>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int] }}</StartPeer>
+        <EndRouter>{{ vm }}</EndRouter>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
 {% endif %}
-{% if vm_topo_config['vm'][vm]['peer_ipv6'] %}
+{% endif %}
+{% if vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] %}
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+{% if vm_asic_ifnames is defined %}
+      <BGPSession>
+        <StartRouter>{{ vm_asic_ifnames[vm][0].split('-')[1] }}</StartRouter>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
+        <EndRouter>{{ vm }}</EndRouter>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>10</HoldTime>
+        <KeepAliveTime>3</KeepAliveTime>
+      </BGPSession>
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for asic in asic_topo_config %}
+{% for neigh_asic in  asic_topo_config[asic]['neigh_asic'] %}
+{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
+      <BGPSession>
+        <MacSec>false</MacSec>
+        <StartRouter>{{ asic }}</StartRouter>
+        <StartPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}</StartPeer>
+        <EndRouter>{{ neigh_asic }}</EndRouter>
+        <EndPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>0</HoldTime>
+        <KeepAliveTime>0</KeepAliveTime>
+      </BGPSession>
+{% endif %}
+{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv6'][0] %}
+      <BGPSession>
+        <StartRouter>{{ asic }}</StartRouter>
+        <StartPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}</StartPeer>
+        <EndRouter>{{ neigh_asic }}</EndRouter>
+        <EndPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv6'][0] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>0</HoldTime>
+        <KeepAliveTime>0</KeepAliveTime>
+      </BGPSession>
+{% endif %}
+{% endfor %} 
+{% endfor %}
+{% endif %}
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+      <BGPSession>
+        <StartRouter>{{ inventory_hostname  }}</StartRouter>
+        <StartPeer>{{ voq_inband_ip.split('/')[0] }}</StartPeer>
+        <EndRouter>{{ all_hostnames[all_idx] }}</EndRouter>
+        <EndPeer>{{ all_inbands[all_idx].split('/')[0] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>0</HoldTime>
+        <KeepAliveTime>0</KeepAliveTime>
+        <VoQChassisInternal>true</VoQChassisInternal>
       </BGPSession>
 {% endif %}
 {% endfor %}
+{% endif %}
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if card_type is not defined or card_type != 'supervisor' %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ inventory_hostname }}</a:Hostname>
         <a:Peers>
 {% for index in range(vms_number)  %}
+{% if vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] %}
           <BGPPeer>
-            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'] }}</Address>
+            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
           </BGPPeer>
+{% endif %}
 {% endfor %}
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+          <BGPPeer>
+            <Address>{{ all_inbands[all_idx].split('/')[0] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% if 'tor' in vm_topo_config['dut_type'] | lower %}
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -53,7 +136,7 @@
           </BGPPeer>
           <BGPPeer i:type="a:BGPPeerPassive">
             <ElementType>BGPPeer</ElementType>
-            <Address>10.1.0.32</Address>
+            <Address>{{ lp_ipv4_addr }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -64,10 +147,53 @@
         </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
+{% if switch_type is defined and switch_type == 'voq' %}
+{% for all_idx in range(all_inbands|length) %}
+{% if voq_inband_ip != all_inbands[all_idx] %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
+        <a:Hostname>{{ all_hostnames[all_idx]  }}</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% for index in range( vms_number) %}
+{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['vm'][vms[index]]['bgp_asn'] }}</a:ASN>
         <a:Hostname>{{ vms[index] }}</a:Hostname>
+        <a:RouteMaps/>
+      </a:BGPRouterDeclaration>
+{% endif %}
+{% endfor %}
+{% endif %}
+{% for asic in asic_topo_config %}
+      <a:BGPRouterDeclaration>
+        <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
+        <a:Hostname>{{ asic }}</a:Hostname>
+        <a:Peers>
+{% for index in range( vms_number) %}
+{% if vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+          <BGPPeer>
+            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+{% for neigh_asic in asic_topo_config %}
+{% if neigh_asic in asic_topo_config[asic]['neigh_asic'] and asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
+          <BGPPeer>
+            <Address>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</Address>
+            <RouteMapIn i:nil="true"/>
+            <RouteMapOut i:nil="true"/>
+            <Vrf i:nil="true"/>
+          </BGPPeer>
+{% endif %}
+{% endfor %}
+        </a:Peers>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% endfor %}

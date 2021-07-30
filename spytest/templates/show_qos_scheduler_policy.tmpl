@@ -1,0 +1,14 @@
+Value Filldown SCH_POLICY_NAME (\S+)
+Value Required QUEUE (\d+)
+Value Fillup SCH_TYPE (\w+)
+Value Fillup WEIGHT (\d+)
+Value Fillup PIR (\d+)
+
+Start
+  ^\s*Scheduler\s*Policy\s*\:\s*${SCH_POLICY_NAME}\s*$$
+  ^\s*Queue\s*\:\s*${QUEUE}\s*$$ -> Continue.Record
+  ^\s*type\s*\:\s*${SCH_TYPE}\s*$$ -> Record
+  ^\s*weight\s*\:\s*${WEIGHT}\s*$$ -> Record
+  ^\s*pir\s*\:\s*${PIR}\s*Pps$$ -> Record
+
+EOF

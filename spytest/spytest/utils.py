@@ -6,8 +6,8 @@ def random_vlan_list(count=1, exclude=[]):
   return base.random_vlan_list(count, exclude)
 def exec_foreach (use_threads, items, func, *args, **kwargs):
   return base.exec_foreach (use_threads, items, func, *args, **kwargs)
-def exec_all(use_threads, entries):
-  return base.exec_all(use_threads, entries)
+def exec_all(use_threads, entries, first_on_main=False):
+  return base.exec_all(use_threads, entries, first_on_main)
 def poll_wait(method, timeout, *args, **kwargs):
   return base.poll_wait(method, timeout, *args, **kwargs)
 

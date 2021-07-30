@@ -1,9 +1,10 @@
 import re
-from spytest.utils import filter_and_select
-from spytest import st
 import json
+from spytest import st
+import apis.system.interface as Intf
+from utilities.utils import get_interface_number_from_name
 
-def verify_qos_queue_counters(dut,port,queue_name,param_list,val_list,tol_list):
+def verify_qos_queue_counters(dut,port,queue_name,param_list,val_list,tol_list,**kwargs):
     '''
     verifies QOS queue counters in the CLI show qos queue counters
     :param dut: Device name where the command to be executed
@@ -25,10 +26,10 @@ def verify_qos_queue_counters(dut,port,queue_name,param_list,val_list,tol_list):
     '''
 
     success = True
-    cli_out = st.show(dut,'show queue counters {}'.format(port))
-    fil_out = filter_and_select(cli_out, param_list, {"port" : port, "txq" : queue_name})
+    cli_type = st.get_ui_type(dut,**kwargs)
+    fil_out = Intf.show_queue_counters(dut, port, queue_name, cli_type=cli_type)
     if not fil_out:
-        st.error('port: {} and queue name: {} not found in output: {}'.format(port,queue_name,cli_out))
+        st.error('queue: {} not found in show output'.format(queue_name))
         return False
     else:
         fil_out = fil_out[0]
@@ -101,6 +102,30 @@ def clear_qos_config(dut):
     command = "config qos clear"
     st.config(dut, command)
 
+def show_qos_config(dut, map_name, **kwargs):
+    '''
+    :param dut:
+    :param map_name: qos map name for example dscp-tc, dot1p-tc
+    :return:
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type == "klish":
+        command = "show qos map {}".format(map_name)
+        st.show(dut, command, type=cli_type)
+    return True
+
+def show_qos_interface(dut, portname, **kwargs):
+    '''
+    :param dut:
+    :param port: port_name
+    :return:
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type == "klish":
+        command = "show qos interface {}".format(portname)
+        st.show(dut, command, type=cli_type)
+    return True
+
 def create_qos_json(dut, block_name, sub_block, dict_input):
     '''
     :param dut: device to be configured
@@ -123,3 +148,90 @@ def create_qos_json(dut, block_name, sub_block, dict_input):
     final_data[block_name.upper()] = temp_data
     final_data = json.dumps(final_data)
     return st.apply_json(dut, final_data)
+
+
+def config_qos_dscp_tc(dut, map_name, config="yes", **kwargs):
+    """
+    purpose:
+            This definition is used to configure QOS map dscp-tc
+
+    Arguments:
+    :param dut: device to be configured
+    :type dut: string
+    :param map_name: qos map name
+    :type map_name: string
+    :param config: whether to configure or delete
+    :type config: string
+    :param dscp: DSCP value to be mapped
+    :type dscp: string
+    :param tc: traffic class to be binded to DSCP
+    :type tc: string
+    :return: None/False; False for unsupported UI type
+
+    usage:
+          config_qos_dscp_tc(dut1,"qos_test",dscp="10",tc="1")
+          config_qos_dscp_tc(dut1,"qos_test",config="no", dscp="10")
+          config_qos_dscp_tc(dut1,"qos_test",map_del="yes")
+    Created by: Julius <julius.mariyan@broadcom.com
+    """
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    if cli_type == "klish":
+        if "map_del" in kwargs:
+            cmd = "no qos map dscp-tc {} \n".format(map_name)
+            return st.config(dut, cmd, type=cli_type)
+        else:
+            cmd = "qos map dscp-tc {} \n".format(map_name)
+        if config.lower() == "yes":
+            cmd += "dscp {} traffic-class {} \n".format(kwargs["dscp"],kwargs["tc"])
+        else:
+            cmd += "no dscp {} \n".format(kwargs["dscp"])
+        cmd += "exit"
+    else:
+        st.log("support for UI type {} yet to be added".format(cli_type))
+        return False
+    return st.config(dut, cmd, type=cli_type)
+
+
+def bind_qos_map(dut, intf_name,config="yes",**kwargs):
+    """
+    purpose:
+            This definition is used to bind QOS map to an interface
+
+    Arguments:
+    :param dut: device to be configured
+    :type dut: string
+    :param intf_name: interface name to be binded with qos map
+    :type intf_name: string
+    :param config: whether to configure or delete
+    :type config: string
+    :param map_type: qos map type like dscp-tc, dot1p-tc etc
+    :type map_type: string
+    :param map_name: qos map name
+    :type map_name: string
+    :return: None/False; False for unsupported UI type
+
+    usage:
+          bind_qos_map(dut1,"Ethernet15",map_type="dscp-tc",map_name="dscpToTc")
+          bind_qos_map(dut1,"PortChannel12",map_type="dscp-tc",map_name="dscpToTc")
+          bind_qos_map(dut1,"PortChannel12",config="no",map_type="dscp-tc")
+    Created by: Julius <julius.mariyan@broadcom.com
+    """
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    if cli_type == "klish":
+        intf_details = get_interface_number_from_name(intf_name)
+        cmd = "interface {} {} \n".format(intf_details["type"],intf_details["number"])
+        if config.lower() == "yes":
+            if "map_type" in kwargs and "map_name" in kwargs:
+                cmd += "qos-map {} {} \n".format(kwargs["map_type"],kwargs["map_name"])
+        else:
+            if "map_type" in kwargs:
+                cmd += "no qos-map {} \n".format(kwargs["map_type"])
+        cmd += "exit"
+    else:
+        st.log("support for UI type {} yet to be added".format(cli_type))
+        return False
+    return st.config(dut, cmd, type=cli_type)

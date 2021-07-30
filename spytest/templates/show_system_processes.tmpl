@@ -1,0 +1,14 @@
+Value PID (\d+)
+Value CPU (\d+)
+Value Memory (\d+)
+Value MemUsage (\d+)
+Value Name (\S+)
+
+Start
+  ^\s*PID\s+%CPU\s+%MEMORY\s+%MEM-USAGE\(Bytes\)\s+NAME\s*$$ -> Continue
+  ^\s*-+\s*$$ -> Table1
+
+Table1
+  ^\s*${PID}\s+${CPU}\s+${Memory}\s+${MemUsage}\s+${Name}\s*$$ -> Record
+
+EOF

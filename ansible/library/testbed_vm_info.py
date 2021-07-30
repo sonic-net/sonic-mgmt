@@ -11,10 +11,13 @@ from itertools import groupby
 from collections import defaultdict
 import re
 
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
+
 DOCUMENTATION = '''
 module: testbed_vm_info.py
 Ansible_version_added:  2.0.0.2
-short_description:   Gather all related VMs info 
+short_description:   Gather all related VMs info
 Description:
        When deploy testbed topology with VM connected to SONiC, gather neighbor VMs info for generating SONiC minigraph file
  options:
@@ -23,7 +26,7 @@ Description:
     vm_file:  the virtual machine file path ; default: 'veos'
 
 Ansible_facts:
-    'neighbor_eosvm_mgmt':  all VM hosts management IPs 
+    'neighbor_eosvm_mgmt':  all VM hosts management IPs
     'topoall':              topology information
 
 '''
@@ -33,7 +36,7 @@ EXAMPLES = '''
       testbed_vm_info: base_vm='VM0100' topo='t1' vm_file='veos'
 '''
 
-### Here are the assumption/expectation of files to gather VM informations, if the file location or name changes, please modify it here 
+### Here are the assumption/expectation of files to gather VM informations, if the file location or name changes, please modify it here
 TOPO_PATH = 'vars/'
 VM_INV_FILE = 'veos'
 
@@ -51,6 +54,7 @@ class TestbedVMFacts():
         self.start_index = int(re.findall('VM(\d+)', vmbase)[0])
         self.vmhosts = {}
         self.vmfile = vmfile
+        self.inv_mgr = InventoryManager(loader=DataLoader(), sources=self.vmfile)
         return
 
 
@@ -64,17 +68,6 @@ class TestbedVMFacts():
             eos[vm] = vm_index
         return eos
 
-
-    def gather_veos_vms(self):
-        vms = {}
-        with open(self.vmfile) as default_f:
-            lines = default_f.readlines()
-
-        for line in lines:
-            if 'VM' in line and 'ansible_host' in line:
-                items = line.split()
-                vms[items[0]] = items[1].split('=')[1]
-        return vms
 
 def main():
     module = AnsibleModule(
@@ -92,11 +85,10 @@ def main():
     try:
         vmsall = TestbedVMFacts(m_args['topo'], m_args['base_vm'], m_args['vm_file'])
         neighbor_eos = vmsall.get_neighbor_eos()
-        vm_inv = vmsall.gather_veos_vms()
         for eos in neighbor_eos:
             vmname = 'VM'+format(neighbor_eos[eos], '04d')
-            if vmname in vm_inv:
-                vmsall.vmhosts[eos] = vm_inv[vmname]
+            if vmname in vmsall.inv_mgr.hosts:
+                vmsall.vmhosts[eos] = vmsall.inv_mgr.get_host(vmname).get_vars()['ansible_host']
             else:
                 err_msg = "cannot find the vm " + vmname + " in VM inventory file, please make sure you have enough VMs for the topology you are using"
                 module.fail_json(msg=err_msg)

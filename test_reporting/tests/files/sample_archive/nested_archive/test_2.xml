@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuite errors="1" failures="1" name="pytest" skipped="0" tests="2" time="104.582">
+    <properties>
+        <property name="topology" value="t0"/>
+        <property name="timestamp" value="2020-09-14 18:25:17.233592"/>
+        <property name="testbed" value="vms-kvm-t0" />
+        <property name="host" value="vlab-01"/>
+        <property name="asic" value="vs"/>
+        <property name="platform" value="x86_64-kvm_x86_64-r0"/>
+        <property name="hwsku" value="Force10-S6000"/>
+        <property name="os_version" value="master.449-9c22d19b"/>
+    </properties>
+    <testcase classname="bgp.test_bgp" file="bgp/test_bgp.py" line="248" name="test_bgp_speaker" time="46.316">
+        <failure message="test machine go brr">
+            this is definitely a stacktrace
+        </failure>
+    </testcase>
+    <testcase classname="acl.test_acl" file="acl/test_acl.py" line="257" name="test_acl" time="58.161">
+        <error message="test machine broke">
+            also a stacktrace
+        </error>
+    </testcase>
+</testsuite>

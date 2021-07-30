@@ -32,25 +32,33 @@ import pickle
 from operator import itemgetter
 import scapy.all as scapyall
 import enum
+import ast
 
 class Arista(object):
     DEBUG = False
-    def __init__(self, ip, queue, test_params, login='admin', password='123456'):
+    def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
+        self.log_cb = log_cb
         self.login = login
         self.password = password
         self.conn = None
         self.arista_prompt = None
-        self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
+        self.v4_routes = list(ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes.append(test_params['lo_prefix'])
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
+        self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
 
     def __del__(self):
         self.disconnect()
+
+    def log(self, msg):
+        if self.log_cb is not None:
+            self.log_cb('SSH thread VM={}: {}'.format(self.ip, msg))
 
     def connect(self):
         self.conn = paramiko.SSHClient()
@@ -63,6 +71,9 @@ class Arista(object):
 
         self.do_cmd('enable')
         self.do_cmd('terminal length 0')
+
+        version_output = self.do_cmd('show version')
+        self.veos_version = self.parse_version(version_output)
 
         return self.shell
 
@@ -112,10 +123,15 @@ class Arista(object):
         samples[cur_time] = sample
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
-            cmd = self.queue.get()
-            if cmd == 'quit':
-                quit_enabled = True
-                continue
+            cmd = None
+            # quit command was received, we don't process next commands
+            # but wait for v4_routing_ok and v6_routing_ok
+            if not quit_enabled:
+                cmd = self.queue.get()
+                if cmd == 'quit':
+                    quit_enabled = True
+                    continue
+
             cur_time = time.time()
             info = {}
             debug_info = {}
@@ -124,12 +140,16 @@ class Arista(object):
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            bgp_route_v4_output = self.do_cmd('show ip route bgp | json')
-            v4_routing_ok = self.parse_bgp_route(bgp_route_v4_output, self.v4_routes)
+            v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            if v4_routing != v4_routing_ok:
+                v4_routing_ok = v4_routing
+                self.log('BGP routing for ipv4 OK: %s' % (v4_routing_ok))
             info['bgp_route_v4'] = v4_routing_ok
 
-            bgp_route_v6_output = self.do_cmd("show ipv6 route bgp | json")
-            v6_routing_ok = self.parse_bgp_route(bgp_route_v6_output, self.v6_routes)
+            v6_routing, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            if v6_routing != v6_routing_ok:
+                v6_routing_ok = v6_routing
+                self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
@@ -158,20 +178,29 @@ class Arista(object):
 
         attempts = 60
         log_present = False
-        for _ in range(attempts):
+        log_data = {}
+        for attempt in range(attempts):
+            self.log('Collecting logs for attempt {}'.format(attempt))
             log_output = self.do_cmd("show log | begin %s" % log_first_line)
+            self.log('Log output "{}"'.format(log_output))
             log_lines = log_output.split("\r\n")[1:-1]
-            log_data = self.parse_logs(log_lines)
-            if (self.reboot_type == 'fast-reboot' and \
-                any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
-                    or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
-                log_present = True
-                break
-            time.sleep(1) # wait until logs are populated
+            try:
+                log_data = self.parse_logs(log_lines)
+                if (self.reboot_type == 'fast-reboot' and \
+                    any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
+                        or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                    log_present = True
+                    break
+                time.sleep(1) # wait until logs are populated
+            except Exception as err:
+                msg = 'Exception occured when parsing logs from VM: msg={} type={}'.format(err, type(err))
+                self.log(msg)
+                self.fails.add(msg)
 
         if not log_present:
             log_data['error'] = 'Incomplete output'
 
+        self.log('Disconnecting from VM')
         self.disconnect()
 
         # save data for troubleshooting
@@ -185,6 +214,7 @@ class Arista(object):
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
 
+        self.log('Checking BGP GR peer status on VM')
         self.check_gr_peer_status(data)
         cli_data = {}
         cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
@@ -192,15 +222,17 @@ class Arista(object):
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
         cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
 
-        route_timeout             = log_data['route_timeout']
-        cli_data['route_timeout'] = route_timeout
+        if 'route_timeout' in log_data:
+            route_timeout             = log_data['route_timeout']
+            cli_data['route_timeout'] = route_timeout
 
-        # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
-        for nei in route_timeout.keys():
-            asn = route_timeout[nei][0][-1]
-            msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
-            self.fails.add(msg)
+            # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
+            for nei in route_timeout.keys():
+                asn = route_timeout[nei][0][-1]
+                msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
+                self.fails.add(msg)
 
+        self.log('Finishing run()')
         return self.fails, self.info, cli_data, log_data
 
     def extract_from_logs(self, regexp, data):
@@ -247,24 +279,29 @@ class Arista(object):
         # first state is Idle, last state is Established
         for events in result_bgp.values():
             if len(events) > 1:
-                assert(events[0][1] != 'Established')
+                first_state = events[0][1]
+                assert first_state != 'Established', 'First BGP state should not be Established, it was {}'.format(first_state)
 
-            assert(events[-1][1] == 'Established')
+            last_state = events[-1][1]
+            assert last_state == 'Established', 'Last BGP state is not Established, it was {}'.format(last_state)
 
-        # verify BGP establishment time between v4 and v6 peer is not more than 20s
+        # verify BGP establishment time between v4 and v6 peer is not more than self.bgp_v4_v6_time_diff
         if self.reboot_type == 'warm-reboot':
             estab_time = 0
             for ip in result_bgp:
                 if estab_time > 0:
                     diff = abs(result_bgp[ip][-1][0] - estab_time)
-                    assert(diff <= 20)
+                    assert diff <= self.bgp_v4_v6_time_diff, \
+                        'BGP establishement time between v4 and v6 peer is longer than {} sec, it was {}'.format(self.bgp_v4_v6_time_diff, diff)
                     break
                 estab_time = result_bgp[ip][-1][0]
 
         # first state is down, last state is up
         for events in result_if.values():
-            assert(events[0][1] == 'down')
-            assert(events[-1][1] == 'up')
+            first_state = events[0][1]
+            last_state = events[-1][1]
+            assert first_state == 'down', 'First PO state should be down, it was {}'.format(first_state)
+            assert last_state == 'up', 'Last PO state should be up, it was {}'.format(last_state)
 
         neigh_ipv4 = [neig_ip for neig_ip in result_bgp.keys() if '.' in neig_ip][0]
         for neig_ip in result_bgp.keys():
@@ -350,6 +387,18 @@ class Arista(object):
 
         return set(expects) == prefixes
 
+    def check_bgp_route(self, expects, ipv6=False):
+        cmd = 'show ip route {} | json'
+        if ipv6:
+            cmd = 'show ipv6 route {} | json'
+
+        ok = True
+        for prefix in set(expects):
+            output = self.do_cmd(cmd.format(prefix))
+            ok &= self.parse_bgp_route(output, [prefix])
+
+        return ok, output
+
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
         neigh_bgp = {}
@@ -373,7 +422,16 @@ class Arista(object):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
         self.do_cmd('router bgp %s' % asn)
-        self.do_cmd('%s' % state[is_up])
+        if self.veos_version < 4.20:
+            self.do_cmd('%s' % state[is_up])
+        else:
+            if is_up == True:
+                self.do_cmd('%s' % state[is_up])
+            else:
+                # shutdown BGP will pop confirm message, the message is 
+                # "You are attempting to shutdown BGP. Are you sure you want to shutdown? [confirm]"
+                self.do_cmd('%s' % state[is_up], prompt = '[confirm]')
+                self.do_cmd('y')
         self.do_cmd('exit')
         self.do_cmd('exit')
 
@@ -525,3 +583,10 @@ class Arista(object):
 
         # Note: the first item is a placeholder
         return 0, change_count
+
+    def parse_version(self, output):
+        version = 0
+        for line in output.split('\n'):
+            if ('Software image version: ' in line):
+                version = float(re.search('([1-9]{1}\d*)(\.\d{0,2})', line).group())
+        return version

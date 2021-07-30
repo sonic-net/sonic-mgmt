@@ -1,5 +1,8 @@
-- name: Set front panel/mgmt port for dut
-  include_tasks: set_dut_port.yml
+- name: Get duts ports
+  include_tasks: get_dut_port.yml
+  loop: "{{ duts_name.split(',') }}"
+  loop_control:
+    loop_var: dut_name
 
 - name: Disconnect VMs to {{ topo }}. base vm = {{ VM_base }}
   vm_topology:
@@ -8,7 +11,8 @@
     topo: "{{ topology }}"
     vm_names: "{{ VM_hosts }}"
     vm_base: "{{ VM_base }}"
-    dut_fp_ports: "{{ dut_fp_ports }}"
-    dut_mgmt_port: "{{ dut_mgmt_port }}"
+    duts_fp_ports: "{{ duts_fp_ports }}"
+    duts_mgmt_port: "{{ duts_mgmt_port }}"
+    duts_name: "{{ duts_name.split(',') }}"
     max_fp_num: "{{ max_fp_num }}"
   become: yes

@@ -1,201 +1,213 @@
-"""
-    docker contains utilities for interacting with Docker on the DUT.
-"""
+"""docker contains utilities for interacting with Docker on the duthost."""
 
 import collections
 import logging
-import os
-import time
-import yaml
 
-from common.broadcom_data import is_broadcom_device
-from common.mellanox_data import is_mellanox_device
+from tests.common import config_reload
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.errors import RunAnsibleModuleFail
 
-_LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-_BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-SONIC_DOCKER_REGISTRY = os.path.join(_BASE_DIR, "../../../ansible/vars/docker_registry.yml")
+_DockerRegistryInfo = collections.namedtuple("DockerRegistryInfo", "host username password")
 
-_DockerRegistryInfo = collections.namedtuple('DockerRegistryInfo', 'host username password')
+
 class DockerRegistryInfo(_DockerRegistryInfo):
-    """
-        DockerRegistryInfo holds all the data needed to access a remote Docker registry.
+    """DockerRegistryInfo holds all the data needed to access a remote Docker registry.
 
-        Attributes:
-            host (str): The remote host where the Docker registry is located.
-            username (str): The username used to access the registry.
-            password (str): The password used to access the registry.
+    `host` is a required attribute, `username` and `password` can be added if the target registry
+    requires authentication.
+
+    Attributes:
+        host (str): The remote host where the Docker registry is located.
+        username (str): The username used to access the registry.
+        password (str): The password used to access the registry.
     """
     pass
 
-def load_docker_registry_info(dut):
+
+def load_docker_registry_info(duthost, creds):
+    """Attempts to load Docker registry information.
+
+    Args:
+        duthost (SonicHost): The target device.
+        creds (dict): Credentials used to access the docker registry.
+
+    Raises:
+        ValueError: If the registry information is missing from both the
+            Ansible inventory and the registry file.
+
+    Returns:
+        DockerRegistryInfo: The registry information that was loaded.
     """
-        Attempts to load Docker registry information.
+    host = creds.get("docker_registry_host")
+    username = creds.get("docker_registry_username")
+    password = creds.get("docker_registry_password")
 
-        This method will first search for the registry in the `secret_vars` section
-        of the Ansible inventory. If it's not found, then it will load the registry from
-        the `SONIC_DOCKER_REGISTRY` file.
-
-        Args:
-            dut (SonicHost): The target device.
-
-        Raises:
-            IOError: If the registry file cannot be read.
-            ValueError: If the registry information is missing from both the
-                Ansible inventory and the registry file.
-
-        Returns:
-            DockerRegistryInfo: The registry information that was loaded.
-    """
-
-    # FIXME: In Ansible we're able to load the facts regardless of where they're
-    # stored. We should figure out how to do this in pytest so the registry
-    # location isn't hard-coded.
-    registry_vars = dut.host.options['variable_manager'] \
-                            ._hostvars.get(dut.hostname, {}) \
-                            .get("secret_vars", {}) \
-                            .get("docker_registry")
-
-    if not registry_vars:
-        _LOGGER.warning("Registry info not found in inventory, falling back to registry file")
-
-        try:
-            with open(SONIC_DOCKER_REGISTRY) as contents:
-                registry_vars = yaml.safe_load(contents)
-        except IOError as err:
-            _LOGGER.error("Failed to parse registry file (%s)", err)
-            raise
-
-    host = registry_vars.get("docker_registry_host")
-    username = registry_vars.get("docker_registry_username")
-    password = registry_vars.get("docker_registry_password")
-
-    if not host or not username or not password:
-        error_message = "Missing registry hostname or login"
-        _LOGGER.error(error_message)
+    if not host:
+        error_message = ("Could not find hostname for docker registry; "
+                         "please check that the `docker_registry_host` ansible variable is defined.")
+        logger.error(error_message)
         raise ValueError(error_message)
 
     return DockerRegistryInfo(host, username, password)
 
-def delete_container(dut, container_name):
+
+def download_image(duthost, registry, image_name, image_version="latest"):
+    """Attempts to download the specified image from the registry.
+
+    Args:
+        duthost (SonicHost): The target device.
+        registry (DockerRegistryInfo): The registry from which to pull the image.
+        image_name (str): The name of the image to download.
+        image_version (str): The version of the image to download.
     """
-        Attempts to delete the specified container from the DUT.
+    try:
+        if registry.username and registry.password:
+            duthost.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
+    except RunAnsibleModuleFail as e:
+        error_message = ("Could not login to Docker registry. Please verify that your DNS server is reachable, "
+                         "the specified registry is reachable, and your credentials are correct.")
+        logger.error(error_message)
+        logger.error("Error detail:\n{}".format(repr(e)))
+        raise RuntimeError(error_message)
 
-        Args:
-            dut (SonicHost): The target device.
-            container_name (str): The name of the container to delete.
-    """
+    try:
+        duthost.command("docker pull {}/{}:{}".format(registry.host, image_name, image_version))
+    except RunAnsibleModuleFail as e:
+        error_message = ('Image "{}:{}" not found. Please verify that this image has been uploaded to the '
+                         "specified registry.".format(image_name, image_version))
+        logger.error(error_message)
+        logger.error("Error detail:\n{}".format(repr(e)))
+        raise RuntimeError(error_message)
 
-    dut.command("docker rm {}".format(container_name))
 
-def download_image(dut, registry, image_name, image_version="latest"):
-    """
-        Attempts to download the specified image from the registry.
+def tag_image(duthost, tag, image_name, image_version="latest"):
+    """Applies the specified tag to a Docker image on the duthost.
 
-        Args:
-            dut (SonicHost): The target device.
-            registry (DockerRegistryInfo): The registry from which to pull the image.
-            image_name (str): The name of the image to download.
-            image_version (str): The version of the image to download.
-    """
-
-    dut.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
-    dut.command("docker pull {}/{}:{}".format(registry.host, image_name, image_version))
-
-def tag_image(dut, tag, image_name, image_version="latest"):
-    """
-        Applies the specified tag to a Docker image on the DUT.
-
-        Args:
-            dut (SonicHost): The target device.
-            tag (str): The tag to apply to the target image.
-            image_name (str): The name of the image to tag.
-            image_version (str): The version of the image to tag.
-    """
-
-    dut.command("docker tag {}:{} {}".format(image_name, image_version, tag))
-
-def swap_syncd(dut):
-    """
-        Replaces the running syncd container with the RPC version of it.
-
-        This will download a new Docker image to the DUT and restart the swss service.
-
-        Args:
-            dut (SonicHost): The target device.
+    Args:
+        duthost (SonicHost): The target device.
+        tag (str): The tag to apply to the target image.
+        image_name (str): The name of the image to tag.
+        image_version (str): The version of the image to tag.
     """
 
-    if is_broadcom_device(dut):
-        vendor_id = "brcm"
-    elif is_mellanox_device(dut):
-        vendor_id = "mlnx"
-    else:
-        error_message = "\"{}\" is not currently supported".format(dut.get_asic_type())
-        _LOGGER.error(error_message)
-        raise ValueError(error_message)
+    duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
+
+
+def swap_syncd(duthost, creds):
+    """Replaces the running syncd container with the RPC version of it.
+
+    This will download a new Docker image to the duthost and restart the swss 
+    service.
+
+    Args:
+        duthost (SonicHost): The target device.
+        creds (dict): Credentials used to access the docker registry.
+    """
+    vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
     docker_rpc_image = docker_syncd_name + "-rpc"
 
-    dut.command("systemctl stop swss")
-    delete_container(dut, "syncd")
+    # Force image download to go through mgmt network
+    duthost.command("config bgp shutdown all")  
+    duthost.stop_service("swss")
+    duthost.delete_container("syncd")
 
     # Set sysctl RCVBUF parameter for tests
-    dut.command("sysctl -w net.core.rmem_max=509430500")
+    duthost.command("sysctl -w net.core.rmem_max=609430500")
 
-    # TODO: Getting the base image version should be a common utility
-    output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-    sonic_version = output["stdout_lines"][0].strip()
+    # Set sysctl SENDBUF parameter for tests
+    duthost.command("sysctl -w net.core.wmem_max=609430500")
 
-    registry = load_docker_registry_info(dut)
-    download_image(dut, registry, docker_rpc_image, sonic_version)
+    _perform_swap_syncd_shutdown_check(duthost)
 
-    tag_image(dut,
-              "{}:latest".format(docker_syncd_name),
-              "{}/{}".format(registry.host, docker_rpc_image),
-              sonic_version)
+    registry = load_docker_registry_info(duthost, creds)
+    download_image(duthost, registry, docker_rpc_image, duthost.os_version)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    tag_image(
+        duthost,
+        "{}:latest".format(docker_syncd_name),
+        "{}/{}".format(registry.host, docker_rpc_image),
+        duthost.os_version
+    )
 
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
+    logger.info("Reloading config and restarting swss...")
+    config_reload(duthost)
 
-def restore_default_syncd(dut):
+    _perform_syncd_liveness_check(duthost)
+
+
+def restore_default_syncd(duthost, creds):
+    """Replaces the running syncd with the default syncd that comes with the image.
+
+    This will restart the swss service.
+
+    Args:
+        duthost (SonicHost): The target device.
+        creds (dict): Credentials used to access the docker registry.
     """
-        Replaces the running syncd with the default syncd that comes with the image.
-
-        This will restart the swss service.
-
-        Args:
-            dut (SonicHost): The target device.
-    """
-
-    if is_broadcom_device(dut):
-        vendor_id = "brcm"
-    elif is_mellanox_device(dut):
-        vendor_id = "mlnx"
-    else:
-        error_message = "\"{}\" is not currently supported".format(dut.get_asic_type())
-        _LOGGER.error(error_message)
-        raise ValueError(error_message)
+    vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
-    dut.command("systemctl stop swss")
-    delete_container(dut, "syncd")
+    duthost.stop_service("swss")
+    duthost.delete_container("syncd")
 
-    # TODO: Getting the base image version should be a common utility
-    output = dut.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-    sonic_version = output["stdout_lines"][0].strip()
+    tag_image(
+        duthost,
+        "{}:latest".format(docker_syncd_name),
+        docker_syncd_name,
+        duthost.os_version
+    )
 
-    tag_image(dut,
-              "{}:latest".format(docker_syncd_name),
-              docker_syncd_name,
-              sonic_version)
+    logger.info("Reloading config and restarting swss...")
+    config_reload(duthost)
 
-    dut.command("systemctl reset-failed swss")
-    dut.command("systemctl start swss")
+    # Remove the RPC image from the duthost
+    docker_rpc_image = docker_syncd_name + "-rpc"
+    registry = load_docker_registry_info(duthost, creds)
+    duthost.command(
+        "docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, duthost.os_version),
+        module_ignore_errors=True
+    )
 
-    _LOGGER.info("swss has been restarted, waiting 60 seconds to initialize...")
-    time.sleep(60)
+
+def _perform_swap_syncd_shutdown_check(duthost):
+    def ready_for_swap():
+        if any([
+            duthost.is_container_running("syncd"),
+            duthost.is_container_running("swss"),
+            not duthost.is_bgp_state_idle()
+        ]):
+            return False
+
+        return True
+
+    shutdown_check = wait_until(30, 3, ready_for_swap)
+    pytest_assert(shutdown_check, "Docker and/or BGP failed to shut down in 30s")
+
+
+def _perform_syncd_liveness_check(duthost):
+    def check_liveness():
+        return duthost.is_service_running("syncd")
+
+    liveness_check = wait_until(30, 1, check_liveness)
+    pytest_assert(liveness_check, "syncd crashed after swap_syncd")
+
+
+def _get_vendor_id(duthost):
+    if is_broadcom_device(duthost):
+        vendor_id = "brcm"
+    elif is_mellanox_device(duthost):
+        vendor_id = "mlnx"
+    else:
+        error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
+        logger.error(error_message)
+        raise ValueError(error_message)
+
+    return vendor_id

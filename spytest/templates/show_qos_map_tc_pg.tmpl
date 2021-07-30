@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value TC (\d+)
+Value PG (\d+)
+
+
+Start
+  ^\s*Traffic-Class-Priority-Group-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${TC}\s+${PG}\s*$$ -> Record
+  ^$$
+
+EOF

@@ -1,15 +1,26 @@
+- set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
+    when: sonic_vm_storage_location is not defined
+
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
-    - "sonic-vm/images"
-    - "sonic-vm/disks"
+    - "{{ sonic_vm_storage_location }}/images"
+    - "{{ sonic_vm_storage_location }}/disks"
 
 - set_fact:
-    src_disk_image: "{{ home_path }}/sonic-vm/images/sonic-vs.img"
-    disk_image: "{{ home_path }}/sonic-vm/disks/sonic_{{ dut_name }}.img"
+    src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-vs.img"
+    disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
+    hwsku: "{{ hostvars[dut_name].hwsku }}"
+    num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+
+- name: Remove arp entry for {{ dut_name }}
+  shell: arp -d {{ mgmt_ip_address }}
+  become: yes
+  ignore_errors: yes
 
 - name: Device debug output
   debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
@@ -23,7 +34,7 @@
   when: not file_stat.stat.exists
 
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }}
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}
@@ -50,6 +61,7 @@
              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
              new_password={{ sonic_password }}
+             num_asic={{ num_asic }}
   register: kickstart_output
 
 - name: Fail if kickstart gives error for {{ dut_name }}

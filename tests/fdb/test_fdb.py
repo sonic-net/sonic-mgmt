@@ -1,4 +1,3 @@
-from ansible_host import AnsibleHost
 
 import pytest
 import ptf.testutils as testutils
@@ -8,15 +7,27 @@ import itertools
 import logging
 import pprint
 
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import disable_fdb_aging
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+
+pytestmark = [
+    pytest.mark.topology('t0'),
+    pytest.mark.usefixtures('disable_fdb_aging')
+]
+
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
 FDB_POPULATE_SLEEP_TIMEOUT = 2
+FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
-PKT_TYPES = ["ethernet", "arp_request", "arp_reply"]
+PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
-
 
 def send_eth(ptfadapter, source_port, source_mac, dest_mac):
     """
@@ -46,7 +57,7 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac):
     :return:
     """
     pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst='ff:ff:ff:ff:ff:ff',
+                eth_dst=dest_mac,
                 eth_src=source_mac,
                 vlan_vid=0,
                 vlan_pcp=0,
@@ -141,48 +152,65 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
             fdb[member].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
+    # Flush dataplane
+    ptfadapter.dataplane.flush()
 
     return fdb
 
 
-@pytest.fixture
-def fdb_cleanup(duthost):
+def get_fdb_dynamic_mac_count(duthost):
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    total_mac_count = 0
+    for l in res['stdout_lines']:
+        if "dynamic" in l.lower():
+            total_mac_count += 1
+    return total_mac_count
+
+
+def fdb_table_has_no_dynamic_macs(duthost):
+    return (get_fdb_dynamic_mac_count(duthost) == 0)
+
+
+def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
-    try:
+    duthost = duthosts[rand_one_dut_hostname]
+    if fdb_table_has_no_dynamic_macs(duthost):
+        return
+    else:
         duthost.command('sonic-clear fdb all')
-        yield
-    finally:
-        # in any case clear fdb after test
-        duthost.command('sonic-clear fdb all')
+        pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
 @pytest.mark.bsl
-@pytest.mark.usefixtures('fdb_cleanup')
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor):
+
+    # Perform FDB clean up before each test and at the end of the final test
+    fdb_cleanup(duthosts, rand_one_dut_hostname)
+    if pkt_type == "cleanup":
+        return
+
     """
     1. verify fdb forwarding.
     2. verify show mac command on DUT for learned mac.
     """
-
-    host_facts  = duthost.setup()['ansible_facts']
+    duthost = duthosts[rand_one_dut_hostname]
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    # remove existing IPs from PTF host 
-    ptfhost.script('scripts/remove_ip.sh')
-    # set unique MACs to PTF interfaces
-    ptfhost.script('scripts/change_mac.sh')
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
-    router_mac = host_facts['ansible_Ethernet0']['macaddress']
+    router_mac = duthost.facts['router_mac']
 
     port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    available_ports_idx = [ idx for idx, name in ptf_ports_available_in_topo.items()
-    if conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up' ]
+    available_ports_idx = []
+    for idx, name in ptf_ports_available_in_topo.items():
+        if idx in port_index_to_name and conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
+            available_ports_idx.append(idx)
 
     vlan_table = {}
 
@@ -211,8 +239,6 @@ def test_fdb(ansible_adhoc, testbed, ptfadapter, duthost, ptfhost, pkt_type):
             dummy_mac_count += 1
         if "dynamic" in l.lower():
             total_mac_count += 1
-
-    print res
 
     assert vlan_member_count > 0
 

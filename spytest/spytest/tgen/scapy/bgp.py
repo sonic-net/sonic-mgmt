@@ -111,7 +111,6 @@ class BgpUpdateGenerator(object):
         update_per_sec = self.config['rate'] or 1
         update_per_sec = float(update_per_sec)
         announced_prefixes = set()
-        rate = self.config['rate']
         while sent < self.config['count'] or self.config['count'] == 0:
             update = {
                 'attr': {

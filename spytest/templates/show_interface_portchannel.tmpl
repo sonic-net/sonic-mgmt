@@ -1,0 +1,70 @@
+Value PortChannel (\S+)
+Value Status (\w+)
+Value Line_Protocol (\w+)
+Value Mode (\w+)
+Value Min_Links (\d+)
+Value Fallback (\S+)
+Value Fallback_status (\S+)
+Value MTU (\d+)
+Value LineSpeed (\S+)
+Value LACPMode (\S+)
+Value Interval (\S+)
+Value Priority (\d+)
+Value Address ([:\w]+)
+Value Members (\w+)
+Value Selected (\w+)
+Value Actor (\d+)
+Value Actor_addr ([:\w]+)
+Value Actor_key (\d+)
+Value Partner (\d+)
+Value Partner_addr ([:\w]+)
+Value Partner_key (\d+)
+Value RX_packets (\d+)
+Value RX_octets (\d+)
+Value RX_multicasts (\d+)
+Value RX_broadcasts (\d+)
+Value RX_unicasts (\d+)
+Value RX_error (\d+)
+Value RX_discarded (\d+)
+Value TX_packets (\d+)
+Value TX_octets (\d+)
+Value TX_multicasts (\d+)
+Value TX_broadcasts (\d+)
+Value TX_unicasts (\d+)
+Value TX_error (\d+)
+Value TX_discarded (\d+)
+
+Start
+  ^\s*PortChannel -> Continue.Record
+  ^\s*${PortChannel} is ${Status}, line protocol is ${Line_Protocol}, mode ${Mode}
+  ^\s*Minimum number of links to bring PortChannel up is ${Min_Links}
+  ^\s*Fallback: ${Fallback} -> Continue
+  ^\s*Fallback: ${Fallback}, ${Fallback_status}
+  ^\s*MTU ${MTU}
+  ^\s*LineSpeed ${LineSpeed}
+  ^\s*LACP mode ${LACPMode} interval ${Interval} priority ${Priority} address ${Address}
+  ^\s*Members in this channel: ${Members} -> MemberDetail
+  ^\s*$$ -> Record
+
+MemberDetail
+  ^\s*selected ${Selected}
+  ^\s*LACP Actor port ${Actor}\s+address ${Actor_addr} key ${Actor_key}
+  ^\s*LACP Partner port ${Partner}\s+address ${Partner_addr} key ${Partner_key}
+  ^\s*Input statistics: -> RX_Stats
+  ^\s*Output statistics: -> TX_Stats
+  ^\s*PortChannel -> Continue.Record
+  ^\s*${PortChannel} is ${Status}, line protocol is ${Line_Protocol}, mode ${Mode} -> Start
+  ^\s* -> Record Start
+
+RX_Stats
+  ^\s*${RX_packets} packets, ${RX_octets} octets
+  ^\s*${RX_multicasts} Multicasts, ${RX_broadcasts} Broadcasts, ${RX_unicasts} Unicasts
+  ^\s*${RX_error} error, ${RX_discarded} discarded -> MemberDetail
+
+TX_Stats
+  ^\s*${TX_packets} packets, ${TX_octets} octets
+  ^\s*${TX_multicasts} Multicasts, ${TX_broadcasts} Broadcasts, ${TX_unicasts} Unicasts
+  ^\s*${TX_error} error, ${TX_discarded} discarded -> Record Start
+
+EOF
+

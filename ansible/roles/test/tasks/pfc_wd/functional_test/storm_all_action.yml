@@ -27,19 +27,28 @@
 - name: Initialize loganalyzer
   include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
 
-- name: Take action on fanout switch
-  action: apswitch template="{{storm_action_template}}"
-  args:
-    host: "{{peer_mgmt}}"
-    login: "{{peer_login}}"
-  connection: switch
+- block:
+    - name: Take action on fanout switch
+      action: apswitch template="{{storm_action_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch
 
-- name: Let PFC storm happen for a while
-  pause:
-    seconds: 5
+    - name: Let PFC storm happen for a while
+      pause:
+        seconds: 5
 
-- name: Check if logs contain message that PFC WD detected deadlock
-  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
 
-- name: Check if logs contain message that PFC WD detected deadlock
-  include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+    - name: Check if logs contain message that PFC WD detected deadlock
+      include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+
+  rescue:
+    - name: Stop PFC storm on fanout switch
+      action: apswitch template="{{pfc_wd_storm_stop_template}}"
+      args:
+        host: "{{peer_mgmt}}"
+        login: "{{peer_login}}"
+      connection: switch

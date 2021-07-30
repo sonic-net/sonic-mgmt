@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value DOT1P (\d+)
+Value TC (\d+)
+
+
+Start
+  ^\s*DOT1P-TC-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${DOT1P}\s+${TC}\s*$$ -> Record
+  ^$$
+
+EOF

@@ -185,9 +185,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>FC00:2::32/64</b:IPPrefix>
+            <b:IPPrefix>fec0::ffff:afa:9/64</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>FC00:2::32/64</a:PrefixStr>
+          <a:PrefixStr>fec0::ffff:afa:9/64</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -275,6 +275,11 @@
           <Name i:nil="true"/>
           <AttachTo>Vlan1000</AttachTo>
           <Prefix>192.168.0.1/21</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>Vlan1000</AttachTo>
+          <Prefix>fc02:1000::1/64</Prefix>
         </IPInterface>
       </IPInterfaces>
       <DataAcls/>

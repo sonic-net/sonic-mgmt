@@ -1,0 +1,388 @@
+#!/usr/bin/env python
+
+# Supress warning
+import warnings
+warnings.filterwarnings("ignore")
+
+import argparse
+import json
+import subprocess
+import time
+from tabulate import tabulate
+
+from devutil.inv_helpers import HostManager
+from devutil.ssh_utils import SSHClient
+from devutil.task_runner import TaskRunner
+from devutil import conn_graph_helper
+
+import sys
+sys.path.append("..")
+from tests.common.connections.console_host import ConsoleHost
+from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
+
+g_inv_mgr = None
+g_task_runner = None
+g_pdu_dict = {}
+g_conn_graph_facts = {}
+
+def run_cmd(cmd):
+    '''
+    @summary: Utility that runs a command in a subprocess
+    @param cmd: Command to be run
+    @return: stdout of the command run
+    @return: stderr of the command run
+    '''
+    out = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+    stdout, stderr = out.communicate()
+    return out.returncode, stdout, stderr
+
+def get_conn_graph_facts(hosts):
+
+    global g_conn_graph_facts
+    if g_conn_graph_facts:
+        return g_conn_graph_facts
+    hostnames = hosts.keys()
+    g_conn_graph_facts = conn_graph_helper.get_conn_graph_facts(hostnames)
+    return g_conn_graph_facts
+
+def build_global_vars(concurrency, inventory):
+    global g_task_runner, g_inv_mgr
+    g_task_runner = TaskRunner(max_worker=concurrency)
+    g_inv_mgr = HostManager(inventory)
+
+def retrieve_hosts(group, limit):
+    global g_inv_mgr
+    return g_inv_mgr.get_host_list(group, limit)
+
+def get_pdu_info_from_conn_graph(hostname):
+    """
+    Read pdu info from conn graph.
+    Returns a dict like this:
+    {'PSU1': {'Protocol': 'snmp', 'ManagementIp': '10.3.155.107', 'HwSku': 'Sentry', 'Type': 'Pdu', 'peerdevice': 'pdu-107', 'peerport': '39'},
+     'PSU2': xxx}
+    """
+    global g_inv_mgr, g_conn_graph_facts
+    results = {}
+    if hostname in g_conn_graph_facts['device_pdu_info']:
+        for pdu_idx, pdu_info in g_conn_graph_facts['device_pdu_info'][hostname].items():
+            pdu_name = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerdevice']
+            results[pdu_name] = {}
+            results[pdu_name]['ansible_host'] = pdu_info['ManagementIp']
+            results[pdu_name]['protocol'] = pdu_info['Protocol']
+            results[pdu_name]['pdu_port'] = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerport']
+            results[pdu_name].update(g_inv_mgr.get_host_vars(pdu_name))
+    return results
+
+
+def get_pdu_info_from_inventory(attrs):
+    """
+    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph
+    """
+    global g_inv_mgr, g_pdu_dict
+    pdus = {}
+    pdu_host = attrs['pdu_host'] if 'pdu_host' in attrs else None
+    if not pdu_host:
+        return (False, 'DUT has no PDU configuration')
+
+    if pdu_host in g_pdu_dict:
+        return (True, g_pdu_dict[pdu_host])
+
+    hosts = retrieve_hosts('all', pdu_host)
+    if not hosts:
+        return (False, 'PDU not found in inventory')
+
+    g_pdu_dict[pdu_host] = hosts
+    for ph in pdu_host.split(','):
+        if ph in hosts:
+            pdu = hosts[ph]
+            pdus[ph] = pdu
+    return (True, pdus)
+
+def get_pdu_info(dut_hostname, attrs):
+    results = get_pdu_info_from_conn_graph(dut_hostname)
+    if results:
+        return (True, results)
+    return get_pdu_info_from_inventory(attrs)
+
+def get_console_info_from_conn_graph(hostname):
+    """
+    Read console info from conn_graph_facts.
+    """
+    console_info = {}
+    if hostname in g_conn_graph_facts['device_console_info'] and g_conn_graph_facts['device_console_info'][hostname]:
+        console_info['console_type'] = g_conn_graph_facts['device_console_info'][hostname]['Protocol']
+        console_info['console_host'] = g_conn_graph_facts['device_console_info'][hostname]['ManagementIp']
+        console_info['console_port'] = g_conn_graph_facts['device_console_link'][hostname]['ConsolePort']['peerport']
+    return console_info
+
+def get_console_info_from_inventory(attrs):
+    """
+    Read console info from inventory file. This should be a fallback of get_console_info_from_conn_graph.
+    """
+    console_info = {}
+    keys = ['console_type', 'console_host', 'console_port']
+    for k in keys:
+        if k in attrs:
+            console_info[k] = attrs[k]
+    return console_info
+
+def get_console_info(hostname, attrs):
+    console_info = get_console_info_from_conn_graph(hostname)
+    if not console_info:
+        console_info = get_console_info_from_inventory(attrs)
+    if not console_info:
+        print("Failed to get console info for {}".format(hostname))
+    return console_info
+
+def show_data_output(header, data, json_output=False):
+    if json_output:
+        print(json.dumps(sorted(data, key=lambda x: x['Host']), indent=4))
+    else:
+        print(tabulate(sorted(data, key=lambda x: x[0]), headers=header, tablefmt='grid'))
+
+
+def action_list(parameters):
+    hosts = parameters['hosts']
+    header = ['Host', 'Ansible_host']
+    data = []
+    if parameters['json']:
+        for name, vars in hosts.items():
+            data.append(dict(zip(header, (name, vars['ansible_host']))))
+    else:
+        for name, vars in hosts.items():
+            data.append((name, vars['ansible_host'] if 'ansible_host' in vars else 'not_available'))
+    show_data_output(header, data, parameters['json'])
+
+
+def action_ping(parameters):
+    hosts = parameters['hosts']
+    header = ['Host', 'Hostname', 'Ping result']
+    data = []
+    for name, vars in hosts.items():
+        if 'ansible_host' in vars:
+            cmd = 'timeout 1 ping -q -c 1 -w 1 {}'.format(vars['ansible_host'])
+            g_task_runner.submit_task(name + '|' + vars['ansible_host'], run_cmd, cmd=cmd)
+    if parameters['json']:
+        for name, result in g_task_runner.task_results():
+            data.append(
+                dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+    else:
+        for name, result in g_task_runner.task_results():
+            data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
+
+    if parameters['ipv6']:
+        for name, vars in hosts.items():
+            if 'ansible_hostv6' in vars.keys():
+                cmd = 'timeout 1 ping -6 -q -c 1 -w 1 {}'.format(vars['ansible_hostv6'])
+                g_task_runner.submit_task(name + '|' + vars['ansible_hostv6'], run_cmd, cmd=cmd)
+        if parameters['json']:
+            for name, result in g_task_runner.task_results():
+                data.append(
+                    dict(zip(header, (name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))))
+        else:
+            for name, result in g_task_runner.task_results():
+                data.append((name.split('|')[0], name.split('|')[1], 'Success' if result['result'][0] == 0 else "Fail"))
+
+    show_data_output(header, data, parameters['json'])
+
+
+def action_ssh(parameters):
+    hosts = parameters['hosts']
+    for _, vars in hosts.items():
+        client = SSHClient()
+        client.connect(hostname=vars['ansible_host'], username=vars[
+                       'creds']['username'], passwords=vars['creds']['password'])
+        client.posix_shell()
+
+
+def action_console(parameters):
+    hosts = parameters['hosts']
+    for hostname, vars in hosts.items():
+        console_info = get_console_info(hostname, vars)
+        if not console_info:
+            continue
+        console_host = ConsoleHost(console_type=console_info['console_type'],
+                                   console_host=console_info['console_host'],
+                                   console_port=console_info['console_port'],
+                                   sonic_username=vars['creds']['username'],
+                                   sonic_password=vars['creds']['password'],
+                                   console_username=vars['creds']['console_user'][console_info['console_type']],
+                                   console_password=vars['creds']['console_password'][console_info['console_type']])
+        console_host.posix_shell()
+
+
+def pdu_action_on_dut(host, attrs, action):
+    ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
+    succeed, pdu_info = get_pdu_info(host, attrs)
+    if not succeed:
+        ret['Summary'] = pdu_info
+        return ret
+    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info.values()[0])
+
+    if not pduman:
+        ret['Summary'].append('Failed to communicate with PDU controller {}'.format(pdu_info.keys()))
+        return ret
+
+    if action == 'off':
+        pduman.turn_off_outlet()
+    elif action == 'on':
+        pduman.turn_on_outlet()
+    elif action != 'status':
+        ret['Summary'].append('Unsupported action {}.'.format(action))
+        return ret
+
+    status = pduman.get_outlet_status()
+    for outlet in status:
+        ret['PDU status'].append(outlet)
+
+    return ret
+
+
+def action_pdu(parameters, action):
+    hosts = parameters['hosts']
+    data = []
+    header = ['Host', 'Action', 'PDU status', 'Summary']
+    for host, attrs in hosts.items():
+        g_task_runner.submit_task(host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
+
+    for _, ret in g_task_runner.task_results():
+        status = ret['result']
+        if parameters['json']:
+            data.append(status)
+        else:
+            data.append([status[x] for x in header])
+    
+    return header, data
+
+
+def action_pdu_status(parameters):
+    header, data = action_pdu(parameters, 'status')
+    show_data_output(header, data, parameters['json'])
+
+
+def action_pdu_failures(parameters):
+    header, data = action_pdu(parameters, 'status')
+    failures = []
+    for entry in data:
+        if parameters['json']:
+            if any(x['output_watts'] == '0' for x in entry['PDU status']):
+                failures.append(entry)
+        else:
+            if any(x['output_watts'] == '0' for x in entry[2]):
+                failures.append(entry)
+    show_data_output(header, failures, parameters['json'])
+
+
+def action_pdu_off(parameters):
+    header, data = action_pdu(parameters, 'off')
+    show_data_output(header, data, parameters['json'])
+
+
+def action_pdu_on(parameters):
+    header, data = action_pdu(parameters, 'on')
+    show_data_output(header, data, parameters['json'])
+
+
+def action_pdu_reboot(parameters):
+    header, data = action_pdu(parameters, 'off')
+    # sleep 1 second to ensure there is gap between power off and on
+    time.sleep(1)
+    _, data_on = action_pdu(parameters, 'on')
+
+    data = data + data_on
+    show_data_output(header, data, parameters['json'])
+
+
+def action_dispatcher(parameters):
+    # Actions that can run simultaneously in different hosts
+    parallel_actions = ['ssh_run_command']
+    action = parameters['action'].__name__
+    if action in parallel_actions:
+        parallel_run(parameters)
+    else:
+        parameters['action'](parameters)
+
+
+def parallel_run(parameters):
+    action = parameters['action']
+    cmd = parameters['cmd']
+    hosts = parameters['hosts']
+    if action.__name__ == 'ssh_run_command':
+        for hostname, vars in hosts.items():
+            args = {'hostname': vars['ansible_host'],
+                    'username': vars['creds']['username'],
+                    'passwords': vars['creds']['password'],
+                    'cmd': cmd
+                    }
+            g_task_runner.submit_task(hostname, ssh_run_command, **args)
+        for name, result in g_task_runner.task_results():
+            print("task result for {} ===============>\n{}".format(name, str(result['result'][1])))
+
+
+def ssh_run_command(hostname, username, passwords, cmd):
+    client = SSHClient()
+    client.connect(hostname=hostname, username=username, passwords=passwords)
+    return client.run_command(cmd)
+
+
+def validate_args(args):
+    if args.action == 'run' and args.cmd == '':
+        print("command is missing for run action")
+        return False
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Device utilities')
+    parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
+                        required=False, default=False)
+    parser.add_argument('-a', '--action',
+                        help='Action towards host(s): list, ping, run, ssh, console, pdu_status, pdu_on, pdu_off, pdu_reboot, pdu_failures, default list',
+                        type=str, required=False, default='list',
+                        choices=['list', 'ping', 'ssh', 'console', 'run', 'pdu_status', 'pdu_on', 'pdu_off', 'pdu_reboot', 'pdu_failures'])
+    parser.add_argument('--cmd', help="Command to run on all hosts",
+                        type=str, required=False)
+    parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
+                        type=str, required=False, default='all')
+    parser.add_argument('-i', '--inventory', help='Categories: lab, etc, default lab',
+                        type=str, required=False, default='lab')
+    parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
+                        type=str, required=False)
+    parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
+                        type=str, required=False, default='admin')
+    parser.add_argument(
+        '-c', '--concurrency', help='Concurrency: the max concurrency for tasks that can run simultaneously, default 1',
+                        type=int, required=False, default=1)
+    parser.add_argument('-j', '--json', help='json output', action='store_true',
+                        required=False, default=False)
+
+    args = parser.parse_args()
+    if not validate_args(args):
+        return
+    build_global_vars(args.concurrency, args.inventory)
+    hosts = retrieve_hosts(args.group, args.limit)
+    get_conn_graph_facts(hosts)
+    actions = {'list': action_list,
+               'ping': action_ping,
+               'ssh': action_ssh,
+               'console': action_console,
+               'run': ssh_run_command,
+               'pdu_status': action_pdu_status,
+               'pdu_off': action_pdu_off,
+               'pdu_on': action_pdu_on,
+               'pdu_reboot': action_pdu_reboot,
+               'pdu_failures': action_pdu_failures,
+               }
+    parameters = {'hosts': hosts,
+                  'limit': args.limit,
+                  'action': actions[args.action],
+                  'user': args.user,
+                  'ipv6': args.ipv6,
+                  'cmd': args.cmd,
+                  'json': args.json,
+                  }
+    action_dispatcher(parameters)
+
+
+if __name__ == '__main__':
+    main()

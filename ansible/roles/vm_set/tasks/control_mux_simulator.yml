@@ -1,0 +1,73 @@
+
+- name: Get absolute path of {{ root_path }}
+  command: "realpath {{ root_path }}"
+  register: real_root_path
+
+- name: Set variable abs_root_path
+  set_fact:
+    abs_root_path: "{{ real_root_path.stdout }}"
+
+- name: Start mux simulator
+  block:
+
+  - name: Install flask
+    pip: name=flask version=1.1.2 state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Copy the mux simulator to test server
+    copy:
+      src: mux_simulator.py
+      dest: "{{ abs_root_path }}"
+      mode: 0755
+
+  - name: Set default mux_simulator_port
+    set_fact:
+      mux_simulator_port: 8080
+    when: mux_simulator_port is not defined
+
+  - name: Generate mux-simulator systemd service file
+    template:
+      src: mux-simulator.service.j2
+      dest: /etc/systemd/system/mux-simulator.service
+    become: yes
+
+  - name: Start the mux-simulator service
+    systemd:
+      name: mux-simulator
+      state: started
+      daemon_reload: yes
+    become: yes
+
+  - name: Record vm_set of testbed using mux-simulator
+    lineinfile:
+      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
+      line: "{{ vm_set_name }}"
+      state: present
+      create: yes
+
+  when: mux_simulator_action == "start"
+
+- name: Stop mux simulator
+  block:
+
+  - name: Remove the record of testbed using mux-simulator
+    lineinfile:
+      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
+      line: "{{ vm_set_name }}"
+      state: absent
+
+  - name: Check if the record file is empty
+    command: "grep -P '\\S' {{ abs_root_path }}/mux_simulator.setups.txt"
+    register: record_file_content
+    ignore_errors: yes
+
+  - name: Stop the mux-simulator service if no setup is using it
+    systemd:
+      name: mux-simulator
+      state: stopped
+    become: yes
+    ignore_errors: yes
+    when: record_file_content.rc != 0
+
+  when: mux_simulator_action == "stop"

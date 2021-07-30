@@ -1,0 +1,162 @@
+# Kusto script to setup a Kusto database for storing test results
+#
+# See https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats
+# for details about how Kusto maps JSON test results to tabular formats.
+
+###############################################################################
+# TOP-LEVEL DATABASE CONFIGURATION                                            #
+# 1. Retain data for 1 year                                                   #
+# 2. Authorize an AAD client to push data to Kusto                            #
+###############################################################################
+.alter-merge database SonicTestData policy retention softdelete = 365d
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app
+.add database <DB Name> ingestors ('aadapp=<AAD Client ID>;<domain>') '<Service Name>'
+
+###############################################################################
+# TESTCASE TABLE SETUP                                                        #
+# 1. Create a RawTestCases table to feed data into TestCases                  #
+# 2. Create a function to expand the data from RawTestCases                   #
+# 3. Create a TestCases table                                                 #
+# 4. Setup a policy to automatically ingest data from RawTestCases            #
+###############################################################################
+.create table RawTestCases (Cases: dynamic)
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
+.create table RawTestCases ingestion json mapping 'RawCaseMappingV1' '[{"column":"Cases","Properties":{"path":"$"}}]'
+
+# Retain records for 1 day to aid with debugging
+.alter-merge table RawTestCases policy retention softdelete = 1d recoverability = disabled
+
+.create function ExpandTestCases() {
+    RawTestCases
+    | mv-expand cases = Cases.cases
+    | project
+        Feature = tostring(cases["feature"]),
+        TestCase = tostring(cases["name"]),
+        ModulePath = tostring(cases["classname"]),
+        FilePath = tostring(cases["file"]),
+        StartLine = toint(cases["line"]),
+        Runtime = todouble(cases["time"]),
+        Result = tostring(cases["result"]),
+        ReportId = tostring(cases["id"]),
+	    Error = tobool(cases["error"])
+}
+
+.create table TestCases (Feature: string, TestCase: string, ModulePath: string,
+                         FilePath: string, StartLine: int, Runtime: double, Result: string,
+                         ReportId: string, Error: bool)
+
+.alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
+
+###############################################################################
+# SUMMARY TABLE SETUP                                                         #
+# 1. Create a TestReportSummary table to store test summaries                 #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportSummary (ReportId: string, TotalCasesRun: int, Failures: int,
+                                 Errors: int, Skipped: int, TotalRuntime: double)
+
+.create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' '[{"column":"ReportId","Properties":{"path":"$.id"}},
+                                                                                {"column":"TotalCasesRun","Properties":{"path":"$.tests"}},
+                                                                                {"column":"Failures","Properties":{"path":"$.failures"}},
+                                                                                {"column":"Errors","Properties":{"path":"$.errors"}},
+                                                                                {"column":"Skipped","Properties":{"path":"$.skipped"}},
+                                                                                {"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
+
+###############################################################################
+# METADATA TABLE SETUP                                                        #
+# 1. Create a TestReportMetadata table to store test metadata                 #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportMetadata (Timestamp: datetime, AsicType: string,
+                                  HardwareSku: string, OSVersion: string,
+                                  Platform: string, Topology: string,
+                                  TrackingId: string, ReportId: string,
+                                  TestbedName: string, UploadTimestamp: datetime)
+
+.create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
+                                                                                  {"column":"AsicType","Properties":{"path":"$.asic"}},
+                                                                                  {"column":"HardwareSku","Properties":{"path":"$.hwsku"}},
+                                                                                  {"column":"OSVersion","Properties":{"path":"$.os_version"}},
+                                                                                  {"column":"Platform","Properties":{"path":"$.platform"}},
+                                                                                  {"column":"Topology","Properties":{"path":"$.topology"}},
+                                                                                  {"column":"TrackingId","Properties":{"path":"$.tracking_id"}},
+                                                                                  {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                                                  {"column":"TestbedName","Properties":{"path":"$.testbed"}},
+                                                                                  {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+
+
+###############################################################################
+# RAW REBOOT REPORT TABLE SETUP                                               #
+# 1. Create a RawRebootTimingData table to store reboot test timings          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+// Create table command
+////////////////////////////////////////////////////////////
+.create table ['RawRebootTimingData']  (ReportId: string,
+                                    ['Controlplane']:dynamic, ['Dataplane']:dynamic, ['OffsetFromKexec']:dynamic,
+                                    ['TimeSpan']:dynamic, ['RebootTime']:dynamic)
+
+// Create mapping command
+////////////////////////////////////////////////////////////
+.create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' '[
+                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                            {"column":"OffsetFromKexec", "Properties":{"Path":"$[\'offset_from_kexec\']"}},
+                                                            {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
+                                                            {"column":"Controlplane", "Properties":{"Path":"$[\'controlplane\']"}},
+                                                            {"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}},
+                                                            {"column":"TimeSpan", "Properties":{"Path":"$[\'time_span\']"}}]'
+
+
+###############################################################################
+# REBOOT REPORT TABLE SETUP                                                   #
+# 1. Create a RebootTimingData table to store reboot test timings             #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+// Create table command
+////////////////////////////////////////////////////////////
+.create table ['RebootTimingData'] (ReportId: string, ['RebootType']:string,
+                                    ['ControlplaneArpPing']:string, ['ControlplaneDowntime']:string, ['DataplaneLostPackets']:string, ['DataplaneDowntime']:string,
+                                    ['OffsetFromKexecDatabase']:string, ['OffsetFromKexecFinalizer']:string, ['OffsetFromKexecInitView']:string, ['OffsetFromKexecSyncdCreateSwitch']:string,
+                                    ['OffsetFromKexecPortInit']:string, ['OffsetFromKexecPortReady']:string, ['OffsetFromKexecSaiCreateSwitch']:string, ['OffsetFromKexecNeighborEntry']:string,
+                                    ['OffsetFromKexecDefaultRouteSet']:string, ['OffsetFromKexecLagReady']:string, ['OffsetFromKexecApplyView']:string, ['TimeSpanRadv']:string,
+                                    ['TimeSpanSyncd']:string, ['TimeSpanBgp']:string, ['TimeSpanPortInit']:string, ['TimeSpanSwss']:string, ['TimeSpanTeamd']:string,
+                                    ['TimeSpanDatabase']:string, ['TimeSpanSyncdCreateSwitch']:string, ['TimeSpanSaiCreateSwitch']:string, ['TimeSpanApplyView']:string,
+                                    ['TimeSpanInitView']:string, ['TimeSpanNeighborEntry']:string, ['TimeSpanPortReady']:string, ['TimeSpanFinalizer']:string, ['TimeSpanLagReady']:string)
+
+// Create mapping command
+////////////////////////////////////////////////////////////
+.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' '[
+                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
+                                                            {"column":"OffsetFromKexecDatabase", "Properties":{"Path":"$[\'offset_from_kexec\'][\'database\']"}},
+                                                            {"column":"OffsetFromKexecFinalizer", "Properties":{"Path":"$[\'offset_from_kexec\'][\'finalizer\']"}},
+                                                            {"column":"OffsetFromKexecPortInit", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_init\']"}},
+                                                            {"column":"OffsetFromKexecInitView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'init_view\']"}},
+                                                            {"column":"OffsetFromKexecSyncdCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'syncd_create_switch\']"}},
+                                                            {"column":"OffsetFromKexecDefaultRouteSet", "Properties":{"Path":"$[\'offset_from_kexec\'][\'default_route_set\']"}},
+                                                            {"column":"OffsetFromKexecLagReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'lag_ready\']"}},
+                                                            {"column":"OffsetFromKexecPortReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_ready\']"}},
+                                                            {"column":"OffsetFromKexecSaiCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'sai_create_switch\']"}},
+                                                            {"column":"OffsetFromKexecNeighborEntry", "Properties":{"Path":"$[\'offset_from_kexec\'][\'neighbor_entry\']"}},
+                                                            {"column":"OffsetFromKexecApplyView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'apply_view\']"}},
+                                                            {"column":"ControlplaneArpPing", "Properties":{"Path":"$[\'controlplane\'][\'arp_ping\']"}},
+                                                            {"column":"ControlplaneDowntime", "Properties":{"Path":"$[\'controlplane\'][\'downtime\']"}},
+                                                            {"column":"TimeSpanRadv", "Properties":{"Path":"$[\'time_span\'][\'radv\']"}},
+                                                            {"column":"TimeSpanSyncd", "Properties":{"Path":"$[\'time_span\'][\'syncd\']"}},
+                                                            {"column":"TimeSpanBgp", "Properties":{"Path":"$[\'time_span\'][\'bgp\']"}},
+                                                            {"column":"TimeSpanPortInit", "Properties":{"Path":"$[\'time_span\'][\'port_init\']"}},
+                                                            {"column":"TimeSpanSwss", "Properties":{"Path":"$[\'time_span\'][\'swss\']"}},
+                                                            {"column":"TimeSpanTeamd", "Properties":{"Path":"$[\'time_span\'][\'teamd\']"}},
+                                                            {"column":"TimeSpanDatabase", "Properties":{"Path":"$[\'time_span\'][\'database\']"}},
+                                                            {"column":"TimeSpanSyncdCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'syncd_create_switch\']"}},
+                                                            {"column":"TimeSpanSaiCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'sai_create_switch\']"}},
+                                                            {"column":"TimeSpanApplyView", "Properties":{"Path":"$[\'time_span\'][\'apply_view\']"}},
+                                                            {"column":"TimeSpanInitView", "Properties":{"Path":"$[\'time_span\'][\'init_view\']"}},
+                                                            {"column":"TimeSpanNeighborEntry", "Properties":{"Path":"$[\'time_span\'][\'neighbor_entry\']"}},
+                                                            {"column":"TimeSpanPortReady", "Properties":{"Path":"$[\'time_span\'][\'port_ready\']"}},
+                                                            {"column":"TimeSpanFinalizer", "Properties":{"Path":"$[\'time_span\'][\'finalizer\']"}},
+                                                            {"column":"TimeSpanLagReady", "Properties":{"Path":"$[\'time_span\'][\'lag_ready\']"}},
+                                                            {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
+                                                            {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},
+                                                            {"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'

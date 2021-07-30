@@ -61,11 +61,11 @@ class VlanPort(object):
         return
 
     def create_vlan_ports(self):
-        for vlan_id in self.vlan_ids:
+        for vlan_id in self.vlan_ids.values():
             self.create_vlan_port(self.external_port, vlan_id)
 
     def remove_vlan_ports(self):
-        for vlan_id in self.vlan_ids:
+        for vlan_id in self.vlan_ids.values():
             vlan_port = "%s.%d" % (self.external_port, vlan_id)
             self.destroy_vlan_port(vlan_port)
 
@@ -115,22 +115,22 @@ class VlanPort(object):
         with open(CMD_DEBUG_FNAME, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
 
-        return stdout
+        return stdout.decode('utf-8')
+
 
 def main():
 
     module = AnsibleModule(argument_spec=dict(
         cmd=dict(required=True, choices=['create', 'remove', 'list']),
-        external_port = dict(required=True, type='str'),
-        vlan_ids=dict(required=True, type='list'),
+        external_port=dict(required=True, type='str'),
+        vlan_ids=dict(required=True, type='dict'),
     ))
 
     cmd = module.params['cmd']
     external_port = module.params['external_port']
     vlan_ids = module.params['vlan_ids']
-    vlan_ids.sort()
 
-    fp_ports = []
+    fp_ports = {}
 
     vp = VlanPort(external_port, vlan_ids)
 
@@ -140,10 +140,12 @@ def main():
     elif cmd == "remove":
         vp.remove_vlan_ports()
 
-    for vlan_id in vlan_ids:
-        fp_ports.append("%s.%d" % (external_port, vlan_id))
+    fp_port_templ = external_port + ".%s"
+    for a_port_index, vid in vlan_ids.items():
+        fp_ports[a_port_index] = fp_port_templ % vid
 
     module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
+
 
 if __name__ == "__main__":
     main()

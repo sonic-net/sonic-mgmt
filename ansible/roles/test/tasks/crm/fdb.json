@@ -1,9 +1,0 @@
-[
-    {
-        "FDB_TABLE:Vlan2:52-54-00-25-07-E9": {
-            "port": "Ethernet0",
-            "type": "dynamic"
-        },
-        "OP": "SET"
-    }
-]

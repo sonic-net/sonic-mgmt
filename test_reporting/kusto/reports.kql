@@ -1,0 +1,21 @@
+# Helper functions for generating various reports from the testing data
+
+# Gets the very latest test result found in the DB
+.create-or-alter function LatestTestReportView()
+{
+  FlatTestSummaryView
+  | summarize arg_max(Timestamp, *) by TestbedName
+  | order by Timestamp desc
+}
+
+# Get a specific test result based on the testbed or report ID
+.create-or-alter function TestReportView(testbed: string = "", reportid: string = "")
+{
+    let rid = iff(strlen(reportid) > 0,
+                  reportid,
+                  toscalar(GetLatestTestReport()
+                           | where TestbedName has testbed
+                           | project ReportId));
+    FlatTestReportView
+    | where ReportId == rid
+}

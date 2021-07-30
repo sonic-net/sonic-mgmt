@@ -23,10 +23,10 @@ def main():
     ))
 
     mgmt_port = None
-    fp_ports = []
+    fp_ports = {}
     
     for i in range(1,33):
-        fp_ports.append("v000_port{}".format(i))
+        fp_ports[i] = "v000_p{}".format(i)
 
     mgmt_port = "tap0"
 

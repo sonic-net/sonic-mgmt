@@ -1,0 +1,50 @@
+Value PIM_VRF (Vrf_pim\w+)
+Value JP_INTERVAL (\d+)
+Value KEEPALIVE_TIME (\d+)
+Value SSM_RANGE_PREFIX (\w+)
+Value ECMP (ecmp)
+Value ECMP_REBALANCE (ecmp\srebalance)
+Value INTERFACE (\w+)
+Value HELLO_INTVL (\d+)
+Value DR_PRIORITY (\d+)
+Value BFD_ENABLE (bfd)
+Value PIM_MODE (pim)
+
+Start
+  #If a line starts with 'Current configuration:', go to Global section
+  ^frr version -> Global
+  #If a line starts with 'vrf' go to Vrfconfig section
+  ^vrf ${PIM_VRF} -> Vrfconfig
+  #If a line starts with 'interface' go to Ifconfig section
+  ^interface ${INTERFACE} -> Ifconfig
+
+Global
+  ^ip pim join-prune-interval ${JP_INTERVAL}
+  ^ip pim keep-alive-timer ${KEEPALIVE_TIME}
+  ^ip pim ssm prefix-list ${SSM_RANGE_PREFIX}
+  ^ip pim ${ECMP_REBALANCE}
+  ^ip pim ${ECMP}
+  # If a line starts with '!', we have got all the fields,
+  # record them and goback to start
+  ^! -> Record Start
+
+Vrfconfig
+  # vrf conf starts with a space infront
+  ^\s+ip pim join-prune-interval ${JP_INTERVAL}
+  ^\s+ip pim keep-alive-timer ${KEEPALIVE_TIME}
+  ^\s+ip pim ssm prefix-list ${SSM_RANGE_PREFIX}
+  ^\s+ip pim ${ECMP_REBALANCE}
+  ^\s+ip pim ${ECMP}
+  # If a line starts with '!', we have got all the fields,
+  # record them and goback to start
+  ^! -> Record Start
+
+Ifconfig
+  # interface section rows starts with a space infront
+  ^\s+ip pim hello ${HELLO_INTVL}
+  ^\s+ip pim drpriority ${DR_PRIORITY}
+  ^\s+ip pim ${BFD_ENABLE}
+  ^\s+ip ${PIM_MODE}
+  # If a line starts with '!', we have got all the fields,
+  # record them and goback to start
+  ^! -> Record Start

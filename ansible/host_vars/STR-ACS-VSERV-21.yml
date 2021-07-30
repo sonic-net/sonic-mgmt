@@ -1,0 +1,4 @@
+mgmt_bridge_k8s: br1
+mgmt_prefixlen_k8s: 24
+mgmt_gw_k8s: 10.250.0.1
+# dns_server_ip: use_own_value

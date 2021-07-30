@@ -31,6 +31,14 @@ EXAMPLES = '''
   # Get show interface counter
   - show_interface: comamnd='counter' interface='Ethernet4'
 
+   # Get show interface status for all internal and external interfaces
+  - show_interface command='status' include_internal_intfs=True
+
+  # Get show interface status external interfaces for namespace
+  - show_interface command='status' namespace='asic0'
+
+  # Get show interface status for external and interfaces for namespace
+  - show_interface command='status' namespace='asic0' include_internal_intfs=True
 '''
 
 RETURN = '''
@@ -65,8 +73,11 @@ class ShowInterfaceModule(object):
     def __init__(self):
         self.module = AnsibleModule(
             argument_spec=dict(
-            command=dict(required=True, type='str'),
-            interfaces=dict(required=False, type='list', default=None),
+                command=dict(required=True, type='str'),
+                namespace=dict(required=False, type='str', default=None),
+                interfaces=dict(required=False, type='list', default=None),
+                up_ports=dict(type='raw', default={}),
+                include_internal_intfs=dict(required=False, type=bool, default=False),
             ),
             supports_check_mode=False)
         self.m_args = self.module.params
@@ -78,12 +89,18 @@ class ShowInterfaceModule(object):
         """
             Main method of the class
         """
-        if self.m_args['command'] == 'status': self.collect_interface_status()
-        if self.m_args['command'] == 'counter': self.collect_interface_counter()
+        namespace = self.m_args["namespace"]
+        include_internal_intfs = self.m_args['include_internal_intfs']
+        if self.m_args['command'] == 'status':
+            self.collect_interface_status(namespace, include_internal_intfs)
+        if self.m_args['command'] == 'counter':
+            self.collect_interface_counter(namespace, include_internal_intfs)
         self.module.exit_json(ansible_facts=self.facts)
 
-    def collect_interface_status(self):
+    def collect_interface_status(self, namespace=None, include_internal_intfs=False):
+        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int_internal = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
         if self.m_args['interfaces'] is not None:
             for interface in self.m_args['interfaces']:
@@ -93,13 +110,24 @@ class ShowInterfaceModule(object):
                     rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
                     for line in self.out.split("\n"):
                         line = line.strip()
-                        if regex_int.match(line) and interface == regex_int.match(line).group(1):
-                            self.int_status[interface]['name'] = regex_int.match(line).group(1)
-                            self.int_status[interface]['speed'] = regex_int.match(line).group(2)
-                            self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                            self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
-                            self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
-                            self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
+                        fec = regex_int_fec.match(line)
+                        old = regex_int.match(line)
+                        if fec and interface == fec.group(1):
+                            self.int_status[interface]['name'] = fec.group(1)
+                            self.int_status[interface]['speed'] = fec.group(2)
+                            self.int_status[interface]['fec'] = fec.group(4)
+                            self.int_status[interface]['alias'] = fec.group(5)
+                            self.int_status[interface]['vlan'] = fec.group(6)
+                            self.int_status[interface]['oper_state'] = fec.group(7)
+                            self.int_status[interface]['admin_state'] = fec.group(8)
+                        elif old and interface == old.group(1):
+                            self.int_status[interface]['name'] = old.group(1)
+                            self.int_status[interface]['speed'] = old.group(2)
+                            self.int_status[interface]['fec'] = 'Unknown'
+                            self.int_status[interface]['alias'] = old.group(4)
+                            self.int_status[interface]['vlan'] = old.group(5)
+                            self.int_status[interface]['oper_state'] = old.group(6)
+                            self.int_status[interface]['admin_state'] = old.group(7)
                     self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
@@ -107,31 +135,74 @@ class ShowInterfaceModule(object):
                     self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
         else:
             try:
-                rc, self.out, err = self.module.run_command('show interface status', executable='/bin/bash', use_unsafe_shell=True)
+                cli_options = " -n {}".format(namespace) if namespace is not None else ""
+                if include_internal_intfs and namespace is not None:
+                    cli_options += " -d all"
+                intf_status_cmd = "show interface status{}".format(cli_options)
+                rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
                 for line in self.out.split("\n"):
                     line = line.strip()
-                    if regex_int.match(line):
-                        interface = regex_int.match(line).group(1)
+                    fec = regex_int_fec.match(line)
+                    old = regex_int.match(line)
+                    internal = regex_int_internal.match(line)
+                    if fec:
+                        interface = fec.group(1)
                         self.int_status[interface] = {}
                         self.int_status[interface]['name'] = interface
-                        self.int_status[interface]['speed'] = regex_int.match(line).group(2)
-                        self.int_status[interface]['alias'] = regex_int.match(line).group(4)
-                        self.int_status[interface]['vlan'] = regex_int.match(line).group(5)
-                        self.int_status[interface]['oper_state'] = regex_int.match(line).group(6)
-                        self.int_status[interface]['admin_state'] = regex_int.match(line).group(7)
+                        self.int_status[interface]['speed'] = fec.group(2)
+                        self.int_status[interface]['fec'] = fec.group(4)
+                        self.int_status[interface]['alias'] = fec.group(5)
+                        self.int_status[interface]['vlan'] = fec.group(6)
+                        self.int_status[interface]['oper_state'] = fec.group(7)
+                        self.int_status[interface]['admin_state'] = fec.group(8)
+                    elif old:
+                        interface = old.group(1)
+                        self.int_status[interface] = {}
+                        self.int_status[interface]['name'] = interface
+                        self.int_status[interface]['speed'] = old.group(2)
+                        self.int_status[interface]['fec'] = 'Unknown'
+                        self.int_status[interface]['alias'] = old.group(4)
+                        self.int_status[interface]['vlan'] = old.group(5)
+                        self.int_status[interface]['oper_state'] = old.group(6)
+                        self.int_status[interface]['admin_state'] = old.group(7)
+                    elif internal and include_internal_intfs:
+                        interface = internal.group(1)
+                        self.int_status[interface] = {}
+                        self.int_status[interface]['name'] = interface
+                        self.int_status[interface]['speed'] = internal.group(2)
+                        self.int_status[interface]['fec'] = internal.group(4)
+                        self.int_status[interface]['alias'] = internal.group(5)
+                        self.int_status[interface]['vlan'] = internal.group(6)
+                        self.int_status[interface]['oper_state'] = internal.group(7)
+                        self.int_status[interface]['admin_state'] = internal.group(8)
                 self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
             if rc != 0:
                 self.module.fail_json(msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
 
+        if 'up_ports' in self.m_args:
+            down_ports = []
+            up_ports = self.m_args['up_ports']
+            for name in up_ports:
+                try:
+                    if self.int_status[name]['oper_state'] != 'up':
+                        down_ports += [name]
+                except:
+                    down_ports += [name]
+            self.facts['ansible_interface_link_down_ports'] = down_ports
+
         return
 
-    def collect_interface_counter(self):
-        regex_int = re.compile(r'(\S+)\s+(\w)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)')
+    def collect_interface_counter(self, namespace=None, include_internal_intfs=False):
+        regex_int = re.compile(r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
         self.int_counter = {}
+        cli_options = " -n {}".format(namespace) if namespace is not None else ""
+        if include_internal_intfs and namespace is not None:
+            cli_options += " -d all"
+        intf_status_cmd = "show interface counter{}".format(cli_options)
         try:
-            rc, self.out, err = self.module.run_command('show interface counter', executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
             for line in self.out.split("\n"):
                 line = line.strip()
                 if regex_int.match(line):

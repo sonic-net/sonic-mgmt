@@ -12,7 +12,7 @@ import apis.switching.portchannel as portchannel
 import apis.system.reboot as reboot
 import apis.common.wait as waitapi
 import apis.system.basic as basic_obj
-import apis.switching.mac as mac_obj
+import apis.system.snmp as snmp_obj
 
 import utilities.utils as utils
 from utilities.common import poll_wait
@@ -22,28 +22,30 @@ sc_data = SpyTestDict()
 tg_info = dict()
 
 @pytest.fixture(scope="module", autouse=True)
-def storm_control_module_hooks(request):
+def vlan_module_hooks(request):
     global vars
     vars = st.ensure_min_topology("D1D2:2", "D1T1:2", "D2T1:2")
     sc_data.version_data = basic_obj.show_version(vars.D1)
     vlan_variables()
-    [out, exceptions] = exec_all(True, [[config_tg_stream], [vlan_module_prolog]], first_on_main=True)
+    if not st.is_feature_supported("vlan-range", vars.D1):
+        sc_data.max_vlan = 100
+    [_, exceptions] = exec_all(True, [[config_tg_stream], [vlan_module_prolog]], first_on_main=True)
     ensure_no_exception(exceptions)
     yield
-    vlan.clear_vlan_configuration(st.get_dut_names(), thread=False, cli_type="click")
+    vlan.clear_vlan_configuration(st.get_dut_names(), thread=False)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def storm_control_func_hooks(request):
+def vlan_func_hooks(request):
     bum_test_functions = ["test_ft_stormcontrol_verification", "test_ft_stormcontrol_portchannel_intf",
                           "test_ft_stormcontrol_incremental_bps_max_vlan",
                           "test_ft_stormcontrol_fast_reboot", "test_ft_stormcontrol_warm_reboot"]
-    if request.function.func_name in bum_test_functions:
+    if st.get_func_name(request) in bum_test_functions:
         platform_check()
+    if request.function.func_name == "test_ft_snmp_max_vlan_scale":
+        vlan.clear_vlan_configuration(st.get_dut_names(), thread=False, cli_type="click")
+        portchannel.clear_portchannel_configuration(st.get_dut_names(), thread=True)
     yield
-    if request.function.func_name == "test_ft_vlan_delete_with_member":
-        if st.is_community_build(vars.D1):
-            vlan.create_vlan_and_add_members(sc_data.vlan_data, cli_type=sc_data.cli_type)
 
 
 def platform_check():
@@ -55,9 +57,10 @@ def platform_check():
 def vlan_variables():
     global tg
     global tg_handler,hw_constants_DUT
-    sc_data.cli_type = 'click'
+    sc_data.cli_type_click = "click"
+    sc_data.cli_type= st.get_ui_type(vars.D1, cli_type="")
     sc_data.vlan_list = random_vlan_list(count=2)
-    sc_data.non_existent_vlan = str(sc_data.vlan_list[0])
+    sc_data.vlan_id = str(sc_data.vlan_list[0])
     sc_data.vlan = str(sc_data.vlan_list[1])
     sc_data.kbps = 1000
     sc_data.frame_size = 68
@@ -72,6 +75,7 @@ def vlan_variables():
     sc_data.line_rate = 100
     sc_data.wait_stream_run = 10
     sc_data.wait_for_stats = 10
+    sc_data.free_port = st.get_free_ports(vars.D1)[0]
     tg_handler = tgapi.get_handles_byname("T1D1P1", "T1D1P2", "T1D2P1", "T1D2P2")
     tg = tg_handler["tg"]
     tg_info['tg_info'] = tg_handler
@@ -82,6 +86,11 @@ def vlan_variables():
     sc_data.vlan_data = [{"dut": [vars.D1], "vlan_id": sc_data.vlan, "tagged": [vars.D1T1P1, vars.D1T1P2]}]
     hw_constants_DUT = st.get_datastore(vars.D1, "constants")
     sc_data.warm_reboot_supported_platforms = hw_constants_DUT['WARM_REBOOT_SUPPORTED_PLATFORMS']
+    sc_data.oid_sysName = '1.3.6.1.2.1.1.5.0'
+    sc_data.ro_community = 'test_community'
+    sc_data.location = 'hyderabad'
+    sc_data.oid_dot1qBase = '1.3.6.1.2.1.17.7.1.1'
+    sc_data.mgmt_int = 'eth0'
 
 
 def vlan_module_prolog():
@@ -90,17 +99,15 @@ def vlan_module_prolog():
     :return:
     """
     st.log("Creating vlan in device and adding members ...")
-    vlan.create_vlan_and_add_members(sc_data.vlan_data, cli_type=sc_data.cli_type)
-    if not st.is_community_build(vars.D1):
+    vlan.create_vlan_and_add_members(sc_data.vlan_data)
+    if st.is_feature_supported("strom-control", vars.D1):
         st.banner("Configuring BUM Storm control on interfaces")
         interface_list = [vars.D1T1P1, vars.D1T1P2]
         storm_control_type = ["broadcast", "unknown-multicast", "unknown-unicast"]
         for interface in interface_list:
             for stc_type in storm_control_type:
-                scapi.config(vars.D1, type=stc_type, action="add", interface_name=interface, bits_per_sec=sc_data.kbps,
-                             cli_type="click")
-                if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps,
-                                           cli_type="click"):
+                scapi.config(vars.D1, type=stc_type, action="add", interface_name=interface, bits_per_sec=sc_data.kbps)
+                if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps):
                     st.report_fail("storm_control_config_verify_failed", stc_type, interface)
 
 
@@ -109,7 +116,7 @@ def config_tg_stream():
     tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
     tg_1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create',
                                 transmit_mode='continuous', length_mode='fixed', rate_pps=100,
-                                l2_encap='ethernet_ii', vlan_id=sc_data.vlan, mac_src='00:0a:01:00:00:01',
+                                l2_encap='ethernet_ii_vlan', vlan_id=sc_data.vlan, mac_src='00:0a:01:00:00:01',
                                 mac_dst='00:0a:02:00:00:01', high_speed_result_analysis=0, vlan="enable",
                                 track_by='trackingenabled0 vlanVlanId0', vlan_id_tracking=1,
                                 port_handle2=tg_handler["tg_ph_2"],frame_size= sc_data.frame_size)
@@ -117,7 +124,7 @@ def config_tg_stream():
 
     tg_2 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_2"], mode='create',
                                 transmit_mode='continuous', length_mode='fixed', rate_pps=100,
-                                l2_encap='ethernet_ii', vlan_id=sc_data.vlan, mac_src='00:0a:02:00:00:01',
+                                l2_encap='ethernet_ii_vlan', vlan_id=sc_data.vlan, mac_src='00:0a:02:00:00:01',
                                 mac_dst='00:0a:01:00:00:01', high_speed_result_analysis=0, vlan="enable",
                                 track_by='trackingenabled0 vlanVlanId0', vlan_id_tracking=1,
                                 port_handle2=tg_handler["tg_ph_1"],frame_size= sc_data.frame_size)
@@ -126,15 +133,14 @@ def config_tg_stream():
 
 
 def vlan_module_epilog():
-    if not st.is_community_build(vars.D1):
+    if st.is_feature_supported("strom-control", vars.D1):
         interface_list = [vars.D1T1P1, vars.D1T1P2]
         storm_control_type = ["broadcast", "unknown-multicast", "unknown-unicast"]
         for interface in interface_list:
             for stc_type in storm_control_type:
-                scapi.config(vars.D1, type=stc_type, action="del", interface_name=interface, bits_per_sec=sc_data.kbps,
-                             cli_type="click")
-        vlan.clear_vlan_configuration(st.get_dut_names(), thread=False, cli_type="click")
-        portchannel.clear_portchannel_configuration(st.get_dut_names(),thread=True)
+                scapi.config(vars.D1, type=stc_type, action="del", interface_name=interface, bits_per_sec=sc_data.kbps)
+    vlan.clear_vlan_configuration(st.get_dut_names(), thread=False)
+    portchannel.clear_portchannel_configuration(st.get_dut_names(),thread=True)
 
 
 def verify_bum_traffic_mode(mode, tg_stream, skip_traffic_verify=False, duration=10):
@@ -166,7 +172,7 @@ def verify_bum_traffic_mode(mode, tg_stream, skip_traffic_verify=False, duration
                              mac_src="00:00:00:00:00:01", mac_dst="00:00:00:00:00:02",
                              rate_pps=5000)
     if not skip_traffic_verify:
-        ifapi.clear_interface_counters(vars.D1)
+        ifapi.clear_interface_counters(vars.D1,interface_type="all")
         ifapi.show_interface_counters_all(vars.D1)
         st.log("Starting of traffic from TGen")
         tg.tg_traffic_control(action='run', stream_handle=tg_stream, duration=10)
@@ -175,7 +181,7 @@ def verify_bum_traffic_mode(mode, tg_stream, skip_traffic_verify=False, duration
         tg.tg_traffic_control(action='stop', stream_handle=tg_stream)
         st.wait(sc_data.wait_for_stats)
         ifapi.show_interface_counters_all(vars.D1)
-        tg_1_stats = tgapi.get_traffic_stats(tg, mode='aggregate', port_handle=tg_handler["tg_ph_1"])
+        tg_1_stats = tgapi.get_traffic_stats(tg, mode='aggregate', port_handle=tg_handler["tg_ph_1"], direction='tx')
         tg_2_stats = tgapi.get_traffic_stats(tg, mode='aggregate', port_handle=tg_handler["tg_ph_2"])
         counter = tg_2_stats.rx.total_packets
         counter2 = tg_1_stats.tx.total_packets
@@ -208,13 +214,12 @@ def test_ft_add_unknownvlan_interface():
 
     """
     st.log(" Adding TGen connected interface {} to non-existing vlan {} with untagged mode".format(vars.D1D2P1,
-                                                                                                   sc_data.non_existent_vlan))
-    if vlan.add_vlan_member(vars.D1, sc_data.non_existent_vlan, [vars.D1D2P1], tagging_mode=False, skip_error=True,
-                            cli_type=sc_data.cli_type):
-        st.report_fail("unknown_vlan_untagged_member_add_fail", vars.D1D2P1, sc_data.non_existent_vlan)
-    if not vlan.add_vlan_member(vars.D1, sc_data.vlan, [vars.D1D2P1], tagging_mode=True, cli_type=sc_data.cli_type):
+                                                                                                   sc_data.vlan_id))
+    if vlan.add_vlan_member(vars.D1, sc_data.vlan_id, [vars.D1D2P1], tagging_mode=False, skip_error=True):
+        st.report_fail("unknown_vlan_untagged_member_add_fail", vars.D1D2P1, sc_data.vlan_id)
+    if not vlan.add_vlan_member(vars.D1, sc_data.vlan, [vars.D1D2P1], tagging_mode=True):
         st.report_fail("vlan_tagged_member_fail", vars.D1D2P1, sc_data.vlan)
-    if not vlan.delete_vlan_member(vars.D1, sc_data.vlan, vars.D1D2P1, cli_type=sc_data.cli_type):
+    if not vlan.delete_vlan_member(vars.D1, sc_data.vlan, vars.D1D2P1, tagging_mode=True):
         st.report_fail("vlan_tagged_member_fail", vars.D1D2P1, sc_data.vlan)
     st.report_pass("test_case_passed")
 
@@ -229,20 +234,24 @@ def test_ft_vlan_delete_with_member():
     Verify that user is not able to delete a valn till its members are deleted
 
     """
-    vars = st.ensure_min_topology("D1T1:1")
-    st.log("Adding TGen connected interfaces to newly created vlan in tagging mode.")
-    if not vlan.add_vlan_member(vars.D1, sc_data.vlan, [vars.D1D2P1], tagging_mode=True, cli_type=sc_data.cli_type):
-        st.report_fail("vlan_tagged_member_fail", vars.D1D2P1, sc_data.vlan)
+    vlan_data = [{"dut": [vars.D1], "vlan_id": sc_data.vlan_id, "tagged": [sc_data.free_port]}]
     st.log("checking whether vlan with member is deleted or not ")
-    if not st.is_community_build(vars.D1):
-        if vlan.delete_vlan(vars.D1, sc_data.vlan, cli_type="click"):
-            st.report_fail("vlan_deletion_successfull_albiet_having_member", sc_data.vlan)
-        if not vlan.delete_vlan_member(vars.D1, sc_data.vlan, vars.D1D2P1, cli_type=sc_data.cli_type):
-            st.report_fail("vlan_tagged_member_fail", vars.D1D2P1, sc_data.vlan)
+    if not vlan.create_vlan_and_add_members(vlan_data):
+        st.report_fail("vlan_tagged_member_fail", sc_data.free_port, sc_data.vlan_id)
+    if st.is_feature_supported("prevent-delete-vlans-with-members", vars.D1):
+        if sc_data.cli_type == "click":
+            if vlan.delete_vlan(vars.D1, sc_data.vlan_id):
+                st.report_fail("vlan_deletion_successfull_albiet_having_member", sc_data.vlan_id)
+            if not vlan.delete_vlan_member(vars.D1, sc_data.vlan_id, sc_data.free_port, tagging_mode=True):
+                st.report_fail("vlan_tagged_member_fail", sc_data.free_port, sc_data.vlan_id)
+            if not vlan.delete_vlan(vars.D1, sc_data.vlan_id):
+                st.report_fail("vlan_delete_fail", sc_data.vlan_id)
+        else:
+            if not vlan.delete_vlan(vars.D1, sc_data.vlan_id):
+                st.report_fail("vlan_delete_fail", sc_data.vlan_id)
     else:
-        if not vlan.delete_vlan(vars.D1, sc_data.vlan, cli_type="click"):
-            st.report_fail("vlan_delete_fail", sc_data.vlan)
-    st.log("deleting the vlan after its member deletion")
+        if not vlan.delete_vlan(vars.D1, sc_data.vlan_id):
+            st.report_fail("vlan_delete_fail", sc_data.vlan_id)
     st.report_pass("test_case_passed")
 
 
@@ -258,10 +267,10 @@ def test_ft_vlan_trunk_tagged():
     # Start L2 traffic on tg1 and apply vlan_id analayzer filter
     ifapi.clear_interface_counters(vars.D1)
     tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
-    tg.tg_traffic_control(action='run', stream_handle=[tg_info['tg1_stream_id'], tg_info['tg2_stream_id']])
+    tg.tg_traffic_control(action='run', stream_handle=[tg_info['tg1_stream_id'], tg_info['tg2_stream_id']], get='vlan_id')
     st.wait(5)
-    waitapi.mac_learn()
-    learned_mac_address = mac.get_mac_all(vars.D1, sc_data.vlan, cli_type=sc_data.cli_type)
+    waitapi.vsonic_mac_learn()
+    learned_mac_address = mac.get_mac_all(vars.D1, sc_data.vlan)
     if sc_data.source_mac and sc_data.source_mac1 not in learned_mac_address:
         tg.tg_traffic_control(action='stop', stream_handle=[tg_info['tg1_stream_id'], tg_info['tg2_stream_id']])
         st.report_fail("mac_failed_to_learn_in_Particular_vlan", sc_data.vlan)
@@ -285,8 +294,8 @@ def test_ft_vlan_trunk_tagged():
             'rx_obj': [tg],
         }
     }
-    if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate', comp_type='packet_count'):
-        st.report_fail("traffic_verification_failed")
+    aggregate_result = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate', comp_type='packet_count')
+
     # get tx-pkt count for each streams on tg1
     traffic_details = {
         '1': {
@@ -303,7 +312,10 @@ def test_ft_vlan_trunk_tagged():
 
     # verify analyzer filter statistics
     filter_result = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='filter', comp_type='packet_count')
-    if filter_result:
+
+    if not aggregate_result:
+        st.report_fail("traffic_verification_failed")
+    elif filter_result:
         st.log("ALl packets with created vlan tagged received on TG2")
         st.report_pass("test_case_passed")
     else:
@@ -322,17 +334,18 @@ def test_ft_vlan_syslog_verify():
     vars = st.ensure_min_topology("D1")
     sc_data.vlan_test = str(random_vlan_list(1, [int(sc_data.vlan)])[0])
     result = 1
+    slog.clear_logging(vars.D1)
     st.log("checking vlan count before vlan addition or deletion")
     count_before_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan"])
     count_before_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan"])
     st.log("vlan count before  adding vlan:{}".format(count_before_add))
     st.log("vlan count before  deleting vlan:{}".format(count_before_delete))
-    vlan.create_vlan(vars.D1, sc_data.vlan_test, cli_type=sc_data.cli_type)
-    vlan.delete_vlan(vars.D1, sc_data.vlan_test, cli_type=sc_data.cli_type)
+    vlan.create_vlan(vars.D1, sc_data.vlan_test)
+    vlan.delete_vlan(vars.D1, sc_data.vlan_test)
     st.log("checking vlan count after adding vlan")
-    count_after_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan"])
+    count_after_add = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["addVlan:"])
     st.log("vlan count after  adding vlan:{}".format(count_after_add))
-    count_after_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan"])
+    count_after_delete = slog.get_logging_count(vars.D1, severity="NOTICE", filter_list=["removeVlan:"])
     st.log("vlan count after  deleting vlan:{}".format(count_after_delete))
     if not count_after_add > count_before_add:
         st.error("vlan log count increamented after adding vlan:{}".format(count_after_add))
@@ -370,10 +383,8 @@ def test_ft_stormcontrol_verification():
         st.report_tc_fail('ft_stormcontrol_traffic_rate_limited_bpsvalue', 'test_case_failed')
     status=1
     st.log("Configuring kbps value on interface to verify kpbs value is independent of interface")
-    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1,
-                 bits_per_sec=new_kbps_value, cli_type="click")
-    if not scapi.verify_config(vars.D1, interface_name=vars.D1T1P1, type="broadcast", rate=new_kbps_value,
-                               cli_type="click"):
+    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1, bits_per_sec=new_kbps_value)
+    if not scapi.verify_config(vars.D1, interface_name=vars.D1T1P1, type="broadcast", rate=new_kbps_value):
         st.error("KBPS value configured on interface is dependent to other interface")
         status = 0
     if status:
@@ -384,10 +395,8 @@ def test_ft_stormcontrol_verification():
         st.report_tc_fail('ft_stormcontrol_bps_overwrite_new_bps_value', 'test_case_failed')
     status = 1
     st.log("configuring back to previous config")
-    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.verify_config(vars.D1, interface_name=vars.D1T1P1, type="broadcast", rate=sc_data.kbps,
-                        cli_type="click")
+    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1, bits_per_sec=sc_data.kbps)
+    scapi.verify_config(vars.D1, interface_name=vars.D1T1P1, type="broadcast", rate=sc_data.kbps)
     if not verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=False):
         st.error("Broadcast traffic verification got failed")
         status = 0
@@ -397,8 +406,7 @@ def test_ft_stormcontrol_verification():
         st.report_tc_fail('ft_stormcontrol_config_clear_noaffect_traffic', 'test_case_failed')
     status = 1
     st.log("clearing bum traffic type to verify othertraffic does not effect bum storm-control")
-    scapi.config(vars.D1, type="unknown-unicast", action="del", interface_name=vars.D1T1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
+    scapi.config(vars.D1, type="unknown-unicast", action="del", interface_name=vars.D1T1P1, bits_per_sec=sc_data.kbps)
     st.log("verifying the other traffic is not get effected.")
     if not verify_bum_traffic_mode('unknown-unicast', tg_info['tg1_stream_id'], skip_traffic_verify=True):
         st.error("Other_traffic traffic verification got failed")
@@ -408,8 +416,7 @@ def test_ft_stormcontrol_verification():
     else:
         st.report_tc_fail('ft_stormcontrol_config_unaffect_other_traffic', 'test_case_failed')
     st.log("configuring back to previous config")
-    scapi.config(vars.D1, type="unknown-unicast", action="add", interface_name=vars.D1T1P1, bits_per_sec=sc_data.kbps,
-                 cli_type="click")
+    scapi.config(vars.D1, type="unknown-unicast", action="add", interface_name=vars.D1T1P1, bits_per_sec=sc_data.kbps)
     if not status:
         msg_id = "storm_control_traffic_verification_failed"
     report_result(status, msg_id)
@@ -426,11 +433,11 @@ def test_ft_stormcontrol_portchannel_intf():
     portchannel.config_portchannel(vars.D1, vars.D2, portchannel_name, portchannel_interfaces_dut1,
                                    portchannel_interfaces_dut2,
                                    config="add", thread=True)
-    vlan.add_vlan_member(vars.D1, sc_data.vlan, portchannel_name, tagging_mode=True, cli_type=sc_data.cli_type)
-    vlan.create_vlan_and_add_members(vlan_info, cli_type=sc_data.cli_type)
+    vlan.add_vlan_member(vars.D1, sc_data.vlan, portchannel_name, tagging_mode=True)
+    vlan.create_vlan_and_add_members(vlan_info)
     st.log("Verifying whether stormcontrol config can be applied on portchannel {} interfaces".format(portchannel_name))
     if scapi.config(vars.D1, type="broadcast", action="add", interface_name=portchannel_name, rate=sc_data.kbps,
-                    skip_error_check=True, cli_type="click"):
+                    skip_error_check=True):
         st.error("storm-control config can be applied on portchannel interface")
         status = 0
     else:
@@ -441,14 +448,10 @@ def test_ft_stormcontrol_portchannel_intf():
         st.report_tc_fail('ft_stormcontrol_neg_config_vlan_portchannel', 'test_case_failed')
     status = 1
     st.log("configuring bum stormcontrol on portchannel interfaces")
-    scapi.config(vars.D1, type="broadcast", action="del", interface_name=vars.D1T1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D1, type="broadcast", action="del", interface_name=vars.D1T1P2,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D2, type="broadcast", action="add", interface_name=vars.D2D1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D2, type="broadcast", action="add", interface_name=vars.D2D1P2,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
+    scapi.config(vars.D1, type="broadcast", action="del", interface_name=vars.D1T1P1, bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D1, type="broadcast", action="del", interface_name=vars.D1T1P2, bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D2, type="broadcast", action="add", interface_name=vars.D2D1P1,  bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D2, type="broadcast", action="add", interface_name=vars.D2D1P2, bits_per_sec=sc_data.kbps)
     verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=True)
     st.log("Clearing interface counters")
     ifapi.clear_interface_counters(vars.D2)
@@ -464,7 +467,7 @@ def test_ft_stormcontrol_portchannel_intf():
     try:
         time = int(counter2 / sc_data.rate_pps)
         counters_avg = counter / time
-    except:
+    except Exception:
         counters_avg = 0
     st.log("Average of counters are : {}".format(counters_avg))
     st.log("Higher packet count value is : {}".format(sc_data.higher_pkt_count))
@@ -479,8 +482,7 @@ def test_ft_stormcontrol_portchannel_intf():
         st.report_tc_fail('ft_stormcontrol_portchannel_intf', 'test_case_failed')
     status = 1
     st.log("Configuring stormcontrol without providing bps value")
-    if scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1, skip_error_check=True,
-                    cli_type="click"):
+    if scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1, skip_error_check=True):
         st.error("Storm-control config is accepting not throwing any error")
         status = 0
     else:
@@ -492,7 +494,7 @@ def test_ft_stormcontrol_portchannel_intf():
     status = 1
     st.log("unconfiguring of bum stormcontrol type by providing bps value")
     if scapi.config(vars.D1, type="broadcast", action="del", interface_name=vars.D1T1P1, rate=sc_data.kbps,
-                    skip_error_check=True, cli_type="click"):
+                    skip_error_check=True):
         st.error("Storm-control config is removed and not throwing any error")
         status = 0
     else:
@@ -503,17 +505,13 @@ def test_ft_stormcontrol_portchannel_intf():
         st.report_tc_fail('ft_stormcontrol_neg_unconfig_with_bpsvalue', 'test_case_failed')
 
     st.log("Back to module config")
-    scapi.config(vars.D2, type="broadcast", action="del", interface_name=vars.D2D1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D2, type="broadcast", action="del", interface_name=vars.D2D1P2,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
-    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P2,
-                 bits_per_sec=sc_data.kbps, cli_type="click")
+    scapi.config(vars.D2, type="broadcast", action="del", interface_name=vars.D2D1P1,  bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D2, type="broadcast", action="del", interface_name=vars.D2D1P2,   bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P1,  bits_per_sec=sc_data.kbps)
+    scapi.config(vars.D1, type="broadcast", action="add", interface_name=vars.D1T1P2,   bits_per_sec=sc_data.kbps)
     st.log("Unconfiguring portchannel config in both devices and only vlan configuration in device2")
-    vlan.clear_vlan_configuration(vars.D2, cli_type=sc_data.cli_type)
-    vlan.delete_vlan_member(vars.D1, sc_data.vlan, portchannel_name, cli_type=sc_data.cli_type)
+    vlan.clear_vlan_configuration(vars.D2)
+    vlan.delete_vlan_member(vars.D1, sc_data.vlan, portchannel_name, tagging_mode=True)
     portchannel.clear_portchannel_configuration(st.get_dut_names(), thread=True)
     if not status:
         msg_id = "storm_control_portchannel_verification_failed"
@@ -538,7 +536,7 @@ def test_ft_stormcontrol_incremental_bps_max_vlan():
         sc_data.bum_deviation1 = int(0.10 * sc_data.packets)
         sc_data.lower_pkt_cnt = int(sc_data.packets - sc_data.bum_deviation1)
         sc_data.higher_pkt_cnt = int(sc_data.packets + sc_data.bum_deviation1)
-        for iter in range(1,3,1):
+        for _ in range(1,3,1):
             verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=True)
             st.log("Clearing interface counters")
             ifapi.clear_interface_counters(vars.D1)
@@ -555,7 +553,7 @@ def test_ft_stormcontrol_incremental_bps_max_vlan():
             try:
                 time = int(counter2 / sc_data.rate_pps)
                 counters_avg = counter / time
-            except:
+            except Exception:
                 counters_avg = 0
             st.log("Average of counters are : {}".format(counters_avg))
             st.log("Higher packet count value is : {}".format(sc_data.higher_pkt_cnt))
@@ -596,16 +594,15 @@ def test_ft_stormcontrol_fast_reboot():
     #############################################################################################
     for interface in interface_list:
         for stc_type in storm_control_type:
-            if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps,
-                                       cli_type="click"):
+            if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps):
                 st.report_fail("storm_control_config_verify_failed", stc_type, interface)
                 status = 0
     st.log("Traffic Config for verifying BUM storm control feature")
     tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
     tg_1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', rate_pps=5000, duration=10,
-                                l2_encap = 'ethernet_ii', vlan_id = sc_data.vlan, mac_src = "00:00:00:00:00:01",
+                                l2_encap = 'ethernet_ii_vlan', vlan_id = sc_data.vlan, mac_src = "00:00:00:00:00:01",
                                 mac_dst = "ff:ff:ff:ff:ff:ff", high_speed_result_analysis = 0, vlan = "enable",
-                                port_handle2 = tg_handler["tg_ph_2"], frame_size = sc_data.frame_size)
+                                port_handle2 = tg_handler["tg_ph_2"], frame_size = sc_data.frame_size, length_mode='fixed')
     tg_info['tg1_stream_id'] = tg_1['stream_id']
     utils.banner_log("Verifying BUM storm control after fast reboot")
     if not verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=False):
@@ -638,16 +635,15 @@ def test_ft_stormcontrol_warm_reboot():
     #############################################################################################
     for interface in interface_list:
         for stc_type in storm_control_type:
-            if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps,
-                                       cli_type="click"):
+            if not scapi.verify_config(vars.D1, interface_name=interface, type=stc_type, rate=sc_data.kbps):
                 st.report_fail("storm_control_config_verify_failed", stc_type, interface)
                 status = 0
     st.log("Traffic Config for verifying BUM storm control feature")
     tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
     tg_1 = tg.tg_traffic_config(port_handle=tg_handler["tg_ph_1"], mode='create', rate_pps=5000, duration=10,
-                                l2_encap = 'ethernet_ii', vlan_id = sc_data.vlan, mac_src = "00:00:00:00:00:01",
+                                l2_encap = 'ethernet_ii_vlan', vlan_id = sc_data.vlan, mac_src = "00:00:00:00:00:01",
                                 mac_dst = "ff:ff:ff:ff:ff:ff", high_speed_result_analysis = 0, vlan = "enable",
-                                port_handle2 = tg_handler["tg_ph_2"], frame_size = sc_data.frame_size)
+                                port_handle2 = tg_handler["tg_ph_2"], frame_size = sc_data.frame_size, length_mode='fixed')
     tg_info['tg1_stream_id'] = tg_1['stream_id']
     utils.banner_log("Verifying BUM storm control after warm reboot")
     if not verify_bum_traffic_mode('broadcast', tg_info['tg1_stream_id'], skip_traffic_verify=False):
@@ -691,15 +687,15 @@ def max_vlan_verify():
 
 
 def add_vlan_members():
-    st.log("Participating ixia connected interfaces into max vlans")
+    st.log("Participating TGen connected interfaces into max vlans")
     vlan.config_vlan_range_members(vars.D1, "1 {}".format(sc_data.max_vlan), vars.D1T1P1, config='add')
     vlan.config_vlan_range_members(vars.D1, "1 {}".format(sc_data.max_vlan), vars.D1T1P2, config='add')
 
 def mac_verify():
-    mac_count = mac_obj.get_mac_address_count(vars.D1, vlan=sc_data.vlan, port=vars.D1T1P1, type=None,
+    mac_count = mac.get_mac_address_count(vars.D1, vlan=sc_data.vlan, port=vars.D1T1P1, type=None,
                                               mac_search=None)
     st.log("Total mac address learnt are : {}".format(mac_count))
-    if not int(mac_count) == sc_data.mac_count:
+    if int(mac_count) != sc_data.mac_count:
         st.error("mac_address_verification_fail")
         return False
     else:
@@ -725,9 +721,6 @@ def test_ft_vlan_save_config_warm_and_fast_reboot():
     vlan_module_epilog()
     vlan_module_config(config='yes')
     st.log("Device name is : {}".format(sc_data.dut_platform))
-    if sc_data.dut_platform and sc_data.dut_platform.lower() not in sc_data.warm_reboot_supported_platforms:
-        st.error("Warm-Reboot is not supported for this platform ({})".format(sc_data.dut_platform))
-        st.report_unsupported('test_case_unsupported')
 
     st.log("Saving the MAX VLAN config on the device")
     reboot.config_save(vars.D1)
@@ -780,7 +773,7 @@ def test_ft_vlan_save_config_warm_and_fast_reboot():
     max_vlan_verify()
     tg.tg_traffic_control(action='stop', stream_handle=tg_info['tg1_stream_id'])
     st.log("Checking traffic is forwarded without any loss after warm-reboot")
-    st.log("Fetching IXIA statistics")
+    st.log("Fetching TGen statistics")
     st.wait(2)
     ifapi.show_interface_counters_all(vars.D1)
 
@@ -794,8 +787,37 @@ def test_ft_vlan_save_config_warm_and_fast_reboot():
     st.log("###############")
     st.log("Sent bytes: {} and Received bytes : {}".format(percentage_95_total_tx_tg1, total_rx_tg2))
     st.log("##############")
-    if not int(percentage_95_total_tx_tg1) <= int(total_rx_tg2):
+    if int(percentage_95_total_tx_tg1) > int(total_rx_tg2):
         st.report_fail("traffic_transmission_failed", vars.T1D1P1)
 
     report_result(status, msg_id)
 
+@pytest.mark.snmp_hardening
+def test_ft_snmp_max_vlan_scale():
+    '''
+    Author: Prasad Darnasi <prasad.darnasi@broadcom.com>
+    verify The BRIDGE-MIB requirements functionality by scaling DUT with max Vlans
+    '''
+
+    vlan_module_config(config='yes')
+
+    st.log("Checking VLAN config after reboot")
+    max_vlan_verify()
+    global ipaddress
+    ipaddress_list = basic_obj.get_ifconfig_inet(vars.D1, sc_data.mgmt_int)
+    st.log("Checking Ip address of the Device ")
+    if not ipaddress_list:
+        st.report_env_fail("ip_verification_fail")
+    ipaddress = ipaddress_list[0]
+    st.log("Device ip addresse - {}".format(ipaddress))
+    snmp_obj.set_snmp_config(vars.D1, snmp_rocommunity=sc_data.ro_community, snmp_location=sc_data.location)
+    if not snmp_obj.poll_for_snmp(vars.D1, 30, 1, ipaddress=ipaddress,
+                                  oid=sc_data.oid_sysName, community_name=sc_data.ro_community):
+        st.log("Post SNMP config , snmp is not working")
+        st.report_fail("operation_failed")
+    basic_obj.get_top_info(vars.D1, proc_name='snmpd')
+    get_snmp_output = snmp_obj.poll_for_snmp_walk(vars.D1, 15, 1, ipaddress=ipaddress, oid=sc_data.oid_dot1qBase,
+                                                  community_name=sc_data.ro_community)
+    if not get_snmp_output:
+        st.report_fail("get_snmp_output_fail")
+    st.report_pass("test_case_passed")

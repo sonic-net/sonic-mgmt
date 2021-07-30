@@ -10,5 +10,5 @@ Value time (\S+)
 Value command (\S+)
 
 Start
-  ^\s*KiB\s*Mem\s*:\s*${total}\s*total,\s*${free}\s*free,\s*${used}\s*used,\s*${buff_cache}\s*buff\/cache\s*$$ -> Record
+  ^\s*\S+\s*Mem\s*:\s*${total}\s*total,\s*${free}\s*free,\s*${used}\s*used,\s*${buff_cache}\s*buff\/cache\s*$$ -> Record
   ^\s*${pid}\s+${user}\s+\S+\s+\S+\s+\d+\s+\d+\s+\d+\s+\w+\s+${cpu}\s+${mem}\s+${time}\s+${command}\s*$$ -> Record

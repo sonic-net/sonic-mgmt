@@ -97,6 +97,12 @@ class RouteMap:
         matchstmt['exact_match'] = exact_match
         self.stanza[seq]['match'].append(matchstmt)
 
+    def add_sequence_match_source_protocol(self,seq, source_protocol):
+        matchstmt = dict()
+        matchstmt['type'] = 'source-protocol'
+        matchstmt['source-protocol'] = source_protocol
+        self.stanza[seq]['match'].append(matchstmt)
+
     def add_sequence_set_metric(self, seq, metric):
         setstmt = dict()
         setstmt['type'] = 'metric'
@@ -167,6 +173,9 @@ class RouteMap:
         self.stanza[seq]['set'].append(setstmt)
 
     def config_command_string(self):
+        cli_type = st.get_ui_type()
+        cli_type = 'vtysh' if cli_type in ['click', 'vtysh'] else cli_type
+        if cli_type in ['rest-put', 'rest-patch']: cli_type = 'klish'
         command = ''
         for v in self.stanza.keys():
             command += '{} {} {} {}\n'.format(self.cmdkeyword, self.name, self.stanza[v]['mode'], v)
@@ -193,10 +202,12 @@ class RouteMap:
                     command += 'match as-path {}\n'.format(items['name'])
                 elif items['type'] == 'community':
                     command += 'match community {}'.format(items['community'])
-                    if items['exact_match'] == True:
+                    if items['exact_match'] is True:
                         command += ' exact-match\n'
                     else:
                         command += '\n'
+                elif items['type'] == 'source-protocol':
+                    command += 'match source-protocol {}\n'.format(items['source-protocol'])
                 else:
                     st.error("Invalid type({}) in match statement".format(items['type']))
 
@@ -216,21 +227,25 @@ class RouteMap:
                 elif items['type'] == 'ipv6nexthoppreferglobal':
                     command += 'set ipv6 next-hop prefer-global\n'
                 elif items['type'] == 'aspathexclude':
-                    command += 'set as-path exclude'
-                    for v in items['as_path_list']:
-                        command = command + ' ' + v
+                    command += 'set as-path exclude '
+                    if cli_type == 'vtysh':
+                        command += ' '.join(items['as_path_list'])
+                    elif cli_type == 'klish':
+                        command += ','.join(items['as_path_list'])
                     command += '\n'
                 elif items['type'] == 'aspathprepend':
-                    command += 'set as-path prepend'
-                    for v in items['as_path_list']:
-                        command = command + ' ' + v
+                    command += 'set as-path prepend '
+                    if cli_type == 'vtysh':
+                        command += ' '.join(items['as_path_list'])
+                    elif cli_type == 'klish':
+                        command += ','.join(items['as_path_list'])
                     command += '\n'
                 elif items['type'] == 'aspathprependlastas':
                     command += 'set as-path prepend last-as {}\n'.format(items['value'])
                 elif items['type'] == 'community':
                     command += 'set community'
-                    for v in items['community_list']:
-                        command = command + ' ' + v
+                    for vv in items['community_list']:
+                        command = command + ' ' + vv
                     command += '\n'
                 elif items['type'] == 'communitynone':
                     command += 'set community none\n'
@@ -242,10 +257,13 @@ class RouteMap:
         command = 'no {} {}\n'.format(self.cmdkeyword, self.name)
         return command
 
-    def execute_command(self, dut, config='yes'):
+    def execute_command(self, dut, config='yes', **kwargs):
+        cli_type = st.get_ui_type(dut, **kwargs)
+        cli_type = 'vtysh' if cli_type in ['click', 'vtysh'] else 'klish'
+        if cli_type in ['rest-put', 'rest-patch']: cli_type = 'klish'
         if config == 'no':
             command = self.unconfig_command_string()
         else:
             command = self.config_command_string()
-        st.config(dut, command, type='vtysh')
+        st.config(dut, command, type=cli_type)
 

@@ -1,0 +1,61 @@
+- hosts: servers:&vm_host
+  gather_facts: no
+  vars_files:
+    - vars/docker_registry.yml
+  pre_tasks:
+  - name: Check for a single host
+    fail: msg="Please use -l server_X to limit this playbook to one host"
+    when: "{{ play_hosts|length }} != 1"
+
+  - name: Check that variable vm_set_name is defined
+    fail: msg="Define vm_set_name variable with -e vm_set_name=something"
+    when: vm_set_name is not defined
+
+  - name: Check that variable duts_name is defined
+    fail: msg="Define duts_name variable with -e duts_name=something"
+    when: duts_name is not defined
+
+  - name: Check that variable VM_base is defined
+    fail: msg="Define VM_base variable with -e VM_base=something"
+    when: VM_base is not defined
+
+  - name: Check that variable ptf_ip is defined
+    fail: msg="Define ptf ip variable with -e ptf_ip=something"
+    when: ptf_ip is not defined
+
+  - name: Check that variable ptf_ipv6 is defined
+    fail: msg="Define ptf ipv6 variable with -e ptf_ipv6=something"
+    when: ptf_ipv6 is not defined
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check if it is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: base_topo not in topologies
+
+  - name: Check that variable ptf_imagename is defined
+    fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
+    when: ptf_imagename is not defined
+
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
+
+  - name: Read dut minigraph
+    conn_graph_facts:
+      host: "{{ duts_name }}"
+    delegate_to: localhost
+    when: duts_name.split(',')|length == 1
+
+  - name: Read duts minigraph
+    conn_graph_facts:
+      hosts: "{{ duts_name.split(',') }}"
+    delegate_to: localhost
+    when: duts_name.split(',')|length > 1
+
+  roles:
+    - { role: vm_set, action: 'add_topo', when external_port is not defined }

@@ -1,12 +1,23 @@
 import json
 import logging
 from datetime import datetime
+from time import sleep
 
 import pytest
 from jinja2 import Template
 from netaddr import IPAddress
+from vnet_constants import DUT_VXLAN_PORT_JSON
+from vnet_utils import render_template_to_host
 
-from ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.ptf_runner import ptf_runner
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 logger = logging.getLogger(__name__)
 
@@ -15,18 +26,16 @@ VNI_BASE = 336
 COUNT = 10
 
 
-def prepare_ptf(ptfhost, mg_facts, dut_facts):
+def prepare_ptf(ptfhost, mg_facts, duthost):
+    """Prepare arp responder configuration and store temporary vxlan decap related information to PTF docker
+
+    Args:
+        ptfhost (PTFHost): The ptfhost fixture, instance of PTFHost
+        mg_facts (dict): Collected minigraph facts
+        duthost (SonicHost): The duthost fixture, instance of SonicHost
     """
-    @summary: Prepare the PTF docker container for testing
-    @param mg_facts: Minigraph facts
-    @param dut_facts: Host facts of DUT
-    """
-    logger.info("Remove IP and change MAC")
-    ptfhost.script("./scripts/remove_ip.sh")
-    ptfhost.script("./scripts/change_mac.sh")
 
     logger.info("Prepare arp_responder")
-    ptfhost.copy(src="../ansible/roles/test/files/helpers/arp_responder.py", dest="/opt")
 
     arp_responder_conf = Template(open("../ansible/roles/test/templates/arp_responder.conf.j2").read())
     ptfhost.copy(content=arp_responder_conf.render(arp_responder_args="--conf /tmp/vxlan_arpresponder.conf"),
@@ -36,19 +45,22 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts):
     ptfhost.shell("supervisorctl update")
 
     logger.info("Put information needed by the PTF script to the PTF container.")
+
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    
     vxlan_decap = {
-        "minigraph_port_indices": mg_facts["minigraph_port_indices"],
+        "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
         "minigraph_portchannels": mg_facts["minigraph_portchannels"],
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
-        "dut_mac": dut_facts["ansible_Ethernet0"]["macaddress"]
+        "dut_mac": duthost.facts["router_mac"],
+        "vlan_mac": vlan_mac
     }
     ptfhost.copy(content=json.dumps(vxlan_decap, indent=2), dest="/tmp/vxlan_decap.json")
-
-    logger.info("Copy PTF scripts to PTF container")
-    ptfhost.copy(src="ptftests", dest="/root")
 
 
 def generate_vxlan_config_files(duthost, mg_facts):
@@ -89,15 +101,20 @@ def generate_vxlan_config_files(duthost, mg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthost, ptfhost):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Gather some facts")
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-    dut_facts = duthost.setup(gather_subset="!all,!any,network", filter="ansible_Ethernet*")["ansible_facts"]
-    ptf_facts = ptfhost.setup(gather_subset="!all,!any,network")["ansible_facts"]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    logger.info("Copying vxlan_switch.json")
+    render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
+    duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    sleep(3)
 
     logger.info("Prepare PTF")
-    prepare_ptf(ptfhost, mg_facts, dut_facts)
+    prepare_ptf(ptfhost, mg_facts, duthost)
 
     logger.info("Generate VxLAN config files")
     generate_vxlan_config_files(duthost, mg_facts)
@@ -118,7 +135,10 @@ def setup(duthost, ptfhost):
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
-def vxlan_status(setup, request, duthost):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    #clear FDB and arp cache on DUT
+    duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
@@ -132,10 +152,12 @@ def vxlan_status(setup, request, duthost):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
 
     vxlan_enabled, scenario = vxlan_status
-
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_runner(ptfhost,
@@ -144,6 +166,10 @@ def test_vxlan_decap(setup, vxlan_status, duthost, ptfhost):
                 platform_dir="ptftests",
                 params={"vxlan_enabled": vxlan_enabled,
                         "config_file": '/tmp/vxlan_decap.json',
-                        "count": COUNT},
-                qlen=1000,
+                        "count": COUNT,
+                        "sonic_admin_user": creds.get('sonicadmin_user'),
+                        "sonic_admin_password": creds.get('sonicadmin_password'),
+                        "sonic_admin_alt_password": sonic_admin_alt_password,
+                        "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
+                qlen=10000,
                 log_file=log_file)

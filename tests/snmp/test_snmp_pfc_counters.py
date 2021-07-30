@@ -1,12 +1,17 @@
 import pytest
-from ansible_host import AnsibleHost
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
-def test_snmp_pfc_counters(ansible_adhoc, duthost, creds):
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
+def test_snmp_pfc_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     # Check PFC counters
     # Ignore management ports, assuming the names starting with 'eth', eg. eth0

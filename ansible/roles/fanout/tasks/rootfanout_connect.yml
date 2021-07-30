@@ -7,28 +7,38 @@
 - set_fact: dut="{{ leaf_name }}"
   when: deploy_leaf
 
-- name: Gathering connection facts about the DUT or leaffanout device
-  conn_graph_facts: host={{ dut }}
+- debug: msg="Configuring fanout switch for {{ dut }}"
+
+- name: Gathering connection facts about the DUTs or leaffanout device
+  conn_graph_facts:
+    host: "{{ dut if ',' not in dut else omit }}"
+    hosts: "{{ dut.split(',') if ',' in dut else omit }}"
   delegate_to: localhost
   tags: always
   register: devinfo
 
 - name: Gathering connection facts about the lab
   conn_graph_facts:
+    anchor: "{{ dut.split(',') | list }}"
   delegate_to: localhost
   tags: always
   register: lab
 
 - set_fact:
-    dev_vlans: "{{ devinfo.ansible_facts.device_vlan_range }}"
     lab_devices: "{{ lab.ansible_facts.device_info }}"
+
+- name: Collect DUTs vlans
+  set_fact:
+    dev_vlans: "{{ dev_vlans|default([]) + item.value }}"
+  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | dict2items }}"
 
 - name: Find the root fanout switch
   set_fact:
-    ansible_host: "{{ lab_devices[item]['mgmtip'] }}"
-    root_dev: "{{ item }}"
-  with_items: "{{ lab_devices }}"
-  when: lab_devices[item]['Type'] == 'FanoutRoot'
+    ansible_host: "{{ item.value['mgmtip'] }}"
+    root_dev: "{{ item.key }}"
+    root_hwsku: "{{ item.value['HwSku'] }}"
+  with_dict: "{{ lab_devices }}"
+  when: item.value['Type'] == 'FanoutRoot'
 
 - set_fact:
     root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"

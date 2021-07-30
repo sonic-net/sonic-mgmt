@@ -142,6 +142,7 @@ SAMPLE_COMMAND_DATA = '''
 
 
 ### TODO: Not fully tested ipv6 route entries parsing option, need continue working on ipv6 specific commands###
+import json
 
 class BgpRoutes(object):
     '''
@@ -157,12 +158,29 @@ class BgpRoutes(object):
     def get_facts(self):
         return self.facts
 
+    def parse_bgp_route_adv_json(self, cmd_result):
+        '''
+        parse BGP routing facts of neighbor advertised routes in json format
+        '''
+
+        self.facts['bgp_route_neiadv']['neighbor'] = self.neighbor
+
+        res = json.loads(cmd_result)
+
+        for k, rt in res['advertisedRoutes'].items():
+            entry = dict()
+            entry['nexthop'] = rt['nextHop']
+            entry['origin']  = rt['bgpOriginCode']
+            entry['weigh']   = rt['weight']
+            entry['aspath']  = rt['path'].split()
+            self.facts['bgp_route_neiadv']["{}/{}".format(rt['addrPrefix'], rt['prefixLen'])] = entry
+
     def parse_bgp_route_adv(self, cmd_result):
         '''
         parse BGP routing facts of neighbor advertised routes
         '''
         self.facts['bgp_route_neiadv']['neighbor'] = self.neighbor
-        ### so far parsing prefix, nexthop and aspath, origin and weight 
+        ### so far parsing prefix, nexthop and aspath, origin and weight
         header = 'Metric LocPrf Weight Path'
         result_lines = cmd_result.split('\n')
         table_start = False
@@ -200,6 +218,26 @@ class BgpRoutes(object):
                 self.facts['bgp_route_neiadv'][prefix] = entry
 
 
+    def parse_bgp_route_prefix_json(self, cmd_result):
+        """
+        parse BGP facts for specific prefix in json format
+        """
+
+        prefix = self.prefix
+        self.facts['bgp_route'] = defaultdict(dict)
+
+        p = json.loads(cmd_result)
+
+        if not p.has_key('prefix'):
+            self.facts['bgp_route'][prefix]['found'] = False
+            return
+
+        self.facts['bgp_route'][prefix]['found'] = True
+        self.facts['bgp_route'][prefix]['aspath'] = []
+        self.facts['bgp_route'][prefix]['path_num'] = len(p['paths'])
+        for path in p['paths']:
+            self.facts['bgp_route'][prefix]['aspath'].append(path['aspath']['string'])
+
     def parse_bgp_route_prefix(self, cmd_result):
         '''
         parse BGP facts for specific prefix
@@ -225,6 +263,7 @@ class BgpRoutes(object):
         regex_prefix_path_p1_from = re.compile('.* from .*\([0-9a-fA-F.:]+\)')
         regex_prefix_path_p2_origin = re.compile('\s+Origin')
         regex_prefix_path_p3_timestamp = re.compile('\s+Last update:')
+        regex_prefix_path_p3_community = re.compile('\s+Community:')
         cmd_err1 = 'Unknown command'
         cmd_err2 = 'Network not in table'
 
@@ -284,6 +323,8 @@ class BgpRoutes(object):
             elif state == PREFIX_PATH_TIMESTAMP:
                 if regex_prefix_path_p3_timestamp.match(line):
                     state = PREFIX_PATHS
+                elif regex_prefix_path_p3_community.match(line):
+                    continue
                 else:
                     state = ERR
             elif state == ERR:
@@ -299,6 +340,9 @@ def main():
                 ),
             supports_check_mode=False
             )
+    is_frr = False
+    use_json = ""
+
     m_args = module.params
     neighbor = m_args['neighbor']
     direction = m_args['direction']
@@ -320,29 +364,45 @@ def main():
     try:
         bgproute = BgpRoutes(neighbor, direction, prefix)
 
+        command = "docker exec -i bgp vtysh -c 'show version'"
+        rc, out, err = module.run_command(command)
+        if rc != 0:
+            err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
+            module.fail_json(msg=err_message)
+            return
+        if "FRRouting" in out:
+            is_frr = True
+            use_json = "json"
+
         if prefix:
             if regex_ipv4.match(prefix):
-                command = "docker exec -i bgp vtysh -c 'show ip bgp " + str(prefix) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ip bgp {} {}'".format(str(prefix), use_json)
             else:
-                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp " + str(prefix) +  "'"
+                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp {} {}'".format(str(prefix), use_json)
             rc, out, err = module.run_command(command)
             if rc != 0:
-                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
+                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
                 module.fail_json(msg=err_message)
                 return
-            bgproute.parse_bgp_route_prefix(out)
+            if is_frr:
+                bgproute.parse_bgp_route_prefix_json(out)
+            else:
+                bgproute.parse_bgp_route_prefix(out)
 
         elif neighbor:
             if netaddr.valid_ipv4(neighbor):
-                command = "docker exec -i bgp vtysh -c 'show ip bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ip bgp neighbor {} {} {}'".format(str(neighbor), str(direction), use_json)
             else:
-                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp neighbor " + str(neighbor) + " " + str(direction) + "'"
+                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp neighbor {] {} {}'".format(str(neighbor), str(direction), use_json)
             rc, out, err = module.run_command(command)
             if rc !=  0:
-                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rt, out, err)
+                err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
                 module.fail_json(msg=err_message)
                 return
-            bgproute.parse_bgp_route_adv(out)
+            if is_frr:
+                bgproute.parse_bgp_route_adv_json(out)
+            else:
+                bgproute.parse_bgp_route_adv(out)
 
         results = bgproute.get_facts()
         module.exit_json(ansible_facts=results)

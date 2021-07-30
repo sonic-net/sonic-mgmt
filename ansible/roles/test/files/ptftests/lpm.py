@@ -103,3 +103,6 @@ class LpmDict():
                     interval = self.IpInterval(sorted_boundaries[index], ip_address(u'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
             ranges.append(interval)
         return ranges
+
+    def contains(self, key):
+        return key in self._subnet_tree

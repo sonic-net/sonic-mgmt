@@ -47,7 +47,14 @@
       become: true
       sysctl:
         name: "net.core.rmem_max"
-        value: 509430500
+        value: 609430500
+        sysctl_set: yes
+
+    - name: Set sysctl SENDBUF parameter for tests
+      become: true
+      sysctl:
+        name: "net.core.wmem_max"
+        value: 609430500
         sysctl_set: yes
 
     - name: Gather SONiC base image version
@@ -61,7 +68,7 @@
 
     # Note: no_log requires passlib python library
     - name: Pull syncd-rpc docker from registry
-      shell: docker login -u {{docker_registry_username}} -p {{docker_registry_password}} {{docker_registry_host}}; docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
+      shell: docker pull {{docker_registry_host}}/{{docker_rpc_image_name}}:{{sonic_image_version}}
       no_log: true
 
     - name: Tag pulled images as syncd

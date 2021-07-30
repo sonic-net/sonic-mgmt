@@ -1,0 +1,5 @@
+#!/bin/sh
+
+export SPYTEST_PYTHON_VERSION=3.7.1
+export SPYTEST_PYTHON_VERSION=3.6.6
+exec $(dirname $0)/python "$@"

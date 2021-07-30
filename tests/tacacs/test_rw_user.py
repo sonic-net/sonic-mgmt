@@ -1,20 +1,36 @@
 import pytest
 import crypt
 
+from .test_ro_user import ssh_remote_run
+
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
 ]
 
-def test_rw_user(duthost, creds, setup_tacacs):
+
+def test_rw_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
     """test tacacs rw user
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_rw_user'],
+                         creds_all_duts[duthost]['tacacs_rw_user_passwd'], "cat /etc/passwd")
 
-    duthost.host.options['variable_manager'].extra_vars.update(
-        {'ansible_user':creds['tacacs_rw_user'], 'ansible_password':creds['tacacs_rw_user_passwd']})
+    for l in res['stdout_lines']:
+        fds = l.split(':')
+        if fds[0] == "testadmin":
+            assert fds[4] == "remote_user_su"
 
-    res = duthost.shell("cat /etc/passwd")
-    
+def test_rw_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs_v6):
+    """test tacacs rw user
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_rw_user'],
+                         creds_all_duts[duthost]['tacacs_rw_user_passwd'], "cat /etc/passwd")
+
     for l in res['stdout_lines']:
         fds = l.split(':')
         if fds[0] == "testadmin":

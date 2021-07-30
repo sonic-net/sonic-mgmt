@@ -1,12 +1,12 @@
 #BGP 4 node linear topology
-from spytest import st
-from spytest.dicts import SpyTestDict
+from spytest import st, SpyTestDict
+
 import apis.routing.ip as ipapi
 import apis.routing.bgp as bgpapi
-import utilities.common as utils
 import BGP.bgplib as bgplib
 
-global topo
+import utilities.common as utils
+
 topo = SpyTestDict()
 
 def l3_ipv4v6_address_config_unconfig(config='yes', vrf_type='all', config_type='all'):
@@ -35,7 +35,7 @@ def l3_ipv4v6_address_config_unconfig(config='yes', vrf_type='all', config_type=
         dut = topo['dut_list'][i]
         peer_dut = topo['dut_list'][i+1]
         link = 1
-        for local, partner, remote in st.get_dut_links(dut, peer_dut):
+        for local, _, remote in st.get_dut_links(dut, peer_dut):
             if config_type == 'ipv4' or config_type == 'all':
                 ipaddr1 = "{}.{}.0.1".format(ipv4_adr, k)
                 ipaddr2 = "{}.{}.0.2".format(ipv4_adr, k)
@@ -85,16 +85,14 @@ def l3tc_vrfipv4v6_address_ping_test(vrf_type='all', config_type='all', ping_cou
         dut = topo['dut_list'][i]
         peer_dut = topo['dut_list'][i+1]
         link = 1
-        for local, partner, remote in st.get_dut_links(dut, peer_dut):
+        for local, _, _ in st.get_dut_links(dut, peer_dut):
             if config_type == 'ipv4' or config_type == 'all':
-                ipaddr1 = "{}.{}.0.1".format(ipv4_adr, k)
                 ipaddr2 = "{}.{}.0.2".format(ipv4_adr, k)
                 if not ipapi.ping(dut, ipaddr2, family='ipv4', count=ping_count):
                     st.log("{}- {} configured on {} - ping failed".format(dut, local, ipaddr2))
                     result = False
 
             if config_type == 'ipv6' or config_type == 'all':
-                ip6addr1 = "{}:{}::1".format(ipv6_adr, k)
                 ip6addr2 = "{}:{}::2".format(ipv6_adr, k)
                 if not ipapi.ping(dut, ip6addr2, family='ipv6', count=ping_count):
                     st.log("{}- {} configured on {} - ping v6 failed".format(dut, local, ip6addr2))

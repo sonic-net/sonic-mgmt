@@ -1,0 +1,5 @@
+azure-kusto-data
+azure-kusto-ingest
+defusedxml
+pytest
+aiohttp

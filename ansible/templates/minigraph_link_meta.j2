@@ -1,0 +1,30 @@
+{% if 'dualtor' in topo %}
+  <LinkMetadataDeclaration>
+    <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% for tunnel in tunnel_configs %}
+      <a:LinkMetadata>
+          <a:Name i:nil="true" />
+          <a:Properties>
+            <a:DeviceProperty>
+              <a:Name>GeminiPeeringLink</a:Name>
+              <a:Reference i:nil="true" />
+              <a:Value>True</a:Value>
+            </a:DeviceProperty>
+            <a:DeviceProperty>
+              <a:Name>UpperTOR</a:Name>
+              <a:Reference i:nil="true" />
+              <a:Value>{{ dual_tor_facts['positions']['upper'] }}</a:Value>
+            </a:DeviceProperty>
+            <a:DeviceProperty>
+              <a:Name>LowerTOR</a:Name>
+              <a:Reference i:nil="true" />
+              <a:Value>{{ dual_tor_facts['positions']['lower'] }}</a:Value>
+            </a:DeviceProperty>
+          </a:Properties>
+        <a:Key>{{ dual_tor_facts['positions']['lower'] }}:{{ tunnel }};{{ dual_tor_facts['positions']['upper'] }}:{{ tunnel }}</a:Key>
+      </a:LinkMetadata>
+{% endfor %}
+    </Link>
+  </LinkMetadataDeclaration>
+{% endif %}
+

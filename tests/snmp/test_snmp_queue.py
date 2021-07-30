@@ -1,12 +1,18 @@
 import pytest
-from ansible_host import AnsibleHost
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
-def test_snmp_queues(ansible_adhoc, duthost, creds, collect_techsupport):
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
-    lhost = AnsibleHost(ansible_adhoc, 'localhost', True)
+def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, collect_techsupport_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("interfaces not present on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = lhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     for k, v in snmp_facts['snmp_interfaces'].items():
         if "Ethernet" in v['description']:

@@ -52,7 +52,7 @@
   tags: always
 
 - set_fact:
-    neighbors: "{{device_conn}}"
+    neighbors: "{{device_conn[inventory_hostname]}}"
 
 - name: Initialize an empty list to store interface names
   set_fact:
@@ -94,7 +94,7 @@
   tags: always
 
 - set_fact:
-    neighbors: "{{device_conn}}"
+    neighbors: "{{device_conn[inventory_hostname]}}"
 
 - debug: msg="iface_list {{ iface_list }}"
 
@@ -113,7 +113,7 @@
   tags: always
 
 - set_fact:
-    neighbors: "{{device_conn}}"
+    neighbors: "{{device_conn[inventory_hostname]}}"
 
 - include: ecmp/paths_up.yml
   with_items: iface_list

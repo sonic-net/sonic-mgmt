@@ -10,6 +10,7 @@ import utilities.common as utils
 import utilities.parallel as putils
 from spytest.logger import Logger
 from spytest.tgen.init import tg_stc_load,tg_scapy_load,tg_ixia_load
+from spytest.tgen.tg_stubs import TGStubs
 from spytest.tgen.tg_scapy import ScapyClient
 from spytest.dicts import SpyTestDict
 from netaddr import IPAddress
@@ -29,8 +30,8 @@ def tgen_profiling_start(msg, max_time=300):
 def tgen_profiling_stop(pid):
     return workarea.profiling_stop(pid)
 
-def tgen_wait(val):
-    workarea.tg_wait(val)
+def tgen_wait(val, msg=None):
+    workarea.tg_wait(val, msg)
 
 def tgen_exception(ex):
     workarea.report_tgen_exception(ex)
@@ -49,6 +50,11 @@ def tgen_script_error(dbg_msg, msgid, *args):
 
 def tgen_ftrace(*args):
     workarea.tgen_ftrace(*args)
+
+def tgen_log_lvl_is_debug():
+   lvl_1 = bool(os.getenv('SPYTEST_LOGS_LEVEL') == 'debug')
+   lvl_2 = bool(os.getenv('SPYTEST_TGEN_LOGS_LEVEL') == 'debug')
+   return bool(lvl_1 or lvl_2)
 
 def tgen_get_logs_path(for_file=None):
     return workarea.get_logs_path(for_file)
@@ -71,11 +77,12 @@ def tgen_log_call(fname, **kwargs):
             args_list.append("%s=%s" %(key, value))
         else:
             args_list.append("%s=%s[%s]" %(key, value, type(value)))
-    text = "{}({})\n".format(fname, ",".join(args_list))
-    logger.debug('REQ: {}'.format(text.strip()))
+    text = "{}({})".format(fname, ",".join(args_list))
+    logger.debug('REQ: {}'.format(text))
     file_prefix = os.getenv("SPYTEST_FILE_PREFIX", "results")
     hltApiLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltApiLog.txt'))
-    utils.write_file(hltApiLog, text, "a")
+    utils.write_file(hltApiLog, "{}\n".format(text), "a")
+    return text
 
 analyzer_filter = {"ipv4Precedence0": "ip_precedence_tracking",
                    "ipv4DefaultPhb0": "ip_dscp_tracking",
@@ -96,8 +103,21 @@ def get_ixiangpf():
 def get_ixnet():
     return get_ixiangpf().ixnet
 
-class TGBase(object):
+def connect_retry(tg):
+    for i in range(0, 10):
+        ret_ds = tg.connect()
+        if ret_ds:
+            msg = "UNKNOWN" if "log" not in ret_ds else ret_ds.get('log', '')
+            logger.warning('TG Connect Error: %s try: %d' % (msg, i))
+            tgen_wait(10)
+        else:
+            logger.info('TG Connection: Success')
+            return True
+    return False
+
+class TGBase(TGStubs):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None):
+        TGStubs.__init__(self, logger)
         logger.info('TG Base Init...start')
         self.tg_ns = ""
         self.tg_type = tg_type
@@ -110,21 +130,10 @@ class TGBase(object):
         self.cached_interface_config_handles = OrderedDict()
         self.tg_port_handle = dict()
         self.tg_port_analyzer = dict()
-        if self.tg_ip == None or self.tg_port_list == None:
+        if self.tg_ip is None or self.tg_port_list is None:
             return
         if self.skip_traffic:
             return
-
-        for i in range(0, 10):
-            ret_ds = self.connect()
-            if ret_ds:
-                msg = "UNKNOWN" if "log" not in ret_ds else ret_ds['log']
-                logger.warning('TG Connect Error: %s try: %d' % (msg, i))
-                tgen_wait(10)
-            else:
-                logger.info('TG Connection: Success')
-                self.tg_connected = True
-                break
 
     def manage_interface_config_handles(self, mode, port_handle, handle):
         logger.debug("manage_interface_config_handles: {} {} {}".format(mode, port_handle, handle))
@@ -148,18 +157,6 @@ class TGBase(object):
     def ensure_traffic_stats(self, timeout=60, skip_fail=False, **kwargs):
         pass
 
-    def clean_all(self):
-        logger.error("should be overriden")
-        return None
-
-    def connect(self):
-        logger.error("should be overriden")
-        return None
-
-    def show_status(self):
-        logger.error("should be overriden")
-        return None
-
     def instrument(self, phase, context):
         pass
 
@@ -175,12 +172,22 @@ class TGBase(object):
 
     def fail(self, dbg_msg, msgid, *args):
         self.ensure_connected(dbg_msg)
+        self.collect_diagnosic(msgid)
         tgen_fail(dbg_msg, msgid, *args)
 
     def exception(self, exp):
         logger.error('TG API Fatal Exception: %s' % str(exp))
         self.ensure_connected(str(exp))
         tgen_exception(exp)
+
+    def collect_diagnosic(self, fail_reason):
+        pass
+
+    def get_capture_stats_state(self, port):
+        pass
+
+    def get_emulation_handle_prefixes(self, ret_ds, kwargs):
+        pass
 
     def has_disconnected(self, msg):
         if "Failed to parse stack trace not connected" in msg:
@@ -206,7 +213,7 @@ class TGBase(object):
         try:
             # try getting the ixnetwork build number to check connection status
             get_ixiangpf().ixnet.getAttribute('::ixNet::OBJ-/globals', '-buildNumber')
-        except Exception as exp:
+        except Exception:
             tgen_abort(msg, "tgen_failed_abort", str(msg))
 
     def debug_show(self, ph, msg=""):
@@ -235,9 +242,15 @@ class TGBase(object):
     def get_port_handle(self, port):
         return self.tg_port_handle.get(port, None)
 
+    def set_port_handle(self, port, value):
+        if port:
+            self.tg_port_handle[port] = value
+        else:
+            self.tg_port_handle.clear()
+
     def get_port_handle_list(self):
         ph_list = list()
-        for port, handle in self.tg_port_handle.items():
+        for _, handle in self.tg_port_handle.items():
             ph_list.append(handle)
         return ph_list
 
@@ -277,7 +290,7 @@ class TGBase(object):
         if kwargs.get('handle') != None and stack != None:
             kwargs['handle'] = re.search(r'.*{}:(\d)+'.format(stack), kwargs['handle']).group(0)
         kwargs.pop('tg_wait', '')
-        for i in range(1, 30):
+        for _ in range(1, 30):
             if kwargs.get('action') == 'apply_on_the_fly_changes':
                 res = get_ixiangpf().test_control(action='apply_on_the_fly_changes')
             else:
@@ -322,8 +335,7 @@ class TGBase(object):
                     han = kwargs['handle']
                     han = han[0] if type(han) is list else han
                     han = re.search(r'.*deviceGroup:(\d)+',han).group(0)
-                    logger.debug("Starting Destroy...")
-                    logger.debug(han)
+                    logger.debug("Starting Destroy ... {}".format(han))
                     self.tg_test_control(handle=han, action='stop_protocol')
                     tgen_wait(10)
                     kwargs['topology_handle'] = han
@@ -353,20 +365,26 @@ class TGBase(object):
 
         if fname == 'tg_traffic_control':
             if self.tg_type == 'ixia' and kwargs.get('action') == 'reset':
-                traffic_items = get_ixiangpf().session_info(mode='get_traffic_items')
-                if traffic_items.get('traffic_config') != None:
-                    logger.debug("stopping streams before reset")
-                    ret_ds = self.tg_traffic_control(action='stop', stream_handle=traffic_items['traffic_config'].split())
-                    logger.debug(ret_ds)
-                    tgen_wait(2)
+                ret_ds = get_ixiangpf().traffic_control(action='poll')
+                if ret_ds.get('stopped') == '0':
+                    traffic_items = get_ixiangpf().session_info(mode='get_traffic_items')
+                    if traffic_items.get('traffic_config') != None:
+                        logger.debug("stopping streams before reset")
+                        ret_ds = self.tg_traffic_control(action='stop', stream_handle=traffic_items['traffic_config'].split())
+                        logger.debug(ret_ds)
+                        tgen_wait(2)
 
         if fname == 'tg_packet_stats' and kwargs.get('format') == 'var':
             op_type = kwargs.pop('output_type',None)
-            if self.tg_type == 'ixia' and op_type == 'hex':
+            if self.tg_type == 'ixia':
+                self.get_capture_stats_state(kwargs.get('port_handle'))
+                if op_type == 'hex':
                     func = self.get_hltapi_name('self.local_get_captured_packets')
+                else:
+                    kwargs.pop('var_num_frames', '')
 
         if fname == 'tg_packet_control':
-            if self.tg_type == 'stc' and kwargs['action'] == 'start':
+            if self.tg_type == 'stc' and kwargs['action'] in ['start', 'stop']:
                 port_handle=kwargs.get('port_handle')
                 if isinstance(port_handle,list):
                     ret_ds = None
@@ -377,6 +395,10 @@ class TGBase(object):
 
         if fname == 'tg_traffic_stats' and self.tg_type == 'ixia':
             self.ensure_traffic_stats(**kwargs)
+
+        if fname == 'tg_emulation_igmp_control':
+            if self.tg_type == 'stc':
+                if kwargs.get('mode') in ['start', 'stop']: return
 
         msg = "{} {}".format(func, kwargs)
         ret_ds = self.tgen_eval(msg, func, **kwargs)
@@ -391,16 +413,26 @@ class TGBase(object):
                 logger.info(ret_ds)
                 if ret_ds.get('status') != None:
                     break
-            if ret_ds.get('status') == None:
+            if ret_ds.get('status') is None:
                 logger.error('Traffic stats not collected properly, even after waiting for 15 sec...')
+
         if "status" not in ret_ds:
             logger.warning(ret_ds)
             msg = "Unknown" if "log" not in ret_ds else ret_ds['log']
+            if self.tg_type == 'stc' and not ret_ds:
+                tgen_abort("nolog", "tgen_failed_abort", str(msg))
             self.fail("nolog", "tgen_failed_api", msg)
         elif ret_ds['status'] == '1':
             logger.debug('TG API Run Status: Success')
+            if ret_ds.get('log', ''):
+                logger.warning('TG API ERROR: {}'.format(ret_ds['log']))
             if fname == 'tg_traffic_control' and self.tg_type == 'ixia':
                 self.ensure_traffic_control(**kwargs)
+            if fname == 'tg_traffic_config':
+                stream_id = ret_ds.get('stream_id', '')
+                logger.info('STREAM HANDLE: "{}"'.format(stream_id))
+                if 'emulation_src_handle' in kwargs or 'emulation_dst_handle' in kwargs:
+                    self.get_emulation_handle_prefixes(ret_ds, kwargs)
             if fname == 'tg_traffic_config' and self.tg_type == 'ixia':
                 self.manage_traffic_config_handles(ret_ds, **kwargs)
             if fname == 'tg_connect':
@@ -561,6 +593,8 @@ class TGBase(object):
                 self.fail(ret_ds['log'], "tgen_failed_add_endpoint_sets")
             if "Capture action start failed" in ret_ds['log']:
                 self.fail(ret_ds['log'], "tgen_failed_start_capture")
+            if "Possible cause: capture was not stopped" in ret_ds['log']:
+                self.fail(ret_ds['log'], "tgen_failed_stop_capture")
             if "::ixia::test_control: Failed to start Protocols" in ret_ds['log']:
                 self.fail(ret_ds['log'], "tgen_failed_start_protocols")
             if "::ixia::traffic_config: Could not configure stack" in ret_ds['log']:
@@ -571,6 +605,10 @@ class TGBase(object):
                 self.fail(ret_ds['log'], "tgen_failed_missing_traffic_item")
             if "parse_dashed_args: Invalid value" in ret_ds['log']:
                 self.fail(ret_ds['log'], "tgen_failed_invalid_value")
+            if "Sorry we could not process this start within specified time" in ret_ds['log']:
+                self.warn(ret_ds['log'])
+            if "Unable to set attributes" in ret_ds['log']:
+                self.fail(ret_ds['log'], "tgen_failed_set_attrib")
 
             # warning
             self.warn(ret_ds['log'])
@@ -583,10 +621,15 @@ class TGBase(object):
 
     def trgen_post_proc(self, fname, **kwargs):
         pass
+    def trgen_adjust_mismatch_params(self, fname, **kwargs):
+        pass
+    def local_stc_tapi_call(self,param):
+        pass
 
 class TGStc(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None):
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.tg_connected = connect_retry(self)
         logger.info('TG STC Init...done')
 
     def clean_all(self):
@@ -624,19 +667,20 @@ class TGStc(TGBase):
         ret_ds = get_sth().connect(device=self.tg_ip, port_list=self.tg_port_list,
                              break_locks=1)
         logger.info(ret_ds)
-        if ret_ds['status'] != '1':
+        if ret_ds.get('status') != '1':
             return ret_ds
         port_handle_list=[]
         for port in self.tg_port_list:
             self.tg_port_handle[port] = ret_ds['port_handle'][self.tg_ip][port]
             port_handle_list.append(self.tg_port_handle[port])
         port_details_all = self.tg_interface_stats(port_handle=port_handle_list)
-        intf_speed_list = port_details_all['intf_speed'].split()
-        for intf_speed,port,port_handle in zip(intf_speed_list, self.tg_port_list, port_handle_list):
-            if intf_speed == '100000':
-                logger.info('disabling FEC as spirent port {} is of 100G'.format(port))
-                self.tg_interface_config(port_handle=port_handle, \
-                                         mode="modify",forward_error_correct="false")
+        if port_details_all.get('status', '0') == '1' and port_details_all.get('intf_speed', '') != '':
+            intf_speed_list = port_details_all['intf_speed'].split()
+            for intf_speed,port,port_handle in zip(intf_speed_list, self.tg_port_list, port_handle_list):
+                if intf_speed == '100000':
+                    logger.info('disabling FEC as spirent port {} is of 100G'.format(port))
+                    self.tg_interface_config(port_handle=port_handle, \
+                                             mode="modify",forward_error_correct="false")
         return None
 
     def trgen_adjust_mismatch_params(self, fname, **kwargs):
@@ -647,15 +691,18 @@ class TGStc(TGBase):
             self.map_field("icmp_ndp_nam_r_flag", "icmpv6_rflag", kwargs)
             self.map_field("icmp_ndp_nam_s_flag", "icmpv6_sflag", kwargs)
             self.map_field("data_pattern_mode", None, kwargs)
-            self.map_field("icmp_target_addr", None, kwargs)
+            self.map_field("global_stream_control", None, kwargs)
+            self.map_field("global_stream_control_iterations", None, kwargs)
             if kwargs.get('custom_pattern') != None:
                 kwargs['custom_pattern'] = kwargs['custom_pattern'].replace(" ","")
                 kwargs['disable_signature'] = '1'
             if kwargs.get("l4_protocol") == "icmp" and kwargs.get("l3_protocol") == "ipv6":
                 kwargs['l4_protocol'] = 'icmpv6'
                 self.map_field("icmp_type", "icmpv6_type", kwargs)
+                self.map_field("icmp_code", "icmpv6_code", kwargs)
+                self.map_field("icmp_target_addr", "icmpv6_target_address", kwargs)
             if kwargs.get('vlan_id') != None:
-                if kwargs.get('l2_encap') == None:
+                if kwargs.get('l2_encap') is None:
                     kwargs['l2_encap'] = 'ethernet_ii_vlan'
                 if type(kwargs.get('vlan_id')) != list:
                     x = [kwargs.get('vlan_id')]
@@ -678,7 +725,7 @@ class TGStc(TGBase):
                     kwargs[param] = 'decrement'
             if (kwargs.get('transmit_mode') != None or
                 kwargs.get('l3_protocol') != None) and \
-                kwargs.get('length_mode') == None:
+                kwargs.get('length_mode') is None:
                 kwargs['length_mode'] = 'fixed'
 
             if kwargs.get('port_handle2') != None:
@@ -717,22 +764,24 @@ class TGStc(TGBase):
                     kwargs.pop('mac_dst_mode', '')
 
             #disabling high_speed_result_analysis by default, as saw few instances where it is needed and not by disabled by scripts.
-            if kwargs.get('high_speed_result_analysis') == None:
+            if kwargs.get('high_speed_result_analysis') is None:
                 kwargs['high_speed_result_analysis'] = 0
 
         elif fname == 'tg_traffic_stats':
-            if kwargs.get('mode') == None:
+            if kwargs.get('mode') is None:
                 kwargs['mode'] = 'aggregate'
             kwargs.pop('csv_path', '')
         elif fname == 'tg_traffic_control':
             self.map_field("max_wait_timer", None, kwargs)
-            if kwargs.get('db_file') == None:
+            if kwargs.get('db_file') is None:
                 kwargs['db_file'] = 0
             if kwargs.get('handle') != None:
                 kwargs['stream_handle'] = kwargs['handle']
                 kwargs.pop('handle')
         elif fname == 'tg_interface_config':
             self.map_field("ipv4_resolve_gateway", "resolve_gateway_mac", kwargs)
+            self.map_field("transmit_mode", None, kwargs)
+            self.map_field("ignore_link", None, kwargs)
             if kwargs.get("resolve_gateway_mac") != None:
                 kwargs['resolve_gateway_mac'] = 'false' if kwargs['resolve_gateway_mac'] == 0 else 'true'
             if "vlan_id_count" in kwargs:
@@ -740,11 +789,16 @@ class TGStc(TGBase):
             if "count" in kwargs:
                 if 'create_host' not in kwargs:
                     kwargs['create_host'] = 'false'
+            if kwargs.get('create_host') == 'false':
+                if kwargs.get('netmask') != None:
+                    kwargs['intf_prefix_len'] = IPAddress(kwargs.pop('netmask', '255.255.255.0')).netmask_bits()
+            if kwargs.get('mode') != 'destroy' and kwargs.get('enable_ping_response') is None:
+                kwargs['enable_ping_response'] = 1
         elif fname == 'tg_emulation_bgp_config':
             if kwargs.get('enable_4_byte_as') != None:
-                l_as = int(kwargs['local_as']) / 65536
+                l_as = int(int(kwargs['local_as']) / 65536)
                 l_nn = int(kwargs['local_as']) - (l_as * 65536)
-                r_as = int(kwargs['remote_as']) / 65536
+                r_as = int(int(kwargs['remote_as']) / 65536)
                 r_nn = int(kwargs['remote_as']) - (r_as * 65536)
                 kwargs['local_as4'] = str(l_as)+":"+str(l_nn)
                 kwargs['remote_as4'] = str(r_as)+":"+str(r_nn)
@@ -765,11 +819,6 @@ class TGStc(TGBase):
                 kwargs['device_group_mapping'] = 'MANY_TO_MANY'
                 kwargs['enable_user_defined_sources'] = '1'
                 kwargs['specify_sources_as_list'] = '0'
-        elif fname == 'tg_emulation_igmp_control':
-            if kwargs.get('mode') == 'start':
-                kwargs['mode'] = 'join'
-            if kwargs.get('mode') == 'stop':
-                kwargs['mode'] = 'leave'
         elif fname == 'tg_emulation_ospf_config':
             kwargs.pop('validate_received_mtu', '')
             kwargs.pop('max_mtu', '')
@@ -819,10 +868,10 @@ class TGStc(TGBase):
         port_handle_list = self.get_port_handle_list()
         ret_ds = get_sth().cleanup_session(port_handle=port_handle_list)
         logger.info(ret_ds)
-        if ret_ds['status'] == '1':
+        if ret_ds.get('status') == '1':
             logger.debug('TG API Run Status: Success')
         else:
-            logger.warning('TG API Error: %s' % ret_ds['log'])
+            logger.warning('TG API Error: %s' % ret_ds.get('log', ''))
         self.tg_connected = False
         self.tg_port_handle.clear()
 
@@ -858,7 +907,7 @@ class TGStc(TGBase):
         port_handle = kwargs['port_handle']
         mode = kwargs['mode'].lower()
 
-        if mode != 'create' and self.tg_port_analyzer[port_handle]['analyzer_handle'] == None:
+        if mode != 'create' and self.tg_port_analyzer[port_handle]['analyzer_handle'] is None:
             logger.error("Custom Filter is not configured for port: {}".format(port_handle))
             ret_dict['status'] = '0'
             return ret_dict
@@ -1040,6 +1089,35 @@ class TGStc(TGBase):
 
         return ret_dict
 
+
+    def get_emulation_handle_prefixes(self, ret_ds, kwargs):
+        ip_dict = dict()
+        for emu_handle in ['emulation_src_handle', 'emulation_dst_handle']:
+            handle_list = utils.make_list(kwargs.get(emu_handle))
+            ip_dict[emu_handle] = list()
+            for index, handle in enumerate(handle_list):
+                try:
+                    temp = dict()
+                    if handle.startswith('host') or handle.startswith('emulateddevice'):
+                        device_obj = self.local_stc_tapi_call('stc::get ' + handle + ' -toplevelif-Targets')
+                        if device_obj.startswith('eth') or device_obj.startswith('vlan'): continue
+                        temp['start_addr'] = self.local_stc_tapi_call(
+                            'stc::get ' + device_obj.split(' ')[0] + ' -Address')
+                        temp['hadle'] = handle
+                    else:
+                        if ret_ds.get('stream_id', ''):
+                            emu_type = 'src' if emu_handle == 'emulation_src_handle' else 'dst'
+                            device_obj = self.local_stc_tapi_call('stc::get ' + ret_ds.get('stream_id') + ' -' + emu_type + 'binding-Targets')
+                            device = device_obj.split(' ')[index]
+                            temp['start_addr'] = self.local_stc_tapi_call('stc::get ' + device + ' -StartIpList')
+                            temp['count'] = self.local_stc_tapi_call('stc::get ' + device + ' -NetworkCount')
+                            temp['hadle'] = handle
+                    ip_dict[emu_handle].append(temp)
+                except Exception:
+                    logger.error("Couldn't get ip prefix for handle: {}".format(handle))
+        logger.info('IP PREFIXES: {}'.format(ip_dict))
+
+
 class TGIxia(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port_list=None, ix_server=None, ix_port=8009):
         self.ix_server = ix_server
@@ -1047,6 +1125,7 @@ class TGIxia(TGBase):
         self.topo_handle = {}
         self.traffic_config_handles = {}
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.tg_connected = connect_retry(self)
         logger.info('TG Ixia Init...done')
 
     def clean_all(self):
@@ -1086,7 +1165,7 @@ class TGIxia(TGBase):
                     logger.info("removing cached {}".format(topo_handle))
                     ret_ds=self.tg_topology_config(topology_handle=topo_handle, mode='destroy')
                     logger.info(ret_ds)
-                    tgen_wait(2)
+                    tgen_wait(15)
 
         logger.debug("TG CLEAN ALL FINISHED")
 
@@ -1147,11 +1226,13 @@ class TGIxia(TGBase):
 
     def connect(self):
         self.tg_ns = 'ixiangpf'
+        self.ixnetwork_os = None
         ret_ds = self.show_status()
-        if ret_ds and ret_ds['status'] == '1' and ret_ds['session_in_use'] > 1:
-            logger.error('Max recommended connection is reached, should abort the run')
+        if ret_ds and ret_ds['status'] == '1' and ret_ds['session_in_use'] > ret_ds['total_session'] - 1:
+            msg = 'Max recommended connection is reached, should abort the run'
+            tgen_abort(msg, "tgen_failed_abort", msg)
 
-        params = SpyTestDict(device=self.tg_ip, port_list=self.tg_port_list,
+        params = SpyTestDict(device=self.tg_ip, port_list=self.tg_port_list, connect_timeout=60,
                       ixnetwork_tcl_server=self.ix_server, break_locks=1, reset=1)
         if self.ix_port == "443":
             # ixnetwork linux VM
@@ -1162,6 +1243,10 @@ class TGIxia(TGBase):
         logger.info(ret_ds)
         if ret_ds['status'] != '1':
             return ret_ds
+        if 'connection' in ret_ds and ('api_key_file' in ret_ds['connection'] or 'api_key' in ret_ds['connection']):
+            self.ixnetwork_os = 'linux'
+        else:
+            self.ixnetwork_os = 'windows'
         ports_100g=[]
         res=get_ixiangpf().traffic_stats()
         for port in self.tg_port_list:
@@ -1195,6 +1280,12 @@ class TGIxia(TGBase):
             self.map_field("icmpv6_rflag", "icmp_ndp_nam_r_flag", kwargs)
             self.map_field("icmpv6_sflag", "icmp_ndp_nam_s_flag", kwargs)
             self.map_field("vlan_tpid", "vlan_protocol_tag_id", kwargs)
+            self.map_field("icmpv6_code", "icmp_code", kwargs)
+            self.map_field("icmpv6_type", "icmp_type", kwargs)
+            self.map_field("icmpv6_target_address", "icmp_target_addr", kwargs)
+
+            if kwargs.get("l4_protocol") == "icmpv6":
+                kwargs['l4_protocol'] = 'icmp'
 
             if kwargs.get('vlan_protocol_tag_id') != None:
                 eth_type = kwargs.pop('ethernet_value', None)
@@ -1209,14 +1300,14 @@ class TGIxia(TGBase):
                 kwargs['vlan_id'] = [vlan_id, outer_vlan_id]
                 kwargs.pop('vlan_id_outer')
 
-            if kwargs.get('vlan_id') != None and kwargs.get('vlan') == None:
+            if kwargs.get('vlan_id') != None and kwargs.get('vlan') is None:
                 kwargs['vlan'] = 'enable'
 
             # for stream level stats, circuit_type and track_by arguments required
             if kwargs.get('port_handle2') != None:
-                if kwargs.get('track_by') == None:
+                if kwargs.get('track_by') is None:
                     kwargs['track_by'] = 'trackingenabled0'
-                if kwargs.get('circuit_type') == None:
+                if kwargs.get('circuit_type') is None:
                     kwargs['circuit_type'] = 'raw'
                 if kwargs.get('emulation_src_handle') != None and kwargs.get('emulation_dst_handle') != None:
                     kwargs['circuit_type'] = 'none'
@@ -1272,10 +1363,10 @@ class TGIxia(TGBase):
             if kwargs.get('stream_handle') != None:
                 kwargs['handle'] = kwargs['stream_handle']
                 kwargs.pop('stream_handle')
-            for param in ('get', 'enable_arp'):
+            for param in ('get', 'enable_arp', 'duration'):
                 if kwargs.get(param) != None:
                     kwargs.pop(param)
-            if kwargs.get('action') in ['run', 'stop'] and kwargs.get('port_handle') == None:
+            if kwargs.get('action') in ['run', 'stop'] and kwargs.get('port_handle') is None:
                 #kwargs['max_wait_timer'] = 120
                 #temp change to roll back the HF from ixia
                 if os.getenv("SPYTEST_ENSURE_TRAFFIC_CONTROL", "0") == "0":
@@ -1287,9 +1378,10 @@ class TGIxia(TGBase):
             self.map_field("resolve_gateway_mac", "ipv4_resolve_gateway", kwargs)
             self.map_field("control_plane_mtu", "mtu", kwargs)
             self.map_field("flow_control", "enable_flow_control", kwargs)
+            self.map_field("arp_target", None, kwargs)
             if kwargs.get('mode') == 'config':
                 topo_han=self.topo_handle[kwargs.get('port_handle')]
-                if topo_han == None:
+                if topo_han is None:
                     res=self.tg_topology_config(port_handle=kwargs.get('port_handle'))
                     logger.info(res)
                     topo_han = res['topology_handle']
@@ -1320,7 +1412,7 @@ class TGIxia(TGBase):
                                                   data_plane_capture_enable='1')
 
         if fname == 'tg_traffic_stats':
-            if kwargs.get('csv_path') == None:
+            if kwargs.get('csv_path') is None:
                 kwargs['csv_path'] = tgen_get_logs_path_folder()
 
         if fname == 'tg_emulation_bgp_route_config':
@@ -1332,17 +1424,27 @@ class TGIxia(TGBase):
                                           tg_wait=10)
             topo = re.search(r'.*topology:(\d)+', kwargs['handle']).group(0)
             logger.debug('Topology: {}'.format(topo))
-            tg_port = self.topo_handle.keys()[self.topo_handle.values().index(topo)]
+            topo_index = list(self.topo_handle.values()).index(topo)
+            tg_port = list(self.topo_handle.keys())[topo_index]
             logger.debug('port_handle: {}'.format(tg_port))
-            for i in range(1,30):
+            flag = 0
+            for _ in range(1,30):
                 res = self.tg_protocol_info(mode='global_per_port')
+                logger.info(res)
+                if not res['global_per_port'].get(tg_port):
+                    tgen_wait(2)
+                    continue
                 total=res['global_per_port'][tg_port]['sessions_total']
                 total_ns=res['global_per_port'][tg_port]['sessions_not_started']
-                logger.debug(total)
-                logger.debug(total_ns)
+                logger.debug("sessions_total = {}".format(total))
+                logger.debug("sessions_not_started = {}".format(total_ns))
                 if total == total_ns:
+                    flag = 1
                     break
                 tgen_wait(2)
+            if not flag:
+                msg = "Failed to get port {} from the protocol info".format(tg_port)
+                self.fail(msg, "tgen_failed_api", msg)
             tgen_wait(10)
 
         if fname == 'tg_emulation_bgp_control':
@@ -1369,17 +1471,17 @@ class TGIxia(TGBase):
                 kwargs.pop('handle', None)
 
         if fname == 'tg_emulation_multicast_group_config':
-            if kwargs.get('active') == None:
+            if kwargs.get('active') is None:
                 kwargs['active'] = '1'
             kwargs.pop('ip_addr_step_val', '')
 
         if fname == 'tg_emulation_multicast_source_config':
-            if kwargs.get('active') == None:
+            if kwargs.get('active') is None:
                 kwargs['active'] = '1'
             kwargs.pop('ip_addr_step_val', '')
 
         if fname == 'tg_emulation_igmp_group_config':
-            if kwargs.get('source_pool_handle') == None and kwargs.get('mode') == 'create':
+            if kwargs.get('source_pool_handle') is None and kwargs.get('mode') == 'create':
                 res = self.tg_emulation_multicast_source_config(mode='create', ip_addr_start='21.1.1.100',
                                                                 num_sources=1, active=0)
                 kwargs['source_pool_handle'] = res['multicast_source_handle']
@@ -1387,7 +1489,7 @@ class TGIxia(TGBase):
                 self.map_field("handle", "session_handle", kwargs)
 
         if fname == 'tg_emulation_igmp_querier_config':
-            if kwargs.get('active') == None and kwargs.get('mode') == 'create':
+            if kwargs.get('active') is None and kwargs.get('mode') == 'create':
                 kwargs['active'] = '1'
             if kwargs.get('mode') == 'create':
                 kwargs['handle'] = re.search(r'.*ipv4:(\d)+', kwargs['handle']).group(0)
@@ -1403,6 +1505,8 @@ class TGIxia(TGBase):
         if fname == 'tg_emulation_dhcp_group_config':
             self.map_field("ipv4_gateway_address", "dhcp4_gateway_address", kwargs)
             self.map_field("gateway_ipv6_addr", "dhcp6_gateway_address", kwargs)
+            self.map_field("vlan_ether_type", None, kwargs)
+            self.map_field("gateway_addresses", None, kwargs)
             if str(kwargs.get("dhcp_range_ip_type")) == '4':
                 kwargs['dhcp_range_ip_type'] = 'ipv4'
             else:
@@ -1418,7 +1522,7 @@ class TGIxia(TGBase):
             if "ipv4_handle" in ret_ds or "ipv6_handle" in ret_ds:
                 temp = ret_ds['interface_handle'].split()
                 # Removing extra ethernet handles.
-                temp = temp[:len(temp)/2]
+                temp = temp[:int(len(temp)/2)]
                 ret_ds['handle'] = temp[0] if len(temp)==1 else temp
             else:
                 ret_ds['handle'] = ret_ds['interface_handle']
@@ -1553,6 +1657,33 @@ class TGIxia(TGBase):
         self.tg_connected = False
         self.tg_port_handle.clear()
 
+    def collect_diagnosic(self, fail_reason):
+        # Default Location of collected diags for Windows :: C:\Program Files (x86)\Ixia\IxNetwork\9.10.2007.7\diagnostic
+        # Default Location of collected diags for Linux:: /opt/ixia/IxNetwork/9.10.2007.7/aptixia/api/logcollector
+        file_location = ''
+        if self.tg_version in ["8.4", "8.40", "8.42", "8.42"]:
+            file_location = get_ixnet().getAttribute('::ixNet::OBJ-/globals', '-persistencePath') + '\\'
+        if self.ixnetwork_os == 'linux':
+            file_path = '/opt/ixia/IxNetwork/9.10.2007.7/aptixia/api/logcollector'
+            config_path = '/opt/ixia/IxNetwork/9.10.2007.7/'
+        else:
+            file_path = r'C:\Program Files (x86)\Ixia\IxNetwork\9.10.2007.7\diagnostic'
+            config_path = r'C:\Program Files (x86)\Ixia\IxNetwork\9.10.2007.7'
+        datetime = utils.get_current_datetime(fmt='%Y_%m_%d_%H_%M_%S')
+
+        logger.info('Saving Ixia session configuration....')
+        logger.info('Config File Path: API server {}@{}'.format(self.ix_server.split(':')[0], config_path))
+        config_file = 'ixNetconfig_' + fail_reason + '_'  + datetime + '.ixncfg'
+        logger.info('Configuration File: {}'.format(config_file))
+        get_ixnet().execute('saveConfig', get_ixnet().writeTo(config_file, '-ixNetRelative'))
+
+        logger.info('Collecting Ixia diagnostics....started')
+        logger.info('Diagnostics File Path: API server {}@{}'.format(self.ix_server.split(':')[0], file_path))
+        diags_file = file_location + 'ixNetDiag_' + fail_reason + '_' + datetime + '_Collect.zip'
+        logger.info('Diagnostics File: {}'.format(diags_file))
+        get_ixnet().execute('collectLogs', get_ixnet().writeTo(diags_file, '-ixNetRelative'), 'currentInstance')
+        logger.info('Collecting Ixia diagnostics....completed')
+
     def local_ixnet_call(self,method,*args):
         #::ixNet::OK'
         #IxNetError:
@@ -1571,12 +1702,12 @@ class TGIxia(TGBase):
         captured_packets = dict()
         #Add code to check if any packets are captured and return 0 if none
         ret_dict['status'] = '1'
-
+        var_num_frames = kwargs.get('var_num_frames', 20)
         #get vport info
         res = self.tg_convert_porthandle_to_vport(port_handle=kwargs['port_handle'])
         vport_handle = res['handle']
         cap_pkt_count = self.local_ixnet_call('getAttribute',vport_handle+'/capture','-'+packet_type+'PacketCounter')
-        pkts_in_buffer = int(cap_pkt_count) if int(cap_pkt_count) <= 20 else 20
+        pkts_in_buffer = int(cap_pkt_count) if int(cap_pkt_count) <= int(var_num_frames) else int(var_num_frames)
         captured_packets.update({'aggregate': {'num_frames': pkts_in_buffer}})
         captured_packets['frame'] = dict()
         for pkt_count in range(0,pkts_in_buffer):
@@ -1837,11 +1968,61 @@ class TGIxia(TGBase):
                         port_values.remove(val)
                 if not self.traffic_config_handles[port_handle]: self.traffic_config_handles.pop(port_handle)
 
-class TGScapy(TGBase, ScapyClient):
+    def get_capture_stats_state(self, port):
+        res = self.tg_convert_porthandle_to_vport(port_handle=port)
+        capture = get_ixnet().getList(res['handle'], 'capture')[0]
+        count = 0
+        start = time.time()
+        for cap_type in ['-dataCaptureState', '-controlCaptureState']:
+            try:
+                state = get_ixnet().getAttribute(capture, cap_type)
+            except Exception as exp:
+                self.fail(exp, "tgen_failed_api", exp)
+            while state != 'ready':
+                time.sleep(1)
+                count = count + 1
+                if count > 60:
+                    diff = time.time() - start
+                    logger.error('Capture did not become ready even after {} sec'.format(diff))
+                    break
+                state = get_ixnet().getAttribute(capture, cap_type)
+        logger.info("Total time taken to capture ready {} sec".format(time.time() - start))
+        if self.ix_port == '443': tgen_wait(5, 'waiting to stabilize the captured packets')
+
+    def get_emulation_handle_prefixes(self, ret_ds, kwargs):
+        ip_dict = dict()
+        for emu_handle in ['emulation_src_handle', 'emulation_dst_handle']:
+            handle_list = utils.make_list(kwargs.get(emu_handle))
+            ip_dict[emu_handle] = list()
+            for handle in handle_list:
+                try:
+                    temp = dict()
+                    if 'PrefixPools' in handle:
+                        hand = re.search(r'.*ipv(4|6)PrefixPools:(\d)+', handle).group(0)
+                        addr_han = get_ixnet().getAttribute(hand, '-networkAddress')
+                        values = get_ixnet().getAttribute(addr_han, '-values')
+                    else:
+                        values = get_ixnet().getAttribute(handle, '-address')
+                    temp['start_addr'] = values
+                    temp['hadle'] = handle
+                    ip_dict[emu_handle].append(temp)
+                except Exception:
+                    logger.error("Couldn't get ip prefix for handle: {}".format(handle))
+        logger.info('IP PREFIXES: {}'.format(ip_dict))
+
+
+class TGScapy(TGBase):
     def __init__(self, tg_type, tg_version, tg_ip=None, tg_port=8009, tg_port_list=None):
         logger.info('TG Scapy Init')
-        ScapyClient.__init__(self, logger, tg_port)
         TGBase.__init__(self, tg_type, tg_version, tg_ip, tg_port_list)
+        self.sc = ScapyClient(logger, tg_ip, tg_port, tg_port_list, self)
+        self.tg_connected = connect_retry(self)
+
+    def __getattribute__(self, name):
+        try:
+            return object.__getattribute__(self.sc, name)
+        except Exception:
+            return object.__getattribute__(self, name)
 
     def clean_all(self):
         self.server_control("clean-all", "")
@@ -1853,14 +2034,19 @@ class TGScapy(TGBase, ScapyClient):
         self.server_control(phase, context)
 
     def log_call(self, fname, **kwargs):
-        tgen_log_call(fname, **kwargs)
+        text = tgen_log_call(fname, **kwargs)
+        if not tgen_log_lvl_is_debug():
+            logger.info('REQ: {}'.format(text))
 
     def api_fail(self, msg):
         tgen_fail("", "tgen_failed_api", msg)
 
     def save_log(self, name, data):
-        lfile = tgen_get_logs_path(name)
-        utils.write_file(lfile, data)
+        try:
+            lfile = tgen_get_logs_path(name)
+            utils.write_file(lfile, data)
+        except Exception as exp:
+            logger.error('TG: Failed to save log: %s' % str(exp))
 
     def connect(self):
         logger.info('TG Scapy Connect {}:{}'.format(self.tg_ip, self.tg_port))
@@ -1911,12 +2097,10 @@ def generate_tg_methods(tg_type, afnl):
         else:
             setattr(TGStc, dummy_func_name, eval(dummy_func_name))
 
-def close_tgen(tgen_dict):
-    try:
-        tg_obj = tgen_obj_dict[tgen_dict['name']]
-        tg_obj.tg_disconnect()
-    except:
-        pass
+def close_tgen():
+    for _, tg in tgen_obj_dict.items():
+        tg.tg_disconnect()
+    return True
 
 def init_tgen(workarea_in, logger_in, skip_tgen_in):
     global workarea, logger, skip_tgen
@@ -1926,18 +2110,23 @@ def init_tgen(workarea_in, logger_in, skip_tgen_in):
     hltApiLog = tgen_get_logs_path('hltApiLog.txt')
     utils.delete_file(hltApiLog)
 
-def instrument_tgen(tgen_dict, phase, context):
-    tg = tgen_obj_dict[tgen_dict["name"]]
-    tg.instrument(phase, context)
+def instrument_tgen(phase, context):
+    for _, tg in tgen_obj_dict.items():
+        tg.instrument(phase, context)
 
 def load_tgen(tgen_dict):
-    global tg_stc_pkg_loaded, tg_ixia_pkg_loaded, tg_scapy_pkg_loaded, tg_version_list
+    global tg_stc_pkg_loaded, tg_ixia_pkg_loaded, tg_scapy_pkg_loaded, tg_version_list, skip_tgen
     file_prefix = os.getenv("SPYTEST_FILE_PREFIX", "results")
+
     # Abort if same TG type are having different version
     tg_type = tgen_dict['type']
     tg_version = tgen_dict['version']
 
-    if tg_version_list.get(tg_type, None) == None:
+    if tg_type not in ["stc", "ixia", "scapy"]:
+        logger.error("Unknown TGen Type {}".format(tg_type))
+        return False
+
+    if tg_version_list.get(tg_type, None) is None:
         tg_version_list[tg_type] = tg_version
     elif tg_version_list.get(tg_type, None) != tg_version:
         logger.error("Only one version per TG type is supported: %s %s %s"
@@ -1949,9 +2138,14 @@ def load_tgen(tgen_dict):
     logger.info("Loading {}:{} {} Ports: {}".format(
         tg_type, tg_version, tg_ip, tg_port_list))
 
-    if not utils.ipcheck(tg_ip):
+    if not skip_tgen and not utils.ipcheck(tg_ip):
         logger.error("TGEN IP Address: {} is not reachable".format(tg_ip))
         return False
+
+    if skip_tgen and os.getenv("SPYTEST_DRYRUN_FORCE_SCAPY", "0") != "0":
+        tg_type = 'scapy'
+        tg_version = '1.0'
+        skip_tgen = False
 
     if tg_type == 'stc':
         os.environ['STC_LOG_OUTPUT_DIRECTORY'] = tgen_get_logs_path_folder()
@@ -1961,7 +2155,7 @@ def load_tgen(tgen_dict):
                 return False
             code = "import sth \n"
             exec (code, globals(), globals())
-            if os.getenv('SPYTEST_LOGS_LEVEL') == 'debug':
+            if tgen_log_lvl_is_debug():
                 logger.info("Setting Stc Debugs...")
                 hltExportLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltExportLog'))
                 hltDbgLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltDbgLog'))
@@ -2009,7 +2203,7 @@ def load_tgen(tgen_dict):
                     "ixiangpf = IxiaNgpf(ixiahlt) \n"
 
                 exec(code, globals(), globals())
-                if os.getenv('SPYTEST_LOGS_LEVEL') == 'debug':
+                if tgen_log_lvl_is_debug():
                     logger.info("Setting Ixia Debugs...")
                     hltCmdLog = os.path.join(tgen_get_logs_path_folder(), "{}_{}".format(file_prefix, 'hltCmdLog.txt'))
                     hltDebugLog = os.path.join(tgen_get_logs_path_folder(),
@@ -2039,29 +2233,14 @@ def load_tgen(tgen_dict):
     tgen_obj_dict[tgen_dict['name']] = tg_obj
     return tg_obj.tg_connected
 
-def module_init(tgen_dict):
-    tg_type = tgen_dict['type']
-    tg_version = tgen_dict['version']
-    tg_ip = tgen_dict['ip']
-    tg_port_list = tgen_dict['ports']
-
-    # add any thing to be done before start of user module
-    # like clear streams or port reset etc.
-    logger.info("TG Module init {}:{} {} Ports: {}".format(
-        tg_type, tg_version, tg_ip, tg_port_list))
-
-    tg = None
-    try:
-        tg = tgen_obj_dict[tgen_dict["name"]]
+def module_init():
+    retval = True
+    for _, tg in tgen_obj_dict.items():
         tg.in_module_start_cleanup = True
-        tg.clean_all()
+        try: tg.clean_all()
+        except Exception: retval = False
         tg.in_module_start_cleanup = False
-        return True
-    except Exception as exp:
-        if tg: tg.in_module_start_cleanup = False
-        msg = "Failed to reset port list {} : {}".format(",".join(tg_port_list), exp)
-        logger.exception(msg)
-        return False
+    return retval
 
 def get_tgen_handler():
     return {
@@ -2069,18 +2248,26 @@ def get_tgen_handler():
         'stc_handler': get_sth() if 'sth' in globals() else None
     }
 
+def get_chassis(name=None):
+    try:
+        if name is None:
+            name = tgen_obj_dict.keys()[0]
+        return tgen_obj_dict[name]
+    except Exception:
+        return None
+
 def get_tgen(port, name=None):
-    if name is None:
-        try: name = tgen_obj_dict.keys()[0]
-        except: pass
-    elif name not in tgen_obj_dict:
-        return (None, None)
-    tg = tgen_obj_dict[name]
+    tg = get_chassis(name)
+    if not tg: return (None, None)
     ph = tg.get_port_handle(port)
     return (tg, ph)
 
+def is_soft_tgen(name=None):
+    tg = get_chassis(name)
+    return (tg and tg.tg_type == "scapy")
+
 if __name__ == "__main__":
-    tg_ixia_load("8.42", None, None)
+    tg_ixia_load("9.10", None, None)
     code = \
         "from ixiatcl import IxiaTcl \n" + \
         "from ixiahlt import IxiaHlt \n" + \

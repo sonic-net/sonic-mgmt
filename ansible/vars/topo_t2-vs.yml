@@ -1,0 +1,162 @@
+topology:
+  # 3 DUTs - 2 linecards (dut 0, 1) and 1 Supervisor card (dut 2) -  2 VMs per linecard
+  # line card dut0 is connected to 2 T3 VMs - one on lag and one on a single routed port
+  # line cards dut1 is connected to 2 T1 VMs - one on lag and one on a single routed port
+  # ptf ports are numbered 0-5
+  dut_num: 3
+  VMs:
+    ARISTA01T3:
+      vlans:
+        - "0.0@0"
+        - "0.1@1"
+      vm_offset: 0
+    ARISTA03T3:
+      vlans:
+        - "0.2@2"
+      vm_offset: 1
+    ARISTA01T1:
+      vlans:
+        - "1.0@3"
+        - "1.1@4"
+      vm_offset: 2
+    ARISTA03T1:
+      vlans:
+         - "1.2@5"
+      vm_offset: 3
+
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+        - 10.1.0.2/32
+      ipv6:
+        - FC00:10::1/128
+        - FC00:11::1/128
+    vs_chassis:
+      inband_port:
+        - 30
+        - 30
+      midplane_port:
+        - 31
+        - 31
+        - 31
+      midplane_address:
+        - 10.0.5.1
+        - 10.0.5.2
+        - 10.0.5.16
+      chassis_db_ip: 10.0.5.16
+
+configuration_properties:
+  common:
+    podset_number: 50
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 65100
+    dut_type: Spine
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  ARISTA01T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.0
+          - FC00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        lacp: 1
+        dut_index: 0
+      Ethernet2:
+        lacp: 1
+        dut_index: 0
+      Port-Channel1:
+        ipv4: 10.0.0.1/31
+        ipv6: FC00::2/126
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  ARISTA03T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65201
+      peers:
+        65100:
+          - 10.0.0.4
+          - FC00::9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        ipv4: 10.0.0.5/31
+        ipv6: FC00::a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::6/64
+
+  ARISTA01T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65000
+      peers:
+        65100:
+          - 10.0.0.6
+          - FC00::d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
+      Ethernet1:
+        lacp: 1
+        dut_index: 1
+      Ethernet2:
+        lacp: 1
+        dut_index: 1
+      Port-Channel1:
+        ipv4: 10.0.0.7/31
+        ipv6: FC00::e/126
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::8/64
+
+  ARISTA03T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65000
+      peers:
+        65100:
+          - 10.0.0.10
+          - FC00::15
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
+      Ethernet1:
+        ipv4: 10.0.0.11/31
+        ipv6: FC00::16/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::c/64

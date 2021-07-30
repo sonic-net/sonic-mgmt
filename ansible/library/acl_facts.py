@@ -116,6 +116,8 @@
 # }
 
 from ansible.module_utils.basic import *
+from collections import defaultdict
+from sonic_py_common import multi_asic
 
 
 DOCUMENTATION = '''
@@ -162,29 +164,44 @@ def get_acl_rule_counters(module):
     @param module: The AnsibleModule object
     @return: Return ACL rule counters data in dict
     """
-    rc, stdout, stderr = module.run_command('aclshow -a')
-    if rc != 0:
-        module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
-
+    counter_aggrgeate_map = defaultdict(list)
     counters = []
-    output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
-    for line in output_lines:
-        line_expanded = line.split()
-        if len(line_expanded) == 5:
-            try:
-                packets_count = int(line_expanded[3])
-            except ValueError:
-                packets_count = 0
-            try:
-                bytes_count = int(line_expanded[4])
-            except ValueError:
-                bytes_count = 0
-            counter = dict(rule_name=line_expanded[0],
-                           table_name=line_expanded[1],
-                           priority=line_expanded[2],
-                           packets_count=packets_count,
-                           bytes_count=bytes_count)
-            counters.append(counter)
+
+    namespace_list = multi_asic.get_namespace_list()
+    for ns in namespace_list:
+        cmd = 'sudo ip netns exec {} '.format(ns) if ns else ''
+        rc, stdout, stderr = module.run_command(cmd + 'aclshow -a')
+        if rc != 0:
+            module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+        
+        output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
+        for line in output_lines:
+            line_expanded = line.split()
+            if len(line_expanded) == 5:
+                try:
+                    packets_count = int(line_expanded[3])
+                except ValueError:
+                    packets_count = 0
+                try:
+                    bytes_count = int(line_expanded[4])
+                except ValueError:
+                    bytes_count = 0
+
+                key = (line_expanded[0],line_expanded[1],line_expanded[2])
+                if key in counter_aggrgeate_map:
+                     counter_aggrgeate_map[key][0] = packets_count + counter_aggrgeate_map[key][0]
+                     counter_aggrgeate_map[key][1] = bytes_count + counter_aggrgeate_map[key][1]
+                else:
+                     counter_aggrgeate_map[key].append(packets_count)
+                     counter_aggrgeate_map[key].append(bytes_count)
+
+    for k, v in counter_aggrgeate_map.items():
+         counter = dict(rule_name=k[0],
+                       table_name=k[1],
+                       priority=k[2],
+                       packets_count=v[0],
+                       bytes_count=v[1])
+         counters.append(counter)
 
     return counters
 
@@ -204,7 +221,7 @@ def merge_acl_table_and_rule(all_config):
     for table in acl_tables:
         acl_tables[table]['rules'] = {}
 
-    for rule in all_config['ACL_RULE']:
+    for rule in all_config.get('ACL_RULE', {}):
         rule_expanded = rule.split('|')
         if len(rule_expanded) == 2:
             table_name = rule_expanded[0]

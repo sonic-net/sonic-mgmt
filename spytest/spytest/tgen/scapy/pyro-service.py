@@ -1,24 +1,15 @@
 
 import os
-import sys
 import time
 import logging
-import warnings
-
-root = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-sys.path.append(root)
-sys.path.insert(0, os.path.join(root, "scapy-2.4.3"))
-sys.path.insert(0, os.path.join(root, "Pyro4-4.77", "src"))
-sys.path.insert(0, os.path.join(root, "Serpent-serpent-1.29"))
+import threading
 
 import Pyro4
-from server import ScapyServer
+from Pyro4 import naming
+from service import ScapyService
 
-from scapy.config import Conf
-try: print("SCAPY VERSION = {}".format(Conf().version))
-except: print("SCAPY VERSION = UNKNOWN")
-
-warnings.filterwarnings("ignore", "BaseException.message")
+Pyro4.config.SERIALIZERS_ACCEPTED = set(["pickle"])
+Pyro4.config.SERIALIZER = 'pickle'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -29,75 +20,88 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger("Pyro4").setLevel(logging.DEBUG)
 logging.getLogger("Pyro4.core").setLevel(logging.DEBUG)
 
-@Pyro4.expose
-@Pyro4.behavior(instance_mode="single")
-class ScapyService(object):
-    def __init__(self):
-        self.server = ScapyServer(dry=False)
+import socket
+import fcntl
+import struct
 
-    def server_control(self, *args, **kws):
-        return self.server.exposed_server_control(*args, **kws)
-    def tg_connect(self, *args, **kws):
-        return self.server.exposed_tg_connect(*args, **kws)
-    def tg_disconnect(self, *args, **kws):
-        return self.server.exposed_tg_disconnect(*args, **kws)
-    def tg_traffic_control(self, *args, **kws):
-        return self.server.exposed_tg_traffic_control(*args, **kws)
-    def tg_interface_control(self, *args, **kws):
-        return self.server.exposed_tg_interface_control(*args, **kws)
-    def tg_packet_control(self, *args, **kws):
-        return self.server.exposed_tg_packet_control(*args, **kws)
-    def tg_packet_stats(self, *args, **kws):
-        return self.server.exposed_tg_packet_stats(*args, **kws)
-    def tg_traffic_config(self, *args, **kws):
-        return self.server.exposed_tg_traffic_config(*args, **kws)
-    def tg_interface_config(self, *args, **kws):
-        return self.server.exposed_tg_interface_config(*args, **kws)
-    def tg_traffic_stats(self, *args, **kws):
-        return self.server.exposed_tg_traffic_stats(*args, **kws)
-    def tg_emulation_bgp_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_bgp_config(*args, **kws)
-    def tg_emulation_bgp_route_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_bgp_route_config(*args, **kws)
-    def tg_emulation_bgp_control(self, *args, **kws):
-        return self.server.exposed_tg_emulation_bgp_control(*args, **kws)
-    def tg_emulation_igmp_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_igmp_config(*args, **kws)
-    def tg_emulation_multicast_group_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_multicast_group_config(*args, **kws)
-    def tg_emulation_multicast_source_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_multicast_source_config(*args, **kws)
-    def tg_emulation_igmp_group_config(self, *args, **kws):
-        return self.server.exposed_tg_emulation_igmp_group_config(*args, **kws)
-    def tg_emulation_igmp_control(self, *args, **kws):
-        return self.server.exposed_tg_emulation_igmp_control(*args, **kws)
+def get_ip_address(ifname, default="0.0.0.0"):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(), 0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15])
+        )[20:24])
+    except Exception:
+        return default
 
-# install packages needed
-install_packages = False
-if install_packages:
-    os.system("apt-get install -y iputils-arping")
-    #os.system("pip install pybrctl")
-    #os.system("pip install pyroute2")
+class NameServer(threading.Thread):
+    def __init__(self, hostname, hmac=None):
+        super(NameServer, self).__init__()
+        self.setDaemon(1)
+        self.hostname = hostname
+        self.hmac = hmac
+        self.started = threading.Event()
+
+    def run(self):
+        self.uri, self.ns_daemon, self.bc_server = \
+             naming.startNS(self.hostname, hmac=self.hmac)
+        self.started.set()
+        if self.bc_server:
+            self.bc_server.runInThread()
+        self.ns_daemon.requestLoop()
+
+
+def startNameServer(host, hmac=None):
+    ns = NameServer(host, hmac=hmac)
+    ns.start()
+    ns.started.wait()
+    return ns
+
+class CustomDaemon(Pyro4.Daemon):
+    def clientDisconnect(self, conn):
+        try:
+            logger.info("client disconnects: %s", conn.sock.getpeername())
+            logger.info("Remove Connection %s", id(conn))
+            obj = conn.pyroInstances.get(PyRoScapyService)
+            logger.info("Remove Instance %s", id(obj))
+            del obj
+        except Exception:
+            pass
+
+@Pyro4.behavior(instance_mode="session", instance_creator=lambda clazz: clazz.create_instance())
+class PyRoScapyService(ScapyService):
+    @classmethod
+    def create_instance(cls):
+        obj = cls()
+        logger.info("Created %s", id(obj))
+        obj.correlation_id = Pyro4.current_context.correlation_id
+        return obj
 
 def main():
-    Pyro4.config.SERIALIZERS_ACCEPTED.add('pickle')
-    Pyro4.config.SERIALIZERS_ACCEPTED.remove('serpent')
+    use_ns = True
     os.environ["PYRO_DETAILED_TRACEBACK"] = "1"
-    for i in range(10):
+    for _ in range(10):
         try:
-            custom_daemon = Pyro4.Daemon(port=8009, host="0.0.0.0")
+            #custom_daemon = CustomDaemon(port=8009, host="0.0.0.0")
+            host = get_ip_address('mgmt', None)
+            if host:
+                custom_daemon = CustomDaemon(host=host)
+            else:
+                custom_daemon = CustomDaemon()
             break
         except Exception as exp:
-            print(exp)
+            logger.info(exp)
             custom_daemon = None
             time.sleep(2)
 
-    print("PYRO ScapyService started: {}".format(custom_daemon))
+    if use_ns: startNameServer("0.0.0.0")
+
+    logger.info("PYRO ScapyService started: %s", custom_daemon)
     Pyro4.Daemon.serveSimple(
         {
-            ScapyService: "scapy-tgen"
+            PyRoScapyService: "scapy-tgen"
         },
-        ns=False, daemon = custom_daemon)
+        ns=use_ns, daemon = custom_daemon, verbose=True)
 
 if __name__=="__main__":
     main()

@@ -1,0 +1,5 @@
+bash
+cd /mnt/flash
+sudo python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{"fpti1_"~pfc_fanout_interface|replace("/", "_")}} -r {{ansible_eth0_ipv4_addr}} &
+exit
+exit

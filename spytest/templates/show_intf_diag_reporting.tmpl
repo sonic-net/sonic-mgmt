@@ -1,0 +1,18 @@
+Value ms_fec (\w+)
+Value hs_fec (\w+)
+Value ms_ip_snr (\w+)
+Value hs_ip_snr (\w+)
+Value ms_ip_peak (\w+)
+Value hs_ip_peak (\w+)
+Value ber_err_count (\w+)
+Value ber_reg (\w+)
+
+Start
+  ^\s*Media side FEC\s+${ms_fec}\s*$$
+  ^\s*Host side FEC\s+${hs_fec}\s*$$
+  ^\s*Media side input SNR measurement\s+${ms_ip_snr}\s*$$
+  ^\s*Host side input SNR measurement\s+${hs_ip_snr}\s*$$
+  ^\s*Media side input peak-detector measurement\s*${ms_ip_peak}\s*$$
+  ^\s*Host side input peak-detector measurement\s*${hs_ip_peak}\s*$$
+  ^\s*BER Error Count / Total Bits\s+${ber_err_count}\s*$$
+  ^\s*BER register supported\s+${ber_reg}\s*$$ -> Record

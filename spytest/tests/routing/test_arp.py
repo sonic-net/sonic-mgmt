@@ -7,6 +7,7 @@ import apis.routing.ip as ip_obj
 import apis.system.interface as interface_obj
 import apis.switching.vlan as vlan_obj
 import apis.switching.mac as mac
+import apis.common.wait as waitapi
 
 data = SpyTestDict()
 data.d1t1_ip_addr = "192.168.11.1"
@@ -23,6 +24,7 @@ data.mask = "24"
 data.vlan_1 = 64
 data.vlan_int_1 = "Vlan{}".format(data.vlan_1)
 data.clear_parallel = False
+data.cli_type = ""
 
 @pytest.fixture(scope="module", autouse=True)
 def arp_module_hooks(request):
@@ -108,10 +110,10 @@ def test_ft_arp_entry_link_failure():
 
     # Verify dynamic arp entries
     st.log("Verifying the arp entries on the DUT.")
-    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t1d1_ip_addr, dut1)
     st.log("Verifying the arp entries on the DUT")
-    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t2d1_ip_addr, dut1)
 
     # Shutdown the routing interface link.
@@ -119,12 +121,18 @@ def test_ft_arp_entry_link_failure():
     if not interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2] , "shutdown"):
         st.report_fail('interface_admin_shut_down_fail', [vars.D1T1P1, vars.D1T1P2])
 
+    # wait for ARP entries to be cleared
+    waitapi.arp_clear_on_link_down(vars.D1T1P1)
+
     # Verify dynamic arp entries
     st.log("Verifying the arp entries on the DUT.")
-    if arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
+        interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2], "startup")
         st.report_fail("ARP_dynamic_entry_removal_fail", data.t1d1_ip_addr, vars.D1T1P1)
+
     st.log("Verifying the arp entries on the DUT")
     if arp_obj.verify_arp(dut1,data.t2d1_ip_addr):
+        interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2], "startup")
         st.report_fail("ARP_dynamic_entry_removal_fail", data.t2d1_ip_addr, vars.D1T1P2)
 
     # Startup the routing interface link.
@@ -132,14 +140,14 @@ def test_ft_arp_entry_link_failure():
     if not interface_obj.interface_operation(dut1, [vars.D1T1P1, vars.D1T1P2], "startup"):
         st.report_fail('interface_admin_startup_fail', [vars.D1T1P1, vars.D1T1P2])
 
-    st.wait(5)
-
+    if tg.tg_type == 'stc':
+        tg.tg_traffic_control(action='run', port_handle=[tg_handler["tg_ph_1"], tg_handler["tg_ph_2"]])
     # Verify dynamic arp entries
     st.log("Verifying the arp entries on the DUT.")
-    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if not st.poll_wait(arp_obj.verify_arp,15,dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t1d1_ip_addr, dut1)
     st.log("Verifying the arp entries on the DUT")
-    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1):
+    if not st.poll_wait(arp_obj.verify_arp,15,dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t2d1_ip_addr, dut1)
 
     st.report_pass("test_case_passed")
@@ -147,7 +155,7 @@ def test_ft_arp_entry_link_failure():
 @pytest.fixture(scope="function")
 def fixture_ft_arp_dynamic_renew_traffic_test(request):
     yield
-    arp_obj.set_arp_ageout_time(dut1,60)
+    arp_obj.set_arp_ageout_time(dut1,60,cli_type=data.cli_type)
 
 def test_ft_arp_dynamic_renew_traffic_test(fixture_ft_arp_dynamic_renew_traffic_test):
     ################## Author Details ################
@@ -163,7 +171,7 @@ def test_ft_arp_dynamic_renew_traffic_test(fixture_ft_arp_dynamic_renew_traffic_
     #################################################
     # Set DUT values
     st.log("Setting the DUT values")
-    arp_obj.set_arp_ageout_time(dut1,5)
+    arp_obj.set_arp_ageout_time(dut1,75,cli_type=data.cli_type)
 
     # Ping from tgen to DUT.
     res = tgapi.verify_ping(src_obj=tg, port_handle=tg_handler["tg_ph_1"], dev_handle=h1['handle'],
@@ -189,14 +197,16 @@ def test_ft_arp_dynamic_renew_traffic_test(fixture_ft_arp_dynamic_renew_traffic_
                     mac_src=data.t2d1_mac_addr,transmit_mode="continuous",mac_dst=d1_mac_addr,
                     l2_encap='ethernet_ii_vlan',l3_protocol="ipv4",ip_dst_addr=data.t1d1_ip_addr,
                     ip_src_addr=data.t2d1_ip_addr,vlan_id=data.vlan_1,vlan="enable")
+    interface_obj.clear_interface_counters(dut1)
     tg.tg_traffic_control(action="run", stream_handle=s1['stream_id'])
 
     # Waiting for more than arp ageout time
     st.wait(10)
+
     tg.tg_traffic_control(action="stop", stream_handle=s1['stream_id'])
 
     # Adding sleep
-    st.wait(2)
+    st.wait(5)
 
     st.log("Checking the stats and verifying the traffic flow")
     traffic_details = {
@@ -209,6 +219,7 @@ def test_ft_arp_dynamic_renew_traffic_test(fixture_ft_arp_dynamic_renew_traffic_
         }
     }
     if not tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='aggregate', comp_type='packet_count'):
+        interface_obj.show_interface_counters_all(dut1)
         st.report_fail("traffic_verification_failed")
     else:
         st.log("traffic verification passed")
@@ -218,8 +229,8 @@ def test_ft_arp_dynamic_renew_traffic_test(fixture_ft_arp_dynamic_renew_traffic_
 @pytest.fixture(scope="function")
 def fixture_ft_arp_clear_cache_static_and_dynamic_entries(request):
     yield
-    arp_obj.delete_static_arp(dut1, data.static_arp_ip)
-    arp_obj.delete_static_arp(dut1, data.static_arp_ip_1)
+    arp_obj.delete_static_arp(dut1, data.static_arp_ip,cli_type=data.cli_type)
+    arp_obj.delete_static_arp(dut1, data.static_arp_ip_1,cli_type=data.cli_type)
 
 @pytest.mark.community
 @pytest.mark.community_pass
@@ -236,8 +247,8 @@ def test_ft_arp_clear_cache_static_and_dynamic_entries(fixture_ft_arp_clear_cach
     #  TG-----DUT-----TG
     #################################################
     # Adding static arp entries
-    arp_obj.add_static_arp(dut1, data.static_arp_ip_1, data.static_arp_mac_1, vars.D1T1P1)
-    arp_obj.add_static_arp(dut1, data.static_arp_ip, data.static_arp_mac, data.vlan_int_1)
+    arp_obj.add_static_arp(dut1, data.static_arp_ip_1, data.static_arp_mac_1, vars.D1T1P1,cli_type=data.cli_type)
+    arp_obj.add_static_arp(dut1, data.static_arp_ip, data.static_arp_mac, data.vlan_int_1,cli_type=data.cli_type)
 
     res = tgapi.verify_ping(src_obj=tg, port_handle=tg_handler["tg_ph_1"], dev_handle=h1['handle'],
                       dst_ip=data.d1t1_ip_addr,ping_count='1', exp_count='1')
@@ -255,13 +266,13 @@ def test_ft_arp_clear_cache_static_and_dynamic_entries(fixture_ft_arp_clear_cach
 
     # Verify static and dynamic arp entries
     st.log("Verifying the arp entries on the DUT")
-    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t1d1_ip_addr, dut1)
-    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t2d1_ip_addr, dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("static_arp_create_fail", dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1,cli_type=data.cli_type):
         st.report_fail("static_arp_create_fail", dut1)
 
     st.banner("Start - Verifying dynamic and static arp entries behavior on issuing sonic-clear arp command *WITH* traffic flowing")
@@ -286,20 +297,20 @@ def test_ft_arp_clear_cache_static_and_dynamic_entries(fixture_ft_arp_clear_cach
     st.wait(5)
 
     # Issuing sonic-clear arp command and veryfying the entries behavior.
-    arp_obj.clear_arp_table(dut1)
+    arp_obj.clear_arp_table(dut1,cli_type=data.cli_type)
 
     # Adding wait for traffic to flow.
     st.wait(5)
 
     # Verify static and dynamic arp entries after clear arp
     st.log("Verifying the arp entries on the DUT after issuing sonic-clear arp command with traffic flowing.")
-    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t1d1_ip_addr, dut1)
-    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1,cli_type=data.cli_type):
         st.report_fail("ARP_entry_dynamic_entry_fail", data.t2d1_ip_addr, dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("static_arp_delete_fail", dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1,cli_type=data.cli_type):
         st.report_fail("static_arp_delete_fail", dut1)
 
     # Stop the traffic
@@ -325,17 +336,17 @@ def test_ft_arp_clear_cache_static_and_dynamic_entries(fixture_ft_arp_clear_cach
 
     st.banner("Start - Verifying dynamic and static arp entries behavior on issuing sonic-clear arp command *WITHOUT* traffic flowing")
     # Issuing sonic-clear arp command and veryfying the entries behavior.
-    arp_obj.clear_arp_table(dut1)
+    arp_obj.clear_arp_table(dut1,cli_type=data.cli_type)
 
     # Verify static and dynamic arp entries after clear arp
     st.log("Verifying the arp entries on the DUT after issuing sonic-clear arp command")
-    if arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1):
+    if arp_obj.verify_arp(dut1,data.t1d1_ip_addr,data.t1d1_mac_addr,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("ARP_dynamic_entry_clear_arp_fail", data.t1d1_ip_addr, dut1)
-    if arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1):
+    if arp_obj.verify_arp(dut1,data.t2d1_ip_addr,data.t2d1_mac_addr,vars.D1T1P2,data.vlan_1,cli_type=data.cli_type):
         st.report_fail("ARP_dynamic_entry_clear_arp_fail", data.t2d1_ip_addr, dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip_1,data.static_arp_mac_1,vars.D1T1P1,cli_type=data.cli_type):
         st.report_fail("static_arp_delete_fail", dut1)
-    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1):
+    if not arp_obj.verify_arp(dut1,data.static_arp_ip,data.static_arp_mac,"",data.vlan_1,cli_type=data.cli_type):
         st.report_fail("static_arp_delete_fail", dut1)
 
     st.banner("End - Verified dynamic and static arp entries behavior on issuing sonic-clear arp command *WITHOUT* traffic flowing")

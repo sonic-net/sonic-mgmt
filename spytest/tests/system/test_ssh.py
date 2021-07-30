@@ -1,4 +1,5 @@
-import pytest,random, json
+import pytest
+import random
 from spytest import st
 from spytest.dicts import SpyTestDict
 from apis.system.ssh import enable_ssh, disable_ssh, enable_sshv6, disable_sshv6
@@ -12,9 +13,9 @@ import apis.qos.acl as acl_obj
 from utilities.utils import ensure_service_params
 from spytest.utils import poll_wait
 import apis.system.snmp as snmp_obj
-import apis.system.basic as basic_obj
 from apis.system.connection import connect_to_device, ssh_disconnect, execute_command
 from apis.system.basic import get_docker_ps, get_and_match_docker_count, verify_docker_status
+from apis.system.basic import get_hostname
 
 
 ssh_data = SpyTestDict()
@@ -26,7 +27,7 @@ def initialize_variables():
     ssh_data.pwd_final = ''
     ssh_data.usr_non_default = random_username(random.randint(5, 31))
     ssh_data.pwd_non_default = random_password(random.randint(6, 12))
-    ssh_data.commands_to_verify = ['show system status']
+    ssh_data.commands_to_verify = ['show platform summary']
     ssh_data.ipv4_address_D1D2P1 = "2.2.2.1"
     ssh_data.ipv4_address_D2D1P1 = "2.2.2.2"
     ssh_data.ipv4_address_D1D2P2 = "2.2.3.1"
@@ -57,7 +58,7 @@ def ssh_module_hooks(request):
 
     yield
     config_ip_address(oper='remove')
-    acl_obj.delete_acl_table(vars.D1)
+    acl_obj.acl_delete(vars.D1)
     disable_sshv6(vars.D1)
     snmp_config(config='remove')
 
@@ -144,12 +145,6 @@ def change_acl_rules(config, rule_name, attribute, value):
     config["ACL_RULE"][rule_name][attribute] = value
 
 
-def apply_acl_config(dut, config):
-    json_config = json.dumps(config)
-    json.loads(json_config)
-    st.apply_json2(dut, json_config)
-
-
 def verify_ssh_connection(dut, ip, username, password, cmds="show vlan config"):
     output = st.exec_ssh_remote_dut(dut, ip, username, password, cmds)
     if "Connection timed out" in output or "option requires an argument" in output or "Connection refused" in output:
@@ -216,32 +211,35 @@ def test_ft_ssh_add_user_verify():
         user_ssh = + 1
 
     IPAddr = ensure_service_params(vars.D1, "snmptrap", "ip") + "/32"
-    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_ACL|RULE_1", "SRC_IP", IPAddr)
-    change_acl_rules(acl_data.acl_json_config_control_plane, "SSH_ONLY|RULE_1", "SRC_IP", IPAddr)
-    change_acl_rules(acl_data.acl_json_config_control_plane, "SSH_ONLY|RULE_2", "SRC_IP", ssh_data.ipv4_network)
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_1", "SRC_IP", IPAddr)
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_2", "SRC_IP", IPAddr)
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_3", "SRC_IP", ssh_data.ipv4_network)
     change_acl_rules(acl_data.acl_json_config_control_plane, "V6_SSH_ONLY|RULE_1", "SRC_IPV6", ssh_data.ipv6_network_D1)
     acl_config = acl_data.acl_json_config_control_plane
     st.log("ACL_DATA: {}".format(acl_config))
-    apply_acl_config(vars.D1, acl_config)
+    acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
     acl_obj.show_acl_table(vars.D1)
     acl_obj.show_acl_rule(vars.D1)
 
-    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_ACL", "RULE_1"):
-        st.error("Failed to create ACL rule '{}' ".format("SNMP_ACL"))
+    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_1"):
+        st.error("Failed to create ACL rule '{}' ".format("SNMP_SSH"))
         acl_snmp =+ 1
 
-    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SSH_ONLY", "RULE_1"):
-        st.error("Failed to create ACL rule '{}' ".format("SSH_ONLY"))
+    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_2"):
+        st.error("Failed to create ACL rule '{}' ".format("SNMP_SSH"))
         acl_sshv4 =+ 1
 
     if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "V6_SSH_ONLY", "RULE_1"):
         st.error("Failed to create ACL rule '{}' ".format("V6_SSH_ONLY"))
         acl_sshv6 =+ 1
 
-    hostname = basic_obj.get_hostname(vars.D1)
+    hostname = get_hostname(vars.D1)
     st.log("HOSTNAME: {}".format(hostname))
     snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
-    if hostname not in snmp_out: acl_snmp = + 1
+    if hostname not in snmp_out:
+        st.error("SNMP walk operation is failed")
+        acl_snmp = + 1
 
     st.log("connecting to device with default username={},password={}".format(ssh_data.usr_default, ssh_data.pwd_final))
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
@@ -270,30 +268,47 @@ def test_ft_ssh_add_user_verify():
     acl_obj.show_acl_table(vars.D1)
     acl_obj.show_acl_rule(vars.D1)
 
-    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SSH_ONLY", "RULE_1"):
-        st.log("Failed to create ACL rule '{}' ".format("SSH_ONLY"))
+    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_2"):
+        st.log("Failed to create ACL rule '{}' ".format("SSH_SSH"))
         acl_sshv4 = + 1
 
     if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "V6_SSH_ONLY", "RULE_1"):
         st.log("Failed to create ACL rule '{}' ".format("V6_SSH_ONLY"))
         acl_sshv4 = + 1
 
-    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_ACL", "RULE_1"):
-        st.error("Failed to create ACL rule '{}' ".format("SNMP_ACL"))
+    if not poll_wait(acl_obj.verify_acl_table_rule, 5, vars.D1, "SNMP_SSH", "RULE_1"):
+        st.error("Failed to create ACL rule '{}' ".format("SNMP_SSH"))
         acl_snmp =+ 1
 
-    hostname = basic_obj.get_hostname(vars.D1)
-    snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
-    if hostname not in snmp_out: acl_snmp = + 1
-    '''
-    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_ACL|RULE_1", "SRC_IP", "2.2.2.2/24")
-    acl_config = acl_data.acl_json_config_control_plane
-    apply_acl_config(vars.D1, acl_config)
-    acl_obj.show_acl_rule(vars.D1)
+    ipaddress = st.get_mgmt_ip(vars.D1)
+    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.replace('/32', '')):
+        st.error("Ping to SNMP server or getting ip address to the dut is failed after reload")
+        acl_obj.acl_delete(vars.D1)
+        config_nondefault_user(config='remove')
+        st.report_fail("ip_verification_fail")
 
+    snmp_cmd = "snmpget -Oqv -v 2c -c {} {} {}".format(ssh_data.ro_community, ipaddress, ssh_data.oid_sysName)
+
+    hostname = get_hostname(vars.D1)
     snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
+    if hostname not in snmp_out:
+        st.error("SNMP walk operation is failed after reload")
+        acl_snmp = + 1
+
+    st.log('Verifying SNMP ACL with invalid source address')
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_1", "SRC_IP", "2.2.2.0/24")
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_2", "SRC_IP", "2.2.2.0/24")
+    acl_config = acl_data.acl_json_config_control_plane
+    acl_obj.acl_delete(vars.D1)
+    acl_obj.apply_acl_config(vars.D1, acl_config)
+    for _ in range(1,15):
+        snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
+        if "Timeout" in snmp_out:
+            break
+        else:
+            st.wait(1)
     if "Timeout" not in snmp_out: acl_snmp = + 1
-    '''
+
     st.log("connecting to device with default username={},password={}".format(ssh_data.usr_default, ssh_data.pwd_final))
     output = verify_ssh_connection(vars.D2, ssh_data.ipv4_address_D1D2P2, ssh_data.usr_default, ssh_data.pwd_final)
     if output: acl_sshv4 = + 1
@@ -322,11 +337,12 @@ def test_ft_ssh_add_user_verify():
     else:
         st.report_tc_pass("test_ft_controlplane_acl_service_snmp", "snmp_output_failed", "with control plane ACL service SNMP after reboot")
 
-    acl_obj.delete_acl_table(vars.D1)
+    acl_obj.acl_delete(vars.D1)
 
     if acl_sshv4 or acl_sshv6 or acl_snmp:
         st.generate_tech_support(vars.D1, "controlplane_acl_services_after_reboot")
 
+    st.log('Verifying SSH connection after removing control plane ACLs')
     st.log("connecting to device with username={},password={}".format(ssh_data.usr_default, ssh_data.pwd_final))
     if not st.exec_ssh(vars.D1, ssh_data.usr_default, ssh_data.pwd_final, ssh_data.commands_to_verify):
         st.error('Cannot SSH into Device with default credentials after reboot')
@@ -340,9 +356,64 @@ def test_ft_ssh_add_user_verify():
 
     config_nondefault_user(config='remove')
 
-    if user_ssh:
-        st.report_fail("ssh_failed")
+    if (user_ssh or acl_snmp or acl_sshv4 or acl_sshv6):
+        st.report_fail("test_case_failed")
     st.report_pass("test_case_passed")
+
+@pytest.mark.regression
+def test_ft_control_plane_acl_icmp():
+    result = True
+    [output, exceptions] = parallel.exec_all(True, [[st.get_mgmt_ip, vars.D1], [st.get_mgmt_ip, vars.D2]])
+    parallel.ensure_no_exception(exceptions)
+    d1_ipaddress, d2_ipaddress = output
+    d1_ipv6address = ip_obj.get_link_local_addresses(vars.D1,"eth0", cli_type='click') ##Passing parameter cli_type as click until the SONIC-32291 fixed
+    if not d1_ipv6address:
+        st.report_fail('dut_not_getting_ip_address')
+    d1_ipv6address = d1_ipv6address[0]
+    st.log("Creating acl rules to drop icmp packets")
+    acl_config = acl_data.acl_json_config_control_plane_v2
+    st.log("ACL_DATA: {}".format(acl_config))
+    acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
+    acl_obj.show_acl_table(vars.D1)
+    acl_obj.show_acl_rule(vars.D1)
+    if ip_obj.ping(dut=vars.D2,addresses=d1_ipaddress):
+        st.error("ICMP ipv4 packets are not dropped with applied control plane acl rules.")
+        result = False
+        st.report_tc_fail("ft_controlplane_acl_ipv4_icmp","test_case_failed")
+    if ip_obj.ping(dut=vars.D1,addresses=d1_ipv6address, interface="eth0", family="ipv6"):
+        st.error("ICMP ipv6 packets are not dropped with applied control plane acl rules.")
+        result = False
+        st.report_tc_fail("ft_controlplane_acl_ipv6_icmp","test_case_failed")
+    change_acl_rules(acl_config, "L3_IPV4_ICMP|rule1", "SRC_IP", "{}/32".format(d2_ipaddress))
+    change_acl_rules(acl_config, "L3_IPV6_ICMP|rule1", "SRC_IPV6", "{}/128".format(d1_ipv6address))
+    acl_obj.acl_delete(vars.D1)
+    acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
+    if not ip_obj.ping(dut=vars.D2,addresses=d1_ipaddress):
+        st.error("ICMP ipv4 packets are dropped with applied control plane acl rules.")
+        result = False
+        st.report_tc_fail("ft_controlplane_acl_seq_priority","test_case_failed")
+        st.report_tc_fail("ft_controlplane_acl_ipv4_icmp_permit","test_case_failed")
+    if not ip_obj.ping(dut=vars.D1,addresses=d1_ipv6address, interface="eth0",family="ipv6"):
+        st.error("ICMP ipv6 packets are dropped with applied control plane acl rules.")
+        result = False
+        st.report_tc_fail("ft_controlplane_acl_ipv6_icmp_permit","test_case_failed")
+    config_save(vars.D1)
+    st.log('rebooting the device.')
+    st.reboot(vars.D1, 'fast')
+    if not ip_obj.ping(dut=vars.D2,addresses=d1_ipaddress):
+        st.error("control plane ipv4 acl functionality is failed after reboot.")
+        st.report_tc_fail("ft_controlplane_acl_reboot","test_case_failed")
+        result = False
+    if not ip_obj.ping(dut=vars.D1,addresses=d1_ipv6address, interface="eth0",family="ipv6"):
+        st.error("control plane ipv6 acl functionality is failed after reboot.")
+        st.report_tc_fail("ft_controlplane_acl_reboot","test_case_failed")
+        result = False
+    if not result:
+        st.report_fail("test_case_failed")
+    else:
+        st.report_pass("test_case_passed")
 
 
 @pytest.mark.ssh_verify

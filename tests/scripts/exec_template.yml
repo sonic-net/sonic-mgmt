@@ -1,0 +1,14 @@
+# ansible-playbook ../tests/drop_counters/exec_template.yml -i lab -l DUT_HOSTNAME --extra-vars "VAR_EXAMPLE=VALUE VAR_EXAMPLE=VALUE" -vvvvv
+
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: prepare fanout switch admin login info
+      set_fact: ansible_ssh_user={{ ansible_user }} ansible_ssh_pass={{ ansible_password }} }}
+      tags: always
+
+    - name: Execute template
+      action: apswitch template={{ template_path }}
+      args:
+        login: "{{ switch_login[hwsku_map[peer_hwsku]] }}"
+      connection: switch

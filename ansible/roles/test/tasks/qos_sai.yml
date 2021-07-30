@@ -22,12 +22,36 @@
       minigraph_facts: host={{inventory_hostname}}
       become: no
 
+    - name: Get ports info.
+      include_tasks: roles/test/tasks/qos_get_ports.yml
+
+    - name: Check if lossless buffer profile is derived
+      fail: msg="Lossless Buffer profile could not be retreived"
+      when: lossless_buffer_profile is not defined or minigraph_hwsku is not defined
+
+    - set_fact:
+        defined_asic_list: ['td2', 'th', 'th2', 'spc1', 'spc2', 'spc3']
+        speed_cablelen: "{{ lossless_buffer_profile }}"
+
+    - set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
+
+    - name: Get asic type
+      set_fact: asic_type="{{ item }}"
+      when:
+        - hostvars[inventory_hostname][sonic_asic_type + '_' + item + '_hwskus'] is defined
+        - minigraph_hwsku in hostvars[inventory_hostname][sonic_asic_type + '_' + item + '_hwskus']
+      with_items: "{{ defined_asic_list }}"
+
+    - debug: msg="asic type is {{ asic_type }}, portspeed_cablelen is {{ speed_cablelen }}"
+
     - name: check if the device has configured qos parameters
       fail: msg="device doesn't have configured qos parameters"
-      when: minigraph_hwsku is not defined or qos_params[minigraph_hwsku] is not defined
+      when: qos_params[asic_type] is not defined or qos_params[asic_type][speed_cablelen] is not defined
 
     - name: set qos parameters for the device
-      set_fact: qp={{qos_params[minigraph_hwsku]}}
+      set_fact:
+        qp: "{{qos_params[asic_type]}}"
+        qp_sc: "{{qos_params[asic_type][speed_cablelen]}}"
 
     - name: Ensure LLDP Daemon stopped
       become: yes
@@ -42,24 +66,25 @@
       supervisorctl: state=stopped name=bgpd
       delegate_to: "{{ ansible_host }}_bgp"
     
-    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back
-      shell: "iptables -A INPUT -j DROP -p tcp --destination-port bgp"
+    - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back. Add at top so existing rules don't have precedence over it.
+      shell: "iptables -I INPUT 1 -j DROP -p tcp --destination-port bgp"
       become: true
 
-    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back
-      shell: "ip6tables -A INPUT -j DROP -p tcp --destination-port bgp"
+    - name: Add ip6tables rule to drop BGP SYN Packet from peer so that we do not ACK back. Add at top so existing rules don't have precedence over it.
+      shell: "ip6tables -I INPUT 1 -j DROP -p tcp --destination-port bgp"
       become: true
 
     - meta: flush_handlers
 
-    - block:
-        - name: Deploy script to DUT/syncd
-          copy: src=roles/test/files/mlnx/packets_aging.py dest=/root/packets_aging.py
+    - name: Deploy script to DUT/syncd
+      copy: src=roles/test/files/mlnx/packets_aging.py dest=/root/packets_aging.py
+      delegate_to: "{{ ansible_host }}_syncd"
+      when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
-        - name: Disable Mellanox packet aging
-          shell: python /root/packets_aging.py disable
-          register: result
-          failed_when: result.stderr != ''
+    - name: Disable Mellanox packet aging
+      shell: python /root/packets_aging.py disable
+      register: result
+      failed_when: result.stderr != ''
       delegate_to: "{{ ansible_host }}_syncd"
       when: minigraph_hwsku is defined and minigraph_hwsku in mellanox_hwskus
 
@@ -82,9 +107,6 @@
         - server='{{ansible_host}}'
         - port_map_file='/root/{{ptf_portmap | basename}}'
         - sonic_asic_type='{{sonic_asic_type}}'
-
-    - name: Get ports info.
-      include_tasks: roles/test/tasks/qos_get_ports.yml
 
     # Unpause all paused port
     - include_tasks: qos_sai_ptf.yml
@@ -117,42 +139,57 @@
         - src_port_ip='{{src_port_ip}}'
       when: testbed_type in ['t0', 't0-64', 't0-116'] or arp_entries.stdout.find('incomplete') == -1
 
+    - include_tasks: qos_sai_ptf.yml
+      vars:
+        test_name: populate arp on all ports
+        test_path: sai_qos_tests.ARPpopulatePTF
+        test_params:
+        - dst_port_id='{{dst_port_id}}'
+        - dst_port_ip='{{dst_port_ip}}'
+        - dst_port_2_id='{{dst_port_2_id}}'
+        - dst_port_2_ip='{{dst_port_2_ip}}'
+        - dst_port_3_id='{{dst_port_3_id}}'
+        - dst_port_3_ip='{{dst_port_3_ip}}'
+        - src_port_id='{{src_port_id}}'
+        - src_port_ip='{{src_port_ip}}'
+      when: testbed_type in ['ptf32', 'ptf64']
+
     # XOFF limit
     - include_tasks: qos_sai_ptf.yml
       vars:
-        test_name: xoff limit ptf test dscp = {{qp.xoff_1.dscp}}, ecn = {{qp.xoff_1.ecn}}
+        test_name: xoff limit ptf test dscp = {{qp_sc.xoff_1.dscp}}, ecn = {{qp_sc.xoff_1.ecn}}
         test_path: sai_qos_tests.PFCtest
         test_params:
-        - dscp='{{qp.xoff_1.dscp}}'
-        - ecn='{{qp.xoff_1.ecn}}'
-        - pg='{{qp.xoff_1.pg}}'
+        - dscp='{{qp_sc.xoff_1.dscp}}'
+        - ecn='{{qp_sc.xoff_1.ecn}}'
+        - pg='{{qp_sc.xoff_1.pg}}'
         - buffer_max_size='{{lossless_buffer_max_size|int}}'
         - queue_max_size='{{lossless_queue_max_size|int}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.xoff_1.pkts_num_leak_out}}'
-        - pkts_num_trig_pfc='{{qp.xoff_1.pkts_num_trig_pfc}}'
-        - pkts_num_trig_ingr_drp='{{qp.xoff_1.pkts_num_trig_ingr_drp}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp_sc.xoff_1.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp_sc.xoff_1.pkts_num_trig_ingr_drp}}'
 
     - include_tasks: qos_sai_ptf.yml
       vars:
-        test_name: xoff limit ptf test dscp = {{qp.xoff_2.dscp}}, ecn = {{qp.xoff_2.ecn}}
+        test_name: xoff limit ptf test dscp = {{qp_sc.xoff_2.dscp}}, ecn = {{qp_sc.xoff_2.ecn}}
         test_path: sai_qos_tests.PFCtest
         test_params:
-        - dscp='{{qp.xoff_2.dscp}}'
-        - ecn='{{qp.xoff_2.ecn}}'
-        - pg='{{qp.xoff_2.pg}}'
+        - dscp='{{qp_sc.xoff_2.dscp}}'
+        - ecn='{{qp_sc.xoff_2.ecn}}'
+        - pg='{{qp_sc.xoff_2.pg}}'
         - buffer_max_size='{{lossless_buffer_max_size|int}}'
         - queue_max_size='{{lossless_queue_max_size|int}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.xoff_2.pkts_num_leak_out}}'
-        - pkts_num_trig_pfc='{{qp.xoff_2.pkts_num_trig_pfc}}'
-        - pkts_num_trig_ingr_drp='{{qp.xoff_2.pkts_num_trig_ingr_drp}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp_sc.xoff_2.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp_sc.xoff_2.pkts_num_trig_ingr_drp}}'
 
     # XON limit
     - include_tasks: qos_sai_ptf.yml
@@ -172,7 +209,7 @@
         - dst_port_3_ip='{{dst_port_3_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.xon_1.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_trig_pfc='{{qp.xon_1.pkts_num_trig_pfc}}'
         - pkts_num_dismiss_pfc='{{qp.xon_1.pkts_num_dismiss_pfc}}'
 
@@ -193,29 +230,29 @@
         - dst_port_3_ip='{{dst_port_3_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.xon_2.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_trig_pfc='{{qp.xon_2.pkts_num_trig_pfc}}'
         - pkts_num_dismiss_pfc='{{qp.xon_2.pkts_num_dismiss_pfc}}'
 
     # Headroom pool size
     - include_tasks: qos_sai_ptf.yml
       vars:
-        test_name: headroom pool size ptf test ecn = {{qp.hdrm_pool_size.ecn}}
+        test_name: headroom pool size ptf test ecn = {{qp_sc.hdrm_pool_size.ecn}}
         test_path: sai_qos_tests.HdrmPoolSizeTest
         test_params:
         - testbed_type='{{testbed_type}}'
-        - dscps={{qp.hdrm_pool_size.dscps}}
-        - ecn={{qp.hdrm_pool_size.ecn}}
-        - pgs={{qp.hdrm_pool_size.pgs}}
-        - src_port_ids={{qp.hdrm_pool_size.src_port_ids}}
-        - src_port_ips=[{% for pid in qp.hdrm_pool_size.src_port_ids %}{% if not loop.last %}'{{testing_ports_ip[pid|string]}}', {% else %}'{{testing_ports_ip[pid|string]}}'{% endif %}{% endfor %}]
-        - dst_port_id={{qp.hdrm_pool_size.dst_port_id}}
-        - dst_port_ip='{{testing_ports_ip[qp.hdrm_pool_size.dst_port_id|string]}}'
-        - pgs_num={{qp.hdrm_pool_size.pgs_num }}
-        - pkts_num_leak_out={{qp.hdrm_pool_size.pkts_num_leak_out}}
-        - pkts_num_trig_pfc={{qp.hdrm_pool_size.pkts_num_trig_pfc}}
-        - pkts_num_hdrm_full={{qp.hdrm_pool_size.pkts_num_hdrm_full}}
-        - pkts_num_hdrm_partial={{qp.hdrm_pool_size.pkts_num_hdrm_partial}}
+        - dscps={{qp_sc.hdrm_pool_size.dscps}}
+        - ecn={{qp_sc.hdrm_pool_size.ecn}}
+        - pgs={{qp_sc.hdrm_pool_size.pgs}}
+        - src_port_ids={{qp_sc.hdrm_pool_size.src_port_ids}}
+        - src_port_ips=[{% for pid in qp_sc.hdrm_pool_size.src_port_ids %}{% if not loop.last %}'{{testing_ports_ip[pid|string]}}', {% else %}'{{testing_ports_ip[pid|string]}}'{% endif %}{% endfor %}]
+        - dst_port_id={{qp_sc.hdrm_pool_size.dst_port_id}}
+        - dst_port_ip='{{testing_ports_ip[qp_sc.hdrm_pool_size.dst_port_id|string]}}'
+        - pgs_num={{qp_sc.hdrm_pool_size.pgs_num }}
+        - pkts_num_leak_out={{qp_sc.pkts_num_leak_out}}
+        - pkts_num_trig_pfc={{qp_sc.hdrm_pool_size.pkts_num_trig_pfc}}
+        - pkts_num_hdrm_full={{qp_sc.hdrm_pool_size.pkts_num_hdrm_full}}
+        - pkts_num_hdrm_partial={{qp_sc.hdrm_pool_size.pkts_num_hdrm_partial}}
       when: minigraph_hwsku is defined and
             minigraph_hwsku in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64']
 
@@ -236,7 +273,7 @@
         - dst_port_2_ip='{{dst_port_2_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.lossy_queue_1.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_trig_egr_drp='{{qp.lossy_queue_1.pkts_num_trig_egr_drp}}'
 
     # DSCP to queue mapping
@@ -269,7 +306,7 @@
         - q5_num_of_pkts='{{qp.wrr.q5_num_of_pkts}}'
         - q6_num_of_pkts='{{qp.wrr.q6_num_of_pkts}}'
         - limit='{{qp.wrr.limit}}'
-        - pkts_num_leak_out='{{qp.wrr.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
     - debug:
         var: out.stdout_lines
 
@@ -291,9 +328,10 @@
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.wm_pg_shared_lossless.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_fill_min='{{qp.wm_pg_shared_lossless.pkts_num_fill_min}}'
         - pkts_num_fill_shared='{{qp.wm_pg_shared_lossless.pkts_num_trig_pfc}}'
+        - packet_size='{{qp.wm_pg_shared_lossless.packet_size}}'
         - cell_size='{{qp.wm_pg_shared_lossless.cell_size}}'
       when: minigraph_hwsku is defined and
             (minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8'])
@@ -320,9 +358,10 @@
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.wm_pg_shared_lossy.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_fill_min='{{qp.wm_pg_shared_lossy.pkts_num_fill_min}}'
         - pkts_num_fill_shared='{{qp.wm_pg_shared_lossy.pkts_num_trig_egr_drp|int - 1}}'
+        - packet_size='{{qp.wm_pg_shared_lossy.packet_size}}'
         - cell_size='{{qp.wm_pg_shared_lossy.cell_size}}'
       when: minigraph_hwsku is defined and
             minigraph_hwsku not in ['Arista-7260CX3-Q64', 'Arista-7260CX3-D108C8']
@@ -342,17 +381,17 @@
         test_name: PG headroom watermark test
         test_path: sai_qos_tests.PGHeadroomWatermarkTest
         test_params:
-        - dscp='{{qp.wm_pg_headroom.dscp}}'
-        - ecn='{{qp.wm_pg_headroom.ecn}}'
-        - pg='{{qp.wm_pg_headroom.pg}}'
+        - dscp='{{qp_sc.wm_pg_headroom.dscp}}'
+        - ecn='{{qp_sc.wm_pg_headroom.ecn}}'
+        - pg='{{qp_sc.wm_pg_headroom.pg}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.wm_pg_headroom.pkts_num_leak_out}}'
-        - pkts_num_trig_pfc='{{qp.wm_pg_headroom.pkts_num_trig_pfc}}'
-        - pkts_num_trig_ingr_drp='{{qp.wm_pg_headroom.pkts_num_trig_ingr_drp}}'
-        - cell_size='{{qp.wm_pg_headroom.cell_size}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
+        - pkts_num_trig_pfc='{{qp_sc.wm_pg_headroom.pkts_num_trig_pfc}}'
+        - pkts_num_trig_ingr_drp='{{qp_sc.wm_pg_headroom.pkts_num_trig_ingr_drp}}'
+        - cell_size='{{qp_sc.wm_pg_headroom.cell_size}}'
     - debug:
         var: out.stdout_lines
 
@@ -367,17 +406,17 @@
         test_name: Queue shared watermark test, lossless traffic
         test_path: sai_qos_tests.QSharedWatermarkTest
         test_params:
-        - dscp='{{qp.wm_q_shared_lossless.dscp}}'
-        - ecn='{{qp.wm_q_shared_lossless.ecn}}'
-        - queue='{{qp.wm_q_shared_lossless.queue}}'
+        - dscp='{{qp_sc.wm_q_shared_lossless.dscp}}'
+        - ecn='{{qp_sc.wm_q_shared_lossless.ecn}}'
+        - queue='{{qp_sc.wm_q_shared_lossless.queue}}'
         - dst_port_id='{{dst_port_id}}'
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.wm_q_shared_lossless.pkts_num_leak_out}}'
-        - pkts_num_fill_min='{{qp.wm_q_shared_lossless.pkts_num_fill_min}}'
-        - pkts_num_trig_drp='{{qp.wm_q_shared_lossless.pkts_num_trig_ingr_drp}}'
-        - cell_size='{{qp.wm_q_shared_lossless.cell_size}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
+        - pkts_num_fill_min='{{qp_sc.wm_q_shared_lossless.pkts_num_fill_min}}'
+        - pkts_num_trig_drp='{{qp_sc.wm_q_shared_lossless.pkts_num_trig_ingr_drp}}'
+        - cell_size='{{qp_sc.wm_q_shared_lossless.cell_size}}'
     - debug:
         var: out.stdout_lines
 
@@ -399,7 +438,7 @@
         - dst_port_ip='{{dst_port_ip}}'
         - src_port_id='{{src_port_id}}'
         - src_port_ip='{{src_port_ip}}'
-        - pkts_num_leak_out='{{qp.wm_q_shared_lossy.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
         - pkts_num_fill_min='{{qp.wm_q_shared_lossy.pkts_num_fill_min}}'
         - pkts_num_trig_drp='{{qp.wm_q_shared_lossy.pkts_num_trig_egr_drp}}'
         - cell_size='{{qp.wm_q_shared_lossy.cell_size}}'
@@ -451,7 +490,7 @@
         - q5_num_of_pkts='{{qp.wrr_chg.q5_num_of_pkts}}'
         - q6_num_of_pkts='{{qp.wrr_chg.q6_num_of_pkts}}'
         - limit='{{qp.wrr_chg.limit}}'
-        - pkts_num_leak_out='{{qp.wrr_chg.pkts_num_leak_out}}'
+        - pkts_num_leak_out='{{qp_sc.pkts_num_leak_out}}'
     - debug:
         var: out.stdout_lines
 

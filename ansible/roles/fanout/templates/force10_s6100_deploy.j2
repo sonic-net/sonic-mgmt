@@ -22,18 +22,18 @@ mac-address-table aging-time 10
 interface {{ intf }}
  no ip address
  switchport
-{% if intf in device_port_vlans and device_port_vlans[intf]['mode'] != 'Trunk' %}
- description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+{% if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != 'Trunk' %}
+ description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
  vlan-stack access
  no shutdown
- interface Vlan {{ device_port_vlans[intf]['vlanids'] }}
+ interface Vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
  vlan-stack compatible
  member {{ intf }}
-{% elif intf in device_port_vlans and device_port_vlans[intf]['mode'] == 'Trunk' %} 
- description {{ device_conn[intf]['peerdevice'] }}-{{ device_conn[intf]['peerport'] }}
+{% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %} 
+ description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
  vlan-stack trunk 
  no shutdown
-{% for vlanid in  device_port_vlans[intf]['vlanlist']  %}
+{% for vlanid in  device_port_vlans[inventory_hostname][intf]['vlanlist']  %}
  interface Vlan {{ vlanid }}
  vlan-stack compatible
  member {{ intf }}
@@ -47,12 +47,12 @@ interface {{ intf }}
 {% endfor %}
 !
 interface ManagementEthernet 1/1
- ip address {{ device_info["ManagementIp"] }} 
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }} 
  no shutdown
 !
 interface Vlan 1
 !
-management route 0.0.0.0/0 {{ device_info["ManagementGw"] }} 
+management route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }} 
 !
 ip ssh server enable
 !

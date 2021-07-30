@@ -1,0 +1,69 @@
+- name: Create directory for Ubuntu VM disks
+  file: path={{ k8s_root_path }}/{{ vm_name }} state=directory mode=0777
+  become: yes
+
+- name: Check destination file existence
+  stat: path={{ disk_image }} get_checksum="no"
+  register: file_stat
+
+- name: "Generate cloud-config file for {{ vm_name }}"
+  template: 
+    src: templates/cloud-config.yml.j2
+    dest: "{{ k8s_root_path }}/{{ vm_name }}/cloud-config.yml"
+    force: no
+
+- name: "Generate network metadata file for {{ vm_name }}"
+  template: 
+    src: templates/network-config-v2.yml.j2
+    dest: "{{ k8s_root_path }}/{{ vm_name }}/network-config-v2.yml"
+    force: no
+
+- name: "Generate cloud-config image for {{ vm_name }}"
+  shell: 
+    creates: "{{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_cloud-config.img"
+    cmd: >-
+      cloud-localds 
+      --network-config={{ k8s_root_path }}/{{ vm_name }}/network-config-v2.yml
+      {{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_cloud-config.img 
+      {{ k8s_root_path }}/{{ vm_name }}/cloud-config.yml
+
+- name: Copy Ubuntu disk image for {{ hostname }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True force="no"
+
+- name: "Resize virtual machine disk for {{ hostname }}"
+  shell: 
+    cmd: qemu-img resize {{ disk_image }} +50G
+  when: not file_stat.stat.exists
+
+- name: "Create virtual machine {{ vm_name }} "
+  shell: 
+    cmd: >- 
+        sudo virt-install 
+        --noautoconsole
+        --name {{ vm_name }}
+        --memory 4098
+        --vcpus 2
+        --disk {{ disk_image }},device=disk,bus=virtio 
+        --disk {{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_cloud-config.img,device=cdrom 
+        --os-type linux 
+        --os-variant ubuntu18.04
+        --virt-type kvm 
+        --graphics none 
+        --network bridge={{ mgmt_bridge_k8s }},model=virtio
+        --import
+  become: yes
+  when: vm_name not in vm_list_defined.list_vms
+
+- name: "{{ vm_name }} start with host startup"
+  virt: 
+    name: "{{ vm_name }}"
+    autostart: true
+  become: yes 
+
+- name: "Wait for K8s Ubuntu VM to be accessible via SSH"
+  wait_for:
+    port: 22
+    host: "{{ mgmt_ip_address }}"
+    connect_timeout: 3
+    delay: 3
+    timeout: 300

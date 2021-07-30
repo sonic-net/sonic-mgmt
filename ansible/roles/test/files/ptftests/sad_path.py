@@ -8,17 +8,18 @@ from device_connection import DeviceConnection
 
 
 class SadTest(object):
-    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
+    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports, ports_per_vlan):
         self.oper_type = oper_type
         self.vm_list = vm_list
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
         self.vlan_ports = vlan_ports
+        self.ports_per_vlan = ports_per_vlan
         self.fails_vm = set()
         self.fails_dut = set()
         self.log = []
-        self.shandle = SadOper(self.oper_type, self.vm_list, self.portchannel_ports, self.vm_dut_map, self.test_args, self.vlan_ports)
+        self.shandle = SadOper(self.oper_type, self.vm_list, self.portchannel_ports, self.vm_dut_map, self.test_args, self.vlan_ports, self.ports_per_vlan)
 
     def setup(self):
         self.shandle.sad_setup(is_up=False)
@@ -45,7 +46,7 @@ class SadTest(object):
 
 
 class SadPath(object):
-    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
+    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports, ports_per_vlan):
         self.oper_type = ''
         self.memb_cnt = 0
         self.cnt = 1 if 'routing' not in oper_type else len(vm_list)
@@ -56,6 +57,7 @@ class SadPath(object):
         self.test_args = test_args
         self.dut_connection = DeviceConnection(test_args['dut_hostname'], test_args['dut_username'], password=test_args['dut_password'])
         self.vlan_ports = vlan_ports
+        self.ports_per_vlan = ports_per_vlan
         self.vlan_if_port = self.test_args['vlan_if_port']
         self.neigh_vms = []
         self.neigh_names = dict()
@@ -158,7 +160,9 @@ class SadPath(object):
     def down_vlan_ports(self):
         # extract the selected vlan ports and mark them down
         for item in self.down_vlan_info:
-            self.vlan_ports.remove(item[1])
+            self.vlan_ports = [port for port in self.vlan_ports if port != item[1]]
+            for vlan in self.ports_per_vlan:
+                self.ports_per_vlan[vlan].remove(item[1])
 
     def setup(self):
         self.select_vm()
@@ -186,15 +190,15 @@ class SadPath(object):
             self.log.append('DUT BGP v6: %s' % self.dut_bgps[vm]['v6'])
 
     def retreive_test_info(self):
-        return self.vm_list, self.portchannel_ports, self.neigh_vms, self.vlan_ports
+        return self.vm_list, self.portchannel_ports, self.neigh_vms, self.vlan_ports, self.ports_per_vlan
 
     def retreive_logs(self):
         return self.log, self.fails
 
 
 class SadOper(SadPath):
-    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports):
-        super(SadOper, self).__init__(oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports)
+    def __init__(self, oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports, ports_per_vlan):
+        super(SadOper, self).__init__(oper_type, vm_list, portchannel_ports, vm_dut_map, test_args, vlan_ports, ports_per_vlan)
         self.dut_needed = dict()
         self.lag_members_down = dict()
         self.neigh_lag_members_down = dict()
@@ -320,9 +324,9 @@ class SadOper(SadPath):
     def get_bgp_route_cnt(self, is_up=True, v4=True):
         # extract the neigh ip and current number of routes
         if v4:
-            cmd = 'show ip bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+            cmd = 'show ip bgp summary | sed \'1,/Neighbor/d;/^$/,$d;/^-/d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
         else:
-            cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
+            cmd = 'show ipv6 bgp summary | sed \'1,/Neighbor/d;/^$/,$d;/^-/d\' | sed \'s/\s\s*/ /g\' | cut -d\' \' -f 1,10'
 
         stdout, stderr, return_code = self.dut_connection.execCommand(cmd)
         if return_code != 0:
@@ -431,7 +435,11 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
-                stdout, stderr, return_code = self.dut_connection.execCommand('show ip bgp neighbor %s' % self.neigh_bgps[vm][key])
+                if key == 'v4':
+                    cmd = "show ip bgp neighbors"
+                else:
+                    cmd = "show ipv6 bgp neighbors"
+                stdout, stderr, return_code = self.dut_connection.execCommand(cmd+' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
                         if 'BGP state' in line:
