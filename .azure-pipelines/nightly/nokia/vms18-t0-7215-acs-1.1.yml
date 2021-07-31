@@ -67,6 +67,19 @@ parameters:
               vxlan/test_vnet_route_leak.py"
     displayName: "Skip Scripts"
 
+  # Test Control Parameters
+  - name: TEST_CONTROL_SKIP
+    type: string
+    default: "dualtor \
+              platform_tests/mellanox \
+              platform_tests/broadcom \
+              restapi \
+              vlan \
+              ecmp \
+              drop_packets \
+              decap"
+    displayName: "SKIP Directories List"
+
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -75,3 +88,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      TEST_CONTROL_SKIP: ${{ parameters.TEST_CONTROL_SKIP }}
