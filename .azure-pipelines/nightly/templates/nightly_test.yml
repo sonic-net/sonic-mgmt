@@ -224,6 +224,10 @@ stages:
                     EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
                 fi
 
+                if [[ "$TOPOLOGY_NAME" == *"dualtor"* ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,dualtor"
+                fi
+
                 rm -fr results     # Clear any possible collected results of previous run
 
                 cd tests
