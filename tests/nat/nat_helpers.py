@@ -4,6 +4,7 @@ import time
 import logging
 import json
 from collections import namedtuple
+from netaddr import IPAddress
 
 import ptf.mask as mask
 import ptf.packet as packet
