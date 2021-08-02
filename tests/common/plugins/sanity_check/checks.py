@@ -323,7 +323,6 @@ def _check_intf_names(intf_status, active_intf, mux_intf, expected_side):
     # Verify correct active ToR
     if intf_status['active_side'] != expected_side:
         failed = True
-        import pdb; pdb.set_trace()
         failed_reason = 'Active side mismatch for {}, got {} but expected {}' \
                         .format(bridge, intf_status['active_side'], expected_side)
         return failed, failed_reason
