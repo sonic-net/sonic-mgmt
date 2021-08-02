@@ -106,6 +106,8 @@ def test_data_path(construct_url, vlan_members):
     pytest_assert(r.status_code == 204)
 
     # Verify routes
+    # Add some delay before query
+    time.sleep(5)
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 200)
