@@ -479,10 +479,10 @@ class BaseAclTest(object):
         for duthost in duthosts:
             acl_facts[duthost]['before']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
-        rule_list = []
-        yield rule_list
+        rule_dict = {}
+        yield rule_dict
 
-        if not rule_list:
+        if not rule_dict:
             return
 
         # Wait for orchagent to update the ACL counters
@@ -493,9 +493,10 @@ class BaseAclTest(object):
 
         for duthost in duthosts:
             assert len(acl_facts[duthost]['before']) == len(acl_facts[duthost]['after'])
-
-        for rule in rule_list:
-            rule = "RULE_{}".format(rule)
+        
+        failed_cases = []
+        for rule_id, case_name in rule_dict.items():
+            rule = "RULE_{}".format(rule_id)
 
             counters_before = {
                 PACKETS_COUNT: 0,
@@ -518,8 +519,14 @@ class BaseAclTest(object):
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
                         .format(rule, pprint.pformat(counters_after)))
 
-            assert counters_after[PACKETS_COUNT] > counters_before[PACKETS_COUNT]
-            assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            if counters_after[PACKETS_COUNT] <= counters_before[PACKETS_COUNT] \
+                or counters_after[BYTES_COUNT] <= counters_before[BYTES_COUNT]:
+                failed_cases.append(case_name)
+        # Report all failed cases
+        if len(failed_cases) > 0:
+            logger.error("Failed cases {}".format(failed_cases))
+            pytest.fail("Failed test scenario detected {}".format(failed_cases))
+
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
@@ -679,177 +686,177 @@ class BaseAclTest(object):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
 
-    def test_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_source_ip_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on source IP."""
         src_ip = "20.0.0.2" if ip_version == "ipv4" else "60c0:a800::6"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(1)
+        counters_sanity_check.update({1: request.node.name})
 
-    def test_rules_priority_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_rules_priority_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we respect rule priorites in the forwarding case."""
         src_ip = "20.0.0.7" if ip_version == "ipv4" else "60c0:a800::7"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(20)
+        counters_sanity_check.update({20: request.node.name})
 
-    def test_rules_priority_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_rules_priority_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we respect rule priorites in the drop case."""
         src_ip = "20.0.0.3" if ip_version == "ipv4" else "60c0:a800::4"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(7)
+        counters_sanity_check.update({7: request.node.name})
 
-    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(2 if direction == "uplink->downlink" else 3)
+        counters_sanity_check.update({2: request.node.name} if direction == "uplink->downlink" else {3: request.node.name})
 
-    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(15 if direction == "uplink->downlink" else 16)
+        counters_sanity_check.update({15: request.node.name} if direction == "uplink->downlink" else {16: request.node.name})
 
-    def test_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_source_ip_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on source IP."""
         src_ip = "20.0.0.6" if ip_version == "ipv4" else "60c0:a800::3"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(14)
+        counters_sanity_check.update({14: request.node.name})
 
-    def test_udp_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_udp_source_ip_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a UDP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(13)
+        counters_sanity_check.update({13: request.node.name})
 
-    def test_udp_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_udp_source_ip_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a UDP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(26)
+        counters_sanity_check.update({26: request.node.name})
 
-    def test_icmp_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_source_ip_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop an ICMP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(25)
+        counters_sanity_check.update({25: request.node.name})
 
-    def test_icmp_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_source_ip_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward an ICMP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(12)
+        counters_sanity_check.update({12: request.node.name})
 
-    def test_l4_dport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on L4 destination port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x1217)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(5)
+        counters_sanity_check.update({5: request.node.name})
 
-    def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on L4 source port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x120D)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(4)
+        counters_sanity_check.update({4: request.node.name})
 
-    def test_l4_dport_range_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_range_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on a range of L4 destination ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x123B)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(11)
+        counters_sanity_check.update({11: request.node.name})
 
-    def test_l4_sport_range_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_range_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on a range of L4 source ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x123A)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(10)
+        counters_sanity_check.update({10: request.node.name})
 
-    def test_l4_dport_range_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_range_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on a range of L4 destination ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(22)
+        counters_sanity_check.update({22: request.node.name})
 
-    def test_l4_sport_range_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_range_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on a range of L4 source ports."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(17)
+        counters_sanity_check.update({17: request.node.name})
 
-    def test_ip_proto_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_ip_proto_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on the IP protocol."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7E)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(5)
+        counters_sanity_check.update({5: request.node.name})
 
-    def test_tcp_flags_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_tcp_flags_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on the TCP flags."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x1B)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(6)
+        counters_sanity_check.update({6: request.node.name})
 
-    def test_l4_dport_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on L4 destination port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(22)
+        counters_sanity_check.update({22: request.node.name})
 
-    def test_l4_sport_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on L4 source port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(10)
+        counters_sanity_check.update({10: request.node.name})
 
-    def test_ip_proto_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_ip_proto_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on the IP protocol."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7F)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(18)
+        counters_sanity_check.update({18: request.node.name})
 
-    def test_tcp_flags_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_tcp_flags_match_dropped(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on the TCP flags."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x24)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(5)
+        counters_sanity_check.update({5: request.node.name})
 
-    def test_icmp_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_match_forwarded(self, request, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on the TCP flags."""
         src_ip = "20.0.0.10" if ip_version == "ipv4" else "60c0:a800::10"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip, icmp_type=3, icmp_code=1)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(29)
+        counters_sanity_check.update({29: request.node.name})
 
     def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version):
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
