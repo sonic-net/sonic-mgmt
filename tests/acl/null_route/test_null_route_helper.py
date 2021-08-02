@@ -3,6 +3,7 @@ import logging
 import random
 import pytest
 import os
+import time
 
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -39,17 +40,17 @@ TEST_DATA = [
 
     ("1.2.3.4", "block {} 1.2.3.4".format(ACL_TABLE_NAME_V4), DROP), # Verify block ipv4 without prefix len
     ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify unblock ipv4 with prefix len
-    ("1.2.3.4", "block {} 1.2.3.0/24".format(ACL_TABLE_NAME_V4), DROP), # Verify block ipv4 with prefix len
-    ("1.2.3.4", "block {} 1.2.3.0/24".format(ACL_TABLE_NAME_V4), DROP), # Verify double-block dosen't cause issue
-    ("1.2.3.4", "unblock {} 1.2.3.0/24".format(ACL_TABLE_NAME_V4), FORWARD), # Verify unblock ipv4 with prefix len
-    ("1.2.3.4", "unblock {} 1.2.3.0/24".format(ACL_TABLE_NAME_V4), FORWARD), # Verify double-unblock doesn't cause issue
+    ("1.2.3.4", "block {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), DROP), # Verify block ipv4 with prefix len
+    ("1.2.3.4", "block {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), DROP), # Verify double-block dosen't cause issue
+    ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify unblock ipv4 with prefix len
+    ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify double-unblock doesn't cause issue
 
     ("fc03:1000::1", "block {} fc03:1000::1".format(ACL_TABLE_NAME_V6), DROP), # Verify block ipv6 without prefix len
     ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv6 with prefix len
-    ("fc03:1000::1", "block {} fc03:1000::0/96".format(ACL_TABLE_NAME_V6), DROP), # Verify block ipv6 with prefix len
-    ("fc03:1000::1", "block {} fc03:1000::0/96".format(ACL_TABLE_NAME_V6), DROP), # Verify double-block dosen't cause issue
-    ("fc03:1000::1", "unblock {} fc03:1000::0/96".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv4 with prefix len
-    ("fc03:1000::1", "unblock {} fc03:1000::0/96".format(ACL_TABLE_NAME_V6), FORWARD), # Verify double-unblock doesn't cause issue
+    ("fc03:1000::1", "block {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), DROP), # Verify block ipv6 with prefix len
+    ("fc03:1000::1", "block {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), DROP), # Verify double-block dosen't cause issue
+    ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv4 with prefix len
+    ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify double-unblock doesn't cause issue
 ]
 
 
@@ -117,8 +118,6 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     """
     Build ipv4 and ipv6 packets/expected_packets for testing.
     """
-    pkt = None
-    exp_pkt = None
     if ipaddress.ip_network(unicode(src_ip), False).version == 4:
         pkt = testutils.simple_ip_packet(eth_dst=dst_mac, ip_src=src_ip, ip_dst=dst_ip)
         exp_pkt = Mask(pkt)
@@ -177,7 +176,6 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         pkt, exp_pkt = generate_packet(src_ip, DST_IP[ip_ver], router_mac)
         if action != "":
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
+            time.sleep(1)
+
         assert(send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result))
-
-
-
