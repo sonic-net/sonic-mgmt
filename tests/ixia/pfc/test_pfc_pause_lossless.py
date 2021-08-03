@@ -11,7 +11,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossles
     lossy_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
-from tests.ixia.files.helper import skip_warm_reboot_td2
+from tests.ixia.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_warm_reboot_td2(duthost, reboot_type)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
@@ -238,7 +238,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_warm_reboot_td2(duthost, reboot_type)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
     pause_prio_list = lossless_prio_list
