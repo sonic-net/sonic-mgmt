@@ -106,6 +106,7 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
 
 
 def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
+    logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
