@@ -29,6 +29,11 @@ parameters:
     default: $(IMAGE_BRCM_202012_SLIM)
     displayName: "Image URL"
 
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
@@ -47,3 +52,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}

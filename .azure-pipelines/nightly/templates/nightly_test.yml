@@ -29,7 +29,7 @@ parameters:
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
-    default: false
+    default: true
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
@@ -150,7 +150,7 @@ stages:
 
                 cd ansible
 
-                if [[ "$ALWAYS_INSTALL_NEW_IMAGE" == "true" && "$UPGRADE_TYPE" == "sonic" ]]; then
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$UPGRADE_TYPE" == "sonic" ]]; then
                     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                         -i $(INVENTORY_NAME) \
                         -e testbed_name=${{ parameters.TESTBED_NAME }} \
@@ -181,11 +181,10 @@ stages:
               script: |
                 set -x
 
-                CONFIG_PARAMS=""
-
-                if [[ "$ENABLE_DATAACL" == "false" ]]; then
-                  # the underlaying template default is to enable data acl
-                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
+                else
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
                 fi
                 cd ansible
 
@@ -195,7 +194,6 @@ stages:
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               INVENTORY_NAME: $(INVENTORY_NAME)
-              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
             displayName: Run Tests
