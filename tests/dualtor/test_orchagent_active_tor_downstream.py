@@ -33,7 +33,7 @@ pytestmark = [
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    set_crm_polling_interval,
+    require_mocked_dualtor, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -84,9 +84,8 @@ def test_active_tor_remove_neighbor_downstream_active(
 
 
 def test_downstream_ecmp_nexthops(
-    ptfadapter,
-    rand_selected_dut, tbinfo,
-    toggle_all_simulator_ports,
+    ptfadapter, rand_selected_dut, tbinfo,
+    require_mocked_dualtor, toggle_all_simulator_ports,
     tor_mux_intfs
     ):
     dst_server_ipv4 = "1.1.1.2"
