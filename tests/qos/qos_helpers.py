@@ -201,3 +201,18 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):
     for peer_device in leaf_fanouts:
         peerdev_ans = fanouthosts[peer_device]
         stop_pause(peerdev_ans, PFC_GEN_FILE)
+
+def get_max_priority(testbed_type):
+    """
+    Returns the maximum priority supported by a testbed type
+
+    Args:
+        testbed_type(string): testbed topology
+
+    Returns:
+        max_prio(string): Maximum priority that is applicable based on testbed type
+    """
+    if 'backend' in testbed_type:
+        return 8
+    else:
+        return 64

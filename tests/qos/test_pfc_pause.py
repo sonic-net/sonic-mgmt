@@ -4,7 +4,7 @@ import pytest
 import time
 
 from qos_fixtures import lossless_prio_dscp_map
-from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys
+from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -232,11 +232,8 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    if 'backend' in setup['testbed_type']:
-        prio_range = 8
-    else:
-        prio_range = 64
-    lossy_dscps = list(set(range(prio_range)) - set(other_lossless_dscps) - set(dscp))
+    max_priority = get_max_priority(setup['testbed_type'])
+    lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
 
     """ We also need to test some DSCP values for lossy priorities """
     other_dscps = other_lossless_dscps + lossy_dscps[0:2]
@@ -308,11 +305,8 @@ def test_no_pfc(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    if 'backend' in setup['testbed_type']:
-        prio_range = 8
-    else:
-        prio_range = 64
-    lossy_dscps = list(set(range(prio_range)) - set(other_lossless_dscps) - set(dscp))
+    max_priority = get_max_priority(setup['testbed_type'])
+    lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
 
     """ We also need to test some DSCP values for lossy priorities """
     other_dscps = other_lossless_dscps + lossy_dscps[0:2]
