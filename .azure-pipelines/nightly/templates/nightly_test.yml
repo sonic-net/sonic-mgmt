@@ -280,7 +280,7 @@ stages:
                 tests/logs/platform_tests/test_*_reboot*.json
               TargetFolder: results
               CleanTargetFolder: true
-            condition: succeededOrFailed()
+            condition: always()
 
           - task: Bash@3
             displayName: Upload Test Results
@@ -307,7 +307,7 @@ stages:
                 report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
-            condition: succeededOrFailed()
+            condition: always()
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
