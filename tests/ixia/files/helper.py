@@ -1,5 +1,3 @@
-import pytest
-
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 
