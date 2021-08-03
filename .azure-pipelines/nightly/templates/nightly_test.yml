@@ -9,6 +9,10 @@ parameters:
       - testbed.csv
       - testbed.yaml
 
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 30 hours
+
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
@@ -64,7 +68,7 @@ stages:
 
       - job: NightlyTest
         pool: nightly
-        timeoutInMinutes: 1800  # 30 hours
+        timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
