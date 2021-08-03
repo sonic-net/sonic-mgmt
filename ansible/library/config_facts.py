@@ -73,7 +73,7 @@ def create_maps(config):
 
         #get the port_index from config_db if available
         port_index_map = {
-            name: int(v['index'])
+            name: int(v['index']) - 1
             for name, v in config['PORT'].iteritems()
             if 'index' in v
         }
