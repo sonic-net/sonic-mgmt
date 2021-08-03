@@ -84,15 +84,6 @@ def parse_portstat(content_lines):
 
     return results
 
-@pytest.fixture(scope='module', autouse=True)
-def enable_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logger.info('Enabling all counters on DUT')
-    counters = ['PORT', 'PORT_BUFFER_DROP', 'QUEUE', 'PG_WATERMARK', 'RIF']
-    for counter in counters:
-        return_value = duthost.shell("sudo redis-cli -n 4 hset 'FLEX_COUNTER_TABLE|{}' 'FLEX_COUNTER_STATUS' 'enable'".format(counter),
-                                module_ignore_errors=True)['rc']
-        pytest_assert(return_value == 0, 'Failed to enable counter: {}'.format(counter))
 
 @pytest.fixture(scope='function', autouse=True)
 def reset_portstat(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
