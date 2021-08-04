@@ -8,6 +8,8 @@ import subprocess
 
 logger = logging.getLogger()
 
+ALLURE_REPORT_URL = 'allure_report_url'
+
 
 def pytest_addoption(parser):
     """
@@ -45,12 +47,21 @@ def pytest_sessionfinish(session, exitstatus):
                 try:
                     allure_server_obj = AllureServer(allure_server_addr, allure_server_port, allure_report_dir,
                                                      allure_server_project_id)
-                    allure_server_obj.generate_allure_report()
+                    report_url = allure_server_obj.generate_allure_report()
+                    session.config.cache.set(ALLURE_REPORT_URL, report_url)
                 except Exception as err:
                     logger.error('Failed to upload allure report to server. Allure report not available. '
                                  '\nError: {}'.format(err))
             else:
                 logger.error('PyTest argument "--alluredir" not provided. Impossible to generate Allure report')
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    report_url = config.cache.get(ALLURE_REPORT_URL, None)
+    if report_url:
+        logger.info('Allure report URL: {}'.format(report_url))
+    else:
+        logger.error('Can not get Allure report URL. Please check logs')
 
 
 def get_setup_session_info(session):
@@ -118,8 +129,9 @@ class AllureServer:
         """
         self.create_project_on_allure_server()
         self.upload_results_to_allure_server()
-        self.generate_report_on_allure_server()
+        report_url = self.generate_report_on_allure_server()
         self.clean_results_on_allure_server()
+        return report_url
 
     def create_project_on_allure_server(self):
         """
@@ -184,7 +196,7 @@ class AllureServer:
             logger.error('Failed to generate report on allure server, error: {}'.format(response.content))
         else:
             report_url = response.json()['data']['report_url']
-            logger.info('Allure report URL: {}'.format(report_url))
+            return report_url
 
     def clean_results_on_allure_server(self):
         """
