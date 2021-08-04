@@ -123,22 +123,33 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
 def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
     mg_facts = dut_host.minigraph_facts(host=dut_host.hostname)['ansible_facts']
-    for i in range(0, 2):
-        addr = mg_facts['minigraph_lo_interfaces'][i]['addr']
-        if ipaddress.IPNetwork(addr).version == 4:
-            lo_addr_v4 = ipaddress.IPNetwork(addr)
-        else:
-            # The IPv6 Loopback announced to neighbors is /64
-            lo_addr_v6 = ipaddress.IPNetwork(addr + "/64")
-    if 4 == ip_ver:
-        lo_addr = lo_addr_v4
-    else:
-        lo_addr = lo_addr_v6
+    lo_addr = []
+    internal_lo_addr = []
+
+    def parse_loopback_addr(minigraph_lo_addr, internal_loopback):
+        loopback_addr = []
+        for i in range(len(minigraph_lo_addr)):
+            addr = minigraph_lo_addr[i]['addr']
+            if ip_ver != ipaddress.IPNetwork(addr).version:
+                continue
+            if 4 == ip_ver:
+                loopback_addr.append(ipaddress.IPNetwork(addr))
+            else:
+                loopback_addr.append(ipaddress.IPNetwork(addr + "/64" if not internal_loopback else "/128"))
+
+        return loopback_addr
+
+    lo_addr = parse_loopback_addr(mg_facts['minigraph_lo_interfaces'], False)
+    internal_lo_addr = parse_loopback_addr(mg_facts['minigraph_asic_lo_interfaces'], True)
+
     routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
     for hostname, routes in routes_on_all_eos.iteritems():
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for prefix, received_community in routes.iteritems():
-            if ipaddress.IPNetwork(prefix) != lo_addr:
+            if ipaddress.IPNetwork(prefix) in internal_lo_addr:
+                logger.warn("route for {} is found on {}, which is internal loopback address".format(prefix, hostname))
+                return False
+            if ipaddress.IPNetwork(prefix) not in lo_addr:
                 logger.warn("route for {} is found on {}, which is not in loopback address".format(prefix, hostname))
                 return False
             if received_community != community:

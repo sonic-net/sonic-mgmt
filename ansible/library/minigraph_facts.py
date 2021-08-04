@@ -255,7 +255,7 @@ def parse_png(png, hname):
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
 
 
-def parse_loopback_intf(child):
+def parse_loopback_intf(child, intfName=None):
     lointfs = child.find(str(QName(ns, "LoopbackIPInterfaces")))
     lo_intfs = []
     for lointf in lointfs.findall(str(QName(ns1, "LoopbackIPInterface"))):
@@ -265,6 +265,8 @@ def parse_loopback_intf(child):
         ipaddr = ipn.ip
         prefix_len = ipn.prefixlen
         ipmask = ipn.netmask
+        if intfName and intfname != intfName:
+            continue
         lo_intf = {'name': intfname, 'addr': ipaddr, 'prefixlen': prefix_len}
         if isinstance(ipn, ipaddress.IPv4Network):
             lo_intf['mask'] = ipmask
@@ -274,12 +276,12 @@ def parse_loopback_intf(child):
     return lo_intfs
 
 
-def parse_host_loopback(dpg, hname):
+def parse_asic_loopback(dpg, hname):
     for child in dpg:
         hostname = child.find(str(QName(ns, "Hostname")))
         if hostname.text.lower() != hname.lower():
             continue
-        lo_intfs = parse_loopback_intf(child)
+        lo_intfs = parse_loopback_intf(child, "Loopback4096")
         return lo_intfs
 
 
@@ -329,7 +331,7 @@ def parse_dpg(dpg, hname):
             intfs.append(_parse_intf(intfname, ipprefix))
             ports[intfname] = {'name': intfname, 'alias': intfalias}
 
-        lo_intfs = parse_loopback_intf(child)
+        lo_intfs = parse_loopback_intf(child, "Loopback0")
 
         subintfs = child.find(str(QName(ns, "SubInterfaces")))
         if subintfs is not None:
@@ -629,10 +631,20 @@ def parse_xml(filename, hostname, asic_name=None):
     # Create inverse mapping between port name and alias
     port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
 
+    asic_lo_intfs = []
     for child in root:
         if asic_name is None:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
+                try:
+                    from sonic_py_common import multi_asic
+                    namespace_list = multi_asic.get_namespace_list()
+                    for namespace in namespace_list:
+                        if not namespace:
+                            continue
+                        asic_lo_intfs += parse_asic_loopback(child, namespace)
+                except:
+                    pass
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
             elif child.tag == str(QName(ns, "PngDec")):
@@ -644,7 +656,7 @@ def parse_xml(filename, hostname, asic_name=None):
         else:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, asic_name)
-                host_lo_intfs = parse_host_loopback(child, hostname)
+                asic_lo_intfs =  parse_asic_loopback(child, asic_name)
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
@@ -702,8 +714,6 @@ def parse_xml(filename, hostname, asic_name=None):
         else:
             phyport_intfs.append(intf)
 
-    if host_lo_intfs:
-        lo_intfs += host_lo_intfs
 
     results['minigraph_device_metadata'] = {
         'bgp_asn': bgp_asn,
@@ -722,6 +732,7 @@ def parse_xml(filename, hostname, asic_name=None):
     results['minigraph_portchannels'] = pcs
     results['minigraph_mgmt_interface'] = mgmt_intf
     results['minigraph_lo_interfaces'] = lo_intfs
+    results['minigraph_asic_lo_interfaces'] = asic_lo_intfs
     results['minigraph_acls'] = acls
     results['minigraph_neighbors'] = neighbors
     results['minigraph_devices'] = devices

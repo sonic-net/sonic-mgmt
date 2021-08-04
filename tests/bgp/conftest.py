@@ -395,6 +395,9 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 # bind the ip to the interface and notify bgpcfgd
                 duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
+                # Ping to resolve ARP. Needed in multi-asic (as bgpmon is running backend)
+                # if arp is not there TCP connection do not happen.
+                ptfhost.shell("ping {} -c 3 -I {}".format(local_addr, conn["neighbor_intf"]))
 
             yield connections
 
