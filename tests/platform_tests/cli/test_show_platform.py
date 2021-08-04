@@ -186,6 +186,9 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     num_psu_ok = 0
 
     for line in psu_status_output_lines[2:]:
+        if isinstance(line, unicode):
+            line = line.encode('ascii', 'ignore').decode('ascii')
+        logging.info("line is '{}'".format(line))
         psu_match = psu_line_pattern.match(line)
         pytest_assert(psu_match, "Unexpected PSU status output: '{}' on '{}'".format(line, duthost.hostname))
         psu_status = psu_match.group(2)
