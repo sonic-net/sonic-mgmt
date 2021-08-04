@@ -188,13 +188,6 @@ def test_pmon_ledd_kill_and_start_status(check_daemon_status, duthosts, rand_one
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
 
-    if post_daemon_status == expected_exited_status:
-        # in case of autorestart=false, it doesn't restart automatically
-        # we need to start the daemon
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(5)
-        post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-
     pytest_assert(post_daemon_status == expected_running_status,
                           "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
