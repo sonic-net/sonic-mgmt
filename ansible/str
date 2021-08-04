@@ -112,6 +112,8 @@ all:
           ansible_host: 10.64.246.23
         v11-31:
           ansible_host: 10.64.246.22
+        v12-4:
+          ansible_host: 10.64.246.84
         v12-6:
           ansible_host: 10.64.246.55
         v12-11:

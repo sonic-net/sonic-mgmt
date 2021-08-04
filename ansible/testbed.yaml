@@ -544,7 +544,7 @@
   group-name: v12-4
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: vms-unknown
+  ptf: v12-4
   ptf_ip: 10.64.246.84/23
   ptf_ipv6:
   server: server_12
