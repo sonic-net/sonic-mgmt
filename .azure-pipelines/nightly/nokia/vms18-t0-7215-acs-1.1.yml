@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: " "   # Due to AZP limitations, empty string must has at least a whitespace
+    default: $(IMAGE_MARVELL_PUBLIC)
     displayName: "Image URL"
 
   # Test Parameters
