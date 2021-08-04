@@ -13,19 +13,39 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
 HTTP_PORT = "8080"
 
-def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
-    """Test that HTTP (copy) can be used to download objects to the DUT"""
+TEST_FILE_NAME = "test_file.bin"
 
-    pytest.skip("---- test doesn't clean up the files in /tmp, it will cause the subsequent cases in /tmp fail,"
-                "skipping until the issue is addressed ----")
+pytest.fixture()
+def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
-    ptf_ip = ptfhost.mgmt_ip
-
-    test_file_name = "test_file.bin"
 
     # Copies http server files to ptf
     ptfhost.copy(src="http/start_http_server.py", dest="/tmp/start_http_server.py")
     ptfhost.copy(src="http/stop_http_server.py", dest="/tmp/stop_http_server.py")
+
+    yield
+
+    # Perform cleanup on DUT
+    duthost.file(path="./{}".format(TEST_FILE_NAME), state="absent")
+
+    # Confirm cleanup occured succesfuly
+    file_stat = duthost.stat(path="./{}".format(TEST_FILE_NAME))
+
+    pytest_assert(not file_stat["stat"]["exists"], "DUT container could not be cleaned.")
+
+    # Delete files off ptf and Ensure that files were removed
+    files_to_remove = ["./{}".format(TEST_FILE_NAME), "/tmp/start_http_server.py", "/tmp/stop_http_server.py"]
+
+    for file in files_to_remove:
+        ptfhost.file(path=file, state="absent")
+        file_stat = ptfhost.stat(path=file)
+
+
+def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
+    """Test that HTTP (copy) can be used to download objects to the DUT"""
+
+    duthost = duthosts[rand_one_dut_hostname]
+    ptf_ip = ptfhost.mgmt_ip
 
     # Starts the http server on the ptf
     ptfhost.command("python /tmp/start_http_server.py", module_async=True)
@@ -42,27 +62,27 @@ def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     pytest_assert(started, "HTTP Server could not be started")
 
     # Generate the file from /dev/urandom
-    ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs=1000000000 iflag=fullblock".format(test_file_name)))
+    ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs=1000000000 iflag=fullblock".format(TEST_FILE_NAME)))
 
     # Ensure that file was downloaded
-    file_stat = ptfhost.stat(path="./{}".format(test_file_name))
+    file_stat = ptfhost.stat(path="./{}".format(TEST_FILE_NAME))
 
     pytest_assert(file_stat["stat"]["exists"], "Test file was not found on DUT after attempted http get")
 
     # Generate MD5 checksum to compare with the sent file
-    output = ptfhost.command("md5sum ./{}".format(test_file_name))["stdout"]
+    output = ptfhost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
     orig_checksum = output.split()[0]
 
     # Have DUT request file from http server
-    duthost.command("curl -O {}:{}/{}".format(ptf_ip, HTTP_PORT, test_file_name))
+    duthost.command("curl -O {}:{}/{}".format(ptf_ip, HTTP_PORT, TEST_FILE_NAME))
 
     # Validate file was received
-    file_stat = duthost.stat(path="./{}".format(test_file_name))
+    file_stat = duthost.stat(path="./{}".format(TEST_FILE_NAME))
 
     pytest_assert(file_stat["stat"]["exists"], "Test file was not found on DUT after attempted http get")
 
     # Get MD5 checksum of received file
-    output = duthost.command("md5sum ./{}".format(test_file_name))["stdout"]
+    output = duthost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
     new_checksum = output.split()[0]
 
     # Confirm that the received file is identical to the original file
@@ -81,19 +101,3 @@ def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
         time.sleep(1)
 
     pytest_assert(not started, "HTTP Server could not be stopped.")
-
-    # Perform cleanup on DUT
-    duthost.file(path="./{}".format(test_file_name), state="absent")
-
-    # Confirm cleanup occured succesfuly
-    file_stat = duthost.stat(path="./{}".format(test_file_name))
-
-    pytest_assert(not file_stat["stat"]["exists"], "DUT container could not be cleaned.")
-
-    # Delete files off ptf and Ensure that files were removed
-    files_to_remove = ["./{}".format(test_file_name), "/tmp/start_http_server.py", "/tmp/stop_http_server.py"]
-
-    for file in files_to_remove:
-        ptfhost.file(path=file, state="absent")
-        file_stat = ptfhost.stat(path=file)
-        pytest_assert(not file_stat["stat"]["exists"], "PTF container could not be cleaned of {}.".format(files_to_remove))
