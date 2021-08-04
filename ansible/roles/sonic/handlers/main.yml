@@ -8,7 +8,7 @@
 
 - name: wait for SONiC update config db to finish
   pause:
-    seconds: 60
+    seconds: 180
 
 - name: SONiC restart BGP service
   become: true
