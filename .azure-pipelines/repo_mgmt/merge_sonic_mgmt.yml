@@ -6,7 +6,7 @@ pr: none
 
 variables:
   github_sonic_mgmt_branch: master
-  mssonic_sonic_mgmt_branch: internal-test
+  mssonic_sonic_mgmt_branch: internal
 
 schedules:
   - cron: "30 3 * * *"
