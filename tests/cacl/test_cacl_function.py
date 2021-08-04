@@ -31,13 +31,13 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     else:
         logging.warning("Will not check NTP connection. ntplib is not installed.")
 
-    # Ensure we can gather basic SNMP facts from the device. Should fail on timout
+    # Ensure we can gather basic SNMP facts from the device. Should fail on timeout
     get_snmp_facts(localhost, 
                    host=dut_mgmt_ip, 
                    version="v2c", 
                    community=creds['snmp_rocommunity'], 
                    wait=True, 
-                   timout = 20, 
+                   timeout = 20, 
                    interval=20)
 
     # Ensure we can send an NTP request
@@ -116,7 +116,7 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                    version="v2c", 
                    community=creds['snmp_rocommunity'], 
                    wait=True, 
-                   timout = 20, 
+                   timeout = 20, 
                    interval=20)
 
     # Ensure we can send an NTP request
