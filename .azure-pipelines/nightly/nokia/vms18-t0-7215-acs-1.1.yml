@@ -33,6 +33,11 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--skip-absent-sfp=True"
+    displayName: "Extra pytest params"
+
   - name: SKIP_SCRIPTS
     type: string
     default: "snmp/test_snmp_queue.py \
@@ -67,19 +72,12 @@ parameters:
               vxlan/test_vnet_route_leak.py"
     displayName: "Skip Scripts"
 
-  # Test Control Parameters
-  - name: TEST_CONTROL_SKIP
-    type: string
-    default: "dualtor \
-              platform_tests/mellanox \
-              platform_tests/broadcom \
-              restapi \
-              vlan \
-              ecmp \
-              drop_packets \
-              decap"
-    displayName: "SKIP Directories List"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "dualtor platform_tests/mellanox platform_tests/broadcom restapi vlan ecmp drop_packets decap"'
+    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -87,5 +85,6 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      TEST_CONTROL_SKIP: ${{ parameters.TEST_CONTROL_SKIP }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

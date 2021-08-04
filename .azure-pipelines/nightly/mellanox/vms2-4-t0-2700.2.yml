@@ -33,11 +33,11 @@ parameters:
     default: " "
     displayName: "py_saithrift URL"
 
-  # Test Control Parameters
-  - name: TEST_CONTROL_INCLUDE
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
     type: string
-    default: "platform_tests"
-    displayName: "INCLUDE Directories List" 
+    default: '-I "platform_tests"'
+    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -45,4 +45,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      TEST_CONTROL_INCLUDE: ${{ parameters.TEST_CONTROL_INCLUDE }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

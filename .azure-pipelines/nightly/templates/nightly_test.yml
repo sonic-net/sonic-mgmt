@@ -13,53 +13,58 @@ parameters:
     type: number
     default: 1800    # minutes, totally 30 hours
 
-  # Upgrade parameters
+  # ============ Upgrade parameters ============
   - name: IMAGE_URL
     type: string
     default: ""
+
   - name: ALWAYS_INSTALL_NEW_IMAGE
     type: boolean
     default: true
+
   - name: UPGRADE_TYPE
     type: string
     default: sonic
     values:
       - sonic
       - onie
+
   - name: PAUSE_TIME
     type: number
     default: 0
 
-  # Deploy parameters
+  # ============ Deploy parameters ============
   - name: ENABLE_DATAACL
     type: boolean
     default: true
 
-  # Test Parameters
+  # ============ Test Parameters ============
   - name: PY_SAITHRIFT_URL
     type: string
     default: ""
+
   - name: PTF_PORTMAP
     type: string
     default: ""
+
+  # This is for the extra parameters to be passed to pytest by the "-e" option of run_tests.sh. For example,
+  # to skip sanity check and disable log analyzer, the job yaml file calling this template can pass value
+  # "--skip_sanity --disable_loganalyzer" to this EXTRA_PARAMS parameter.
   - name: EXTRA_PARAMS
     type: string
     default: ""
+
+  # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
+  # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
+  # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
+  # this TESTBED_SPECIFIC parameter.
   - name: TESTBED_SPECIFIC
     type: string
     default: ""
+
   - name: SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
-  # Test Control Parameters to skip or include directories
-  - name: TEST_CONTROL_SKIP
-    type: string
-    default: ' '
-    displayName: "SKIP Directories List"
-  - name: TEST_CONTROL_INCLUDE
-    type: string
-    default: ' '
-    displayName: "INCLUDE Directories List"
 
 stages:
 
@@ -239,9 +244,10 @@ stages:
                     -s "$SKIP_SCRIPTS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
-                    -t "$EXECUTION_TOPOLOGY" -r \
-                    -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC \
-                    -S "$TEST_CONTROL_SKIP" -I "$TEST_CONTROL_INCLUDE"
+                    -t "$EXECUTION_TOPOLOGY" \
+                    -r \
+                    $TESTBED_SPECIFIC \
+                    -e "$PARAMS"
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -249,8 +255,6 @@ stages:
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
               TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
               SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-              TEST_CONTROL_SKIP: ${{ parameters.TEST_CONTROL_SKIP }}
-              TEST_CONTROL_INCLUDE: ${{ parameters.TEST_CONTROL_INCLUDE }}
 
           - publish: tests/logs
             displayName: "Archive test logs"
