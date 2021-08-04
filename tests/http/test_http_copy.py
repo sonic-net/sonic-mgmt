@@ -23,6 +23,8 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     ptfhost.copy(src="http/start_http_server.py", dest="/tmp/start_http_server.py")
     ptfhost.copy(src="http/stop_http_server.py", dest="/tmp/stop_http_server.py")
 
+    p
+
     yield
 
     # Perform cleanup on DUT
@@ -38,7 +40,6 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
 
     for file in files_to_remove:
         ptfhost.file(path=file, state="absent")
-        file_stat = ptfhost.stat(path=file)
 
 
 def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
