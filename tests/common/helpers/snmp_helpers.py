@@ -29,13 +29,13 @@ def _update_snmp_facts(localhost, host, version, community, is_dell):
 
 
 def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ignore_errors=False,
-                   wait=False, timeouot=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL):
+                   wait=False, timeout=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL):
     if not wait:
         return _get_snmp_facts(localhost, host, version, community, is_dell, module_ignore_errors)
 
     global global_snmp_facts
 
-    pytest_assert(wait_until(timeouot, interval, _update_snmp_facts, localhost, host, version,
+    pytest_assert(wait_until(timeout, interval, _update_snmp_facts, localhost, host, version,
                              community, is_dell), "Timeout waiting for SNMP facts")
     return global_snmp_facts
 
