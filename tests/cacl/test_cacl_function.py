@@ -1,6 +1,7 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 try:
     import ntplib
@@ -24,17 +25,20 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
-    if not NTPLIB_INSTALLED:
-        logging.warning("Will not check NTP connection. ntplib is not installed.")
-
     # Start an NTP client
     if NTPLIB_INSTALLED:
         ntp_client = ntplib.NTPClient()
+    else:
+        logging.warning("Will not check NTP connection. ntplib is not installed.")
 
-    # Ensure we can gather basic SNMP facts from the device
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'], timeout=20)
-
-    pytest_assert("ansible_facts" in res, "Failed to retrieve SNMP facts from DuT!")
+    # Ensure we can gather basic SNMP facts from the device. Should fail on timout
+    get_snmp_facts(localhost, 
+                   host=dut_mgmt_ip, 
+                   version="v2c", 
+                   community=creds['snmp_rocommunity'], 
+                   wait=True, 
+                   timout = 20, 
+                   interval=20)
 
     # Ensure we can send an NTP request
     if NTPLIB_INSTALLED:
@@ -77,8 +81,7 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     pytest_assert(res.is_failed, "SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
     # Ensure we CANNOT gather basic SNMP facts from the device
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                               module_ignore_errors=True)
+    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
     pytest_assert('ansible_facts' not in res and "No SNMP response received before timeout" in res.get('msg', ''))
 
@@ -107,11 +110,14 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     # Delete config_service_acls.sh from the DuT
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
-    # Ensure we can gather basic SNMP facts from the device once again
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                               module_ignore_errors=True)
-
-    pytest_assert('ansible_facts' in res, "Failed to retrieve SNMP facts from DuT!")
+    # Ensure we can gather basic SNMP facts from the device once again. Should fail on timeout
+    get_snmp_facts(localhost, 
+                   host=dut_mgmt_ip, 
+                   version="v2c", 
+                   community=creds['snmp_rocommunity'], 
+                   wait=True, 
+                   timout = 20, 
+                   interval=20)
 
     # Ensure we can send an NTP request
     if NTPLIB_INSTALLED:    
