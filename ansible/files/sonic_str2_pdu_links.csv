@@ -103,6 +103,10 @@ pdu-114,16,str2-7260cx3-acs-fan-19,PSU1
 pdu-113,16,str2-7260cx3-acs-fan-19,PSU2
 pdu-122,17,str2-7260cx3-acs-fan-20,PSU1
 pdu-121,17,str2-7260cx3-acs-fan-20,PSU2
+pdu-122,7,str2-7260cx3-acs-fan-24,PSU1
+pdu-121,7,str2-7260cx3-acs-fan-24,PSU2
+pdu-122,20,str2-8102-01,PSU1
+pdu-121,20,str2-8102-01,PSU2
 pdu-120,36,str2-dx010-acs-2,PSU1
 pdu-119,36,str2-dx010-acs-2,PSU2
 pdu-117,7,str2-acs-serv-16,PSU1

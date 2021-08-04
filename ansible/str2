@@ -68,6 +68,8 @@ all:
           ansible_host: 10.64.246.152
         vms21-7:
           ansible_host: 10.64.246.229
+        vms21-8:
+          ansible_host: 10.64.246.231
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
@@ -215,6 +217,8 @@ fanout:
       ansible_host: 10.3.146.156
     str2-7260cx3-acs-fan-20:
       ansible_host: 10.3.146.165
+    str2-7260cx3-acs-fan-24:
+      ansible_host: 10.3.146.174
 
 sonic:
   vars:
@@ -233,6 +237,7 @@ sonic:
     sonic_mlnx_4600C:
     sonic_arista64_100:
     sonic_nokia_7215:
+    sonic_cisco_8102:
     sonic_dell_z9332f:
 
 sonic_mlnx:
@@ -432,6 +437,14 @@ sonic_nokia_7215:
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+
+sonic_cisco_8102:
+  vars:
+    hwsku: 64x100G
+    iface_speed: 100000
+  hosts:
+    str2-8102-01:
+      ansible_host: 10.3.146.133
 
 sonic_dell_z9332f:
   vars:
