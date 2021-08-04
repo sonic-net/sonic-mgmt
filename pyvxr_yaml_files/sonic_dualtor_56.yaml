@@ -8,13 +8,13 @@ devices:
   mux_sim:
     platform: linux
     vcpu: 2
-    image: /auto/vxr/vxr_images/onie-sonic/mux_sim_v2.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/mux_sim_v3.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@ubuntu:~#
     extended_pci_bus: True
     xr_port_redir: [22, 8080]
-    xr_config: /home/vxr/restart_mux.sh vms_1
+    xr_config: /home/vxr/restart_mux.sh vms_1 "0,2,4,6,8,10,16,18,20,22,24,26,28,30,32,34,36,38,44,46,48,50,52,54"
     data_port_attributes:
        transport: e1000
     data_ports:
@@ -42,17 +42,11 @@ devices:
     os_type: sonic
     xr_port_redir: [22]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    #onie-install: http://172.29.93.10/sonic-images/devpatha/azure-m/sonic-cisco-8000.bin
-    #onie-install: http://172.29.93.10/sonic-images/dt_drop_11.0/sonic-cisco-8000.bin
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_12.0/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_12.3/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-           #ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.43.0_NPS1.78.1/npl
-           #ConfigS1NpsuiteVer: 1.78.1
-           #ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.1_NPS1.77.2/npl
-           #ConfigS1NpsuiteVer: 1.77.2
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-default-9915/npl
+           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-default-10799/npl
            ConfigS1NpsuiteVer: 1.78.1
 
   sonic_dut_1:
