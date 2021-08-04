@@ -242,10 +242,10 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                             and callable(failed_result['action']):
                             infra_recovery_actions.append(failed_result['action'])
                 for dut_name, dut_results in dut_failed_results.items():
-                    # Attempt to restore neighbor VM state
-                    neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
                     # Attempt to restore DUT state
                     recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
+                    # Attempt to restore neighbor VM state
+                    neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
                 for action in infra_recovery_actions:
                     action()
 
