@@ -141,9 +141,9 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
-    if res and not wait_until(100, 5, duthost.check_default_route):
+    if res and not wait_until(100, 5, duthost.check_bgp_default_route):
         res = False
-        err_msg = "ipv4 or ipv6 default route not available"
+        err_msg = "ipv4 or ipv6 bgp default route not available"
 
     if not res:
         # Disable graceful restart in case of failure
