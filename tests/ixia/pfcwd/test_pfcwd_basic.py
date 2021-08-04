@@ -8,6 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.ixia.files.helper import skip_warm_reboot
 from files.pfcwd_basic_helper import run_pfcwd_basic_test
 from files.helper import skip_pfcwd_test
 
@@ -158,6 +159,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
@@ -221,6 +223,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
 
