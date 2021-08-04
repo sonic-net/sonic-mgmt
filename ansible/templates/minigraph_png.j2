@@ -72,8 +72,8 @@
 {% endfor %}
 {% endfor %}
 {% endfor %}
-{% if switch_type is not defined or switch_type != "voq" %}
 {% for asic_intf in front_panel_asic_ifnames %}
+{% if port_alias[loop.index - 1] in device_conn[inventory_hostname] %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
         <Bandwidth>{{ port_speed[port_alias[loop.index - 1]] }}</Bandwidth>
@@ -85,8 +85,8 @@
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
-{% endfor %}
 {% endif %}
+{% endfor %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
