@@ -15,7 +15,7 @@ HTTP_PORT = "8080"
 
 TEST_FILE_NAME = "test_file.bin"
 
-pytest.fixture()
+@pytest.fixture
 def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
 
