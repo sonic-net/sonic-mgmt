@@ -130,6 +130,10 @@
 {% endif %}
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
+{% if dhcpv6_servers is defined %}
+{% set dhcpv6_servers_str=';'.join(dhcpv6_servers) %}
+          <Dhcpv6Relays>{{ dhcpv6_servers_str }}</Dhcpv6Relays>
+{% endif %}
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
