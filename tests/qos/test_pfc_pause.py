@@ -1,22 +1,24 @@
 import logging
 import os
 import pytest
-import random
 import time
 
 from qos_fixtures import lossless_prio_dscp_map
-from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys
+from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
+
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 PFC_PKT_COUNT = 1000000000
 
@@ -29,7 +31,7 @@ PTF_PASS_RATIO_THRESH = 0.6
 MAX_TEST_INTFS_COUNT = 4
 
 @pytest.fixture(scope="module", autouse=True)
-def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo):
+def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     """
     Generate configurations for the tests
 
@@ -44,16 +46,13 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo):
     """ Get all the active physical interfaces enslaved to the Vlan """
     """ These interfaces are actually server-faced interfaces at T0 """
     duthost = duthosts[rand_one_dut_hostname]
-    vlan_members = get_active_vlan_members(duthost)
+    vlan_members, vlan_id = get_active_vlan_members(duthost)
 
     """ Get Vlan subnet """
     vlan_subnet = get_vlan_subnet(duthost)
 
     """ Generate IP addresses for servers in the Vlan """
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
-
-    """ Generate MAC addresses 00:00:00:00:00:XX for servers in the Vlan """
-    vlan_mac_addrs = [5 * '00:' + format(k, '02x') for k in random.sample(range(1, 256), len(vlan_members))]
 
     """ Find correspoinding interfaces on PTF """
     phy_intfs = get_phy_intfs(duthost)
@@ -62,15 +61,22 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo):
     vlan_members_index = [phy_intfs.index(intf) for intf in vlan_members]
     ptf_intfs = ['eth' + str(i) for i in vlan_members_index]
 
+    duthost.command('sonic-clear fdb all')
+
     """ Disable DUT's PFC wd """
     duthost.shell('sudo pfcwd stop')
 
+    testbed_type = tbinfo['topo']['name']
+
     yield {
                   'vlan_members': vlan_members,
+                  'vlan_id': vlan_id,
                   'ptf_intfs': ptf_intfs,
                   'vlan_ip_addrs': vlan_ip_addrs,
-                  'vlan_mac_addrs':  vlan_mac_addrs
+                  'testbed_type': testbed_type
                 }
+
+    duthost.command('sonic-clear fdb all')
 
     """ Enable DUT's PFC wd """
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -101,10 +107,11 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
     """
 
     setup = pfc_test_setup
+    testbed_type = setup['testbed_type']
     dut_intfs = setup['vlan_members']
+    vlan_id = setup['vlan_id']
     ptf_intfs = setup['ptf_intfs']
     ptf_ip_addrs = setup['vlan_ip_addrs']
-    ptf_mac_addrs = setup['vlan_mac_addrs']
     """ Clear DUT's PFC counters """
     duthost.sonic_pfc_counters(method="clear")
 
@@ -123,15 +130,8 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
         src_ip = ptf_ip_addrs[src_index]
         dst_ip = ptf_ip_addrs[dst_index]
 
-        src_mac = ptf_mac_addrs[src_index]
-        dst_mac = ptf_mac_addrs[dst_index]
-
         """ DUT interface to pause """
         dut_intf_paused = dut_intfs[dst_index]
-
-        """ Clear MAC table in DUT """
-        duthost.shell('sonic-clear fdb all')
-        time.sleep(2)
 
         if send_pause:
             peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
@@ -161,9 +161,7 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
         logger.info("Running test: src intf: {} dest intf: {}".format(dut_intfs[src_index], dut_intfs[dst_index]))
         intf_info = '--interface %d@%s --interface %d@%s' % (src_index, src_intf, dst_index, dst_intf)
 
-        test_params = ("mac_src=\'%s\';" % src_mac
-                       + "mac_dst=\'%s\';" % dst_mac
-                       + "ip_src=\'%s\';" % src_ip
+        test_params = ("ip_src=\'%s\';" % src_ip
                        + "ip_dst=\'%s\';" % dst_ip
                        + "dscp=%d;" % traffic_params['dscp']
                        + "dscp_bg=%d;" % traffic_params['dscp_bg']
@@ -172,7 +170,9 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
                        + "port_src=%d;" % src_index
                        + "port_dst=%d;" % dst_index
                        + "queue_paused=%s;" % queue_paused
-                       + "dut_has_mac=False")
+                       + "dut_has_mac=False;"
+                       + "vlan_id=%s;" % vlan_id
+                       + "testbed_type=\'%s\'" % testbed_type)
 
         cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
         print cmd
@@ -223,6 +223,7 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
 
     test_errors = ""
     errors = []
+    setup = pfc_test_setup
     prio = int(enum_dut_lossless_prio.split('|')[-1])
     dscp = lossless_prio_dscp_map[prio]
     other_lossless_prio = 4 if prio == 3 else 3
@@ -231,7 +232,8 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    lossy_dscps = list(set(range(64)) - set(other_lossless_dscps) - set(dscp))
+    max_priority = get_max_priority(setup['testbed_type'])
+    lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
 
     """ We also need to test some DSCP values for lossy priorities """
     other_dscps = other_lossless_dscps + lossy_dscps[0:2]
@@ -295,6 +297,7 @@ def test_no_pfc(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
 
     test_errors = ""
     errors = []
+    setup = pfc_test_setup
     prio = int(enum_dut_lossless_prio.split('|')[-1])
     dscp = lossless_prio_dscp_map[prio]
     other_lossless_prio = 4 if prio == 3 else 3
@@ -302,7 +305,8 @@ def test_no_pfc(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
     """ DSCP values for other lossless priority """
     other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
     """ DSCP values for lossy priorities """
-    lossy_dscps = list(set(range(64)) - set(other_lossless_dscps) - set(dscp))
+    max_priority = get_max_priority(setup['testbed_type'])
+    lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
 
     """ We also need to test some DSCP values for lossy priorities """
     other_dscps = other_lossless_dscps + lossy_dscps[0:2]
