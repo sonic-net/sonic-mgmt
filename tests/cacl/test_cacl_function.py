@@ -9,6 +9,8 @@ try:
 except ImportError:
     NTPLIB_INSTALLED = False
 
+from tests.common.helpers.snmp_helpers import get_snmp_facts
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
     pytest.mark.topology('any'),
@@ -81,7 +83,8 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     pytest_assert(res.is_failed, "SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
     # Ensure we CANNOT gather basic SNMP facts from the device
-    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+                         module_ignore_errors=True)
 
     pytest_assert('ansible_facts' not in res and "No SNMP response received before timeout" in res.get('msg', ''))
 
@@ -118,10 +121,3 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                    wait=True, 
                    timeout = 20, 
                    interval=20)
-
-    # Ensure we can send an NTP request
-    if NTPLIB_INSTALLED:    
-        try:
-            ntp_client.request(dut_mgmt_ip)
-        except ntplib.NTPException:
-            pytest.fail("NTP did timed out when expected to succeed!")
