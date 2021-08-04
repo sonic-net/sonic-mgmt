@@ -364,9 +364,13 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     Shortcut fixture for getting VM host
     """
 
+    devices = {}
+    if not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
+        return devices
+
     vm_base = int(tbinfo['vm_base'][2:])
     neighbor_type = request.config.getoption("--neighbor_type")
-    devices = {}
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
