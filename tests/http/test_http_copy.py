@@ -23,8 +23,6 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     ptfhost.copy(src="http/start_http_server.py", dest="/tmp/start_http_server.py")
     ptfhost.copy(src="http/stop_http_server.py", dest="/tmp/stop_http_server.py")
 
-    p
-
     yield
 
     # Perform cleanup on DUT
