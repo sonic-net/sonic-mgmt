@@ -31,6 +31,20 @@ done = False
 max_cpu = 0
 max_mem = 0
 
+@pytest.fixture
+def setup_teardown(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Copies over ACL configs for the ACL commands
+    duthost.copy(src="acl/templates/acltb_test_rules.j2", dest="/tmp/acl.json", mode="0755")
+
+    yield
+
+    duthost.file(path="/tmp/acl.json", state="absent")
+
+    duthost.shell_cmds(cmds=[START_BGP_NBRS, SHUTDOWN_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL])
+
+
 def get_system_stats(duthost):
     """Gets Memory and CPU usage from DUT"""
     stdout_lines = duthost.command("vmstat")["stdout_lines"]
@@ -118,7 +132,7 @@ def get_baseline_time(ssh, command):
     logging.info("Baseline time for command {} : {} seconds".format(command, tot_time/5))
     return tot_time/5
 
-def test_ssh_stress(duthosts, rand_one_dut_hostname):
+def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     """This test creates several SSH connections that all run different commands. CPU/Memory are tracked throughout"""
     global done, max_mem, max_cpu
 
@@ -127,9 +141,6 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname):
 
     # Gets initial memory and CPU stats
     init_mem, init_cpu = get_system_stats(duthost)
-
-    # Copies over ACL configs for the ACL commands
-    duthost.copy(src="acl/templates/acltb_test_rules.j2", dest="/tmp/acl.json", mode="0755")
 
     # List of threads running ssh connections
     threads = []
@@ -208,9 +219,3 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname):
     
     logging.info("Running post-test system check")
     run_post_test_system_check(init_mem, init_cpu, duthost)
-
-    # Cleans DUT of copied files
-    
-    duthost.file(path="/tmp/acl.json", state="absent")
-    file_stat = duthost.stat(path="/tmp/acl.json")
-    pytest_assert(not file_stat['stat']['exists'], "Could not delete file {} from DUT".format("/tmp/acl.json"))
