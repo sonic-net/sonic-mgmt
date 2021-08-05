@@ -470,7 +470,7 @@ def get_convergence_for_local_link_failover(cvg_api,
     for i, port_name in enumerate(rx_port_names):
         table.append(get_avg_dpdp_convergence_time(port_name))
     columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Avg Calculated Data Convergence Time (ms)']
-    logger.info("\n%s" % tabulate(table, headers=columns, stablefmt="psql"))
+    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
 def get_convergence_for_remote_link_failover(cvg_api,
@@ -498,7 +498,6 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 for route in device.ethernet.ipv6.bgpv6.bgpv6_routes:
                     route_names.append(route.name)
     bgp_config.rx_rate_threshold = 90/(multipath-1)
-    bgp_config.convergence_event = (bgp_config.ROUTE_ADVERTISE_WITHDRAW)
     cvg_api.set_config(bgp_config)
 
 

@@ -8,7 +8,7 @@ import pytest
 
 
 @pytest.mark.parametrize('multipath', [2])
-@pytest.mark.parametrize('start_value', [10000])
+@pytest.mark.parametrize('start_value', [5000])
 @pytest.mark.parametrize('step_value', [5000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
 def test_RIB_IN_capacity(cvg_api,
