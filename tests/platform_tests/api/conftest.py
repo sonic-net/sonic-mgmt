@@ -9,8 +9,23 @@ SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
+
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+def skip_unsupported_hwskus(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Skip the test on platform which don't support platform APIs yet
+    """
+    unsupported_hwskus = ['Nexus-3164']
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hwsku = duthost.facts['hwsku']
+    if hwsku in unsupported_hwskus:
+        pytest.skip(
+            'Platform APIs not supported on this {} , skipping...'.format(
+                hwsku))
+
+
+@pytest.fixture(scope='function')
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request, skip_unsupported_hwskus):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
 
