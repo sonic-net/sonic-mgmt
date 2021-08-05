@@ -440,7 +440,7 @@ sonic_nokia_7215:
 
 sonic_cisco_8102:
   vars:
-    hwsku: 64x100G
+    hwsku: 64x100Gb
     iface_speed: 100000
   hosts:
     str2-8102-01:

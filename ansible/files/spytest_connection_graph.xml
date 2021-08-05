@@ -62,7 +62,7 @@
       <Device Hostname="str2-msn4600c-acs-01" HwSku="ACS-MSN4600C" Type="DevSonic"/>
       <Device Hostname="str2-dx010-acs-6" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="str2-dx010-acs-7" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
-      <Device Hostname="str2-8102-01" HwSku="64x100G" Type="DevSonic"/>
+      <Device Hostname="str2-8102-01" HwSku="64x100Gb" Type="DevSonic"/>
       <Device Hostname="str2-7170-azd" HwSku="Arista-7170-64C" Type="DevSonic"/>
       <Device Hostname="str2-7215-acs-1" HwSku="Nokia-7215" Type="DevSonic"/>
       <Device Hostname="str2-7215-acs-2" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
