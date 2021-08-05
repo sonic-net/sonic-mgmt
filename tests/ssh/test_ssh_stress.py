@@ -42,7 +42,7 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
 
     duthost.file(path="/tmp/acl.json", state="absent")
 
-    duthost.shell_cmds(cmds=[START_BGP_NBRS, SHUTDOWN_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL])
+    duthost.shell_cmds(cmds=[START_BGP_NBRS, SHUTDOWN_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL], module_ignore_errors=True)
 
 
 def get_system_stats(duthost):
