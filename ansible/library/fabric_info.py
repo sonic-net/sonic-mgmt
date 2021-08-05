@@ -59,10 +59,10 @@ def main():
                      'ip6_prefix': next_v6addr + "/" + v6pfx[-1] }
             fabric_info.append( data )
         module.exit_json(ansible_facts={'fabric_info': fabric_info})
-    except (IOError, OSError), e:
+    except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
-    except Exception, e:
+    except Exception as e:
         fail_msg = "failed to find the correct fabric asic info " + str(e)
         module.fail_json(msg=fail_msg)
 
