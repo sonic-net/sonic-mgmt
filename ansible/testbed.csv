@@ -60,7 +60,7 @@ vms18-t0-7050qx-acs-02,vms18-3,t0-35,docker-ptf,vms18-3,10.64.246.158/23,,server
 vms18-t1-7050qx-acs-03,vms18-7,t1-backend,docker-ptf,vms18-7,10.64.246.159/23,,server_18,VM1884,str2-7050qx-32s-acs-03,str2,True,topo_with_12_vms
 vms20-t1-dx010-6,vms20-6,t1-lag,docker-ptf,vms20-6,10.64.246.120/23,,server_20,VM2000,str2-dx010-acs-6,str2,True,Jenkins
 vms20-t1-7050cx3-3,vms20-8,t1-lag,docker-ptf,vms20-8,10.64.246.126/23,,server_20,VM2024,str2-7050cx3-acs-03,str2,True,lawlee
-vms20-t1-n3164-acs-4,vms20-9,t1-64-lag,docker-ptf,vms20-9,10.64.246.134/23,,server_20,VM2048,str2-n3164-acs-4,str2,True,suvarna
+vms20-t1-n3164-acs-4,vms20-9,t1-64-itpac,docker-ptf,vms20-9,10.64.246.134/23,,server_20,VM2048,str2-n3164-acs-4,str2,True,suvarna
 vms20-t0-7170-azd,vms20-3,t0,docker-ptf-brcm,vms20-3,10.64.246.144/23,,server_20,VM2076,str2-7170-azd,str2,True,v-llucy
 vms20-t0-7050cx3-1,vms20-5,t0,docker-ptf,vms20-5,10.64.246.118/23,,server_20,VM2080,str2-7050cx3-acs-01,str2,True,lawlee
 vms20-t0-7050cx3-2,vms20-7,t0,docker-ptf,vms20-7,10.64.246.125/23,,server_20,VM2084,str2-7050cx3-acs-02,str2,True,lawlee
