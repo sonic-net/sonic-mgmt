@@ -590,7 +590,8 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
-        swapSyncd, enable_container_autorestart, disable_container_autorestart
+        swapSyncd, enable_container_autorestart, disable_container_autorestart,
+        tbinfo
     ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -638,11 +639,21 @@ class QosSaiBase(QosBase):
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
+        """ Disable linkmgr """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo config feature state mux disabled')
+            logger.info("Disable linkmgr for dual ToR testbed")
+
         yield
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="start", **service)
+
+        """ Enable linkmgr """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo config feature state mux enabled')
+            logger.info("Enable linkmgr for dual ToR testbed")
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
