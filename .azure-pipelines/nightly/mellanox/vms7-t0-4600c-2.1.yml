@@ -38,6 +38,11 @@ parameters:
     type: number
     default: 1920    # minutes, totally 32 hours
 
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/test_advanced_reboot.py platform_tests/test_reboot.py"
+    displayName: "Skip Scripts"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
