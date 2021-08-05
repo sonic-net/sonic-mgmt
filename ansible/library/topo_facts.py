@@ -2,6 +2,7 @@
 import os
 import traceback
 import ipaddress
+import sys
 import csv
 from operator import itemgetter
 from itertools import groupby
@@ -104,7 +105,7 @@ class ParseTestbedTopoinfo():
                 dut_index = 0
                 for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
-        
+
             # physical interface
             for intf in topo_definition['configuration'][vm]['interfaces']:
                 if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
@@ -114,17 +115,17 @@ class ParseTestbedTopoinfo():
                         dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
                     if 'lacp' in topo_definition['configuration'][vm]['interfaces'][intf]:
                         po_map[topo_definition['configuration'][vm]['interfaces'][intf]['lacp']] = dut_index
-        
+
                     vmconfig[vm]['intfs'][dut_index].append(intf)
-        
+
             # ip interface
             vmconfig[vm]['ip_intf'] = [None] * dut_num
             vmconfig[vm]['peer_ipv4'] = [None] * dut_num
             vmconfig[vm]['ipv4mask'] = [None] * dut_num
             vmconfig[vm]['peer_ipv6'] = [None] * dut_num
             vmconfig[vm]['ipv6mask'] = [None] * dut_num
-        
-        
+
+
             for intf in topo_definition['configuration'][vm]['interfaces']:
                 dut_index = 0
                 if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
@@ -134,7 +135,7 @@ class ParseTestbedTopoinfo():
                 elif 'Port-Channel' in intf:
                     m = re.search("(\d+)", intf)
                     dut_index = po_map[int(m.group(1))]
-        
+
                 if 'ipv4' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
                     (peer_ipv4, ipv4_mask) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv4'].split('/')
                     vmconfig[vm]['peer_ipv4'][dut_index] = peer_ipv4
@@ -145,26 +146,35 @@ class ParseTestbedTopoinfo():
                     vmconfig[vm]['peer_ipv6'][dut_index] = ipv6_addr.upper()
                     vmconfig[vm]['ipv6mask'][dut_index] = ipv6_mask
                     vmconfig[vm]['ip_intf'][dut_index] = intf
-        
+
             # bgp
             vmconfig[vm]['bgp_ipv4'] = [None] * dut_num
             vmconfig[vm]['bgp_ipv6'] = [None] * dut_num
             vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
             for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
-                ip = ipaddress.ip_address(ipstr.decode('utf8'))
+                if sys.version_info < (3, 0):
+                    ip = ipaddress.ip_address(ipstr.decode('utf8'))
+                else:
+                    ip = ipaddress.ip_address(ipstr)
                 for dut_index in range(0, dut_num):
                     if ip.version == 4:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv4'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv4'][dut_index]+'/'+vmconfig[vm]['ipv4mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            if sys.version_info < (3, 0):
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            else:
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv4'][dut_index] = ipstr.upper()
                     elif ip.version == 6:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv6'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv6'][dut_index]+'/'+vmconfig[vm]['ipv6mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            if sys.version_info < (3, 0):
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            else:
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv6'][dut_index] = ipstr.upper()
         return vmconfig
