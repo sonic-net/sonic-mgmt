@@ -42,6 +42,7 @@ Each DUT has the following key statuses related to each SONiC feature:
 - `current_owner` describes the current owner for each feature- either local or kube.
 - All {feature x} statuses are observed via CLI command `show feature status {feature x}`
 
+
 ## Test Scenario: Join/Reset
 
 ### TC_JOIN_1: Join Master Once Available
@@ -116,7 +117,117 @@ Verify Device Under Test (DUT) appropriately disconnects upon config reload togg
 
 
 ## Test Scenario: Mode Transitions for {feature x}, Feature Image Upgrades with Reachable Master
-These test cases upgrade the container for {feature x}. The updated image for {feature x} is stored in ACR at the URL specified by the manifest being used in the test case. The manifest is stored in a GitHub repository, along with scripts that modify the manifest as needed by the test case. 
+These test cases upgrade the container for {feature x}. The updated image for {feature x} is stored in ACR at the URL specified by the manifest for the feature which corresponds to the SonicK8sSchedule deployment requested. Note that SonicK8sSchedule deployment includes PreCheck and PostCheck results under the mockUcm key. Rather than reaching UCM for each test (can take up to 10 minutes), we optionally simulate results received from UCM. Manifest application of SonicK8sSchedule triggers the deployment of the updated image stored at the specified URL of the feature manifest. 
+
+Sample manifest for SonicK8sSchedule:
+```
+apiVersion: k8s.sonic.com/v1
+kind: SonicK8sSchedule
+metadata:
+  name: sonic-k8s-s6000-telemetry-2-10
+  labels:
+    app: k8s-s6000-telemetry-2-10
+spec:
+  priority: 8
+  maxScaleUnits: 1
+  failingLimit: "1"
+  ucmRetry: 3
+  podStartTimeout: 120
+  scope:
+    hwsku: "Force10-S8800"
+  mockUcm:
+    preCheck: pass
+    postCheck: pass
+  manifest:
+    feature: telemetry
+    name: telemetry-20201231-2-10
+    label: telemetry_2_10_enabled
+    version: "20201231.2.10"
+```
+Manifest is applied via pushing SonicK8sSchedule manifest to the relevant git-watcher path being watched by the cluster under test.
+
+Sample feature manifest: 
+```
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: telemetry-20201231-2-10
+spec:
+  template:
+    metadata:
+      labels:
+        name: telemetry-2-10
+    spec:
+      hostname: sonic
+      hostNetwork: true
+      containers:
+      - name: telemetry
+        image: sonicanalytics.azurecr.io/sonic-dockers/any/docker-sonic-telemetry:20201231.2.10
+        name: telemetry
+        tty: true
+        env:
+        - name: IMAGE_VERSION
+          value: "20201231.2.10"
+        - name: RUNTIME_OWNER
+          value: "kube"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: sonic
+          mountPath: /etc/sonic
+          readOnly: true
+        - name: scripts
+          mountPath: /usr/share/sonic/scripts
+          readOnly: true
+        - name: python
+          mountPath: /usr/lib/python3/dist-packages/arista
+          readOnly: true
+        - name: hwsku
+          mountPath: /usr/share/sonic/hwsku
+          readOnly: true
+        - name: platform
+          mountPath: /usr/share/sonic/platform
+          readOnly: true
+        - name: redis
+          mountPath: /var/run/redis
+          readOnly: false
+        - name: redis-chassis
+          mountPath: /var/run/redis-chassis
+          readOnly: true
+        imagePullPolicy: IfNotPresent
+      volumes:
+      - name: sonic
+        hostPath:
+          path: /etc/sonic
+      - name: scripts
+        hostPath:
+          path: /usr/share/sonic/scripts
+      - name: python
+        hostPath:
+          path: /usr/lib/python3/dist-packages/arista
+      - name: hwsku
+        hostPath:
+          path: /usr/share/sonic/device/x86_64-dell_s6000_s1220-r0/Force10-S6000
+      - name: platform
+        hostPath:
+          path: /usr/share/sonic/device/x86_64-dell_s6000_s1220-r0
+      - name: redis
+        hostPath:
+          path: /var/run/redis
+      - name: redis-chassis
+        hostPath:
+          path: /var/run/redis-chassis
+      nodeSelector:
+        telemetry_enabled: "true"
+        telemetry_2_10_enabled: "true"
+  selector:
+    matchLabels:
+      name: telemetry-2-10
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+```
 
 ### TC_LOCAL_KUBE_1: Switch between Local Mode and Kube Mode
 #### Test Objective
