@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
 from tests.common.platform.interface_utils import get_port_map
+from tests.common.utilities import wait_until
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -183,6 +184,14 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_resettable(self, xcvr_info_dict):
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         if xcvr_type == "SFP":
+            return False
+        return True
+
+    def is_xcvr_support_lpmode(self, xcvr_info_dict):
+        """Returns True if transceiver is support low power mode, False if not supported"""
+        xcvr_type = xcvr_info_dict["type"]
+        ext_identifier = xcvr_info_dict["ext_identifier"]
+        if not "QSFP" in xcvr_type or "Power Class 1" in ext_identifier:
             return False
         return True
 
@@ -459,6 +468,9 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
         self.assert_expectations()
 
+    def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
+        return state ==  sfp.get_lpmode(platform_api_conn, i)
+
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.candidate_sfp:
@@ -467,7 +479,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_optical(info_dict):
+            if not self.is_xcvr_support_lpmode(info_dict):
                 logger.warning("test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
@@ -478,9 +490,8 @@ class TestSfpApi(PlatformApiTestBase):
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
-                lpmode = sfp.get_lpmode(platform_api_conn, i)
-                if self.expect(lpmode is not None, "Unable to retrieve transceiver {} low-power mode".format(i)):
-                    self.expect(lpmode == state, "Transceiver {} low-power is incorrect".format(i))
+                self.expect(wait_until(5, 1, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                            "Transceiver {} expected low-power state {} is not aligned with the real state".format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
