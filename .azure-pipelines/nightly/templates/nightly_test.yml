@@ -112,8 +112,8 @@ stages:
                 import os, imp, sys
 
                 testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
-                testbed_name = os.environ.get('TESTBED_NAME')
-                testbed_file = os.environ.get('TESTBED_FILE')
+                testbed_name = '${{ parameters.TESTBED_NAME }}'
+                testbed_file = '${{ parameters.TESTBED_FILE }}'
                 tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
                 target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
                 if not target_testbed:
@@ -130,9 +130,6 @@ stages:
                 print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
-            env:
-              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-              TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
 
           - task: PythonScript@0
             displayName: Lock Testbed
@@ -159,12 +156,12 @@ stages:
 
                 cd ansible
 
-                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$UPGRADE_TYPE" == "sonic" ]]; then
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
                     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                         -i $(INVENTORY_NAME) \
                         -e testbed_name=${{ parameters.TESTBED_NAME }} \
                         -e image_url=$IMAGE_URL.PREV.1 \
-                        -e upgrade_type=$UPGRADE_TYPE \
+                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                         --vault-password-file password.txt \
                         -e pause_time=60 -vv || true
                 fi
@@ -172,16 +169,13 @@ stages:
                     -i $(INVENTORY_NAME) \
                     -e testbed_name=${{ parameters.TESTBED_NAME }} \
                     -e image_url=$IMAGE_URL \
-                    -e upgrade_type=$UPGRADE_TYPE \
+                    -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                     --vault-password-file password.txt \
-                    -e pause_time=$PAUSE_TIME -vv
+                    -e pause_time=${{ parameters.PAUSE_TIME }} -vv
 
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
-              ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
-              UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
-              PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
 
           - task: Bash@3
             displayName: Deploy Minigraph
@@ -197,11 +191,10 @@ stages:
                 fi
                 cd ansible
 
-                # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
-                ./testbed-cli.sh deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                # ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
-              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               INVENTORY_NAME: $(INVENTORY_NAME)
 
           - task: Bash@3
@@ -241,20 +234,18 @@ stages:
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "$SKIP_SCRIPTS" \
+                    -s "${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t "$EXECUTION_TOPOLOGY" \
                     -r \
-                    $TESTBED_SPECIFIC \
+                    ${{ parameters.TESTBED_SPECIFIC }} \
                     -e "$PARAMS"
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
-              TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-              SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
 
           - publish: tests/logs
             displayName: "Archive test logs"
