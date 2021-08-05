@@ -18,6 +18,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common import constants
 
 logger = logging.getLogger(__name__)
 
@@ -1189,7 +1190,25 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         except (ValueError, KeyError):
             pass
 
+        # set 'backend' flag for mg_facts
+        # a 'backend' topology may has different name convention for some parameter
+        self.update_backend_flag(tbinfo, mg_facts)
+
         return mg_facts
+    
+    def update_backend_flag(self, tbinfo, mg_facts):
+        mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY] = self.assert_topo_is_backend(tbinfo)
+
+    # assert whether a topo is 'backend' type
+    def assert_topo_is_backend(self, tbinfo):
+        topo_key = constants.TOPO_KEY
+        name_key = constants.NAME_KEY
+        if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
+            topo_name = tbinfo[topo_key][name_key]
+            if constants.BACKEND_TOPOLOGY_FLAG in topo_name:
+                return True
+        else:
+            return False
 
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
