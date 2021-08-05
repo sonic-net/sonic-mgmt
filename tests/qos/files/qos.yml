@@ -427,19 +427,21 @@ qos_params:
     td3:
         topo-any:
             50000_300m:
-                pkts_num_leak_out: 22
+                pkts_num_leak_out: 32
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 13021
-                    pkts_num_trig_ingr_drp: 13261
+                    pkts_num_trig_pfc: 13012
+                    pkts_num_trig_ingr_drp: 13252
+                    pkts_num_margin: 4
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 13021
-                    pkts_num_trig_ingr_drp: 13261
+                    pkts_num_trig_pfc: 13012
+                    pkts_num_trig_ingr_drp: 13252
+                    pkts_num_margin: 4
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1
@@ -454,21 +456,21 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 13021
-                    pkts_num_trig_ingr_drp: 13261
+                    pkts_num_trig_pfc: 13012
+                    pkts_num_trig_ingr_drp: 13252
                     cell_size: 256
                     pkts_num_margin: 2
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 13021
+                    pkts_num_trig_pfc: 13012
                     pkts_num_dismiss_pfc: 18
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 13021
+                    pkts_num_trig_pfc: 13012
                     pkts_num_dismiss_pfc: 18
                 lossy_queue_1:
                     dscp: 8
@@ -480,7 +482,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_fill_min: 18
-                    pkts_num_trig_pfc: 13021
+                    pkts_num_trig_pfc: 13012
                     packet_size: 64
                     cell_size: 256
                 wm_pg_shared_lossy:
@@ -496,7 +498,7 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 13261
+                    pkts_num_trig_ingr_drp: 13252
                     cell_size: 256
                 wm_buf_pool_lossless:
                     dscp: 3
@@ -504,8 +506,8 @@ qos_params:
                     pg: 3
                     queue: 3
                     pkts_num_fill_ingr_min: 6
-                    pkts_num_trig_pfc: 13021
-                    pkts_num_trig_ingr_drp: 13261
+                    pkts_num_trig_pfc: 13012
+                    pkts_num_trig_ingr_drp: 13252
                     pkts_num_fill_egr_min: 8
                     cell_size: 256
                 wm_q_shared_lossy:
@@ -525,7 +527,7 @@ qos_params:
                     pkts_num_fill_egr_min: 14
                     cell_size: 256
             100000_300m:
-                pkts_num_leak_out: 41
+                pkts_num_leak_out: 32
                 xoff_1:
                     dscp: 3
                     ecn: 1
