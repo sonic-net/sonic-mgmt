@@ -14,7 +14,6 @@ from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
-from .args.api_sfp_args import add_api_sfp_args
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -339,7 +338,6 @@ def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
     add_normal_reboot_args(parser)
-    add_api_sfp_args(parser)
 
 
 def pytest_generate_tests(metafunc):
