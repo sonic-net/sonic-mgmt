@@ -12,9 +12,14 @@ import signal
 import datetime
 import getpass
 import pwd
-import ConfigParser
-import StringIO
 import json
+
+if sys.version_info < (3, 0):
+    import ConfigParser
+    import StringIO
+else:
+    import configparser
+    import io
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
