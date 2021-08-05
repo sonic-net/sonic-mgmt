@@ -32,6 +32,11 @@ parameters:
     type: string
     default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
+  
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1920    # minutes, totally 32 hours
 
 stages:
   - template: ../templates/nightly_test.yml
