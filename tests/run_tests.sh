@@ -157,7 +157,11 @@ function setup_test_options()
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        if [[ $skip == *"::"* ]]; then
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
+        else
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        fi
     done
 
     if [[ -d ${LOG_PATH} ]]; then
