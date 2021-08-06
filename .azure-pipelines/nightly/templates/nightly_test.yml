@@ -205,7 +205,7 @@ stages:
                 set -x
 
                 BASE_PATH=`pwd`
-                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport False --deep_clean"
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean"
 
                 if [[ -n $PY_SAITHRIFT_URL ]]; then
                     PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
