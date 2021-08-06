@@ -16,6 +16,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
+from __future__ import print_function
 import sys
 import getopt
 import re
@@ -654,7 +655,7 @@ def main(argv):
 
     analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
-    log_file_list = [_f for _f in log_files_in.split(tokenizer) if _f]
+    log_file_list = list(filter(None, log_files_in.split(tokenizer)))
 
     result = {}
     if (action == "init"):
