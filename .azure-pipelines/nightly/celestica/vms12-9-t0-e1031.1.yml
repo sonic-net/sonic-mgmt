@@ -75,3 +75,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
