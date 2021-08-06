@@ -16,6 +16,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
+from __future__ import print_function
 import sys
 import getopt
 import re
@@ -24,7 +25,6 @@ import pprint
 import logging
 import logging.handlers
 from datetime import datetime
-from __builtin__ import True
 
 #---------------------------------------------------------------------
 # Global variables
@@ -90,7 +90,7 @@ class AnsibleLogAnalyzer:
         if (not self.verbose):
             return
 
-        print '[LogAnalyzer][diagnostic]:%s' % message
+        print('[LogAnalyzer][diagnostic]:%s' % message)
     #---------------------------------------------------------------------
 
     def create_start_marker(self):
@@ -178,7 +178,7 @@ class AnsibleLogAnalyzer:
         '''
 
         #-- Check if error_string is a string or a list --#
-        if (isinstance(error_string, basestring)):
+        if (isinstance(error_string, str)):
             original_string = error_string
             #-- Escapes out of all the meta characters --#
             error_string = re.escape(error_string)
@@ -248,8 +248,8 @@ class AnsibleLogAnalyzer:
                             messages_regex.append(self.error_to_regx(row[1:]))
 
                     except Exception as e:
-                        print 'ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename)
-                        print repr(e)
+                        print('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename))
+                        print(repr(e))
                         sys.exit(err_invalid_string_format)
 
         if (len(messages_regex)):
@@ -351,7 +351,7 @@ class AnsibleLogAnalyzer:
                 if rev_line.find(end_marker) != -1:
                     self.print_diagnostic_message('found end marker: %s' % end_marker)
                     if (found_end_marker):
-                        print 'ERROR: duplicate end marker found'
+                        print('ERROR: duplicate end marker found')
                         sys.exit(err_duplicate_end_marker)
                     found_end_marker = True
                     in_analysis_range = True
@@ -361,12 +361,12 @@ class AnsibleLogAnalyzer:
                 if rev_line.find(start_marker) != -1 and 'nsible' not in rev_line:
                     self.print_diagnostic_message('found start marker: %s' % start_marker)
                     if (found_start_marker):
-                        print 'ERROR: duplicate start marker found'
+                        print('ERROR: duplicate start marker found')
                         sys.exit(err_duplicate_start_marker)
                     found_start_marker = True
 
                     if(not in_analysis_range):
-                        print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
+                        print('ERROR: found start marker:%s without corresponding end marker' % rev_line)
                         sys.exit(err_no_end_marker)
                     in_analysis_range = False
                     break
@@ -385,11 +385,11 @@ class AnsibleLogAnalyzer:
         # care about the markers only if input is not stdin or no need to check start marker
         if not stdin_as_input and check_marker:
             if (not found_start_marker):
-                print 'ERROR: start marker was not found'
+                print('ERROR: start marker was not found')
                 sys.exit(err_no_start_marker)
 
             if (not found_end_marker):
-                print 'ERROR: end marker was not found'
+                print('ERROR: end marker was not found')
                 sys.exit(err_no_end_marker)
 
         return matching_lines, expected_lines
@@ -428,32 +428,32 @@ class AnsibleLogAnalyzer:
     #---------------------------------------------------------------------
 
 def usage():
-    print 'loganalyzer input parameters:'
-    print '--help                           Print usage'
-    print '--verbose                        Print verbose output during the run'
-    print '--action                         init|analyze - action to perform.'
-    print '                                 init - initialize analysis by placing start-marker'
-    print '                                 to all log files specified in --logs parameter.'
-    print '                                 analyze - perform log analysis of files specified in --logs parameter.'
-    print '                                 add_end_marker - add end marker to all log files specified in --logs parameter.'
-    print '--out_dir path                   Directory path where to place output files, '
-    print '                                 must be present when --action == analyze'
-    print '--logs path{,path}               List of full paths to log files to be analyzed.'
-    print '                                 Implicitly system log file will be also processed'
-    print '--run_id string                  String passed to loganalyzer, uniquely identifying '
-    print '                                 analysis session. Used to construct start/end markers. '
-    print '--match_files_in path{,path}     List of paths to files containing strings. A string from log file'
-    print '                                 By default syslog will be always analyzed and should be passed by match_files_in.'
-    print '                                 matching any string from match_files_in will be collected and '
-    print '                                 reported. Must be present when action == analyze'
-    print '--ignore_files_in path{,path}    List of paths to files containing string. '
-    print '                                 A string from log file matching any string from these'
-    print '                                 files will be ignored during analysis. Must be present'
-    print '                                 when action == analyze.'
-    print '--expect_files_in path{,path}    List of path to files containing string. '
-    print '                                 All the strings from these files will be expected to present'
-    print '                                 in one of specified log files during the analysis. Must be present'
-    print '                                 when action == analyze.'
+    print('loganalyzer input parameters:')
+    print('--help                           Print usage')
+    print('--verbose                        Print verbose output during the run')
+    print('--action                         init|analyze - action to perform.')
+    print('                                 init - initialize analysis by placing start-marker')
+    print('                                 to all log files specified in --logs parameter.')
+    print('                                 analyze - perform log analysis of files specified in --logs parameter.')
+    print('                                 add_end_marker - add end marker to all log files specified in --logs parameter.')
+    print('--out_dir path                   Directory path where to place output files, ')
+    print('                                 must be present when --action == analyze')
+    print('--logs path{,path}               List of full paths to log files to be analyzed.')
+    print('                                 Implicitly system log file will be also processed')
+    print('--run_id string                  String passed to loganalyzer, uniquely identifying ')
+    print('                                 analysis session. Used to construct start/end markers. ')
+    print('--match_files_in path{,path}     List of paths to files containing strings. A string from log file')
+    print('                                 By default syslog will be always analyzed and should be passed by match_files_in.')
+    print('                                 matching any string from match_files_in will be collected and ')
+    print('                                 reported. Must be present when action == analyze')
+    print('--ignore_files_in path{,path}    List of paths to files containing string. ')
+    print('                                 A string from log file matching any string from these')
+    print('                                 files will be ignored during analysis. Must be present')
+    print('                                 when action == analyze.')
+    print('--expect_files_in path{,path}    List of path to files containing string. ')
+    print('                                 All the strings from these files will be expected to present')
+    print('                                 in one of specified log files during the analysis. Must be present')
+    print('                                 when action == analyze.')
 
 #---------------------------------------------------------------------
 
@@ -473,17 +473,17 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
         ret_code = True
     elif (action == 'analyze'):
         if out_dir is None or len(out_dir) == 0:
-            print 'ERROR: missing required out_dir for analyze action'
+            print('ERROR: missing required out_dir for analyze action')
             ret_code = False
 
         elif match_files_in is None or len(match_files_in) == 0:
-            print 'ERROR: missing required match_files_in for analyze action'
+            print('ERROR: missing required match_files_in for analyze action')
             ret_code = False
 
 
     else:
         ret_code = False
-        print 'ERROR: invalid action:%s specified' % action
+        print('ERROR: invalid action:%s specified' % action)
 
     return ret_code
 #---------------------------------------------------------------------
@@ -500,7 +500,7 @@ def check_run_id(run_id):
     ret_code = True
 
     if ((run_id is None) or (len(run_id) == 0)):
-        print 'ERROR: no run_id specified'
+        print('ERROR: no run_id specified')
         ret_code = False
 
     return ret_code
@@ -524,7 +524,7 @@ def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_
     expected_lines_total = []
 
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
-        for key, val in analysis_result_per_file.iteritems():
+        for key, val in analysis_result_per_file.items():
             matching_lines, expected_lines = val
 
             out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
@@ -577,7 +577,7 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_m
     out_file.write("\nLOG ANALYSIS SUMMARY\n")
     total_match_cnt = 0
     total_expect_cnt = 0
-    for key, val in analysis_result_per_file.iteritems():
+    for key, val in analysis_result_per_file.items():
         matching_lines, expecting_lines = val
 
         file_match_cnt = len(matching_lines)
@@ -613,7 +613,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh", ["action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
-        print "Invalid option specified"
+        print("Invalid option specified")
         usage()
         sys.exit(err_invalid_input)
 
@@ -655,7 +655,7 @@ def main(argv):
 
     analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
-    log_file_list = filter(None, log_files_in.split(tokenizer))
+    log_file_list = list(filter(None, log_files_in.split(tokenizer)))
 
     result = {}
     if (action == "init"):
@@ -686,7 +686,7 @@ def main(argv):
         return 0
 
     else:
-        print 'Unknown action:%s specified' % action
+        print('Unknown action:%s specified' % action)
     return len(result)
 #---------------------------------------------------------------------
 
