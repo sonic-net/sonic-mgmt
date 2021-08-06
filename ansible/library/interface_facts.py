@@ -12,8 +12,6 @@ import signal
 import datetime
 import getpass
 import pwd
-import ConfigParser
-import StringIO
 import json
 
 from ansible.module_utils.basic import *

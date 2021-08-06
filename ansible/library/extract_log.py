@@ -78,6 +78,7 @@ import gzip
 import re
 import sys
 from datetime import datetime
+from functools import cmp_to_key
 from ansible.module_utils.basic import *
 
 
@@ -176,8 +177,12 @@ def list_files(directory, prefixname):
     of files in @directory starting with @prefixname
     (Comparator used is @filename_comparator)"""
 
-    return sorted([filename for filename in os.listdir(directory)
-        if filename.startswith(prefixname)], cmp=filename_comparator)
+    if sys.version_info < (3, 0):
+        return sorted([filename for filename in os.listdir(directory)
+            if filename.startswith(prefixname)], cmp=filename_comparator)
+    else:
+        return sorted([filename for filename in os.listdir(directory)
+            if filename.startswith(prefixname)], key=cmp_to_key(filename_comparator))
 
 
 def extract_latest_line_with_string(directory, filenames, start_string):
