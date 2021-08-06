@@ -16,10 +16,10 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80"]
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
+    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
