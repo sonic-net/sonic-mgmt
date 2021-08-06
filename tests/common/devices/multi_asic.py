@@ -427,3 +427,34 @@ class MultiAsicSonicHost(object):
             return True
 
         return False
+
+    def get_bgp_route_info(self, prefix, ns=None):
+        """
+        @summary: return BGP routes information.
+
+        @param prefix: IP prefix
+        @param ns: network namespace
+        """
+        prefix = ipaddress.ip_network(unicode(str(prefix)))
+        if isinstance(prefix, ipaddress.IPv4Network):
+            check_cmd = "vtysh -c 'show bgp ipv4 %s json'"
+        else:
+            check_cmd = "vtysh -c 'show bgp ipv6 %s json'"
+        check_cmd %= prefix
+        if ns is not None:
+            check_cmd = self.get_vtysh_cmd_for_namespace(check_cmd, ns)
+        return json.loads(self.shell(check_cmd, verbose=False)['stdout'])
+
+
+    def check_bgp_default_route(self, ipv4=True,  ipv6=True):
+        """
+        @summary: check if bgp default route is present.
+        
+        @param ipv4: check ipv4 default
+        @param ipv6: check ipv6 default
+        """
+        if ipv4 and len(self.get_bgp_route_info("0.0.0.0/0")) == 0:
+            return False
+        if ipv6 and len(self.get_bgp_route_info("::/0")) == 0:
+            return False
+        return True
