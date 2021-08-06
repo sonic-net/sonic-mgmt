@@ -30,7 +30,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_PUBLIC)
+    default: " "
     displayName: "py_saithrift URL"
 
   - name: SKIP_SCRIPTS
