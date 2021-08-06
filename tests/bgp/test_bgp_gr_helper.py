@@ -147,12 +147,15 @@ def test_bgp_gr_helper_all_routes_preserved(duthosts, rand_one_dut_hostname, nbr
 
     def _get_learned_bgp_routes_from_neighbor(duthost, bgp_neighbor):
         """Get all learned routes from the BGP neighbor."""
+        routes = {}
         if is_ipv4_address(unicode(bgp_neighbor)):
             cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % bgp_neighbor
         else:
             cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % bgp_neighbor
-        cmd_result = json.loads(duthost.shell(cmd, verbose=False)["stdout"])
-        return cmd_result["routes"]
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+            routes.update(json.loads(duthost.shell(cmd, verbose=False)["stdout"])["routes"])
+        return routes
 
     def _verify_prefix_counters_from_neighbor_after_graceful_restart(duthost, bgp_neighbor):
         """Verify that all routes received from neighbor are stale after graceful restart."""
@@ -160,9 +163,11 @@ def test_bgp_gr_helper_all_routes_preserved(duthosts, rand_one_dut_hostname, nbr
             cmd = "vtysh -c 'show bgp ipv4 neighbor %s prefix-counts json'" % bgp_neighbor
         else:
             cmd = "vtysh -c 'show bgp ipv6 neighbor %s prefix-counts json'" % bgp_neighbor
-        cmd_result = json.loads(duthost.shell(cmd, verbose=False)["stdout"])
-        logging.debug("Prefix counters for bgp neighbor %s:\n%s\n", bgp_neighbor, cmd_result)
-        assert cmd_result["ribTableWalkCounters"]["Stale"] == cmd_result["ribTableWalkCounters"]["All RIB"]
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+            cmd_result = json.loads(duthost.shell(cmd, verbose=False)["stdout"])
+            logging.debug("Prefix counters for bgp neighbor %s in namespace %s:\n%s\n", bgp_neighbor, namespace, cmd_result)
+            assert cmd_result["ribTableWalkCounters"]["Stale"] == cmd_result["ribTableWalkCounters"]["All RIB"]
 
     def _verify_bgp_neighbor_routes_after_graceful_restart(neighbor_routes, rib):
         for prefix, nexthops in neighbor_routes.items():
