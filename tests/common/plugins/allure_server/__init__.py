@@ -61,7 +61,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if report_url:
         logger.info('Allure report URL: {}'.format(report_url))
     else:
-        logger.error('Can not get Allure report URL. Please check logs')
+        logger.info('Can not get Allure report URL. Please check logs')
 
 
 def get_setup_session_info(session):
