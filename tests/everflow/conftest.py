@@ -1,7 +1,7 @@
 import pytest
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_everlow_test(tbinfo):
+def skip_everflow_test(tbinfo):
     """
     Skip everflow tests on certain testbed types
 
