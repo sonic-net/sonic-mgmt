@@ -37,7 +37,6 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
-pcie_devices_status_tbl_key = "PCIE_DEVICES|status"
 status_field = "status"
 expected_pcied_devices_status = "PASSED"
 
@@ -102,7 +101,13 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
 
-def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
+@pytest.fixture(scope="module", autouse=True)
+def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
+    return command_output["stdout"]
+
+def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname, get_pcie_devices_tbl_key):
     """
     @summary: This test case is to check pcied status on dut
     """
@@ -114,9 +119,9 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname):
     pytest_assert(daemon_pid != -1,
                           "Pcied expected pid is a positive integer but is {}".format(daemon_pid))
 
-    daemon_db_value = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
+    daemon_db_value = duthost.get_pmon_daemon_db_value(get_pcie_devices_tbl_key, status_field)
     pytest_assert(daemon_db_value == expected_pcied_devices_status,
-                          "Expected {} {} is {} but is {}".format(pcie_devices_status_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
+                          "Expected {} {} is {} but is {}".format(get_pcie_devices_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
 
 
 
