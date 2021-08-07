@@ -483,7 +483,8 @@ class SerTest(object):
     def __init__(self, test_time_sec = DEFAULT_SER_TEST_TIME_SEC,
                  ser_injection_interval_sec = DEFAULT_SER_INJECTION_INTERVAL_SEC,
                  syslog_poll_interval_sec = DEFAULT_SYSLOG_POLLING_INTERVAL_SEC,
-                 stall_indication = DEFAULT_STALL_INDICATION):
+                 stall_indication = DEFAULT_STALL_INDICATION,
+                 batch_size = DEFAULT_BATCH_SIZE):
         '''
         @summary: Class constructor
         '''
@@ -491,6 +492,7 @@ class SerTest(object):
         self.test_time_sec = test_time_sec
         self.ser_injection_interval_sec = ser_injection_interval_sec
         self.stall_indication = stall_indication
+        self.batch_size = batch_size
         self.test_candidates = []
         self.mem_verification_pending = []
         self.mem_verified = {}
@@ -525,11 +527,11 @@ class SerTest(object):
             batch_size = min(1, len(self.test_candidates))
             self.mem_verification_pending = random.sample(self.test_candidates, batch_size)
         elif completeness == 'basic':
-            batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
+            batch_size = min(self.batch_size, len(self.test_candidates))
             sample_size = min(batch_size * 6, len(self.test_candidates))
             self.mem_verification_pending = random.sample(self.test_candidates, sample_size)
         else:
-            batch_size = min(DEFAULT_BATCH_SIZE, len(self.test_candidates))
+            batch_size = min(self.batch_size, len(self.test_candidates))
             # Still go through random to ramdomize the ordering
             self.mem_verification_pending = random.sample(self.test_candidates, len(self.test_candidates))
 
@@ -553,9 +555,9 @@ class SerTest(object):
         #              all remaining memory will be tested in each iteration.
         while (len(self.mem_verification_pending) > 0):
             count += 1
-            print("Test iteration {}, stalled {}, candidate(s) left {}".format(count, stall, len(self.mem_verification_pending)))
             size_before = len(self.mem_verification_pending)
             batch_size = min(batch_size, size_before)
+            print("Test iteration {}, stalled {}, candidate(s) left {} batch_size {}".format(count, stall, size_before, batch_size))
             test_memory = list(self.mem_verification_pending[0:batch_size])
             self.run_test(test_memory)
             size_after = len(self.mem_verification_pending)
@@ -565,7 +567,7 @@ class SerTest(object):
                 stall = 0
             else:
                 stall = stall + 1
-                batch_size = min(len(self.mem_verification_pending), batch_size + DEFAULT_BATCH_SIZE) # Increase batch size when stall is detected
+                batch_size = min(len(self.mem_verification_pending), batch_size + self.batch_size) # Increase batch size when stall is detected
                 if stall >= self.stall_indication:
                     if VERBOSE:
                         print('--- stall detected. Stop testing')
@@ -733,16 +735,22 @@ def main():
     global VERBOSE
 
     parser = argparse.ArgumentParser(description='Completeness level')
+    parser.add_argument('-b', '--batch_size', help='batch size: number of entries to inject at each batch, default {}'.format(DEFAULT_BATCH_SIZE),
+                        type=int, required=False, default=DEFAULT_BATCH_SIZE)
     parser.add_argument('-c', '--completeness', help='Completeness level: debug, basic, confident, thorough, diagnose',
                         type=str, required=False, default='basic',
                         choices=['debug', 'basic', 'confident', 'thorough', 'diagnose'])
+    parser.add_argument('-s', '--stall_limit', help='Stall limit: stall count when stopping test, default {}'.format(DEFAULT_STALL_INDICATION),
+                        type=int, required=False, default=DEFAULT_STALL_INDICATION)
+    parser.add_argument('-t', '--test_batch_timeout', help='test batch timeout: max wait time for each batch (in seconds), default {}'.format(DEFAULT_SER_TEST_TIME_SEC),
+                        type=int, required=False, default=DEFAULT_SER_TEST_TIME_SEC)
     parser.add_argument('-v', '--verbose', help='Set verbose output', action='store_true', required=False, default=False)
     args = parser.parse_args()
 
     VERBOSE = args.verbose
 
     start_time = time.time()
-    serTest = SerTest()
+    serTest = SerTest(test_time_sec=args.test_batch_timeout, stall_indication=args.stall_limit, batch_size=args.batch_size)
     rc = serTest.test_memory(args.completeness)
     print("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc))
     sys.exit(rc)
