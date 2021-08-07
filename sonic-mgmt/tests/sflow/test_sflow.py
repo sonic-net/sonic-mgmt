@@ -356,9 +356,9 @@ class TestSflowInterface():
 
         verify_sflow_interfaces(duthost,sflow_int[0],'down',512)
         verify_sflow_interfaces(duthost,sflow_int[1],'down',512)
-        verify_sflow_interfaces(duthost,sflow_int[2],'up',512)
-        verify_sflow_interfaces(duthost,sflow_int[3],'up',512)
-        enabled_intf = sflow_int[2:4]
+        enabled_intf = sflow_int[2:]
+        for intf in enabled_intf:
+            verify_sflow_interfaces(duthost, intf, 'up', 512)
         partial_ptf_runner(
               enabled_sflow_interfaces=enabled_intf,
               active_collectors="['collector0','collector1']" )

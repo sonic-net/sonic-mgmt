@@ -2,7 +2,7 @@
   set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
 
 - name: Get VM front panel interface number
-  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^\s*{{ inventory_hostname }}-t" | wc -l
   register: fp_num
   delegate_to: "{{ VM_host[0] }}"
   become: yes

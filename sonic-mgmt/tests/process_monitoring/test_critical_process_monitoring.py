@@ -188,7 +188,7 @@ def get_critical_process_from_monit(duthost, container_name):
         return critical_process_list, succeeded
 
     for line in file_content["stdout_lines"]:
-        if "check program" in line:
+        if "process_checker" in line:
             command_line = line.split(" {} ".format(container_name))[1].strip(" \n\"")
             critical_process_list.append(command_line)
 
@@ -241,7 +241,7 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
                 # TODO: Should remove `sensord` from the following if statement once it is added
                 # into the 'critical_processes' file.
                 if "pmon" in container_name_in_namespace and ("thermalctld" in critical_process
-                                                              or "syseepromd" in critical_process 
+                                                              or "syseepromd" in critical_process
                                                               or "sensord" in critical_process):
                     continue
 
@@ -543,6 +543,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited, which will not trigger alarm message.
+    skip_containers.append("restapi")
     # Skip 'acms' container since 'acms' process is not running on lab devices and
     # another process `cert_converter.py' is set to auto-restart if exited.
     skip_containers.append("acms")

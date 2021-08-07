@@ -2,6 +2,7 @@
 import os
 import traceback
 import ipaddress
+import sys
 import csv
 from operator import itemgetter
 from itertools import groupby
@@ -60,6 +61,19 @@ def parse_host_interfaces(hifs):
 
     return ret
 
+def parse_console_interface(console_interface):
+    """
+    parse console interface
+
+    Foramt:
+    line_number.baud.flow_control_option
+
+    Example:
+    27.9600.0
+    """
+    fields = console_interface.split('.')
+    return fields[0], fields[1], fields[2]
+
 class ParseTestbedTopoinfo():
     '''
     Parse topology yml file
@@ -75,7 +89,12 @@ class ParseTestbedTopoinfo():
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
-                vmconfig[vm]['properties']=topo_definition['configuration'][vm]['properties']
+                # expand properties list into properties dictinary
+                property_lst = topo_definition['configuration'][vm]['properties']
+                vmconfig[vm]['properties'] = {}
+                for p in property_lst:
+                    if p in topo_definition['configuration_properties']:
+                        vmconfig[vm]['properties'].update(topo_definition['configuration_properties'][p])
             if neigh_type == 'VMs':
                 vmconfig[vm]['interface_indexes'] = [[] for i in range(dut_num)]
                 for vlan in topo_definition['topology'][neigh_type][vm]['vlans']:
@@ -86,7 +105,7 @@ class ParseTestbedTopoinfo():
                 dut_index = 0
                 for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
-        
+
             # physical interface
             for intf in topo_definition['configuration'][vm]['interfaces']:
                 if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
@@ -96,17 +115,17 @@ class ParseTestbedTopoinfo():
                         dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
                     if 'lacp' in topo_definition['configuration'][vm]['interfaces'][intf]:
                         po_map[topo_definition['configuration'][vm]['interfaces'][intf]['lacp']] = dut_index
-        
+
                     vmconfig[vm]['intfs'][dut_index].append(intf)
-        
+
             # ip interface
             vmconfig[vm]['ip_intf'] = [None] * dut_num
             vmconfig[vm]['peer_ipv4'] = [None] * dut_num
             vmconfig[vm]['ipv4mask'] = [None] * dut_num
             vmconfig[vm]['peer_ipv6'] = [None] * dut_num
             vmconfig[vm]['ipv6mask'] = [None] * dut_num
-        
-        
+
+
             for intf in topo_definition['configuration'][vm]['interfaces']:
                 dut_index = 0
                 if (neigh_type == 'VMs' and 'Ethernet' in intf) or \
@@ -116,7 +135,7 @@ class ParseTestbedTopoinfo():
                 elif 'Port-Channel' in intf:
                     m = re.search("(\d+)", intf)
                     dut_index = po_map[int(m.group(1))]
-        
+
                 if 'ipv4' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
                     (peer_ipv4, ipv4_mask) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv4'].split('/')
                     vmconfig[vm]['peer_ipv4'][dut_index] = peer_ipv4
@@ -127,26 +146,35 @@ class ParseTestbedTopoinfo():
                     vmconfig[vm]['peer_ipv6'][dut_index] = ipv6_addr.upper()
                     vmconfig[vm]['ipv6mask'][dut_index] = ipv6_mask
                     vmconfig[vm]['ip_intf'][dut_index] = intf
-        
+
             # bgp
             vmconfig[vm]['bgp_ipv4'] = [None] * dut_num
             vmconfig[vm]['bgp_ipv6'] = [None] * dut_num
             vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
             for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
-                ip = ipaddress.ip_address(ipstr.decode('utf8'))
+                if sys.version_info < (3, 0):
+                    ip = ipaddress.ip_address(ipstr.decode('utf8'))
+                else:
+                    ip = ipaddress.ip_address(ipstr)
                 for dut_index in range(0, dut_num):
                     if ip.version == 4:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv4'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv4'][dut_index]+'/'+vmconfig[vm]['ipv4mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            if sys.version_info < (3, 0):
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            else:
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv4'][dut_index] = ipstr.upper()
                     elif ip.version == 6:
                         # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
                         if vmconfig[vm]['peer_ipv6'][dut_index]:
                             ipsubnet_str = vmconfig[vm]['peer_ipv6'][dut_index]+'/'+vmconfig[vm]['ipv6mask'][dut_index]
-                            ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            if sys.version_info < (3, 0):
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
+                            else:
+                                ipsubnet = ipaddress.ip_interface(ipsubnet_str)
                             if ip in ipsubnet.network:
                                 vmconfig[vm]['bgp_ipv6'][dut_index] = ipstr.upper()
         return vmconfig
@@ -188,6 +216,8 @@ class ParseTestbedTopoinfo():
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
             vm_topo_config['dut_asn'] = dut_asn
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            if 'dut_cluster' in topo_definition['configuration_properties']['common']:
+                vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
         for asic in asic_definition:
@@ -216,6 +246,16 @@ class ParseTestbedTopoinfo():
                 hifs = parse_host_interfaces(host_if)
                 for hif in hifs:
                     vm_topo_config['disabled_host_interfaces_by_dut'][hif[0]].append(hif[1])
+
+        if 'console_interfaces' in topo_definition['topology']:
+            vm_topo_config['console_interfaces'] = []
+            for console_if in topo_definition['topology']['console_interfaces']:
+                line, baud, flow_control = parse_console_interface(console_if)
+                cif = {}
+                cif['line'] = int(line)
+                cif['baud'] = int(baud)
+                cif['flow_control'] = 'true' if flow_control == '1' else 'false'
+                vm_topo_config['console_interfaces'].append(cif)
 
         if 'DUT' in topo_definition['topology']:
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']

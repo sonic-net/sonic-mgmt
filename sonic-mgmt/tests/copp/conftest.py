@@ -13,3 +13,9 @@ def pytest_addoption(parser):
         default=False,
         help="Swap syncd container with syncd-rpc container",
     )
+    parser.addoption(
+        "--send_rate_limit",
+        action="store",
+        default=2000,
+        help="Set custom server send rate limit",
+    )

@@ -227,6 +227,7 @@ class AsicDbCli(RedisCli):
         self.hostif_table = []
         self.system_port_key_list = []
         self.port_key_list = []
+        self.lagid_key_list = []
 
     def get_switch_key(self):
         """Returns a list of keys in the switch table"""
@@ -257,8 +258,11 @@ class AsicDbCli(RedisCli):
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_HOSTIF_TABLE
         return self._run_and_raise(cmd)["stdout_lines"]
 
-    def get_asic_db_lag_list(self):
+    def get_asic_db_lag_list(self, refresh=False):
         """Returns a list of keys in the lag table"""
+        if self.lagid_key_list != [] and refresh is False:
+            return self.lagid_key_list
+
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_TABLE
         return self._run_and_raise(cmd)["stdout_lines"]
 
@@ -309,9 +313,10 @@ class AsicDbCli(RedisCli):
         """
         cmd = ["/usr/bin/redis-cli", "-n", "1", "HGET", neighbor_key, field]
         if self.host.namespace is not None:
-            cmd = ["sudo", "ip", "netns", "exec"] + cmd
+            cmd = ["/usr/bin/redis-cli", "-h", str(self.ip), "-n", "1", "HGET", neighbor_key, field]
+            cmd = ["sudo", "ip", "netns", "exec"] + [self.host.namespace] + cmd
+
         result = self.host.sonichost.shell(argv=cmd)
-        logger.debug("neigh result: %s", result['stdout'])
         return result['stdout']
 
     def get_hostif_table(self, refresh=False):
@@ -390,14 +395,16 @@ class AsicDbCli(RedisCli):
         Returns:
             "hostif" if the port ID has a host interface
             "sysport" if it is a system port.
-            "port" if the port ID is in local port table but has no hostif
+            "port" if the port ID is in local port table but has no hostif (inband)
+            "lag" if the portid is a portchannel.
             "other" if it is not found in any port table
         """
-        # could be a localport
 
         port_key_list = self.get_port_key_list(refresh=refresh)
         system_port_keylist = self.get_system_port_key_list(refresh=refresh)
+        lag_keylist = self.get_asic_db_lag_list(refresh=refresh)
 
+        # could be a frontpanel port
         if "%s:%s" % (
                 AsicDbCli.ASIC_PORT_TABLE,
                 portid) in port_key_list and portid in self.get_hostif_portid_oidlist():
@@ -405,6 +412,9 @@ class AsicDbCli(RedisCli):
         # could be a system port
         elif "%s:%s" % (AsicDbCli.ASIC_SYSPORT_TABLE, portid) in system_port_keylist:
             return "sysport"
+        # could be a lag
+        elif "%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid) in lag_keylist:
+            return "lag"
         # could be something else
         elif "%s:%s" % (AsicDbCli.ASIC_PORT_TABLE, portid) in port_key_list:
             return "port"

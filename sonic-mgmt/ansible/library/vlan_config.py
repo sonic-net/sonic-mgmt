@@ -58,6 +58,9 @@ def main():
             if 'mac' in vlan_param:
                 vlan_configs[vlan]['mac'] = vlan_param['mac']
 
+            if 'type' in vlan_param:
+                vlan_configs[vlan]['type'] = vlan_param['type']
+
     except Exception as e:
         module.fail_json(msg = traceback.format_exc())
     else:

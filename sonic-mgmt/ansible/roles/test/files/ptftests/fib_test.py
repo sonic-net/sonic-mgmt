@@ -4,7 +4,10 @@ Description:    This file contains the FIB test for SONIC
                 Design is available in https://github.com/Azure/SONiC/wiki/FIB-Scale-Test-Plan
 
 Usage:          Examples of how to use log analyzer
-                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;ipv6=True' --relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log --socket-recv-size 16384
+                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote \
+                    -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;\
+                    ipv6=True' --relax --debug info --socket-recv-size 16384 \
+                    --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log
 '''
 
 #---------------------------------------------------------------------
@@ -133,7 +136,7 @@ class FibTest(BaseTest):
         self.src_ports = self.test_params.get('src_ports', None)
         if not self.src_ports:
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
-        
+
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
@@ -167,6 +170,7 @@ class FibTest(BaseTest):
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
                 continue
+            logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(src_port, exp_port_list, active_dut_index))
             break
         return src_port, exp_port_list, next_hop
 
@@ -293,7 +297,7 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt,dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
@@ -352,13 +356,14 @@ class FibTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IPv6'].src,
                     pkt['IPv6'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
             .format('any',
                     'any',

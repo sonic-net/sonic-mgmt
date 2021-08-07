@@ -1,5 +1,8 @@
 import pytest
 
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.snmp_helpers import get_snmp_facts
+
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
@@ -7,12 +10,14 @@ pytestmark = [
 
 
 @pytest.mark.bsl
-def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds_all_duts):
+def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, creds_all_duts, tbinfo):
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
+
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_result = duthost.shell('show ip route 0.0.0.0/0 | grep "\*"')
 
     dut_result_nexthops = []

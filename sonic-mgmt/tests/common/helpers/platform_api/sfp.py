@@ -31,6 +31,10 @@ def get_presence(conn, index):
     return sfp_api(conn, index, 'get_presence')
 
 
+def get_error_description(conn, index):
+    return sfp_api(conn, index, 'get_error_description')
+
+
 def get_model(conn, index):
     return sfp_api(conn, index, 'get_model')
 

@@ -17,18 +17,17 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    if not duthost.check_bgp_default_route():
+        pytest.skip("there is no nexthop for bgp default route")
+
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     po = config_facts.get('PORTCHANNEL', {})
     dev_nbr = config_facts.get('DEVICE_NEIGHBOR', {})
 
     rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
-    if len(rtinfo_v4['nexthops']) == 0:
-        pytest.skip("there is no next hop for v4 default route")
 
     rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network(u'::/0'))
-    if len(rtinfo_v6['nexthops']) == 0:
-        pytest.skip("there is no next hop for v6 default route")
 
     ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
     ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]

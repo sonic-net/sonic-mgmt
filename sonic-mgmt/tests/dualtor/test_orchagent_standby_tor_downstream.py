@@ -99,7 +99,8 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
+def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut,
+    tbinfo, require_mocked_dualtor):
     """
     Verify tunnel traffic to active ToR is distributed equally across nexthops, and
     no traffic is forwarded to server from standby ToR
@@ -108,7 +109,8 @@ def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut,
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
+def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, rand_unselected_dut,
+    require_mocked_dualtor, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is distributed evenly after t1 link is recovered;
     Verify CRM that no new nexthop created
@@ -134,7 +136,8 @@ def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, ra
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
+def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_unselected_dut,
+    require_mocked_dualtor, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is shifted to the active links and no traffic drop observed;
     Verify traffic is distributed evenly after BGP session is recovered;
@@ -177,7 +180,7 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    set_crm_polling_interval,
+    require_mocked_dualtor, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -224,21 +227,18 @@ def test_standby_tor_remove_neighbor_downstream_standby(
 def test_downstream_standby_mux_toggle_active(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    tunnel_traffic_monitor, vmhost, toggle_all_simulator_ports,
-    tor_mux_intfs
+    require_mocked_dualtor, tunnel_traffic_monitor,
+    vmhost, toggle_all_simulator_ports, tor_mux_intfs
     ):
     # set rand_selected_dut as standby and rand_unselected_dut to active tor
-    # params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
-    tor = rand_selected_dut
-    test_params = dualtor_info(ptfhost, tor, rand_unselected_dut, tbinfo)
+    test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     server_ipv4 = test_params["target_server_ip"]
-    random_dst_ip = server_ipv4
-
-    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, random_dst_ip)
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+    random_dst_ip = "1.1.1.2"
+    pkt, exp_pkt = build_packet_to_server(rand_selected_dut, ptfadapter, random_dst_ip)
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
 
     def monitor_tunnel_and_server_traffic(torhost, expect_tunnel_traffic=True, expect_server_traffic=True):
-        tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+        tunnel_monitor = tunnel_traffic_monitor(rand_selected_dut, existing=True)
         server_traffic_monitor = ServerTrafficMonitor(
             torhost, ptfhost, vmhost, tbinfo, test_params["selected_port"],
             conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
@@ -254,19 +254,19 @@ def test_downstream_standby_mux_toggle_active(
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[server_ipv4])
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
-    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False, expect_tunnel_traffic=True)
 
     logger.info("Stage 2: Verify Active Forwarding")
     logger.info("Step 2.1: Simulate Mux state change to active")
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
     logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
-    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_tunnel_traffic=False)
+    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=True, expect_tunnel_traffic=False)
 
     logger.info("Stage 3: Verify Standby Forwarding Again")
     logger.info("Step 3.1: Simulate Mux state change to standby")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
     logger.info("Step 3.2: Verify traffic to this route dst is now redirected back to Active ToR and equally distributed")
-    monitor_tunnel_and_server_traffic(rand_unselected_dut)
+    monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False, expect_tunnel_traffic=True)
     check_tunnel_balance(**test_params)
 
     remove_static_routes(rand_selected_dut, random_dst_ip)

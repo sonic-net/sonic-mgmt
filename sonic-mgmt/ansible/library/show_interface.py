@@ -94,7 +94,7 @@ class ShowInterfaceModule(object):
         if self.m_args['command'] == 'status':
             self.collect_interface_status(namespace, include_internal_intfs)
         if self.m_args['command'] == 'counter':
-            self.collect_interface_counter()
+            self.collect_interface_counter(namespace, include_internal_intfs)
         self.module.exit_json(ansible_facts=self.facts)
 
     def collect_interface_status(self, namespace=None, include_internal_intfs=False):
@@ -136,7 +136,7 @@ class ShowInterfaceModule(object):
         else:
             try:
                 cli_options = " -n {}".format(namespace) if namespace is not None else ""
-                if include_internal_intfs:
+                if include_internal_intfs and namespace is not None:
                     cli_options += " -d all"
                 intf_status_cmd = "show interface status{}".format(cli_options)
                 rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
@@ -194,11 +194,15 @@ class ShowInterfaceModule(object):
 
         return
 
-    def collect_interface_counter(self):
+    def collect_interface_counter(self, namespace=None, include_internal_intfs=False):
         regex_int = re.compile(r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
         self.int_counter = {}
+        cli_options = " -n {}".format(namespace) if namespace is not None else ""
+        if include_internal_intfs and namespace is not None:
+            cli_options += " -d all"
+        intf_status_cmd = "show interface counter{}".format(cli_options)
         try:
-            rc, self.out, err = self.module.run_command('show interface counter', executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
             for line in self.out.split("\n"):
                 line = line.strip()
                 if regex_int.match(line):

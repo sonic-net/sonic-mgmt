@@ -32,6 +32,8 @@ class PfcWdTest(BaseTest):
         self.ip_dst = self.test_params['ip_dst']
         self.port_type = self.test_params['port_type']
         self.wd_action = self.test_params.get('wd_action', 'drop')
+        self.port_src_vlan_id = self.test_params.get('port_src_vlan_id')
+        self.port_dst_vlan_id = self.test_params.get('port_dst_vlan_id')
 
     def runTest(self):
         ecn = 1
@@ -45,7 +47,7 @@ class PfcWdTest(BaseTest):
         for match in matches:
             for port in match.split():
                 dst_port_list.append(int(port))
-        src_mac = self.dataplane.get_mac(0, 0)
+        src_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
 
         if self.port_type == "portchannel":
             for x in range(0, self.pkt_count):
@@ -61,23 +63,35 @@ class PfcWdTest(BaseTest):
                     ip_src =ipaddress.IPv4Address(unicode(ip_src,'utf-8'))
 
                 ip_src = str(ip_src)
-                pkt = simple_tcp_packet(
-                                    eth_dst=self.router_mac,
-                                    eth_src=src_mac,
-                                    ip_src=ip_src,
-                                    ip_dst=self.ip_dst,
-                                    ip_tos = tos,
-                                    tcp_sport=sport,
-                                    tcp_dport=dport,
-                                    ip_ttl=64)
-                exp_pkt = simple_tcp_packet(
-                                    eth_src=self.router_mac,
-                                    ip_src=ip_src,
-                                    ip_dst=self.ip_dst,
-                                    ip_tos = tos,
-                                    tcp_sport=sport,
-                                    tcp_dport=dport,
-                                    ip_ttl=63)
+                pkt_args = {
+                    'eth_dst': self.router_mac,
+                    'eth_src': src_mac,
+                    'ip_src': ip_src,
+                    'ip_dst': self.ip_dst,
+                    'ip_tos': tos,
+                    'tcp_sport': sport,
+                    'tcp_dport': dport,
+                    'ip_ttl': 64
+                }
+                if self.port_src_vlan_id is not None:
+                    pkt_args['dl_vlan_enable'] = True
+                    pkt_args['vlan_vid'] = int(self.port_src_vlan_id)
+                    pkt_args['vlan_pcp'] = self.queue_index
+                pkt = simple_tcp_packet(**pkt_args)
+                exp_pkt_args = {
+                    'eth_src': self.router_mac,
+                    'ip_src': ip_src,
+                    'ip_dst': self.ip_dst,
+                    'ip_tos': tos,
+                    'tcp_sport': sport,
+                    'tcp_dport': dport,
+                    'ip_ttl': 63
+                }
+                if self.port_dst_vlan_id is not None:
+                    exp_pkt_args['dl_vlan_enable'] = True
+                    exp_pkt_args['vlan_vid'] = int(self.port_dst_vlan_id)
+                    exp_pkt_args['vlan_pcp'] = self.queue_index
+                exp_pkt = simple_tcp_packet(**exp_pkt_args)
                 masked_exp_pkt = Mask(exp_pkt)
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -91,23 +105,35 @@ class PfcWdTest(BaseTest):
             dport = random.randint(0, 65535)
             ip_src = "1.1.1.1"
 
-            pkt = simple_tcp_packet(
-                                eth_dst=self.router_mac,
-                                eth_src=src_mac,
-                                ip_src=ip_src,
-                                ip_dst=self.ip_dst,
-                                ip_tos = tos,
-                                tcp_sport=sport,
-                                tcp_dport=dport,
-                                ip_ttl=64)
-            exp_pkt = simple_tcp_packet(
-                                eth_src=self.router_mac,
-                                ip_src=ip_src,
-                                ip_dst=self.ip_dst,
-                                ip_tos = tos,
-                                tcp_sport=sport,
-                                tcp_dport=dport,
-                                ip_ttl=63)
+            pkt_args = {
+                'eth_dst': self.router_mac,
+                'eth_src': src_mac,
+                'ip_src': ip_src,
+                'ip_dst': self.ip_dst,
+                'ip_tos': tos,
+                'tcp_sport': sport,
+                'tcp_dport': dport,
+                'ip_ttl': 64
+            }
+            if self.port_src_vlan_id is not None:
+                pkt_args['dl_vlan_enable'] = True
+                pkt_args['vlan_vid'] = int(self.port_src_vlan_id)
+                pkt_args['vlan_pcp'] = self.queue_index
+            pkt = simple_tcp_packet(**pkt_args)
+            exp_pkt_args = {
+                'eth_src': self.router_mac,
+                'ip_src': ip_src,
+                'ip_dst': self.ip_dst,
+                'ip_tos': tos,
+                'tcp_sport': sport,
+                'tcp_dport': dport,
+                'ip_ttl': 63
+            }
+            if self.port_dst_vlan_id is not None:
+                exp_pkt_args['dl_vlan_enable'] = True
+                exp_pkt_args['vlan_vid'] = int(self.port_dst_vlan_id)
+                exp_pkt_args['vlan_pcp'] = self.queue_index
+            exp_pkt = simple_tcp_packet(**exp_pkt_args)
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -116,7 +142,6 @@ class PfcWdTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
             send_packet(self, self.port_src, pkt, self.pkt_count)
-
         if self.wd_action == 'drop':
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
         elif self.wd_action == 'forward':

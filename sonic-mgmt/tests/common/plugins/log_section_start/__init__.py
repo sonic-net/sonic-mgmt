@@ -21,9 +21,22 @@ import logging
 import inspect
 import decorator
 import postimport
+import traceback
+import sys
 
 
 LOGGER_NAME = "SectionStartLogger"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """Add exception log when test function exits with error."""
+    yield
+    last_type = getattr(sys, "last_type", None)
+    last_value = getattr(sys, "last_value", None)
+    last_traceback = getattr(sys, "last_traceback", None)
+    if last_type is not None and last_value is not None and last_traceback is not None:
+        logging.error("".join(traceback.format_exception(last_type, last_value, last_traceback)))
 
 
 @pytest.hookimpl(trylast=True)

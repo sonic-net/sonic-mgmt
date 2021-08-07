@@ -133,7 +133,7 @@ def test_arp_garp_enabled(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
 
     switch_arptable = duthost.switch_arptable()['ansible_facts']
-    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'] == arp_src_mac)
+    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower())
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
 
 
@@ -188,12 +188,12 @@ def test_proxy_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_pt
         dut_macs = []
 
         for vlan_details in vlans.values():
-            dut_macs.append(vlan_details['mac'])
+            dut_macs.append(vlan_details['mac'].lower())
     else:
         router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
         dut_macs = [router_mac]
 
     pytest_assert(ping_addr in neighbor_table.keys())
-    pytest_assert(neighbor_table[ping_addr]['macaddress'] in dut_macs)
+    pytest_assert(neighbor_table[ping_addr]['macaddress'].lower() in dut_macs)
     pytest_assert(neighbor_table[ping_addr]['interface'] == ptf_intf_name)
     pytest_assert(neighbor_table[ping_addr]['state'].lower() not in ['failed', 'incomplete'])

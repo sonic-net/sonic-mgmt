@@ -115,6 +115,10 @@ def ptf_params(duthost, creds, tbinfo, upgrade_type):
             attr['mgmt_addr'] for dev, attr in mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
         ]
     sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+    vlan_ip_range = dict()
+    for vlan in mgFacts['minigraph_vlan_interfaces']:
+        if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
+            vlan_ip_range[vlan['attachto']] = vlan['subnet']
     ptf_params = {
         "verbose": False,
         "dut_username": creds.get('sonicadmin_user'),
@@ -127,9 +131,8 @@ def ptf_params(duthost, creds, tbinfo, upgrade_type):
         "vlan_ports_file": TMP_VLAN_FILE,
         "ports_file": TMP_PORTS_FILE,
         "dut_mac": duthost.facts["router_mac"],
-        "dut_vlan_ip": "192.168.0.1",
         "default_ip_range": "192.168.100.0/18",
-        "vlan_ip_range": mg_facts['minigraph_vlan_interfaces'][0]['subnet'],
+        "vlan_ip_range": json.dumps(vlan_ip_range),
         "lo_v6_prefix": lo_v6_prefix,
         "arista_vms": vm_hosts,
         "setup_fdb_before_test": True,

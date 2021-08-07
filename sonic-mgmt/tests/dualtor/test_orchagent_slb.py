@@ -144,7 +144,7 @@ def bgp_neighbors(upper_tor_host, lower_tor_host, ptfhost, setup_interfaces):
             conn["local_asn"],
             conn["exabgp_port"],
             conn["neighbor_type"],
-            is_quagga=is_quagga
+            is_multihop=is_quagga
         )
     return neighbors
 

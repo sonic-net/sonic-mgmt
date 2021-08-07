@@ -326,8 +326,8 @@ topology:
         - 10.1.0.3/32
       ipv6:
         - FC00:10::1/128
-        - FC00:10::2/128
-        - FC00:10::3/128
+        - FC00:11::1/128
+        - FC00:12::1/128
 
 configuration_properties:
   common:
