@@ -157,6 +157,10 @@ class SonicAsic(object):
     def os_version(self):
         return self.sonichost.os_version
 
+    @property
+    def sonic_release(self):
+        return self.sonichost.sonic_release
+
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
 
@@ -402,7 +406,7 @@ class SonicAsic(object):
             return port in self.ports
 
         if_db = self.show_interface(
-            command="status", 
+            command="status",
             include_internal_intfs=True
         )["ansible_facts"]["int_status"]
 
@@ -518,7 +522,7 @@ class SonicAsic(object):
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
                     break
-         
+
         return pc, pc_members
 
     def get_bgp_statistic(self, stat):
