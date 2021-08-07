@@ -18,6 +18,18 @@ SRAM_SCAN_ENTRIES = 16384
 DEFAULT_SER_INJECTION_INTERVAL_SEC = 0.1
 DEFAULT_SYSLOG_POLLING_INTERVAL_SEC = 0.1
 
+# Stop trying if stall has been detected for so many consecutive iterations
+# Combined with the test duration below. If we don't make progress for so
+# long, then we stop waiting.
+DEFAULT_STALL_INDICATION = 15
+DEFAULT_SER_TEST_TIME_SEC = 60
+DEFAULT_BATCH_SIZE=10
+DEFAULT_THOROUGH_BATCH_SIZE=20
+DEFAULT_INJECTION_SLOW_SEC = 5
+
+# Print verbose output for debugging
+VERBOSE=False
+
 """
 Follow memory cannot be tested on corresponding platforms for reasons
     1). The memory was reported to be corrected at a different location without name.
@@ -32,280 +44,303 @@ How to create skip list on an new ASIC:
        and lspci signature in get_asic_name() function
 """
 SKIP_MEMORY_PER_ASIC = {
-    'td2' : [
-        # cannot pass
-        u'L3_DEFIP_ALPM_IPV4.ipipe0', u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'L3_ENTRY_IPV6_UNICAST.ipipe0',
-        u'FP_GM_FIELDS.ipipe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0',
-        u'L3_DEFIP_ALPM_IPV6_128.ipipe0', u'FP_GLOBAL_MASK_TCAM.ipipe0', u'MODPORT_MAP_MIRROR.ipipe0',
-        u'EGR_IP_TUNNEL_MPLS.epipe0',
-        # fail only with basic mode
-        u'EGR_IP_TUNNEL_IPV6.epipe0', u'EGR_DVP_ATTRIBUTE_1.epipe0', u'EGR_MPLS_VC_AND_SWAP_LABEL_TABLE.epipe0',
-        u'L3_TUNNEL_DATA_ONLY.ipipe0',
+    'td2' : {
+        'timeout' : [
+            u'L3_DEFIP_ALPM_IPV4.ipipe0', u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'L3_ENTRY_IPV6_UNICAST.ipipe0',
+            u'FP_GM_FIELDS.ipipe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0',
+            u'L3_DEFIP_ALPM_IPV6_128.ipipe0', u'FP_GLOBAL_MASK_TCAM.ipipe0', u'MODPORT_MAP_MIRROR.ipipe0',
+            u'EGR_IP_TUNNEL_MPLS.epipe0',
         ],
-    'td3' : [
-        # cannot pass
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sc0', u'ING_SNAT.ipipe0',
-        u'TCB_THRESHOLD_PROFILE_MAP_XPE2.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP1_PIPE2.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sc0', u'ING_VP_VLAN_MEMBERSHIP.ipipe0',
-        u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0',
-        u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0',
-        u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE0.mmu_sed0',
-        u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
-        u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0', u'FP_STORM_CONTROL_METERS.ipipe0',
-        u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'VLAN_XLATE.ipipe0',
-        u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sed0',
-        u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0',
-        u'MMU_MTRO_CONFIG_L0_MEM_PIPE1.mmu_sed0', u'IFP_TCAM.ipipe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sed0', u'L3_TUNNEL.ipipe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0', u'L2_ENTRY.ipipe0', u'L3_DEFIP_ALPM_IPV6_128.ipipe0',
-        u'FP_GLOBAL_MASK_TCAM.ipipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0', u'FP_GM_FIELDS.ipipe0',
-        u'TCB_THRESHOLD_PROFILE_MAP_XPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
-        u'EGR_IP_TUNNEL_IPV6.epipe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'MODPORT_MAP_MIRROR.ipipe0',
-        u'VLAN_MAC.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0',
-        u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0',
-        u'INTFO_TC2PRI_MAPPING.mmu_glb0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE2.mmu_sed0', u'MPLS_ENTRY_DOUBLE.ipipe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sc0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_1_B.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0', u'EGR_IP_TUNNEL_MPLS.epipe0', u'L3_DEFIP_ALPM_IPV4.ipipe0',
-        u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
-        u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE0.mmu_xpe0',
-        u'EGR_VP_VLAN_MEMBERSHIP.epipe0', u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0',
-        u'EGR_VLAN_XLATE.epipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0',
-        u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0', u'L3_ENTRY_IPV6_UNICAST.ipipe0', u'ING_DNAT_ADDRESS_TYPE.ipipe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
-        u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE3.mmu_xpe0',
-        u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0',
-        u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE3.mmu_sed0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sc0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sed0',
-        u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_C_PIPE3.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sed0', u'IFP_TCAM_WIDE_PIPE3.ipipe0',
-        u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
-        u'IFP_TCAM_WIDE_PIPE2.ipipe0',
-        # fail only with basic mode
-        u'MODPORT_MAP_SUBPORT_MIRROR.ipipe0', u'EGR_VLAN_XLATE_2_DOUBLE.epipe0', u'PKT_FLOW_SELECT_TCAM_2.ipipe0',
-        u'EGR_ZONE_3_EDITOR_CONTROL_TCAM.epipe0', u'RH_ECMP_FLOWSET_PIPE0.ipipe0', u'EGR_VLAN_XLATE_1_DOUBLE.epipe0',
-        u'RH_ECMP_FLOWSET.ipipe0', u'DST_COMPRESSION_PIPE1.ipipe0', u'EGR_FIELD_EXTRACTION_PROFILE_2_TCAM.epipe0',
-        u'VLAN_XLATE_2_DOUBLE.ipipe0', u'L3_DEFIP.ipipe0', u'EGR_PKT_FLOW_SELECT_TCAM.epipe0',
-        u'FLEX_RTAG7_HASH_TCAM.ipipe0', u'L2_ENTRY_SINGLE.ipipe0', u'VLAN_XLATE_1_SINGLE.ipipe0',
-        u'EGR_FIELD_EXTRACTION_PROFILE_1_TCAM.epipe0', u'EXACT_MATCH_LOGICAL_TABLE_SELECT.ipipe0',
-        u'SRC_COMPRESSION.ipipe0', u'EGR_VLAN_XLATE_1_SINGLE.epipe0', u'RH_HGT_FLOWSET_PIPE0.ipipe0',
-        u'VLAN_SUBNET.ipipe0', u'RH_LAG_FLOWSET_PIPE1.ipipe0', u'MY_STATION_TCAM_2.ipipe0',
-        u'EGR_ZONE_4_EDITOR_CONTROL_TCAM.epipe0', u'RH_LAG_FLOWSET.ipipe0', u'RH_HGT_FLOWSET_PIPE1.ipipe0',
-        u'L3_DEFIP_PAIR_128.ipipe0', u'L3_ENTRY_ONLY_SINGLE.ipipe0', u'MPLS_ENTRY_SINGLE.ipipe0',
-        u'EGR_ZONE_2_EDITOR_CONTROL_TCAM.epipe0', u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
-        u'IFP_TCAM_PIPE1.ipipe0', u'L3_ENTRY_QUAD.ipipe0', u'RH_ECMP_FLOWSET_PIPE1.ipipe0',
-        u'VLAN_XLATE_2_SINGLE.ipipe0', u'L2_ENTRY_ONLY_SINGLE.ipipe0', u'EGR_ZONE_1_EDITOR_CONTROL_TCAM.epipe0',
-        u'SRC_COMPRESSION_PIPE0.ipipe0', u'L3_ENTRY_ONLY_DOUBLE.ipipe0', u'SRC_COMPRESSION_PIPE1.ipipe0',
-        u'SUBPORT_ID_TO_SGPP_MAP.ipipe0', u'PKT_FLOW_SELECT_TCAM_0.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE0.ipipe0', u'L3_ENTRY_SINGLE.ipipe0', u'DST_COMPRESSION.ipipe0',
-        u'L2_USER_ENTRY.ipipe0', u'L3_ENTRY_ONLY_QUAD.ipipe0', u'PKT_FLOW_SELECT_TCAM_1.ipipe0',
-        u'IP_PARSER1_MICE_TCAM_0.ipipe0', u'PHB_SELECT_TCAM.ipipe0', u'MY_STATION_TCAM.ipipe0',
-        u'CPU_COS_MAP.ipipe0', u'L3_DEFIP_ALPM_RAW.ipipe0', u'DST_COMPRESSION_PIPE0.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT.ipipe0', u'IFP_LOGICAL_TABLE_SELECT_PIPE0.ipipe0', u'VLAN_XLATE_1_DOUBLE.ipipe0',
-        u'RH_HGT_FLOWSET.ipipe0', u'IFP_TCAM_PIPE0.ipipe0', u'IP_PARSER1_MICE_TCAM_1.ipipe0',
-        u'EGR_IP_TUNNEL_MPLS_DOUBLE_WIDE.epipe0', u'IFP_LOGICAL_TABLE_SELECT_PIPE1.ipipe0', u'L3_ENTRY_DOUBLE.ipipe0',
-        u'IP_PARSER2_MICE_TCAM_1.ipipe0', u'IP_PARSER2_MICE_TCAM_0.ipipe0', u'RH_LAG_FLOWSET_PIPE0.ipipe0',
-        u'EGR_VLAN_XLATE_2_SINGLE.epipe0', u'EGR_QOS_CTRL_TCAM.epipe0', u'EGR_ZONE_0_EDITOR_CONTROL_TCAM.epipe0',
-        # fail randomly with basic mode
-        u'IFP_POLICY_TABLE_WIDE_PIPE0.ipipe0', u'IFP_POLICY_TABLE_WIDE.ipipe0', u'IFP_POLICY_TABLE_WIDE_PIPE1.ipipe0',
-        u'IFP_METER_TABLE_PIPE1.ipipe0', u'IFP_METER_TABLE.ipipe0',
+        'timeout_basic' : [
+            u'EGR_IP_TUNNEL_IPV6.epipe0', u'EGR_DVP_ATTRIBUTE_1.epipe0', u'EGR_MPLS_VC_AND_SWAP_LABEL_TABLE.epipe0',
+            u'L3_TUNNEL_DATA_ONLY.ipipe0',
         ],
-    'th' : [
-        # cannot pass
-        u'EGR_IP_TUNNEL_MPLS.epipe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0',
-        u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0', u'MPLS_ENTRY_DOUBLE.ipipe0',
-        u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0',
-        u'IFP_TCAM_WIDE_PIPE2.ipipe0', u'FP_GM_FIELDS.ipipe0', u'FP_STORM_CONTROL_METERS.ipipe0',
-        u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0',
-        u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0',
-        u'EGR_IP_TUNNEL_IPV6.epipe0', u'MODPORT_MAP_MIRROR.ipipe0', u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0',
-        u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sc0',
-        u'L3_DEFIP_ALPM_IPV6_128.ipipe0', u'IFP_TCAM_WIDE_PIPE3.ipipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sc0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'VLAN_XLATE.ipipe0',
-        u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'VLAN_MAC.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0',
-        u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0',
-        u'L3_DEFIP_ALPM_IPV4.ipipe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sc0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE1.ipipe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
-        u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0',
-        u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0',
-        u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
-        u'IFP_TCAM_WIDE_PIPE0.ipipe0', u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
-        u'IFP_TCAM.ipipe0', u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sc0',
-        u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'EGR_VLAN_XLATE.epipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0',
-        u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0',
-        u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0', u'L2_ENTRY.ipipe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0',
-        u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0',
-        u'L3_ENTRY_IPV6_UNICAST.ipipe0',
-        # fail randomly with basic mode
-        u'IFP_POLICY_TABLE_PIPE0.ipipe0', u'IFP_POLICY_TABLE.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
-        u'EXACT_MATCH_4_PIPE1.ipipe0', u'EXACT_MATCH_4_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE1.ipipe0',
-        u'EXACT_MATCH_4_PIPE0.ipipe0', u'EXACT_MATCH_2_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE0.ipipe0',
-        u'EXACT_MATCH_4_PIPE3.ipipe0', u'EXACT_MATCH_4.ipipe0', u'EXACT_MATCH_2_PIPE3.ipipe0',
-        u'EXACT_MATCH_2.ipipe0', u'ING_FLEX_CTR_OFFSET_TABLE_11.ipipe0', u'PORT_LAG_FAILOVER_SET.ipipe0',
-        u'VFP_POLICY_TABLE_PIPE2.ipipe0', u'Q_SCHED_L1_WEIGHT_MEM_PIPE2.mmu_sc0', u'SYSTEM_CONFIG_TABLE.ipipe0',
-        u'RTAG7_PORT_BASED_HASH.ipipe0', u'MMU_REPL_LIST_TBL_PIPE2.mmu_sc0', u'EGR_GPP_ATTRIBUTES.epipe0',
-        u'EGRESS_MASK.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0', u'EMIRROR_CONTROL2.ipipe0',
-        u'VLAN_MPLS.ipipe0', u'ING_DVP_TABLE.ipipe0', u'EXACT_MATCH_QOS_ACTIONS_PROFILE.ipipe0',
-        u'MMU_REPL_GROUP_INFO_TBL_PIPE3.mmu_sc0', u'MMU_REPL_LIST_TBL_PIPE1.mmu_sc0', u'VFI_1.ipipe0',
-        u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0', u'EFP_POLICY_TABLE_PIPE0.epipe0', u'EFP_POLICY_TABLE.epipe0',
-        u'IFP_STORM_CONTROL_METERS.ipipe0',
+        'slow_injection' : [
         ],
-    'th2' : [
-        # cannot pass
-        u'TCB_THRESHOLD_PROFILE_MAP_XPE3.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0', u'VLAN_MAC.ipipe0', u'EGR_VP_VLAN_MEMBERSHIP.epipe0',
-        u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0',
-        u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0',
-        u'TCB_THRESHOLD_PROFILE_MAP_XPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sed0',
-        u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE2.mmu_sed0',
-        u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sed0', u'VLAN_XLATE.ipipe0',
-        u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
-        u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0',
-        u'INTFO_TC2PRI_MAPPING.mmu_glb0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0',
-        u'MMU_MTRO_CONFIG_L0_MEM_PIPE3.mmu_sed0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
-        u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
-        u'IFP_TCAM_WIDE_PIPE0.ipipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE2.ipipe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sed0', u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0',
-        u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_C_PIPE3.mmu_xpe0',
-        u'L3_TUNNEL.ipipe0', u'MPLS_ENTRY_DOUBLE.ipipe0', u'ING_DNAT_ADDRESS_TYPE.ipipe0',
-        u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'L3_DEFIP_ALPM_IPV4.ipipe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE0.mmu_sed0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE1.ipipe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0', u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'IFP_TCAM_WIDE_PIPE3.ipipe0',
-        u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0',
-        u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sed0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0',
-        u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0',
-        u'TCB_THRESHOLD_PROFILE_MAP_XPE0.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0',
-        u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'L3_DEFIP_ALPM_IPV6_128.ipipe0',
-        u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MODPORT_MAP_MIRROR.ipipe0', u'IFP_TCAM.ipipe0',
-        u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'EGR_VLAN_XLATE.epipe0', u'FP_GM_FIELDS.ipipe0',
-        u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE1.mmu_sed0',
-        u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE2.mmu_xpe0',
-        u'FP_STORM_CONTROL_METERS.ipipe0', u'L2_ENTRY.ipipe0', u'EGR_IP_TUNNEL_IPV6.epipe0',
-        u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0',
-        u'L3_ENTRY_IPV6_UNICAST.ipipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0',
-        u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0',
-        u'EGR_IP_TUNNEL_MPLS.epipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0',
-        u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0', u'ING_SNAT.ipipe0',
-        u'MMU_THDM_MCQE_QUEUE_OFFSET_B_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0',
-        u'ING_VP_VLAN_MEMBERSHIP.ipipe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
-        ],
-    'th3' : [
-        # cannot pass
-        u'L3_DEFIP_TCAM_LEVEL1.ipipe0',
-        u'MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE7.mmu_eb0',
-        u'L3_ENTRY_ONLY_SINGLE.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE3.mmu_eb0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
-        u'L3_ENTRY_SINGLE.ipipe0',
-        u'L2_ENTRY.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
-        u'L3_DEFIP_ALPM_LEVEL3.ipipe0',
-        u'L3_ENTRY_DOUBLE.ipipe0',
-        u'L3_TUNNEL_QUAD.ipipe0',
-        u'L3_DEFIP_PAIR_LEVEL1.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
-        u'L3_ENTRY_ONLY_DOUBLE.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE0.mmu_eb0',
-        u'L3_DEFIP_ALPM_LEVEL2.ipipe0',
-        u'EGR_IP_TUNNEL_IPV6.epipe0',
-        u'EXACT_MATCH_ECC.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
-        u'L3_DEFIP_ALPM_LEVEL3_SINGLE.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE5.mmu_eb0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
-        u'L3_ENTRY_QUAD.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
-        u'EGR_IP_TUNNEL_MPLS.epipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE4.mmu_eb0',
-        u'L2_USER_ENTRY.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE6.mmu_eb0',
-        u'MY_STATION_TCAM.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
-        u'L3_DEFIP_LEVEL1.ipipe0'        ,
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE2.mmu_eb0',
-        u'L3_DEFIP_ALPM_LEVEL2_SINGLE.ipipe0',
-        u'L3_TUNNEL_DOUBLE.ipipe0',
-        u'L3_ENTRY_ONLY_QUAD.ipipe0',
-        u'IFP_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
-        u'MMU_QSCH_L2_WEIGHT_MEM_PIPE1.mmu_eb0',
-        u'MPLS_ENTRY_SINGLE.ipipe0',
-        u'CPU_COS_MAP.ipipe0',
-        u'L3_TUNNEL_SINGLE.ipipe0',
-        u'L3_DEFIP_ALPM_LEVEL2_HIT_ONLY.ipipe0',
-        u'L2_ENTRY_ONLY_SINGLE.ipipe0',
-        u'L3_DEFIP_LEVEL1_HIT_ONLY.ipipe0',
-        u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
-        u'L3_DEFIP_ALPM_LEVEL3_HIT_ONLY.ipipe0'
+        'unsupported' : [
         ]
+    },
+    'td3' : {
+        'timeout' : [
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sc0', u'ING_SNAT.ipipe0',
+            u'TCB_THRESHOLD_PROFILE_MAP_XPE2.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP1_PIPE2.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sc0', u'ING_VP_VLAN_MEMBERSHIP.ipipe0',
+            u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0',
+            u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0',
+            u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE0.mmu_sed0',
+            u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
+            u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0', u'FP_STORM_CONTROL_METERS.ipipe0',
+            u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'VLAN_XLATE.ipipe0',
+            u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sed0',
+            u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0',
+            u'MMU_MTRO_CONFIG_L0_MEM_PIPE1.mmu_sed0', u'IFP_TCAM.ipipe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sed0', u'L3_TUNNEL.ipipe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0', u'L2_ENTRY.ipipe0', u'L3_DEFIP_ALPM_IPV6_128.ipipe0',
+            u'FP_GLOBAL_MASK_TCAM.ipipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0', u'FP_GM_FIELDS.ipipe0',
+            u'TCB_THRESHOLD_PROFILE_MAP_XPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
+            u'EGR_IP_TUNNEL_IPV6.epipe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'MODPORT_MAP_MIRROR.ipipe0',
+            u'VLAN_MAC.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0',
+            u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0',
+            u'INTFO_TC2PRI_MAPPING.mmu_glb0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE2.mmu_sed0', u'MPLS_ENTRY_DOUBLE.ipipe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sc0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_1_B.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0', u'EGR_IP_TUNNEL_MPLS.epipe0', u'L3_DEFIP_ALPM_IPV4.ipipe0',
+            u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
+            u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE0.mmu_xpe0',
+            u'EGR_VP_VLAN_MEMBERSHIP.epipe0', u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0',
+            u'EGR_VLAN_XLATE.epipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0',
+            u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0', u'L3_ENTRY_IPV6_UNICAST.ipipe0', u'ING_DNAT_ADDRESS_TYPE.ipipe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
+            u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE3.mmu_xpe0',
+            u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0',
+            u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE3.mmu_sed0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sc0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sed0',
+            u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_C_PIPE3.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sed0', u'IFP_TCAM_WIDE_PIPE3.ipipe0',
+            u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
+            u'IFP_TCAM_WIDE_PIPE2.ipipe0',
+        ],
+        'timeout_basic' : [
+            u'MODPORT_MAP_SUBPORT_MIRROR.ipipe0', u'EGR_VLAN_XLATE_2_DOUBLE.epipe0', u'PKT_FLOW_SELECT_TCAM_2.ipipe0',
+            u'EGR_ZONE_3_EDITOR_CONTROL_TCAM.epipe0', u'RH_ECMP_FLOWSET_PIPE0.ipipe0', u'EGR_VLAN_XLATE_1_DOUBLE.epipe0',
+            u'RH_ECMP_FLOWSET.ipipe0', u'DST_COMPRESSION_PIPE1.ipipe0', u'EGR_FIELD_EXTRACTION_PROFILE_2_TCAM.epipe0',
+            u'VLAN_XLATE_2_DOUBLE.ipipe0', u'L3_DEFIP.ipipe0', u'EGR_PKT_FLOW_SELECT_TCAM.epipe0',
+            u'FLEX_RTAG7_HASH_TCAM.ipipe0', u'L2_ENTRY_SINGLE.ipipe0', u'VLAN_XLATE_1_SINGLE.ipipe0',
+            u'EGR_FIELD_EXTRACTION_PROFILE_1_TCAM.epipe0', u'EXACT_MATCH_LOGICAL_TABLE_SELECT.ipipe0',
+            u'SRC_COMPRESSION.ipipe0', u'EGR_VLAN_XLATE_1_SINGLE.epipe0', u'RH_HGT_FLOWSET_PIPE0.ipipe0',
+            u'VLAN_SUBNET.ipipe0', u'RH_LAG_FLOWSET_PIPE1.ipipe0', u'MY_STATION_TCAM_2.ipipe0',
+            u'EGR_ZONE_4_EDITOR_CONTROL_TCAM.epipe0', u'RH_LAG_FLOWSET.ipipe0', u'RH_HGT_FLOWSET_PIPE1.ipipe0',
+            u'L3_DEFIP_PAIR_128.ipipe0', u'L3_ENTRY_ONLY_SINGLE.ipipe0', u'MPLS_ENTRY_SINGLE.ipipe0',
+            u'EGR_ZONE_2_EDITOR_CONTROL_TCAM.epipe0', u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
+            u'IFP_TCAM_PIPE1.ipipe0', u'L3_ENTRY_QUAD.ipipe0', u'RH_ECMP_FLOWSET_PIPE1.ipipe0',
+            u'VLAN_XLATE_2_SINGLE.ipipe0', u'L2_ENTRY_ONLY_SINGLE.ipipe0', u'EGR_ZONE_1_EDITOR_CONTROL_TCAM.epipe0',
+            u'SRC_COMPRESSION_PIPE0.ipipe0', u'L3_ENTRY_ONLY_DOUBLE.ipipe0', u'SRC_COMPRESSION_PIPE1.ipipe0',
+            u'SUBPORT_ID_TO_SGPP_MAP.ipipe0', u'PKT_FLOW_SELECT_TCAM_0.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE0.ipipe0', u'L3_ENTRY_SINGLE.ipipe0', u'DST_COMPRESSION.ipipe0',
+            u'L2_USER_ENTRY.ipipe0', u'L3_ENTRY_ONLY_QUAD.ipipe0', u'PKT_FLOW_SELECT_TCAM_1.ipipe0',
+            u'IP_PARSER1_MICE_TCAM_0.ipipe0', u'PHB_SELECT_TCAM.ipipe0', u'MY_STATION_TCAM.ipipe0',
+            u'CPU_COS_MAP.ipipe0', u'L3_DEFIP_ALPM_RAW.ipipe0', u'DST_COMPRESSION_PIPE0.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT.ipipe0', u'IFP_LOGICAL_TABLE_SELECT_PIPE0.ipipe0', u'VLAN_XLATE_1_DOUBLE.ipipe0',
+            u'RH_HGT_FLOWSET.ipipe0', u'IFP_TCAM_PIPE0.ipipe0', u'IP_PARSER1_MICE_TCAM_1.ipipe0',
+            u'EGR_IP_TUNNEL_MPLS_DOUBLE_WIDE.epipe0', u'IFP_LOGICAL_TABLE_SELECT_PIPE1.ipipe0', u'L3_ENTRY_DOUBLE.ipipe0',
+            u'IP_PARSER2_MICE_TCAM_1.ipipe0', u'IP_PARSER2_MICE_TCAM_0.ipipe0', u'RH_LAG_FLOWSET_PIPE0.ipipe0',
+            u'EGR_VLAN_XLATE_2_SINGLE.epipe0', u'EGR_QOS_CTRL_TCAM.epipe0', u'EGR_ZONE_0_EDITOR_CONTROL_TCAM.epipe0',
+            # fail randomly with basic mode
+            u'IFP_POLICY_TABLE_WIDE_PIPE0.ipipe0', u'IFP_POLICY_TABLE_WIDE.ipipe0', u'IFP_POLICY_TABLE_WIDE_PIPE1.ipipe0',
+            u'IFP_METER_TABLE_PIPE1.ipipe0', u'IFP_METER_TABLE.ipipe0',
+        ],
+        'slow_injection' : [
+        ],
+        'unsupported' : [
+        ]
+    },
+    'th' : {
+        'timeout' : [
+            u'EGR_IP_TUNNEL_MPLS.epipe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0',
+            u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0', u'MPLS_ENTRY_DOUBLE.ipipe0',
+            u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0',
+            u'IFP_TCAM_WIDE_PIPE2.ipipe0', u'FP_GM_FIELDS.ipipe0', u'FP_STORM_CONTROL_METERS.ipipe0',
+            u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0',
+            u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0',
+            u'EGR_IP_TUNNEL_IPV6.epipe0', u'MODPORT_MAP_MIRROR.ipipe0', u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0',
+            u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sc0',
+            u'L3_DEFIP_ALPM_IPV6_128.ipipe0', u'IFP_TCAM_WIDE_PIPE3.ipipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sc0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'VLAN_XLATE.ipipe0',
+            u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'VLAN_MAC.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0',
+            u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0',
+            u'L3_DEFIP_ALPM_IPV4.ipipe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sc0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE1.ipipe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
+            u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0',
+            u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0',
+            u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
+            u'IFP_TCAM_WIDE_PIPE0.ipipe0', u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
+            u'IFP_TCAM.ipipe0', u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sc0',
+            u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'EGR_VLAN_XLATE.epipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0',
+            u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0',
+            u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0', u'L2_ENTRY.ipipe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0',
+            u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0',
+            u'L3_ENTRY_IPV6_UNICAST.ipipe0',
+        ],
+        'timeout_basic' : [
+            u'IFP_POLICY_TABLE_PIPE0.ipipe0', u'IFP_POLICY_TABLE.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
+            u'EXACT_MATCH_4_PIPE1.ipipe0', u'EXACT_MATCH_4_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE1.ipipe0',
+            u'EXACT_MATCH_4_PIPE0.ipipe0', u'EXACT_MATCH_2_PIPE2.ipipe0', u'EXACT_MATCH_2_PIPE0.ipipe0',
+            u'EXACT_MATCH_4_PIPE3.ipipe0', u'EXACT_MATCH_4.ipipe0', u'EXACT_MATCH_2_PIPE3.ipipe0',
+            u'EXACT_MATCH_2.ipipe0', u'ING_FLEX_CTR_OFFSET_TABLE_11.ipipe0', u'PORT_LAG_FAILOVER_SET.ipipe0',
+            u'VFP_POLICY_TABLE_PIPE2.ipipe0', u'Q_SCHED_L1_WEIGHT_MEM_PIPE2.mmu_sc0', u'SYSTEM_CONFIG_TABLE.ipipe0',
+            u'RTAG7_PORT_BASED_HASH.ipipe0', u'MMU_REPL_LIST_TBL_PIPE2.mmu_sc0', u'EGR_GPP_ATTRIBUTES.epipe0',
+            u'EGRESS_MASK.ipipe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0', u'EMIRROR_CONTROL2.ipipe0',
+            u'VLAN_MPLS.ipipe0', u'ING_DVP_TABLE.ipipe0', u'EXACT_MATCH_QOS_ACTIONS_PROFILE.ipipe0',
+            u'MMU_REPL_GROUP_INFO_TBL_PIPE3.mmu_sc0', u'MMU_REPL_LIST_TBL_PIPE1.mmu_sc0', u'VFI_1.ipipe0',
+            u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0', u'EFP_POLICY_TABLE_PIPE0.epipe0', u'EFP_POLICY_TABLE.epipe0',
+            u'IFP_STORM_CONTROL_METERS.ipipe0',
+        ],
+        'slow_injection' : [
+        ],
+        'unsupported' : [
+        ]
+    },
+    'th2' : {
+        'timeout' : [
+            u'TCB_THRESHOLD_PROFILE_MAP_XPE3.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE0.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE3.mmu_xpe0', u'VLAN_MAC.ipipe0', u'EGR_VP_VLAN_MEMBERSHIP.epipe0',
+            u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE3.mmu_xpe0',
+            u'MMU_THDU_RESUME_PORT_PIPE3.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE2.mmu_xpe0',
+            u'TCB_THRESHOLD_PROFILE_MAP_XPE1.mmu_xpe0', u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE2.mmu_sed0',
+            u'MMU_THDU_OFFSET_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE2.mmu_sed0',
+            u'L3_ENTRY_IPV6_MULTICAST.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_0.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE0.mmu_sed0', u'VLAN_XLATE.ipipe0',
+            u'MMU_THDU_RESUME_PORT_PIPE1.mmu_xpe0', u'L3_ENTRY_IPV4_MULTICAST.ipipe0',
+            u'MMU_THDU_OFFSET_QUEUE_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE0.mmu_xpe0',
+            u'INTFO_TC2PRI_MAPPING.mmu_glb0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE1.mmu_xpe0',
+            u'MMU_MTRO_CONFIG_L0_MEM_PIPE3.mmu_sed0', u'MMU_THDU_OFFSET_QGROUP_PIPE0.mmu_xpe0',
+            u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC1.mmu_xpe0', u'MMU_THDU_CONFIG_QUEUE_PIPE0.mmu_xpe0',
+            u'IFP_TCAM_WIDE_PIPE0.ipipe0', u'L3_DEFIP_ALPM_IPV6_64.ipipe0', u'MMU_WRED_DROP_CURVE_PROFILE_6.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_5.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE2.ipipe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE3.mmu_sed0', u'MMU_THDU_CONFIG_QGROUP_PIPE1.mmu_xpe0',
+            u'THDI_PORT_SP_CONFIG_PIPE3.mmu_xpe0', u'MMU_THDU_RESUME_PORT_PIPE2.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_C_PIPE3.mmu_xpe0',
+            u'L3_TUNNEL.ipipe0', u'MPLS_ENTRY_DOUBLE.ipipe0', u'ING_DNAT_ADDRESS_TYPE.ipipe0',
+            u'THDI_PORT_SP_CONFIG_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE3.mmu_xpe0', u'L3_DEFIP_ALPM_IPV4.ipipe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE0.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE0.mmu_sed0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE3.mmu_xpe0', u'MMU_THDM_DB_PORTSP_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_3.mmu_xpe0', u'IFP_TCAM_WIDE_PIPE1.ipipe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE2.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE3.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE1.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_7.mmu_xpe0', u'L3_ENTRY_IPV4_UNICAST.ipipe0', u'IFP_TCAM_WIDE_PIPE3.ipipe0',
+            u'MMU_THDU_CONFIG_QGROUP_PIPE3.mmu_xpe0', u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE2.mmu_xpe0',
+            u'MMU_MTRO_EGRMETERINGCONFIG_MEM_PIPE1.mmu_sed0', u'MMU_REPL_GROUP_INITIAL_COPY_COUNT_SC0.mmu_xpe0',
+            u'MMU_THDU_CONFIG_QUEUE_PIPE3.mmu_xpe0', u'THDI_PORT_SP_CONFIG_PIPE2.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_8.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE2.mmu_xpe0',
+            u'TCB_THRESHOLD_PROFILE_MAP_XPE0.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE0.mmu_xpe0',
+            u'MMU_THDU_OFFSET_QUEUE_PIPE1.mmu_xpe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE2.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE1.mmu_xpe0', u'L3_DEFIP_ALPM_IPV6_128.ipipe0',
+            u'MMU_THDM_DB_QUEUE_CONFIG_PIPE3.mmu_xpe0', u'MODPORT_MAP_MIRROR.ipipe0', u'IFP_TCAM.ipipe0',
+            u'MMU_THDM_DB_PORTSP_CONFIG_PIPE1.mmu_xpe0', u'EGR_VLAN_XLATE.epipe0', u'FP_GM_FIELDS.ipipe0',
+            u'MMU_THDU_CONFIG_QUEUE_PIPE1.mmu_xpe0', u'MMU_MTRO_CONFIG_L0_MEM_PIPE1.mmu_sed0',
+            u'THDI_PORT_SP_CONFIG_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE1.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE0.mmu_xpe0', u'MMU_THDM_MCQE_PORTSP_CONFIG_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_4.mmu_xpe0', u'TCB_THRESHOLD_PROFILE_MAP_XPE2.mmu_xpe0',
+            u'FP_STORM_CONTROL_METERS.ipipe0', u'L2_ENTRY.ipipe0', u'EGR_IP_TUNNEL_IPV6.epipe0',
+            u'MMU_THDU_OFFSET_QUEUE_PIPE3.mmu_xpe0', u'MMU_THDU_OFFSET_QUEUE_PIPE2.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE2.mmu_xpe0', u'MMU_THDU_CONFIG_PORT_PIPE2.mmu_xpe0',
+            u'L3_ENTRY_IPV6_UNICAST.ipipe0', u'MMU_THDU_Q_TO_QGRP_MAP_PIPE0.mmu_xpe0',
+            u'MMU_WRED_DROP_CURVE_PROFILE_1.mmu_xpe0', u'MMU_THDM_DB_QUEUE_CONFIG_PIPE2.mmu_xpe0',
+            u'EGR_IP_TUNNEL_MPLS.epipe0', u'MMU_THDM_MCQE_QUEUE_CONFIG_PIPE3.mmu_xpe0',
+            u'MMU_THDM_DB_QUEUE_OFFSET_0_PIPE1.mmu_xpe0', u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE1.mmu_xpe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0', u'ING_SNAT.ipipe0',
+            u'MMU_THDM_MCQE_QUEUE_OFFSET_B_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0',
+            u'ING_VP_VLAN_MEMBERSHIP.ipipe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
+        ],
+        'timeout_basic' : [
+        ],
+        'slow_injection' : [
+        ],
+        'unsupported' : [
+        ]
+    },
+    'th3' : {
+        'timeout' : [
+            u'L3_DEFIP_TCAM_LEVEL1.ipipe0',
+            u'MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE7.mmu_eb0',
+            u'L3_ENTRY_ONLY_SINGLE.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE3.mmu_eb0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
+            u'L3_ENTRY_SINGLE.ipipe0',
+            u'L2_ENTRY.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE6.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE0.ipipe0',
+            u'L3_DEFIP_ALPM_LEVEL3.ipipe0',
+            u'L3_ENTRY_DOUBLE.ipipe0',
+            u'L3_TUNNEL_QUAD.ipipe0',
+            u'L3_DEFIP_PAIR_LEVEL1.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
+            u'L3_ENTRY_ONLY_DOUBLE.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE0.mmu_eb0',
+            u'L3_DEFIP_ALPM_LEVEL2.ipipe0',
+            u'EGR_IP_TUNNEL_IPV6.epipe0',
+            u'EXACT_MATCH_ECC.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE3.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
+            u'L3_DEFIP_ALPM_LEVEL3_SINGLE.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE5.mmu_eb0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE2.ipipe0',
+            u'L3_ENTRY_QUAD.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE1.ipipe0',
+            u'EGR_IP_TUNNEL_MPLS.epipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE5.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE4.mmu_eb0',
+            u'L2_USER_ENTRY.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE6.mmu_eb0',
+            u'MY_STATION_TCAM.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
+            u'L3_DEFIP_LEVEL1.ipipe0'        ,
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE2.mmu_eb0',
+            u'L3_DEFIP_ALPM_LEVEL2_SINGLE.ipipe0',
+            u'L3_TUNNEL_DOUBLE.ipipe0',
+            u'L3_ENTRY_ONLY_QUAD.ipipe0',
+            u'IFP_LOGICAL_TABLE_SELECT_PIPE7.ipipe0',
+            u'MMU_QSCH_L2_WEIGHT_MEM_PIPE1.mmu_eb0',
+            u'MPLS_ENTRY_SINGLE.ipipe0',
+            u'CPU_COS_MAP.ipipe0',
+            u'L3_TUNNEL_SINGLE.ipipe0',
+            u'L3_DEFIP_ALPM_LEVEL2_HIT_ONLY.ipipe0',
+            u'L2_ENTRY_ONLY_SINGLE.ipipe0',
+            u'L3_DEFIP_LEVEL1_HIT_ONLY.ipipe0',
+            u'EXACT_MATCH_LOGICAL_TABLE_SELECT_PIPE4.ipipe0',
+            u'L3_DEFIP_ALPM_LEVEL3_HIT_ONLY.ipipe0'
+        ],
+        'timeout_basic' : [
+        ],
+        'slow_injection' : [
+        ],
+        'unsupported' : [
+        ]
+    }
 }
 
-# Stop trying if stall has been detected for so many consecutive iterations
-# Combined with the test duration below. If we don't make progress for so
-# long, then we stop waiting.
-DEFAULT_STALL_INDICATION = 15
-DEFAULT_SER_TEST_TIME_SEC = 60
-DEFAULT_BATCH_SIZE=10
-
-# Print verbose output for debugging
-VERBOSE=False
 
 def run_cmd(cmd):
     '''
@@ -484,7 +519,9 @@ class SerTest(object):
                  ser_injection_interval_sec = DEFAULT_SER_INJECTION_INTERVAL_SEC,
                  syslog_poll_interval_sec = DEFAULT_SYSLOG_POLLING_INTERVAL_SEC,
                  stall_indication = DEFAULT_STALL_INDICATION,
-                 batch_size = DEFAULT_BATCH_SIZE):
+                 batch_size = DEFAULT_BATCH_SIZE,
+                 injection_slow_sec = DEFAULT_INJECTION_SLOW_SEC,
+                 skip_slow_injections = False):
         '''
         @summary: Class constructor
         '''
@@ -493,11 +530,14 @@ class SerTest(object):
         self.ser_injection_interval_sec = ser_injection_interval_sec
         self.stall_indication = stall_indication
         self.batch_size = batch_size
+        self.injection_slow_sec = injection_slow_sec
+        self.skip_slow_injections = skip_slow_injections
         self.test_candidates = []
         self.mem_verification_pending = []
         self.mem_verified = {}
         self.mem_failed = {}
         self.mem_ser_unsupported = []
+        self.mem_injection_speed = {}
         self.miss_counts = {}
         self.bcmMemory = BcmMemory()
 
@@ -511,17 +551,28 @@ class SerTest(object):
         global SRAM_SCAN_INTERVAL_USEC
         global SRAM_SCAN_ENTRIES
 
-        skip_list = []
+        full_skip_list = get_skip_list_per_asic()
 
         self.bcmMemory.read_memory()
         if completeness == 'thorough':
             self.test_candidates = list(set(self.bcmMemory.get_cached_memory().keys()))
+            if self.batch_size == DEFAULT_BATCH_SIZE:
+                # Slightly increase batch size to reduce run time
+                self.batch_size = DEFAULT_THOROUGH_BATCH_SIZE
+            skip_list = []
         elif completeness == 'diagnose':
             # Re-probing the normally skipped entries
-            self.test_candidates = get_skip_list_per_asic()
+            self.test_candidates = list(set(full_skip_list['timeout'] + full_skip_list['timeout_basic'] +
+                                            full_skip_list['unsupported'] + full_skip_list['slow_injection']))
         else:
-            skip_list = get_skip_list_per_asic()
+            skip_list = list(set(full_skip_list['timeout'] + full_skip_list['unsupported'] + full_skip_list['slow_injection']))
+            if completeness != 'confident':
+                skip_list = list(set(skip_list + full_skip_list['timeout_basic']))
             self.test_candidates = list(set(self.bcmMemory.get_cached_memory().keys()) - set(skip_list))
+
+        if self.skip_slow_injections:
+            self.test_candidates = list(set(self.test_candidates) - set(full_skip_list['slow_injection']))
+            skip_list = list(set(skip_list + full_skip_list['slow_injection']))
 
         if completeness == 'debug':
             batch_size = min(1, len(self.test_candidates))
@@ -530,7 +581,7 @@ class SerTest(object):
             batch_size = min(self.batch_size, len(self.test_candidates))
             sample_size = min(batch_size * 6, len(self.test_candidates))
             self.mem_verification_pending = random.sample(self.test_candidates, sample_size)
-        else:
+        else: # default: 'confident', 'thorough'
             batch_size = min(self.batch_size, len(self.test_candidates))
             # Still go through random to ramdomize the ordering
             self.mem_verification_pending = random.sample(self.test_candidates, len(self.test_candidates))
@@ -581,9 +632,11 @@ class SerTest(object):
         else:
             print("SER Test memories candidates (%s)" % (len(self.test_candidates)))
             print("SER Test succeeded for memories (%s)" % (len(self.mem_verified)))
-        print("SER Test failed for memories (%s): %s" % (len(self.mem_failed), self.mem_failed))
+        print("SER Test failed for memories (%s): %s %s" % (len(self.mem_failed), self.mem_failed, self.mem_failed.keys()))
         print("SER Test timed out for memories (%s): %s" % (len(self.mem_verification_pending), self.mem_verification_pending))
         print("SER Test is not supported for memories (%s): %s" % (len(self.mem_ser_unsupported), self.mem_ser_unsupported))
+        slow_injection = { k : v for k, v in self.mem_injection_speed.items() if v['slow'] > 0 }
+        print("SER Test memory error injection too slow (%s): %s %s" % (len(slow_injection), slow_injection, slow_injection.keys()))
 
         if VERBOSE:
             print("--- found {} memory location(s) reported misaligned correction events ---".format(len(self.miss_counts)))
@@ -709,7 +762,18 @@ class SerTest(object):
                 idx = idx + 1
                 tag = '{} / {}'.format(idx, cnt)
                 self.mem_verification_pending.remove(mem)
+                inj_start_time = time.time()
                 stdout, stderr = self.inject_ser(mem, tag = tag)
+                inj_time = time.time() - inj_start_time
+                speed = self.mem_injection_speed.get(mem, {'slow' : 0, 'fast' : 0, 'slow_times' : []})
+                if inj_time < self.injection_slow_sec:
+                    speed['fast'] = speed['fast'] + 1
+                else:
+                    speed['slow'] = speed['slow'] + 1
+                    speed['slow_times'].append(inj_time)
+                    if VERBOSE:
+                        print('--- mem {} error inject is slow: {}'.format(mem, speed))
+                self.mem_injection_speed[mem] = speed
                 if stdout.find('SER correction for it is not currently supported') > -1:
                     print("memory %s does not support ser" % mem)
                     self.mem_ser_unsupported.append(mem)
@@ -740,6 +804,9 @@ def main():
     parser.add_argument('-c', '--completeness', help='Completeness level: debug, basic, confident, thorough, diagnose',
                         type=str, required=False, default='basic',
                         choices=['debug', 'basic', 'confident', 'thorough', 'diagnose'])
+    parser.add_argument('-e', '--skip_slow_injections', help='Skip slow injections, default False', action='store_true', required=False, default=False)
+    parser.add_argument('-i', '--injection_slow_sec', help='injection slow threshold in secs: stall count when stopping test, default {}'.format(DEFAULT_INJECTION_SLOW_SEC),
+                        type=int, required=False, default=DEFAULT_INJECTION_SLOW_SEC)
     parser.add_argument('-s', '--stall_limit', help='Stall limit: stall count when stopping test, default {}'.format(DEFAULT_STALL_INDICATION),
                         type=int, required=False, default=DEFAULT_STALL_INDICATION)
     parser.add_argument('-t', '--test_batch_timeout', help='test batch timeout: max wait time for each batch (in seconds), default {}'.format(DEFAULT_SER_TEST_TIME_SEC),
@@ -750,7 +817,8 @@ def main():
     VERBOSE = args.verbose
 
     start_time = time.time()
-    serTest = SerTest(test_time_sec=args.test_batch_timeout, stall_indication=args.stall_limit, batch_size=args.batch_size)
+    serTest = SerTest(test_time_sec=args.test_batch_timeout, stall_indication=args.stall_limit, batch_size=args.batch_size,
+                      injection_slow_sec = args.injection_slow_sec, skip_slow_injections=args.skip_slow_injections)
     rc = serTest.test_memory(args.completeness)
     print("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc))
     sys.exit(rc)
