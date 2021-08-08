@@ -69,6 +69,7 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
@@ -105,6 +106,17 @@ class SonicHost(AnsibleHostBase):
         """
 
         return self._os_version
+
+    @property
+    def sonic_release(self):
+        """
+        The SONiC release running on this SONiC device.
+
+        Returns:
+            str: The SONiC release (e.g. "202012")
+        """
+
+        return self._sonic_release
 
     @property
     def kernel_version(self):
@@ -268,6 +280,18 @@ class SonicHost(AnsibleHostBase):
         """
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
+        return output["stdout_lines"][0].strip()
+
+    def _get_sonic_release(self):
+        """
+        Gets the SONiC Release that is running on this device.
+        E.g. 202106, 202012, ...
+             if the release is master, then return none
+        """
+
+        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
+        if len(output['stdout_lines']) == 0:
+            return 'none'
         return output["stdout_lines"][0].strip()
 
     def _get_kernel_version(self):
@@ -1467,7 +1491,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             interface_name (str): Interface name
 
         Returns:
-            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            boolean: True if auto negotiation mode is enabled else False. Return None if
             the auto negotiation mode is unknown or unsupported.
         """
         cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
