@@ -49,13 +49,14 @@ def macsec_environment(duthost, nbrhosts):
     recover_configuration(duthost, nbrhosts)
     logger.info("Prepare MACsec environment")
     yield
-    # recover_configuration(duthost, nbrhosts)
+    recover_configuration(duthost, nbrhosts)
     logger.info("Cleanup MACsec configuration")
 
 
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts, macsec_environment):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+    time.sleep(10)
     logger.info("Enable MACsec feature")
 
 

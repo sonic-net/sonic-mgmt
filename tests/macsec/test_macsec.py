@@ -22,54 +22,6 @@ pytestmark = [
 ]
 
 
-def get_portchannel(host):
-    '''
-        Here is an output example of `show interfaces portchannel`
-        admin@sonic:~$ show interfaces portchannel
-        Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
-            S - selected, D - deselected, * - not synced
-        No.  Team Dev         Protocol     Ports
-        -----  ---------------  -----------  ---------------------------
-        0001  PortChannel0001  LACP(A)(Up)  Ethernet112(S) Ethernet108(D)
-        0002  PortChannel0002  LACP(A)(Up)  Ethernet116(S)
-        0003  PortChannel0003  LACP(A)(Up)  Ethernet120(S)
-        0004  PortChannel0004  LACP(A)(Up)  N/A
-    '''
-    lines = host.command("show interfaces portchannel")["stdout_lines"]
-    lines = lines[4:]  # Remove the output header
-    portchannel_list = {}
-    for line in lines:
-        items = line.split()
-        portchannel = items[1]
-        portchannel_list[portchannel] = []
-        if items[-1] == "N/A":
-            continue
-        for item in items[3:]:
-            port = re.search(r"(Ethernet.*)\(", item).group(1)
-            portchannel_list[portchannel].append(port)
-    return portchannel_list
-
-
-@pytest.fixture(scope="module")
-def all_portchannels(duthost, ctrl_links):
-    portchannel_lists = {}
-    portchannel_lists[duthost] = get_portchannel(duthost)
-    for dut_port, nbr in ctrl_links.items():
-        if nbr["host"] in portchannel_lists:
-            continue
-        portchannel_lists[nbr["host"]] = get_portchannel(nbr["host"])
-    return portchannel_lists
-
-
-# TODO: Temporary solution, because MACsec cannot be enabled on a portchannel member in the current version
-def config_portchannel_members(host, portchannel_list, action):
-    for name, members in portchannel_list.items():
-        if len(members) > 0:
-            for member in members:
-                host.command("sudo config portchannel member {} {} {}".format(
-                    action, name, member))
-
-
 def config_all_portchannel_members(portchannel_lists, action):
     for host, portchannel_list in portchannel_lists.items():
         config_portchannel_members(host, portchannel_list, action)
@@ -127,30 +79,24 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ctrl_links, unctrl_links, profile_name, default_priority, cipher_suite,
-          primary_cak, primary_ckn, policy, enable_macsec_feature, request,
-          all_portchannels):
+          primary_cak, primary_ckn, policy, enable_macsec_feature, request):
     if request.session.testsfailed > 0:
         return
     all_links = {}
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
-    config_all_portchannel_members(all_portchannels, "del")
     cleanup_macsec_configuration(duthost, all_links, profile_name)
-    time.sleep(30)
+    time.sleep(10)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy)
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
-    time.sleep(30)
-    config_all_portchannel_members(all_portchannels, "add")
+    time.sleep(60)
     yield
     if request.session.testsfailed > 0:
         return
-    config_all_portchannel_members(all_portchannels, "del")
-    time.sleep(10)
     cleanup_macsec_configuration(duthost, all_links, profile_name)
-    time.sleep(30)
-    config_all_portchannel_members(all_portchannels, "add")
+    time.sleep(60)
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -526,9 +472,6 @@ class TestDataPlane():
             for up_port, up_link in upstream_links.items():
                 if up_port == ctrl_port:
                     continue
-                ctrl_port = "Ethernet112"
-                up_port = "Ethernet116"
-                up_link = upstream_links["Ethernet116"]
                 ctrl_link = upstream_links[ctrl_port]
                 dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
                 payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
