@@ -1143,7 +1143,7 @@ def wait_for_counters(duthosts, rand_one_dut_hostname):
     current_attempt = 0
     while current_attempt < WAIT_FOR_COUNTERS_TIMEOUT / WAIT_FOR_COUNTERS_INTERVAL:
         output = duthost.shell("counterpoll show | sed '1,2d'", module_ignore_errors=True)
-        assert(output['rc'] == 0, "Failed to get counters status")
+        assert('rc' in output and output['rc'] == 0, "Failed to get counters status")
         counters_lines = output['stdout'].splitlines()
         enabled_counters = 0
         for line in counters_lines:
