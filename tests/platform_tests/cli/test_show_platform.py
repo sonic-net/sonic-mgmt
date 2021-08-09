@@ -130,13 +130,14 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
         for line in syseeprom_output_lines[6:]:
             t1 = regex_int.match(line)
             if t1:
-                parsed_syseeprom[t1.group(2).strip()] = t1.group(4).strip()
+                tlv_code_lower_case = t1.group(2).strip().lower()
+                parsed_syseeprom[tlv_code_lower_case] = t1.group(4).strip()
 
         for field in expected_syseeprom_info_dict:
-            pytest_assert(field in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
-            pytest_assert(parsed_syseeprom[field] == expected_syseeprom_info_dict[field],
+            pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(parsed_syseeprom[field.lower()] == expected_syseeprom_info_dict[field],
                           "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, parsed_syseeprom[field], expected_syseeprom_info_dict[field], duthost.hostname))
+                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field], duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
