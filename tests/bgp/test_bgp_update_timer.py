@@ -72,7 +72,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if dut_type == 'ToRRouter':
+    if 'ToRRouter' in dut_type:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
