@@ -182,8 +182,14 @@ def apply_global_nat_config(duthost, config_nat_feature_enabled):
     if 'nat' not in status or status['nat'] == 'disabled':
         pytest.skip('nat feature is not enabled with image version {}'.format(duthost.os_version))
 
+    # Clear all nat rules in iptables
+    duthost.command("sudo iptables -F -t nat")
+
     nat_global_config(duthost)
     yield
+    duthost.command("sudo config nat feature disable")
+    time.sleep(5)
+
     # reload config on teardown
     config_reload(duthost, config_source='minigraph')
 

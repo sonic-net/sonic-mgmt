@@ -591,6 +591,12 @@ class TestDynamicNat(object):
     @pytest.mark.nat_dynamic
     def test_nat_interfaces_flap_dynamic(self, ptfhost, tbinfo, duthost, ptfadapter, setup_test_env,
                                          protocol_type, enable_outer_interfaces):
+        # Re-enable NAT feature to ensure that the iptables rule is clean before testing
+        duthost.command("sudo config nat feature disable")
+        duthost.command("sudo iptables -F -t nat")
+        duthost.command("sudo config nat feature enable")
+        time.sleep(1)
+
         interface_type, setup_info = setup_test_env
         setup_data = copy.deepcopy(setup_info)
         direction = 'host-tor'
@@ -649,6 +655,10 @@ class TestDynamicNat(object):
                       "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
         # Enable outer interface
         dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
+
+        # Wait more time for the port to be ready to send packets
+        time.sleep(15)
+
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
 
