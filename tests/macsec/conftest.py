@@ -94,8 +94,7 @@ def primary_cak(cipher_suite):
     return ckn
 
 
-# TODO @pytest.fixture(scope="module", params=["integrity_only", "security"])
-@pytest.fixture(scope="module", params=["security"])
+@pytest.fixture(scope="module", params=["integrity_only", "security"])
 def policy(request):
     return request.param
 
@@ -161,7 +160,7 @@ def find_links_from_nbr(duthost, tbinfo, nbrhosts):
 @pytest.fixture(scope="module")
 def ctrl_links(duthost, tbinfo, nbrhosts):
     assert len(nbrhosts) > 1
-    ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)/2)
+    ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)//2)
     logging.info("Controlled links {}".format(ctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
