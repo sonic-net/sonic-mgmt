@@ -155,3 +155,10 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
     return vlan_interfaces
+
+@pytest.fixture(autouse=True)
+def remove_vxlan_tunnel_after_test(duthosts, rand_one_dut_hostname):
+    #This fixture is implemented due to DELETE request for VXLAN tunnel currently being not supported
+    duthost = duthosts[rand_one_dut_hostname]
+    yield
+    duthost.command('sudo config vxlan del default_vxlan_tunnel')
