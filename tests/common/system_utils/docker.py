@@ -13,7 +13,9 @@ from tests.common.errors import RunAnsibleModuleFail
 logger = logging.getLogger(__name__)
 
 _DockerRegistryInfo = collections.namedtuple("DockerRegistryInfo", "host username password")
-
+OPT_DIR = "/opt"
+SAISERVER_SCRIPT = "saiserver.sh"
+SCRIPTS_SRC_DIR = "scripts/"
 
 class DockerRegistryInfo(_DockerRegistryInfo):
     """DockerRegistryInfo holds all the data needed to access a remote Docker registry.
@@ -141,6 +143,96 @@ def swap_syncd(duthost, creds):
 
     _perform_syncd_liveness_check(duthost)
 
+def start_saiserver(duthost, creds, sai_version):
+    """
+        Starts SAIServer docker on DUT.
+    """
+    logging.info("Starting SAIServer docker for testing SAI ver : {}".format(sai_version))    
+    deploy_saiserver(duthost, creds, sai_version)
+    copy_saiserver_script(duthost)
+    duthost.shell("sudo chmod +x " + OPT_DIR + "/" + SAISERVER_SCRIPT)
+    duthost.shell(OPT_DIR + "/" + SAISERVER_SCRIPT + " start")
+
+def deploy_saiserver(duthost, creds, sai_version):
+    """Deploy a saiserver docker for SAI testing.
+
+    This will stop the swss and syncd, then download a new Docker image to the duthost.
+
+    Args:
+        duthost (SonicHost): The target device.
+        creds (dict): Credentials used to access the docker registry.
+    """
+    vendor_id = _get_vendor_id(duthost)
+
+    docker_saiserver_name = "docker-saiserver-{}".format(vendor_id)
+    docker_saiserver_image = docker_saiserver_name
+
+    # Force image download to go through mgmt network
+    logger.info("Stopping swss ...")
+    duthost.stop_service("swss")
+    logger.info("Deleting syncd container ...")
+    duthost.delete_container("syncd")
+
+    _perform_syncd_shutdown_check(duthost)
+
+    logger.info("Loading docker image: {} ...".format(docker_saiserver_image))
+    registry = load_docker_registry_info(duthost, creds)
+    download_image(duthost, registry, docker_saiserver_image, duthost.os_version)
+
+    tag_image(
+    duthost,
+    "{}:latest".format(docker_saiserver_name),
+    "{}/{}".format(registry.host, docker_saiserver_image),
+    duthost.os_version
+    )
+
+def copy_saiserver_script(duthost):
+    """
+        Copys script for controlling saiserver docker.
+
+        Args:
+            duthost (AnsibleHost): device under test
+
+        Returns:
+            None
+    """
+    logger.info("Copy saiserver docker start script to DUT: '{0}'".format(duthost.hostname))
+    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SAISERVER_SCRIPT), dest=OPT_DIR)
+
+def revert_saiserver_deploy(duthost, creds):
+    """Reverts the saiserver docker's deployment.
+
+    This will stop and remove the saiserver docker, then restart the swss and syncd.
+
+    Args:
+        duthost (SonicHost): The target device.
+    """
+    logger.info("Delete saiserver docker from DUT host '{0}'".format(duthost.hostname))
+    vendor_id = _get_vendor_id(duthost)
+    container_name = "saiserver"
+
+    docker_saiserver_name = "docker-{}-{}".format(container_name, vendor_id)
+    docker_saiserver_image = docker_saiserver_name
+
+    logger.info("Cleaning the SAI Testing env ...")
+    registry = load_docker_registry_info(duthost, creds)
+    logger.info("Stopping the container '{}'...".format(container_name))
+    duthost.shell(OPT_DIR + "/" + SAISERVER_SCRIPT + " stop")
+    duthost.delete_container(container_name)    
+ 
+    logger.info("Reloading config and restarting swss...")
+    config_reload(duthost)
+
+    logger.info("Removing the image '{}'...".format(docker_saiserver_image))
+    duthost.shell("docker image rm {}".format(docker_saiserver_image))
+    duthost.command(
+        "docker rmi {}/{}:{}".format(registry.host, docker_saiserver_image, duthost.os_version),
+        module_ignore_errors=True
+    )
+
+    logger.info("Delete saiserver docker start scriptfrom DUT host '{0}'".format(duthost.hostname))
+    duthost.file(path=os.path.join(OPT_DIR, SAISERVER_SCRIPT), state="absent")
+
 
 def restore_default_syncd(duthost, creds):
     """Replaces the running syncd with the default syncd that comes with the image.
@@ -190,6 +282,19 @@ def _perform_swap_syncd_shutdown_check(duthost):
 
     shutdown_check = wait_until(30, 3, ready_for_swap)
     pytest_assert(shutdown_check, "Docker and/or BGP failed to shut down in 30s")
+
+def _perform_syncd_shutdown_check(duthost):
+    def ready_for_swap():
+        if any([
+            duthost.is_container_running("syncd"),
+            duthost.is_container_running("swss")
+        ]):
+            return False
+
+        return True
+
+    shutdown_check = wait_until(30, 3, ready_for_swap)
+    pytest_assert(shutdown_check, "Docker syncd or swss failed to shut down in 30s")
 
 
 def _perform_syncd_liveness_check(duthost):

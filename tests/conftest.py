@@ -68,6 +68,9 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
 
+    # sai test options
+    parser.addoption("--sai_header_version", action="store", default=None, type=str, help="SAI header version in the testing environment")
+
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
@@ -382,6 +385,11 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
     vm_base = int(tbinfo['vm_base'][2:])
     neighbor_type = request.config.getoption("--neighbor_type")
+
+    if not 'VMs' in tbinfo['topo']['properties']['topology']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        return devices
+
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
