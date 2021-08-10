@@ -18,6 +18,10 @@ parameters:
     type: string
     default: ""
 
+  - name: PREV_IMAGE_URL
+    type: string
+    default: ""
+
   - name: ALWAYS_INSTALL_NEW_IMAGE
     type: boolean
     default: true
@@ -154,13 +158,17 @@ stages:
                     exit 0
                 fi
 
+                if [[ -z "$PREV_IMAGE_URL" ]]; then
+                    PREV_IMAGE_URL="$IMAGE_URL.PREV.1"
+                fi
+
                 cd ansible
 
                 if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
                     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                         -i $(INVENTORY_NAME) \
                         -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                        -e image_url=$IMAGE_URL.PREV.1 \
+                        -e image_url="$PREV_IMAGE_URL" \
                         -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                         --vault-password-file password.txt \
                         -e pause_time=60 -vv || true
@@ -176,6 +184,7 @@ stages:
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
 
           - task: Bash@3
             displayName: Deploy Minigraph

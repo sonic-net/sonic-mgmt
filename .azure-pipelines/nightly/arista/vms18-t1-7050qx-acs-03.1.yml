@@ -27,6 +27,11 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202012_SLIM)
     displayName: "Image URL"
 
+  - name: PREV_IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_201811)
+    displayName: "Previous Image URL"
+
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
@@ -54,6 +59,7 @@ stages:
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
