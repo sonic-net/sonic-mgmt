@@ -37,6 +37,18 @@ parameters:
     type: number
     default: 0
 
+  # Control the behavior if power cycle unreachable DUT
+  # is allowed. Default: allowed (true)
+  - name: POWER_CYCLE_UNREACHABLE_DUTS
+    type: boolean
+    default: true
+
+  # Control the behavior of power cycle DUT before tests. If set to true,
+  # DUTs will always be power cycled before tests. Default: false
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: false
+
   # ============ Deploy parameters ============
   - name: ENABLE_DATAACL
     type: boolean
@@ -123,17 +135,21 @@ stages:
                 if not target_testbed:
                     print('Testbed {} not found!'.format(testbed_name))
                     sys.exit(1)
+                dut_list = target_testbed.get('duts', [])
+                dut_list_str = ' '.join(x for x in dut_list)
 
                 print('Basic info of testbed {}:'.format(testbed_name))
                 print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
                 print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
                 print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+                print('          DUT_LIST={}'.format(dut_list_str))
 
                 # Below code can create dynamic azure pipeline variables
                 # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
                 print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+                print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
           - task: PythonScript@0
             displayName: Lock Testbed
@@ -163,6 +179,36 @@ stages:
                 fi
 
                 cd ansible
+
+                if [[ ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }} == True ]]; then
+                    for dut in $(DUT_LIST); do
+                        echo "Power cycling ${dut} ..."
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                        sleep 10
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                    done
+
+                    # Add some sleep to allow power cycled DUTs to come back
+                    sleep 180
+                elif [[ ${{ parameters.POWER_CYCLE_UNREACHABLE_DUTS }} == True ]]; then
+                    NEEDS_SLEEP='No'
+                    for dut in $(DUT_LIST); do
+                        echo "Checking DUT ${dut} ..."
+                        RC=0
+                        ./devutils -i $(INVENTORY_NAME) -a ping -j -l ${dut} | grep -q Success || RC=$?
+                        if [[ RC -ne 0 ]]; then
+                            echo "Power cycling ${dut} ..."
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                            sleep 10
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                            NEEDS_SLEEP='Yes'
+                        fi
+                    done
+                    if [[ x"${NEEDS_SLEEP}" == x"Yes" ]]; then
+                        # Add some sleep to allow power cycled DUTs to come back
+                        sleep 180
+                    fi
+                fi
 
                 if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
                     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
