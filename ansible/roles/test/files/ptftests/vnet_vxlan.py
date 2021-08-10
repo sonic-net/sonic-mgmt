@@ -13,6 +13,7 @@ import sys
 import os.path
 import json
 import ptf
+import time
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -300,10 +301,22 @@ class VNET(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "start", "arp_responder"])
-
+        self.check_arp_responder_running()
         self.dataplane.flush()
 
         return
+
+    def check_arp_responder_running(self):
+        """
+        Check arp_responder is in RUNNING state, if not sleep 1 sec and check again
+        """
+        for i in range(5):
+            output = self.cmd(["supervisorctl", "status", "arp_responder"])
+            if 'RUNNING' in output[0]:
+                break
+            time.sleep(1)
+        else:
+            raise Exception("arp_responder state is not RUNNING! Output: %s" % output)
 
     def tearDown(self):
         if self.vxlan_enabled:
