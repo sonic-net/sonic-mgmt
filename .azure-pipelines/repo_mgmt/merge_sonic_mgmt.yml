@@ -9,7 +9,7 @@ variables:
   mssonic_sonic_mgmt_branch: internal
 
 schedules:
-  - cron: "30 3 * * *"
+  - cron: "30 2 * * *"
     displayName: Merge Github to sonic-mgmt-int
     branches:
       include:
