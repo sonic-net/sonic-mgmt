@@ -94,7 +94,7 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
             drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", "")))
         return drop_list
     check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()
-    if not wait_until(5, 1, check_drops_on_dut):
+    if not wait_until(25, 1, check_drops_on_dut):
         fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
             column_key, dut_iface, column_key, get_drops_across_all_duthosts(), packets_count
         )
