@@ -1590,7 +1590,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                (k.startswith("PortChannel") and not
                 self.is_backend_portchannel(k))
             ):
-                # Ping for some time to get ARP Re-learkeysnt.
+                # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
                    self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
