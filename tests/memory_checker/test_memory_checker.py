@@ -213,9 +213,10 @@ def test_memory_checker(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostna
     container_name = "telemetry"
     vm_workers = 4
 
-    pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
-                   or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
-                   "Test is not supported for 20191130.72 and older image versions!")
+    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
+                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+                   or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
+                   "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
 
     expected_alerting_messages = []
