@@ -409,8 +409,8 @@ def get_entries_num(used, available):
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "{} route add 2.{}.2.0/24 via {}",
                                                                 "{} route del 2.{}.2.0/24 via {}"),
-                                                                ("6", "{} -6 route add 2001::/126 via {}",
-                                                                "{} -6 route del 2001::/126 via {}")],
+                                                                ("6", "{} -6 route add 2001:{}::/126 via {}",
+                                                                "{} -6 route del 2001:{}::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
 def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -456,7 +456,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     pytest_assert(out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
     nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
 
-    # Add IPv[4/6] route
+    # Add 40 IPv[4/6] routes
     for i in range(40):
         route_add = route_add_cmd.format(asichost.ip_cmd, i, nh_ip)
         logging.info("route add cmd: {}".format(route_add))
@@ -470,7 +470,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     
 
     # Verify "crm_stats_ipv[4/6]_route_used" counter was incremented
-    if not (new_crm_stats_route_used - crm_stats_route_used == 1):
+    if not (new_crm_stats_route_used - crm_stats_route_used >= 1):
         for i in range(40):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
