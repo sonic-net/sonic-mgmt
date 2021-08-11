@@ -70,6 +70,8 @@ all:
           ansible_host: 10.64.246.229
         vms21-8:
           ansible_host: 10.64.246.231
+        vms21-9:
+          ansible_host: 10.64.246.236
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
@@ -198,6 +200,9 @@ fanout:
       ansible_host: 10.3.146.150
     str2-7215-acs-2:
       ansible_host: 10.3.146.63
+      os: sonic
+    str2-7215-acs-4:
+      ansible_host: 10.3.147.48
       os: sonic
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
@@ -437,6 +442,8 @@ sonic_nokia_7215:
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+    str2-7215-acs-3:
+      ansible_host: 10.3.147.47
 
 sonic_cisco_8102:
   vars:
