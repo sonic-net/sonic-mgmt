@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MARVELL_PUBLIC)
+    default: $(IMAGE_MARVELL_202012)
     displayName: "Image URL"
 
   # Test Parameters
