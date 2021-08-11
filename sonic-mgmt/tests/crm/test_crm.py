@@ -470,12 +470,12 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     
 
     # Verify "crm_stats_ipv[4/6]_route_used" counter was incremented
-    if not (new_crm_stats_route_used - crm_stats_route_used >= 1):
+    if not (new_crm_stats_route_used - crm_stats_route_used >= 4):
         for i in range(40):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-    if not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+    if not (crm_stats_route_available - new_crm_stats_route_available >= 4):
         for i in range(40):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
