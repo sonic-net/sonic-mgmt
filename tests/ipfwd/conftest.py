@@ -62,7 +62,6 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, ke
         if a_intf_data['oper_state'] == 'up' and a_intf_name not in ignore_intfs:
             # Got a port that is up and not already used.
             for intf in interfaces:
-
                 attachto_match = False
                 if is_backend_topology:
                     # e.g. a_inft_name: 'Ethernet8' attachto:'Ethernet8.10'

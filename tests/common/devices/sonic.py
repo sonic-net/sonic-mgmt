@@ -1205,10 +1205,9 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         name_key = constants.NAME_KEY
         if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
             topo_name = tbinfo[topo_key][name_key]
-            if constants.BACKEND_TOPOLOGY_FLAG in topo_name:
+            if constants.BACKEND_TOPOLOGY_IND in topo_name:
                 return True
-        else:
-            return False
+        return False
 
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
