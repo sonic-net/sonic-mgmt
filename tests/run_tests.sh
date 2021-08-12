@@ -157,7 +157,11 @@ function setup_test_options()
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        if [[ $skip == *"::"* ]]; then
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
+        else
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        fi
     done
 
     if [[ -d ${LOG_PATH} ]]; then
@@ -368,7 +372,14 @@ fi
 setup_test_options
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
-    prepare_dut
+    RESULT=0
+    prepare_dut || RESULT=$?
+    if [[ ${RESULT} != 0 ]]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        exit ${RESULT}
+    fi
 fi
 
 RC=0

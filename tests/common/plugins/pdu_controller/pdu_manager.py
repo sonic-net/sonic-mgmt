@@ -49,10 +49,12 @@ class PduManager():
         """
         self.controllers = []
 
-    def _update_outlets(self, outlets, pdu_index):
-        for outlet in outlets:
-            outlet['pdu_index'] = pdu_index
-            outlet['pdu_name'] = self.controllers[pdu_index]['psu_peer']['peerdevice']
+    def _update_outlets(self, outlets, pdu_index, controller_index=None):
+        for outlet_idx, outlet in enumerate(outlets):
+            outlet['pdu_index'] = pdu_index + outlet_idx
+            if controller_index is None:
+                controller_index = pdu_index
+            outlet['pdu_name'] = self.controllers[controller_index]['psu_peer']['peerdevice']
 
     def add_controller(self, psu_name, psu_peer, pdu_vars):
         """
@@ -96,12 +98,19 @@ class PduManager():
         }
         next_index = len(self.controllers)
         self.controllers.append(pdu)
-        if not shared_pdu:
-            controller = get_pdu_controller(pdu_ip, pdu_vars)
-            if not controller:
-                logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
-                return
-            outlets = controller.get_outlet_status(hostname=self.dut_hostname)
+
+        outlet = None
+        if 'peerport' in psu_peer and psu_peer['peerport'] != 'probing':
+            outlet = psu_peer['peerport'] if psu_peer['peerport'].startswith('.') else '.' + psu_peer['peerport']
+
+        if not (shared_pdu and outlet is None):
+            if controller is None:
+                controller = get_pdu_controller(pdu_ip, pdu_vars)
+                if not controller:
+                    logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
+                    return
+
+            outlets = controller.get_outlet_status(hostname=self.dut_hostname, outlet=outlet)
             self._update_outlets(outlets, next_index)
             pdu['outlets'] = outlets
             pdu['controller'] = controller
@@ -163,10 +172,10 @@ class PduManager():
             status = status + outlets
         else:
             # collect all status
-            for pdu_index, controller in enumerate(self.controllers):
-                if len(controller['outlets']) > 0:
-                    outlets = controller['controller'].get_outlet_status(hostname=self.dut_hostname)
-                    self._update_outlets(outlets, pdu_index)
+            for controller_index, controller in enumerate(self.controllers):
+                for outlet in controller['outlets']:
+                    outlets = controller['controller'].get_outlet_status(outlet=outlet['outlet_id'])
+                    self._update_outlets(outlets, outlet['pdu_index'], controller_index)
                     status = status + outlets
 
         return status
@@ -186,7 +195,7 @@ def _merge_dev_link(devs, links):
         for key, val in info.items():
             if key not in ret[host]:
                 ret[host][key] = {}
-            ret[host][key].update(val)
+            ret[host][key]=dict(ret[host][key], **val)
 
     return ret
 

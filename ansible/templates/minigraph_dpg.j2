@@ -61,6 +61,24 @@
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+{% if voq_inband_ip is defined or voq_inband_ipv6 is defined %}
+      <VoqInbandInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if voq_inband_ip is defined %}
+        <a:VoqInbandInterface>
+          <Name>{{ voq_inband_intf }}</Name>
+          <Type>{{ voq_inband_type }}</Type>
+          <a:PrefixStr>{{ voq_inband_ip }}</a:PrefixStr>
+        </a:VoqInbandInterface>
+{% endif %}
+{% if voq_inband_ipv6 is defined %}
+        <a:VoqInbandInterface>
+          <Name>{{ voq_inband_intf }}</Name>
+          <Type>{{ voq_inband_type }}</Type>
+          <a:PrefixStr>{{ voq_inband_ipv6 }}</a:PrefixStr>
+        </a:VoqInbandInterface>
+{% endif %}
+      </VoqInbandInterfaces>
+{% endif %}      
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
@@ -103,9 +121,19 @@
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
           <NoDhcpRelay>False</NoDhcpRelay>
           <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+{% if 'type' in vlan_param %}
+{% if vlan_param['type']|lower == 'tagged'%}
+          <Type>Tagged</Type>
+{% else %}
           <Type i:nil="true"/>
+{% endif %}
+{% endif %}
 {% set dhcp_servers_str=';'.join(dhcp_servers) %}
           <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
+{% if dhcpv6_servers is defined %}
+{% set dhcpv6_servers_str=';'.join(dhcpv6_servers) %}
+          <Dhcpv6Relays>{{ dhcpv6_servers_str }}</Dhcpv6Relays>
+{% endif %}
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
@@ -117,6 +145,7 @@
 {% endif %}
       </VlanInterfaces>
       <IPInterfaces>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
         <IPInterface>
@@ -157,10 +186,16 @@
 {%   endif %}
 {% endfor %}
 {% endif %}
+{% endif %}
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
+        <AclInterface>
+          <InAcl>NTP_ACL</InAcl>
+          <AttachTo>NTP</AttachTo>
+          <Type>NTP</Type>
+        </AclInterface>
         <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>

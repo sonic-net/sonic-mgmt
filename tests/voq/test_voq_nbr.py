@@ -7,6 +7,8 @@ import random
 
 from tests.ptf_runner import ptf_runner
 
+from tests.common.platform.device_utils import fanout_switch_port_lookup
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -20,8 +22,11 @@ from voq_helpers import asic_cmd, sonic_ping
 from voq_helpers import check_neighbors_are_gone
 from voq_helpers import dump_and_verify_neighbors_on_asic
 from voq_helpers import check_host_arp_table_deleted
+from voq_helpers import get_inband_info
+from voq_helpers import get_ptf_port
+from voq_helpers import get_vm_with_ip
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,119 @@ pytestmark = [
 ]
 
 NEW_MAC = "00:01:94:00:00:01"
+
+
+def check_bgp_restored(duthosts, all_cfg_facts):
+    """
+    Checks for bgp neighbors to be established.
+
+    Args:
+        duthosts: duthosts fixture
+        all_cfg_facts: fixture from voq/conftest.py
+
+    Returns:
+        True if all neighbors are established, False if not.
+    """
+    down_nbrs = 0
+    for node in duthosts.frontend_nodes:
+        for asic in node.asics:
+            asic_cfg_facts = all_cfg_facts[node.hostname][asic.asic_index]['ansible_facts']
+            if 'BGP_NEIGHBOR' not in asic_cfg_facts:
+                continue
+
+            bgp_facts = asic.bgp_facts()['ansible_facts']
+
+            for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
+                if bgp_facts['bgp_neighbors'][address]['state'] != "established":
+                    logger.info("BGP internal neighbor: %s is down: %s." % (
+                        address, bgp_facts['bgp_neighbors'][address]['state']))
+                    down_nbrs += 1
+    if down_nbrs != 0:
+        logger.warning("Neighbors are still down: %d", down_nbrs)
+        return False
+    else:
+        logger.info("All BGP neighbors are restored.")
+        return True
+
+
+def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
+    """
+    Attempts to restore BGP config.
+
+    Args:
+        duthosts: duthosts fixture
+        nbrhosts: nbrhosts fixture
+        all_cfg_facts: fixture from voq/conftest.py
+
+    """
+    for node in duthosts.frontend_nodes:
+        for asic in node.asics:
+            asic_cfg_facts = all_cfg_facts[node.hostname][asic.asic_index]['ansible_facts']
+            if 'BGP_NEIGHBOR' not in asic_cfg_facts:
+                continue
+
+            bgp_facts = asic.bgp_facts()['ansible_facts']
+
+            for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
+                if bgp_facts['bgp_neighbors'][address]['state'] == "established":
+                    logger.info("BGP internal neighbor: %s is established: %s, no action." % (
+                        address, bgp_facts['bgp_neighbors'][address]['state']))
+                else:
+                    logger.info("BGP internal neighbor: %s is not established: %s, will enable" % (
+                        address, bgp_facts['bgp_neighbors'][address]['state']))
+
+                    logger.info(
+                        "Startup neighbor: {} on host {} asic {}".format(address, node.hostname, asic.asic_index))
+
+                    node.command("sudo config bgp startup neighbor {}".format(address))
+                    vm_info = get_vm_with_ip(address, nbrhosts)
+                    nbr = nbrhosts[vm_info['vm']]
+                    logger.info(
+                        'enable neighbors {} on neighbor host {}'.format(nbr['conf']['bgp']['peers'],
+                                                                         nbr['host'].hostname))
+
+                    for peer in nbr['conf']['bgp']['peers']:
+                        for neighbor in nbr['conf']['bgp']['peers'][peer]:
+                            nbr['host'].eos_config(
+                                lines=["no neighbor %s shutdown" % neighbor],
+                                parents=['router bgp {}'.format(nbr['conf']['bgp']['asn'])])
+
+                            if ":" in address:
+                                nbr['host'].eos_config(
+                                    lines=["no ipv6 route ::/0 %s " % neighbor])
+                            else:
+                                nbr['host'].eos_config(
+                                    lines=["no ip route 0.0.0.0/0 %s " % neighbor])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def verify_bgp_restored(duthosts, nbrhosts, all_cfg_facts):
+    """
+    After teardown brings up any sessions that are not in case of failure.   Sometimes VMs are not reachable and this
+    needs to be retried over a period of time to restore the config.
+
+    Args:
+        duthosts:  The duthosts fixture
+        nbrhosts: nbrhosts fixture.
+        all_cfg_facts: all_cfg_facts fixture from voq/conftest.py
+
+    """
+
+    yield
+
+    restored = False
+    endtime = time.time() + 300
+    while not restored and time.time() < endtime:
+
+        restored = check_bgp_restored(duthosts, all_cfg_facts)
+        if restored:
+            break
+        else:
+            restore_bgp(duthosts, nbrhosts, all_cfg_facts)
+        time.sleep(5)
+    else:
+        logger.error("BGP was never restored.")
+        pytest.fail("BGP was never restored after test_voq_nbr tests ran.")
 
 
 @pytest.fixture(scope="module")
@@ -61,6 +179,9 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
         node_results = []
         for asic in node.asics:
             asic_cfg_facts = cfg_facts[node.hostname][asic.asic_index]['ansible_facts']
+
+            if 'BGP_NEIGHBOR' not in asic_cfg_facts:
+                continue
 
             for neighbor in asic_cfg_facts['BGP_NEIGHBOR']:
                 logger.info(
@@ -134,6 +255,12 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
                 if time.time() > endtime:
                     break
 
+
+@pytest.fixture(scope="module")
+def teardown(duthosts, nbrhosts, all_cfg_facts):
+    """
+    Teardown fixture for the module, restore bgp neighbors.
+    """
     yield
 
     # cleanup
@@ -156,6 +283,8 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
         node_results = []
         for asic in node.asics:
             asic_cfg_facts = cfg_facts[node.hostname][asic.asic_index]['ansible_facts']
+            if 'BGP_NEIGHBOR' not in asic_cfg_facts:
+                continue
             logger.info('enable neighbors {} on dut host {}'.format(asic_cfg_facts['BGP_NEIGHBOR'], node.hostname))
             asnum = asic_cfg_facts['DEVICE_METADATA']['localhost']['bgp_asn']
 
@@ -164,13 +293,16 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
                     "Startup neighbor: {} on host {} asic {}".format(neighbor, node.hostname, asic.asic_index))
 
                 node_results.append(node.command("sudo config bgp startup neighbor {}".format(neighbor)))
-                node_results.append(node.command(
-                    "docker exec bgp vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
-                        asnum, neighbor)))
+                if node.is_multi_asic:
+                    node_results.append(node.command(
+                        "docker exec bgp{} vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
+                            asic.asic_index, asnum, neighbor)))
+                else:
+                    node_results.append(node.command(
+                        "docker exec bgp vtysh -c \"config t\" -c \"router bgp {}\" -c \"no neighbor {} shutdown\"".format(
+                            asnum, neighbor)))
 
         results[node.hostname] = node_results
-
-    parallel_run(enable_dut_bgp_neighs, [all_cfg_facts], {}, duthosts.frontend_nodes, timeout=120)
 
     # restore neighbors on vms
     @reset_ansible_local_tmp
@@ -191,25 +323,44 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
             'enable neighbors {} on neighbor host {}'.format(node['conf']['bgp']['peers'], node['host'].hostname))
         for peer in node['conf']['bgp']['peers']:
             for neighbor in node['conf']['bgp']['peers'][peer]:
-                node_results.append(node['host'].eos_config(
-                    lines=["no neighbor %s shutdown" % neighbor],
-                    parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
-                    module_ignore_errors=True)
-                )
-                if ":" in neighbor:
+                try:
                     node_results.append(node['host'].eos_config(
-                        lines=["no ipv6 route ::/0 %s " % neighbor],
-                        module_ignore_errors=True)
+                        lines=["no neighbor %s shutdown" % neighbor],
+                        parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
                     )
-                else:
+                    if ":" in neighbor:
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ipv6 route ::/0 %s " % neighbor])
+                        )
+                    else:
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ip route 0.0.0.0/0 %s " % neighbor],
+                        )
+                        )
+                except Exception:
+                    logger.warning("Enable of neighbor on VM: %s failed, retrying", node['host'].hostname)
+                    time.sleep(10)
                     node_results.append(node['host'].eos_config(
-                        lines=["no ip route 0.0.0.0/0 %s " % neighbor],
-                        module_ignore_errors=True)
+                        lines=["no neighbor %s shutdown" % neighbor],
+                        parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
                     )
+                    if ":" in neighbor:
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ipv6 route ::/0 %s " % neighbor],
+                        )
+                        )
+                    else:
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ip route 0.0.0.0/0 %s " % neighbor],
+                        )
+                        )
 
         results[node['host'].hostname] = node_results
 
-    parallel_run(enable_nbr_bgp_neighs, [], {}, nbrhosts.values(), timeout=120)
+    try:
+        parallel_run(enable_dut_bgp_neighs, [all_cfg_facts], {}, duthosts.frontend_nodes, timeout=300)
+    finally:
+        parallel_run(enable_nbr_bgp_neighs, [], {}, nbrhosts.values(), timeout=120)
 
 
 def ping_all_dut_local_nbrs(duthosts):
@@ -220,6 +371,7 @@ def ping_all_dut_local_nbrs(duthosts):
         duthosts: An instance of the duthosts fixture.
 
     """
+
     @reset_ansible_local_tmp
     def _ping_all_local_nbrs(node=None, results=None):
         if node is None or results is None:
@@ -231,28 +383,39 @@ def ping_all_dut_local_nbrs(duthosts):
 
         for asic in node.asics:
             cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            neighs = cfg_facts['BGP_NEIGHBOR']
+            if 'BGP_NEIGHBOR' in cfg_facts:
+                neighs = cfg_facts['BGP_NEIGHBOR']
+            else:
+                logger.info("No local neighbors for host: %s/%s, skipping", node.hostname, asic.asic_index)
+                continue
+
             for neighbor in neighs:
-                node_results.append(sonic_ping(asic, neighbor))
+                node_results.append(sonic_ping(asic, neighbor, verbose=True))
         results[node.hostname] = node_results
 
     parallel_run(_ping_all_local_nbrs, [], {}, duthosts.frontend_nodes, timeout=120)
 
 
-def ping_all_neighbors(duthosts, neighbors):
+def ping_all_neighbors(duthosts, all_cfg_facts, neighbors):
     """
     Pings all neighbors in the neighbor list from all frontend hosts on the DUT..
 
     Args:
         duthosts: An instance of the duthosts fixture.
+        all_cfg_facts: Fixture from voq/conftest.py
         neighbors: A list of neighbor IP addresses.
 
     """
     for per_host in duthosts.frontend_nodes:
         for asic in per_host.asics:
+            cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+            inband = get_inband_info(cfg_facts)
+            if inband == {}:
+                continue
+
             for neighbor in neighbors:
                 logger.info("Ping %s from %s/%s", neighbor, per_host.hostname, asic.asic_index)
-                sonic_ping(asic, neighbor)
+                sonic_ping(asic, neighbor, verbose=True)
 
 
 @pytest.fixture()
@@ -288,10 +451,13 @@ def poll_neighbor_table_delete(duthosts, neighs, delay=1, poll_time=180):
             logger.info("Poll for ARP clear on host: %s/%s", node.hostname, asic.asic_index)
             node_cleared = False
             while time.time() < endtime and node_cleared is False:
-                arptable = node.switch_arptable()['ansible_facts']
+                if node.is_multi_asic:
+                    arptable = node.switch_arptable(namespace=asic.namespace)['ansible_facts']
+                else:
+                    arptable = node.switch_arptable()['ansible_facts']
                 for nbr in neighs:
                     try:
-                        check_host_arp_table_deleted(node, nbr, arptable)
+                        check_host_arp_table_deleted(node, asic, nbr, arptable)
                     except AssertionError:
                         time.sleep(delay)
                         break
@@ -302,7 +468,7 @@ def poll_neighbor_table_delete(duthosts, neighs, delay=1, poll_time=180):
 
 
 def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
-                            setup, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
+                            setup, teardown, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
     """
     Verify tables, databases, and kernel routes are correctly deleted when the entire neighbor table is cleared.
 
@@ -332,8 +498,11 @@ def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     per_host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
-
-    neighs = cfg_facts['BGP_NEIGHBOR']
+    if 'BGP_NEIGHBOR' in cfg_facts:
+        neighs = cfg_facts['BGP_NEIGHBOR']
+    else:
+        logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
 
     asic_cmd(asic, "sonic-clear arp")
     asic_cmd(asic, "sonic-clear ndp")
@@ -379,7 +548,7 @@ def select_neighbors(port_cfg, cfg_facts):
 
 
 def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
-                            setup, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
+                            setup, teardown, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
     """
     Verify tables, databases, and kernel routes are correctly deleted when a single neighbor adjacency is cleared.
 
@@ -406,8 +575,11 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     per_host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
-
-    neighs = cfg_facts['BGP_NEIGHBOR']
+    if 'BGP_NEIGHBOR' in cfg_facts:
+        neighs = cfg_facts['BGP_NEIGHBOR']
+    else:
+        logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
 
     eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
     pos_cfg = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
@@ -474,8 +646,11 @@ def change_mac_ptf(ptfhost, intf, mac):
     ptfhost.shell("ifconfig {} up".format(intf))
 
 
-def check_arptable_mac(host, neighbor, mac, checkstate=True):
-    arptable = host.switch_arptable()['ansible_facts']
+def check_arptable_mac(host, asic, neighbor, mac, checkstate=True):
+    if host.is_multi_asic:
+        arptable = host.switch_arptable(namespace=asic.namespace)['ansible_facts']
+    else:
+        arptable = host.switch_arptable()['ansible_facts']
 
     if ':' in neighbor:
         table = arptable['arptable']['v6']
@@ -490,22 +665,22 @@ def check_arptable_mac(host, neighbor, mac, checkstate=True):
         return table[neighbor]['macaddress'] == mac
 
 
-def check_arptable_state(host, neighbor, state):
-    arptable = host.switch_arptable()['ansible_facts']
+def check_arptable_state(host, asic, neighbor, state):
+    arptable = asic.switch_arptable()['ansible_facts']
 
     if ':' in neighbor:
         table = arptable['arptable']['v6']
     else:
         table = arptable['arptable']['v4']
 
-    logger.info("Poll neighbor: %s, mac: %s, state: %s", neighbor, table[neighbor]['macaddress'],
+    logger.info("Poll neighbor: %s, mac: %s, current state: %s", neighbor, table[neighbor]['macaddress'],
                 table[neighbor]['state'])
 
     return table[neighbor]['state'] == state
 
 
 def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
-                                setup, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
+                                setup, teardown, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
     """
     Verify tables, databases, and kernel routes are correctly updated when the MAC address of a neighbor changes
     and is updated via request/reply exchange.
@@ -540,7 +715,12 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-    neighs = cfg_facts['BGP_NEIGHBOR']
+    if 'BGP_NEIGHBOR' in cfg_facts:
+        neighs = cfg_facts['BGP_NEIGHBOR']
+    else:
+        logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
+
     eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
     if eth_cfg == {}:
         pytest.skip("Can't run this test without any IP interfaces on ethernet ports")
@@ -561,14 +741,13 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     original_mac = nbrinfo['mac']
 
     for neighbor in nbr_to_test:
-
         # Check neighbor on local linecard
         logger.info("*" * 60)
         logger.info("Verify initial neighbor: %s, port %s", neighbor, local_port)
-        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, original_mac, checkstate=False),
+        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
                       "MAC {} didn't change in ARP table".format(original_mac))
         sonic_ping(asic, neighbor, verbose=True)
-        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, original_mac),
+        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac),
                       "MAC {} didn't change in ARP table".format(original_mac))
 
     dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
@@ -582,18 +761,18 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             if ":" in neighbor:
                 logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                 asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, NEW_MAC, checkstate=False),
+            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, NEW_MAC, checkstate=False),
                           "MAC {} didn't change in ARP table".format(NEW_MAC))
 
             sonic_ping(asic, neighbor, verbose=True)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, NEW_MAC),
+            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, NEW_MAC),
                           "MAC {} didn't change in ARP table".format(NEW_MAC))
             logger.info("Verify neighbor after mac change: %s, port %s", neighbor, local_port)
             check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
 
         logger.info("Ping neighbors: %s from all line cards", nbr_to_test)
 
-        ping_all_neighbors(duthosts, nbr_to_test)
+        ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
 
     finally:
         logger.info("-" * 60)
@@ -603,15 +782,16 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             if ":" in neighbor:
                 logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                 asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, original_mac, checkstate=False),
-                          "MAC {} didn't change in ARP table".format(original_mac))
+            pytest_assert(
+                wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
+                "MAC {} didn't change in ARP table".format(original_mac))
             sonic_ping(asic, neighbor, verbose=True)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, neighbor, original_mac),
+            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac),
                           "MAC {} didn't change in ARP table".format(original_mac))
 
         dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
 
-    ping_all_neighbors(duthosts, nbr_to_test)
+    ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
 
 
 class LinkFlap(object):
@@ -668,10 +848,10 @@ class LinkFlap(object):
         """
         logger.info("Bring up link: %s/%s <-> %s/%s", fanout.hostname, fanport, dut.hostname, dut_intf)
         fanout.no_shutdown(fanport)
-        pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'up'),
-                      "dut port {} didn't go down as expected".format(dut_intf))
+        pytest_assert(wait_until(60, 1, self.check_intf_status, dut, dut_intf, 'up'),
+                      "dut port {} didn't go up as expected".format(dut_intf))
 
-    def localport_admindown(self, dut, dut_intf):
+    def localport_admindown(self, dut, asic, dut_intf):
         """
         Admins down a port on the DUT and polls for oper status to be down.
 
@@ -684,11 +864,11 @@ class LinkFlap(object):
 
         """
         logger.info("Admin down port %s/%s", dut.hostname, dut_intf)
-        dut.shutdown(dut_intf)
+        asic.shutdown_interface(dut_intf)
         pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'down'),
                       "dut port {} didn't go down as expected".format(dut_intf))
 
-    def localport_adminup(self, dut, dut_intf):
+    def localport_adminup(self, dut, asic, dut_intf):
         """
         Admins up a port on the DUT and polls for oper status to be up.
 
@@ -701,7 +881,7 @@ class LinkFlap(object):
 
         """
         logger.info("Admin up port %s/%s", dut.hostname, dut_intf)
-        dut.no_shutdown(dut_intf)
+        asic.startup_interface(dut_intf)
         pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
@@ -719,7 +899,7 @@ def pick_ports(cfg_facts):
 
     """
     intfs = {}
-    intfs.update(cfg_facts['INTERFACE'])
+    intfs.update(cfg_facts.get('INTERFACE', {}))
     if "PORTCHANNEL_INTERFACE" in cfg_facts:
         intfs.update(cfg_facts['PORTCHANNEL_INTERFACE'])
 
@@ -739,7 +919,7 @@ def pick_ports(cfg_facts):
 class TestNeighborLinkFlap(LinkFlap):
 
     def test_front_panel_admindown_port(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
-                                        all_cfg_facts, setup, nbrhosts, nbr_macs, established_arp):
+                                        all_cfg_facts, setup, teardown, nbrhosts, nbr_macs, established_arp):
         """
         Verify tables, databases, and kernel routes are correctly deleted when the DUT port is admin down/up.
 
@@ -772,7 +952,11 @@ class TestNeighborLinkFlap(LinkFlap):
         asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        if 'BGP_NEIGHBOR' in cfg_facts:
+            neighs = cfg_facts['BGP_NEIGHBOR']
+        else:
+            logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+            return
 
         intfs, intfs_to_test = pick_ports(cfg_facts)
 
@@ -783,21 +967,98 @@ class TestNeighborLinkFlap(LinkFlap):
             neighbors = [n for n in neighs if neighs[n]['local_addr'] in local_ips]
 
             logger.info("Testing neighbors: %s on intf: %s", neighbors, intf)
+            self.localport_admindown(per_host, asic, intf)
 
-            self.localport_admindown(per_host, intf)
             try:
                 check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
             finally:
-                self.localport_adminup(per_host, intf)
+                self.localport_adminup(per_host, asic, intf)
 
             for neighbor in neighbors:
                 sonic_ping(asic, neighbor)
 
             for neighbor in neighbors:
-                pytest_assert(wait_until(60, 2, check_arptable_state, per_host, neighbor, "REACHABLE"),
+                pytest_assert(wait_until(60, 2, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
                               "STATE for neighbor {} did not change to reachable".format(neighbor))
 
             dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighbors, nbrhosts, all_cfg_facts, nbr_macs)
+
+    def test_front_panel_linkflap_port(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
+                                       all_cfg_facts,
+                                       fanouthosts, setup, teardown, nbrhosts, established_arp):
+        """
+        Verify tables, databases, and kernel routes are correctly deleted when the front panel port flaps.
+
+        Test Steps
+        * Admin down interface on fanout to cause LOS on DUT.
+        * On local linecard:
+            * Verify ARP/NDP entries are removed from CLI for neighbors on down port.
+            * Verify table entries in ASIC, AppDb are removed for addresses on down port.
+        * On Supervisor card:
+            * Verify Chassis App DB entry are removed for only the cleared address.  Entries for addresses on other line cards
+            should still be present.
+        * On remote linecards:
+            * Verify table entries in ASICDB, APPDB, and host ARP table are removed for cleared addresses.
+            * Verify kernel routes for cleared address are deleted.
+        * Admin interface up, verify recreation after restarting traffic.
+
+        Args:
+            duthosts: duthosts fixture.
+            enum_rand_one_per_hwsku_frontend_hostname: frontend iteration fixture.
+            enum_asic_index: asic iteration fixture.
+            all_cfg_facts: all_cfg_facts fixture from voq/conftest.py
+            fanouthosts: fanouthosts fixture.
+            setup: setup fixture for this module.
+            nbrhosts: nbrhosts fixture.
+            established_arp: Fixture to establish ARP to all neighbors.
+
+        """
+        if fanouthosts == {}:
+            pytest.skip("Fanouthosts fixture did not return anything, this test case can not run.")
+
+        per_host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+        cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+
+        if 'BGP_NEIGHBOR' in cfg_facts:
+            neighs = cfg_facts['BGP_NEIGHBOR']
+        else:
+            logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+            return
+
+        intfs, intfs_to_test = pick_ports(cfg_facts)
+
+        logger.info("Will test interfaces: %s", intfs_to_test)
+
+        for intf in intfs_to_test:
+            local_ips = [i.split("/")[0] for i in intfs[intf].keys()]  # [u'2064:100::2/64', u'100.0.0.2/24']
+            neighbors = [n for n in neighs if neighs[n]['local_addr'] in local_ips]
+            logger.info("Testing neighbors: %s on intf: %s", neighbors, intf)
+
+            if "portchannel" in intf.lower():
+                pc_cfg = cfg_facts['PORTCHANNEL_MEMBER']
+                pc_members = pc_cfg[intf]
+                logger.info("Portchannel members %s: %s", intf, pc_members.keys())
+                portbounce_list = pc_members.keys()
+            else:
+                portbounce_list = [intf]
+
+            try:
+                for lport in portbounce_list:
+                    fanout, fanport = fanout_switch_port_lookup(fanouthosts, per_host.hostname, lport)
+                    logger.info("fanout port: %s %s, host: %s", fanout, fanport, fanout.host)
+                    self.linkflap_down(fanout, fanport, per_host, lport)
+
+                for neighbor in neighbors:
+                    check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
+
+            finally:
+                for lport in portbounce_list:
+                    fanout, fanport = fanout_switch_port_lookup(fanouthosts, per_host.hostname, lport)
+                    self.linkflap_up(fanout, fanport, per_host, lport)
+
+            for neighbor in neighbors:
+                check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
 
 
 class TestGratArp(object):
@@ -829,7 +1090,7 @@ class TestGratArp(object):
         logger.info("Grat packet sent.")
 
     def test_gratarp_macchange(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index,
-                               ptfhost, tbinfo, nbrhosts, setup, all_cfg_facts, established_arp):
+                               ptfhost, tbinfo, nbrhosts, setup, teardown, all_cfg_facts, established_arp):
         """
         Verify tables, databases, and kernel routes are correctly updated when a unsolicited ARP packet changes
         the MAC address of learned neighbor.
@@ -863,17 +1124,17 @@ class TestGratArp(object):
 
         """
         self.ptfhost = ptfhost
-        devices = {}
-        for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
-            devices[k] = {'vlans': v['vlans']}
-        logger.info("devices: %s", devices)
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         asic = duthost.asics[enum_asic_index if enum_asic_index is not None else 0]
         cfg_facts = all_cfg_facts[duthost.hostname][asic.asic_index]['ansible_facts']
 
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        if 'BGP_NEIGHBOR' in cfg_facts:
+            neighs = cfg_facts['BGP_NEIGHBOR']
+        else:
+            logger.info("No local neighbors for host: %s/%s, skipping", duthost.hostname, asic.asic_index)
+            return
 
         eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
         if eth_cfg == {}:
@@ -896,16 +1157,17 @@ class TestGratArp(object):
 
             nbrinfo = get_neighbor_info(neighbor, nbrhosts)
 
-            # 0.1@1 = dut_index.dut_port@ptfport
-            tb_port = devices[nbrinfo['vm']]['vlans'][0].split("@")[1]
+            tb_port = get_ptf_port(duthosts,
+                                   all_cfg_facts[duthost.hostname][asic.asic_index]['ansible_facts'],
+                                   tbinfo, duthost, local_port)[0]
             original_mac = nbrinfo['mac']
 
             logger.info("*" * 60)
             logger.info("Verify initial neighbor: %s, port %s", neighbor, local_port)
-            logging.info("%s port %s is on ptf port: %s", duthost.hostname, local_port, tb_port)
+            logger.info("%s port %s is on ptf port: %s", duthost.hostname, local_port, tb_port)
             logger.info("-" * 60)
             sonic_ping(asic, neighbor)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, neighbor, original_mac),
+            pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac),
                           "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
@@ -914,16 +1176,16 @@ class TestGratArp(object):
                 change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], NEW_MAC)
                 self.send_grat_pkt(NEW_MAC, neighbor, int(tb_port))
 
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, neighbor, NEW_MAC, checkstate=False),
-                              "MAC {} didn't change in ARP table".format(NEW_MAC))
+                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=False),
+                              "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 try:
                     sonic_ping(asic, neighbor)
                 except AssertionError:
                     logging.info("No initial response from ping, begin poll to see if ARP table responds.")
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, neighbor, NEW_MAC, checkstate=True),
-                              "MAC {} didn't change in ARP table".format(NEW_MAC))
+                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
+                              "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-                ping_all_neighbors(duthosts, [neighbor])
+                ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
             finally:
                 logger.info("Will Restore ethernet mac on neighbor: %s, port %s, vm %s", neighbor,
                             nbrinfo['shell_intf'], nbrinfo['vm'])
@@ -932,11 +1194,12 @@ class TestGratArp(object):
                 if ":" in neighbor:
                     logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                     asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, neighbor, original_mac, checkstate=False),
-                              "MAC {} didn't change in ARP table".format(original_mac))
+                pytest_assert(
+                    wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac, checkstate=False),
+                    "MAC {} didn't change in ARP table".format(original_mac))
                 sonic_ping(asic, neighbor, verbose=True)
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, neighbor, original_mac),
+                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac),
                               "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-            ping_all_neighbors(duthosts, [neighbor])
+            ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])

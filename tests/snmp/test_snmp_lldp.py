@@ -1,5 +1,6 @@
 import pytest
 import re
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -37,7 +38,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
         pytest.skip("LLDP not supported on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     mg_facts = {}
     for asic_id in duthost.get_asic_ids():
         mg_facts_ns   = duthost.asic_instance(asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']

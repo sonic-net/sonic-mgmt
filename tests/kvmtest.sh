@@ -99,13 +99,14 @@ test_t0() {
     test_interfaces.py \
     arp/test_arp_dualtor.py \
     bgp/test_bgp_fact.py \
-    bgp/test_bgp_gr_helper.py \
+    bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
     bgp/test_bgp_speaker.py \
     bgp/test_bgp_update_timer.py \
     cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py \
     lldp/test_lldp.py \
     ntp/test_ntp.py \
     pc/test_po_cleanup.py \
@@ -179,6 +180,7 @@ test_t1_lag() {
     bgp/test_bgp_bounce.py \
     bgp/test_bgp_update_timer.py \
     bgp/test_traffic_shift.py \
+    http/test_http_copy.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
@@ -245,7 +247,7 @@ if [ x$test_suite == x"t0" ]; then
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
-    test_multi_asic_t1_lag 
+    test_multi_asic_t1_lag
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 else

@@ -67,7 +67,7 @@ reboot_ctrl_dict = {
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_WATCHDOG: {
-        "command": "python -c \"import sonic_platform.platform as P; P.Platform().get_chassis().get_watchdog().arm(5); exit()\"",
+        "command": "watchdogutil arm -s 5",
         "timeout": 300,
         "wait": 120,
         "cause": "Watchdog",
@@ -195,7 +195,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     pool.terminate()
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) - float(dut_datetime.strftime("%s")) > 10, "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
 def get_reboot_cause(dut):
