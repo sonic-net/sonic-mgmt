@@ -31,8 +31,6 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     # Confirm cleanup occured succesfuly
     file_stat = duthost.stat(path="./{}".format(TEST_FILE_NAME))
 
-    pytest_assert(not file_stat["stat"]["exists"], "DUT container could not be cleaned.")
-
     # Delete files off ptf and Ensure that files were removed
     files_to_remove = ["./{}".format(TEST_FILE_NAME), "/tmp/start_http_server.py", "/tmp/stop_http_server.py"]
 
