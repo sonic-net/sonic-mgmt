@@ -4,21 +4,13 @@ import json
 import os
 import time
 from urlparse import urlparse
-from datetime import datetime
 from jinja2 import Template
 import ipaddr
 import ipaddress
-from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
-
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.common.reboot import REBOOT_TYPE_WARM
 
 logger = logging.getLogger(__name__)
 
