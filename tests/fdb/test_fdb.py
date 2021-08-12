@@ -182,9 +182,20 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
         pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
+@pytest.fixture
+def record_mux_status(request, rand_selected_dut):
+    """
+    A function level fixture to record mux cable status if test failed.
+    """
+    yield
+    if request.node.rep_call.failed:
+        mux_status = rand_selected_dut.shell("show muxcable status", module_ignore_errors=True)['stdout']
+        logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
+
+
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor, record_mux_status):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
