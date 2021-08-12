@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms7-t0-s6100-2
+    default: vms7-t0-s6100
     displayName: "Testbed Name"
 
   # Upgrade parameters
