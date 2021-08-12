@@ -229,7 +229,7 @@ def get_specified_duts(request):
     if len(testbed_duts) != specified_duts:
         duts = specified_duts
         logger.debug("Different DUTs specified than in testbed file, using {}"
-                    .format(str(duts)))
+                    .format(str(specified_duts)))
 
     return duts
 
@@ -923,7 +923,10 @@ def generate_dut_feature_container_list(request):
 
     folder = "metadata"
     filepath = os.path.join(folder, tbname + ".json")
-
+    if not os.path.exists(filepath):
+        tbname = "default-testbed"
+        filepath = os.path.join(folder, tbname + ".json")
+    
     try:
         with open(filepath, "r") as yf:
             metadata = json.load(yf)

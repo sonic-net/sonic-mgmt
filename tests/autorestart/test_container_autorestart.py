@@ -389,6 +389,8 @@ def test_containers_autorestart(
               critical process to verify the container will be stopped and restarted
     """
     dut_name, feature = decode_dut_port_name(enum_dut_feature_container)
+    if dut_name == "default-dut":
+        dut_name = enum_rand_one_per_hwsku_frontend_hostname
     pytest_require(
         dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature != "unknown",
         "Skip test on dut host {} (chosen {}) feature {}"
