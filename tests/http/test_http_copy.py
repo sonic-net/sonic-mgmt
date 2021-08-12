@@ -28,9 +28,6 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     # Perform cleanup on DUT
     duthost.file(path="./{}".format(TEST_FILE_NAME), state="absent")
 
-    # Confirm cleanup occured succesfuly
-    file_stat = duthost.stat(path="./{}".format(TEST_FILE_NAME))
-
     # Delete files off ptf and Ensure that files were removed
     files_to_remove = ["./{}".format(TEST_FILE_NAME), "/tmp/start_http_server.py", "/tmp/stop_http_server.py"]
 
