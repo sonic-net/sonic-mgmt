@@ -52,8 +52,7 @@ parameters:
               platform_tests/link_flap/test_cont_link_flap.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
-              platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot \
+              platform_tests/test_reboot.py \
               pfc/test_unknown_mac.py \
               route/test_route_perf.py \
               vxlan/test_vnet_vxlan.py \

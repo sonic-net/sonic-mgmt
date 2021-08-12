@@ -54,6 +54,11 @@ parameters:
               platform_tests/api/test_psu.py::TestPsuApi::test_power \
               platform_tests/api/test_psu.py::TestPsuApi::test_temperature \
               platform_tests/api/test_psu.py::TestPsuApi::test_led \
+              platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led \
+              platform_tests/api/test_sfp.py::TestSfpApi::test_power_override \
+              platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel \
+              platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode \
+              platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led \
               platform_tests/link_flap/test_cont_link_flap.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
