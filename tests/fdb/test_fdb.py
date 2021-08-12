@@ -183,12 +183,12 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture
-def record_mux_status(request, rand_selected_dut):
+def record_mux_status(request, rand_selected_dut, tbinfo):
     """
     A function level fixture to record mux cable status if test failed.
     """
     yield
-    if request.node.rep_call.failed:
+    if request.node.rep_call.failed and 'dualtor' in tbinfo['topo']['name']:
         mux_status = rand_selected_dut.shell("show muxcable status", module_ignore_errors=True)['stdout']
         logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
 
