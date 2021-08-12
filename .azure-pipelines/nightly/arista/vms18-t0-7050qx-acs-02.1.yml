@@ -45,13 +45,14 @@ parameters:
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"
+              platform_tests/test_reboot.py::test_fast_reboot \
+              arp/test_wr_arp.py"
     displayName: "Skip test scripts"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym"'
+    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf"'
     displayName: Testbed specific
 
 stages:
