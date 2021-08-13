@@ -17,6 +17,10 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
 
+pytestmark = [
+    pytest.mark.topology('any'),
+]
+
 logger = logging.getLogger(__name__)
 
 STATE_DB = 'STATE_DB'
