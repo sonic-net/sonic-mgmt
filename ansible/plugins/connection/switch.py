@@ -22,7 +22,6 @@ class Connection(ConnectionBase):
 
     def __init__(self, *args, **kwargs):
         super(Connection, self).__init__(*args, **kwargs)
-
         self.host = self._play_context.remote_addr
         self.connection_retry_interval = 60
 
@@ -54,6 +53,11 @@ class Connection(ConnectionBase):
 
         self._ssh_command += ['-o', 'GSSAPIAuthentication=no',
                               '-o', 'PubkeyAuthentication=no']
+
+        if 'aos' in self.os_name:
+            self._ssh_command += ['-o', 'KexAlgorithms=+diffie-hellman-group1-sha1',
+                                  '-o', 'HostKeyAlgorithms=+ssh-dss']
+
         self._ssh_command += ['-o', 'ConnectTimeout=' + str(self.timeout)]
 
     def _remove_unprintable(self, buff):
@@ -120,6 +124,8 @@ class Connection(ConnectionBase):
                     self.sku = 'mlnx_os'
                 elif 'Dell' in client.before:
                     self.sku = 'dell'
+                elif 'aos' in self.os_name:
+                    self.sku = 'aos'
                 else:
                     raise AnsibleError("Unable to determine fanout SKU")
                 break
@@ -180,7 +186,7 @@ class Connection(ConnectionBase):
                     self._display.vvv("Entered bash with root", host=self.host)
                 else:
                     self._display.vvv("Entered bash", host=self.host)
-            elif self.sku == "eos":
+            elif self.sku == "eos" or self.sku == "aos":
                 client.sendline('bash')
                 client.expect(['\$ '])
             else:
@@ -189,7 +195,6 @@ class Connection(ConnectionBase):
         return client
 
     def exec_command(self, *args, **kwargs):
-
         self.template = kwargs['template']
         if kwargs['host'] is not None:
             self.host     = kwargs['host']
@@ -198,6 +203,7 @@ class Connection(ConnectionBase):
         self.bash     = kwargs['bash']
         self.su       = kwargs['su']
         self.reboot   = kwargs['reboot']
+        self.os_name  = kwargs['os_name']
         if kwargs['root']:
             self.login['user'] = 'root'
         if kwargs['timeout']:
@@ -217,7 +223,7 @@ class Connection(ConnectionBase):
             if self.sku == 'nxos':
                 # bash-3.2$ for nexus 6.5
                 prompts = ['bash-3\.2\$', 'bash-3\.2#']
-            elif self.sku == 'eos':
+            elif self.sku == 'eos' or self.sku == "aos":
                 prompts = ['\$ ']
 
         if self.sku in ('mlnx_os',):
