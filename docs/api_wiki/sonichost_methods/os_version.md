@@ -1,4 +1,4 @@
-# mgmt_ip
+# os_version
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -8,18 +8,18 @@
 `property`
 
 ## Overview
-Provides management ip for host.
+Provides string representing the version of SONiC being used
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    m_ip = duthost.mgmt_ip
+    vsonic = duthost.os_version
 ```
 
 ## Arguments
 Takes no arguments.
 
 ## Expected Output
-A string representing the management ip for the host.
+String representing the version of SONiC being used

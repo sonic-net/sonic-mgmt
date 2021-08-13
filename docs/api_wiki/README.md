@@ -109,7 +109,17 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [all_critical_process_status](sonichost_methods/all_critical_process_status.md) - Provides summary and status of all critical services and their processes
 
-- [check_bgp_session_nsf](sonichost_methods/check_bgp_session_nsf.md) - Checks if BGP neighvbor session has entered Nonstop Forwarding(NSF) state
+- [check_bgp_session_nsf](sonichost_methods/check_bgp_session_nsf.md) - Checks if BGP neighbor session has entered Nonstop Forwarding(NSF) state
+
+- [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
+
+- [critical_services](sonichost_methods/critical_services.md) - Provides a list of critical services running on the SONiC host.
+
+- [critical_services_fully_started](sonichost_methods/critical_services_fully_started.md) - Whether all critical services have started on the SONiC host.
+
+- [critical_services_status](sonichost_methods/critical_services_status.md) - Checks status for cirtical services.
+
+- [facts](sonichost_methods/facts.md) - Returns platform information facts about the sonic device.
 
 - [get_bgp_neighbors](sonichost_methods/get_bgp_neighbors.md) - This command provides a summary of the bgp neighbors peered with the DUT. Returns a dictionary that maps the BGP address for each neighbor to another dictionary listing information on that neighbor device.
 
@@ -127,9 +137,13 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_feature_status](sonichost_methods/get_feature_status.md) - Returns features and their states.
 
+- [get_monit_services_status](sonichost_methods/get_monit_services_status.md) - Get metadata on services monitored by Monit.
+
 - [get_namespace_ids](sonichost_methods/get_namespace_ids.md) - Gets ids of namespace where the container should reside in.
 
 - [get_now_time](sonichost_methods/get_now_time.md) - Gets datetime as defined on the remote host
+
+- [get_pmon_daemon_db_value](sonichost_methods/get_pmon_daemon_db_value.md) - Gets the db value in state db to check the daemon expected status
 
 - [get_running_config_facts](sonichost_methods/get_running_config_facts.md) - Provides information on the currently running configuration of the dut.
 
@@ -141,15 +155,27 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [hostname](sonichost_methods/hostname.md) - Provides hostname for device.
 
+- [is_container_running](sonichost_methods/is_container_running.md) - Checks whether a docker container is running.
+
+- [is_frontend_node](sonichost_methods/is_frontend_node.md) - Checks whether the DUT is a frontend node. Used in multi-DUT setups.
+
 - [is_multi_asic](sonichost_methods/is_multi_asic.md) - Returns whether remote host is multi-ASIC
 
+- [is_service_fully_started](sonichost_methods/is_service_fully_started.md) - Checks whether a service is fully started on the SONiC host.
+
 - [is_service_running](sonichost_methods/is_service_running.md) - Checks if a specified service is running. Can be a service within a docker.
+
+- [is_supervisor_node](sonichost_methods/is_supervisor_node.md) - Checks if current node is a supervisor node. Used for multi-DUT setups.
 
 - [kernel_version](sonichost_methods/kernel_version.md) - Provides version of Sonic kernel on remote host
 
 - [mgmt_ip](sonichost_methods/mgmt_ip.md) - Provides management ip for host.
 
 - [num_asics](sonichost_methods/num_asics.md) - Provides number of asics
+
+- [os_version](sonichost_methods/os_version.md) - Provides string representing the version of SONiC being used
+
+- [reset_critical_services_tracking_list](sonichost_methods/reset_critical_services_tracking_list.md) - Modifies the list of critical services used by the SONiC Host.
 
 - [show_and_parse](sonichost_methods/show_and_parse.md) - Runs a show command on the host and parses the input into a computer readable format, usually a list of entries. Works on any show command that has suimilar structure to `show interface status`
 
@@ -207,3 +233,11 @@ the remote host.
 
 
 ## Preconfigured Function Arguments
+
+- [duthosts](preconfigured/duthosts.md) - Provides a dictionary that maps DUT hostnames to DUT instances
+
+- [localhost](preconfigured/localhost.md) - The localhost instance. Used to run ansible modules from the localhost.
+
+- [ptfhost](preconfigured/ptfhost.md) - The PTF container host instance. Used to run ptf methods and anisble modules from the PTF.
+
+- [rand_one_dut_hostname](preconfigured/rand_one_dut_hostname.md) - A random hostname belonging to one of the DUT instances defined by the deployed testbed.

@@ -1,4 +1,4 @@
-# mgmt_ip
+# critical_services
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -8,18 +8,18 @@
 `property`
 
 ## Overview
-Provides management ip for host.
+Provides a list of critical services running on the SONiC host.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    m_ip = duthost.mgmt_ip
+    service_lst = duthost.critical_services
 ```
 
 ## Arguments
-Takes no arguments.
+Takes no arguments
 
 ## Expected Output
-A string representing the management ip for the host.
+Provides list of strings representing the names of the critical services

@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Checks if BGP neighvbor session has entered Nonstop Forwarding(NSF) state
+Checks if BGP neighbor session has entered Nonstop Forwarding(NSF) state
 
 ## Examples
 ```

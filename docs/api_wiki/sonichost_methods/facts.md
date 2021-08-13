@@ -1,4 +1,4 @@
-# mgmt_ip
+# facts
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -8,18 +8,24 @@
 `property`
 
 ## Overview
-Provides management ip for host.
+Returns platform information facts about the sonic device.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    m_ip = duthost.mgmt_ip
+    platform_facts = duthost.facts
 ```
 
 ## Arguments
 Takes no arguments.
 
 ## Expected Output
-A string representing the management ip for the host.
+Provides dictionary with platform info:
+
+`platform` - name of platform
+`hwksu` - Hardware switch being used
+`asic_type` - Type of asic
+`num_asic` - Number of asics
+`router_mac` - router's mac address

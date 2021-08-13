@@ -5,6 +5,8 @@
 - [Arguments](#arguments)
 - [Expected Output](#expected-output)
 
+`property`
+
 ## Overview
 Provides version of Sonic kernel on remote host
 

@@ -9,8 +9,6 @@ def get_section(title, path):
     name = path.split("/")[-1]
 
     ret_list = ["## {}\n".format(title)]
-    property_list = []
-    method_list = []
 
     for entry in os.listdir(path):
         definition = ""

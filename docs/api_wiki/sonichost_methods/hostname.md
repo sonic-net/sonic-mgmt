@@ -5,6 +5,8 @@
 - [Arguments](#arguments)
 - [Expected Output](#expected-output)
 
+`property`
+
 ## Overview
 Provides hostname for device.
 
