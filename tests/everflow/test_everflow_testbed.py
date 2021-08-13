@@ -68,6 +68,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
+    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3"]
 
     @pytest.fixture(params=["tor", "spine"])
     def dest_port_type(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo, request):
@@ -413,6 +414,14 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # NOTE: This is important to add since for the Policer test case regular packets
         # and mirror packets can go to same interface, which causes tail drop of
         # police packets and impacts test case cir/cbs calculation.
+
+        vendor = duthost.facts["asic_type"]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
+            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+            if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
+                pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms".format(vendor,asic))
+
         default_tarffic_port_type = "tor" if dest_port_type == "spine" else "spine"
         default_traffic_tx_port = setup_info[default_tarffic_port_type]["dest_port"][0]
         default_traffic_peer_ip = everflow_utils.get_neighbor_info(duthost, default_traffic_tx_port, tbinfo)
