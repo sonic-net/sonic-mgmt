@@ -358,7 +358,7 @@ sonic_arista_QX:
   hosts:
     str2-7050qx-32s-acs-01:
       ansible_host: 10.3.146.158
-      hwsku: Arista-7050-QX-32S
+      hwsku: Arista-7050QX32S-Q32
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
