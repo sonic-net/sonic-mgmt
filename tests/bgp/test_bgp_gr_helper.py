@@ -77,13 +77,14 @@ def test_bgp_gr_helper_routes_preserved(duthosts, rand_one_dut_hostname, nbrhost
                 pytest.fail("Route to prefix %s doesn't exist during graceful restart." % prefix)
             nexthop_expected = nexthops[0]
             bgp_neighbor_expected = nexthop_expected["peerId"]
-            logging.debug("Rib route entry to prefix %s:\n%s\n", prefix, json.dumps(rib[prefix]))
             for nexthop in rib[prefix]:
                 if nexthop["peerId"] == bgp_neighbor_expected:
                     if nexthop.get("stale", False) is False:
+                        logging.error("Rib route entry to prefix %s:\n%s\n", prefix, json.dumps(rib[prefix]))
                         pytest.fail("Route to prefix %s should be stale during graceful restart." % prefix)
                     break
             else:
+                logging.error("Rib route entry to prefix %s:\n%s\n", prefix, json.dumps(rib[prefix]))
                 pytest.fail("Route to prefix doesn't originate from BGP neighbor %s." % bgp_neighbor_expected)
 
     def _verify_prefix_counters_from_neighbor_after_graceful_restart(duthost, bgp_neighbors):
