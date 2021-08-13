@@ -1,5 +1,6 @@
 ## Helpers related to HTTP
 import time
+import os
 
 def wait_for_http(host_ip, http_port, timeout=10):
     """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
