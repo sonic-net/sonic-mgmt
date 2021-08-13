@@ -48,6 +48,7 @@
   when: hostname in configuration
   notify:
     - Update config db
+    - wait for SONiC update config db to finish
 
 - name: create frr config
   template: src="frr-{{ topo }}-{{ props.swrole }}.j2"
