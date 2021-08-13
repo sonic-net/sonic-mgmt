@@ -38,10 +38,6 @@ def clear_portstat(dut):
     dut.shell("portstat -c")
 
 
-def is_mocked_dualtor(tbinfo):
-    return 'dualtor' not in tbinfo['topo']['name']
-
-
 @pytest.fixture(scope='module', autouse=True)
 def test_cleanup(rand_selected_dut):
     """
@@ -51,23 +47,13 @@ def test_cleanup(rand_selected_dut):
     config_reload(rand_selected_dut)
 
 
-def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
-    if is_mocked_dualtor(tbinfo):
-        set_dual_tor_state_to_orchagent(dut, state, [itfs])
-    else:
-        dut_index = tbinfo['duts'].index(dut.hostname)
-        if dut_index == 0 and state == 'active' or dut_index == 1 and state == 'standby':
-            side = 'upper_tor'
-        else:
-            side = 'lower_tor'
-        toggle_all_simulator_ports(side)
-
-
-def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface, toggle_all_simulator_ports, set_crm_polling_interval):
+def test_standby_tor_upstream_mux_toggle(
+    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,
+    require_mocked_dualtor, toggle_all_simulator_ports, set_crm_polling_interval):
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
-    set_mux_state(rand_selected_dut, tbinfo, 'standby', itfs, toggle_all_simulator_ports)
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     crm_facts0 = rand_selected_dut.get_crm_facts()
@@ -87,7 +73,7 @@ def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, 
                 "RX_DRP for {} is expected to increase by {} actually {}".format(itfs, PKT_NUM, drop_counter))
 
     # Step 2. Toggle mux state to active, and verify traffic is not dropped by ACL and fwd-ed to uplinks; verify CRM show and no nexthop objects are stale
-    set_mux_state(rand_selected_dut, tbinfo, 'active', itfs, toggle_all_simulator_ports)
+    set_mux_state(rand_selected_dut, tbinfo, 'active', [itfs], toggle_all_simulator_ports)
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up
@@ -100,7 +86,7 @@ def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, 
                             drop=False)
 
     # Step 3. Toggle mux state to standby, and verify traffic is dropped by ACL; verify CRM show and no nexthop objects are stale
-    set_mux_state(rand_selected_dut, tbinfo, 'standby', itfs, toggle_all_simulator_ports)
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)
      # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     # Verify packets are not go up again

@@ -11,10 +11,11 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossles
     lossy_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.ixia.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-@pytest.mark.topology("tgen")
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_pause_single_lossless_prio(ixia_api,
                                         ixia_testbed_config,
@@ -126,6 +127,7 @@ def test_pfc_pause_multi_lossless_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                                                ixia_testbed_config,
@@ -165,8 +167,10 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
-    testbed_config, port_config_list = ixia_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
+    skip_warm_reboot(duthost, reboot_type)
+
+    testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
 
     pause_prio_list = [lossless_prio]
@@ -194,6 +198,7 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
                                               ixia_testbed_config,
@@ -232,8 +237,10 @@ def test_pfc_pause_multi_lossless_prio_reboot(ixia_api,
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
 
-    testbed_config, port_config_list = ixia_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
+    skip_warm_reboot(duthost, reboot_type)
+
+    testbed_config, port_config_list = ixia_testbed_config
     pause_prio_list = lossless_prio_list
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list

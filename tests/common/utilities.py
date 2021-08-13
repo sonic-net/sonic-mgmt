@@ -5,12 +5,14 @@ import collections
 import inspect
 import ipaddress
 import logging
+import re
 import six
 import sys
 import threading
 import time
-import re
+from io import BytesIO
 
+import pytest
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
@@ -21,6 +23,28 @@ from tests.common.cache import FactsCache
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
+
+def skip_version(duthost, version_list):
+    """
+    @summary: Skip current test if any given version keywords are in os_version
+    @param duthost: The DUT
+    @param version_list: A list of incompatible versions
+    """
+    if any(version in duthost.os_version for version in version_list):
+        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
+
+def skip_release(duthost, release_list):
+    """
+    @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
+              skip_release is more robust than skip_version.
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    """
+    if any(release in duthost.os_version for release in release_list):
+        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
+
+    if any(release == duthost.sonic_release for release in release_list):
+        pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
 
 def wait(seconds, msg=""):
     """
@@ -417,3 +441,13 @@ def compare_crm_facts(left, right):
             unmatched.append({'left': {k: lv}, 'right': {k: rv}})
 
     return unmatched
+
+
+def dump_scapy_packet_show_output(packet):
+    """Dump packet show output to string."""
+    _stdout, sys.stdout = sys.stdout, BytesIO()
+    try:
+        packet.show()
+        return sys.stdout.getvalue()
+    finally:
+        sys.stdout = _stdout

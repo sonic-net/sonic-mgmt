@@ -30,7 +30,8 @@
 	    "default": "19456"
 	},
 	"shared-headroom-pool": {
-	    "size": "1024000"
+	    "size": "1024000",
+	    "private_pg_headroom": "10240"
 	}
     }
 }

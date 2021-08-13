@@ -19,18 +19,24 @@ pytestmark = [
     pytest.mark.usefixtures('disable_route_checker_module')
 ]
 
+# The dir will be deleted from host, so be sure not to use system dir
+TEST_DIR = "/tmp/acstests/"
+
 @pytest.fixture(scope="module")
 def common_setup_teardown(ptfhost):
     logger.info("########### Setup for lag testing ###########")
 
+    ptfhost.shell("mkdir -p {}".format(TEST_DIR))
     # Copy PTF test into PTF-docker for test LACP DU
     test_files = ['lag_test.py', 'acs_base_test.py', 'router_utils.py']
     for test_file in test_files:
         src = "../ansible/roles/test/files/acstests/%s" % test_file
-        dst = "/tmp/%s" % test_file
+        dst = TEST_DIR + test_file
         ptfhost.copy(src=src, dest=dst)
 
     yield ptfhost
+
+    ptfhost.file(path=TEST_DIR, state="absent")
 
 class LagTest:
     def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
@@ -80,7 +86,7 @@ class LagTest:
             'ether_type': 0x8809,
             'interval_count': 3
         }
-        ptf_runner(self.ptfhost, '/tmp', "lag_test.LacpTimingTest", '/root/ptftests', params=params)
+        ptf_runner(self.ptfhost, TEST_DIR, "lag_test.LacpTimingTest", '/root/ptftests', params=params)
 
     def __verify_lag_minlink(
         self,
@@ -237,6 +243,14 @@ class LagTest:
             # Bring up neighbor interface
             vm_host.no_shutdown(neighbor_intf)
             wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
+
+@pytest.fixture(autouse=True, scope='module')
+def skip_if_no_lags(duthosts):
+    def has_lags(dut):
+        lag_facts = dut.lag_facts(host = dut.hostname)['ansible_facts']['lag_facts']
+        return len(lag_facts['names']) > 0
+    some_dut_has_lags = any(has_lags(dut) for dut in duthosts)
+    pytest_require(some_dut_has_lags, 'No LAGs found in any DUT')
 
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",

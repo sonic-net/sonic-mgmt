@@ -105,7 +105,6 @@ def run_ecn_test(api,
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_config_list=port_config_list,
                           port_id=port_id,
-                          duthost=duthost,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           data_flow_name=DATA_FLOW_NAME,
                           prio=lossless_prio,
@@ -143,7 +142,6 @@ sec_to_nanosec = lambda x : x * 1e9
 def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
-                  duthost,
                   pause_flow_name,
                   data_flow_name,
                   prio,
@@ -160,7 +158,6 @@ def __gen_traffic(testbed_config,
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test
-        duthost (Ansible host instance): device under test
         pause_flow_name (str): name of the pause storm
         data_flow_name (str): name of the data flow
         prio (int): priority of the data flow and PFC pause storm
@@ -174,12 +171,10 @@ def __gen_traffic(testbed_config,
         Configurations of the data flow and the PFC pause storm (list)
 
     """
-
     result = list()
 
     rx_port_id = port_id
     tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
-                                                    duthost=duthost,
                                                     pattern="many to one",
                                                     rx_port_id=rx_port_id)
     pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")

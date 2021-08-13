@@ -13,6 +13,7 @@ import sys
 import os.path
 import json
 import ptf
+import time
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -39,6 +40,9 @@ class VNET(BaseTest):
         self.max_routes_wo_scaling = 1000
         self.vnet_batch = 8
         self.packets = []
+        self.vxlan_srcport_range_enabled = False
+        self.vxlan_srcport_lower_bound = 0
+        self.vxlan_srcport_upper_bound = 65535
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -188,6 +192,15 @@ class VNET(BaseTest):
         if 'routes_removed' in self.test_params and self.test_params['routes_removed']:
             self.routes_removed = True
 
+        if 'vxlan_srcport_range_enabled' in self.test_params and self.test_params['vxlan_srcport_range_enabled']:
+            self.vxlan_srcport_range_enabled = self.test_params['vxlan_srcport_range_enabled']
+
+        if 'lower_bound_port' in self.test_params and self.test_params['lower_bound_port']:
+            self.vxlan_srcport_lower_bound = self.test_params['lower_bound_port']
+
+        if 'upper_bound_port' in self.test_params and self.test_params['upper_bound_port']:
+            self.vxlan_srcport_upper_bound = self.test_params['upper_bound_port']
+
         config = self.test_params['config_file']
 
         if not os.path.isfile(config):
@@ -288,10 +301,22 @@ class VNET(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "start", "arp_responder"])
-
+        self.check_arp_responder_running()
         self.dataplane.flush()
 
         return
+
+    def check_arp_responder_running(self):
+        """
+        Check arp_responder is in RUNNING state, if not sleep 1 sec and check again
+        """
+        for i in range(5):
+            output = self.cmd(["supervisorctl", "status", "arp_responder"])
+            if 'RUNNING' in output[0]:
+                break
+            time.sleep(1)
+        else:
+            raise Exception("arp_responder state is not RUNNING! Output: %s" % output)
 
     def tearDown(self):
         if self.vxlan_enabled:
@@ -313,7 +338,7 @@ class VNET(BaseTest):
             self.FromVM(test)
             print "  FromVM  passed"
             self.Serv2Serv(test)
-            print
+            print "  Serv2Serv passed"
 
     def FromVM(self, test):
         rv = True
@@ -379,7 +404,7 @@ class VNET(BaseTest):
             log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
             logging.info(log_str)
 
-            log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
+            log_str = "Expecting packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
             if not self.routes_removed:
@@ -470,7 +495,11 @@ class VNET(BaseTest):
             logging.info(log_str)
 
             if not self.routes_removed:
-                verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+                status, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+                if self.vxlan_srcport_range_enabled:
+                    scapy_pkt  = Ether(received_pkt)
+                    assert (self.vxlan_srcport_lower_bound <= scapy_pkt.sport) and (self.vxlan_srcport_upper_bound >=  scapy_pkt.sport), ("Received packet has UDP src port {} "
+                        "that is not in expected range {} - {}".format(scapy_pkt.sport, self.vxlan_srcport_lower_bound, self.vxlan_srcport_upper_bound))
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 

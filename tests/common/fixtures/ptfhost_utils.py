@@ -2,10 +2,16 @@ import json
 import os
 import pytest
 import logging
+import yaml
+
+import requests
 
 from ipaddress import ip_interface
 from jinja2 import Template
 from natsort import natsorted
+
+from tests.common import constants
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +27,9 @@ SAI_TESTS = "saitests"
 ARP_RESPONDER_PY = "arp_responder.py"
 ICMP_RESPONDER_PY = "icmp_responder.py"
 ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
-CHANGE_MAC_ADDRESS_SCRIPT = "scripts/change_mac.sh"
-REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
+PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -67,6 +72,21 @@ def copy_ptftests_directory(ptfhost):
     ptfhost.file(path=os.path.join(ROOT_DIR, PTF_TESTS), state="absent")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def set_ptf_port_mapping_mode(ptfhost, request, tbinfo):
+    """Set per-module ptf port mapping mode used by ptftests on ptf."""
+    if "backend" in tbinfo["topo"]["name"]:
+        ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
+    else:
+        ptf_port_mapping_mode = "use_orig_interface"
+    logging.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
+    data = {
+        "PTF_PORT_MAPPING_MODE": ptf_port_mapping_mode
+    }
+    ptfhost.copy(content=yaml.dump(data), dest=os.path.join(ROOT_DIR, PTF_TESTS, "constants.yaml"))
+    return
+
+
 @pytest.fixture(scope="session", autouse=True)
 def copy_saitests_directory(ptfhost):
     """
@@ -99,7 +119,7 @@ def change_mac_addresses(ptfhost):
             None
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(CHANGE_MAC_ADDRESS_SCRIPT)
+    ptfhost.change_mac_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -113,12 +133,12 @@ def remove_ip_addresses(ptfhost):
             None
     """
     logger.info("Remove existing IPs on ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
     yield
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.script(REMOVE_IP_ADDRESS_SCRIPT)
+    ptfhost.remove_ip_addresses()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -174,6 +194,11 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder(duthost, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
+    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    if 't0' not in tbinfo['topo']['type']:
+        logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
@@ -200,43 +225,97 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, mock_server_base_ip_addr, tor_mux_intfs):
-    garp_config = {}
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    if tbinfo['topo']['type'] == 't0':
+        garp_config = {}
 
-    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    if 't0' in tbinfo['topo']['name']:
-        # For mocked dualtor testbed
-        mux_cable_table = {}
-        server_ipv4_base_addr, _ = mock_server_base_ip_addr
-        for i, intf in enumerate(tor_mux_intfs):
-            server_ipv4 = str(server_ipv4_base_addr + i)
-            mux_cable_table[intf] = {}
-            mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+        if 'dualtor' not in tbinfo['topo']['name']:
+            # For mocked dualtor testbed
+            mux_cable_table = {}
+            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
+                server_ipv4 = str(server_ipv4_base_addr + i)
+                mux_cable_table[intf] = {}
+                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+        else:
+            # For physical dualtor testbed
+            mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
+
+        logger.info("Generating GARP service config file")
+
+        for vlan_intf, config in mux_cable_table.items():
+            ptf_port_index = ptf_indices[vlan_intf]
+            server_ip = ip_interface(config['server_ipv4']).ip
+
+            garp_config[ptf_port_index] = {
+                                            'target_ip': '{}'.format(server_ip)
+                                        }
+
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
+
+        with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
+            template = Template(f.read())
+
+        ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
+        ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+        logger.info("Starting GARP Service on PTF host")
+        ptfhost.shell('supervisorctl update')
+        ptfhost.shell('supervisorctl start garp_service')
     else:
-        # For physical dualtor testbed
-        mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
-
-    logger.info("Generating GARP service config file")
-
-    for vlan_intf, config in mux_cable_table.items():
-        ptf_port_index = ptf_indices[vlan_intf]
-        server_ip = ip_interface(config['server_ipv4']).ip
-
-        garp_config[ptf_port_index] = {
-                                        'target_ip': '{}'.format(server_ip)
-                                      }
-
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
-
-    with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
-        template = Template(f.read())
-
-    ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
-    ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
-    logger.info("Starting GARP Service on PTF host")
-    ptfhost.shell('supervisorctl update')
-    ptfhost.shell('supervisorctl start garp_service')
+        logger.info("Not running on a T0 testbed, not starting GARP service")
 
     yield
 
-    ptfhost.shell('supervisorctl stop garp_service')
+    if tbinfo['topo']['type'] == 't0':
+        logger.info("Stopping GARP service on PTF host")
+        ptfhost.shell('supervisorctl stop garp_service')
+
+
+def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
+    active_dut_map = {}
+    if 'dualtor' in tbinfo['topo']['name']:
+        res = requests.get(mux_server_url)
+        pt_assert(res.status_code==200, 'Failed to get mux status: {}'.format(res.text))
+        for mux_status in res.json().values():
+            active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
+            active_dut_map[str(mux_status['port_index'])] = active_dut_index
+
+    disabled_ptf_ports = set()
+    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
+        # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
+        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
+
+    router_macs = [duthost.facts['router_mac'] for duthost in duthosts]
+
+    logger.info('active_dut_map={}'.format(active_dut_map))
+    logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
+    logger.info('router_macs={}'.format(router_macs))
+
+    ports_map = {}
+    for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
+        if str(ptf_port) in disabled_ptf_ports:
+            # Skip PTF ports that are connected to disabled VLAN interfaces
+            continue
+
+        if len(dut_intf_map.keys()) == 2:
+            # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
+            # Packet sent from this ptf port will only be accepted by the active side DUT
+            # DualToR DUTs use same special Vlan interface MAC address
+            target_dut_index = int(active_dut_map[ptf_port])
+            ports_map[ptf_port] = {
+                'target_dut': target_dut_index,
+                'target_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac']
+            }
+        else:
+            # PTF port is mapped to single DUT
+            target_dut_index = int(dut_intf_map.keys()[0])
+            ports_map[ptf_port] = {
+                'target_dut': target_dut_index,
+                'target_mac': router_macs[target_dut_index]
+            }
+
+    logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))
+
+    ptfhost.copy(content=json.dumps(ports_map), dest=PTF_TEST_PORT_MAP)
+    return PTF_TEST_PORT_MAP

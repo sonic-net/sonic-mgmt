@@ -71,13 +71,21 @@ def create_maps(config):
         port_name_list = config["PORT"].keys()
         port_name_list_sorted = natsorted(port_name_list)
 
-        for idx, val in enumerate(port_name_list_sorted):
-            port_index_map[val] = idx
+        #get the port_index from config_db if available
+        port_index_map = {
+            name: int(v['index']) - 1
+            for name, v in config['PORT'].items()
+            if 'index' in v
+        }
+        if not port_index_map:
+            #if not available generate an index
+            for idx, val in enumerate(port_name_list_sorted):
+                port_index_map[val] = idx
 
-        port_name_to_alias_map = { name : v['alias'] if 'alias' in v else '' for name, v in config["PORT"].iteritems()}
+        port_name_to_alias_map = { name : v['alias'] if 'alias' in v else '' for name, v in config["PORT"].items()}
 
         # Create inverse mapping between port name and alias
-        port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.iteritems()}
+        port_alias_to_name_map = {v: k for k, v in port_name_to_alias_map.items()}
 
     return {
     'port_name_to_alias_map' : port_name_to_alias_map,
@@ -136,7 +144,7 @@ def main():
                     cfg_file_path = PERSISTENT_CONFIG_PATH.format("")
             with open(cfg_file_path, "r") as f:
                 config = json.load(f)
-        elif m_args["source"] == "running":    
+        elif m_args["source"] == "running":
             config = get_running_config(module, namespace)
         results = get_facts(config)
         module.exit_json(ansible_facts=results)

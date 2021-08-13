@@ -34,9 +34,18 @@ function show_help_and_exit()
 
 function get_dut_from_testbed_file() {
     if [[ -z ${DUT_NAME} ]]; then
-        LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
-        IFS=',' read -ra ARRAY <<< "$LINE"
-        DUT_NAME=${ARRAY[9]}
+        if [[ $TESTBED_FILE == *.csv ]];
+        then
+            LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+            IFS=',' read -ra ARRAY <<< "$LINE"
+            DUT_NAME=${ARRAY[9]}
+        elif [[ $TESTBED_FILE == *.yaml ]];
+        then
+            content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            IFS=$'+' read -r -a tb_lines <<< $content
+            tb_line=${tb_lines[0]}
+            DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+        fi
     fi
 }
 
@@ -148,7 +157,11 @@ function setup_test_options()
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        if [[ $skip == *"::"* ]]; then
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
+        else
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        fi
     done
 
     if [[ -d ${LOG_PATH} ]]; then
@@ -359,7 +372,14 @@ fi
 setup_test_options
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
-    prepare_dut
+    RESULT=0
+    prepare_dut || RESULT=$?
+    if [[ ${RESULT} != 0 ]]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        exit ${RESULT}
+    fi
 fi
 
 RC=0

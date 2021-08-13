@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 
@@ -10,7 +11,11 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 REDIS_NEIGH_ENTRY_MAC_ATTR ="SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS"
+ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
+DEFAULT_ROUTE_NUM = 2
+
 class TestNeighborMacNoPtf:
     """
         Test handling of neighbor MAC in SONiC switch
@@ -23,12 +28,39 @@ class TestNeighborMacNoPtf:
     TEST_INTF = {
         4: {"intfIp": "29.0.0.1/24", "NeighborIp": "29.0.0.2"},
         6: {"intfIp": "fe00::1/64", "NeighborIp": "fe00::2"},
-    }
+    }	
 
+    def count_routes(self, asichost, prefix):
+        # Counts routes in ASIC_DB with a given prefix
+        num = asichost.shell(
+                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(asichost.sonic_db_cli, ROUTE_TABLE_NAME, prefix),
+                module_ignore_errors=True, verbose=True)['stdout']
+        return int(num)
+
+    def _get_bgp_routes_asic(self, asichost):
+        # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
+        localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
+        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
+        # these routes are present only on multi asic device, on single asic platform they will be zero
+        internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
+        allroutes = self.count_routes(asichost, "")
+        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}".format(asichost.asic_index, localv4, localv6, internal, allroutes))
+        bgp_routes_asic = allroutes - localv6 - localv4 - internal - DEFAULT_ROUTE_NUM
+
+        return bgp_routes_asic
+
+    def _check_no_bgp_routes(self, duthost):
+        bgp_routes = 0
+        # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on testbed
+        for asic in duthost.asics:
+            bgp_routes += self._get_bgp_routes_asic(asic)
+        
+        return bgp_routes == 0
+            
     @pytest.fixture(scope="module", autouse=True)
-    def restoreDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-            Restores DUT configuration after test completes
+            Disabled BGP to reduce load on switch and restores DUT configuration after test completes
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -37,6 +69,11 @@ class TestNeighborMacNoPtf:
                 None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if not duthost.get_facts().get("modular_chassis"):
+            duthost.command("sudo config bgp shutdown all")
+            if not wait_until(120, 2.0, self._check_no_bgp_routes, duthost):
+                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded 120 seconds.')
+
         yield
 
         logger.info("Reload Config DB")

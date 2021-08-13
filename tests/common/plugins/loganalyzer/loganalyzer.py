@@ -25,7 +25,7 @@ class LogAnalyzerError(Exception):
 
 
 class LogAnalyzer:
-    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None):
+    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}):
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
@@ -40,6 +40,9 @@ class LogAnalyzer:
         self.expected_matches_target = 0
         self._markers = []
         self.fail = True
+
+        self.additional_files = list(additional_files.keys())
+        self.additional_start_str = list(additional_files.values())
 
     def _add_end_marker(self, marker):
         """
@@ -139,7 +142,7 @@ class LogAnalyzer:
 
     def init(self):
         """
-        @summary: Add start marker into syslog on the DUT.
+        @summary: Add start marker into log files on the DUT.
 
         @return: True for successfull execution False otherwise
         """
@@ -147,14 +150,21 @@ class LogAnalyzer:
 
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
-        return self._setup_marker()
+        log_files = []
+        for idx, path in enumerate(self.additional_files):
+            if not self.additional_start_str or self.additional_start_str[idx] == '':
+                log_files.append(path)
 
-    def _setup_marker(self):
+        return self._setup_marker(log_files=log_files)
+
+    def _setup_marker(self, log_files=None):
         """
-        Adds the marker to the syslog
+        Adds the marker to the log files
         """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
 
         logging.debug("Adding start marker '{}'".format(start_marker))
         self.ansible_host.command(cmd)
@@ -176,7 +186,8 @@ class LogAnalyzer:
                             "expect_messages": {},
                             "unused_expected_regexp": []
                             }
-        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        timestamp = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+        tmp_folder = ".".join((SYSLOG_TMP_FOLDER, self.ansible_host.hostname, timestamp))
         marker = marker.replace(' ', '_')
         self.ansible_loganalyzer.run_id = marker
 
@@ -209,22 +220,39 @@ class LogAnalyzer:
 
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
             self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)
+            for idx, path in enumerate(self.additional_files):
+                file_dir, file_name = split(path)
+                extracted_file_name = os.path.join(self.dut_run_dir, file_name)
+                if self.additional_start_str and self.additional_start_str[idx] != '':
+                    start_str = self.additional_start_str[idx]
+                else:
+                    start_str = start_string
+                self.ansible_host.extract_log(directory=file_dir, file_prefix=file_name, start_string=start_str, target_filename=extracted_file_name)
         finally:
             # Enable logrotate cron task back
             self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
         self.save_extracted_log(dest=tmp_folder)
+        file_list = [tmp_folder]
+
+        for path in self.additional_files:
+            file_dir, file_name = split(path)
+            extracted_file_name = os.path.join(self.dut_run_dir, file_name)
+            tmp_folder = ".".join((extracted_file_name, timestamp))
+            self.save_extracted_file(dest=tmp_folder, src=extracted_file_name)
+            file_list.append(tmp_folder)
 
         match_messages_regex = re.compile('|'.join(self.match_regex)) if len(self.match_regex) else None
         ignore_messages_regex = re.compile('|'.join(self.ignore_regex)) if len(self.ignore_regex) else None
         expect_messages_regex = re.compile('|'.join(self.expect_regex)) if len(self.expect_regex) else None
 
-        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list([tmp_folder], match_messages_regex, ignore_messages_regex, expect_messages_regex)
-        # Print syslog file content and remove the file
-        with open(tmp_folder) as fo:
-            logging.debug("Syslog content:\n\n{}".format(fo.read()))
-        os.remove(tmp_folder)
+        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
+        # Print file content and remove the file
+        for folder in file_list:
+            with open(folder) as fo:
+                logging.debug("{} file content:\n\n{}".format(folder, fo.read()))
+            os.remove(folder)
 
         total_match_cnt = 0
         total_expect_cnt = 0
@@ -262,3 +290,13 @@ class LogAnalyzer:
         @param dest: File path to store downloaded log file.
         """
         self.ansible_host.fetch(dest=dest, src=self.extracted_syslog, flat="yes")
+
+    def save_extracted_file(self, dest, src):
+        """
+        @summary: Download extracted file to the ansible host.
+
+        @param dest: File path to store downloaded file.
+
+        @param src: Source path to store downloaded file.
+        """
+        self.ansible_host.fetch(dest=dest, src=src, flat="yes")

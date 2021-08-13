@@ -4,7 +4,10 @@ Description:    This file contains the FIB test for SONIC
                 Design is available in https://github.com/Azure/SONiC/wiki/FIB-Scale-Test-Plan
 
 Usage:          Examples of how to use log analyzer
-                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;ipv6=True' --relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log --socket-recv-size 16384
+                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote \
+                    -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;\
+                    ipv6=True' --relax --debug info --socket-recv-size 16384 \
+                    --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log
 '''
 
 #---------------------------------------------------------------------
@@ -97,11 +100,12 @@ class FibTest(BaseTest):
          - ipv4/ipv6: enable ipv4/ipv6 tests
 
         Other test parameters:
-         - ttl:             ttl of test pkts. Auto decrease 1 for expected pkts.
-         - ip_options       enable ip option header in ipv4 pkts. Default: False(disable)
-         - src_vid          vlan tag id of src pkts. Default: None(untag)
-         - dst_vid          vlan tag id of dst pkts. Default: None(untag)
-         - ignore_ttl:      mask the ttl field in the expected packet
+         - ttl:                   ttl of test pkts. Auto decrease 1 for expected pkts.
+         - ip_options             enable ip option header in ipv4 pkts. Default: False(disable)
+         - src_vid                vlan tag id of src pkts. Default: None(untag)
+         - dst_vid                vlan tag id of dst pkts. Default: None(untag)
+         - ignore_ttl:            mask the ttl field in the expected packet
+         - single_fib_for_duts:   have a single fib file for all DUTs in multi-dut case. Default: False
         '''
         self.dataplane = ptf.dataplane_instance
 
@@ -132,8 +136,9 @@ class FibTest(BaseTest):
         self.src_ports = self.test_params.get('src_ports', None)
         if not self.src_ports:
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
-        
+
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, fib in enumerate(self.fibs):
@@ -157,11 +162,15 @@ class FibTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            if self.single_fib:
+                active_dut_index = 0
+            else:
+                active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
                 continue
+            logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(src_port, exp_port_list, active_dut_index))
             break
         return src_port, exp_port_list, next_hop
 
@@ -237,7 +246,6 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, src_port)
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -253,7 +261,6 @@ class FibTest(BaseTest):
                             vlan_vid=self.src_vid or 0)
         exp_pkt = simple_tcp_packet(
                             self.pktlen,
-                            eth_src=exp_router_mac,
                             ip_src=ip_src,
                             ip_dst=ip_dst,
                             tcp_sport=sport,
@@ -264,6 +271,7 @@ class FibTest(BaseTest):
                             vlan_vid=self.dst_vid or 0)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
@@ -281,7 +289,7 @@ class FibTest(BaseTest):
                     dport,
                     src_port))
         logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
@@ -289,7 +297,14 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
+            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            actual_src_mac = Ether(rcvd_pkt).src
+            if exp_src_mac != actual_src_mac:
+                raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                                "but the src mac doesn't match, expected {}, got {}".
+                                format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+            return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
     #---------------------------------------------------------------------
@@ -309,7 +324,6 @@ class FibTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, src_port)
 
         router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
-        exp_router_mac = self.router_macs[self.ptf_test_port_map[str(src_port)]['target_dut']]
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
@@ -324,7 +338,6 @@ class FibTest(BaseTest):
                                 vlan_vid=self.src_vid or 0)
         exp_pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
-                                eth_src=exp_router_mac,
                                 ipv6_dst=ip_dst,
                                 ipv6_src=ip_src,
                                 tcp_sport=sport,
@@ -334,6 +347,7 @@ class FibTest(BaseTest):
                                 vlan_vid=self.dst_vid or 0)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
 
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
@@ -342,15 +356,16 @@ class FibTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IPv6'].src,
                     pkt['IPv6'].dst,
                     sport,
-                    dport))
+                    dport,
+                    src_port))
         logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
-            .format(exp_router_mac,
+            .format('any',
                     'any',
                     ip_src,
                     ip_dst,
@@ -358,7 +373,14 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            return verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            actual_src_mac = Ether(rcvd_pkt).src
+            if actual_src_mac != exp_src_mac:
+                raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
+                                "but the src mac doesn't match, expected {}, got {}".
+                                format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+            return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
             return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
 

@@ -70,11 +70,12 @@ def update_monit_service(duthost):
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
     duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
-    temp_config_line = "    if status != 0 for 2 times within 2 cycles then alert repeat every 1 cycles"
+    temp_config_line = "    if status != 0 for 1 times within 1 cycles then alert repeat every 1 cycles"
     logger.info("Reduce the monitoring interval of container_checker.")
     duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
     duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
-    duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    duthost.shell("sudo sed -i 's/with start delay 300/with start delay 10/' /etc/monit/monitrc")
+    duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
     logger.info("Restart the Monit service without delaying to monitor.")
     duthost.shell("sudo systemctl restart monit")
     yield

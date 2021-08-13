@@ -14,6 +14,8 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.dualtor.mux_simulator_control import mux_server_url     # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 from tests.common.dualtor.dual_tor_utils import map_hostname_to_tor_side
+from tests.common.helpers.assertions import pytest_require
+
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -54,6 +56,13 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port):
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_dualtor(tbinfo):
+    """Skip running `test_bgp_speaker` over dualtor."""
+    pytest_require("dualtor" not in tbinfo["topo"]["name"], "Skip 'test_bgp_speaker over dualtor.'")
+
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, toggle_all_simulator_ports):

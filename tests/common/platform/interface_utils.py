@@ -3,7 +3,6 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
-import json
 import logging
 from transceiver_utils import all_transceivers_detected
 
@@ -68,7 +67,7 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
             return False
 
         # Cross check the interface SFP presence status
-        if intf not in xcvr_skip_list:
+        if intf not in xcvr_skip_list[dut.hostname]:
             check_presence_output = dut.command(check_intf_presence_command.format(intf))
             presence_list = check_presence_output["stdout_lines"][2].split()
             assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)
@@ -115,18 +114,10 @@ def get_port_map(dut, asic_index=None):
     @return: a dictionary containing the port map
     """
     logging.info("Retrieving port mapping from DUT")
-    # copy the helper to DUT
-    src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'files/getportmap.py')
-    dest_path = os.path.join('/usr/share/sonic/device', dut.facts['platform'], 'plugins/getportmap.py')
-    dut.copy(src=src_path, dest=dest_path)
-
-    # execute command on the DUT to get portmap
-    get_portmap_cmd = "docker exec pmon python /usr/share/sonic/platform/plugins/getportmap.py -asicid {}".format(asic_index)
-    portmap_json_string = dut.command(get_portmap_cmd)["stdout"]
-
-    # parse the json
-    port_mapping = json.loads(portmap_json_string)
-    assert port_mapping, "Retrieve port mapping from DUT failed"
+    namespace = dut.get_namespace_from_asic_id(asic_index)
+    config_facts = dut.config_facts(host=dut.hostname, source="running",namespace=namespace)['ansible_facts']
+    port_mapping = config_facts['port_index_map']
+    for k,v in port_mapping.items():
+        port_mapping[k] = [v]
 
     return port_mapping
-

@@ -1,5 +1,6 @@
 !
 no errdisable detect cause link-flap
+no errdisable detect cause link-change
 !
 no schedule tech-support
 !
@@ -87,7 +88,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }} 
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
  no shutdown
 !
 # LACP packets pass through

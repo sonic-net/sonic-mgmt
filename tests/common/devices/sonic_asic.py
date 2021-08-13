@@ -15,7 +15,6 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
@@ -48,12 +47,12 @@ class SonicAsic(object):
            for the namespace(asic)
 
            If the dut is multi asic, then the asic_id is appended t0 the
-            _DEFAULT_ASIC_SERVICES list
+            self.sonichost.DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
         """
         a_service = []
-        for service in self._DEFAULT_ASIC_SERVICES:
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
            a_service.append("{}{}".format(
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
@@ -158,6 +157,10 @@ class SonicAsic(object):
     def os_version(self):
         return self.sonichost.os_version
 
+    @property
+    def sonic_release(self):
+        return self.sonichost.sonic_release
+
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
 
@@ -172,26 +175,41 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.interface_facts(*module_args, **complex_args)
 
+    def get_service_name(self, service):
+        if (not self.sonichost.is_multi_asic or
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
+        ):
+            return service
+
+        return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
+
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self._DEFAULT_ASIC_SERVICES
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
         ):
             return service
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
 
+    def start_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.start_service(service_name, docker_name)
+
     def stop_service(self, service):
-        if not self.sonichost.is_multi_asic:
-            service_name = service
-            docker_name = service
-        else:
-            service_name = self._MULTI_ASIC_SERVICE_NAME.format(
-                service, self.asic_index
-            )
-            docker_name = self._MULTI_ASIC_DOCKER_NAME.format(
-                service, self.asic_index
-            )
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
         return self.sonichost.stop_service(service_name, docker_name)
+
+    def restart_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.restart_service(service_name, docker_name)
+
+    def reset_service(self, service):
+        service_name = self.get_service_name(service)
+        docker_name = self.get_docker_name(service)
+        return self.sonichost.reset_service(service_name, docker_name)
 
     def delete_container(self, service):
         if self.sonichost.is_multi_asic:
@@ -259,7 +277,7 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self._ns_arg)
+        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -388,7 +406,8 @@ class SonicAsic(object):
             return port in self.ports
 
         if_db = self.show_interface(
-            command="status"
+            command="status",
+            include_internal_intfs=True
         )["ansible_facts"]["int_status"]
 
         self.ports = set(if_db.keys())
@@ -441,6 +460,12 @@ class SonicAsic(object):
                                   intf=interface_name,
                                   ip=ip_address))
 
+    def config_portchannel(self, pc_name, op):
+        return self.sonichost.shell("sudo config portchannel {ns} {op} {pc}"
+                          .format(ns=self.cli_ns_option,
+                                  op=op,
+                                  pc=pc_name))
+
     def config_portchannel_member(self, pc_name, interface_name, op):
         return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
                           .format(ns=self.cli_ns_option,
@@ -454,3 +479,67 @@ class SonicAsic(object):
 
     def shell(self, *module_args, **complex_args):
         return self.sonichost.shell(*module_args, **complex_args)
+
+    def port_on_asic(self, portname):
+        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
+        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if ports is not None and portname in ports:
+            return True
+        return False
+
+    def portchannel_on_asic(self, portchannel):
+        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        if pcs is not None and portchannel in pcs:
+            return True
+        return False
+
+    def get_portchannel_and_members_in_ns(self, tbinfo):
+        """
+        Get a portchannel and it's members in this namespace.
+
+        Args: tbinfo - testbed info
+
+        Returns: a tuple with (portchannel_name, port_channel_members)
+
+        """
+        pc = None
+        pc_members = None
+
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+
+        if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+            return None, None
+
+        if self.namespace is DEFAULT_NAMESPACE:
+            pc = mg_facts['minigraph_portchannels'].keys()[0]
+            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+        else:
+            for k, v in mg_facts['minigraph_portchannels'].iteritems():
+                if v.has_key('namespace') and self.namespace == v['namespace']:
+                    pc = k
+                    pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                    break
+
+        return pc, pc_members
+
+    def get_bgp_statistic(self, stat):
+        """
+        Get the named bgp statistic
+
+        Args: stat - name of statistic
+
+        Returns: statistic value or None if not found
+
+        """
+        ret = None
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        if stat in bgp_facts['bgp_statistics']:
+            ret = bgp_facts['bgp_statistics'][stat]
+        return ret
+
+    def check_bgp_statistic(self, stat, value):
+        val = self.get_bgp_statistic(stat)
+        return val == value

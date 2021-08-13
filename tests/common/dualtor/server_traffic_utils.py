@@ -49,33 +49,48 @@ class ServerTrafficMonitor(object):
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
-    def __init__(self, duthost, vmhost, dut_iface, conn_graph_facts, exp_pkt, existing=True):
+    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface, conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
         """
         @summary: Initialize the monitor.
 
         @duthost: duthost object.
+        @ptfhost: ptfhost object that represent the ptf docker.
         @vmhost: vmhost object that represent the vm host server.
+        @tbinfo: testbed info.
         @dut_iface: the interface on duthost selected to be monitored.
         @conn_graph_facts: connection graph data.
         @exp_pkt: the expected packet to be matched with packets monitored,
                   should be a `ptf.mask.Mask` object.
         @existing: True to expect to find a match for `exp_pkt` while False to
                    expect to not find a match for `exp_pkt`.
+        @is_mocked: True that it is a mocked dualtor testbed.
         """
         self.duthost = duthost
         self.dut_iface = dut_iface
         self.exp_pkt = exp_pkt
+        self.ptfhost = ptfhost
         self.vmhost = vmhost
+        self.tbinfo = tbinfo
         self.conn_graph_facts = conn_graph_facts
         self.captured_packets = []
         self.matched_packets = []
-        self.vmhost_iface = self._find_vmhost_vlan_interface()
-        self.dump_utility = dump_intf_packets(
-            vmhost,
-            self.vmhost_iface,
-            tempfile.NamedTemporaryFile().name,
-            self.captured_packets
-        )
+        if is_mocked:
+            mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
+            ptf_iface = "eth%s" % mg_facts['minigraph_ptf_indices'][self.dut_iface]
+            self.dump_utility = dump_intf_packets(
+                ptfhost,
+                ptf_iface,
+                tempfile.NamedTemporaryFile().name,
+                self.captured_packets
+            )
+        else:
+            vmhost_iface = self._find_vmhost_vlan_interface()
+            self.dump_utility = dump_intf_packets(
+                vmhost,
+                vmhost_iface,
+                tempfile.NamedTemporaryFile().name,
+                self.captured_packets
+            )
         self.existing = existing
 
     @staticmethod

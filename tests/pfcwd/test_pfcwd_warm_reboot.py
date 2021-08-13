@@ -6,8 +6,9 @@ import random
 import time
 import traceback
 
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
@@ -36,6 +37,23 @@ pytestmark = [pytest.mark.disable_loganalyzer,
              ]
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_wb_tests(duthosts, rand_one_dut_hostname):
+    """
+    Skip Pfcwd warm reboot tests on certain asics
+
+    Args:
+        duthosts (pytest fixture): list of Duts
+        rand_one_dut_hostname (str): hostname of DUT
+
+    Returns:
+        None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    SKIP_LIST = ["td2"]
+    asic_type = duthost.get_asic_name()
+    pytest_require(not (is_broadcom_device(duthost) and asic_type in SKIP_LIST), "Warm reboot is not supported on {}".format(asic_type))
 
 @pytest.fixture(autouse=True)
 def setup_pfcwd(duthosts, rand_one_dut_hostname):
@@ -107,7 +125,8 @@ class SetupPfcwdFunc(object):
         """
         self.pfc_wd = dict()
         self.pfc_wd['queue_indices'] = [4]
-        if (self.seed % 2) != 0:
+        if self.two_queues and (self.seed % 2) != 0:
+            # Will send traffic for (queues 4 and 3) per each port
             self.pfc_wd['queue_indices'].append(3)
         self.pfc_wd['test_pkt_count'] = 100
         self.pfc_wd['frames_number'] = 10000000000000
@@ -149,7 +168,8 @@ class SetupPfcwdFunc(object):
         """
         self.pfc_wd['storm_start_defer'] = random.randrange(120)
         self.pfc_wd['storm_stop_defer'] = random.randrange(self.pfc_wd['storm_start_defer'] + 5, 125)
-        self.max_wait = max(self.max_wait, self.pfc_wd['storm_stop_defer'])
+        # Added 10 sec to max_wait as sometimes it's not enough and test fail due to runtime error
+        self.max_wait = max(self.max_wait, self.pfc_wd['storm_stop_defer']) + 10
 
     def storm_setup(self, port, queue, storm_defer=False):
         """
@@ -431,7 +451,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, fanout_graph_facts, ptfhost,
-                        duthost, localhost, fanouthosts):
+                        duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
 
@@ -456,6 +476,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.seed = int(datetime.datetime.today().day)
+        self.two_queues = two_queues
         self.storm_handle = dict()
         bitmask = 0
         storm_deferred = 0
@@ -520,7 +541,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, localhost, fanouthosts):
+    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts,
+                      rand_one_dut_hostname, localhost, fanouthosts, two_queues):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -546,4 +568,4 @@ class TestPfcwdWb(SetupPfcwdFunc):
         duthost = duthosts[rand_one_dut_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
-                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts)
+                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)

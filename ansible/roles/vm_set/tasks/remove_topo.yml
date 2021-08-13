@@ -7,6 +7,11 @@
     container_type: "API-SERVER"
   when: ptf_imagename is defined and ptf_imagename == "docker-keysight-api-server"
 
+- name: set "IxANVL-CONF-TESTER" container type if Keysight IxANVL is used
+  set_fact:
+    container_type: "IxANVL-CONF-TESTER"
+  when: ptf_imagename is defined and ptf_imagename == "docker-ptf-anvl"
+
 - block:
 
   - name: Stop mux simulator
@@ -28,6 +33,7 @@
       topo: "{{ topology }}"
       vm_names: "{{ VM_hosts }}"
       vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
@@ -75,3 +81,36 @@
   when:
     - container_type == "API-SERVER"
 
+- block:
+  - name: Get dut ports
+    include_tasks: get_dut_port.yml
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - name: Unbind topology {{ topo }} for Keysight IxANVL.
+    vm_topology:
+      cmd: "unbind"
+      vm_names: ""
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+    become: yes
+
+  - name: Remove duts ports
+    include_tasks: remove_dut_port.yml
+    when: external_port is defined
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - name: Remove Keysight IxANVL container
+    docker_container:
+      name: ptf_anvl
+      state: absent
+    become: yes
+
+  when: container_type == "IxANVL-CONF-TESTER"

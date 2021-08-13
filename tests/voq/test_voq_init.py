@@ -3,155 +3,103 @@ import json
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
-from tests.common.helpers.redis import AsicDbCli, RedisKeyNotFound
-from voq_helpers import check_local_neighbor, check_voq_remote_neighbor, get_sonic_mac
-from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info, get_port_by_ip
+
+from tests.common.helpers.redis import AsicDbCli, VoqDbCli
+from voq_helpers import check_voq_remote_neighbor, get_sonic_mac
+from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
 from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup, find_system_port
-from tests.common.helpers.dut_utils import get_host_visible_vars
-from tests.common.utilities import get_inventory_files
-from tests.voq.voq_helpers import get_eos_mac, get_vm_with_ip
+from voq_helpers import dump_and_verify_neighbors_on_asic
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-logger = logging.getLogger(__name__)
+
+class TestVoqSwitch(object):
+    SWITCH_ID_LIST = []
+
+    def test_voq_switch_create(self, duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):
+        """Compare the config facts with the asic db for switch:
+        * Verify ASIC_DB get all system ports referenced in configDB created on all hosts and ASICs.
+        * Verify object creation and values of port attributes.
+        """
+        per_host = duthosts[enum_frontend_dut_hostname]
+        asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+        cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+
+        dev_facts = cfg_facts['DEVICE_METADATA']['localhost']
+        asicdb = AsicDbCli(asic)
+
+        switchkey = asicdb.get_switch_key()
+        logger.info("Checking switch %s", switchkey)
+        check_list = {
+            "max_cores": "SAI_SWITCH_ATTR_MAX_SYSTEM_CORES",
+            "switch_id": "SAI_SWITCH_ATTR_SWITCH_ID"}
+        for k in check_list:
+            asicdb.get_and_check_key_value(switchkey, dev_facts[k], field=check_list[k])
+
+        pytest_assert(dev_facts["switch_id"] not in TestVoqSwitch.SWITCH_ID_LIST,
+                      "Switch ID: %s has been used more than once" % dev_facts["switch_id"])
+        TestVoqSwitch.SWITCH_ID_LIST.append(dev_facts["switch_id"])
+
+        asicdb.get_and_check_key_value(switchkey, "SAI_SWITCH_TYPE_VOQ", field="SAI_SWITCH_ATTR_TYPE")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def chassis_facts(duthosts, request):
-    """
-    Fixture to add some items to host facts from inventory file.
-    """
-    for a_host in duthosts.nodes:
-
-        if len(duthosts.supervisor_nodes) > 0:
-            inv_files = get_inventory_files(request)
-            host_vars = get_host_visible_vars(inv_files, a_host.hostname)
-            pytest_assert('slot_num' in host_vars, 
-                          "Variable 'slot_num' not found in inventory for host {}".format (a_host.hostname))
-            slot_num = host_vars['slot_num'] 
-            a_host.facts['slot_num'] = int(slot_num)
-
-
-
-@reset_ansible_local_tmp
-def _get_nbr_macs(nbrhosts, node=None, results=None):
-    vm = nbrhosts[node]
-    node_results = {}
-
-    for intf in vm['conf']['interfaces'].keys():
-        logger.info("Get MAC on vm %s for intf: %s", node, intf)
-        mac = get_eos_mac(vm, intf)
-        logger.info("Found MAC on vm %s for intf: %s, mac: %s", node, intf, mac['mac'])
-        node_results[intf] = mac['mac']
-
-    results[node] = node_results
-
-
-@pytest.fixture(scope="module")
-def nbr_macs(nbrhosts):
-    """
-    Fixture to get all the neighbor mac addresses in parallel.
-
-    Args:
-        nbrhosts:
-
-    Returns:
-        Dictionary of MAC addresses of neighbor VMS, dict[vm_name][interface_name] = "mac address"
-
-    """
-    results = {}
-    logger.debug("Get MACS for all neighbor hosts.")
-    parallel_run(_get_nbr_macs, [nbrhosts], results, nbrhosts.keys(), timeout=120)
-
-    for res in results['results']:
-        logger.info("parallel_results %s = %s", res, results['results'][res])
-
-    return results['results']
-
-
-def test_voq_switch_create(duthosts):
-    """Compare the config facts with the asic db for switch:
-    * Verify ASIC_DB get all system ports referenced in configDB created on all hosts and ASICs.
-    * Verify object creation and values of port attributes.
-    """
-
-    switch_id_list = []
-    for per_host in duthosts.frontend_nodes:
-
-        for asic in per_host.asics:
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_facts = cfg_facts['DEVICE_METADATA']['localhost']
-            asicdb = AsicDbCli(asic)
-
-            switchkey = asicdb.get_switch_key()
-            logger.info("Checking switch %s", switchkey)
-            check_list = {
-                "max_cores": "SAI_SWITCH_ATTR_MAX_SYSTEM_CORES",
-                "switch_id": "SAI_SWITCH_ATTR_SWITCH_ID"}
-            for k in check_list:
-                asicdb.get_and_check_key_value(switchkey, dev_facts[k], field=check_list[k])
-
-            pytest_assert(dev_facts["switch_id"] not in switch_id_list,
-                          "Switch ID: %s has been used more than once" % dev_facts["switch_id"])
-            switch_id_list.append(dev_facts["switch_id"])
-
-            asicdb.get_and_check_key_value(switchkey, "SAI_SWITCH_TYPE_VOQ", field="SAI_SWITCH_ATTR_TYPE")
-
-
-def test_voq_system_port_create(duthosts):
+def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):
     """Compare the config facts with the asic db for system ports
 
     * Verify ASIC_DB get all system ports referenced in configDB created on all hosts and ASICs.
     * Verify object creation and values of port attributes.
 
     """
+    per_host = duthosts[enum_frontend_dut_hostname]
+    asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-    for per_host in duthosts.frontend_nodes:
+    logger.info("Checking system ports on host: %s, asic: %s", per_host.hostname, asic.asic_index)
 
-        for asic in per_host.asics:
-            logger.info("Checking system ports on host: %s, asic: %s", per_host.hostname, asic.asic_index)
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_ports = get_device_system_ports(cfg_facts)
-            asicdb = AsicDbCli(asic)
-            keylist = asicdb.get_system_port_key_list()
-            pytest_assert(len(keylist) == len(dev_ports.keys()),
-                          "Found %d system port keys, %d entries in cfg_facts, not matching" % (
-                              len(keylist), len(dev_ports.keys())))
-            logger.info("Found %d system port keys, %d entries in cfg_facts, checking each.",
-                        len(keylist), len(dev_ports.keys()))
-            for portkey in keylist:
-                try:
-                    port_output = asicdb.hget_key_value(portkey, field="SAI_SYSTEM_PORT_ATTR_CONFIG_INFO")
-                except RedisKeyNotFound:
-                    # TODO: Need to check on behavior here.
-                    logger.warning("System port: %s had no SAI_SYSTEM_PORT_ATTR_CONFIG_INFO", portkey)
-                    continue
-                port_data = json.loads(port_output)
-                for cfg_port in dev_ports:
-                    if dev_ports[cfg_port]['system_port_id'] == port_data['port_id']:
-                        #             "switch_id": "0",
-                        #             "core_index": "1",
-                        #             "core_port_index": "6",
-                        #             "speed": "400000"
-                        pytest_assert(dev_ports[cfg_port]['switch_id'] == port_data[
-                            'attached_switch_id'], "switch IDs do not match for port: %s" % portkey)
-                        pytest_assert(dev_ports[cfg_port]['core_index'] == port_data[
-                            'attached_core_index'], "switch IDs do not match for port: %s" % portkey)
-                        pytest_assert(dev_ports[cfg_port]['core_port_index'] == port_data[
-                            'attached_core_port_index'], "switch IDs do not match for port: %s" % portkey)
-                        pytest_assert(dev_ports[cfg_port]['speed'] == port_data[
-                            'speed'], "switch IDs do not match for port: %s" % portkey)
-                        break
-                else:
-                    logger.error("Could not find config entry for portkey: %s" % portkey)
+    dev_ports = get_device_system_ports(cfg_facts)
+    asicdb = AsicDbCli(asic)
+    sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
+    keylist = sys_port_table.keys()
+    pytest_assert(len(keylist) == len(dev_ports.keys()),
+                  "Found %d system port keys, %d entries in cfg_facts, not matching" % (
+                      len(keylist), len(dev_ports.keys())))
+    logger.info("Found %d system port keys, %d entries in cfg_facts, checking each.",
+                len(keylist), len(dev_ports.keys()))
+    for portkey in keylist:
+        try:
+            port_config_info = sys_port_table[portkey]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+        except KeyError:
+            # TODO: Need to check on behavior here.
+            logger.warning("System port: %s had no SAI_SYSTEM_PORT_ATTR_CONFIG_INFO", portkey)
+            continue
 
-            logger.info("Host: %s, Asic: %s all ports match all parameters", per_host.hostname, asic.asic_index)
+        port_data = json.loads(port_config_info)
+        for cfg_port in dev_ports:
+            if dev_ports[cfg_port]['system_port_id'] == port_data['port_id']:
+                #             "switch_id": "0",
+                #             "core_index": "1",
+                #             "core_port_index": "6",
+                #             "speed": "400000"
+                pytest_assert(dev_ports[cfg_port]['switch_id'] == port_data[
+                    'attached_switch_id'], "switch IDs do not match for port: %s" % portkey)
+                pytest_assert(dev_ports[cfg_port]['core_index'] == port_data[
+                    'attached_core_index'], "switch IDs do not match for port: %s" % portkey)
+                pytest_assert(dev_ports[cfg_port]['core_port_index'] == port_data[
+                    'attached_core_port_index'], "switch IDs do not match for port: %s" % portkey)
+                pytest_assert(dev_ports[cfg_port]['speed'] == port_data[
+                    'speed'], "switch IDs do not match for port: %s" % portkey)
+                break
+        else:
+            logger.error("Could not find config entry for portkey: %s" % portkey)
+
+    logger.info("Host: %s, Asic: %s all ports match all parameters", per_host.hostname, asic.asic_index)
 
 
-def test_voq_local_port_create(duthosts):
+def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):
     """Compare the config facts with the asic db for local ports
 
     * Verify ASIC_DB has host interface information for all local ports on all cards and ASICs.
@@ -159,53 +107,212 @@ def test_voq_local_port_create(duthosts):
     * Verify interfaces exist in show interfaces on the linecard.
     """
 
-    for per_host in duthosts.frontend_nodes:
+    per_host = duthosts[enum_frontend_dut_hostname]
+    asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-        for asic in per_host.asics:
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_ports = cfg_facts['PORT']
+    dev_ports = cfg_facts['PORT']
 
-            asicdb = AsicDbCli(asic)
+    asicdb = AsicDbCli(asic)
+    hostif_table = asicdb.get_hostif_table(refresh=True)
 
-            keylist = asicdb.get_hostif_list()
-            pytest_assert(len(keylist) == len(dev_ports.keys()),
-                          "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(dev_ports.keys())))
-            logger.info("Found %s ports to check on host:%s, asic: %s.", len(dev_ports.keys()), per_host.hostname,
-                        asic.asic_index)
+    keylist = hostif_table.keys()
+    pytest_assert(len(keylist) == len(dev_ports.keys()),
+                  "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(dev_ports.keys())))
+    logger.info("Found %s ports to check on host:%s, asic: %s.", len(dev_ports.keys()), per_host.hostname,
+                asic.asic_index)
 
-            show_intf = asic.show_interface(command="status")['ansible_facts']
-            for portkey in keylist:
-                port_name = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_NAME")
-                port_state = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_OPER_STATUS")
-                port_type = asicdb.hget_key_value(portkey, "SAI_HOSTIF_ATTR_TYPE")
-                logger.info("Checking port: %s, state: %s", port_name, port_state)
-                # "SAI_HOSTIF_ATTR_NAME": "Ethernet0",
-                # "SAI_HOSTIF_ATTR_OBJ_ID": "oid:0x1000000000002",
-                # "SAI_HOSTIF_ATTR_OPER_STATUS": "false",
-                # "SAI_HOSTIF_ATTR_TYPE": "SAI_HOSTIF_TYPE_NETDEV"
-                pytest_assert(port_type == "SAI_HOSTIF_TYPE_NETDEV", "Port %s is not type netdev" % portkey)
-                if port_state == "true":
-                    pytest_assert(show_intf['int_status'][port_name]['oper_state'] == "up",
-                                  "Show interface state is down when it should be up")
-                if port_state == "false":
-                    pytest_assert(show_intf['int_status'][port_name]['oper_state'] == "down",
-                                  "Show interface state is up when it should be down")
+    show_intf = asic.show_interface(command="status", include_internal_intfs=True)['ansible_facts']
+    for portkey in keylist:
+        portkey = portkey.decode('unicode-escape')  # need to handle the hyphen in the inband port name
+        port_name = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_NAME"].decode('unicode-escape')
+        port_state = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_OPER_STATUS"]
+        port_type = hostif_table[portkey]['value']["SAI_HOSTIF_ATTR_TYPE"]
 
-                if asic.namespace is None:
-                    cmd = "sudo ifconfig %s" % port_name
+        logger.info("Checking port: %s, state: %s", port_name, port_state)
+        # "SAI_HOSTIF_ATTR_NAME": "Ethernet0",
+        # "SAI_HOSTIF_ATTR_OBJ_ID": "oid:0x1000000000002",
+        # "SAI_HOSTIF_ATTR_OPER_STATUS": "false",
+        # "SAI_HOSTIF_ATTR_TYPE": "SAI_HOSTIF_TYPE_NETDEV"
+        pytest_assert(port_type == "SAI_HOSTIF_TYPE_NETDEV", "Port %s is not type netdev" % portkey)
+        if port_state == "true":
+            pytest_assert(show_intf['int_status'][port_name]['oper_state'] == "up",
+                          "Show interface state is down when it should be up")
+        if port_state == "false":
+            pytest_assert(show_intf['int_status'][port_name]['oper_state'] == "down",
+                          "Show interface state is up when it should be down")
+
+        if asic.namespace is None:
+            cmd = "sudo ifconfig %s" % port_name
+        else:
+            cmd = "sudo ip netns exec %s ifconfig %s" % (asic.namespace, port_name)
+        ifout = per_host.command(cmd)
+        assert "not found" not in ifout['stdout_lines'][0], "Interface %s not found" % port_name
+        if port_state == "true" and "RUNNING" in ifout['stdout_lines'][0]:
+            logger.debug("Interface state is up and matches")
+        elif port_state == "false" and "RUNNING" not in ifout['stdout_lines'][0]:
+            logger.debug("Interface state is down and matches")
+        else:
+            raise AssertionError("Interface state does not match: %s %s", port_state, ifout['stdout_lines'][0])
+
+
+def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
+    """
+    Checks router interfaces on a dut.
+
+    Args:
+        duthosts: The duthosts fixture
+        per_host: Instance of MultiAsicSonic host to check.
+        asic: Instance of SonicAsic to check,
+        cfg_facts: Config facts for the frontend duthost/asic under test
+
+    """
+    logger.info("Check router interfaces on node: %s, asic: %d", per_host.hostname, asic.asic_index)
+
+    dev_intfs = cfg_facts.get('INTERFACE', {})
+    voq_intfs = cfg_facts.get('VOQ_INBAND_INTERFACE', [])
+    dev_sysports = get_device_system_ports(cfg_facts)
+
+    if 'slot_num' in per_host.facts:
+        slot = per_host.facts['slot_num']
+    else:
+        slot = None
+
+    rif_ports_in_asicdb = []
+
+    # intf_list = get_router_interface_list(dev_intfs)
+    asicdb = AsicDbCli(asic)
+    asicdb_rif_table = asicdb.dump(asicdb.ASIC_ROUTERINTF_TABLE)
+    sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
+
+    # asicdb_intf_key_list = asicdb.get_router_if_list()
+    # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
+    # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
+    for rif in asicdb_rif_table.keys():
+        rif_type = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_TYPE"]
+        if rif_type != "SAI_ROUTER_INTERFACE_TYPE_PORT":
+            logger.info("Skip this rif: %s, it is not on a port: %s", rif, rif_type)
+            continue
+        else:
+            portid = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_PORT_ID"]
+            logger.info("Process RIF %s, Find port with ID: %s", rif, portid)
+
+        porttype = asicdb.get_rif_porttype(portid)
+        logger.info("RIF: %s is of type: %s", rif, porttype)
+        if porttype == 'hostif':
+            # find the hostif entry to get the physical port the router interface is on.
+            hostifkey = asicdb.find_hostif_by_portid(portid)
+            hostif = asicdb.hget_key_value(hostifkey, 'SAI_HOSTIF_ATTR_NAME')
+            logger.info("RIF: %s is on local port: %s", rif, hostif)
+            rif_ports_in_asicdb.append(hostif)
+            if hostif not in dev_intfs and hostif not in voq_intfs:
+                pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
+
+            # check MTU and ethernet address
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
+                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
+            intf_mac = get_sonic_mac(per_host, asic.asic_index, hostif)
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                          "MAC for rif %s is not %s" % (rif, intf_mac))
+
+            if slot is None:
+                sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                                'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+            else:
+                sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, hostif)
+
+            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+                check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], hostif)
+            else:
+                for sup in duthosts.supervisor_nodes:
+                    check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], hostif)
+
+        elif porttype == 'sysport':
+            try:
+                port_output = sys_port_table["ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+            except KeyError:
+                # not a hostif or system port, log error and continue
+                logger.error("Did not find OID %s in local or system tables" % portid)
+                continue
+            port_data = json.loads(port_output)
+            for cfg_port in dev_sysports:
+                if dev_sysports[cfg_port]['system_port_id'] == port_data['port_id']:
+                    logger.info("RIF: %s is on remote port: %s", rif, cfg_port)
+                    break
+            else:
+                raise AssertionError("Did not find OID %s in local or system tables" % portid)
+
+            sys_slot, sys_asic, sys_port = cfg_port.split("|")
+            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+                check_rif_on_sup(per_host, sys_slot, sys_asic, sys_port)
+            else:
+                for sup in duthosts.supervisor_nodes:
+                    check_rif_on_sup(sup, sys_slot, sys_asic, sys_port)
+
+        elif porttype == 'port':
+            # this is the RIF on the inband port.
+            inband = get_inband_info(cfg_facts)
+            logger.info("RIF: %s is on local port: %s", rif, inband['port'])
+
+            # check MTU and ethernet address
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
+                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
+            intf_mac = get_sonic_mac(per_host, asic.asic_index, inband['port'])
+            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                          "MAC for rif %s is not %s" % (rif, intf_mac))
+
+            if slot is None:
+                sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                                'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+            else:
+                sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, inband['port'])
+
+            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+                check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], inband['port'])
+            else:
+                for sup in duthosts.supervisor_nodes:
+                    check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], inband['port'])
+
+        # TODO: Could be on a LAG
+        elif porttype == 'lag':
+            lagid = asicdb.hget_key_value("%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid), 'SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID')
+            logger.info("RIF: %s is on system LAG: %s", rif, lagid)
+
+            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+                voqdb = VoqDbCli(per_host)
+            else:
+                voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+
+            systemlagtable = voqdb.dump("SYSTEM_LAG_ID_TABLE")
+            for lag, sysid in systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].iteritems():
+                if sysid == lagid:
+                    logger.info("System LAG ID %s is portchannel: %s", lagid, lag)
+                    break
+
+            myslot = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
+            myasic = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
+            if lag.startswith("%s|%s" % (myslot, myasic)):
+                logger.info("Lag: %s is a local portchannel with a router interface.", lag)
+                (s, a, lagname) = lag.split("|")
+                pytest_assert(lagname in cfg_facts['PORTCHANNEL_INTERFACE'], "RIF Interface %s is in configdb.json but not in asicdb" % rif)
+
+                if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+                    check_rif_on_sup(per_host, myslot, myasic, lagname)
                 else:
-                    cmd = "sudo ip netns exec %s ifconfig %s" % (asic.namespace, port_name)
-                ifout = per_host.command(cmd)
-                assert "not found" not in ifout['stdout_lines'][0], "Interface %s not found" % port_name
-                if port_state == "true" and "RUNNING" in ifout['stdout_lines'][0]:
-                    logger.debug("Interface state is up and matches")
-                elif port_state == "false" and "RUNNING" not in ifout['stdout_lines'][0]:
-                    logger.debug("Interface state is down and matches")
-                else:
-                    raise AssertionError("Interface state does not match: %s %s", port_state, ifout['stdout_lines'][0])
+                    for sup in duthosts.supervisor_nodes:
+                        check_rif_on_sup(sup, myslot, myasic, lagname)
+
+            else:
+                logger.info("Lag: %s is a remote portchannel with a router interface.", lag)
+
+    # Verify each RIF in config had a corresponding local port RIF in the asicDB.
+    for rif in dev_intfs:
+        pytest_assert(rif in rif_ports_in_asicdb, "Interface %s is in configdb.json but not in asicdb" % rif)
+
+    logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
 
 
-def test_voq_interface_create(duthosts):
+def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):
     """
     Verify router interfaces are created on all line cards and present in Chassis App Db.
 
@@ -217,99 +324,14 @@ def test_voq_interface_create(duthosts):
     * Repeat with IPv4, IPv6, dual-stack.
 
     """
-    for per_host in duthosts.frontend_nodes:
-        logger.info("Check router interfaces on node: %s", per_host.hostname)
-
-        for asic in per_host.asics:
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_intfs = cfg_facts['INTERFACE']
-            voq_intfs = cfg_facts['VOQ_INBAND_INTERFACE']
-            dev_sysports = get_device_system_ports(cfg_facts)
-
-            slot = per_host.facts['slot_num']
-            rif_ports_in_asicdb = []
-
-            # intf_list = get_router_interface_list(dev_intfs)
-            asicdb = AsicDbCli(asic)
-
-            asicdb_intf_key_list = asicdb.get_router_if_list()
-            # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
-            # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
-            for rif in asicdb_intf_key_list:
-                rif_type = asicdb.hget_key_value(rif, "SAI_ROUTER_INTERFACE_ATTR_TYPE")
-                if rif_type != "SAI_ROUTER_INTERFACE_TYPE_PORT":
-                    logger.info("Skip this rif: %s, it is not on a port: %s", rif, rif_type)
-                    continue
-                else:
-                    portid = asicdb.hget_key_value(rif, "SAI_ROUTER_INTERFACE_ATTR_PORT_ID")
-                    logger.info("Process RIF %s, Find port with ID: %s", rif, portid)
-
-                porttype = asicdb.get_rif_porttype(portid)
-                logger.info("RIF: %s is of type: %s", rif, porttype)
-                if porttype == 'hostif':
-                    # find the hostif entry to get the physical port the router interface is on.
-                    hostifkey = asicdb.find_hostif_by_portid(portid)
-                    hostif = asicdb.hget_key_value(hostifkey, 'SAI_HOSTIF_ATTR_NAME')
-                    logger.info("RIF: %s is on local port: %s", rif, hostif)
-                    rif_ports_in_asicdb.append(hostif)
-                    if hostif not in dev_intfs and hostif not in voq_intfs:
-                        pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
-
-                    # check MTU and ethernet address
-                    asicdb.get_and_check_key_value(rif, cfg_facts['PORT'][hostif]['mtu'],
-                                                   field="SAI_ROUTER_INTERFACE_ATTR_MTU")
-                    intf_mac = get_sonic_mac(per_host, asic.asic_index, hostif)
-                    asicdb.get_and_check_key_value(rif, intf_mac, field="SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS")
-
-                    sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
-                    sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, hostif)
-                    for sup in duthosts.supervisor_nodes:
-                        check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], hostif)
-
-                elif porttype == 'sysport':
-                    try:
-                        port_output = asicdb.hget_key_value("ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid,
-                                                            field="SAI_SYSTEM_PORT_ATTR_CONFIG_INFO")
-                    except RedisKeyNotFound:
-                        # not a hostif or system port, log error and continue
-                        logger.error("Did not find OID %s in local or system tables" % portid)
-                        continue
-                    port_data = json.loads(port_output)
-                    for cfg_port in dev_sysports:
-                        if dev_sysports[cfg_port]['system_port_id'] == port_data['port_id']:
-                            logger.info("RIF: %s is on remote port: %s", rif, cfg_port)
-                            break
-                    else:
-                        raise AssertionError("Did not find OID %s in local or system tables" % portid)
-
-                    sys_slot, sys_asic, sys_port = cfg_port.split("|")
-                    sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
-                    for sup in duthosts.supervisor_nodes:
-                        check_rif_on_sup(sup, sup_rif, sys_slot, sys_asic, sys_port)
-
-                elif porttype == 'port':
-                    # this is the RIF on the inband port.
-                    inband = get_inband_info(cfg_facts)
-                    logger.info("RIF: %s is on local port: %s", rif, inband['port'])
-
-                    # check MTU and ethernet address
-                    asicdb.get_and_check_key_value(rif, cfg_facts['PORT'][inband['port']]['mtu'],
-                                                   field="SAI_ROUTER_INTERFACE_ATTR_MTU")
-                    intf_mac = get_sonic_mac(per_host, asic.asic_index, inband['port'])
-                    asicdb.get_and_check_key_value(rif, intf_mac, field="SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS")
-
-                    sup_rif = asicdb.hget_key_value("VIDTORID", "oid:" + rif.split(":")[3])
-                    sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, inband['port'])
-                    for sup in duthosts.supervisor_nodes:
-                        check_rif_on_sup(sup, sup_rif, sysport_info['slot'], sysport_info['asic'], inband['port'])
-
-            # Verify each RIF in config had a corresponding local port RIF in the asicDB.
-            for rif in dev_intfs:
-                pytest_assert(rif in rif_ports_in_asicdb, "Interface %s is in configdb.json but not in asicdb" % rif)
-            logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
+    per_host = duthosts[enum_frontend_dut_hostname]
+    asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+    check_voq_interfaces(duthosts, per_host, asic, cfg_facts)
 
 
-def test_voq_neighbor_create(duthosts, nbrhosts, nbr_macs):
+def test_voq_neighbor_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts,
+                             all_cfg_facts, nbr_macs):
     """
     Verify neighbor entries are created on linecards for local and remote VMS.
 
@@ -342,66 +364,21 @@ def test_voq_neighbor_create(duthosts, nbrhosts, nbr_macs):
     * Repeat with IPv4, IPv6, dual-stack.
 
     """
+    per_host = duthosts[enum_frontend_dut_hostname]
+    asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-    for per_host in duthosts.frontend_nodes:
+    logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
+    if 'BGP_NEIGHBOR' in cfg_facts:
+        neighs = cfg_facts['BGP_NEIGHBOR']
+    else:
+        logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
 
-        for asic in per_host.asics:
-            logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_sysports = get_device_system_ports(cfg_facts)
-            neighs = cfg_facts['BGP_NEIGHBOR']
-            inband_info = get_inband_info(cfg_facts)
-
-            # Check each neighbor in table
-            for neighbor in neighs:
-                local_ip = neighs[neighbor]['local_addr']
-                if local_ip == inband_info['ipv4_addr'] or local_ip == inband_info['ipv6_addr']:
-                    # skip inband neighbors
-                    continue
-
-                # Check neighbor on local linecard
-                local_port = get_port_by_ip(cfg_facts, local_ip)
-                show_intf = asic.show_interface(command="status")['ansible_facts']
-                if local_port is None:
-                    logger.error("Did not find port for this neighbor %s, must skip", local_ip)
-                    continue
-                elif "portchannel" in local_port.lower():
-                    # TODO: LAG support
-                    logger.info("Port channel is not supported yet by this test, skip port: %s", local_port)
-                    continue
-                if show_intf['int_status'][local_port]['oper_state'] == "down":
-                    logger.error("Port is down, must skip interface: %s, IP: %s", local_port, local_ip)
-                    continue
-                nbr_vm = get_vm_with_ip(neighbor, nbrhosts)
-                neigh_mac = nbr_macs[nbr_vm['vm']][nbr_vm['port']]
-                #neigh_mac = get_neighbor_mac(neighbor, nbrhosts, nbrhosts_facts)
-                if neigh_mac is None:
-                    logger.error("Could not find neighbor MAC, must skip.  IP: %s, port: %s", local_ip, local_port)
-
-                local_dict = check_local_neighbor(per_host, asic, neighbor, neigh_mac, local_port)
-                logger.info("Local_dict: %s", local_dict)
-
-                # Check the same neighbor entry on the supervisor nodes
-                sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
-                for sup in duthosts.supervisor_nodes:
-                    check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], local_port,
-                                              neighbor, local_dict['encap_index'], neigh_mac)
-
-                # Check the neighbor entry on each remote linecard
-                for rem_host in duthosts.frontend_nodes:
-
-                    for rem_asic in rem_host.asics:
-                        if rem_host == per_host and rem_asic == asic:
-                            # skip remote check on local host
-                            continue
-                        rem_cfg_facts = rem_asic.config_facts(source="persistent")['ansible_facts']
-                        remote_inband_info = get_inband_info(rem_cfg_facts)
-                        remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
-                        check_voq_remote_neighbor(rem_host, rem_asic, neighbor, neigh_mac, remote_inband_info['port'],
-                                                  local_dict['encap_index'], remote_inband_mac)
+    dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts, all_cfg_facts, nbr_macs)
 
 
-def test_voq_inband_port_create(duthosts):
+def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):
     """
     Test inband port creation.
 
@@ -417,51 +394,59 @@ def test_voq_inband_port_create(duthosts):
 
 
     """
-    for per_host in duthosts.frontend_nodes:
-        if per_host.get_facts()['asic_type'] == 'vs':
-            pytest.skip("Inband port currently not supported on a VS chassis")
+    per_host = duthosts[enum_frontend_dut_hostname]
+    asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
+    cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+    dev_sysports = get_device_system_ports(cfg_facts)
+    inband_info = get_inband_info(cfg_facts)
+    if inband_info == {}:
+        logger.info("No inband configuration on this ASIC: %s/%s, skipping", per_host.hostname, asic.asic_index)
+        return
+    inband_mac = get_sonic_mac(per_host, asic.asic_index, inband_info['port'])
 
-        for asic in per_host.asics:
-            cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
-            dev_sysports = get_device_system_ports(cfg_facts)
-            inband_info = get_inband_info(cfg_facts)
-            inband_mac = get_sonic_mac(per_host, asic.asic_index, inband_info['port'])
+    inband_ips = []
+    if 'ipv6_addr' in inband_info:
+        inband_ips.append(inband_info['ipv6_addr'])
+    if 'ipv4_addr' in inband_info:
+        inband_ips.append(inband_info['ipv4_addr'])
 
-            inband_ips = []
-            if 'ipv6_addr' in inband_info:
-                inband_ips.append(inband_info['ipv6_addr'])
-            if 'ipv4_addr' in inband_info:
-                inband_ips.append(inband_info['ipv4_addr'])
+    for neighbor_ip in inband_ips:
 
-            for neighbor_ip in inband_ips:
+        host = per_host
+        neighbor_mac = inband_mac
+        interface = inband_info['port']
 
-                host = per_host
-                neighbor_mac = inband_mac
-                interface = inband_info['port']
+        logger.info("Check local neighbor on host %s, asic %s for %s/%s via port: %s", host.hostname,
+                    str(asic.asic_index),
+                    neighbor_ip, neighbor_mac, interface)
 
-                logger.info("Check local neighbor on host %s, asic %s for %s/%s via port: %s", host.hostname,
-                            str(asic.asic_index),
-                            neighbor_ip, neighbor_mac, interface)
+        asic_dict = check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac)
+        encap_idx = asic_dict['encap_index']
 
-                asic_dict = check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac)
-                encap_idx = asic_dict['encap_index']
+        # Check the inband neighbor entry on the supervisor nodes
+        if 'slot_num' in per_host.facts:
+            sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, interface)
+        else:
+            sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                            'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+        for sup in duthosts.supervisor_nodes:
+            check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], interface, neighbor_ip,
+                                      encap_idx, inband_mac)
 
-                # Check the inband neighbor entry on the supervisor nodes
-                sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, interface)
-                for sup in duthosts.supervisor_nodes:
-                    check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], interface, neighbor_ip,
-                                              encap_idx, inband_mac)
+        # Check the neighbor entry on each remote linecard
+        for rem_host in duthosts.frontend_nodes:
 
-                # Check the neighbor entry on each remote linecard
-                for rem_host in duthosts.frontend_nodes:
-
-                    for rem_asic in rem_host.asics:
-                        if rem_host == per_host and rem_asic == asic:
-                            # skip remote check on local host
-                            continue
-                        rem_cfg_facts = rem_asic.config_facts(source="persistent")['ansible_facts']
-                        remote_inband_info = get_inband_info(rem_cfg_facts)
-                        remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
-                        check_voq_remote_neighbor(rem_host, rem_asic, neighbor_ip, inband_mac,
-                                                  remote_inband_info['port'],
-                                                  encap_idx, remote_inband_mac)
+            for rem_asic in rem_host.asics:
+                if rem_host == per_host and rem_asic == asic:
+                    # skip remote check on local host
+                    continue
+                rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
+                remote_inband_info = get_inband_info(rem_cfg_facts)
+                if remote_inband_info == {}:
+                    logger.info("No inband configuration on this asic: %s/%s, will be skipped.", rem_host.hostname,
+                                rem_asic.asic_index)
+                    continue
+                remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
+                check_voq_remote_neighbor(rem_host, rem_asic, neighbor_ip, inband_mac,
+                                          remote_inband_info['port'],
+                                          encap_idx, remote_inband_mac)

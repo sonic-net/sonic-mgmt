@@ -6,6 +6,7 @@ import constants
 from tests.common.utilities import wait
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.config_reload import config_force_option_supported
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
             logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
 
     if outstanding_action:
+        if outstanding_action == "config_reload" and config_force_option_supported(dut):
+            outstanding_action = "config_reload_f"
         method    = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reboot"]:
@@ -90,6 +93,8 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
 
 def recover(dut, localhost, fanouthosts, check_results, recover_method):
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
+    if recover_method == "config_reload" and config_force_option_supported(dut):
+        recover_method = "config_reload_f"
     method    = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:
@@ -98,3 +103,22 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
         reboot_dut(dut, localhost, method["cmd"], wait_time)
     else:
         __recover_with_command(dut, method['cmd'], wait_time)
+
+
+def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
+    logger.info("Restoring neighbor VMs for {}".format(duthost))
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = mg_facts['minigraph_neighbors']
+    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+
+    for lag_name in lag_facts['names']:
+        nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+        peer_device   = vm_neighbors[nbr_intf]['name']
+        nbr_host = nbrhosts[peer_device]['host']
+        intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
+        # restore interfaces and portchannels
+        for intf in intf_list:
+            nbr_host.no_shutdown(intf)
+        asn = nbrhosts[peer_device]['conf']['bgp']['asn']
+        # restore BGP session
+        nbr_host.no_shutdown_bgp(asn)

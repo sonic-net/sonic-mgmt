@@ -12,6 +12,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -181,9 +182,20 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
         pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
+@pytest.fixture
+def record_mux_status(request, rand_selected_dut, tbinfo):
+    """
+    A function level fixture to record mux cable status if test failed.
+    """
+    yield
+    if request.node.rep_call.failed and 'dualtor' in tbinfo['topo']['name']:
+        mux_status = rand_selected_dut.shell("show muxcable status", module_ignore_errors=True)['stdout']
+        logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
+
+
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor, record_mux_status):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)

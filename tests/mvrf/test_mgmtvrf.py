@@ -7,6 +7,7 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 from pkg_resources import parse_version
 
 pytestmark = [
@@ -91,8 +92,8 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        dut_kernel = duthost.setup()['ansible_facts']['ansible_kernel'].split('-')
-        if parse_version(dut_kernel[0]) > parse_version("4.9.0"):
+        dut_kernel = duthost.shell("cat /proc/version | awk '{ print $3 }' | cut -d '-' -f 1")["stdout"]
+        if parse_version(dut_kernel) > parse_version("4.9.0"):
             prefix = "sudo ip vrf exec mgmt "
         else:
             prefix = "sudo cgexec -g l3mdev:mgmt "
@@ -105,7 +106,7 @@ class TestMvrfInbound():
         duthost.ping()
 
     def test_snmp_fact(self, localhost, duthost, creds):
-        localhost.snmp_facts(host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
+        get_snmp_facts(localhost, host=duthost.mgmt_ip, version="v2c", community=creds['snmp_rocommunity'])
 
 
 class TestMvrfOutbound():

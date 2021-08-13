@@ -1,0 +1,73 @@
+- name: Set ansible login user name and password
+  set_fact: ansible_user="admin" ansible_password={{ sonic_password }}
+
+- name: Get VM front panel interface number
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- name: Set SONiC backplane port name
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
+
+- set_fact:
+    mgmt_ip: "{{ ansible_host }}/{{ mgmt_prefixlen }}"
+    mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
+
+- name: create mgmt config
+  template: src="configdb-mgmt.j2"
+            dest=config-mgmt.json
+  when: hostname in configuration
+
+- name: create device metadata config
+  shell: >
+          sonic-cfggen -H -k Force10-S6000 --preset empty
+          | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
+          | jq '.DEVICE_METADATA.localhost += {docker_routing_config_mode:"split"}'
+          | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
+          > config-metadata.json
+  when: hostname in configuration
+
+- name: create interface config
+  shell: >
+          sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/Force10-S6000/port_config.ini -k Force10-S6000 --print-data
+          | jq '.PORT[].admin_status |= "up"'
+          > config-port.json
+  when: hostname in configuration
+
+- name: create topo config
+  template: src="configdb-{{ topo }}-{{ props.swrole }}.j2"
+            dest=config-topo.json
+  when: hostname in configuration
+
+- name: create config db json
+  shell: |
+          sonic-cfggen -j config-mgmt.json -j config-metadata.json -j config-port.json -j config-topo.json --print-data > /etc/sonic/config_db.json
+          rm -f config-mgmt.json config-metadata.json config-port.json config-topo.json
+  become: yes
+  when: hostname in configuration
+  notify:
+    - Update config db
+    - wait for SONiC update config db to finish
+
+- name: create frr config
+  template: src="frr-{{ topo }}-{{ props.swrole }}.j2"
+            dest=/etc/sonic/frr/bgpd.conf
+  become: yes
+  when: hostname in configuration
+  notify:
+    - Restart BGP service
+
+- name: create zebra config
+  template: src="zebra-{{ topo }}-{{ props.swrole }}.j2"
+            dest=/etc/sonic/frr/zebra.conf
+  become: yes
+  when: hostname in configuration
+  notify:
+    - Restart BGP service
+
+- name: Load PTF image
+  block:
+    - copy: src="docker-ptf.tar" dest="docker-ptf.tar"
+    - shell: docker load -i docker-ptf.tar || true
+    - shell: rm -f docker-ptf.tar

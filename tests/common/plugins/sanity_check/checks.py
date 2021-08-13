@@ -1,14 +1,12 @@
 import re
 import json
 import logging
-import ptf.testutils as testutils
 import pytest
 import time
 
-from ipaddress import ip_network, IPv4Network
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import *
-from tests.common.dualtor.dual_tor_utils import *
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, reset_simulator_port
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -217,6 +215,9 @@ def check_bgp(duthosts):
 
             if any(asic_check_results):
                 check_result['failed'] = True
+            else:
+                # Need this to cover case where there were down neighbors in one check and now they are all up
+                check_result['failed'] = False
             return not check_result['failed']
 
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
@@ -308,157 +309,210 @@ def _check_monit_services_status(check_result, monit_services_status):
     return check_result
 
 
-def get_arp_pkt_info(dut):
-    intf_mac = dut.facts['router_mac']
-    mgmt_ipv4 = None
+def _check_intf_names(intf_status, active_intf, mux_intf, expected_side):
+    '''
+    Checks that the interface names for the mux are correct
 
-    mgmt_intf_facts = dut.get_running_config_facts()['MGMT_INTERFACE']
+    1. The reported active side (upper or lower ToR) must match expected
+    2. The active side interface name must match the ports list returned by the mux
+    3. The server/NIC interface name must match the portsr list returned by the mux
+    '''
+    bridge = intf_status['bridge']
+    failed = False
+    failed_reason = ''
+    # Verify correct active ToR
+    if intf_status['active_side'] != expected_side:
+        failed = True
+        failed_reason = 'Active side mismatch for {}, got {} but expected {}' \
+                        .format(bridge, intf_status['active_side'], expected_side)
+        return failed, failed_reason
 
-    for mgmt_intf in mgmt_intf_facts:
-        for mgmt_ip in mgmt_intf_facts[mgmt_intf]:
-            if type(ip_network(mgmt_ip, strict=False)) is IPv4Network:
-                mgmt_ipv4 = mgmt_ip.split('/')[0]
-                return intf_mac, mgmt_ipv4
+    # Verify correct active ToR interface name
+    if active_intf is not None and active_intf != intf_status['ports'][expected_side]:
+        failed = True
+        failed_reason = 'Active interface name mismatch for {}, got {} but expected {}' \
+                        .format(bridge, active_intf, intf_status['ports'][expected_side])
+        return failed, failed_reason
+ 
+    # Verify correct server interface name
+    if mux_intf is not None and mux_intf != intf_status['ports'][NIC]:
+        failed = True
+        failed_reason = 'NIC interface name mismatch for {}, got {} but expected {}' \
+                        .format(bridge, mux_intf, intf_status['ports'][NIC])
+        return failed, failed_reason
 
-    return intf_mac, mgmt_ipv4
+    return failed, failed_reason
+
+
+def _check_server_flows(intf_status, mux_flows):
+    '''
+    Checks that the flows originating from the server/NIC port are correct
+
+    1. Checks that there are exactly two flows (one per ToR)
+    2. Checks that for each flow, the action is output
+    3. Checks that for each flow, the output port is one of the ToR interfaces
+        a. Also checks that each ToR interface is used exactly once
+
+    '''
+    failed = False
+    failed_reason = ''
+    bridge = intf_status['bridge']
+    # Checking server flows 
+    if len(mux_flows) != 2:
+        failed = True
+        failed_reason = 'Incorrect number of mux flows for {}, got {} but expected 2' \
+                        .format(bridge, len(mux_flows))
+        return failed, failed_reason
+
+    tor_intfs = [intf_status['ports'][UPPER_TOR], intf_status['ports'][LOWER_TOR]]
+    
+    # Each flow should be set to output and have the output interface
+    # as one of the ToR interfaces
+    for flow in mux_flows:
+        if flow['action'] != 'output':
+            failed = True
+            failed_reason = 'Incorrect mux flow action for {}, got {} but expected output' \
+                            .format(bridge, flow['action'])
+            return failed, failed_reason
+        
+        if flow['out_port'] not in tor_intfs:
+            failed = True
+            failed_reason = 'Incorrect ToR output interface for {}, got {} but expected one of {}' \
+                            .format(bridge, flow['out_port'], tor_intfs)
+            return failed, failed_reason
+        else:
+            # Remove already seen ToR intfs from consideration to catch
+            # duplicate output ports
+            tor_intfs.remove(flow['out_port'])
+
+    return failed, failed_reason
+
+
+def _check_tor_flows(active_flows, mux_intf, bridge):
+    '''
+    Checks that the flows originationg from the active ToR are correct
+
+    1. Checks that there is exactly one flow (for the server/NIC)
+    2. Checks that the action is output
+    3. Checks that the out port is the server/NIC interface
+    '''
+    failed = False
+    failed_reason = ''
+
+    # Checking active ToR flows
+    if len(active_flows) != 1:
+        failed = True
+        failed_reason = 'Incorrect number of active ToR flows for {}, got {} but expected 1' \
+                        .format(bridge, len(active_flows))
+        return failed, failed_reason
+    
+    if active_flows[0]['action'] != 'output':
+        failed = True
+        failed_reason = 'Incorrect active ToR action for {}, got {} but expected output' \
+                        .format(bridge, active_flows[0]['action'])
+        return failed, failed_reason
+    
+    if active_flows[0]['out_port'] != mux_intf:
+        failed = True
+        failed_reason = 'Incorrect active ToR flow output interface for {}, got {} but expected {}' \
+                        .format(bridge, active_flows[0]['out_port'], mux_intf)
+        return failed, failed_reason
+    
+    return failed, failed_reason
+
+
+def _check_single_intf_status(intf_status, expected_side):
+    """
+    Checks the mux simulator status for a single ToR/server connection
+    """
+    failed = False
+    failed_reason = ''
+
+    bridge = intf_status['bridge']
+
+    # Check the total number of flows is 2, one for 
+    # server to both ToRs and one for active ToR to server
+    if len(intf_status['flows']) != 2:
+        failed = True
+        failed_reason = 'Incorrect number of flows for {}, got {} but expected 2' \
+                        .format(bridge, len(intf_status['flows']))
+        return failed, failed_reason
+
+    if not intf_status['healthy']:
+        failed = True
+        failed_reason = 'Mux simulator reported unhealthy mux for {} with flows {}' \
+                        .format(bridge, intf_status['flows'])
+        return failed, failed_reason
+
+
+    # Gather the flow information
+    active_intf, mux_intf = None, None
+    active_flows, mux_flows = None, None
+
+    for input_intf, actions in intf_status['flows'].items():
+        if 'mu' in input_intf:
+            mux_intf = input_intf
+            mux_flows = actions
+        else:
+            # Since we have already ensured there are exactly 2 flows
+            # The flow which is not originating from the NIC must be
+            # the flow for the active ToR
+            active_intf = input_intf
+            active_flows = actions
+
+    failed, failed_reason = _check_intf_names(intf_status, active_intf, mux_intf, expected_side)
+ 
+    if not failed:
+        failed, failed_reason = _check_server_flows(intf_status, mux_flows)
+
+    if not failed:
+        failed, failed_reason = _check_tor_flows(active_flows, mux_intf, bridge)
+
+    return failed, failed_reason
 
 
 @pytest.fixture(scope='module')
-def check_mux_simulator(ptf_server_intf, tor_mux_intf, ptfadapter, upper_tor_host, lower_tor_host, \
-                        recover_all_directions, toggle_simulator_port_to_upper_tor, toggle_simulator_port_to_lower_tor, check_simulator_read_side):
+def check_mux_simulator(toggle_all_simulator_ports, get_mux_status, reset_simulator_port):
 
     def _check(*args, **kwargs):
         """
         @summary: Checks if the OVS bridge mux simulator is functioning correctly
         @return: A dictionary containing the testing result of the PTF interface tested:
             {
+                'check_item': 'mux_simulator',
                 'failed': <True/False>,
                 'failed_reason': <reason string>,
-                'intf': '<PTF interface name> mux simulator'
+                'action': <recovery function>
             }
         """
+        logger.info("Checking mux simulator status")
         results = {
                     'failed': False,
                     'failed_reason': '',
-                    'check_item': '{} mux simulator'.format(ptf_server_intf)
+                    'check_item': 'mux_simulator',
+                    'action': None
                 }
 
-        logger.info("Checking mux simulator status for PTF interface {}".format(ptf_server_intf))
-        ptf_port_index = int(ptf_server_intf.replace('eth', ''))
-        recover_all_directions(tor_mux_intf)
+        failed = False
+        reason = ''
 
-        upper_tor_intf_mac, upper_tor_mgmt_ip = get_arp_pkt_info(upper_tor_host)
-        lower_tor_intf_mac, lower_tor_mgmt_ip = get_arp_pkt_info(lower_tor_host)
+        for side in [UPPER_TOR, LOWER_TOR]:
+            toggle_all_simulator_ports(side)
+            time.sleep(5)
+            mux_status = get_mux_status()
+            for status in mux_status.values():
+                failed, reason = _check_single_intf_status(status, expected_side=side)
 
-        upper_tor_ping_tgt_ip = '10.10.10.1'
-        lower_tor_ping_tgt_ip = '10.10.10.2'
-        ptf_arp_tgt_ip = '10.10.10.3'
-        ping_cmd = 'ping -I {} {} -c 1 -W 1; true'
+                if failed:
+                    logger.warning('Mux sanity check failed for status:\n{}'.format(status))
+                    results['failed'] = failed
+                    results['failed_reason'] = reason
+                    results['action'] = reset_simulator_port
+                    return results
 
-        upper_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
-                                                        eth_src=upper_tor_intf_mac,
-                                                        ip_snd=upper_tor_mgmt_ip,
-                                                        ip_tgt=upper_tor_ping_tgt_ip,
-                                                        hw_snd=upper_tor_intf_mac)
-        lower_tor_exp_pkt = testutils.simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
-                                                        eth_src=lower_tor_intf_mac,
-                                                        ip_snd=lower_tor_mgmt_ip,
-                                                        ip_tgt=lower_tor_ping_tgt_ip,
-                                                        hw_snd=lower_tor_intf_mac)
-
-        ptf_arp_pkt = testutils.simple_arp_packet(ip_tgt=ptf_arp_tgt_ip,
-                                                ip_snd=ptf_arp_tgt_ip,
-                                                arp_op=2)
-
-        # Clear ARP tables to start in consistent state
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
-
-        # Run tests with upper ToR active
-        toggle_simulator_port_to_upper_tor(tor_mux_intf)
-
-        if check_simulator_read_side(tor_mux_intf) != 1:
-            results['failed'] = True
-            results['failed_reason'] = 'Unable to switch active link to upper ToR'
-            return results
-
-        # Ping from both ToRs, expect only message from upper ToR to reach PTF
-        upper_tor_host.shell(ping_cmd.format(tor_mux_intf, upper_tor_ping_tgt_ip))
-        try:
-            testutils.verify_packet(ptfadapter, upper_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from active upper ToR not received'
-            return results
-
-        lower_tor_host.shell(ping_cmd.format(tor_mux_intf, lower_tor_ping_tgt_ip))
-        try:
-            testutils.verify_no_packet(ptfadapter, lower_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from standby lower ToR received'
-            return results
-
-        # Send dummy ARP packets from PTF to ToR. Ensure that ARP is learned on both ToRs
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
-        testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
-
-        upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        if ptf_arp_tgt_ip not in upper_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on active upper ToR'
-            return results
-
-        if ptf_arp_tgt_ip not in lower_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on standby lower ToR'
-            return results
-
-        # Repeat all tests with lower ToR active
-        toggle_simulator_port_to_lower_tor(tor_mux_intf)
-        if check_simulator_read_side(tor_mux_intf) != 2:
-            results['failed'] = True
-            results['failed_reason'] = 'Unable to switch active link to lower ToR'
-            return results
-
-        lower_tor_host.shell(ping_cmd.format(tor_mux_intf, lower_tor_ping_tgt_ip))
-        try:
-            testutils.verify_packet(ptfadapter, lower_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from active lower ToR not received'
-            return results
-
-        upper_tor_host.shell(ping_cmd.format(tor_mux_intf, upper_tor_ping_tgt_ip))
-        try:
-            testutils.verify_no_packet(ptfadapter, upper_tor_exp_pkt, ptf_port_index)
-        except AssertionError:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from standby upper ToR received'
-            return results
-
-        upper_tor_host.shell("ip neigh flush all")
-        lower_tor_host.shell("ip neigh flush all")
-        testutils.send_packet(ptfadapter, ptf_port_index, ptf_arp_pkt)
-
-        upper_tor_arp_table = upper_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        lower_tor_arp_table = lower_tor_host.switch_arptable()['ansible_facts']['arptable']['v4']
-        if ptf_arp_tgt_ip not in upper_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on standby upper ToR'
-            return results
-
-        if ptf_arp_tgt_ip not in lower_tor_arp_table:
-            results['failed'] = True
-            results['failed_reason'] = 'Packet from PTF not received on active lower ToR'
-            return results
-
-        logger.info('Finished mux simulator check')
         return results
-    return _check
 
+    return _check
 
 @pytest.fixture(scope="module")
 def check_monit(duthosts):
@@ -531,7 +585,13 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=600)
+        timeout = 600
+        # Increase the timeout for multi-asic virtual switch DUT.
+        for node in duthosts.nodes:
+            if 'kvm' in node.sonichost.facts['platform'] and node.sonichost.is_multi_asic:
+                timeout = 1000
+                break
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout)
         return result.values()
 
     @reset_ansible_local_tmp

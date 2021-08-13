@@ -109,11 +109,13 @@ def config_dut_ports(duthost, ports, vlan):
 def get_ifindex(duthost, port):
      ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' %port)['stdout']
      return ifindex
- 
+
 # ----------------------------------------------------------------------------------
 
 def get_port_index(duthost, port):
-    index = duthost.shell("python3 -c \"from swsssdk import port_util; print(port_util.get_index_from_str(\'{}\'))\"".format(port))['stdout']
+    py_version = 'python' if '201911' in duthost.os_version else 'python3'
+    cmd = "{} -c \"from swsssdk import port_util; print(port_util.get_index_from_str(\'{}\'))\""
+    index = duthost.shell(cmd.format(py_version, port))['stdout']
     return index
 
 # ----------------------------------------------------------------------------------
@@ -125,7 +127,7 @@ def config_sflow_agent(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     duthost.shell("config sflow agent-id del") # Remove any existing agent-id
     duthost.shell("config sflow agent-id add Loopback0")
-    yield   
+    yield
     duthost.shell("config sflow agent-id del")
 
 # ----------------------------------------------------------------------------------
@@ -354,9 +356,9 @@ class TestSflowInterface():
 
         verify_sflow_interfaces(duthost,sflow_int[0],'down',512)
         verify_sflow_interfaces(duthost,sflow_int[1],'down',512)
-        verify_sflow_interfaces(duthost,sflow_int[2],'up',512)
-        verify_sflow_interfaces(duthost,sflow_int[3],'up',512)
-        enabled_intf = sflow_int[2:4]
+        enabled_intf = sflow_int[2:]
+        for intf in enabled_intf:
+            verify_sflow_interfaces(duthost, intf, 'up', 512)
         partial_ptf_runner(
               enabled_sflow_interfaces=enabled_intf,
               active_collectors="['collector0','collector1']" )
@@ -502,7 +504,7 @@ class TestReboot():
         partial_ptf_runner(
               enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
-        
+
     def testWarmreboot(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
 
         config_sflow(duthost,sflow_status='enable')

@@ -1,0 +1,122 @@
+# It is example - of file with skip test cases by issue or by platform.
+# Original skip test cases file should be named "tests_to_be_skipped_conditionally.yaml"
+
+## Ignore all tests in folder platform_tests/cli if any issue(GitHub or Jira or Redmine) active or platform msn4600
+#platform_tests/cli:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#  - Platform:
+#    - msn4600
+#
+## Ignore all tests in file platform_tests/cli/test_show_platform.py if any issue(GitHub or Jira or Redmine) active or platform msn4600
+#platform_tests/cli/test_show_platform.py:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#  - Platform:
+#    - msn4600
+#
+## Ignore specific test platform_tests/cli/test_show_platform.py::test_show_platform_fan if any issue(GitHub or Jira or Redmine) active or platform msn4600
+#platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#  - Platform:
+#    - msn4600
+#
+## Ignore all tests in folder platform_tests/cli if any issue(GitHub or Jira or Redmine) active and platform msn4600
+#platform_tests/cli:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#    Platform:
+#      - msn4600
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#    Platform:
+#      - msn4600
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#    Platform:
+#      - msn4600
+#
+## Ignore all tests in file platform_tests/cli/test_show_platform.py if any issue(GitHub or Jira or Redmine) active and platform msn4600
+#platform_tests/cli/test_show_platform.py:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#    Platform:
+#      - msn4600
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#    Platform:
+#      - msn4600
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#    Platform:
+#      - msn4600
+#
+## Ignore specific test platform_tests/cli/test_show_platform.py::test_show_platform_fan if any issue(GitHub or Jira or Redmine) active or platform msn4600
+#platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#    Platform:
+#      - msn4600
+#  - Jira:
+#    - http://jira.aaa.com/1234
+#    Platform:
+#      - msn4600
+#  - Redmine:
+#    - http://redmine.bbb.com/1234
+#    Platform:
+#      - msn4600
+#
+## Ignore all tests in folder platform_tests/cli if platform msn4600 or msn3700
+#platform_tests/cli:
+#  - Platform:
+#    - msn4600
+#    - msn3700
+#
+## Ignore all tests in file platform_tests/cli/test_show_platform.py if platform msn4600 or msn3700
+#platform_tests/cli/test_show_platform.py:
+#  - Platform:
+#    - msn4600
+#    - msn3700
+#
+## Ignore specific test platform_tests/cli/test_show_platform.py::test_show_platform_fan if platform msn4600 or msn3700
+#platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+#  - Platform:
+#    - msn4600
+#    - msn3700
+#
+## Ignore all tests in folder platform_tests/cli if any GitHub issue active
+#platform_tests/cli:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#
+## Ignore all tests in file platform_tests/cli/test_show_platform.py if any GitHub issue active
+#platform_tests/cli/test_show_platform.py:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643
+#
+## Ignore specific test platform_tests/cli/test_show_platform.py::test_show_platform_fan if any GitHub issue active
+#platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+#  - GitHub:
+#    - https://github.com/Azure/sonic-buildimage/issues/7602
+#    - https://github.com/Azure/sonic-buildimage/issues/7643

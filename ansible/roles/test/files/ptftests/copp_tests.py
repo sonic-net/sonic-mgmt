@@ -54,6 +54,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
+        self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
 
@@ -132,6 +133,10 @@ class ControlPlaneBaseTest(BaseTest):
         while datetime.datetime.now() < end_time:
             testutils.send_packet(self, send_intf, packet)
             send_count += 1
+
+            # Depending on the server/platform combination it is possible for the server to
+            # overwhelm the DUT, so we add an artificial delay here to rate-limit the server.
+            time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
 
