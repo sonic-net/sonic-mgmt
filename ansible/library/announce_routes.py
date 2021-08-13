@@ -5,8 +5,8 @@ import os
 import yaml
 import re
 import requests
+import time
 
-from ansible.devutil.http_helpers import wait_for_http
 from ansible.module_utils.basic import *
 
 
@@ -50,6 +50,17 @@ TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
 
+def wait_for_http(host_ip, http_port, timeout=10):
+    """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
+    started = False
+    tries = 0
+    while not started and tries < timeout:
+        if os.system("curl {}:{}".format(host_ip, http_port)) == 0:
+            started = True
+        tries += 1
+        time.sleep(1)
+    
+    return started
 
 def get_topo_type(topo_name):
     pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
