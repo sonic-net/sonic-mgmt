@@ -5,9 +5,10 @@ import os
 import yaml
 import re
 import requests
-import time
 
+from ansible.devutil.http_helpers import wait_for_http
 from ansible.module_utils.basic import *
+
 
 DOCUMENTATION = '''
 module:  announce_routes
@@ -79,9 +80,9 @@ def announce_routes(ptf_ip, port, routes):
         else:
             messages.append("announce route {} next-hop {}".format(prefix, nexthop))
 
+    wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
-    time.sleep(60)
     r = requests.post(url, data=data, timeout=90)
     assert r.status_code == 200
 
