@@ -20,10 +20,6 @@ pytestmark = [
 PAUSE_TIME = 10
 
 
-def clear_portstat(dut):
-    dut.shell("portstat -c")
-
-
 @pytest.fixture(scope='module', autouse=True)
 def test_cleanup(rand_selected_dut):
     """
