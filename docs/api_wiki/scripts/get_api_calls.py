@@ -5,7 +5,7 @@ import os
 
 # Modules in this list should not be documented. Add any module that is clearly intended only for
 # use in playbooks. If you are unsure, see if it is ever called outside of a YAML file
-ansible_ignore = ["combine_list_to_dict", "configure_vms", "dual_tor_facts"]
+ansible_ignore = ["vmhost_server_info", "combine_list_to_dict", "switch_tables", "tunnel_config", "vlan_config", "test_facts", "topo_facts", "testbed_vm_info", "testing_port_ip_facts", "ptf_portchannel", "ip_route", "interface_up_down_data_struct_facts", "configure_vms", "dual_tor_facts", "counter_facts", "fabric_info", "get_interface"]
 
 to_print = []
 
@@ -14,7 +14,7 @@ to_print.append(["\n## DOCUMENTED ANSIBLE METHODS ##\n", []])
 ## Get Ansible Modules
 for file in os.listdir("./ansible/library/"):
     method_name = file[:-3]
-    if method_name.startswith("_") or method_name in ansible_ignore:
+    if method_name.startswith("_") or method_name in ansible_ignore or not file.endswith(".py"):
             continue
     file_path = "./docs/api_wiki/ansible_methods/{}.md".format(method_name)
     if os.path.isfile(file_path):

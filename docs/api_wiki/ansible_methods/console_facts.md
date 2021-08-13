@@ -20,3 +20,4 @@ def test_fun(duthosts, rand_one_dut_hostname):
 This method takes no arguments
 
 ## Expected Output
+Was not able to get sufficient output with my testbed. If you are contributor with console enabled, consider contributing your output.

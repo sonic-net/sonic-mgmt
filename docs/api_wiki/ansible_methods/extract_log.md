@@ -34,6 +34,5 @@ def test_fun(duthosts, rand_one_dut_hostname):
     - Type: `String`
     - Default: `None`
 
-
-
 ## Expected Output
+Provides no output
