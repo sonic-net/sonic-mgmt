@@ -132,6 +132,15 @@ def pytest_addoption(parser):
         help="Skip test on absent SFP",
     )
 
+    ###############################
+    # SONiC Metadata upgrade test #
+    ###############################
+
+    parser.addoption(
+        "--metadata_process", action="store_true", default=True, help="Upgrade using metadata procedure"
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
