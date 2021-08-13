@@ -46,6 +46,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [extract_log](ansible_methods/extract_log.md) - Unrotate logs and extract information starting from a row with predefined string.
 
+- [feature_facts](ansible_methods/feature_facts.md) - Provides the statuses for all active features on a host.
+
 - [fetch](ansible_methods/fetch.md) - Copies file from remote host to local host.
 
 - [file](ansible_methods/file.md) - Allows for setting attributes of file, symlinks, directories. Can be used to remove files.
@@ -56,9 +58,13 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [image_facts](ansible_methods/image_facts.md) - Get information on image from remote host.
 
+- [interface_facts](ansible_methods/interface_facts.md) - Retrieves information on device interfaces.
+
 - [lag_facts](ansible_methods/lag_facts.md) - Retrieve Ling Aggregation Group information from a device.
 
 - [lldpctl_facts](ansible_methods/lldpctl_facts.md) - Gathers LLDP facts from the SONiC device.
+
+- [lldp_facts](ansible_methods/lldp_facts.md) - Retrieve LLDP facts using SNMP
 
 - [minigraph_facts](ansible_methods/minigraph_facts.md) - Retrieve minigraph facts for a device.
 
@@ -72,6 +78,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [replace](ansible_methods/replace.md) - Replaces all instances of a pattern within a specified file. When using this method make sure that the pattern being used to match does not match the replacement text, otherwise the results may be undesirable.
 
+- [sensors_facts](ansible_methods/sensors_facts.md) - Retrieves sensor facts for a device.
+
 - [service](ansible_methods/service.md) - Controls services on the dut.
 
 - [setup](ansible_methods/setup.md) - Gather facts about the duthost.
@@ -80,11 +88,19 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [show_interface](ansible_methods/show_interface.md) - Retrieves status and counter values from DUT.
 
+- [show_ip_interface](ansible_methods/show_ip_interface.md) - Retrieve ipv4 address of itnerface and ipv4 addres for corresponding neighbor
+
+- [snmp_facts](ansible_methods/snmp_facts.md) - Retreives facts for device using SNMP
+
+- [sonic_pfc_counters](ansible_methods/sonic_pfc_counters.md) - Get or clear PFC counter for a device
+
 - [stat](ansible_methods/stat.md) - Retrieves facts on specified file.
 
 - [switch_arptable](ansible_methods/switch_arptable.md) - Reterives ARTP table from the SONiC switch
 
 - [switch_capabilities_facts](ansible_methods/switch_capabilities_facts.md) - Retreive switch capability information.
+
+- [sysfs_facts](ansible_methods/sysfs_facts.md) - Get sysfs information from switch
 
 - [tempfile](ansible_methods/tempfile.md) - Generates temp file or directory on remote host.
 
