@@ -1,8 +1,6 @@
 import pytest
 import logging
-import ipaddress
 import json
-import re
 import time
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.helpers.assertions import pytest_assert as pt_assert
