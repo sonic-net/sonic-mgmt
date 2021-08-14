@@ -175,64 +175,7 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
 
     # Ensure BGP session is up
     chk_bgp_session(duthost, tor_data["ip"]["remote"])
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"])
+    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower())
 
     log_info("Test run is good!")
-
-
-
-def __test_db_dump(duthosts, rand_one_dut_hostname):
-    global duthost
-
-    log_info("Dump in {}".format(rand_one_dut_hostname))
-    duthost = duthosts[rand_one_dut_hostname]
-
-    dbs = [[0, "appdb"], [1, "asicdb"], [2, "counterdb"], [4, "configdb"]]
-    for db in dbs:
-        duthost.shell("redis-dump -d {} --pretty -o /tmp/{}.json".format(db[0], db[1]))
-        duthost.fetch(src="/tmp/{}.json".format(db[1]), dest="logs/{}.json".format(db[1]))
-        log_info("Dumped DB {} {}".format(db[0], db[1]))
-
-    log_info("Succeeded")
-
-
-def __test_copy_files(duthosts, rand_one_dut_hostname):
-    log_info("copy files {}".format(rand_one_dut_hostname))
-    
-    duthost = duthosts[rand_one_dut_hostname]
-    log_info("type(duthost)={}".format(type(duthost)))
-
-    # duthost.fetch(src="/etc/sonic/minigraph.xml", dest="logs/test_xml")
-    d = ""
-    with open("logs/test_xml/{}/etc/sonic/minigraph.xml".format(rand_one_dut_hostname), "r") as s:
-        d = s.read()
-
-    d = "# hello\n" + d
-    with open("logs/test_upd.xml", "w") as s:
-        s.write(d)
-
-    duthost.copy(src="logs/test_upd.xml", dest="/etc/sonic/minigraph.xml")
-
-    log_info("Succeeded")
-
-
-def __test_chk_copy(duthosts, rand_one_dut_hostname):
-    log_info("test_chk_copy")
-
-    duthost = duthosts[rand_one_dut_hostname]
-
-    res = duthost.shell("ls -l /etc/sonic/orig/minigraph.xml.addRack.orig", module_ignore_errors=True)["stdout"]
-
-    log_info("res={}".format(res))
-    
-    if not res:
-        duthost.shell("mkdir -p /etc/sonic/orig")
-        log_info("created orig dir")
-    else:
-        log_info("None created")
-
-
-def __test_code(duthosts, rand_one_dut_hostname):
-    log_info("test in {}".format(rand_one_dut_hostname))
-
 
