@@ -13,8 +13,8 @@ from tests.common.utilities import wait_until
 sys.path.append("./configlet/util")
 
 from helpers import *
-import files_create
 from common import *
+import files_create
 
 pytestmark = [
         pytest.mark.topology("t1")
