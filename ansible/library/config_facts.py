@@ -60,7 +60,10 @@ def format_config(json_data):
                 data.setdefault(key_l1, {})[key_l2] = entry
             except ValueError:
                 # This is a single level key
-                data.setdefault(key, entry)
+                if key not in data:
+                    data[key] = entry
+                else:
+                    data[key].update(entry)
 
         res.setdefault(table, data)
 
