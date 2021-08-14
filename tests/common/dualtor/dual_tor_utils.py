@@ -807,8 +807,12 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     vlan_name = list(vlan_table.keys())[0]
     vlan_mac = host.get_dut_iface_mac(vlan_name)
     router_mac = host.facts['router_mac']
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
+    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
+    eth_src = ptfadapter.dataplane.get_mac(0, tx_port)
     # Generate packets from server to a random IP address, which goes default routes
-    pkt = testutils.simple_ip_packet(eth_dst=vlan_mac,
+    pkt = testutils.simple_ip_packet(eth_src=eth_src,
+                                    eth_dst=vlan_mac,
                                     ip_src=server_ip,
                                     ip_dst=random_ip)
     # Generate packet forwarded to portchannels
@@ -837,8 +841,6 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
         rx_ports += v
     rx_ports = [int(x.strip('eth')) for x in rx_ports]
 
-    mg_facts = host.get_extended_minigraph_facts(tbinfo)
-    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
     logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()
