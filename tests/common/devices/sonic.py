@@ -10,7 +10,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-from ansible import constants
+from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
@@ -48,10 +48,10 @@ class SonicHost(AnsibleHostBase):
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
-            user_def = constants.config.get_configuration_definition(
+            user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
                 )
-            pass_def = constants.config.get_configuration_definition(
+            pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
                 )
             for user_var in (_['name'] for _ in user_def['vars']):
