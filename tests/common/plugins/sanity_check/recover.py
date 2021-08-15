@@ -109,16 +109,17 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+    if vm_neighbors:
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
 
-    for lag_name in lag_facts['names']:
-        nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
-        peer_device   = vm_neighbors[nbr_intf]['name']
-        nbr_host = nbrhosts[peer_device]['host']
-        intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
-        # restore interfaces and portchannels
-        for intf in intf_list:
-            nbr_host.no_shutdown(intf)
-        asn = nbrhosts[peer_device]['conf']['bgp']['asn']
-        # restore BGP session
-        nbr_host.no_shutdown_bgp(asn)
+        for lag_name in lag_facts['names']:
+            nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+            peer_device   = vm_neighbors[nbr_intf]['name']
+            nbr_host = nbrhosts[peer_device]['host']
+            intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
+            # restore interfaces and portchannels
+            for intf in intf_list:
+                nbr_host.no_shutdown(intf)
+            asn = nbrhosts[peer_device]['conf']['bgp']['asn']
+            # restore BGP session
+            nbr_host.no_shutdown_bgp(asn)
