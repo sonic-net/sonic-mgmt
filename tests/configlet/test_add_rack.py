@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import time
+import yaml
 
 import pytest
 from tests.common.config_reload import config_reload
