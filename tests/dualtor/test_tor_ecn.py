@@ -259,6 +259,18 @@ def test_dscp_to_queue_during_decap_on_active(
     else:
         logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
 
+@pytest.fixture(scope='module')
+def write_standby(rand_selected_dut):
+    file = "/usr/local/bin/write_standby.py"
+    def runcmd():
+        rand_selected_dut.shell(file)
+
+    try:
+        rand_selected_dut.shell("ls %s" % file)
+        return runcmd
+    except:
+        pytest.skip('file {} not found'.format(file))
+
 def test_dscp_to_queue_during_encap_on_standby(
     build_non_encapsulated_ip_packet,
     rand_selected_interface, ptfadapter,
@@ -266,12 +278,13 @@ def test_dscp_to_queue_during_encap_on_standby(
     rand_selected_dut, 
     tunnel_traffic_monitor, 
     duthosts, 
-    rand_one_dut_hostname
+    rand_one_dut_hostname,
+    write_standby
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
     """
-    rand_selected_dut.shell("/usr/local/bin/write_standby.py")
+    write_standby()
 
     tor = rand_selected_dut
     non_encapsulated_packet = build_non_encapsulated_ip_packet
@@ -325,12 +338,13 @@ def test_ecn_during_encap_on_standby(
     ptfadapter,
     tbinfo, 
     rand_selected_dut, 
-    tunnel_traffic_monitor
+    tunnel_traffic_monitor,
+    write_standby
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby
     """
-    rand_selected_dut.shell("/usr/local/bin/write_standby.py")
+    write_standby()
 
     tor = rand_selected_dut
     non_encapsulated_packet = build_non_encapsulated_ip_packet
