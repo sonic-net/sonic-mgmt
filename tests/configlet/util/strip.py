@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import json
-import socket
 import sys
 import xml.etree.ElementTree as ET
 

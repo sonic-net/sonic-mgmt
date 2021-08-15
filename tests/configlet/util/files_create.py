@@ -2,8 +2,6 @@
 
 import argparse
 import json
-import socket
-import sys
 import yaml
 
 from helpers import *

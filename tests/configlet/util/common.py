@@ -2,8 +2,6 @@
 
 import json
 import os
-import socket
-import yaml
 
 from helpers import *
 
