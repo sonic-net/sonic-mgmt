@@ -104,8 +104,8 @@ def load_minigraph(duthost, duthost_name):
     config_reload(duthost, config_source="minigraph", wait=180, start_bgp=True) 
     assert wait_until(300, 20, duthost.critical_services_fully_started), \
             "All critical services should fully started!{}".format(duthost.critical_services)
-    assert wait_until(300, 20, chk_for_pfc_wd, duthost, duthost_name, data_dir), \
-                            "PFC_WD is missing in CONFIG-DB"
+    # assert wait_until(300, 20, chk_for_pfc_wd, duthost, duthost_name, data_dir), \
+            # "PFC_WD is missing in CONFIG-DB"
 
 
 def apply_clet(duthost, duthost_name):
@@ -168,6 +168,8 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     # and configlet. 
     download_sonic_files(duthost, files_dir)
 
+    assert wait_until(300, 20, chk_for_pfc_wd, duthost, duthost_name, data_dir), \
+                            "PFC_WD is missing in CONFIG-DB"
     # Create minigraph w/o a T0 & configlet, apply & take dump
     files_create.do_run()
     apply_clet(duthost, rand_one_dut_hostname)
