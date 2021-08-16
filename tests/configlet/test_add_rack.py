@@ -14,8 +14,8 @@ from tests.common.utilities import wait_until
 sys.path.append("./configlet/util")
 
 from helpers import *
-from common import *
 import files_create
+from common import *
 
 pytestmark = [
         pytest.mark.topology("t1")
@@ -47,7 +47,7 @@ def init(duthost, duthost_name):
         os.mkdir(i)
 
     init_data["files_dir"] = files_dir 
-    init_data["data_dir"] = os.path.join(data_dir, duthost_name)
+    init_data["data_dir"] = data_dir
     init_data["switch_name"] = duthost_name
 
     duthost.fetch(src="/etc/sonic/sonic_version.yml", dest=data_dir)
@@ -100,13 +100,15 @@ def configure_dut(duthosts, rand_one_dut_hostname):
 
 
 
-def load_minigraph(duthost):
+def load_minigraph(duthost, duthost_name):
     config_reload(duthost, config_source="minigraph", wait=180, start_bgp=True) 
     assert wait_until(300, 20, duthost.critical_services_fully_started), \
             "All critical services should fully started!{}".format(duthost.critical_services)
+    assert wait_until(300, 20, chk_for_pfc_wd, duthost, duthost_name, data_dir), \
+                            "PFC_WD is missing in CONFIG-DB"
 
 
-def apply_clet(duthost):
+def apply_clet(duthost, duthost_name):
     mini_wo_to = managed_files["minigraph_wo_to"]
     clet_file = managed_files["configlet"]
     sonic_clet_file = "/etc/sonic/add_Rack.json"
@@ -124,7 +126,7 @@ def apply_clet(duthost):
     duthost.copy(src=mini_wo_to, dest="/etc/sonic/minigraph.xml")
     duthost.copy(src=clet_file, dest=sonic_clet_file)
 
-    load_minigraph(duthost)
+    load_minigraph(duthost, duthost_name)
 
     tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
     duthost.shell("sudo config interface shutdown {}".format(tor_ifname))
@@ -157,7 +159,7 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     init(duthost, duthost_name)
 
     # Loads original minigraph with all T0s & get dumps
-    load_minigraph(duthost)
+    load_minigraph(duthost, rand_one_dut_hostname)
     log_info("config reloaded; Taking dumps ...")
     take_DB_dumps(duthost, duthost_name, orig_db_dir, data_dir)
 
@@ -168,7 +170,7 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
 
     # Create minigraph w/o a T0 & configlet, apply & take dump
     files_create.do_run()
-    apply_clet(duthost)
+    apply_clet(duthost, rand_one_dut_hostname)
     take_DB_dumps(duthost, duthost_name, clet_db_dir, data_dir)
 
     ret = compare_dumps(orig_db_dir, clet_db_dir)

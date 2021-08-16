@@ -78,9 +78,10 @@ def init_global_data():
         })
 
     data_dir = init_data["data_dir"]
+    duthost_name = init_data["switch_name"]
     managed_files.update({
-            "minigraph_file": os.path.join(data_dir, MINIGRAPH_FILE),
-            "config_db_file": os.path.join(data_dir, CONFIG_DB_FILE),
+            "minigraph_file": os.path.join(data_dir, duthost_name, MINIGRAPH_FILE),
+            "config_db_file": os.path.join(data_dir, duthost_name, CONFIG_DB_FILE),
             "minigraph_wo_to": "",
             "configlet": ""
             })
@@ -99,6 +100,17 @@ def report_error(m):
 def match_key(key, kset):
     for k in kset:
         if key.startswith(k):
+            return True
+    return False
+
+
+def chk_for_pfc_wd(duthost, duthost_name, data_dir):
+    duthost.shell('redis-dump -d 4 --pretty -k \"PFC_WD*\" -o /tmp/pfc_wd.json')
+    duthost.fetch(src="/tmp/pfc_wd.json", dest=data_dir)
+
+    with open("{}/{}/tmp/pfc_wd.json".format(data_dir, duthost_name), "r") as s:
+        d = json.load(s)
+        if len(d):
             return True
     return False
 
