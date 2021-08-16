@@ -1,3 +1,4 @@
+import copy
 import ipaddress
 import itertools
 import json
@@ -8,6 +9,7 @@ import time
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from tests.common.reboot import reboot as rebootDut
+from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
@@ -199,6 +201,10 @@ class AdvancedReboot:
         sadList = [item for item in itertools.chain(prebootList, inbootList)]
 
         for item in sadList:
+            # TODO: Move all sad path logic out of ptf script to pytest.
+            # Once done, we can make a sad_operation fixture.
+            if isinstance(item, SadOperation):
+                continue
             if ':' not in item:
                 continue
             itemCnt = int(item.split(':')[-1])
@@ -212,16 +218,6 @@ class AdvancedReboot:
                     'Lag count is greater than or equal to number of VM hosts. '
                     'Current val = {0} Max val = {1}'
                 ).format(itemCnt, self.hostMaxLen)
-            if 'lag_member_down' in item:
-                assert itemCnt <= self.lagMemberCnt, (
-                    'Lag member count is greater than available number of lag members. '
-                    'Current val = {0} Available cnt = {1}'
-                ).format(itemCnt, self.lagMemberCnt)
-            if 'vlan_port_down' in item:
-                assert itemCnt <= self.vlanMaxCnt, (
-                    'Vlan count is greater than or equal to number of Vlan interfaces. '
-                    'Current val = {0} Max val = {1}'
-                ).format(itemCnt, self.vlanMaxCnt)
             if 'routing' in item:
                 assert itemCnt <= self.hostMaxCnt, (
                     'Number of prefixes is greater than allowed max. '
@@ -330,15 +326,6 @@ class AdvancedReboot:
         '''
         Sets testbed up. It tranfers test data files, ARP responder, and runs script to update IPs and MAC addresses.
         '''
-        testDataFiles = [
-            {'source' : self.mgFacts['minigraph_portchannels'], 'name' : 'portchannel_interfaces'},
-            {'source' : self.mgFacts['minigraph_vlans'],        'name' : 'vlan_interfaces'       },
-            {'source' : self.mgFacts['minigraph_ptf_indices'],  'name' : 'ports'                 },
-            {'source' : self.mgFacts['minigraph_devices'],      'name' : 'peer_dev_info'         },
-            {'source' : self.mgFacts['minigraph_neighbors'],    'name' : 'neigh_port_info'       },
-        ]
-        self.__transferTestDataFiles(testDataFiles, self.ptfhost)
-
         self.__runScript(['remove_ip.sh'], self.ptfhost)
 
         self.__prepareTestbedSshKeys()
@@ -441,11 +428,14 @@ class AdvancedReboot:
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
+                self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
+                self.__verifyRebootOper(rebootOper)
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
+                self.__revertRebootOper(rebootOper)
             if not result:
                 return result
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
@@ -463,6 +453,38 @@ class AdvancedReboot:
         self.imageInstall(prebootList, inbootList, prebootFiles)
         return self.runRebootTest()
 
+    def __setupRebootOper(self, rebootOper):
+        testData = {
+            'portchannel_interfaces': copy.deepcopy(self.mgFacts['minigraph_portchannels']),
+            'vlan_interfaces': copy.deepcopy(self.mgFacts['minigraph_vlans']),
+            'ports': copy.deepcopy(self.mgFacts['minigraph_ptf_indices']),
+            'peer_dev_info': copy.deepcopy(self.mgFacts['minigraph_devices']),
+            'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
+        }
+
+        if isinstance(rebootOper, SadOperation):
+            logger.info('Running setup handler for reboot operation {}'.format(rebootOper))
+            rebootOper.setup(testData)
+
+        # TODO: remove this parameter. Arista VMs can be read by ptf from peer_dev_info.
+        self.rebootData['arista_vms'] = [
+            attr['mgmt_addr'] for dev, attr in testData['peer_dev_info'].items() if attr['hwsku'] == 'Arista-VM'
+        ]
+        self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
+
+        testDataFiles = [{'source': source, 'name': name} for name, source in testData.items()]
+        self.__transferTestDataFiles(testDataFiles, self.ptfhost)
+
+    def __verifyRebootOper(self, rebootOper):
+        if isinstance(rebootOper, SadOperation):
+            logger.info('Running verify handler for reboot operation {}'.format(rebootOper))
+            rebootOper.verify()
+
+    def __revertRebootOper(self, rebootOper):
+        if isinstance(rebootOper, SadOperation):
+            logger.info('Running revert handler for reboot operation {}'.format(rebootOper))
+            rebootOper.revert()
+
     def __runPtfRunner(self, rebootOper=None):
         '''
         Run single PTF advanced-reboot.ReloadTest
@@ -470,12 +492,43 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
-        # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
-        # lack of routing indicates it is preboot operation
-        prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
-        # Routing add/remove is performed during dut reboot process
-        # presence of routing in reboot operation indicates it is during reboot operation (inboot)
-        inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
+        params={
+            "dut_username" : self.rebootData['dut_username'],
+            "dut_password" : self.rebootData['dut_password'],
+            "dut_hostname" : self.rebootData['dut_hostname'],
+            "reboot_limit_in_seconds" : self.rebootLimit,
+            "reboot_type" : self.rebootType,
+            "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
+            "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
+            "ports_file" : self.rebootData['ports_file'],
+            "dut_mac" : self.rebootData['dut_mac'],
+            "default_ip_range" : self.rebootData['default_ip_range'],
+            "vlan_ip_range" : self.rebootData['vlan_ip_range'],
+            "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
+            "arista_vms" : self.rebootData['arista_vms'],
+            "nexthop_ips" : self.rebootData['nexthop_ips'],
+            "allow_vlan_flooding" : self.allowVlanFlooding,
+            "sniff_time_incr" : self.sniffTimeIncr,
+            "setup_fdb_before_test" : True,
+            "vnet" : self.vnet,
+            "vnet_pkts" : self.vnetPkts,
+            "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff
+        }
+
+        if not isinstance(rebootOper, SadOperation):
+            # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
+            # lack of routing indicates it is preboot operation
+            prebootOper = rebootOper if rebootOper is not None and 'routing' not in rebootOper else None
+            # Routing add/remove is performed during dut reboot process
+            # presence of routing in reboot operation indicates it is during reboot operation (inboot)
+            inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
+            params.update({
+                "preboot_files" : self.prebootFiles,
+                "preboot_oper" : prebootOper,
+                "inboot_oper" : inbootOper,
+            })
+        else:
+            params.update({'logfile_suffix': str(rebootOper)})
 
         self.__updateAndRestartArpResponder(rebootOper)
 
@@ -487,31 +540,7 @@ class AdvancedReboot:
             qlen=PTFRUNNER_QLEN,
             platform_dir="ptftests",
             platform="remote",
-            params={
-                "dut_username" : self.rebootData['dut_username'],
-                "dut_password" : self.rebootData['dut_password'],
-                "dut_hostname" : self.rebootData['dut_hostname'],
-                "reboot_limit_in_seconds" : self.rebootLimit,
-                "reboot_type" : self.rebootType,
-                "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
-                "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
-                "ports_file" : self.rebootData['ports_file'],
-                "dut_mac" : self.rebootData['dut_mac'],
-                "default_ip_range" : self.rebootData['default_ip_range'],
-                "vlan_ip_range" : self.rebootData['vlan_ip_range'],
-                "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
-                "arista_vms" : self.rebootData['arista_vms'],
-                "preboot_files" : self.prebootFiles,
-                "preboot_oper" : prebootOper,
-                "inboot_oper" : inbootOper,
-                "nexthop_ips" : self.rebootData['nexthop_ips'],
-                "allow_vlan_flooding" : self.allowVlanFlooding,
-                "sniff_time_incr" : self.sniffTimeIncr,
-                "setup_fdb_before_test" : True,
-                "vnet" : self.vnet,
-                "vnet_pkts" : self.vnetPkts,
-                "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff
-            },
+            params=params,
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors
         )
