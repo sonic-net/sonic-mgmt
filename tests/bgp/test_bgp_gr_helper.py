@@ -17,7 +17,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_bgp_gr_helper_routes_preserved(duthosts, rand_one_dut_hostname, nbrhosts, setup_bgp_graceful_restart, tbinfo):
+def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts, setup_bgp_graceful_restart, tbinfo):
     """Verify that routes received from one neighbor are all preserved during peer graceful restart."""
 
     def _find_test_bgp_neighbors(test_neighbor_name, bgp_neighbors):
