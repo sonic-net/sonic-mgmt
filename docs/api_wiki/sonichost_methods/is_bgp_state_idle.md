@@ -1,4 +1,4 @@
-# get_now_time
+# is_bgp_state_idle
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Checks if all BGP peers are in IDLE state.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    all_bgp_idle = duthost.is_bgp_state_idle()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no arguments
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+`True` if all BGP neighbors are IDLE, `False` otherwise.

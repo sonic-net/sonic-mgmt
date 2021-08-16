@@ -1,4 +1,4 @@
-# get_now_time
+# get_speed
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Gets configured speed for a given interface.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    eth0_speed = duthost.get_speed("Ethernet0")
 ```
 
 ## Arguments
-This method takes no arguments.
+- `interface_name` - name of interface to get speed for
+    - Required: `True`
+    - Type: `String`
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Returns speed as `String` in `10G` format.

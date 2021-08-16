@@ -1,4 +1,4 @@
-# get_now_time
+# get_up_ip_ports
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Gets list of all `up` interfaces
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    up_ports = duthost.get_up_ip_ports()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no arguments
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+List of port names corresponding to the ports that are up.

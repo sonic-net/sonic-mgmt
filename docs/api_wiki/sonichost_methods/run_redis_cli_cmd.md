@@ -1,4 +1,4 @@
-# get_now_time
+# run_redis_cli_cmd
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Run redis command through the redis cli.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    ret_code = duthost.run_redis_cli_cmd({REDIS_COMMAND})
 ```
 
 ## Arguments
-This method takes no arguments.
+- `redis_cmd` - redis command that should be run on the DUT
+    - Required: `True`
+    - Type: `String`
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+The return code for the command.

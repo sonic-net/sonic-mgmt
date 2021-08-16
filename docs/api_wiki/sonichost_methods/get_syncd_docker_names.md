@@ -1,4 +1,4 @@
-# get_now_time
+# get_syncd_docker_names
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Gets list of syncd docker names. 
+
+There should be a docker name for each NPU present on the DUT.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    syncd_names = duthost.get_syncd_docker_names()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no arguments.
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+List of docker names. If there is only one NPU, the output should be `["syncd"]`

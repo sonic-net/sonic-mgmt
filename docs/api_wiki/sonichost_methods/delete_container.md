@@ -1,4 +1,4 @@
-# get_now_time
+# delete_container
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Removes a docker container from the DUT.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    duthost.delete_container("swss")
 ```
 
 ## Arguments
-This method takes no arguments.
+- `service` - name of docker container to delete
+    - Required: `True`
+    - Type: `String`
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Provides no output.

@@ -1,4 +1,4 @@
-# get_now_time
+# start_pmon_daemon
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Start daemon in pmon docker using `supervisorctl start`
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    duthost.start_pmon_daemon("pmon_daemon")
 ```
 
 ## Arguments
-This method takes no arguments.
+- `daemon_name` - name for daemon once started
+    - Required: `True`
+    - Type: `String`
 
-## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+## Expected output
+Provides no output

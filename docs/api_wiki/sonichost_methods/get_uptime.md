@@ -1,4 +1,4 @@
-# get_now_time
+# get_uptime
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,19 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Returns the amount of time since device was started
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    time_since_start = duthost.get_uptime()
 ```
 
+
 ## Arguments
-This method takes no arguments.
+Takes no arguments.
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+returns amount of time since device start.

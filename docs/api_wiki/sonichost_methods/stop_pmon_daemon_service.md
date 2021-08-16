@@ -1,4 +1,4 @@
-# get_now_time
+# stop_pmon_daemon_service
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Stops daemon in pmon docker using `supervisorctl stop`
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    duthost.stop_pmon_daemon_service("pmon_daemon")
 ```
 
 ## Arguments
-This method takes no arguments.
+- `daemon_name` - name of daemon to stop
+    - Required: `True`
+    - Type: `String`
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Provides no output.

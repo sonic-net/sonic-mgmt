@@ -1,4 +1,4 @@
-# get_now_time
+# no_shutdown
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Starts up a specied interface.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    ret_code = duthost.no_shutdown("Ethernet0")
 ```
 
 ## Arguments
-This method takes no arguments.
+- `ifname` - name of interface to startup
+    - Required: `True`
+    - Type: `String`
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Returns return code for `config` command

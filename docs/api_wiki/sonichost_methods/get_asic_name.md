@@ -1,4 +1,4 @@
-# get_now_time
+# get_asic_name
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Returns name of current ASIC. For use in multi-ASIC environments.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    asic_name = duthost.get_asic_name()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no arguments
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Returns name of ASIC as a string.

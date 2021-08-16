@@ -1,4 +1,4 @@
-# get_now_time
+# remove_ssh_tunnel_sai_rpc
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Removes any ssh tunnels if present created for syncd RPC communication
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    duthost.remove_ssh_tunnel_sai_rpc()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no arguments
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+Provides no output

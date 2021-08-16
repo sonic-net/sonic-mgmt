@@ -107,9 +107,15 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 ## Sonichost Methods
 
+- [active_ip_interfaces](sonichost_methods/active_ip_interfaces.md) - Provides information on all active IP (Ethernet or Portchannel) interfaces given a list of interface names.
+
 - [all_critical_process_status](sonichost_methods/all_critical_process_status.md) - Provides summary and status of all critical services and their processes
 
 - [check_bgp_session_nsf](sonichost_methods/check_bgp_session_nsf.md) - Checks if BGP neighbor session has entered Nonstop Forwarding(NSF) state
+
+- [check_bgp_session_state](sonichost_methods/check_bgp_session_state.md) - Check whether the state of the bgp session matches a specified state for a list of bgp neighbors.
+
+- [check_default_route](sonichost_methods/check_default_route.md) - Provides the status of the default route
 
 - [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
 
@@ -119,9 +125,17 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [critical_services_status](sonichost_methods/critical_services_status.md) - Checks status for cirtical services.
 
+- [delete_container](sonichost_methods/delete_container.md) - Removes a docker container from the DUT.
+
 - [facts](sonichost_methods/facts.md) - Returns platform information facts about the sonic device.
 
+- [get_asic_name](sonichost_methods/get_asic_name.md) - Returns name of current ASIC. For use in multi-ASIC environments.
+
+- [get_auto_negotiation_mode](sonichost_methods/get_auto_negotiation_mode.md) - Gets the auto negotiation status for a provided interface
+
 - [get_bgp_neighbors](sonichost_methods/get_bgp_neighbors.md) - This command provides a summary of the bgp neighbors peered with the DUT. Returns a dictionary that maps the BGP address for each neighbor to another dictionary listing information on that neighbor device.
+
+- [get_bgp_neighbor_info](sonichost_methods/get_bgp_neighbor_info.md) - Provides BGP neighbor info
 
 - [get_container_autorestart_states](sonichost_methods/get_container_autorestart_states.md) - Get container names and their autorestart states. Containers that do not have the autorestart feature implemented are skipped by this test.
 
@@ -135,25 +149,55 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_extended_minigraph_facts](sonichost_methods/get_extended_minigraph_facts.md) - Gets detailed facts on configured minigraph.
 
+- [get_facts](sonichost_methods/get_facts.md) - Returns `facts` property. See [facts](facts).
+
 - [get_feature_status](sonichost_methods/get_feature_status.md) - Returns features and their states.
+
+- [get_image_info](sonichost_methods/get_image_info.md) - Get list of images installed on the DUT.
+
+- [get_ip_route_info](sonichost_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
 
 - [get_monit_services_status](sonichost_methods/get_monit_services_status.md) - Get metadata on services monitored by Monit.
 
 - [get_namespace_ids](sonichost_methods/get_namespace_ids.md) - Gets ids of namespace where the container should reside in.
 
-- [get_now_time](sonichost_methods/get_now_time.md) - Gets datetime as defined on the remote host
+- [get_networking_uptime](sonichost_methods/get_networking_uptime.md) - Returns time since `networking` service started on the host.
+
+- [get_now_time](sonichost_methods/get_now_time.md) - Gets current datetime as defined on the remote host
 
 - [get_pmon_daemon_db_value](sonichost_methods/get_pmon_daemon_db_value.md) - Gets the db value in state db to check the daemon expected status
+
+- [get_pmon_daemon_states](sonichost_methods/get_pmon_daemon_states.md) - Get states of daemons from the pmon docker.
+
+- [get_pmon_daemon_status](sonichost_methods/get_pmon_daemon_status.md) - Get daemon status in pmon docker using `supervisorctl status` command.
+
+- [get_rsyslog_ipv4](sonichost_methods/get_rsyslog_ipv4.md) - Returns the rsyslog ipv4 address.
 
 - [get_running_config_facts](sonichost_methods/get_running_config_facts.md) - Provides information on the currently running configuration of the dut.
 
 - [get_service_props](sonichost_methods/get_service_props.md) - Gets detailed properties of a service
 
+- [get_speed](sonichost_methods/get_speed.md) - Gets configured speed for a given interface.
+
 - [get_supported_speeds](sonichost_methods/get_supported_speeds.md) - Gets a list of all supported speeds for a given interface.
+
+- [get_swss_docker_names](sonichost_methods/get_swss_docker_names.md) - Gets list of swss docker names.
+
+- [get_syncd_docker_names](sonichost_methods/get_syncd_docker_names.md) - Gets list of syncd docker names.
+
+- [get_uptime](sonichost_methods/get_uptime.md) - Returns the amount of time since device was started
+
+- [get_up_ip_ports](sonichost_methods/get_up_ip_ports.md) - Gets list of all `up` interfaces
+
+- [get_up_time](sonichost_methods/get_up_time.md) - Returns `datetime` object representing date/time that device was started.
 
 - [get_vlan_intfs](sonichost_methods/get_vlan_intfs.md) - Retrieves list of interfaces belonging to a VLAN.
 
 - [hostname](sonichost_methods/hostname.md) - Provides hostname for device.
+
+- [is_backend_portchannel](sonichost_methods/is_backend_portchannel.md) - Returns whether or not a provided portchannel is a backend portchannel.
+
+- [is_bgp_state_idle](sonichost_methods/is_bgp_state_idle.md) - Checks if all BGP peers are in IDLE state.
 
 - [is_container_running](sonichost_methods/is_container_running.md) - Checks whether a docker container is running.
 
@@ -169,17 +213,47 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [kernel_version](sonichost_methods/kernel_version.md) - Provides version of Sonic kernel on remote host
 
+- [kill_pmon_daemon_pid_w_sig](sonichost_methods/kill_pmon_daemon_pid_w_sig.md) - Stops daemon in pmon docker using kill with a sig.
+
 - [mgmt_ip](sonichost_methods/mgmt_ip.md) - Provides management ip for host.
+
+- [no_shutdown](sonichost_methods/no_shutdown.md) - Starts up a specied interface.
+
+- [no_shutdown_multiple](sonichost_methods/no_shutdown_multiple.md) - Startup multiple interfaces.
 
 - [num_asics](sonichost_methods/num_asics.md) - Provides number of asics
 
 - [os_version](sonichost_methods/os_version.md) - Provides string representing the version of SONiC being used
 
+- [ping_v4](sonichost_methods/ping_v4.md) - Pings ipv4 address and provides result.
+
+- [remove_ssh_tunnel_sai_rpc](sonichost_methods/remove_ssh_tunnel_sai_rpc.md) - Removes any ssh tunnels if present created for syncd RPC communication
+
 - [reset_critical_services_tracking_list](sonichost_methods/reset_critical_services_tracking_list.md) - Modifies the list of critical services used by the SONiC Host.
+
+- [reset_service](sonichost_methods/reset_service.md) - Resets a service on a specified docker.
+
+- [restart_service](sonichost_methods/restart_service.md) - Restarts a service on a specified docker.
+
+- [run_redis_cli_cmd](sonichost_methods/run_redis_cli_cmd.md) - Run redis command through the redis cli.
+
+- [set_auto_negotiation_mode](sonichost_methods/set_auto_negotiation_mode.md) - Sets the auto negotiation mode for a provided interface
+
+- [set_speed](sonichost_methods/set_speed.md) - Sets speed for desired interface.
 
 - [show_and_parse](sonichost_methods/show_and_parse.md) - Runs a show command on the host and parses the input into a computer readable format, usually a list of entries. Works on any show command that has suimilar structure to `show interface status`
 
 - [shutdown](sonichost_methods/shutdown.md) - Shuts down a specified interface
+
+- [shutdown_multiple](sonichost_methods/shutdown_multiple.md) - Shuts down multiple specified interfaces.
+
+- [start_pmon_daemon](sonichost_methods/start_pmon_daemon.md) - Start daemon in pmon docker using `supervisorctl start`
+
+- [start_service](sonichost_methods/start_service.md) - Starts service on a specified docker.
+
+- [stop_pmon_daemon](sonichost_methods/stop_pmon_daemon.md) - Stop daemon in pmon docker.
+
+- [stop_pmon_daemon_service](sonichost_methods/stop_pmon_daemon_service.md) - Stops daemon in pmon docker using `supervisorctl stop`
 
 - [stop_service](sonichost_methods/stop_service.md) - Stops a specified service
 

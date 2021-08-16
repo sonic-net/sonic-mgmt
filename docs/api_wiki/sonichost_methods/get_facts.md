@@ -1,4 +1,4 @@
-# get_now_time
+# get_facts
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,18 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets current datetime as defined on the remote host
+Returns `facts` property. See [facts](facts).
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthosttime = duthost.get_now_time()
+    facts = duthost.get_facts()
 ```
 
 ## Arguments
-This method takes no arguments.
+Takes no Arguments.
 
 ## Expected Output
-A string representing the datetime (`Y-M-D H:M:S`)
+See [facts](facts)
