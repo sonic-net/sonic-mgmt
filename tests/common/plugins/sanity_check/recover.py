@@ -120,7 +120,7 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
             for intf in intf_list:
                 nbr_host.no_shutdown(intf)
             asn = nbrhosts[peer_device]['conf']['bgp']['asn']
-            # restore BGP session
-            nbr_host.no_shutdown_bgp(asn)
             # start BGPd
             nbr_host.start_bgpd()
+            # restore BGP session
+            nbr_host.no_shutdown_bgp(asn)
