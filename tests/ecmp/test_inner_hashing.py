@@ -35,6 +35,46 @@ FIB_INFO_FILE_DST = '/root/fib_info.txt'
 VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
+IP_VERSIONS_LIST = ["ipv4", "ipv6"]
+TABLE_NAME = "pbh_table"
+TABLE_DESCRIPTION = "NVGRE and VXLAN"
+HASH_NAME = "inner_hash"
+VXLAN_RULE_NAME = "vxlan_{}_{}"
+NVGRE_RULE_NAME = "nvgre_{}_{}"
+VXLAN_RULE_PRIO = "1"
+NVGRE_RULE_PRIO = "2"
+ECMP_PACKET_ACTION = "SET_ECMP_HASH"
+V4_ETHER_TYPE = "0x0800"
+V6_ETHER_TYPE = "0x86dd"
+VXLAN_IP_PROTOCOL = "0x11"
+NVGRE_IP_PROTOCOL = "0x2f"
+VXLAN_L4_DST_PORT = "0x3412"
+VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
+ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
+DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
+ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
+                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
+DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
+ADD_PBH_HASH_CMD = "sudo config pbh hash add '{}' --hash-field-list '{}'"
+DEL_PBH_HASH_CMD = "sudo config pbh hash delete '{}'"
+ADD_PBH_HASH_FIELD_CMD = "sudo config pbh hash-field add '{}' --hash-field '{}' --sequence-id '{}'"
+DEL_PBH_HASH_FIELD_CMD = "sudo config pbh hash-field delete '{}'"
+
+PBH_HASH_FIELD_LIST = "inner_ip_proto," \
+                      "inner_l4_dst_port,inner_l4_src_port," \
+                      "inner_dst_ipv4,inner_src_ipv4," \
+                      "inner_src_ipv6,inner_dst_ipv6"
+HASH_FIELD_CONFIG = {
+    "inner_ip_proto": {"field": "INNER_IP_PROTOCOL", "sequence": "1"},
+    "inner_l4_dst_port": {"field": "INNER_L4_DST_PORT", "sequence": "2"},
+    "inner_l4_src_port": {"field": "INNER_L4_SRC_PORT", "sequence": "2"},
+    "inner_src_ipv4": {"field": "INNER_SRC_IPV4", "sequence": "3", "mask": "255.255.255.255"},
+    "inner_dst_ipv4": {"field": "INNER_DST_IPV4", "sequence": "3", "mask": "255.255.255.255"},
+    "inner_src_ipv6": {"field": "INNER_SRC_IPV6", "sequence": "4", "mask": "ffff:ffff::"},
+    "inner_dst_ipv6": {"field": "INNER_DST_IPV6", "sequence": "4", "mask": "ffff:ffff::"}
+}
+
+
 @pytest.fixture(scope='module')
 def config_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
@@ -113,11 +153,12 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
 
 
 @pytest.fixture(scope='module')
-def vlan_ptf_ports(config_facts, tbinfo):
+def vlan_ptf_ports(config_facts, tbinfo, duthost):
     ports = []
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for vlan_members in config_facts.get('VLAN_MEMBER', {}).values():
         for intf in vlan_members.keys():
-            dut_port_index = config_facts.get('port_index_map', {})[intf]
+            dut_port_index = mg_facts['minigraph_ptf_indices'][intf]
             logging.info("Added " + str(dut_port_index))
             ports.append(dut_port_index)
 
@@ -147,41 +188,169 @@ def symmetric_hashing(duthosts, rand_one_dut_hostname):
     return symmetric_hashing
 
 
-@pytest.fixture(params=["ipv4", "ipv6"])
-def ipver(request):
+@pytest.fixture(scope="module", params=IP_VERSIONS_LIST)
+def outer_ipver(request):
     return request.param
 
 
-def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, symmetric_hashing, build_fib, setup):
-    logging.info("Executing inner hash test for " + ipver + " with symmetric_hashing set to " + str(symmetric_hashing))
+@pytest.fixture(scope="module", params=IP_VERSIONS_LIST)
+def inner_ipver(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def dynamic_pbh(request):
+    request.getfixturevalue("config_pbh_table")
+    request.getfixturevalue("config_hash_fields")
+    request.getfixturevalue("config_hash")
+    request.getfixturevalue("config_rules")
+
+
+@pytest.fixture(scope="module")
+def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
+    tested_intfs = []
+    # get ports according to chosen ptf ports indices
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for intf, index in mg_facts['minigraph_ptf_indices'].items():
+        if index in vlan_ptf_ports:
+            tested_intfs.append(intf)
+    tested_intfs_str = ",".join(tested_intfs)
+    duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
+                                             tested_intfs_str,
+                                             TABLE_DESCRIPTION))
+
+    yield
+
+    duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
+
+
+@pytest.fixture(scope="module")
+def config_hash_fields(duthost):
+    for hash_filed, hash_filed_params_dict in HASH_FIELD_CONFIG.items():
+        cmd = get_hash_filed_add_cmd(hash_filed, hash_filed_params_dict)
+        duthost.command(cmd)
+
+    yield
+
+    for hash_filed in HASH_FIELD_CONFIG.keys():
+        duthost.command(DEL_PBH_HASH_FIELD_CMD.format(hash_filed))
+
+
+def get_hash_filed_add_cmd(hash_filed_name, hash_filed_params_dict):
+    cmd = ADD_PBH_HASH_FIELD_CMD.format(hash_filed_name,
+                                        hash_filed_params_dict["field"],
+                                        hash_filed_params_dict["sequence"])
+    if "mask" in hash_filed_params_dict:
+        cmd += " --ip-mask '{}'".format(hash_filed_params_dict["mask"])
+    return cmd
+
+
+@pytest.fixture(scope="module")
+def config_hash(duthost):
+    duthost.command(ADD_PBH_HASH_CMD.format(HASH_NAME, PBH_HASH_FIELD_LIST))
+
+    yield
+
+    duthost.command(DEL_PBH_HASH_CMD.format(HASH_NAME))
+
+
+@pytest.fixture(scope="module")
+def config_rules(duthost):
+    for ipver in IP_VERSIONS_LIST:
+        config_ipv4_rules(duthost, ipver)
+        config_ipv6_rules(duthost, ipver)
+
+    yield
+
+    for ipver in IP_VERSIONS_LIST:
+        delete_ipv4_rules(duthost, ipver)
+        delete_ipv6_rules(duthost, ipver)
+
+
+def config_ipv4_rules(duthost, inner_ipver):
+    config_vxlan_rule(duthost, " --ip-protocol {}", V4_ETHER_TYPE, "ipv4", inner_ipver)
+    config_nvgre_rule(duthost, " --ip-protocol {}", V4_ETHER_TYPE, "ipv4", inner_ipver)
+
+
+def config_ipv6_rules(duthost, inner_ipver):
+    config_vxlan_rule(duthost, " --ipv6-next-header {}", V6_ETHER_TYPE, "ipv6", inner_ipver)
+    config_nvgre_rule(duthost, " --ipv6-next-header {}", V6_ETHER_TYPE, "ipv6", inner_ipver)
+
+
+def config_vxlan_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipver):
+    inner_ether_type = V4_ETHER_TYPE if inner_ipver == "ipv4" else V6_ETHER_TYPE
+    duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option + VXLAN_L4_DST_PORT_OPTION)
+                    .format(TABLE_NAME,
+                            VXLAN_RULE_NAME.format(outer_ipver, inner_ipver),
+                            VXLAN_RULE_PRIO,
+                            ether_type,
+                            inner_ether_type,
+                            HASH_NAME,
+                            ECMP_PACKET_ACTION,
+                            VXLAN_IP_PROTOCOL,
+                            VXLAN_L4_DST_PORT))
+
+
+def config_nvgre_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipver):
+    inner_ether_type = V4_ETHER_TYPE if inner_ipver == "ipv4" else V6_ETHER_TYPE
+    duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option)
+                    .format(TABLE_NAME,
+                            NVGRE_RULE_NAME.format(outer_ipver, inner_ipver),
+                            NVGRE_RULE_PRIO,
+                            ether_type,
+                            inner_ether_type,
+                            HASH_NAME,
+                            ECMP_PACKET_ACTION,
+                            NVGRE_IP_PROTOCOL))
+
+
+def delete_ipv4_rules(duthost, inner_ipver):
+    delete_vxlan_nvgre_rules(duthost, "ipv4", inner_ipver)
+
+
+def delete_ipv6_rules(duthost, inner_ipver):
+    delete_vxlan_nvgre_rules(duthost, "ipv6", inner_ipver)
+
+
+def delete_vxlan_nvgre_rules(duthost, outer_ipver, inner_ipver):
+    duthost.command(DEL_PBH_RULE_CMD.format(TABLE_NAME, VXLAN_RULE_NAME.format(outer_ipver, inner_ipver)))
+    duthost.command(DEL_PBH_RULE_CMD.format(TABLE_NAME, NVGRE_RULE_NAME.format(outer_ipver, inner_ipver)))
+
+
+def test_inner_hashing(duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
+                       vlan_ptf_ports, symmetric_hashing, build_fib, setup, dynamic_pbh):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.log".format(ipver, timestamp)
+    log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
 
-    inner_src_ip_range = SRC_IP_RANGE
-    inner_dst_ip_range = DST_IP_RANGE
-
-    if ipver == "ipv4":
+    if outer_ipver == "ipv4":
         outer_src_ip_range = SRC_IP_RANGE
         outer_dst_ip_range = DST_IP_RANGE
     else:
         outer_src_ip_range = SRC_IPV6_RANGE
         outer_dst_ip_range = DST_IPV6_RANGE
 
+    if inner_ipver == "ipv4":
+        inner_src_ip_range = SRC_IP_RANGE
+        inner_dst_ip_range = DST_IP_RANGE
+    else:
+        inner_src_ip_range = SRC_IPV6_RANGE
+        inner_dst_ip_range = DST_IPV6_RANGE
+
     ptf_runner(ptfhost,
-            "ptftests",
-            "inner_hash_test.InnerHashTest",
-            platform_dir="ptftests",
-            params={"fib_info": FIB_INFO_FILE_DST,
-                    "router_mac": router_mac,
-                    "src_ports": vlan_ptf_ports,
-                    "hash_keys": hash_keys,
-                    "vxlan_port": VXLAN_PORT, 
-                    "inner_src_ip_range": ",".join(inner_src_ip_range),
-                    "inner_dst_ip_range": ",".join(inner_dst_ip_range),
-                    "outer_src_ip_range": ",".join(outer_src_ip_range),
-                    "outer_dst_ip_range": ",".join(outer_dst_ip_range),
-                    "symmetric_hashing": symmetric_hashing},
-            log_file=log_file,
-            qlen=PTF_QLEN,
-            socket_recv_size=16384)
+               "ptftests",
+               "inner_hash_test.InnerHashTest",
+               platform_dir="ptftests",
+               params={"fib_info": FIB_INFO_FILE_DST,
+                       "router_mac": router_mac,
+                       "src_ports": vlan_ptf_ports,
+                       "hash_keys": hash_keys,
+                       "vxlan_port": VXLAN_PORT,
+                       "inner_src_ip_range": ",".join(inner_src_ip_range),
+                       "inner_dst_ip_range": ",".join(inner_dst_ip_range),
+                       "outer_src_ip_range": ",".join(outer_src_ip_range),
+                       "outer_dst_ip_range": ",".join(outer_dst_ip_range),
+                       "symmetric_hashing": symmetric_hashing},
+              log_file=log_file,
+              qlen=PTF_QLEN,
+              socket_recv_size=16384)

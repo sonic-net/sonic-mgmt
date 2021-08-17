@@ -66,13 +66,13 @@ class InnerHashTest(BaseTest):
 
         inner_src_ip_range = [unicode(x) for x in self.test_params['inner_src_ip_range'].split(',')]
         inner_dst_ip_range = [unicode(x) for x in self.test_params['inner_dst_ip_range'].split(',')]
-        self.inner_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_src_ip_range[0]), ip_address(inner_src_ip_range[1]))
-        self.inner_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_dst_ip_range[0]), ip_address(inner_dst_ip_range[1]))
+        self.inner_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_src_ip_range[0])+1, ip_address(inner_src_ip_range[1]))
+        self.inner_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_dst_ip_range[0])+1, ip_address(inner_dst_ip_range[1]))
 
         outer_src_ip_range = [unicode(x) for x in self.test_params['outer_src_ip_range'].split(',')]
         outer_dst_ip_range = [unicode(x) for x in self.test_params['outer_dst_ip_range'].split(',')]
-        self.outer_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_src_ip_range[0]), ip_address(outer_src_ip_range[1]))
-        self.outer_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_dst_ip_range[0]), ip_address(outer_dst_ip_range[1]))
+        self.outer_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_src_ip_range[0])+1, ip_address(outer_src_ip_range[1]))
+        self.outer_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_dst_ip_range[0])+1, ip_address(outer_dst_ip_range[1]))
 
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
@@ -154,16 +154,30 @@ class InnerHashTest(BaseTest):
         rand_int = random.randint(1, 99)
         src_mac = '00:12:ab:34:cd:' + str(rand_int)
         dst_mac = str(rand_int) + ':12:ab:34:cd:00'
-        pkt = simple_tcp_packet(
-                        eth_dst=dst_mac,
-                        eth_src=src_mac,
-                        ip_src=ip_src,
-                        ip_dst=ip_dst,
-                        tcp_sport=sport,
-                        tcp_dport=dport,
-                        ip_ttl=64)
+        if ip_network(unicode(ip_src)).version == 4:
+            pkt = simple_tcp_packet(
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                ip_dst=ip_dst,
+                ip_src=ip_src,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ip_ttl=64
+            )
 
-        pkt['IP'].proto = ip_proto
+            pkt["IP"].proto = ip_proto
+        else:
+            pkt = simple_tcpv6_packet(
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                ipv6_dst=ip_dst,
+                ipv6_src=ip_src,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ipv6_hlim=64
+            )
+
+            pkt["IPv6"].nh = ip_proto
         return pkt
 
 
