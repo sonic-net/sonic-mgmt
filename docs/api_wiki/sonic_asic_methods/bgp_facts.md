@@ -10,7 +10,7 @@ Provides BGP facts for current ASIC.
 
 ## Examples
 ```
-def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
+def test_fun(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)

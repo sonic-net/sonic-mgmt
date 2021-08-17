@@ -34,6 +34,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [bgp_route](ansible_methods/bgp_route.md) - Provides BGP routing info from Quagga using VTYSH cli.
 
+- [command](ansible_methods/command.md) - Used to run commands via shell on remote host.
+
 - [config_facts](ansible_methods/config_facts.md) - Retreives configuration facts for a device
 
 - [conn_graph_facts](ansible_methods/conn_graph_facts.md) - Retreives info on lab fannout siwtches and vlan connections.
@@ -84,11 +86,13 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [setup](ansible_methods/setup.md) - Gather facts about the duthost.
 
+- [shell](ansible_methods/shell.md) - Runs commands on the remote host.
+
 - [shell_cmds](ansible_methods/shell_cmds.md) - Allows you to run mutliple commands on a remote host.
 
 - [show_interface](ansible_methods/show_interface.md) - Retrieves status and counter values from DUT.
 
-- [show_ip_interface](ansible_methods/show_ip_interface.md) - Retrieve ipv4 address of itnerface and ipv4 addres for corresponding neighbor
+- [show_ip_interface](ansible_methods/show_ip_interface.md) - Retrieve ipv4 address of interface and ipv4 address for corresponding neighbor
 
 - [snmp_facts](ansible_methods/snmp_facts.md) - Retreives facts for device using SNMP
 
@@ -96,7 +100,7 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [stat](ansible_methods/stat.md) - Retrieves facts on specified file.
 
-- [switch_arptable](ansible_methods/switch_arptable.md) - Reterives ARTP table from the SONiC switch
+- [switch_arptable](ansible_methods/switch_arptable.md) - Reterives ARP table from the SONiC switch
 
 - [switch_capabilities_facts](ansible_methods/switch_capabilities_facts.md) - Retreive switch capability information.
 
@@ -290,13 +294,95 @@ the remote host.
 
 ## Sonic ASIC Methods
 
+- [bgp_drop_rule](sonic_asic_methods/bgp_drop_rule.md) - Programs iptable rule to either add or remove DROP for BGP control frames
+
+- [bgp_facts](sonic_asic_methods/bgp_facts.md) - Provides BGP facts for current ASIC.
+
+- [check_bgp_statistic](sonic_asic_methods/check_bgp_statistic.md) - Checks that the BGP statistic matches some expected value.
+
+- [command](sonic_asic_methods/command.md) - Runs commands specified for the ASIC calling the method.
+
+- [config_facts](sonic_asic_methods/config_facts.md) - Current config facts for ASIC.
+
+- [config_ip_intf](sonic_asic_methods/config_ip_intf.md) - Allows for addition or removal of ip addresses to existing interfaces on the ASIC instance.
+
+- [config_portchannel](sonic_asic_methods/config_portchannel.md) - Creates or removes a portchannel on the ASIC instance
+
+- [config_portchannel_member](sonic_asic_methods/config_portchannel_member.md) - Adds or removes portchannel member for a specified portchannel on the ASIC instance.
+
+- [create_ssh_tunnel_sai_rpc](sonic_asic_methods/create_ssh_tunnel_sai_rpc.md) - Create ssh tunnel between host and ASIC namespace on syncd RPC port.
+
+- [delete_container](sonic_asic_methods/delete_container.md) - Deletes a ASIC specific docker.
+
 - [get_active_ip_interfaces](sonic_asic_methods/get_active_ip_interfaces.md) - Provides a information on active IP interfaces. Works on ASIC devices.
+
+- [get_asic_namespace](sonic_asic_methods/get_asic_namespace.md) - Provides namespace for ASIC.
+
+- [get_bgp_statistic](sonic_asic_methods/get_bgp_statistic.md) - Get the value corresponding to a named statistic for BGP.
+
+- [get_critical_services](sonic_asic_methods/get_critical_services.md) - Gets the critical services for the ASIC.
+
+- [get_docker_cmd](sonic_asic_methods/get_docker_cmd.md) - Provides modified command to be run on a specific docker container given an initail command and the name of the desired container.
+
+- [get_docker_name](sonic_asic_methods/get_docker_name.md) - Gets ASIC specific name for docker container.
 
 - [get_extended_minigraph_facts](sonic_asic_methods/get_extended_minigraph_facts.md) - Gets detailed facts on configured minigraph.
 
+- [get_ip_route_info](sonic_asic_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
+
+- [get_portchannel_and_members_in_ns](sonic_asic_methods/get_portchannel_and_members_in_ns.md) - Finds a portchannel present on ASIC interface's namspace and returns its name and members.
+
+- [get_queue_oid](sonic_asic_methods/get_queue_oid.md) - Get the queue OID of given port and queue number.
+
+- [get_service_name](sonic_asic_methods/get_service_name.md) - Provides ASIC specific service name.
+
+- [interface_facts](sonic_asic_methods/interface_facts.md) - Gets information about interfaces associated with the ASIC calling the method.
+
+- [is_backend_portchannel](sonic_asic_methods/is_backend_portchannel.md) - Checks whether specified portchannel is a backend portchannel.
+
+- [is_container_running](sonic_asic_methods/is_container_running.md) - Returns whether or not a specified ASIC specific container is running.
+
+- [is_it_backend](sonic_asic_methods/is_it_backend.md) - Checks whether the ASIC is a backend node
+
+- [is_it_frontend](sonic_asic_methods/is_it_frontend.md) - Checks whether ASIC is a frontend node.
+
 - [is_service_running](sonic_asic_methods/is_service_running.md) - Checks if a specified service is running. Can be a service within a docker.
 
-- [stop_service](sonic_asic_methods/stop_service.md) - Stops a specified service
+- [os_version](sonic_asic_methods/os_version.md) - Provides the SONiC OS version for the sonichost associated with the calling ASIC
+
+- [ping_v4](sonic_asic_methods/ping_v4.md) - Pings specified ipv4 address via ASIC.
+
+- [portchannel_on_asic](sonic_asic_methods/portchannel_on_asic.md) - CHecks whether a specified portchannel is configured on ASIC instance
+
+- [port_exists](sonic_asic_methods/port_exists.md) - Checks whether a provided port exists in the ASIC instance calling the method.
+
+- [port_on_asic](sonic_asic_methods/port_on_asic.md) - Checks if provided port is configured on ASIC instance
+
+- [remove_ssh_tunnel_sai_rpc](sonic_asic_methods/remove_ssh_tunnel_sai_rpc.md) - Removes any ssh tunnels if present created for syncd RPC communication
+
+- [reset_service](sonic_asic_methods/reset_service.md) - Resets an ASIC service on the corresponding docker.
+
+- [restart_service](sonic_asic_methods/restart_service.md) - Restarts an ASIC service on the corresponding docker.
+
+- [run_redis_cli_cmd](sonic_asic_methods/run_redis_cli_cmd.md) - Runs redist cmd through redis CLI for ASIC that calls method.
+
+- [run_redis_cmd](sonic_asic_methods/run_redis_cmd.md) - Runs a redis command on the DUT.
+
+- [shell](sonic_asic_methods/shell.md) - Runs a shell command via the sonichost associated with the ASIC instance calling the method.
+
+- [show_interface](sonic_asic_methods/show_interface.md) - Show status and counter values for a given interface on the ASIC.
+
+- [show_ip_interface](sonic_asic_methods/show_ip_interface.md) - Retrieve ipv4 address for interface and ipv4 address for corresponding neighbor
+
+- [shutdown_interface](sonic_asic_methods/shutdown_interface.md) - Shuts down interface specified for the ASIC instance calling the method.
+
+- [startup_interface](sonic_asic_methods/startup_interface.md) - Starts up interface specified for ASIC instance calling the method.
+
+- [start_service](sonic_asic_methods/start_service.md) - Starts an ASIC service on its corresponding ASIC docker.
+
+- [stop_service](sonic_asic_methods/stop_service.md) - Stops a specified ASIC service on the corresponding docker
+
+- [switch_arptable](sonic_asic_methods/switch_arptable.md) - Gets ARP table information from sonichost device specified for ASIC instance calling the method.
 
 
 ## Ptfhost Methods

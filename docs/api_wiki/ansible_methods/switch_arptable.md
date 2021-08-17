@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Reterives ARTP table from the SONiC switch
+Reterives ARP table from the SONiC switch
 
 ## Examples
 ```
