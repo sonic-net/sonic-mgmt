@@ -130,7 +130,7 @@ def apply_clet(duthost, duthost_name):
 
     # Apply delete 
     duthost.shell("sudo configlet -d -j {}".format(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), everlow_delete.json)))
+        os.path.dirname(os.path.abspath(__file__)), "everlow_delete.json")))
 
     tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
     duthost.shell("sudo config interface shutdown {}".format(tor_ifname))
