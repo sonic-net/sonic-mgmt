@@ -208,15 +208,10 @@ def dynamic_pbh(request):
 
 @pytest.fixture(scope="module")
 def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
-    tested_intfs = []
-    # get ports according to chosen ptf ports indices
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for intf, index in mg_facts['minigraph_ptf_indices'].items():
-        if index in vlan_ptf_ports:
-            tested_intfs.append(intf)
-    tested_intfs_str = ",".join(tested_intfs)
+    test_intfs_str = get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo)
+
     duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
-                                             tested_intfs_str,
+                                             test_intfs_str,
                                              TABLE_DESCRIPTION))
 
     yield
@@ -224,24 +219,34 @@ def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
     duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
 
 
+def get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo):
+    test_intfs = []
+    # get ports according to chosen ptf ports indices
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for intf, index in mg_facts['minigraph_ptf_indices'].items():
+        if index in vlan_ptf_ports:
+            test_intfs.append(intf)
+    return ",".join(test_intfs)
+
+
 @pytest.fixture(scope="module")
 def config_hash_fields(duthost):
-    for hash_filed, hash_filed_params_dict in HASH_FIELD_CONFIG.items():
-        cmd = get_hash_filed_add_cmd(hash_filed, hash_filed_params_dict)
+    for hash_field, hash_field_params_dict in HASH_FIELD_CONFIG.items():
+        cmd = get_hash_field_add_cmd(hash_field, hash_field_params_dict)
         duthost.command(cmd)
 
     yield
 
-    for hash_filed in HASH_FIELD_CONFIG.keys():
-        duthost.command(DEL_PBH_HASH_FIELD_CMD.format(hash_filed))
+    for hash_field in HASH_FIELD_CONFIG.keys():
+        duthost.command(DEL_PBH_HASH_FIELD_CMD.format(hash_field))
 
 
-def get_hash_filed_add_cmd(hash_filed_name, hash_filed_params_dict):
-    cmd = ADD_PBH_HASH_FIELD_CMD.format(hash_filed_name,
-                                        hash_filed_params_dict["field"],
-                                        hash_filed_params_dict["sequence"])
-    if "mask" in hash_filed_params_dict:
-        cmd += " --ip-mask '{}'".format(hash_filed_params_dict["mask"])
+def get_hash_field_add_cmd(hash_field_name, hash_field_params_dict):
+    cmd = ADD_PBH_HASH_FIELD_CMD.format(hash_field_name,
+                                        hash_field_params_dict["field"],
+                                        hash_field_params_dict["sequence"])
+    if "mask" in hash_field_params_dict:
+        cmd += " --ip-mask '{}'".format(hash_field_params_dict["mask"])
     return cmd
 
 
@@ -317,25 +322,24 @@ def delete_vxlan_nvgre_rules(duthost, outer_ipver, inner_ipver):
     duthost.command(DEL_PBH_RULE_CMD.format(TABLE_NAME, NVGRE_RULE_NAME.format(outer_ipver, inner_ipver)))
 
 
+def get_src_dst_ip_range(ipver):
+    if ipver == "ipv4":
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+    else:
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+    return src_ip_range, dst_ip_range
+
+
 def test_inner_hashing(duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
                        vlan_ptf_ports, symmetric_hashing, build_fib, setup, dynamic_pbh):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
 
-    if outer_ipver == "ipv4":
-        outer_src_ip_range = SRC_IP_RANGE
-        outer_dst_ip_range = DST_IP_RANGE
-    else:
-        outer_src_ip_range = SRC_IPV6_RANGE
-        outer_dst_ip_range = DST_IPV6_RANGE
-
-    if inner_ipver == "ipv4":
-        inner_src_ip_range = SRC_IP_RANGE
-        inner_dst_ip_range = DST_IP_RANGE
-    else:
-        inner_src_ip_range = SRC_IPV6_RANGE
-        inner_dst_ip_range = DST_IPV6_RANGE
+    outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
+    inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
     ptf_runner(ptfhost,
                "ptftests",
