@@ -57,6 +57,10 @@
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
 
+  - name: Disable package installation
+    set_fact:
+      package_installation: false
+
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
