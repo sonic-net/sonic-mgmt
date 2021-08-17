@@ -1,4 +1,4 @@
-# stop_service
+# is_backend_portchannel
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Checks whether specified portchannel is a backend portchannel.
 
 ## Examples
 ```
@@ -15,13 +15,13 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    is_backend = sonic_asic.is_backend_portchannel("PortChannel0001")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `port_channel` - name of portchannel to be checked
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+`True` if specified portchannel is a backend portchannel

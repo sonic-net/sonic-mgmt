@@ -1,4 +1,4 @@
-# stop_service
+# show_ip_interface
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Retrieve ipv4 address for interface and ipv4 address for corresponding neighbor
 
 ## Examples
 ```
@@ -15,13 +15,13 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    ip_intf = sonic_asic.show_ip_interface()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
+- `namespace` - if multi-asic, namespace to run the commmand
+    - Required: `False`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+See the [show_ip_interface](../ansible_methods/show_ip_interface.md#expected-output) Ansible module for example output.

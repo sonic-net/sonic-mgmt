@@ -1,4 +1,4 @@
-# stop_service
+# delete_container
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Deletes a ASIC specific docker.
 
 ## Examples
 ```
@@ -15,13 +15,13 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    sonic_asic.delete_container("swss")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `service` - name of docker container to delete
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+Provides no output.

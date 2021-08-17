@@ -1,4 +1,4 @@
-# stop_service
+# is_container_running
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Returns whether or not a specified ASIC specific container is running.
 
 ## Examples
 ```
@@ -15,13 +15,16 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    swss_running = sonic_asic.is_container_running("swss", "swss")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `service_name` - name of service docker corresponds to
+    - Required: `True`
+    - Type: `String`
+- `docker_name` - name of docker container that is being checked on
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+`True` if docker container is running, `False` otherwise.

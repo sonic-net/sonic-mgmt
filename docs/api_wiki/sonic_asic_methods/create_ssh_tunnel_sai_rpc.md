@@ -1,4 +1,4 @@
-# stop_service
+# create_ssh_tunnel_sai_rpc
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,9 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Create ssh tunnel between host and ASIC namespace on syncd RPC port.
+
+This is used to forward thrift calls to and from the syncd running on this ASIC.
 
 ## Examples
 ```
@@ -15,13 +17,11 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    sonic_asic.create_ssh_tunnel_sai_rpc()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
-    - Type: `String`
+Takes no arguments
 
 ## Expected Output
-This method has no output.
+Provides no output

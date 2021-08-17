@@ -1,4 +1,4 @@
-# stop_service
+# run_redis_cli_cmd
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Runs redist cmd through redis CLI for ASIC that calls method.
 
 ## Examples
 ```
@@ -15,13 +15,13 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    ret_code = sonic_asic.run_redis_cli_cmd("client list")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `redis_cmd` - Redis command that needs to be run
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+The return code from the command.

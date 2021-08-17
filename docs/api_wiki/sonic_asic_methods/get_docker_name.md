@@ -1,4 +1,4 @@
-# stop_service
+# get_docker_name
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Gets ASIC specific name for docker container.
 
 ## Examples
 ```
@@ -15,13 +15,13 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    swss_docker_name = sonic_asic.get_docker_name("swss")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `service` - name of docker container that should be specified for the calling ASIC
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+`String` reprenting the modified name.

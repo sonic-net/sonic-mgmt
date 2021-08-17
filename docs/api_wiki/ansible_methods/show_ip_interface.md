@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Retrieve ipv4 address of itnerface and ipv4 addres for corresponding neighbor
+Retrieve ipv4 address of interface and ipv4 address for corresponding neighbor
 
 ## Examples
 ```

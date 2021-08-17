@@ -1,4 +1,4 @@
-# stop_service
+# ping_v4
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a specified ASIC service on the corresponding docker
+Pings specified ipv4 address via ASIC.
 
 ## Examples
 ```
@@ -15,13 +15,17 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo, enum_frontend_asic_index):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    bgp_info = sonic_asic.stop_service("swss")
+    ping = sonic_asic.ping_v4(unicode("10.0.0.51"))
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `ipv4`
     - Required: `True`
-    - Type: `String`
+    - Type: `unicode`
+- `count`
+    - Required: `False`
+    - Type: `Integer`
+    - Default: `1`
 
 ## Expected Output
-This method has no output.
+`True` if ping was a success, `False` otherwise.
