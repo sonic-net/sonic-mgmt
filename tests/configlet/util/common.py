@@ -105,14 +105,21 @@ def match_key(key, kset):
 
 
 def chk_for_pfc_wd(duthost, duthost_name, data_dir):
-    duthost.shell('redis-dump -d 4 --pretty -k \"PFC_WD*\" -o /tmp/pfc_wd.json')
-    duthost.fetch(src="/tmp/pfc_wd.json", dest=data_dir)
+    ret = False
+    res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    log_debug("pfc_status={}".format(pfc_status))
 
-    with open("{}/{}/tmp/pfc_wd.json".format(data_dir, duthost_name), "r") as s:
-        d = json.load(s)
-        if len(d):
-            return True
-    return False
+    if pfc_status == "enable":
+        res = duthost.shell('redis-dump -d 4 --pretty -k \"PFC_WD*\"')
+        pfc_wd_data = json.loads(res["stdout"])
+        if len(pfc_wd_data):
+            ret = True
+    else:
+        # pfc is not enabled; return True, as there will not be any pfc to check
+        ret = True
+    return ret
 
 
 def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):

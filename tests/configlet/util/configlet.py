@@ -15,11 +15,14 @@ def is_host_mlnx():
 
 
 def get_pfc_time():
-    pfc_wd = config_db_data_wo_t0["PFC_WD"]
+    ret = 0
+    pfc_wd = config_db_data_wo_t0.get("PFC_WD", {})
     for n, val in pfc_wd.items():
-        return val["detection_time"]
+        ret = int(val["detection_time"])
 
-    report_error("Failed to get PFC_WD detection time")
+    if not ret:
+        log_info("PFC_WD is not supported")
+    return ret
 
 
 def get_port_channel():
@@ -215,11 +218,12 @@ def get_port_related_data():
         if is_mlnx:
             qos[local_port]["pfc_to_pg_map"] = "[PFC_PRIORITY_TO_PRIORITY_GROUP_MAP|AZURE]"
 
-        # "PFC_WD"
-        pfc_wd[local_port] = {
-                "action": "drop",
-                "detection_time": pfc_time,
-                "restoration_time": pfc_time }
+        if pfc_time:
+            # "PFC_WD"
+            pfc_wd[local_port] = {
+                    "action": "drop",
+                    "detection_time": pfc_time,
+                    "restoration_time": pfc_time }
 
 
         
@@ -228,7 +232,8 @@ def get_port_related_data():
     ret.append({ "BUFFER_PG": buffer_pg })
     ret.append({ "BUFFER_QUEUE": buffer_q })
     ret.append({ "PORT_QOS_MAP": qos })
-    ret.append({ "PFC_WD": pfc_wd })
+    if pfc_wd:
+        ret.append({ "PFC_WD": pfc_wd })
 
     return ret
          
