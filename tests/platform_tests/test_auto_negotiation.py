@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
+from tests.common.utilities import skip_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -37,6 +38,17 @@ PORT_STATUS_CHECK_INTERVAL = 10
 # Key: dut host object, value: a list of candidate ports tuple
 cadidate_test_ports = {}
 
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is older than 202106
+
+    Args:
+        duthost: Hostname of DUT.
+
+    Returns:
+        None.
+    """
+    skip_version(duthost, ["201811", "201911", "202012"])
 
 @pytest.fixture(scope='module', autouse=True)
 def recover_ports(duthosts, enum_dut_portname_module_fixture, fanouthosts):
