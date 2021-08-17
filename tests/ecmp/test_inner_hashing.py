@@ -70,8 +70,8 @@ HASH_FIELD_CONFIG = {
     "inner_l4_src_port": {"field": "INNER_L4_SRC_PORT", "sequence": "2"},
     "inner_src_ipv4": {"field": "INNER_SRC_IPV4", "sequence": "3", "mask": "255.255.255.255"},
     "inner_dst_ipv4": {"field": "INNER_DST_IPV4", "sequence": "3", "mask": "255.255.255.255"},
-    "inner_src_ipv6": {"field": "INNER_SRC_IPV6", "sequence": "4", "mask": "ffff:ffff::"},
-    "inner_dst_ipv6": {"field": "INNER_DST_IPV6", "sequence": "4", "mask": "ffff:ffff::"}
+    "inner_src_ipv6": {"field": "INNER_SRC_IPV6", "sequence": "4", "mask": "::ffff:ffff"},
+    "inner_dst_ipv6": {"field": "INNER_DST_IPV6", "sequence": "4", "mask": "::ffff:ffff"}
 }
 
 
