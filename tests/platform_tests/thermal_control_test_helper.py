@@ -233,7 +233,7 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key
     parsed_output = dut.show_and_parse(command)
     assert len(parsed_output) > 0, "Run and parse output of command '{}' failed".format(command)
     result = mocker_object.check_result(parsed_output)
-    pytest_assert(result, 'FAN mock data mismatch')
+    pytest_assert(result, 'mock data and command \"{}\" output are mismatched'.format(command))
 
 
 def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
