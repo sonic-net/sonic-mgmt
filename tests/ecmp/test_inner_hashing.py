@@ -199,7 +199,7 @@ def inner_ipver(request):
 
 
 @pytest.fixture(scope="module")
-def dynamic_pbh(request):
+def setup_dynamic_pbh(request):
     request.getfixturevalue("config_pbh_table")
     request.getfixturevalue("config_hash_fields")
     request.getfixturevalue("config_hash")
@@ -333,7 +333,7 @@ def get_src_dst_ip_range(ipver):
 
 
 def test_inner_hashing(duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                       vlan_ptf_ports, symmetric_hashing, build_fib, setup, dynamic_pbh):
+                       vlan_ptf_ports, symmetric_hashing, build_fib, setup, setup_dynamic_pbh):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)

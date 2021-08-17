@@ -66,13 +66,13 @@ class InnerHashTest(BaseTest):
 
         inner_src_ip_range = [unicode(x) for x in self.test_params['inner_src_ip_range'].split(',')]
         inner_dst_ip_range = [unicode(x) for x in self.test_params['inner_dst_ip_range'].split(',')]
-        self.inner_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_src_ip_range[0])+1, ip_address(inner_src_ip_range[1]))
-        self.inner_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_dst_ip_range[0])+1, ip_address(inner_dst_ip_range[1]))
+        self.inner_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_src_ip_range[0]), ip_address(inner_src_ip_range[1]))
+        self.inner_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_dst_ip_range[0]), ip_address(inner_dst_ip_range[1]))
 
         outer_src_ip_range = [unicode(x) for x in self.test_params['outer_src_ip_range'].split(',')]
         outer_dst_ip_range = [unicode(x) for x in self.test_params['outer_dst_ip_range'].split(',')]
-        self.outer_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_src_ip_range[0])+1, ip_address(outer_src_ip_range[1]))
-        self.outer_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_dst_ip_range[0])+1, ip_address(outer_dst_ip_range[1]))
+        self.outer_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_src_ip_range[0]), ip_address(outer_src_ip_range[1]))
+        self.outer_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_dst_ip_range[0]), ip_address(outer_dst_ip_range[1]))
 
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
