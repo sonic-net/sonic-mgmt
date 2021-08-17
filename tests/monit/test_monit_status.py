@@ -19,7 +19,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def disable_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def stop_and_start_lldpmgrd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Stops `lldpmgrd` process at setup stage and restarts it at teardwon.
 
     Args:
@@ -31,13 +31,34 @@ def disable_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         None.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    duthost.command("docker exec lldp supervisorctl stop lldpmgrd")
+
+    logger.info("Stopping 'lldpmgrd' process in 'lldp' container ...")
+    stop_command_result = duthost.command("docker exec lldp supervisorctl stop lldpmgrd")
+    exit_code = stop_command_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp' container!")
+    logger.info("'lldpmgrd' process in 'lldp' container is stopped.")
+
     if duthost.is_multi_asic:
-        duthost.command("docker exec lldp0 supervisorctl stop lldpmgrd")
+        logger.info("Stopping 'lldpmgrd' process in 'lldp0' container ...")
+        stop_command_result = duthost.command("docker exec lldp0 supervisorctl stop lldpmgrd")
+        exit_code = stop_command_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to stop 'lldpmgrd' process in 'lldp0' container!")
+        logger.info("'lldpmgrd' process in 'lldp0' container is stopped.")
+
     yield
-    duthost.command("docker exec lldp supervisorctl start lldpmgrd")
+
+    logger.info("Starting 'lldpmgrd' process in 'lldp' container ...")
+    start_command_result = duthost.command("docker exec lldp supervisorctl start lldpmgrd")
+    exit_code = start_command_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp' container!")
+    logger.info("'lldpmgrd' process in 'lldp' container is started.")
+
     if duthost.is_multi_asic:
-        duthost.command("docker exec lldp0 supervisorctl start lldpmgrd")
+        logger.info("Starting 'lldpmgrd' process in 'lldp0' container ...")
+        start_command_result = duthost.command("docker exec lldp0 supervisorctl start lldpmgrd")
+        exit_code = start_command_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to start 'lldpmgrd' process in 'lldp0' container!")
+        logger.info("'lldpmgrd' process in 'lldp0' container is started.")
 
 
 def check_monit_last_output(duthost):
@@ -62,7 +83,7 @@ def check_monit_last_output(duthost):
         else:
             return "/usr/bin/lldpmgrd' is not running in host" in monit_last_output
     else:
-        pytest.fail("Failed to get Monit last output of process 'lldpmgrd'!")
+        return False
 
 
 def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -76,16 +97,21 @@ def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     Returns:
         None.
     """
+    logger.info("Checking the running status of Monit ...")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     def _monit_status():
         monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
         return monit_status_result["rc"] == 0
-    # Monit is configured with start delay = 300s, hence we wait up to 320s here 
-    pytest_assert(wait_until(320, 20, _monit_status), 
-                    "Monit is either not running or not configured correctly")
+    # Monit is configured with start delay = 300s, hence we wait up to 320s here
+    pytest_assert(wait_until(320, 20, _monit_status),
+                  "Monit is either not running or not configured correctly")
+
+    logger.info("Checking the running status of Monit was done!")
 
 
-def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_hostname, disable_lldp):
+def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_hostname, stop_and_start_lldpmgrd):
     """Checks whether the format of alerting message from Monit is correct or not.
        202012 and newer image version will be skipped for testing since Supervisord
        replaced Monit to do the monitoring critical processes.
@@ -105,5 +131,9 @@ def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_host
     pytest_require("201811" in duthost.os_version or "201911" in duthost.os_version,
                    "Test is not supported for 202012 and newer image versions!")
 
-    if not wait_until(180, 60, check_monit_last_output, duthost):
-        pytest.fail("Expected Monit reporting message not found")
+    logger.info("Checking the format of Monit alerting message ...")
+
+    pytest_assert(wait_until(180, 60, check_monit_last_output, duthost),
+                  "Expected Monit reporting message not found")
+
+    logger.info("Checking the format of Monit alerting message was done!")

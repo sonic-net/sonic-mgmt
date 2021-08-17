@@ -96,6 +96,10 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
 def acl_setup(duthosts, loganalyzer):
     """ Create acl rule defined in config file. Delete rule after test case finished """
     for duthost in duthosts:
+        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+        if 'DATAACL' not in acl_facts.keys():
+            pytest.skip("Skipping test since DATAACL table is not supported on this platform")
+
         base_dir = os.path.dirname(os.path.realpath(__file__))
         template_dir = os.path.join(base_dir, 'acl_templates')
         acl_rules_template = "acltb_test_rule.json"
@@ -305,7 +309,11 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
     @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL and ACL drop counter incremented
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if tx_dut_ports[ports_info["dut_iface"]] not in duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    if 'DATAACL' not in acl_facts.keys():
+        pytest.skip("Skipping test since DATAACL table is not supported on this platform")
+
+    if tx_dut_ports[ports_info["dut_iface"]] not in acl_facts["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
     ip_src = "20.0.0.5"

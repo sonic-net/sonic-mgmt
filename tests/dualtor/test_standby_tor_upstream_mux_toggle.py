@@ -1,8 +1,6 @@
 import pytest
 import logging
-import ipaddress
 import json
-import re
 import time
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -21,22 +19,6 @@ pytestmark = [
 
 PAUSE_TIME = 10
 
-def get_l2_rx_drop(host, itfs):
-    """
-    Return L2 rx packet drop counter for given interface
-    """
-    res = {}
-    stdout = host.shell("portstat -j")['stdout']
-    match = re.search("Last cached time was.*\n", stdout)
-    if match:
-        stdout = re.sub("Last cached time was.*\n", "", stdout)
-    data = json.loads(stdout)
-    return int(data[itfs]['RX_DRP'])
-
-
-def clear_portstat(dut):
-    dut.shell("portstat -c")
-
 
 @pytest.fixture(scope='module', autouse=True)
 def test_cleanup(rand_selected_dut):
@@ -47,7 +29,9 @@ def test_cleanup(rand_selected_dut):
     config_reload(rand_selected_dut)
 
 
-def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface, toggle_all_simulator_ports, set_crm_polling_interval):
+def test_standby_tor_upstream_mux_toggle(
+    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,
+    require_mocked_dualtor, toggle_all_simulator_ports, set_crm_polling_interval):
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
@@ -65,11 +49,6 @@ def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, 
                             drop=True)
 
     time.sleep(5)
-    # Verify dropcounter is increased
-    drop_counter = get_l2_rx_drop(rand_selected_dut, itfs)
-    pt_assert(drop_counter >= PKT_NUM,
-                "RX_DRP for {} is expected to increase by {} actually {}".format(itfs, PKT_NUM, drop_counter))
-
     # Step 2. Toggle mux state to active, and verify traffic is not dropped by ACL and fwd-ed to uplinks; verify CRM show and no nexthop objects are stale
     set_mux_state(rand_selected_dut, tbinfo, 'active', [itfs], toggle_all_simulator_ports)
     # Wait sometime for mux toggle
@@ -95,10 +74,6 @@ def test_standby_tor_upstream_mux_toggle(rand_selected_dut, tbinfo, ptfadapter, 
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=True)
-    # Verify dropcounter is increased
-    drop_counter = get_l2_rx_drop(rand_selected_dut, itfs)
-    pt_assert(drop_counter >= PKT_NUM,
-                "RX_DRP for {} is expected to increase by {} actually {}".format(itfs, PKT_NUM, drop_counter))
     crm_facts1 = rand_selected_dut.get_crm_facts()
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
     pt_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))

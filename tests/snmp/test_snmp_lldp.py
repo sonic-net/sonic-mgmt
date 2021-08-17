@@ -1,5 +1,6 @@
 import pytest
 import re
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
     pytest.mark.topology('any'),
