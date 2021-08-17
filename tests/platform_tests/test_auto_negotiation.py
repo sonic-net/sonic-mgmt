@@ -60,7 +60,7 @@ def recover_ports(duthosts, enum_dut_portname_module_fixture, fanouthosts):
             all_ports_len = len(all_ports)
             # Test all ports takes too much time (sometimes more than an hour), 
             # so we choose 3 ports randomly as the cadidates ports
-            if len(cadidate_test_ports[duthost].items()) > 0:
+            if duthost in cadidate_test_ports.keys():
                 continue
             cadidate_test_ports[duthost] = random.sample(all_ports, 3 if all_ports_len > 3 else all_ports_len)
             for _, fanout, fanout_port in cadidate_test_ports[duthost]:
