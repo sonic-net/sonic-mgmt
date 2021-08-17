@@ -58,38 +58,6 @@ def teardown_module(duthosts, rand_one_dut_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    """Changes the autorestart of containers from `enabled` to `disabled` before testing.
-       and Rolls them back after testing.
-    Args:
-        duthost: Hostname of DUT.
-    Returns:
-        None.
-    """
-    containers_autorestart_states = duthost.get_container_autorestart_states()
-    disabled_autorestart_containers = []
-
-    for container_name, state in containers_autorestart_states.items():
-        if container_name == "pmon" and state == "enabled":
-            logger.info("Disabling the autorestart of container '{}'.".format(container_name))
-            command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
-            command_output = duthost.shell(command_disable_autorestart)
-            exit_code = command_output["rc"]
-            pytest_assert(exit_code == 0, "Failed to disable the autorestart of container '{}'".format(container_name))
-            logger.info("The autorestart of container '{}' was disabled.".format(container_name))
-            disabled_autorestart_containers.append(container_name)
-
-    yield
-
-    for container_name in disabled_autorestart_containers:
-        logger.info("Enabling the autorestart of container '{}'...".format(container_name))
-        command_output = duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
-        exit_code = command_output["rc"]
-        pytest_assert(exit_code == 0, "Failed to enable the autorestart of container '{}'".format(container_name))
-        logger.info("The autorestart of container '{}' is enabled.".format(container_name))
-
 @pytest.fixture()
 def check_daemon_status(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
