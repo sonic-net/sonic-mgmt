@@ -15,6 +15,11 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: Set the default variable package_installation
+  set_fact:
+    package_installation: true
+  when: package_installation is not defined
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -52,45 +57,49 @@
     - name: Prompt for rebooting
       fail:
         msg: "Kernel upgraded, need to reboot!"
-  when: kernel_upgrade_needed is defined
+  when:
+    - kernel_upgrade_needed is defined
+    - package_installation|bool
 
-- name: Install necessary packages
-  apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
-  become: yes
-  with_items:
-    - ifupdown
-    - qemu
-    - openvswitch-switch
-    - net-tools
-    - bridge-utils
-    - util-linux
-    - iproute2
-    - vlan
-    - apt-transport-https
-    - ca-certificates
-    - curl
-    - software-properties-common
-    - libvirt-clients
+- block:
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
+        - ifupdown
+        - qemu
+        - openvswitch-switch
+        - net-tools
+        - bridge-utils
+        - util-linux
+        - iproute2
+        - vlan
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - libvirt-clients
 
-- name:
-  apt:
-    pkg:
-    - python
-    - libvirt-bin
-    - python-libvirt
-    - python-pip
-  become: yes
-  when: host_distribution_version.stdout == "18.04"
+    - name:
+      apt:
+        pkg:
+        - python
+        - libvirt-bin
+        - python-libvirt
+        - python-pip
+      become: yes
+      when: host_distribution_version.stdout == "18.04"
 
-- name:
-  apt:
-    pkg:
-    - python3-libvirt
-    - python3-pip
-    - libvirt-daemon-system
-    - qemu-system-x86
-  become: yes
-  when: host_distribution_version.stdout == "20.04"
+    - name:
+      apt:
+        pkg:
+        - python3-libvirt
+        - python3-pip
+        - libvirt-daemon-system
+        - qemu-system-x86
+      become: yes
+      when: host_distribution_version.stdout == "20.04"
+  when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
@@ -103,6 +112,7 @@
   when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
 
 - include_tasks: docker.yml
+  when: package_installation|bool
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
