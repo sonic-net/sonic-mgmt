@@ -78,9 +78,16 @@ parameters:
     type: string
     default: ""
 
-  - name: SKIP_SCRIPTS
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+
+  # Individual nightly test scehduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
 
 stages:
 
@@ -289,7 +296,7 @@ stages:
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "${{ parameters.SKIP_SCRIPTS }}" \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t "$EXECUTION_TOPOLOGY" \
