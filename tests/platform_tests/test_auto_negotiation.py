@@ -57,9 +57,10 @@ def recover_ports(duthosts, enum_dut_portname_module_fixture, fanouthosts):
     for duthost in duthosts:
         if dutname == 'unknown' or dutname == duthost.hostname:
             all_ports = build_test_candidates(duthost, fanouthosts, portname)
+            all_ports_len = len(all_ports)
             # Test all ports takes too much time (sometimes more than an hour), 
             # so we choose 3 ports randomly as the cadidates ports
-            cadidate_test_ports[duthost] = random.sample(all_ports, 3)
+            cadidate_test_ports[duthost] = random.sample(all_ports, 3 if all_ports_len > 3 else all_ports_len)
             for _, fanout, fanout_port in cadidate_test_ports[duthost]:
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
                 speed = fanout.get_speed(fanout_port)
