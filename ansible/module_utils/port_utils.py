@@ -77,7 +77,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku in ["Arista-7260CX3-C64", "Arista-7170-64C", "Arista-7260CX3-Q64"]:
         for i in range(1, 65):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
+    elif hwsku in [ "Arista-7060CX-32S-C32", "Arista-7060CX-32S-Q32", "Arista-7060CX-32S-C32-T1", "Arista-7170-32CD-C32", "Arista-7050QX32S-Q32" ]:
         for i in range(1, 33):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Arista-7050CX3-32S-C32":
@@ -264,7 +264,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         else:
             for i in range(1,9):
                 port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "B6510-48VS8CQ":
+    elif hwsku == "B6510-48VS8CQ" or "RA-B6510-48V8C":
         for i in range(1,49):
             port_alias_to_name_map["twentyfiveGigE0/%d" % i] = "Ethernet%d" % i
         for i in range(49,57):

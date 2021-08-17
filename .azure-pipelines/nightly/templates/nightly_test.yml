@@ -9,44 +9,85 @@ parameters:
       - testbed.csv
       - testbed.yaml
 
-  # Upgrade parameters
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 30 hours
+
+  # ============ Upgrade parameters ============
   - name: IMAGE_URL
     type: string
     default: ""
+
+  - name: PREV_IMAGE_URL
+    type: string
+    default: ""
+
   - name: ALWAYS_INSTALL_NEW_IMAGE
     type: boolean
     default: true
+
   - name: UPGRADE_TYPE
     type: string
     default: sonic
     values:
       - sonic
       - onie
+
   - name: PAUSE_TIME
     type: number
     default: 0
 
-  # Deploy parameters
+  # Control the behavior if power cycle unreachable DUT
+  # is allowed. Default: allowed (true)
+  - name: POWER_CYCLE_UNREACHABLE_DUTS
+    type: boolean
+    default: true
+
+  # Control the behavior of power cycle DUT before tests. If set to true,
+  # DUTs will always be power cycled before tests. Default: false
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: false
+
+  # ============ Deploy parameters ============
   - name: ENABLE_DATAACL
     type: boolean
     default: true
 
-  # Test Parameters
+  # ============ Test Parameters ============
   - name: PY_SAITHRIFT_URL
     type: string
     default: ""
+
   - name: PTF_PORTMAP
     type: string
     default: ""
+
+  # This is for the extra parameters to be passed to pytest by the "-e" option of run_tests.sh. For example,
+  # to skip sanity check and disable log analyzer, the job yaml file calling this template can pass value
+  # "--skip_sanity --disable_loganalyzer" to this EXTRA_PARAMS parameter.
   - name: EXTRA_PARAMS
     type: string
     default: ""
+
+  # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
+  # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
+  # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
+  # this TESTBED_SPECIFIC parameter.
   - name: TESTBED_SPECIFIC
     type: string
     default: ""
-  - name: SKIP_SCRIPTS
+
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+
+  # Individual nightly test scehduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
 
 stages:
 
@@ -55,7 +96,7 @@ stages:
 
       - job: NightlyTest
         pool: nightly
-        timeoutInMinutes: 1800  # 30 hours
+        timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
@@ -91,30 +132,31 @@ stages:
               scriptSource: 'inline'
               script: |
                 from __future__ import print_function
-                import os, imp
+                import os, imp, sys
 
                 testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
-                testbed_name = os.environ.get('TESTBED_NAME')
-                testbed_file = os.environ.get('TESTBED_FILE')
+                testbed_name = '${{ parameters.TESTBED_NAME }}'
+                testbed_file = '${{ parameters.TESTBED_FILE }}'
                 tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
                 target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
                 if not target_testbed:
                     print('Testbed {} not found!'.format(testbed_name))
                     sys.exit(1)
+                dut_list = target_testbed.get('duts', [])
+                dut_list_str = ' '.join(x for x in dut_list)
 
                 print('Basic info of testbed {}:'.format(testbed_name))
                 print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
                 print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
                 print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+                print('          DUT_LIST={}'.format(dut_list_str))
 
                 # Below code can create dynamic azure pipeline variables
                 # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
                 print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
                 print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
-            env:
-              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-              TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
+                print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
           - task: PythonScript@0
             displayName: Lock Testbed
@@ -139,14 +181,48 @@ stages:
                     exit 0
                 fi
 
+                if [[ -z "$PREV_IMAGE_URL" ]]; then
+                    PREV_IMAGE_URL="$IMAGE_URL.PREV.1"
+                fi
+
                 cd ansible
 
-                if [[ "$ALWAYS_INSTALL_NEW_IMAGE" == "true" && "$UPGRADE_TYPE" == "sonic" ]]; then
+                if [[ ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }} == True ]]; then
+                    for dut in $(DUT_LIST); do
+                        echo "Power cycling ${dut} ..."
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                        sleep 10
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                    done
+
+                    # Add some sleep to allow power cycled DUTs to come back
+                    sleep 180
+                elif [[ ${{ parameters.POWER_CYCLE_UNREACHABLE_DUTS }} == True ]]; then
+                    NEEDS_SLEEP='No'
+                    for dut in $(DUT_LIST); do
+                        echo "Checking DUT ${dut} ..."
+                        RC=0
+                        ./devutils -i $(INVENTORY_NAME) -a ping -j -l ${dut} | grep -q Success || RC=$?
+                        if [[ RC -ne 0 ]]; then
+                            echo "Power cycling ${dut} ..."
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                            sleep 10
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                            NEEDS_SLEEP='Yes'
+                        fi
+                    done
+                    if [[ x"${NEEDS_SLEEP}" == x"Yes" ]]; then
+                        # Add some sleep to allow power cycled DUTs to come back
+                        sleep 180
+                    fi
+                fi
+
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
                     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                         -i $(INVENTORY_NAME) \
                         -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                        -e image_url=$IMAGE_URL.PREV.1 \
-                        -e upgrade_type=$UPGRADE_TYPE \
+                        -e image_url="$PREV_IMAGE_URL" \
+                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                         --vault-password-file password.txt \
                         -e pause_time=60 -vv || true
                 fi
@@ -154,16 +230,14 @@ stages:
                     -i $(INVENTORY_NAME) \
                     -e testbed_name=${{ parameters.TESTBED_NAME }} \
                     -e image_url=$IMAGE_URL \
-                    -e upgrade_type=$UPGRADE_TYPE \
+                    -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                     --vault-password-file password.txt \
-                    -e pause_time=$PAUSE_TIME -vv
+                    -e pause_time=${{ parameters.PAUSE_TIME }} -vv
 
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
-              ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
-              UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
-              PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
+              PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
 
           - task: Bash@3
             displayName: Deploy Minigraph
@@ -172,19 +246,18 @@ stages:
               script: |
                 set -x
 
-                CONFIG_PARAMS=""
-
-                if [[ "$ENABLE_DATAACL" == "true" ]]; then
-                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
+                else
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
                 fi
                 cd ansible
 
-                ./testbed-cli.sh deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                # ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
-              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               INVENTORY_NAME: $(INVENTORY_NAME)
-              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
             displayName: Run Tests
@@ -194,7 +267,7 @@ stages:
                 set -x
 
                 BASE_PATH=`pwd`
-                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport False --deep_clean"
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean"
 
                 if [[ -n $PY_SAITHRIFT_URL ]]; then
                     PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
@@ -208,23 +281,33 @@ stages:
                     PARAMS="$PARAMS $EXTRA_PARAMS"
                 fi
 
+                EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
+                if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
+                fi
+
+                if [[ "$TOPOLOGY_NAME" == *"dualtor"* ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,dualtor"
+                fi
+
+                rm -fr results     # Clear any possible collected results of previous run
+
                 cd tests
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "$SKIP_SCRIPTS" \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
-                    -t $(TOPOLOGY_TYPE),any -r \
-                    -e "$EXTRA_PARAMS" $TESTBED_SPECIFIC
-
+                    -t "$EXECUTION_TOPOLOGY" \
+                    -r \
+                    ${{ parameters.TESTBED_SPECIFIC }} \
+                    -e "$PARAMS"
                 exit 0
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
-              TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-              SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
 
           - publish: tests/logs
             displayName: "Archive test logs"
@@ -258,7 +341,7 @@ stages:
                 tests/logs/platform_tests/test_*_reboot*.json
               TargetFolder: results
               CleanTargetFolder: true
-            condition: succeededOrFailed()
+            condition: always()
 
           - task: Bash@3
             displayName: Upload Test Results
@@ -277,15 +360,15 @@ stages:
                 # temporary workaround to allow reboot timing data upload
                 # After recent test change, the file names get DUT name in them
                 # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-                mv ../results/test_fast_reboot*_summary.json ../results/test_fast_reboot_summary.json || true
-                mv ../results/test_fast_reboot*_report.json ../results/test_fast_reboot_report.json || true
-                mv ../results/test_warm_reboot*_summary.json ../results/test_warm_reboot_summary.json || true
-                mv ../results/test_warm_reboot*_report.json ../results/test_warm_reboot_report.json || true
-
+                reboot_path=../results/tests/logs/platform_tests/
+                mv $reboot_path/test_fast_reboot*_summary.json $reboot_path/test_fast_reboot_summary.json || true
+                mv $reboot_path/test_fast_reboot*_report.json  $reboot_path/test_fast_reboot_report.json || true
+                mv $reboot_path/test_warm_reboot*_summary.json $reboot_path/test_warm_reboot_summary.json || true
+                mv $reboot_path/test_warm_reboot*_report.json  $reboot_path/test_warm_reboot_report.json || true
                 report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
-            condition: succeededOrFailed()
+            condition: always()
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)

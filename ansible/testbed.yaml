@@ -544,7 +544,7 @@
   group-name: v12-4
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: vms-unknown
+  ptf: v12-4
   ptf_ip: 10.64.246.84/23
   ptf_ipv6:
   server: server_12
@@ -889,7 +889,7 @@
 
 - conf-name: vms20-t1-n3164-acs-4
   group-name: vms20-9
-  topo: t1-64-lag
+  topo: t1-64-itpac
   ptf_image_name: docker-ptf
   ptf: vms20-9
   ptf_ip: 10.64.246.134/23
@@ -1109,6 +1109,36 @@
   vm_base: VM2156
   dut:
     - str2-z9332f-01
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms21-t0-7215-acs-3
+  group-name: vms21-9
+  topo: t0-52
+  ptf_image_name: docker-ptf
+  ptf: vms21-9
+  ptf_ip: 10.64.246.236/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM2180
+  dut:
+    - str2-7215-acs-3
+  inv_name: str2
+  auto_recover: 'True'
+  comment: stumkurv
+
+- conf-name: vms21-t0-8102-01
+  group-name: vms21-8
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms21-8
+  ptf_ip: 10.64.246.231/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM2184
+  dut:
+    - str2-8102-01
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia

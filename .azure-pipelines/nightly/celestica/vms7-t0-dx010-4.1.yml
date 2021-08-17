@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 11 * * 0,2,4,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms20-t1-dx010-6
+    default: vms7-t0-dx010-4
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -27,20 +27,27 @@ parameters:
     default: $(IMAGE_BRCM_202012)
     displayName: "Image URL"
 
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: true
+    displayName: "Always power cycle DUTs"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
-  - name: PTF_PORTMAP
-    type: string
-    default: qos/files/mellanox/default_interface_to_front_map.ini
-    displayName: "PTF port map"
 
 stages:
-  - template: ./templates/nightly_test.yml
+  - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}

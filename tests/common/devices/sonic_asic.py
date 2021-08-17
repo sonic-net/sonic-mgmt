@@ -15,7 +15,6 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    _DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
@@ -48,12 +47,12 @@ class SonicAsic(object):
            for the namespace(asic)
 
            If the dut is multi asic, then the asic_id is appended t0 the
-            _DEFAULT_ASIC_SERVICES list
+            self.sonichost.DEFAULT_ASIC_SERVICES list
         Returns:
             [list]: list of the services running the namespace/asic
         """
         a_service = []
-        for service in self._DEFAULT_ASIC_SERVICES:
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
            a_service.append("{}{}".format(
                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
@@ -158,6 +157,10 @@ class SonicAsic(object):
     def os_version(self):
         return self.sonichost.os_version
 
+    @property
+    def sonic_release(self):
+        return self.sonichost.sonic_release
+
     def interface_facts(self, *module_args, **complex_args):
         """Wrapper for the interface_facts ansible module.
 
@@ -174,7 +177,7 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self._DEFAULT_ASIC_SERVICES
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
         ):
             return service
 
@@ -182,7 +185,7 @@ class SonicAsic(object):
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self._DEFAULT_ASIC_SERVICES
+            service not in self.sonichost.DEFAULT_ASIC_SERVICES
         ):
             return service
 
@@ -403,7 +406,7 @@ class SonicAsic(object):
             return port in self.ports
 
         if_db = self.show_interface(
-            command="status", 
+            command="status",
             include_internal_intfs=True
         )["ansible_facts"]["int_status"]
 
@@ -519,7 +522,7 @@ class SonicAsic(object):
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
                     break
-         
+
         return pc, pc_members
 
     def get_bgp_statistic(self, stat):

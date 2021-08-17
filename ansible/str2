@@ -68,6 +68,10 @@ all:
           ansible_host: 10.64.246.152
         vms21-7:
           ansible_host: 10.64.246.229
+        vms21-8:
+          ansible_host: 10.64.246.231
+        vms21-9:
+          ansible_host: 10.64.246.236
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
@@ -205,6 +209,9 @@ fanout:
     str2-7215-acs-2:
       ansible_host: 10.3.146.63
       os: sonic
+    str2-7215-acs-4:
+      ansible_host: 10.3.147.48
+      os: sonic
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
     str2-7260-26:
@@ -227,6 +234,8 @@ fanout:
       ansible_host: 10.3.147.200
     str2-7260cx3-acs-fan-22:
       ansible_host: 10.3.146.110
+    str2-7260cx3-acs-fan-24:
+      ansible_host: 10.3.146.174
 
 sonic:
   vars:
@@ -247,6 +256,7 @@ sonic:
     sonic_arista_lc_100G:
     sonic_arista_sup:
     sonic_nokia_7215:
+    sonic_cisco_8102:
     sonic_dell_z9332f:
 
 sonic_mlnx:
@@ -374,7 +384,7 @@ sonic_arista_QX:
   hosts:
     str2-7050qx-32s-acs-01:
       ansible_host: 10.3.146.158
-      hwsku: Arista-7050-QX-32S
+      hwsku: Arista-7050QX32S-Q32
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
@@ -520,6 +530,16 @@ sonic_nokia_7215:
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+    str2-7215-acs-3:
+      ansible_host: 10.3.147.47
+
+sonic_cisco_8102:
+  vars:
+    hwsku: 64x100Gb
+    iface_speed: 100000
+  hosts:
+    str2-8102-01:
+      ansible_host: 10.3.146.133
 
 sonic_dell_z9332f:
   vars:
