@@ -76,7 +76,7 @@ def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     disabled_autorestart_containers = []
 
     for container_name, state in containers_autorestart_states.items():
-        if state == "enabled":
+        if container_name == "pmon" and state == "enabled":
             logger.info("Disabling the autorestart of container '{}'.".format(container_name))
             command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
             command_output = duthost.shell(command_disable_autorestart)
