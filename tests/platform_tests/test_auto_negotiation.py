@@ -56,7 +56,7 @@ def recover_ports(duthosts, enum_dut_portname_module_fixture, fanouthosts):
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
         if dutname == 'unknown' or dutname == duthost.hostname:
-            all_ports = build_test_candidates(duthost, fanouthosts, portname)
+            all_ports = build_test_candidates(duthost, fanouthosts, 'all_ports')
             all_ports_len = len(all_ports)
             # Test all ports takes too much time (sometimes more than an hour), 
             # so we choose 3 ports randomly as the cadidates ports
