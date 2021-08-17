@@ -460,14 +460,77 @@ sonic_dell_z9332f:
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       hwsku: DellEMC-Z9332f-M-O16C64
+      model: 04CN21
+      serial: 8ZHXCW2
+      base_mac: C8:F7:50:EB:AE:C1
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET009BR0030"
+        "0x24": "C8:F7:50:EB:AE:C1"
+        "0x25": "12/02/2019 10:38:54"
+        "0x26": "1"
+        "0x27": "A00"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "8ZHXCW2"
+        "0xFD": "674"
+        "0xFE": "0x98790533"
       pdu_host: pdu-111
     str2-z9332f-05:
       ansible_host: 10.3.146.228
       hwsku: DellEMC-Z9332f-M-O16C64
+      model: 04CN21
+      serial: 2FRXCW2
+      base_mac: C8:F7:50:ED:15:41
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET0004K0123"
+        "0x24": "C8:F7:50:ED:15:41"
+        "0x25": "05/07/2020 21:33:13"
+        "0x26": "1"
+        "0x27": "A01"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "2FRXCW2"
+        "0xFD": "674"
+        "0xFE": "0x4FCF505B"
       pdu_host: pdu-111
     str2-z9332f-01:
       ansible_host: 10.3.146.248
       hwsku: DellEMC-Z9332f-O32
+      model: 04CN21
+      serial: 9DRXCW2
+      base_mac: C8:F7:50:ED:7C:C1
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET0004K0214"
+        "0x24": "C8:F7:50:ED:7C:C1"
+        "0x25": "05/13/2020 01:43:36"
+        "0x26": "1"
+        "0x27": "A01"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "9DRXCW2"
+        "0xFD": "674"
+        "0xFE": "0x5E7C686F"
       pdu_host: pdu-111
 
 server:
