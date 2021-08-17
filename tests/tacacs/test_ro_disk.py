@@ -11,7 +11,8 @@ from .test_ro_user import ssh_remote_run
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
