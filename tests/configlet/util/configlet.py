@@ -151,7 +151,8 @@ def get_port_related_data():
     pfc_time = get_pfc_time()
     is_mlnx = is_host_mlnx()
     
-    is_version_2019_higher = int(tor_data["os_version"][0: 4:]) >= 2019
+    is_version_2019_higher = '201811' not in init_data["version"]
+    log_debug("is_version_2019_higher={}".format(is_version_2019_higher))
 
 
     for local_port in sonic_local_ports:

@@ -50,13 +50,7 @@ def init(duthost, duthost_name):
     init_data["data_dir"] = data_dir
     init_data["switch_name"] = duthost_name
 
-    duthost.fetch(src="/etc/sonic/sonic_version.yml", dest=data_dir)
-    local_file = "{}/{}/etc/sonic/sonic_version.yml".format(
-            data_dir, duthost_name)
-    with open(local_file, "r") as s:
-        d = yaml.safe_load(s)
-        init_data["version"] = d["build_version"]
-
+    init_data["version"] = duthost.os_version
     log_debug("Created data_dir={} version={}".format(data_dir, init_data["version"]))
 
 
