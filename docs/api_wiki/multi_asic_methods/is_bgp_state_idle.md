@@ -1,4 +1,4 @@
-# stop_service
+# is_bgp_state_idle
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Checks if all BGP peers are in IDLE state on the sonichost.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    all_bgp_idle = duthost.is_bgp_state_idle()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
-    - Type: `String`
+Takes no arguments.
 
 ## Expected Output
-This method has no output.
+`True` if all BGP peers are in IDLE state, `False` otherwise.

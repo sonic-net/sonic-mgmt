@@ -1,4 +1,4 @@
-# stop_service
+# restart_service
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Restarts a service on the sonichost if the service is a default service. Otherwise service is restarted on each ASIC.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    duthost.restart_service("swss")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `service` - service to be restarted
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+Provides no output

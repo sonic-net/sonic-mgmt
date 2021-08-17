@@ -268,15 +268,43 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [asic_instance](multi_asic_methods/asic_instance.md) - Retrieves the asic instance given an asic id. Device must be multi-ASIC
 
+- [asic_instance_from_namespace](multi_asic_methods/asic_instance_from_namespace.md) - Provides ASIC instance given a corresponding namespace.
+
+- [critical_services_tracking_list](multi_asic_methods/critical_services_tracking_list.md) - Gets the list of services running on the DUT.
+
+- [delete_container](multi_asic_methods/delete_container.md) - Deletes container on sonichost if container's associated service is a default service. Otherwise, container is deleted on each ASIC.
+
+- [get_asic_ids](multi_asic_methods/get_asic_ids.md) - Provides all ASIC indexes for the ASICs on the Multi-ASIC device.
+
 - [get_asic_id_from_namespace](multi_asic_methods/get_asic_id_from_namespace.md) - Returns numeric ID for ASIC given a namespace. This command only works if the dut is a multi-asic device.
+
+- [get_asic_index_for_portchannel](multi_asic_methods/get_asic_index_for_portchannel.md) - Gets asic index associated with provided portchannel.
 
 - [get_asic_namespace_list](multi_asic_methods/get_asic_namespace_list.md) - Provides list of namspaces corresponding to ASICs on the duthost. The dut must be a multi-ASIC device for this method to work.
 
 - [get_asic_or_sonic_host](multi_asic_methods/get_asic_or_sonic_host.md) - Returns ASIC instance provided a corresponding ASIC instance id.
 
+- [get_asic_or_sonic_host_from_namespace](multi_asic_methods/get_asic_or_sonic_host_from_namespace.md) - Returns corresponding sonichost instance if arg `namespace` is not specified, or corresponding ASIC instance if arg `namespace` is specified.
+
+- [get_backend_asic_ids](multi_asic_methods/get_backend_asic_ids.md) - Provides list of ASIC indexes corresponding to ASICs on the Multi-ASIC device.
+
+- [get_backend_asic_namespace_list](multi_asic_methods/get_backend_asic_namespace_list.md) - Provides list of namespaces for each ASIC on the Multi-ASIC device.
+
+- [get_default_critical_services_list](multi_asic_methods/get_default_critical_services_list.md) - Provides the default list of critical services for Multi-ASIC device.
+
+- [get_frontend_asic_ids](multi_asic_methods/get_frontend_asic_ids.md) - Provides a list of ASIC indexes representing the ASICs on the device.
+
+- [get_frontend_asic_namespace_list](multi_asic_methods/get_frontend_asic_namespace_list.md) - Provides list of all namespaces corresponding to ASICs on Multi-ASIC device.
+
+- [get_linux_ip_cmd_for_namespace](multi_asic_methods/get_linux_ip_cmd_for_namespace.md) - Specifies a linux `ip` command for the provided namespace.
+
 - [get_namespace_from_asic_id](multi_asic_methods/get_namespace_from_asic_id.md) - Gets the namespace provided an ASIC ID. This only works on multi-ASIC devices.
 
 - [get_port_asic_instance](multi_asic_methods/get_port_asic_instance.md) - Returns the numeric ASIC instance that a provided port belongs to. Will fail test if ASIC instance is not found for provided port.
+
+- [get_queue_oid](multi_asic_methods/get_queue_oid.md) - Get the queue OID of given port and queue number.
+
+- [get_queue_oid_asic_instance](multi_asic_methods/get_queue_oid_asic_instance.md) - Returns the ASIC instance which has the queue OID saved.
 
 - [get_route](multi_asic_methods/get_route.md) - Retreives BGP routes on a provided an ip prefix that the route must match.
 
@@ -287,9 +315,17 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 - [has_config_subcommand](multi_asic_methods/has_config_subcommand.md) - Check if a config or show subcommand exists on the remote host. *WARNING*: to test whether it exists, the method will run the command. Ensure that there will be no negative sid-effects of having this command run on 
 the remote host.
 
+- [is_bgp_state_idle](multi_asic_methods/is_bgp_state_idle.md) - Checks if all BGP peers are in IDLE state on the sonichost.
+
+- [is_container_running](multi_asic_methods/is_container_running.md) - Returns whether or not a container is running on sonichost if the container's associated service is a default service. Otherwise, it returns whether or not the container is running on _any_ ASIC.
+
 - [is_service_running](multi_asic_methods/is_service_running.md) - Checks if a specified service is running. Can be a service within a docker.
 
-- [stop_service](multi_asic_methods/stop_service.md) - Stops a specified service
+- [restart_service](multi_asic_methods/restart_service.md) - Restarts a service on the sonichost if the service is a default service. Otherwise service is restarted on each ASIC.
+
+- [start_service](multi_asic_methods/start_service.md) - Starts service on sonichost if service is a default service. Otherwise service is started on each ASIC.
+
+- [stop_service](multi_asic_methods/stop_service.md) - Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
 
 
 ## Sonic ASIC Methods
@@ -387,9 +423,13 @@ the remote host.
 
 ## Ptfhost Methods
 
+- [change_mac_addresses](ptfhost_methods/change_mac_addresses.md) - Updates interface mac addresses.
+
 - [hostname](ptfhost_methods/hostname.md) - Provides hostname for device.
 
 - [mgmt_ip](ptfhost_methods/mgmt_ip.md) - Provides management ip for host.
+
+- [remove_ip_addresses](ptfhost_methods/remove_ip_addresses.md) - Removes all Interface IP Addresses
 
 
 ## Preconfigured Function Arguments

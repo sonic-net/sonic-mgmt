@@ -1,4 +1,4 @@
-# stop_service
+# get_asic_instance_for_portchannel
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Gets asic index associated with provided portchannel.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    asic_for_pc = duthost.get_asic_index_for_portchannel("PortChannel0001")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `portchannel` - name of portchannel to get asic index for
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+Provides associated asic_index for portchannel provided.

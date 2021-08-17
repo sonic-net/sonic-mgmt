@@ -1,4 +1,4 @@
-# stop_service
+# get_default_critical_services_list
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Provides the default list of critical services for Multi-ASIC device.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    def_crit_servs = duthost.get_default_critical_services()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
-    - Type: `String`
+Takes no arguments
 
 ## Expected Output
-This method has no output.
+List of services that are considered critical services by default.

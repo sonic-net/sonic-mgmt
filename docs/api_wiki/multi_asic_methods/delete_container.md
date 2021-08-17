@@ -1,4 +1,4 @@
-# stop_service
+# delete_container
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,20 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Deletes container on sonichost if container's associated service is a default service. Otherwise, container is deleted on each ASIC.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    duthost.delete_container("swss")
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `service` - name of container to delete
     - Required: `True`
     - Type: `String`
 
 ## Expected Output
-This method has no output.
+Provides no output

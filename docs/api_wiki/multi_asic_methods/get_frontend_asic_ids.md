@@ -1,4 +1,4 @@
-# stop_service
+# get_frontend_asic_ids
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Provides a list of ASIC indexes representing the ASICs on the device.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    frontend_asics = duthost.get_frontend_asic_ids()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
-    - Type: `String`
+Takes no arguments
 
 ## Expected Output
-This method has no output.
+Returns a list of asic indexes, one for each frontend ASIC on the multi-ASIC device.

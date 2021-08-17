@@ -1,4 +1,4 @@
-# stop_service
+# get_queue_oid
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,23 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Get the queue OID of given port and queue number.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    duthost.get_queue_oid("Ethernet0", 4)
 ```
 
 ## Arguments
-- `service_name` - name of service
+- `port` - port to check queue OID for
     - Required: `True`
     - Type: `String`
+- `queue_num` - queue number for port provided
+    - Required: `True`
+    - Type: `Integer`
 
 ## Expected Output
-This method has no output.
+The queue OID corresponding to given `port` and `queue_num`

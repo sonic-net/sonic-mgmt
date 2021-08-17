@@ -66,7 +66,7 @@ def get_methods(name, doc_name):
 
 # List of devices that methods should be extracted for
 devices = ["sonic", "sonic_asic", "multi_asic", "ptf"]
-doc_names = ["sonichost", "sonic_asic", "mutli_asic", "ptfhost"]
+doc_names = ["sonichost", "sonic_asic", "multi_asic", "ptfhost"]
 
 # Extracts methods from specified devices
 for dev, doc_name in zip(devices, doc_names):

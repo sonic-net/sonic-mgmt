@@ -1,4 +1,4 @@
-# stop_service
+# get_backend_asic_namespace_list
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,20 +6,18 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Stops a service on the sonichost if service is a default service. Otherwise serviec is stopped on all ASICs.
+Provides list of namespaces for each ASIC on the Multi-ASIC device.
 
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.stop_service("swss")
+    backend_asic_ns = duthost.get_backend_asic_namespace_list()
 ```
 
 ## Arguments
-- `service_name` - name of service
-    - Required: `True`
-    - Type: `String`
+Takes no arguments
 
 ## Expected Output
-This method has no output.
+List of namespaces, one for each backend ASIC on the Multi-ASIC device.
