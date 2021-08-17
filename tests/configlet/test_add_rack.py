@@ -113,6 +113,10 @@ def apply_clet(duthost, duthost_name):
     clet_file = managed_files["configlet"]
     sonic_clet_file = "/etc/sonic/add_Rack.json"
 
+    del_clet_file = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "everlow_delete.json")
+    del_sonic_clet_file = "/etc/sonic/everlow_delete.json"
+
     if not mini_wo_to or not clet_file:
         report_error("Failed to get files wo_to={} clet={}".format(
             mini_wo_to, clet_file))
@@ -125,12 +129,12 @@ def apply_clet(duthost, duthost_name):
 
     duthost.copy(src=mini_wo_to, dest="/etc/sonic/minigraph.xml")
     duthost.copy(src=clet_file, dest=sonic_clet_file)
+    duthost.copy(src=del_clet_file, dest=del_sonic_clet_file)
 
     load_minigraph(duthost, duthost_name)
 
     # Apply delete 
-    duthost.shell("sudo configlet -d -j {}".format(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "everlow_delete.json")))
+    duthost.shell("sudo configlet -d -j {}".format(del_sonic_clet_file))
 
     tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
     duthost.shell("sudo config interface shutdown {}".format(tor_ifname))
