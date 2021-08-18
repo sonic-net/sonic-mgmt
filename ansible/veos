@@ -62,6 +62,7 @@ all:
         server_svc_1:
       vars:
         topologies:
+          - t2
           - t1
           - t1-lag
           - t1-64-lag

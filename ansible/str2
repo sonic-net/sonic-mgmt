@@ -76,6 +76,8 @@ all:
           ansible_host: 10.64.246.158
         vms24-2:
           ansible_host: 10.64.246.159
+        vms25-1:
+          ansible_host: 10.64.246.230
 
     pdu:
       hosts:
@@ -160,6 +162,12 @@ all:
         pdu-122:
           ansible_host: 10.3.155.122
           protocol: snmp
+        pdu-124:
+          ansible_host: 10.3.155.124
+          protocol: snmp
+        pdu-125:
+          ansible_host: 10.3.155.125
+          protocol: snmp
 
 fanout:
   hosts:
@@ -222,6 +230,10 @@ fanout:
       ansible_host: 10.3.146.156
     str2-7260cx3-acs-fan-20:
       ansible_host: 10.3.146.165
+    str2-7260cx3-acs-fan-21:
+      ansible_host: 10.3.147.200
+    str2-7260cx3-acs-fan-22:
+      ansible_host: 10.3.146.110
     str2-7260cx3-acs-fan-24:
       ansible_host: 10.3.146.174
 
@@ -241,6 +253,8 @@ sonic:
     sonic_nexus_3164:
     sonic_mlnx_4600C:
     sonic_arista64_100:
+    sonic_arista_lc_100G:
+    sonic_arista_sup:
     sonic_nokia_7215:
     sonic_cisco_8102:
     sonic_dell_z9332f:
@@ -478,6 +492,18 @@ sonic_arista:
     str2-7060-spy-4:
       ansible_host: 10.3.146.243
       hwsku: Arista-7060CX-32S-C32
+    str2-7804-sup-1:
+      ansible_host: 10.3.146.249
+      hwsku: Arista-7804R3-FM
+    str2-7804-lc3-1:
+      ansible_host: 10.3.147.15
+      hwsku: Arista-7800R3-48CQ2-C48
+    str2-7804-lc6-1:
+      ansible_host: 10.3.147.16
+      hwsku: Arista-7800R3-48CQ2-C48
+    str2-7804-lc7-1:
+      ansible_host: 10.3.147.18
+      hwsku: Arista-7800R3-48CQ2-C48
 
 sonic_arista_Q32:
   vars:
@@ -569,6 +595,68 @@ sonic_arista64_100:
     str2-7170-azd:
       ansible_host: 10.3.146.76
       hwsku: Arista-7170-64C
+
+sonic_arista_lc_100G:
+  vars:
+    hwsku: Arista-7800R3-48CQ2-C4
+    sonic_hwsku: Arista-7800R3-48CQ2-C4
+    sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+    max_cores: 16
+    switch_type: voq
+    voq_inband_intf: Ethernet-IB0
+    voq_inband_type: port
+    num_asics: 1
+    frontend_asics: [0]
+  hosts:
+    str2-7804-lc3-1:
+      slot_num: 3
+      start_switchid: 0
+      voq_inband_ip: 3.3.3.3/32
+      voq_inband_ipv6: 3333::3:3/128
+      loopback4096_ip: 192.0.0.3/32
+      loopback4096_ipv6: 2603:10e2:400::3/128
+      serial: SSN20220006
+      base_mac:  fc:bd:67:67:e4:1C
+      ansible_host: 10.3.147.15
+    str2-7804-lc6-1:
+      slot_num: 6
+      start_switchid: 1
+      voq_inband_ip: 3.3.3.6/32
+      voq_inband_ipv6: 3333::3:6/128
+      loopback4096_ip: 192.0.0.6/32
+      loopback4096_ipv6: 2603:10e2:400::6/128
+      serial: SSN20220006
+      base_mac:  fc:bd:67:67:e4:1C
+      ansible_host: 10.3.147.16
+    str2-7804-lc7-1:
+      slot_num: 7
+      start_switchid: 2
+      voq_inband_ip: 3.3.3.7/32
+      voq_inband_ipv6: 3333::3:7/128
+      loopback4096_ip: 192.0.0.7/32
+      loopback4096_ipv6: 2603:10e2:400::7/128
+      serial: SSN20220011
+      base_mac:  fc:bd:67:67:de:5b
+      ansible_host: 10.3.147.18
+
+sonic_arista_sup:
+  vars:
+    hwsku:  Arista-7808R3A-FM
+    sonic_hwsku:  Arista-7808R3A-FM
+    sonic_hw_platform:  x86_64-arista_7800_sup
+    slot_num: 1
+    num_asics: 12
+    num_fabric_asics: 12
+    switchids: [300,301,302,303,304,305,306,307,308,309,310,311]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+  hosts:
+    str2-7804-sup-1:
+      ansible_host: 10.3.146.249
+      hwsku: Arista-7804R3-FM
+
 
 sonic_nokia_7215:
   vars:
