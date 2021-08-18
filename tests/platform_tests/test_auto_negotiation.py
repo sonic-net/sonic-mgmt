@@ -210,7 +210,7 @@ def test_auto_negotiation_advertised_speeds_all():
         # Make sure all ports are negotiated to the highest speed
         logger.info('Checking the actual speed is equal to highest speed')
         int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
-        for dut_port, fanout, fanout_port in candidates:
+        for _, dut_port, fanout, fanout_port in candidates.values():
             supported_speeds = get_supported_speeds_for_port(duthost, dut_port, fanout, fanout_port)
             logger.info('DUT port = {}, fanout port = {}, supported speeds = {}, actual speed = {}'.format(
                 dut_port,
