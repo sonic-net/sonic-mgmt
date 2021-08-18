@@ -55,22 +55,25 @@ def recover_ports(duthosts, fanouthosts):
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
         # Only do the sampling when 
-        if duthost in cadidate_test_ports.keys():
+        if duthost.hostname in cadidate_test_ports.keys():
             continue
         all_ports = build_test_candidates(duthost, fanouthosts, 'all_ports')
         all_ports_len = len(all_ports)
         # Test all ports takes too much time (sometimes more than an hour), 
         # so we choose 3 ports randomly as the cadidates ports
         candidates = random.sample(all_ports, 3 if all_ports_len > 3 else all_ports_len)
+        cadidate_test_ports[duthost.hostname] = {}
         for dut_port, fanout, fanout_port in candidates:
             cadidate_test_ports[duthost.hostname][dut_port] = (duthost, dut_port, fanout, fanout_port)
-        for _, fanout, fanout_port in cadidate_test_ports[duthost]:
+        for _, _, fanout, fanout_port in cadidate_test_ports[duthost.hostname]:
             auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
+            if auto_neg_mode == None:
+                pytest.skip("Skip test due to fanout port {} does not support setting auto-neg mode".format(fanout_port))
             speed = fanout.get_speed(fanout_port)
             if not fanout in fanout_original_port_states:
                 fanout_original_port_states[fanout] = {}
             fanout_original_port_states[fanout][fanout_port] = (auto_neg_mode, speed)
-    
+
     yield
 
     logger.info('Recovering port configuration for fanout...')
