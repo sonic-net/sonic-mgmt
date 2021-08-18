@@ -6,10 +6,6 @@ def setup_check_snmp_ready(duthosts):
     for duthost in duthosts:
         assert wait_until(300, 20, duthost.is_service_fully_started, "snmp"), "SNMP service is not running"
 
-@pytest.fixture(scope="function", autouse=True)
-def snmp_wait_for_counters(wait_for_counters):
-    return
-
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the snmp tests.

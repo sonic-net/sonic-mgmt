@@ -98,7 +98,7 @@ def reset_portstat(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.mark.parametrize('command', ['portstat -c', 'portstat --clear'])
-def test_portstat_clear(duthosts, enum_rand_one_per_hwsku_frontend_hostname, command, wait_for_counters):
+def test_portstat_clear(duthosts, enum_rand_one_per_hwsku_frontend_hostname, command):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait(30, 'Wait for DUT to receive/send some packets')
     before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
