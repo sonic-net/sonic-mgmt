@@ -382,7 +382,11 @@ class MultiAsicSonicHost(object):
         services = [feature]
 
         if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
-            services = [asic.get_docker_name(feature) for asic in self.asics]
+            services = []
+            for asic in self.asics:
+                service_name = asic.get_docker_name(feature)
+                if service_name in self.sonichost.critical_services:
+                    services.append(service_name)
 
         for docker in services:
             cmd_disable_rate_limit = (
