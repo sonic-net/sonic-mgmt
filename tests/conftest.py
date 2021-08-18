@@ -36,8 +36,6 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 
-WAIT_FOR_COUNTERS_TIMEOUT = 190
-WAIT_FOR_COUNTERS_INTERVAL = 10
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1145,25 +1143,3 @@ def duts_minigraph_facts(duthosts, tbinfo):
         }
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
-
-@pytest.fixture(scope='function')
-def wait_for_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    logger.info('Wait until all counters are enabled on the DUT')
-    counters = ['PORT_STAT', 'PORT_BUFFER_DROP', 'QUEUE_STAT', 'PG_WATERMARK_STAT', 'RIF_STAT']
-    current_attempt = 0
-    while current_attempt < WAIT_FOR_COUNTERS_TIMEOUT / WAIT_FOR_COUNTERS_INTERVAL:
-        output = duthost.shell("counterpoll show | sed '1,2d'", module_ignore_errors=True)
-        assert output.has_key('rc') and output['rc'] == 0, "Failed to get counters status"
-        counters_lines = output['stdout'].splitlines()
-        enabled_counters = 0
-        for line in counters_lines:
-            if any(counter in line for counter in counters) and 'enable' in line:
-                enabled_counters += 1
-                continue
-        if enabled_counters == len(counters):
-            return
-        else:
-            current_attempt += 1
-            time.sleep(WAIT_FOR_COUNTERS_INTERVAL)
-    assert False, "Not all counters are enabled after {} seconds".format(WAIT_FOR_COUNTERS_TIMEOUT)
