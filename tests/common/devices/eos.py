@@ -257,8 +257,13 @@ class EosHost(AnsibleHostBase):
         Returns:
             list: A list of supported speed strings or None
         """
-        output = self.eos_command(commands=['show interfaces %s capabilities' % interface_name])
-        found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+        commands = ['show interfaces {} capabilities'.format(interface_name), 'show interface {} hardware'.format(interface_name)]
+        for command in commands:
+            output = self.eos_command(commands=[command])
+            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+            if found_txt is not None:
+                break
+
         if found_txt is None:
             _raise_err('Failed to find port speeds list in output: %s' % output['stdout'])
 
