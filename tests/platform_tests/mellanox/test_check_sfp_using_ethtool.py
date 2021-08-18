@@ -8,6 +8,7 @@ import logging
 import json
 import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.platform_tests.sfp.util import get_dev_conn
 from tests.common.platform.interface_utils import get_port_map, check_interface_status
 from tests.common.mellanox_data import SPC3_HWSKUS
 from check_hw_mgmt_service import check_hw_management_service
@@ -18,12 +19,13 @@ pytestmark = [
 ]
 
 
-def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, enum_frontend_asic_index):
     """This test case is to check SFP using the ethtool.
     """
     duthost = duthosts[rand_one_dut_hostname]
     ports_config = {}
     ports_config_output = duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"]
+    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
     if ports_config_output:
         # in the case of zero ports the json output can be none
         ports_config = json.loads(ports_config_output)
@@ -32,7 +34,7 @@ def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_fac
         lanes_divider = 8
     else:
         lanes_divider = 4
-    for intf in conn_graph_facts["device_conn"][duthost.hostname]:
+    for intf in dev_conn:
         intf_lanes = ports_config[intf]["lanes"]
         sfp_id = int(intf_lanes.split(",")[0])/lanes_divider + 1
 
