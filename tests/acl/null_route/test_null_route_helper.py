@@ -54,6 +54,12 @@ TEST_DATA = [
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def skip_on_dualtor_testbed(tbinfo):
+    if 'dualtor' in tbinfo['topo']['name']:
+        pytest.skip("Skip running on dualtor testbed")
+
+
 @pytest.fixture(scope="module")
 def create_acl_table(rand_selected_dut, tbinfo):
     """
