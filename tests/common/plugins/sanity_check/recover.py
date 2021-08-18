@@ -111,7 +111,6 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-
         for lag_name in lag_facts['names']:
             nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
             peer_device   = vm_neighbors[nbr_intf]['name']
@@ -121,5 +120,7 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
             for intf in intf_list:
                 nbr_host.no_shutdown(intf)
             asn = nbrhosts[peer_device]['conf']['bgp']['asn']
+            # start BGPd
+            nbr_host.start_bgpd()
             # restore BGP session
             nbr_host.no_shutdown_bgp(asn)
