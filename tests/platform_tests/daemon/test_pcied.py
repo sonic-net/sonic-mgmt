@@ -131,7 +131,6 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_on
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon got killed unexpectedly and it is in {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status != expected_running_status and pre_daemon_pid != daemon_pid,
                          "{} status for SIG_TERM should not be {} with pid:{}!".format(daemon_name, daemon_status, daemon_pid))
 
@@ -157,7 +156,6 @@ def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_on
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon got killed unexpectedly and it is in {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status != expected_running_status,
                           "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
 
