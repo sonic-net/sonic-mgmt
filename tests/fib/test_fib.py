@@ -27,6 +27,9 @@ pytestmark = [
 ]
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
+# The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
+# When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different ingress ports
+# and expect that they are forwarded from same egress port.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
