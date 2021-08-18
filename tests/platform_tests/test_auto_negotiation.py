@@ -204,7 +204,7 @@ def test_auto_negotiation_advertised_speeds_all():
                                  PORT_STATUS_CHECK_INTERVAL, 
                                  check_ports_up, 
                                  duthost, 
-                                 [item[1] for item in candidates])
+                                 [item[1] for item in candidates.values()])
         pytest_assert(wait_result, 'Some ports are still down')
 
         # Make sure all ports are negotiated to the highest speed
