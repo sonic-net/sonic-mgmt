@@ -194,7 +194,7 @@ def test_proxy_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_pt
             dut_macs.append(vlan_details['mac'].lower())
     else:
         router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-        dut_macs = [router_mac]
+        dut_macs = [router_mac.lower()]
 
     pytest_assert(ping_addr in neighbor_table.keys())
     pytest_assert(neighbor_table[ping_addr]['macaddress'].lower() in dut_macs)
