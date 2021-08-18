@@ -67,7 +67,7 @@ def recover_ports(duthosts, fanouthosts):
             cadidate_test_ports[duthost.hostname][dut_port] = (duthost, dut_port, fanout, fanout_port)
         for _, _, fanout, fanout_port in cadidate_test_ports[duthost.hostname].values():
             auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-            if auto_neg_mode == None:
+            if auto_neg_mode is None:
                 pytest.skip("Skip test due to fanout port {} does not support setting auto-neg mode".format(fanout_port))
             speed = fanout.get_speed(fanout_port)
             if not fanout in fanout_original_port_states:
