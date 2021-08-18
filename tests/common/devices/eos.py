@@ -271,5 +271,5 @@ class EosHost(AnsibleHostBase):
         speed_list = speed_list.split(',')
         speed_list.remove('auto')
         def extract_speed_only(v):
-            return re.match('\d+', v).group() + '000'
+            return re.match('(\d+)', v).group() + '000'
         return list(map(extract_speed_only, speed_list))
