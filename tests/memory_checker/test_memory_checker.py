@@ -39,7 +39,7 @@ def modify_monit_config_and_restart(duthosts, enum_dut_feature_container, enum_r
         None.
     """
     dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
     duthost = duthosts[dut_name]
@@ -215,7 +215,7 @@ def test_memory_checker(duthosts, enum_dut_feature_container, creds, enum_rand_o
         None.
     """
     dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
     duthost = duthosts[dut_name]
