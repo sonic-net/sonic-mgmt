@@ -18,7 +18,7 @@ docs    @wangxin @yxieca
 spytest @ramakristipati @lolyu @yxieca
 
 # test reporting
-test_reporting  @daall
+test_reporting  @wangxin
 
 # tests
-tests/platform_tests    @jleveque
+tests/platform_tests    @sujinmkang

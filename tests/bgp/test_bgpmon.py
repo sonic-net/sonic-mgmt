@@ -11,6 +11,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
     pytest.mark.topology('any'),
@@ -22,8 +23,15 @@ ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
 
-def get_default_route_ports(host):
-    mg_facts = host.minigraph_facts(host=host.hostname)['ansible_facts']
+@pytest.fixture(scope="module", autouse=True)
+def skip_test_bgpmon_on_backend(tbinfo):
+    """Skip test_bgpmon over storage backend topologies."""
+    if "backend" in tbinfo["topo"]["name"]:
+        pytest.skip("Skipping test_bgpmon. Unsupported topology %s." % tbinfo["topo"]["name"])
+
+
+def get_default_route_ports(host, tbinfo):
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
     route_info = json.loads(host.shell("show ip route {} json".format(ZERO_ADDR))['stdout'])
     ports = []
     for route in route_info[ZERO_ADDR]:
@@ -35,17 +43,18 @@ def get_default_route_ports(host):
     for port in ports:
         if 'PortChannel' in port:
             for member in mg_facts['minigraph_portchannels'][port]['members']:
-                port_indices.append(mg_facts['minigraph_port_indices'][member])
+                port_indices.append(mg_facts['minigraph_ptf_indices'][member])
         else:
-            port_indices.append(mg_facts['minigraph_port_indices'][port])
+            port_indices.append(mg_facts['minigraph_ptf_indices'][port])
+
     return port_indices
 
 @pytest.fixture
-def common_setup_teardown(duthost, ptfhost):
+def common_setup_teardown(duthost, ptfhost, tbinfo):
     peer_addr = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
-    peer_ports = get_default_route_ports(duthost)
+    peer_ports = get_default_route_ports(duthost, tbinfo)
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     local_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
     # Assign peer addr to an interface on ptf
@@ -60,7 +69,7 @@ def common_setup_teardown(duthost, ptfhost):
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
-    yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn'] 
+    yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn']
     # Cleanup bgp monitor
     duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
     duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
@@ -100,7 +109,7 @@ def build_syn_pkt(local_addr, peer_addr):
     exp_packet.set_ignore_extra_bytes()
     return exp_packet
 
-def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
+def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
@@ -122,8 +131,8 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     # Verify syn packet on ptf
     (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
     #To establish the connection we set the PTF port that receive syn packet following properties
-    # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) , 
-    # add the neighbor entry and the default route for dut loopback 
+    # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) ,
+    # add the neighbor entry and the default route for dut loopback
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
@@ -140,7 +149,9 @@ def test_bgpmon(duthost, common_setup_teardown, ptfadapter, ptfhost):
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
     ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
     try:
-        pytest_assert(wait_until(30, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
+        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+                      "Failed to start bgp monitor session on PTF")
+        pytest_assert(wait_until(180, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))

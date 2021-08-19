@@ -2,8 +2,9 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
@@ -27,6 +28,8 @@ def pytest_addoption(parser):
                      help='PFC WD storm restore interval')
     parser.addoption('--fake-storm', action='store', type=bool, default=True,
                      help='Fake storm for most ports instead of using pfc gen')
+    parser.addoption('--two-queues', action='store_true', default=True,
+                     help='Run test with sending traffic to both queues [3, 4]')
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_pfcwd_test_dualtor(tbinfo):
@@ -34,6 +37,23 @@ def skip_pfcwd_test_dualtor(tbinfo):
         pytest.skip("Pfcwd tests skipped on dual tor testbed")
 
     yield
+
+
+@pytest.fixture(scope="module")
+def two_queues(request):
+    """
+    Enable/Disable sending traffic to queues [4, 3]
+    By default send to queue 4
+
+    Args:
+        request: pytest request object
+        duthosts: AnsibleHost instance for multi DUT
+        rand_one_dut_hostname: hostname of DUT
+
+    Returns:
+        two_queues: False/True
+    """
+    return request.config.getoption('--two-queues')
 
 
 @pytest.fixture(scope="module")
@@ -143,7 +163,6 @@ def setup_pfc_test(
 
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
-
     yield setup_info
 
     logger.info("--- Starting Pfcwd ---")

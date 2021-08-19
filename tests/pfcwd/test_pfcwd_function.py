@@ -11,6 +11,10 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
+from tests.common import constants
+
+
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
@@ -28,6 +32,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, rand_one_dut_hostname):
     """
@@ -40,7 +45,31 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+
 class PfcCmd(object):
+    buffer_model_initialized = False
+    buffer_model = None
+
+    @staticmethod
+    def isBufferInApplDb(asic):
+        if not PfcCmd.buffer_model_initialized:
+            result = asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", "4", "hget",
+                    "DEVICE_METADATA|localhost", "buffer_model"
+                ]
+            )
+            if result:
+                PfcCmd.buffer_model = result[0]
+            PfcCmd.buffer_model_initialized = True
+            logger.info(
+                "Buffer model is {}, buffer tables will be fetched from {}".format(
+                    PfcCmd.buffer_model or "not defined",
+                    "APPL_DB" if PfcCmd.buffer_model == "dynamic" else "CONFIG_DB"
+                )
+            )
+        return PfcCmd.buffer_model == "dynamic"
+
     @staticmethod
     def counter_cmd(dut, queue_oid, attr):
         """
@@ -94,9 +123,15 @@ class PfcCmd(object):
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
         asic = dut.get_port_asic_instance(port)
+
+        if PfcCmd.isBufferInApplDb(asic):
+            db = "0"
+        else:
+            db = "4"
+
         asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HSET", profile, "dynamic_th", value
+                "redis-cli", "-n", db, "HSET", profile, "dynamic_th", value
             ]
         )
 
@@ -115,20 +150,28 @@ class PfcCmd(object):
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
 
         asic = dut.get_port_asic_instance(port)
+        if PfcCmd.isBufferInApplDb(asic):
+            db = "0"
+            pg_pattern = "BUFFER_PG_TABLE:{}:3-4"
+        else:
+            db = "4"
+            pg_pattern = "BUFFER_PG|{}|3-4"
+
         pg_profile = asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HGET", 
-                "BUFFER_PG|{}|3-4".format(port), "profile"
+                "redis-cli", "-n", db, "HGET",
+                pg_pattern.format(port), "profile"
             ]
         )[0].encode("utf-8")[1:-1]
 
         alpha = asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", "4", "HGET", pg_profile, "dynamic_th"
+                "redis-cli", "-n", db, "HGET", pg_profile, "dynamic_th"
             ]
         )[0].encode("utf-8")
 
         return pg_profile, alpha
+
 
 class PfcPktCntrs(object):
     """ PFCwd counter retrieval and verifications  """
@@ -254,6 +297,8 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
+        self.pfc_wd['test_port_vlan_id'] = self.ports[port].get('test_port_vlan_id')
+        self.pfc_wd['rx_port_vlan_id'] = self.ports[port].get('rx_port_vlan_id')
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
     def update_queue(self, port):
@@ -310,8 +355,10 @@ class SetupPfcwdFunc(object):
         """
         if self.pfc_wd['port_type'] == "vlan":
             self.ptf.script("./scripts/remove_ip.sh")
-            self.ptf.command("ifconfig eth{} {}".format(self.pfc_wd['test_port_id'],
-                                                        self.pfc_wd['test_neighbor_addr']))
+            ptf_port = 'eth%s' % self.pfc_wd['test_port_id']
+            if self.pfc_wd['test_port_vlan_id'] is not None:
+                ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
+            self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
             self.ptf.command("ping {} -c 10".format(vlan['addr']))
             self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
 
@@ -370,6 +417,8 @@ class SendVerifyTraffic():
         self.pfc_wd_test_port_ids = pfc_params['test_port_ids']
         self.pfc_wd_test_neighbor_addr = pfc_params['test_neighbor_addr']
         self.pfc_wd_rx_neighbor_addr = pfc_params['rx_neighbor_addr']
+        self.pfc_wd_test_port_vlan_id = pfc_params['test_port_vlan_id']
+        self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_type = pfc_params['port_type']
 
     def verify_tx_egress(self, action):
@@ -392,6 +441,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': action}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -418,6 +471,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': action}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -446,6 +503,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'forward'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -474,6 +535,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'forward'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
@@ -492,6 +557,10 @@ class SendVerifyTraffic():
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
                       'port_type': self.port_type,
                       'wd_action': 'dontcare'}
+        if self.pfc_wd_rx_port_vlan_id is not None:
+            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+        if self.pfc_wd_test_port_vlan_id is not None:
+            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,

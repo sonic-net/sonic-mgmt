@@ -16,6 +16,7 @@ from scapy.all import Ether, IP
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
+from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -74,12 +75,6 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
     )
     logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
     return packet
-
-
-def get_ptf_server_intf_index(tor, tbinfo, iface):
-    """Get the index of ptf ToR-facing interface on ptf."""
-    mg_facts = tor.get_extended_minigraph_facts(tbinfo)
-    return mg_facts["minigraph_ptf_indices"][iface]
 
 
 def build_expected_packet_to_server(encapsulated_packet):

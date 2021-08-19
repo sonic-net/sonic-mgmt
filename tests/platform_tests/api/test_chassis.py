@@ -8,6 +8,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import skip_version
+from tests.common.platform.interface_utils import get_port_map
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -128,6 +130,13 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
         self.compare_value_with_device_facts(duthost, 'serial', serial)
 
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_version(duthost, ["201811", "201911", "202012"])
+        revision = chassis.get_revision(platform_api_conn)
+        pytest_assert(revision is not None, "Unable to retrieve chassis serial number")
+        pytest_assert(isinstance(revision, STRING_TYPE), "Chassis serial number appears incorrect")
+
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
         pytest_assert(status is not None, "Unable to retrieve chassis status")
@@ -191,9 +200,12 @@ class TestChassisApi(PlatformApiTestBase):
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
-
-        syseeprom_type_codes_list = syseeprom_info_dict.keys()
-
+        
+        # case sensitive,so make all characters lowercase
+        syseeprom_type_codes_list = [key.lower() for key in syseeprom_info_dict.keys()]
+        VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [key.lower() for key in VALID_ONIE_TLVINFO_TYPE_CODES_LIST]
+        MINIMUM_REQUIRED_TYPE_CODES_LIST = [key.lower() for key in MINIMUM_REQUIRED_TYPE_CODES_LIST]
+        
         # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
         pytest_assert(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Invalid TlvInfo type code found")
 
@@ -352,11 +364,23 @@ class TestChassisApi(PlatformApiTestBase):
 
     def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if duthost.is_supervisor_node():
+            pytest.skip("skipping for supervisor node")
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
-
+        list_sfps = []
+        if duthost.facts.get("interfaces"):
+            intfs = duthost.facts.get("interfaces")
+            for intf in intfs:
+                index_list = [int(x) for x in duthost.facts["interfaces"][intf]['index'].split(",")]
+                list_sfps.extend(set(index_list))
+        else:
+            int_list = get_port_map(duthost, 'all')
+            for k, v in int_list.items():
+                list_sfps.extend(v)
+        list_sfps.sort()
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
             pytest_assert(num_sfps == expected_num_sfps,
@@ -367,7 +391,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
 
-        for i in range(num_sfps):
+        for i in list_sfps:
             sfp = chassis.get_sfp(platform_api_conn, i)
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()

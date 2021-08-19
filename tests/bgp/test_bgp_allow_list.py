@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
-from bgp_helpers import verify_all_routes_announce_to_bgpmon 
+from bgp_helpers import get_routes_not_announced_to_bgpmon
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -88,7 +88,9 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
     spine_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')])
-    other_neighbors = tor_neighbors[1:3] + spine_neighbors[0:2]  # Only check a few neighbors to save time
+    other_neighbors = tor_neighbors[1:3]    # Only check a few neighbors to save time
+    if spine_neighbors:
+        other_neighbors += spine_neighbors[0:2]
 
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
@@ -98,7 +100,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     tor1_namespace = DEFAULT_NAMESPACE
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
         if tor1 == neigh['name'] and neigh['namespace']:
-            tor1_namespace = neigh['namespace'] 
+            tor1_namespace = neigh['namespace']
             break
 
     setup_info = {
@@ -134,9 +136,9 @@ def update_routes(action, ptfip, port, route):
 @pytest.fixture
 def load_remove_allow_list(duthosts, setup, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
-    
+
     allowed_list_prefixes = ALLOW_LIST['BGP_ALLOWED_PREFIXES']
-    
+
     for k,v in allowed_list_prefixes.items():
         v['default_action'] = request.param
 
@@ -212,7 +214,7 @@ def prepare_eos_routes(setup, ptfhost, build_routes, nbrhosts, tbinfo):
 
 
 class TestBGPAllowListBase(object):
-    
+
     def check_routes_on_tor1(self, setup, nbrhosts):
         tor1 = setup['tor1']
         for prefixes in PREFIX_LISTS.values():
@@ -373,9 +375,10 @@ class TestBGPAllowListBase(object):
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit)
-        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
-                      "Not all routes are announced to bgpmon")
- 
+        routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+        pytest_assert(routes_not_announced==[],
+                      "Not all routes are announced to bgpmon: %s" % str(routes_not_announced))
+
     @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
     def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
         permit = True if load_remove_allow_list == "permit" else False
@@ -383,8 +386,9 @@ class TestBGPAllowListBase(object):
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors(nbrhosts, setup, permit)
-        pytest_assert(verify_all_routes_announce_to_bgpmon(duthost, ptfhost),
-                      "Not all routes are announced to bgpmon")
-    
+        routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+        pytest_assert(routes_not_announced==[],
+                      "Not all routes are announced to bgpmon: %s" % str(routes_not_announced))
+
     def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
         self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown)

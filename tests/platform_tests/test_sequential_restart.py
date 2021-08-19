@@ -53,7 +53,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     logging.info("Restart the %s service on asic %s" %(service, enum_frontend_asic_index))
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
-    service_name = asichost.get_docker_name(service)
+    service_name = asichost.get_service_name(service)
     dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():

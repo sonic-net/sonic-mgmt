@@ -95,17 +95,21 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
     # Generate interfaces and neighbors
     intf_neighs = []
     str_intf_nexthop = {'ifname':'', 'nexthop':''}
-    for idx_neigh in range(num_neigh):
+
+    idx_neigh = 0
+    for itfs_name in up_interfaces:
+        if not itfs_name.startswith("PortChannel") and interfaces[itfs_name]['vlan'].startswith("PortChannel"):
+            continue
         if ip_version == 4:
             intf_neigh = {
-                'interface' : up_interfaces[idx_neigh % len(up_interfaces)],
+                'interface' : itfs_name,
                 'ip' : '10.%d.0.1/24' % (idx_neigh + 1),
                 'neighbor' : '10.%d.0.2' % (idx_neigh + 1),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
             }
         else:
             intf_neigh = {
-                'interface' : up_interfaces[idx_neigh % len(up_interfaces)],
+                'interface' : itfs_name,
                 'ip' : '%x::1/64' % (0x2000 + idx_neigh),
                 'neighbor' : '%x::2' % (0x2000 + idx_neigh),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
@@ -118,6 +122,9 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
         else:
             str_intf_nexthop['ifname'] += ',' + intf_neigh['interface']
             str_intf_nexthop['nexthop'] += ',' + intf_neigh['neighbor']
+        idx_neigh += 1
+        if idx_neigh == num_neigh:
+            break
 
     return intf_neighs, str_intf_nexthop
 
@@ -153,7 +160,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     start_num_route = count_routes(duthost)
 
     # Calculate timeout as a function of the number of routes
-    route_timeout = max(len(prefixes) / 500, 1) # Allow at least 1 second even when there is a limited number of routes
+    route_timeout = max(len(prefixes) / 250, 1) # Allow at least 1 second even when there is a limited number of routes
 
     # Calculate expected number of route and record start time
     if op == 'SET':

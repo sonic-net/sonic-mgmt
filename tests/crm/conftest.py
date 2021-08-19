@@ -91,7 +91,10 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
-    if len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
+    if "backend" in tbinfo["topo"]["name"]:
+        crm_intf1 = mg_facts["minigraph_vlan_sub_interfaces"][0]["attachto"]
+        crm_intf2 = mg_facts["minigraph_vlan_sub_interfaces"][2]["attachto"]
+    elif len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
         crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
         crm_intf2 = mg_facts["minigraph_portchannel_interfaces"][2]["attachto"]
     else:

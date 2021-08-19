@@ -1,4 +1,3 @@
-import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -12,12 +11,10 @@ def test_console_driver(duthost):
     Test console driver are well installed.
     Verify ttyUSB(0-47) are presented in DUT
     """
-    out = duthost.shell('ls /dev/ttyUSB*')['stdout']
-    pytest_assert(
-        "No such file or directory" not in out,
-        "No virtual tty devices been created by console driver")
-
+    out = duthost.shell('ls /dev/ttyUSB*', module_ignore_errors=True)['stdout']
     ttys = set(out.split())
+    pytest_assert(len(ttys) > 0, "No virtual tty devices been created by console driver")
+
     for i in range(48):
         expected_virtual_tty = "/dev/ttyUSB{}".format(i)
         pytest_assert(

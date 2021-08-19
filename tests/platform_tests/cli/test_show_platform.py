@@ -51,13 +51,13 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count"])
+    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
 
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
     unexpected_fields = actual_fields - expected_fields
-    pytest_assert(((unexpected_fields == new_field) or len(unexpected_fields) == 0),
+    pytest_assert(((unexpected_fields.issubset(new_field)) or len(unexpected_fields) == 0),
                   "Unexpected fields in output: {}  on '{}'".format(repr(unexpected_fields), duthost.hostname))
 
     # Testing for missing values
@@ -130,13 +130,14 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
         for line in syseeprom_output_lines[6:]:
             t1 = regex_int.match(line)
             if t1:
-                parsed_syseeprom[t1.group(2).strip()] = t1.group(4).strip()
+                tlv_code_lower_case = t1.group(2).strip().lower()
+                parsed_syseeprom[tlv_code_lower_case] = t1.group(4).strip()
 
         for field in expected_syseeprom_info_dict:
-            pytest_assert(field in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
-            pytest_assert(parsed_syseeprom[field] == expected_syseeprom_info_dict[field],
+            pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(parsed_syseeprom[field.lower()] == expected_syseeprom_info_dict[field],
                           "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, parsed_syseeprom[field], expected_syseeprom_info_dict[field], duthost.hostname))
+                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field], duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
@@ -163,7 +164,10 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".format(field, duthost.hostname))
 
         for line in utility_cmd_output["stdout_lines"]:
-            pytest_assert(line in syseeprom_output, "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
+            if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
+                line_regexp = re.sub(r'\s+', '\s+', line)
+                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
+
 
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """

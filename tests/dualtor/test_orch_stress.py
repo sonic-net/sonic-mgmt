@@ -147,6 +147,7 @@ def config_crm_polling_interval(rand_selected_dut):
 
 
 def test_change_mux_state(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -155,6 +156,8 @@ def test_change_mux_state(
     dut = rand_selected_dut
 
     # Apply mux active state
+    load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
+    load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
     wait(3, 'extra wait for initial CRMs to be updated')
@@ -212,6 +215,7 @@ def add_neighbors(dut, neighbors, interface):
 
 
 def test_flap_neighbor_entry_active(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -245,6 +249,7 @@ def test_flap_neighbor_entry_active(
 
 
 def test_flap_neighbor_entry_standby(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,

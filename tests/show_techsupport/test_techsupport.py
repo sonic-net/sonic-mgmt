@@ -6,7 +6,7 @@ import time
 import logging
 
 from random import randint
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 
@@ -122,6 +122,9 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     :return:
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
     loganalyzer.load_common_config()
 
@@ -370,6 +373,10 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+    # Remove /proc/dma for armh
+    elif duthost.facts["asic_type"] == "marvell":
+        if 'armhf-' in duthost.facts["platform"]:
+            cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
 
