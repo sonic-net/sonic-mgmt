@@ -1,12 +1,16 @@
 import ipaddress
 import json
 import logging
+import re
 
 from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
-
+def _raise_err(msg):
+        logger.error(msg)
+        raise Exception(msg)
+        
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -183,4 +187,84 @@ class EosHost(AnsibleHostBase):
         return self.eos_command(commands=[{
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
-        }])['stdout'][0]
+        }])['stdout'][0]        
+
+    def get_auto_negotiation_mode(self, interface_name):
+        output = self.eos_command(commands=[{
+            'command': 'show interfaces %s status' % interface_name,
+            'output': 'json'
+        }])
+        if self._has_cli_cmd_failed(output):
+            _raise_err('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
+        autoneg_enabled = output['stdout'][0]['interfaceStatuses'][interface_name]['autoNegotiateActive']
+        return autoneg_enabled
+
+    def _reset_port_speed(self, interface_name):
+        out = self.eos_config(
+                lines=['default speed'],
+                parents=['interface {}'.format(interface_name)])
+        logger.debug('Reset port speed for %s: %s' % (interface_name, out))
+        return not self._has_cli_cmd_failed(out)
+
+    def set_auto_negotiation_mode(self, interface_name, enabled):
+        if self.get_auto_negotiation_mode(interface_name) == enabled:
+            return True
+        
+        if enabled:
+            speed_to_advertise = self.get_supported_speeds(interface_name)[-1]
+            speed_to_advertise = speed_to_advertise[:-3] + 'gfull'
+            out = self.eos_config(
+                lines=['speed auto %s' % speed_to_advertise],
+                parents=['interface {}'.format(interface_name)])
+            logger.debug('Set auto neg to {} for port {}: {}'.format(enabled, interface_name, out))
+            return not self._has_cli_cmd_failed(out)
+        return self._reset_port_speed(interface_name)
+        
+        
+    def get_speed(self, interface_name):
+        output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
+        found_txt = re.search(r'Operational Speed: (\S+)', output['stdout'][0])
+        if found_txt is None:
+            _raise_err('Not able to extract interface %s speed from output: %s' % (interface_name, output['stdout']))
+
+        v = found_txt.groups()[0]
+        return v[:-1] + '000'
+
+    def _has_cli_cmd_failed(self, cmd_output_obj):
+        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
+
+    def set_speed(self, interface_name, speed):
+        
+        if not speed:
+            # other set_speed implementations advertise port speeds when speed=None
+            # but in EOS autoneg activation and speeds advertisement is done via a single CLI cmd
+            # so this branch left nop intentionally
+            return True
+            
+        speed = speed[:-3] + 'gfull'
+        out = self.host.eos_config(
+                lines=['speed forced {}'.format(speed)],
+                parents='interface %s' % interface_name)[self.hostname]
+        logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
+        return not self._has_cli_cmd_failed(out)
+
+    def get_supported_speeds(self, interface_name):
+        """Get supported speeds for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            list: A list of supported speed strings or None
+        """
+        output = self.eos_command(commands=['show interfaces %s capabilities' % interface_name])
+        found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+        if found_txt is None:
+            _raise_err('Failed to find port speeds list in output: %s' % output['stdout'])
+
+        speed_list = found_txt.groups()[0]
+        speed_list = speed_list.split(',')
+        speed_list.remove('auto')
+        def extract_speed_only(v):
+            return re.match('\d+', v).group() + '000'
+        return list(map(extract_speed_only, speed_list))

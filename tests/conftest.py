@@ -48,6 +48,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
+                  'tests.common.plugins.custom_skipif.CustomSkipIf',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
@@ -120,6 +121,16 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
 
+    ############################
+    # platform sfp api options #
+    ############################
+
+    # Allow user to skip the absent sfp modules. User can use it like below:
+    # "--skip-absent-sfp=True"
+    # If this option is not specified, False will be used by default.
+    parser.addoption("--skip-absent-sfp", action="store", type=bool, default=False,
+        help="Skip test on absent SFP",
+    )
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -293,12 +304,14 @@ def rand_one_dut_portname_oper_up(request):
         oper_up_ports = random.sample(oper_up_ports, 1)
     return oper_up_ports[0]
 
+
 @pytest.fixture(scope="module")
 def rand_one_dut_lossless_prio(request):
     lossless_prio_list = generate_priority_lists(request, 'lossless')
     if len(lossless_prio_list) > 1:
         lossless_prio_list = random.sample(lossless_prio_list, 1)
     return lossless_prio_list[0]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -307,6 +320,7 @@ def reset_critical_services_list(duthosts):
     left in a known state after tests finish running.
     """
     [a_dut.critical_services_tracking_list() for a_dut in duthosts]
+
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
@@ -324,6 +338,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host)
+
 
 @pytest.fixture(scope="module")
 def k8smasters(ansible_adhoc, request):
@@ -353,15 +368,20 @@ def k8scluster(k8smasters):
     k8s_master_cluster = K8sMasterCluster(k8smasters)
     return k8s_master_cluster
 
+
 @pytest.fixture(scope="module")
 def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
 
+    devices = {}
+    if not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
+        return devices
+
     vm_base = int(tbinfo['vm_base'][2:])
     neighbor_type = request.config.getoption("--neighbor_type")
-    devices = {}
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
@@ -380,6 +400,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
     return devices
+
 
 @pytest.fixture(scope="module")
 def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
@@ -537,6 +558,7 @@ def pytest_runtest_makereport(item, call):
 
     setattr(item, "rep_" + rep.when, rep)
 
+
 def fetch_dbs(duthost, testname):
     dbs = [[0, "appdb"], [1, "asicdb"], [2, "counterdb"], [4, "configdb"]]
     for db in dbs:
@@ -555,6 +577,7 @@ def collect_techsupport_on_dut(request, a_dut):
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
 
+
 @pytest.fixture
 def collect_techsupport(request, duthosts, enum_dut_hostname):
     yield
@@ -563,10 +586,12 @@ def collect_techsupport(request, duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     collect_techsupport_on_dut(request, duthost)
 
+
 @pytest.fixture
 def collect_techsupport_all_duts(request, duthosts):
     yield
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
@@ -884,18 +909,23 @@ def generate_port_lists(request, port_scope):
     return ret if ret else empty
 
 
-def generate_dut_feature_list(request):
+def generate_dut_feature_container_list(request):
+    """
+    Generate list of containers given the list of features.
+    List of features and container names are both obtained from
+    metadata file
+    """
     empty = [ encode_dut_port_name('unknown', 'unknown') ]
 
     tbname = request.config.getoption("--testbed")
     if not tbname:
         return empty
 
-    folder = 'metadata'
-    filepath = os.path.join(folder, tbname + '.json')
+    folder = "metadata"
+    filepath = os.path.join(folder, tbname + ".json")
 
     try:
-        with open(filepath, 'r') as yf:
+        with open(filepath, "r") as yf:
             metadata = json.load(yf)
     except IOError as e:
         return empty
@@ -904,14 +934,23 @@ def generate_dut_feature_list(request):
         return empty
 
     meta = metadata[tbname]
-    ret = []
-    for dut, val in meta.items():
-        if 'features' not in val:
-            continue
-        for feature, _ in val['features'].items():
-            ret.append(encode_dut_port_name(dut, feature))
+    container_list = []
 
-    return ret if ret else empty
+    for dut, val in meta.items():
+        if "features" not in val:
+            continue
+        for feature in val["features"].keys():
+            dut_info = meta[dut]
+            services = dut_info["asic_services"].get(feature)
+
+            if services is not None:
+                for service in services:
+                    container_list.append(encode_dut_port_name(dut, service))
+            else:
+                container_list.append(encode_dut_port_name(dut, feature))
+
+    return container_list
+
 
 def generate_priority_lists(request, prio_scope):
     empty = []
@@ -1021,10 +1060,10 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
     if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
-
-    if "enum_dut_feature" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))
-
+    if "enum_dut_feature_container" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
+        )
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:

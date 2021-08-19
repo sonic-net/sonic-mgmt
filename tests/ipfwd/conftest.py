@@ -3,6 +3,7 @@ from ipaddress import ip_address
 import logging
 import json
 import time
+from tests.common import constants
 
 logger = logging.getLogger(__name__)
 
@@ -45,15 +46,30 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_f
 
 
 def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, key='src'):
-    if not mg_facts['minigraph_interfaces']:
-        pytest.fail("minigraph_interfaces is not defined.")
+    interfaces = None
+    is_backend_topology = constants.IS_BACKEND_TOPOLOGY_KEY in mg_facts.keys() and mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY]
+    if is_backend_topology:
+        interfaces = mg_facts['minigraph_vlan_sub_interfaces']
+    else:
+        interfaces = mg_facts['minigraph_interfaces']
+
+    if not interfaces:
+        pytest.fail("interfaces is not defined.")
+
     selected_port_facts = {}
     up_port = None
     for a_intf_name, a_intf_data in port_status['int_status'].items():
         if a_intf_data['oper_state'] == 'up' and a_intf_name not in ignore_intfs:
             # Got a port that is up and not already used.
-            for intf in mg_facts['minigraph_interfaces']:
-                if intf['attachto'] == a_intf_name:
+            for intf in interfaces:
+                attachto_match = False
+                if is_backend_topology:
+                    # e.g. a_inft_name: 'Ethernet8' attachto:'Ethernet8.10'
+                    attachto_match = (a_intf_name + constants.VLAN_SUB_INTERFACE_SEPARATOR) in intf['attachto']
+                else:
+                    attachto_match = intf['attachto'] == a_intf_name
+
+                if attachto_match:
                     up_port = a_intf_name
                     selected_port_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][a_intf_name]]
                     selected_port_facts[key + '_router_mac'] = dut.facts['router_mac']
@@ -143,7 +159,7 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
             facts.update(dst_port_facts)
 
     if src is None or dst is None:
-        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".duthost.hostname)
+        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".format(duthost.hostname))
     logger.info("gathered_new_facts={}".format(json.dumps(facts, indent=2)))
 
     yield facts

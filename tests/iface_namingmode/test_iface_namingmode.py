@@ -750,6 +750,9 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_acls = setup['minigraph_facts']['minigraph_acls']
 
+    if 'DataAcl' not in minigraph_acls:
+        pytest.skip("Skipping test since DATAACL table is not supported on this platform")
+
     acl_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show acl table DATAACL'.format(ifmode))['stdout']
     logger.info('acl_table:\n{}'.format(acl_table))
 

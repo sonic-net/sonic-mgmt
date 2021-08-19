@@ -10,13 +10,14 @@ import requests
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.utilities import is_ipv4_address
 
-from tests.common.fixtures.fib_utils import fib_info_files
+from tests.common.fixtures.fib_utils import fib_info_files_per_function
 from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,9 @@ pytestmark = [
 ]
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
+# The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
+# When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different ingress ports
+# and expect that they are forwarded from same egress port.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
@@ -83,7 +87,7 @@ def set_mux_same_side(tbinfo, mux_server_url):
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                 #    set_mux_random,
-                   fib_info_files,
+                   fib_info_files_per_function,
                    tbinfo, mux_server_url, router_macs,
                    ignore_ttl, single_fib_for_duts):
 
@@ -106,7 +110,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
+                params={"fib_info_files": fib_info_files_per_function[:3],  # Test at most 3 DUTs
                         "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
                         "router_macs": router_macs,
                         "ipv4": ipv4,
@@ -268,7 +272,7 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         yield
 
 
-def test_hash(add_default_route_to_dut, duthosts, fib_info_files, setup_vlan, hash_keys, ptfhost, ipver,
+def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
               set_mux_same_side,
               tbinfo, mux_server_url, router_macs,
               ignore_ttl, single_fib_for_duts):
@@ -289,7 +293,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files, setup_vlan, ha
             "ptftests",
             "hash_test.HashTest",
             platform_dir="ptftests",
-            params={"fib_info_files": fib_info_files[:3],   # Test at most 3 DUTs
+            params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
                     "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),

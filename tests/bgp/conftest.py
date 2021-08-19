@@ -24,6 +24,7 @@ from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
 from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common import constants
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -140,9 +141,10 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
-    if res and not wait_until(100, 5, duthost.check_default_route):
+    is_backend_topo = "backend" in tbinfo["topo"]["name"]
+    if not is_backend_topo and res and not wait_until(100, 5, duthost.check_bgp_default_route):
         res = False
-        err_msg = "ipv4 or ipv6 default route not available"
+        err_msg = "ipv4 or ipv6 bgp default route not available"
 
     if not res:
         # Disable graceful restart in case of failure
@@ -274,10 +276,13 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
     def _setup_interfaces_t0(mg_facts, peer_count):
         try:
             connections = []
+            is_backend_topo = "backend" in tbinfo["topo"]["name"]
             vlan_intf = _find_vlan_intferface(mg_facts)
             vlan_intf_name = vlan_intf["attachto"]
             vlan_intf_addr = "%s/%s" % (vlan_intf["addr"], vlan_intf["prefixlen"])
             vlan_members = mg_facts["minigraph_vlans"][vlan_intf_name]["members"]
+            is_vlan_tagged = mg_facts["minigraph_vlans"][vlan_intf_name].get("type", "").lower() == "tagged"
+            vlan_id = mg_facts["minigraph_vlans"][vlan_intf_name]["vlanid"]
             local_interfaces = random.sample(vlan_members, peer_count)
             neighbor_addresses = generate_ips(
                 peer_count,
@@ -299,6 +304,8 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 conn["local_addr"] = vlan_intf_addr
                 conn["neighbor_addr"] = neighbor_addr
                 conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][local_intf]
+                if is_backend_topo and is_vlan_tagged:
+                    conn["neighbor_intf"] += (constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id)
                 conn["loopback_ip"] = loopback_ip
                 connections.append(conn)
 
@@ -318,6 +325,7 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
     def _setup_interfaces_t1(mg_facts, peer_count):
         try:
             connections = []
+            is_backend_topo = "backend" in tbinfo["topo"]["name"]
             ipv4_interfaces = []
             used_subnets = set()
             if mg_facts["minigraph_interfaces"]:
@@ -337,6 +345,13 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                             ipv4_lag_interfaces.append(pt["attachto"])
                         used_subnets.add(ipaddress.ip_network(pt["subnet"]))
 
+            vlan_sub_interfaces = []
+            if is_backend_topo:
+                for intf in mg_facts.get("minigraph_vlan_sub_interfaces"):
+                    if _is_ipv4_address(intf["addr"]):
+                        vlan_sub_interfaces.append(intf["attachto"])
+                        used_subnets.add(ipaddress.ip_network(intf["subnet"]))
+
             subnet_prefixlen = list(used_subnets)[0].prefixlen
             _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
             subnets = (_ for _ in _subnets if _ not in used_subnets)
@@ -349,7 +364,7 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
             if not loopback_ip:
                 pytest.fail("ipv4 lo interface not found")
 
-            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces, peer_count), subnets):
+            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
                 conn["local_intf"] = "%s" % intf
@@ -361,6 +376,10 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
                     conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
+                elif constants.VLAN_SUB_INTERFACE_SEPARATOR in intf:
+                    orig_intf, vlan_id = intf.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
+                    ptf_port_index = str(mg_facts["minigraph_port_indices"][orig_intf])
+                    conn["neighbor_intf"] = "eth" + ptf_port_index + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
                 else:
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
                 connections.append(conn)

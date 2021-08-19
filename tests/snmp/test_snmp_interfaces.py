@@ -1,5 +1,6 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -40,7 +41,7 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             result[portname].update({'adminstatus': admin})
             oper = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout']
             result[portname].update({'operstatus': oper})
-            result[portname].update({'description': config_facts.get('PORT', {})[name]['description']})
+            result[portname].update({'description': config_facts.get('PORT', {})[name].get('description', '')})
         elif name.startswith("PortChannel"):
             result.setdefault(name, {})
             key_word = "PORTCHANNEL"
@@ -51,7 +52,7 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
         else:
-            key_word = "MGMT_PORT" 
+            key_word = "MGMT_PORT"
             result.setdefault(name, {})
             result[name].update({'mtu': str(setup[key]['mtu'])})
             result[name].update({'type': if_type})
@@ -142,7 +143,7 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
     print snmp_ifnames
@@ -162,7 +163,7 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
@@ -189,7 +190,7 @@ def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localh
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
 
     ports_list = []

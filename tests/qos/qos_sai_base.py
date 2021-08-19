@@ -16,10 +16,10 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80"]
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
+    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -590,7 +590,8 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
-        swapSyncd, enable_container_autorestart, disable_container_autorestart
+        swapSyncd, enable_container_autorestart, disable_container_autorestart,
+        tbinfo
     ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -638,11 +639,21 @@ class QosSaiBase(QosBase):
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
+        """ Disable linkmgr """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo config feature state mux disabled')
+            logger.info("Disable linkmgr for dual ToR testbed")
+
         yield
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="start", **service)
+
+        """ Enable linkmgr """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo config feature state mux enabled')
+            logger.info("Enable linkmgr for dual ToR testbed")
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
