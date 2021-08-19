@@ -76,14 +76,21 @@ def collect_dut_info(dut):
                 dut.get_docker_name(service, asic_index=be)
             ]
 
-    return {
+    dut_info = {
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
-        "frontend_asics": front_end_asics,
-        "backend_asics": back_end_asics
     }
 
+    if dut.sonichost.is_multi_asic:
+        dut_info.update(
+            {
+                "frontend_asics": front_end_asics,
+                "backend_asics": back_end_asics
+            }
+        )
+
+    return dut_info
 
 def test_update_testbed_metadata(duthosts, tbinfo):
     metadata = {}

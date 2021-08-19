@@ -837,9 +837,8 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
-            elif param_type == ASIC_PARAM_TYPE_BACKEND and ASIC_PARAM_TYPE_BACKEND in inv_data:
-                dut_asic_params = inv_data[ASIC_PARAM_TYPE_BACKEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
+
         if random_asic:
             asic_index_params.append(random.sample(dut_asic_params, 1))
         else:
@@ -952,20 +951,20 @@ def generate_dut_feature_container_list(request):
 
 
 def generate_dut_backend_asics(request, duts_selected):
-    asic_list = []
+    dut_asic_list = []
 
     metadata = get_testbed_metadata(request)
 
     if metadata is None:
-        return asic_list
+        return [[None]]
 
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
             continue
-        asic_list.append(mdata.get("backend_asics", []))
+        dut_asic_list.append(mdata.get("backend_asics", [None]))
 
-    return asic_list
+    return dut_asic_list
 
 
 def generate_priority_lists(request, prio_scope):
