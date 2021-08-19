@@ -22,7 +22,6 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
-    ASIC_PARAM_TYPE_BACKEND
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.system_utils import docker
