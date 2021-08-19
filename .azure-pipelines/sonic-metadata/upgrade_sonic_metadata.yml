@@ -1,0 +1,105 @@
+parameters:
+- name: BRANCH
+  type: string
+  default: internal
+- name: TESTBED_NAME
+  type: string
+  default: ""
+- name: INVENTORY_NAME
+  type: string
+  default: str
+  values:
+  - str
+  - str2
+- name: UPGRADE_TYPE
+  type: string
+  default: warm
+
+- name: IMAGE_BRANCH
+  type: string
+  default: "201811"
+  values:
+  - "201811"
+  - "201911"
+  - "202012"
+- name: IMAGE_TYPE
+  type: string
+  default: bin
+- name: ASIC_TYPE
+  type: string
+  default: broadcom
+  values:
+  - mellanox
+  - broadcom
+- name: FROM_IMAGE_LIST
+  type: string
+- name: TO_IMAGE_LIST
+  type: string
+
+steps:
+- script: |
+    set -x
+    cd sonic-mgmt-int
+    BASE_PATH=`pwd`
+    export ANSIBLE_CONFIG=$BASE_PATH/ansible
+    export ANSIBLE_LIBRARY=$BASE_PATH/ansible/library/
+
+    cd ansible
+    IMAGE_TYPE=${{ parameters.IMAGE_TYPE }}
+    IMAGE_BRANCH=${{ parameters.IMAGE_BRANCH }}
+    ASIC_TYPE=${{ parameters.ASIC_TYPE }}
+    if [ "$IMAGE_TYPE" = bin ]; then
+        if [ "$IMAGE_BRANCH" = 201811 ]; then
+            IMAGE_URL=http://100.127.20.23/installer/sonic/$ASIC_TYPE/internal-201811/sonic-$ASIC_TYPE-20181130
+        elif [ "$IMAGE_BRANCH" = 201911 ]; then
+            IMAGE_URL=http://100.127.20.23/pipelines/Networking-acs-buildimage-Official/$ASIC_TYPE/internal-201911/tagged/sonic-$ASIC_TYPE-20191130
+        fi
+    elif [ "$IMAGE_TYPE" = swi ]; then
+        if [ "$IMAGE_BRANCH" = 201811 ]; then
+            IMAGE_URL=http://100.127.20.23/installer/sonic/broadcom/internal-201811/sonic-aboot-broadcom-20181130
+        elif [ "$IMAGE_BRANCH" = 201911 ]; then
+            IMAGE_URL=http://100.127.20.23/pipelines/Networking-acs-buildimage-Official/broadcom/internal-201911/tagged/sonic-aboot-broadcom-20191130
+        fi
+    fi
+    cd ../tests
+
+    FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
+    TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
+    UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
+    TEST_PASS="PASS"
+    for from_image in $FROM_IMAGE_LIST; do
+      echo =================== Upgrading from $from_image =====================
+      for to_image in $TO_IMAGE_LIST; do
+        echo ======== Upgrading to $to_image ========
+        for type in $UPGRADE_TYPE; do
+          echo ==== TYPE $type ====
+          from_url=$IMAGE_URL.$from_image.$IMAGE_TYPE
+          to_url=$IMAGE_URL.$to_image.$IMAGE_TYPE
+          echo From URL is $from_url
+          echo To URL is $to_url
+
+          EXTRA_PARAMS="--upgrade_type=$type --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --metadata_process"
+
+          ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+            -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+            -m individual \
+            -l INFO \
+            -e "$EXTRA_PARAMS" \
+            -u \
+            -c "metadata-scripts/test_metadata_upgrade_path.py"
+
+          if [ $? -ne 0 ]; then
+              TEST_PASS="FAIL"
+          fi
+          sleep 60
+        done
+      done
+    done
+    if [ "$TEST_PASS" = FAIL ]; then
+        exit 1
+    fi
+
+  displayName: UpgradeSonic
+- script: |
+    sleep 180
+  displayName: "Sleep"
