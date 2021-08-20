@@ -107,7 +107,7 @@ def check_neighbors(duthost, tbinfo):
 
 @handle_test_error
 def verify_no_coredumps(duthost, pre_existing_cores):
-    if "20191130" in duthost.os_version :
+    if "20191130" in duthost.os_version:
         coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
@@ -137,7 +137,7 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_services(duthost)
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
-    if "20191130" in duthost.os_version :
+    if "20191130" in duthost.os_version:
         pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
