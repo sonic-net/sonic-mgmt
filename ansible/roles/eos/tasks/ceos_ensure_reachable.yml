@@ -1,6 +1,7 @@
 - block:
   - name: set time out threshold
-    set_fact: timeout_threshold=120
+    set_fact:
+      timeout_threshold: 120
     
   - name: wait for container's mgmt-ip reachable
     wait_for:
@@ -14,7 +15,7 @@
     delegate_to: "{{ VM_host[0] }}"
 
   - name: restart cEOS container
-    when: ip_ssh_result.failed and ip_ssh_result.elapsed >= "{{ timeout_threshold }}"
+    when: ip_ssh_result.failed and ip_ssh_result.elapsed >= timeout_threshold
     become: yes
     docker_container:
       name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
