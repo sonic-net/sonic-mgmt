@@ -5,7 +5,7 @@ from jinja2 import Template
 logger = logging.getLogger(__name__)
 
 
-def _backup_and_restore_config_db(duthost):
+def _backup_and_restore_config_db(duts, scope='function'):
     """Back up the existing config_db.json file and restore it once the test ends.
 
     Some cases will update the running config during the test and save the config
@@ -13,14 +13,32 @@ def _backup_and_restore_config_db(duthost):
     the test starts and then restore it after the test ends.
     """
     CONFIG_DB = "/etc/sonic/config_db.json"
-    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_test"
-    logger.info("Backup {} to {}".format(CONFIG_DB, CONFIG_DB_BAK))
-    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
+    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_test_{}".format(scope)
+
+    if type(duts) is not list:
+        duthosts = [duts]
+    else:
+        duthosts = duts
+
+    for duthost in duthosts:
+        logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
     yield
 
-    logger.info("Restore {} with {}".format(CONFIG_DB, CONFIG_DB_BAK))
-    duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
+    for duthost in duthosts:
+        logger.info("Restore {} with {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
+
+
+
+@pytest.fixture(scope="module")
+def backup_and_restore_config_db_on_duts(duthosts):
+    """
+    A module level fixture to backup and restore config_db.json on all duts
+    """
+    for func in _backup_and_restore_config_db(duthosts, "module"):
+        yield func
 
 
 @pytest.fixture
@@ -28,7 +46,7 @@ def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
     """Back up and restore config DB at the function level."""
     duthost = duthosts[rand_one_dut_hostname]
     # TODO: Use the neater "yield from _function" syntax when we move to python3
-    for func in _backup_and_restore_config_db(duthost):
+    for func in _backup_and_restore_config_db(duthost, "function"):
         yield func
 
 
@@ -37,7 +55,13 @@ def backup_and_restore_config_db_module(duthosts, rand_one_dut_hostname):
     """Back up and restore config DB at the module level."""
     duthost = duthosts[rand_one_dut_hostname]
     # TODO: Use the neater "yield from _function" syntax when we move to python3
-    for func in _backup_and_restore_config_db(duthost):
+    for func in _backup_and_restore_config_db(duthost, "module"):
+        yield func
+
+@pytest.fixture(scope="session")
+def backup_and_restore_config_db_session(duthosts):
+
+    for func in _backup_and_restore_config_db(duthosts, "session"):
         yield func
 
 

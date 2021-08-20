@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
@@ -29,6 +29,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
+    pytest.mark.usefixtures('backup_and_restore_config_db_on_duts')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -311,7 +312,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_and_restore_config_db_module):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -319,9 +320,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
         setup: Parameters for the ACL tests.
         stage: The ACL stage under test.
-        ip_version: The IP version under test.
-        backup_and_restore_config_db_module: A fixture that handles restoring Config DB
-                after the tests are over.
+        ip_version: The IP version under test
 
     Yields:
         The ACL table configuration.
