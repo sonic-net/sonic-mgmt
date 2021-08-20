@@ -182,6 +182,7 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name):
     tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data['sonic_dut']['uname']
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+    tdata['devices']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
 
     for i in range (1,vEOS_count+1):
