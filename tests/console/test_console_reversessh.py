@@ -25,7 +25,7 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{}'.format(ressh_user, dutip))
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(ressh_user, dutip))
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
 
