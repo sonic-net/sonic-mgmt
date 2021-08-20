@@ -108,11 +108,8 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
 
     # select neighbor to test
-    if "backend" in tbinfo["topo"]["name"]:
-        # for storage backend topologies, randomly choose a neighbor
-        test_interface = random.sample([k for k, v in dev_nbrs.items() if not v['name'].startswith("Server")], 1)[0]
-    else:
-        # for other topologies, select neighbor from default route nexthops
+    if duthost.check_bgp_default_route():
+        # if default route is present, select from default route nexthops
         rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u"0.0.0.0/0"))
         rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
 
@@ -123,6 +120,9 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         if len(ifnames_common) == 0:
             pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
         test_interface = ifnames_common[0]
+    else:
+        # if default route is not present, randomly select a neighbor to test
+        test_interface = random.sample([k for k, v in dev_nbrs.items() if not v['name'].startswith("Server")], 1)[0]
 
     # get neighbor device connected ports
     nbr_ports = []
