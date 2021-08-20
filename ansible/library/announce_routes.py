@@ -115,9 +115,9 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start,
                     nexthop, nexthop_v6,
                     tor_subnet_size, max_tor_subnet_number, topo,
-                    router_type = "leaf", tor_index=None, set_num=None):
+                    router_type = "leaf", tor_index=None, set_num=None, no_default_route=False):
     routes = []
-    if router_type != "tor":
+    if not no_default_route and router_type != "tor":
         default_route_as_path = get_uplink_router_as_path(router_type, spine_asn)
 
         if topo != "t2" or (topo == "t2" and router_type == "core"):
@@ -212,7 +212,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(topo, ptf_ip):
+def fib_t0(topo, ptf_ip, no_default_route=False):
 
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
@@ -234,16 +234,18 @@ def fib_t0(topo, ptf_ip):
 
         routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0")
+                                    nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                    no_default_route=no_default_route)
         routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                     spine_asn, leaf_asn_start, tor_asn_start,
-                                    nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0")
+                                    nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                    no_default_route=no_default_route)
 
         announce_routes(ptf_ip, port, routes_v4)
         announce_routes(ptf_ip, port6, routes_v6)
 
 
-def fib_t1_lag(topo, ptf_ip):
+def fib_t1_lag(topo, ptf_ip, no_default_route=False):
 
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
@@ -275,11 +277,11 @@ def fib_t1_lag(topo, ptf_ip):
             routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
                                         nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                        router_type=router_type, tor_index=tor_index)
+                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
             routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                         None, leaf_asn_start, tor_asn_start,
                                         nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
-                                        router_type=router_type, tor_index=tor_index)
+                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
             announce_routes(ptf_ip, port, routes_v4)
             announce_routes(ptf_ip, port6, routes_v6)
 
@@ -419,14 +421,16 @@ def main():
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
 
+    is_storage_backend = "backend" in topo_name
+
     topo_type = get_topo_type(topo_name)
 
     try:
         if topo_type == "t0":
-            fib_t0(topo, ptf_ip)
+            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend)
             module.exit_json(changed=True)
         elif topo_type == "t1":
-            fib_t1_lag(topo, ptf_ip)
+            fib_t1_lag(topo, ptf_ip, no_default_route=is_storage_backend)
             module.exit_json(changed=True)
         elif topo_type == "t2":
             fib_t2_lag(topo, ptf_ip)
