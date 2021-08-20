@@ -1,12 +1,12 @@
 To start with pytest argus plugin for storing regression results there are 2 options, either have the python module as part of sonic-mgmt container by copying the code in .\sonic-mgmt\tests\common\pytest_argus (not prefered) or the recomended way is to have 1 folder where sonic-mgmt is and also create an 'extra' folder along side sonic-mgmt folder
 
-install using pip pytest-argus in extra folder
+Install using pip pytest-argus in extra folder
 ```
 mkdir ./extra
 pip install --target=./extra pytest_argus
 ```
 
-configure your mysql server IP, user, password, etc.
+Configure your mysql server IP, user, password, etc.
 ```
 # /extra/pytest_argus/settings.yaml
 database:
@@ -22,10 +22,13 @@ database:
 ```
 
 
-when doing step 5 from [Test Bed Setup](./docs/testbed/README.testbed.Setup.md) add the ./extra folder to the python path
+When doing step 5 from [Test Bed Setup](./docs/testbed/README.testbed.Setup.md) add the ./extra folder to the python path
 ```
 docker run -v $PWD:/data --env PYTHONPATH=/data/extra -it docker-sonic-mgmt bash
 ```
 
-https://pypi.org/project/pytest-argus/
-https://github.com/keysight/argus
+For bringing database up as well as the result viewer please refer to https://github.com/Keysight/argus/tree/main/docs
+
+Other resources:
+ * https://pypi.org/project/pytest-argus/
+ * https://github.com/keysight/argus
