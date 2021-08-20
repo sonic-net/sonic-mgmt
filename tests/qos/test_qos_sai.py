@@ -782,6 +782,9 @@ class TestQosSaiMasic(QosSaiBaseMasic):
         if not duthost.sonichost.is_multi_asic:
             pytest.skip("Test applies to only multi ASIC platform")
 
+        if enum_backend_asic_index is None:
+            pytest.skip("Backend ASIC is None")
+
         try:
             # Bring down port (channel) towards ASICs other than the ASIC
             # under test, so that traffic always goes via ASIC under test
