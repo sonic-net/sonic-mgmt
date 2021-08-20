@@ -253,7 +253,7 @@ stages:
                 fi
                 cd ansible
 
-                # ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
                 ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
