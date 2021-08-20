@@ -35,7 +35,7 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "test_reboot.py::test_watchdog_reboot"
+    default: "platform_tests/test_reboot.py::test_watchdog_reboot"
     displayName: "Skip Scripts"
 
 stages:
