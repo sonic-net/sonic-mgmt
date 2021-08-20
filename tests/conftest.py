@@ -22,7 +22,6 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
-    ASIC_PARAM_TYPE_BACKEND
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.system_utils import docker
@@ -837,9 +836,8 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
-            elif param_type == ASIC_PARAM_TYPE_BACKEND and ASIC_PARAM_TYPE_BACKEND in inv_data:
-                dut_asic_params = inv_data[ASIC_PARAM_TYPE_BACKEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
+
         if random_asic:
             asic_index_params.append(random.sample(dut_asic_params, 1))
         else:
@@ -863,6 +861,29 @@ def generate_params_dut_hostname(request):
     return duts
 
 
+def get_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError as e:
+        return None
+
+    return metadata.get(tbname)
+
+
 def generate_port_lists(request, port_scope):
     empty = [ encode_dut_port_name('unknown', 'unknown') ]
     if 'ports' in port_scope:
@@ -881,23 +902,11 @@ def generate_port_lists(request, port_scope):
     else:
         return empty
 
-    tbname = request.config.getoption("--testbed")
-    if not tbname:
+    dut_ports = get_testbed_metadata(request)
+
+    if dut_ports is None:
         return empty
 
-    folder = 'metadata'
-    filepath = os.path.join(folder, tbname + '.json')
-
-    try:
-        with open(filepath, 'r') as yf:
-            ports = json.load(yf)
-    except IOError as e:
-        return empty
-
-    if tbname not in ports:
-        return empty
-
-    dut_ports = ports[tbname]
     ret = []
     for dut, val in dut_ports.items():
         if 'intf_status' not in val:
@@ -917,23 +926,11 @@ def generate_dut_feature_container_list(request):
     """
     empty = [ encode_dut_port_name('unknown', 'unknown') ]
 
-    tbname = request.config.getoption("--testbed")
-    if not tbname:
+    meta = get_testbed_metadata(request)
+
+    if meta is None:
         return empty
 
-    folder = "metadata"
-    filepath = os.path.join(folder, tbname + ".json")
-
-    try:
-        with open(filepath, "r") as yf:
-            metadata = json.load(yf)
-    except IOError as e:
-        return empty
-
-    if tbname not in metadata:
-        return empty
-
-    meta = metadata[tbname]
     container_list = []
 
     for dut, val in meta.items():
@@ -950,6 +947,23 @@ def generate_dut_feature_container_list(request):
                 container_list.append(encode_dut_port_name(dut, feature))
 
     return container_list
+
+
+def generate_dut_backend_asics(request, duts_selected):
+    dut_asic_list = []
+
+    metadata = get_testbed_metadata(request)
+
+    if metadata is None:
+        return [[None]]
+
+    for dut in duts_selected:
+        mdata = metadata.get(dut)
+        if mdata is None:
+            continue
+        dut_asic_list.append(mdata.get("backend_asics", [None]))
+
+    return dut_asic_list
 
 
 def generate_priority_lists(request, prio_scope):
@@ -1025,7 +1039,7 @@ def pytest_generate_tests(metafunc):
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND)
     elif "enum_backend_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_backend_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_BACKEND)
+        asics_selected = generate_dut_backend_asics(metafunc, duts_selected)
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
