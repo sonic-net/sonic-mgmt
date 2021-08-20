@@ -1,7 +1,6 @@
 import logging
 import ptf.testutils as testutils
 import pytest
-import time
 import ptf.mask as mask
 import ptf.packet as packet
 
