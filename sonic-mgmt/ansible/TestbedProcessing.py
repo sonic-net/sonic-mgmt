@@ -458,8 +458,8 @@ def makeLab(data, devices, testbed, outfile):
 
                         if card_type != 'supervisor':
                            entry += "\tstart_switchid=" + str( start_switchid )
-                           if num_asic is not None:
-                              start_switchid += int( num_asic )
+                           if num_asics is not None:
+                              start_switchid += int( num_asics )
                            else:
                               start_switchid += 1
 
