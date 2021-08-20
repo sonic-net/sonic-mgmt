@@ -31,6 +31,15 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 
+@pytest.fixture(scope="module")
+def backup_and_restore_config_db_on_duts(duthosts):
+    """
+    A module level fixture to backup and restore config_db.json on all duts
+    """
+    for func in _backup_and_restore_config_db(duthosts, "module"):
+        yield func
+
+
 @pytest.fixture
 def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
     """Back up and restore config DB at the function level."""
@@ -115,7 +124,7 @@ def disable_fdb_aging(duthost):
         "docker exec -i swss swssconfig {}".format(DST_SWITCH_CONFIG_FILE)
     ]
     duthost.shell_cmds(cmds=cmds)
- 
+
     yield
     # Recover default aging time
     DEFAULT_SWITCH_CONFIG_FILE = "/etc/swss/config.d/switch.json"
@@ -125,3 +134,4 @@ def disable_fdb_aging(duthost):
     ]
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
+
