@@ -1,0 +1,49 @@
+- block:
+  - name: wait for container's mgmt-ip reachable
+    wait_for:
+      port: 22
+      host: "{{ ansible_host }}"
+      search_regex: OpenSSH
+      delay: 0
+      timeout: 120
+    register: ip_result
+    ignore_errors: yes
+    delegate_to: "{{ VM_host[0] }}"
+
+  - name: restart cEOS container
+    when: ip_result.failed == true and 'Timeout when waiting' in ip_result.msg
+    become: yes
+    docker_container:
+      name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+      image: "{{ ceos_image }}"
+      command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
+      pull: no
+      state: started
+      tty: yes
+      network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
+      detach: True
+      restart: yes
+      capabilities:
+        - net_admin
+      privileged: yes
+      env:
+        CEOS=1
+        container=docker
+        EOS_PLATFORM=ceoslab
+        SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1
+        ETBA=1
+        INTFTYPE=eth
+        MGMT_INTF=eth0
+      volumes:
+      - /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}:/mnt/flash
+    delegate_to: "{{ VM_host[0] }}"
+
+  - name: set container_reachable=True for ceos container
+    when: ip_result.failed == false
+    set_fact: container_reachable=True
+
+  - name: set container_reachable=False for ceos container
+    when: ip_result.failed == true
+    set_fact: container_reachable=False
+
+  when: not container_reachable
