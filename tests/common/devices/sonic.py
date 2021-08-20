@@ -10,7 +10,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-from ansible import constants
+from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
@@ -18,6 +18,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common import constants
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +48,10 @@ class SonicHost(AnsibleHostBase):
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
-            user_def = constants.config.get_configuration_definition(
+            user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
                 )
-            pass_def = constants.config.get_configuration_definition(
+            pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
                 )
             for user_var in (_['name'] for _ in user_def['vars']):
@@ -793,6 +794,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to shutdown
         """
+        logging.info("Shutting down {}".format(ifname))
         return self.command("sudo config interface shutdown {}".format(ifname))
 
     def shutdown_multiple(self, ifnames):
@@ -812,6 +814,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to bring up
         """
+        logging.info("Starting up {}".format(ifname))
         return self.command("sudo config interface startup {}".format(ifname))
 
     def no_shutdown_multiple(self, ifnames):
@@ -851,6 +854,13 @@ raw data
         nexthop via 10.0.0.5  dev PortChannel0002 weight 1
         nexthop via 10.0.0.9  dev PortChannel0003 weight 1
         nexthop via 10.0.0.13  dev PortChannel0004 weight 1
+
+raw data (starting from Bullseye)
+192.168.8.0/25 nhid 296 proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_address(unicode("20c0:a818::")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
@@ -866,6 +876,13 @@ raw data
 20c0:a818::/64 via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 20c0:a818::/64 via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 20c0:a818::/64 via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+raw data (starting from Bullseye)
+20c0:a818::/64 nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
@@ -876,6 +893,13 @@ default proto 186 src 10.1.0.32 metric 20
         nexthop via 10.0.0.5  dev PortChannel0002 weight 1
         nexthop via 10.0.0.9  dev PortChannel0003 weight 1
         nexthop via 10.0.0.13  dev PortChannel0004 weight 1
+
+raw data (starting from Bullseye)
+default nhid 296 proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
@@ -885,6 +909,13 @@ default via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref
 default via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+raw data (starting from Bullseye)
+default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1
 ----------------
         """
 
@@ -904,10 +935,13 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             # parse set_src
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            m2 = re.match(r"^(default|\S+) nhid (\d+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
                 rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
             elif m1:
                 rtinfo['set_src'] = ipaddress.ip_address(unicode(m1.group(5)))
+            elif m2:
+                rtinfo['set_src'] = ipaddress.ip_address(unicode(m2.group(4)))
 
             # parse nexthops
             for l in rt:
@@ -1189,7 +1223,24 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         except (ValueError, KeyError):
             pass
 
+        # set 'backend' flag for mg_facts
+        # a 'backend' topology may has different name convention for some parameter
+        self.update_backend_flag(tbinfo, mg_facts)
+
         return mg_facts
+    
+    def update_backend_flag(self, tbinfo, mg_facts):
+        mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY] = self.assert_topo_is_backend(tbinfo)
+
+    # assert whether a topo is 'backend' type
+    def assert_topo_is_backend(self, tbinfo):
+        topo_key = constants.TOPO_KEY
+        name_key = constants.NAME_KEY
+        if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
+            topo_name = tbinfo[topo_key][name_key]
+            if constants.BACKEND_TOPOLOGY_IND in topo_name:
+                return True
+        return False
 
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)

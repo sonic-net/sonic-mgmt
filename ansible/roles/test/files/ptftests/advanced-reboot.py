@@ -156,6 +156,7 @@ class ReloadTest(BaseTest):
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
+        self.check_param('logfile_suffix', None, required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -167,9 +168,14 @@ class ReloadTest(BaseTest):
         else:
             self.sad_oper = self.test_params['inboot_oper']
 
-        if self.sad_oper:
-           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.sad_oper)
-           self.report_file_name = '/tmp/%s-%s.json' % (self.test_params['reboot_type'], self.sad_oper)
+        if self.test_params['logfile_suffix']:
+            self.logfile_suffix = self.test_params['logfile_suffix']
+        else:
+            self.logfile_suffix = self.sad_oper
+
+        if self.logfile_suffix:
+           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.logfile_suffix)
+           self.report_file_name = '/tmp/%s-%s.json' % (self.test_params['reboot_type'], self.logfile_suffix)
         else:
            self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
            self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
@@ -354,7 +360,7 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = "/tmp/from_t1.json" if self.sad_oper is None else "/tmp/from_t1_%s.json" % self.sad_oper
+        filename = "/tmp/from_t1.json" if self.logfile_suffix is None else "/tmp/from_t1_%s.json" % self.logfile_suffix
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
@@ -1356,7 +1362,7 @@ class ReloadTest(BaseTest):
         self.sniffer_started.clear()
 
     def save_sniffed_packets(self):
-        filename = "/tmp/capture_%s.pcap" % self.sad_oper if self.sad_oper is not None else "/tmp/capture.pcap"
+        filename = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
         if self.packets:
             scapyall.wrpcap(filename, self.packets)
             self.log("Pcap file dumped to %s" % filename)
@@ -1510,7 +1516,7 @@ class ReloadTest(BaseTest):
             self.log("Gaps in forwarding not found.")
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
-            filename = '/tmp/capture_filtered.pcap' if self.sad_oper is None else "/tmp/capture_filtered_%s.pcap" % self.sad_oper
+            filename = '/tmp/capture_filtered.pcap' if self.logfile_suffix is None else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
 

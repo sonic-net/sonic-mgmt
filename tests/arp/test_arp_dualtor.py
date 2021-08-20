@@ -25,10 +25,13 @@ def setup_ptf_arp(config_facts, ptfhost, intfs_for_test):
     intf_ipv4_addr = None
 
     for addr in vlan_addrs:
-        if type(ip_network(addr, strict=False)) is IPv6Network:
-            intf_ipv6_addr = ip_network(addr, strict=False)
-        elif type(ip_network(addr, strict=False)) is IPv4Network:
-            intf_ipv4_addr = ip_network(addr, strict=False)
+        try:
+            if type(ip_network(addr, strict=False)) is IPv6Network:
+                intf_ipv6_addr = ip_network(addr, strict=False)
+            elif type(ip_network(addr, strict=False)) is IPv4Network:
+                intf_ipv4_addr = ip_network(addr, strict=False)
+        except ValueError:
+            continue
 
     # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
     # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
@@ -191,7 +194,7 @@ def test_proxy_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_pt
             dut_macs.append(vlan_details['mac'].lower())
     else:
         router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-        dut_macs = [router_mac]
+        dut_macs = [router_mac.lower()]
 
     pytest_assert(ping_addr in neighbor_table.keys())
     pytest_assert(neighbor_table[ping_addr]['macaddress'].lower() in dut_macs)
