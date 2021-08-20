@@ -1,17 +1,20 @@
 - block:
+  - name: set time out threshold
+    set_fact: timeout_threshold=120
+    
   - name: wait for container's mgmt-ip reachable
     wait_for:
       port: 22
       host: "{{ ansible_host }}"
       search_regex: OpenSSH
       delay: 0
-      timeout: 120
-    register: ip_result
+      timeout: "{{ timeout_threshold }}"
+    register: ip_ssh_result
     ignore_errors: yes
     delegate_to: "{{ VM_host[0] }}"
 
   - name: restart cEOS container
-    when: ip_result.failed == true and 'Timeout when waiting' in ip_result.msg
+    when: ip_ssh_result.failed and ip_ssh_result.elapsed >= "{{ timeout_threshold }}"
     become: yes
     docker_container:
       name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
@@ -39,11 +42,11 @@
     delegate_to: "{{ VM_host[0] }}"
 
   - name: set container_reachable=True for ceos container
-    when: ip_result.failed == false
+    when: not ip_ssh_result.failed
     set_fact: container_reachable=True
 
   - name: set container_reachable=False for ceos container
-    when: ip_result.failed == true
+    when: ip_ssh_result.failed
     set_fact: container_reachable=False
 
   when: not container_reachable
