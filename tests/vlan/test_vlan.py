@@ -25,6 +25,9 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+# Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
+PTF_PORT_MAPPING_MODE = "use_orig_interface"
+
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
