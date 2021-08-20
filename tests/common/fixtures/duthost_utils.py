@@ -31,6 +31,15 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 
+@pytest.fixture(scope="module")
+def backup_and_restore_config_db_on_duts(duthosts):
+    """
+    A module level fixture to backup and restore config_db.json on all duts
+    """
+    for func in _backup_and_restore_config_db(duthosts, "module"):
+        yield func
+
+
 @pytest.fixture
 def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
     """Back up and restore config DB at the function level."""
