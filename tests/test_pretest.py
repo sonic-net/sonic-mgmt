@@ -62,7 +62,7 @@ def collect_dut_info(dut):
 
     if dut.sonichost.is_multi_asic:
         front_end_asics = dut.get_frontend_asic_ids()
-        back_end_asic = dut.get_backend_asic_ids()
+        back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
@@ -70,18 +70,27 @@ def collect_dut_info(dut):
         # and one backend ASIC
         if dut.sonichost.is_multi_asic:
             fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asic)
+            be = random.choice(back_end_asics)
             asic_services[service] = [
                 dut.get_docker_name(service, asic_index=fe),
                 dut.get_docker_name(service, asic_index=be)
             ]
 
-    return {
+    dut_info = {
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
     }
 
+    if dut.sonichost.is_multi_asic:
+        dut_info.update(
+            {
+                "frontend_asics": front_end_asics,
+                "backend_asics": back_end_asics
+            }
+        )
+
+    return dut_info
 
 def test_update_testbed_metadata(duthosts, tbinfo):
     metadata = {}
