@@ -26,12 +26,12 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_12.0/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_14.0/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-default-9915/npl
-        ConfigS1NpsuiteVer: 1.78.1
+       shelf:
+         ConfigS1NplPath: /auto/vxr1/sonic-images/dt_drop_14.0/npl
+         ConfigS1NpsuiteVer: 1.78.5
 
   sonic_mgmt :
     platform: linux
