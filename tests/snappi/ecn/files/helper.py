@@ -264,11 +264,12 @@ def __config_capture_ip_pkt(testbed_config, port_id):
         N/A
     """
 
-    """ We only capture IP packets """
     cap = testbed_config.captures.capture(name='rx_capture')[-1]
     cap.port_names = [testbed_config.ports[port_id].name]
     cap.format = cap.PCAP
 
+    """ We only capture IP packets,
+        the custom filter setting is to capture IP packets only """
     ip_filter, = cap.filters.filter()
     ip_filter.custom.value = '40'
     ip_filter.custom.offset = 14
