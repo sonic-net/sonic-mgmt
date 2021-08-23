@@ -3,7 +3,10 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
+
+import re
 import logging
+from natsort import natsorted
 from transceiver_utils import all_transceivers_detected
 
 
@@ -121,3 +124,28 @@ def get_port_map(dut, asic_index=None):
         port_mapping[k] = [v]
 
     return port_mapping
+
+def get_physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts):
+    """Returns list of physical port numbers of the DUT"""
+    port_index_map = {}
+    physical_port_indices = set()
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
+    phy_port = re.compile(r'^Ethernet\d+$')
+    phy_intfs = [k for k in intf_facts.keys() if re.match(phy_port, k)]
+    phy_intfs = natsorted(phy_intfs)
+    logging.info("physical interfaces = {}".format(phy_intfs))
+
+    for asic_index in duthost.get_frontend_asic_ids():
+	# Get interfaces of this asic
+	interface_list = get_port_map(duthost, asic_index)
+	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in phy_intfs}
+	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+	asichost = duthost.asic_instance(asic_index)
+	for intf in interfaces_per_asic:
+	    cmd = 'redis-cli -n 4 hget "PORT|{}" index'.format(intf)
+	    docker_cmd = asichost.get_docker_cmd(cmd, "database")
+	    index = duthost.command(docker_cmd)["stdout"]
+	    physical_port_indices.add(int(index))
+    return list(physical_port_indices)

@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
 from tests.common.platform.interface_utils import get_port_map
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
 
 from platform_api_test_base import PlatformApiTestBase
@@ -111,24 +111,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     @pytest.fixture(scope="module")
     def physical_port_indices(self, duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts):
-        """Returns list of physical port numbers of the DUT"""
-        physical_port_indices = set()
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        all_interfaces = conn_graph_facts["device_conn"][duthost.hostname]
-        #logging.info("interfaces {}".format(all_interfaces))
-        for asic_index in duthost.get_frontend_asic_ids():
-            # Get interfaces of this asic
-            interface_list = get_port_map(duthost, asic_index)
-            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in all_interfaces}
-            #logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
-            asichost = duthost.asic_instance(asic_index)
-            for intf in interfaces_per_asic:
-                cmd = 'redis-cli -n 4 hget "PORT|{}" index'.format(intf)
-                docker_cmd = asichost.get_docker_cmd(cmd, "database")
-                index = duthost.command(docker_cmd)["stdout"]
-                physical_port_indices.add(int(index))
-        #logging.info("Physical port indices = {}".format(physical_port_indices))
-    	return list(physical_port_indices)
+        return get_physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts)
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function
@@ -140,6 +123,7 @@ class TestSfpApi(PlatformApiTestBase):
             pytest.skip("skipping for supervisor node")
         self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
         self.list_sfps = physical_port_indices
+        #logging.info("physical_port_indices {}".format(physical_port_indices))
         self.candidate_sfp = []
         if self.skip_absent_sfp:
             # Skip absent SFP if option "--skip-absent-sfp" set to True 
