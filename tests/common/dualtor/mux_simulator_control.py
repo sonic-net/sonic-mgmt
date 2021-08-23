@@ -77,6 +77,7 @@ def _get(server_url):
         None: Returns None if request failed.
     """
     try:
+        logger.debug('GET {}'.format(server_url))
         headers = {'Accept': 'application/json'}
         resp = requests.get(server_url, headers=headers)
         if resp.status_code == 200:
@@ -100,8 +101,9 @@ def _post(server_url, data):
         True if succeed. False otherwise
     """
     try:
+        logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = requests.post(server_url, data=data, headers=headers)
+        resp = requests.post(server_url, json=data, headers=headers)
         return resp.status_code == 200
     except Exception as e:
         logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
