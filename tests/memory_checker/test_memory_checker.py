@@ -10,8 +10,8 @@ from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_utils import check_container_state
+from tests.common.helpers.dut_utils import decode_dut_and_container_name
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def modify_monit_config_and_restart(duthosts, enum_dut_feature_container, enum_r
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
     pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
@@ -214,7 +214,7 @@ def test_memory_checker(duthosts, enum_dut_feature_container, creds, enum_rand_o
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
     pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
