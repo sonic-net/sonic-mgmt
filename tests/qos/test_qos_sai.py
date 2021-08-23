@@ -110,6 +110,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
+            "hwsku":dutTestParams['hwsku']
         })
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
@@ -176,7 +177,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
-            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"]
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "hwsku":dutTestParams['hwsku']
         })
         if "pkts_num_hysteresis" in qosConfig[xonProfile].keys():
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
@@ -233,6 +235,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
             "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
+            "hwsku":dutTestParams['hwsku']
         })
 
         pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get("pkts_num_trig_pfc_shp")
@@ -283,12 +286,12 @@ class TestQosSai(QosSaiBase):
         if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS or cmd_output['rc'] != 0:
             pytest.skip("Headroom pool watermark is not supported")
 
-        if not 'hdrm_pool_size' in qosConfig.keys():
-            pytest.skip("Headroom pool size is not enabled on this DUT")
-
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
+
+        if not 'hdrm_pool_size' in qosConfig.keys():
+            pytest.skip("Headroom pool size is not enabled on this DUT")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -309,7 +312,8 @@ class TestQosSai(QosSaiBase):
             "hdrm_pool_wm_multiplier": dutQosConfig["param"]["hdrm_pool_wm_multiplier"],
             "cell_size": dutQosConfig["param"]["cell_size"],
             "buf_pool_roid": ingressLosslessProfile["bufferPoolRoid"],
-            "max_headroom": sharedHeadroomPoolSize
+            "max_headroom": sharedHeadroomPoolSize,
+            "hwsku":dutTestParams['hwsku']
         })
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -423,7 +427,8 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"]
+            "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
+            "hwsku":dutTestParams['hwsku']
         })
         if "packet_size" in qosConfig["lossy_queue_1"].keys():
             testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
@@ -460,6 +465,7 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "hwsku":dutTestParams['hwsku']
         })
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
@@ -504,6 +510,7 @@ class TestQosSai(QosSaiBase):
             "q6_num_of_pkts": qosConfig["wrr"]["q6_num_of_pkts"],
             "limit": qosConfig["wrr"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
+            "hwsku":dutTestParams['hwsku']
         })
 
         if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
@@ -567,6 +574,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[pgProfile]["pkts_num_fill_min"],
             "pkts_num_fill_shared": pktsNumFillShared,
             "cell_size": qosConfig[pgProfile]["cell_size"],
+            "hwsku":dutTestParams['hwsku']
         })
 
         if "packet_size" in qosConfig[pgProfile].keys():
@@ -617,6 +625,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig["wm_pg_headroom"]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig["wm_pg_headroom"]["pkts_num_trig_ingr_drp"],
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
+            "hwsku":dutTestParams['hwsku']
         })
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
@@ -677,6 +686,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
+            "hwsku":dutTestParams['hwsku']
         })
         if "packet_size" in qosConfig[queueProfile].keys():
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
@@ -764,6 +774,7 @@ class TestQosSai(QosSaiBase):
             "q6_num_of_pkts": qosConfig["wrr_chg"]["q6_num_of_pkts"],
             "limit": qosConfig["wrr_chg"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
+            "hwsku":dutTestParams['hwsku']
         })
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
