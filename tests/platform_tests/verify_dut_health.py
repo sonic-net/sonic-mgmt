@@ -107,7 +107,10 @@ def check_neighbors(duthost, tbinfo):
 
 @handle_test_error
 def verify_no_coredumps(duthost, pre_existing_cores):
-    coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if "20191130" in duthost.os_version:
+        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
     if int(coredumps_count) > int(pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,\
             coredumps_count))
@@ -134,7 +137,10 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_services(duthost)
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
-    pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
     pytest_assert(all(list(test_report.values())), "DUT not ready for test. Health check failed before reboot: {}"
         .format(test_report))
 
