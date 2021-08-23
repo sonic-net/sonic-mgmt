@@ -6,13 +6,13 @@
 - name: set force_restart=yes for ceos container
   set_fact: force_restart=yes
 
-- name: set farce_restart=no for ceos container
+- name: set force_restart=no for ceos container
   set_fact: force_restart=no
   when: snmp_data.ansible_facts.ansible_sysname is defined
 
 - include_tasks: ceos_config.yml
 
-- name: Create cEOS container ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+- name: Create cEOS container
   become: yes
   docker_container:
     name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
@@ -38,3 +38,15 @@
     volumes:
       - /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}:/mnt/flash
   delegate_to: "{{ VM_host[0] }}"
+
+- name: set container_reachable=False for ceos container
+  set_fact: container_reachable=False
+
+# loop four times, if all containers are reachable in any iteration, the rest loop will be skipped
+- name: make sure container's mgmt-ip is reachable
+  include_tasks: ceos_ensure_reachable.yml
+  loop:
+    - 1
+    - 2
+    - 3
+    - 4
