@@ -7,6 +7,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
@@ -50,7 +51,7 @@ def pytest_addoption(parser):
 def skip_unsupported_asic_type(duthost):
     SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
     vendor = duthost.facts["asic_type"]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
     for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
         if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
