@@ -3,6 +3,7 @@
 import json
 import sys
 from ansible.module_utils.basic import *
+from module_utils.multi_asic_utils import load_db_config
 try:
     from sonic_py_common import multi_asic
     NAMESPACE_LIST = multi_asic.get_namespace_list()
@@ -70,6 +71,8 @@ class LagModule(object):
                 self.module.fail_json(msg=fail_msg)
             else:
                 for po in out.split():
+                    # load db config
+                    load_db_config()
                     if 'sonic_py_common' in sys.modules and multi_asic.is_port_channel_internal(po):
                         continue
                     self.lag_names[po] = ns
