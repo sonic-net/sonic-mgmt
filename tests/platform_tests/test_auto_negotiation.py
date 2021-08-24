@@ -54,7 +54,7 @@ def recover_ports(duthosts, fanouthosts):
     fanout_original_port_states = {}
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
-        # Only do the sampling when 
+        # Only do the sampling when there are no candidates
         if duthost.hostname in cadidate_test_ports.keys():
             continue
         all_ports = build_test_candidates(duthost, fanouthosts, 'all_ports')
