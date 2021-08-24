@@ -84,24 +84,24 @@ Test all 'bad' memory locations: (timeout + timeout_basic + slow_injection + uns
     SER Test memory error injection too slow (*): {...} [...]
 ```
 
-6. Run several times of confident level test, add newly found entries as step 3. Goal is to have at lest 3 confident level test succeeded.
+6. Run several times of confident level test, add newly found entries as in step 5. The goal is to have at lest 3 confident level test succeeded.
 
-7. Run several times of basic level test, add newly found timeout/failed entries to 'timeout_basic' list. Goal is to have at least 10 basic level test succeeded. At this step, we don't really expect to see unsupported or slow injection. But if we do, add them accordingly.
+7. Run several times of basic level test, add newly found timeout/failed entries to 'timeout_basic' list. The goal is to have at least 10 basic level test succeeded. At this step, we don't really expect to see unsupported or slow injection. But if we do, add them accordingly.
 
 
 ## The script I used to run confident and basic level tests:
 ```
 	#!/bin/bash
 
-	test='basic'
-	for i in $(seq 20); do
-		echo "==== iteration $i ===="
-		time ./ser_injector.py -c ${test} -s 10 -v | tee test-${test}-$(date "+%Y%m%d-%H%M").log
-	done
-
 	test='confident'
 	for i in $(seq 4); do
 		echo "==== iteration $i ===="
 		time ./ser_injector.py -c ${test} -b 20 -s 5 -v -e | tee test-${test}-$(date "+%Y%m%d-%H%M").log
+	done
+
+	test='basic'
+	for i in $(seq 20); do
+		echo "==== iteration $i ===="
+		time ./ser_injector.py -c ${test} -s 10 -v | tee test-${test}-$(date "+%Y%m%d-%H%M").log
 	done
 ```
