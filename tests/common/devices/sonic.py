@@ -1546,7 +1546,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
             the auto negotiation mode is unknown or unsupported.
         """
         cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
-        mode = self.shell(cmd)['stdout'].strip()
+        try:
+            mode = self.shell(cmd)['stdout'].strip()
+        except RunAnsibleModuleFail:
+            return None
         if not mode:
             return None
         return True if mode == 'on' else False
