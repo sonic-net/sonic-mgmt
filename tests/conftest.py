@@ -24,6 +24,7 @@ from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -927,7 +928,7 @@ def generate_dut_feature_container_list(request):
     List of features and container names are both obtained from
     metadata file
     """
-    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+    empty = [ encode_dut_and_container_name("unknown", "unknown") ]
 
     meta = get_testbed_metadata(request)
 
@@ -945,9 +946,9 @@ def generate_dut_feature_container_list(request):
 
             if services is not None:
                 for service in services:
-                    container_list.append(encode_dut_port_name(dut, service))
+                    container_list.append(encode_dut_and_container_name(dut, service))
             else:
-                container_list.append(encode_dut_port_name(dut, feature))
+                container_list.append(encode_dut_and_container_name(dut, feature))
 
     return container_list
 
