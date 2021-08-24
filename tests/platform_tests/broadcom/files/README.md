@@ -54,7 +54,7 @@ Test all 'bad' memory locations: (timeout + timeout_basic + slow_injection + uns
 
 # How to program the initial parameters for an new ASIC
 
-Following steps are recommended when learning the characteristics of an new ASIC:
+## Following steps are recommended when learning the characteristics of an new ASIC:
 
 1. Add a section for the new asic in SKIP_MEMORY_PER_ASIC with empty lists (remove existing entries when re-calibrating an ASIC):
 ```
