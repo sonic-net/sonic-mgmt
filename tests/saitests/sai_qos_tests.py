@@ -61,34 +61,73 @@ RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53 # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52 # Fits the ptf hex_dump_buffer() parse function
 
-def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip):
-    ip_id = 0xBABE
-    tos = (0 << 2) | 1
-    src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
-    pkt = simple_ip_packet(pktlen=64,
-                            eth_dst=dst_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_ip,
-                            ip_dst=dst_ip,
-                            ip_tos=tos,
-                            ip_id=ip_id)
+def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, **kwargs):
+    ecn = kwargs.get('ecn', 1)
+    ip_id = kwargs.get('ip_id', None)
+    ttl = kwargs.get('ttl', None)
+    exp_pkt = kwargs.get('exp_pkt', False)
 
+    tos = (dscp << 2) | ecn
+    pkt_args = {
+        'pktlen': pkt_len,
+        'eth_dst': dst_mac,
+        'eth_src': src_mac,
+        'ip_src': src_ip,
+        'ip_dst': dst_ip,
+        'ip_tos': tos
+    }
+    if ip_id is not None:
+        pkt_args['ip_id'] = ip_id
+
+    if ttl is not None:
+        pkt_args['ip_ttl'] = ttl
+
+    if src_vlan is not None:
+        pkt_args['dl_vlan_enable'] = True
+        pkt_args['vlan_vid'] = int(src_vlan)
+        pkt_args['vlan_pcp'] = dscp
+
+    pkt = simple_ip_packet(**pkt_args)
+
+    if exp_pkt:
+        masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+        if src_vlan is not None:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
+        return masked_exp_pkt
+    else:
+        return pkt
+
+def construct_arp_pkt(eth_dst, eth_src, arp_op, src_ip, dst_ip, hw_dst, src_vlan):
+    pkt_args = {
+        'eth_dst': eth_dst,
+        'eth_src': eth_src,
+        'arp_op': arp_op,
+        'ip_snd': src_ip,
+        'ip_tgt': dst_ip,
+        'hw_snd': eth_src,
+        'hw_tgt': hw_dst
+    }
+
+    if src_vlan is not None:
+        pkt_args['vlan_vid'] = int(src_vlan)
+        pkt_args['vlan_pcp'] = 0
+
+    pkt = simple_arp_packet(**pkt_args)
+    return pkt
+
+def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vlan=None):
+    ip_id = 0xBABE
+    src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
+    pkt = construct_ip_pkt(64, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
     send_packet(dp, src_port_id, pkt, 1)
 
-    exp_pkt = simple_ip_packet(pktlen=48,
-                            eth_dst=dst_mac,
-                            eth_src=src_port_mac,
-                            ip_src=src_ip,
-                            ip_dst=dst_ip,
-                            ip_tos=tos,
-                            ip_id=ip_id)
-
-    masked_exp_pkt = Mask(exp_pkt, ignore_extra_bytes=True)
-    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+    masked_exp_pkt = construct_ip_pkt(48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
 
     result = dp.dataplane.poll(device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     if isinstance(result, dp.dataplane.PollFailure):
@@ -117,57 +156,33 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_id = int(self.test_params['dst_port_id'])
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
+        self.dst_vlan = self.test_params['dst_port_vlan']
         self.src_port_id = int(self.test_params['src_port_id'])
         self.src_port_ip = self.test_params['src_port_ip']
         self.src_port_mac = self.dataplane.get_mac(0, self.src_port_id)
+        self.src_vlan = self.test_params['src_port_vlan']
         self.dst_port_2_id = int(self.test_params['dst_port_2_id'])
         self.dst_port_2_ip = self.test_params['dst_port_2_ip']
         self.dst_port_2_mac = self.dataplane.get_mac(0, self.dst_port_2_id)
+        self.dst_vlan_2 = self.test_params['dst_port_2_vlan']
         self.dst_port_3_id = int(self.test_params['dst_port_3_id'])
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
+        self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
          # ARP Populate
-        arpreq_pkt = simple_arp_packet(
-                      eth_dst='ff:ff:ff:ff:ff:ff',
-                      eth_src=self.src_port_mac,
-                      arp_op=1,
-                      ip_snd=self.src_port_ip,
-                      ip_tgt='192.168.0.1',
-                      hw_snd=self.src_port_mac,
-                      hw_tgt='00:00:00:00:00:00')
+        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac, 1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
 
         send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = simple_arp_packet(
-                       eth_dst='ff:ff:ff:ff:ff:ff',
-                       eth_src=self.dst_port_mac,
-                       arp_op=1,
-                       ip_snd=self.dst_port_ip,
-                       ip_tgt='192.168.0.1',
-                       hw_snd=self.dst_port_mac,
-                       hw_tgt='00:00:00:00:00:00')
+        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac, 1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
         send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = simple_arp_packet(
-                      eth_dst='ff:ff:ff:ff:ff:ff',
-                      eth_src=self.dst_port_2_mac,
-                      arp_op=1,
-                      ip_snd=self.dst_port_2_ip,
-                      ip_tgt='192.168.0.1',
-                      hw_snd=self.dst_port_2_mac,
-                      hw_tgt='00:00:00:00:00:00')
+        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1, self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
         send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = simple_arp_packet(
-                      eth_dst='ff:ff:ff:ff:ff:ff',
-                      eth_src=self.dst_port_3_mac,
-                      arp_op=1,
-                      ip_snd=self.dst_port_3_ip,
-                      ip_tgt='192.168.0.1',
-                      hw_snd=self.dst_port_3_mac,
-                      hw_tgt='00:00:00:00:00:00')
+        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1, self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
         time.sleep(8)
 
@@ -646,6 +661,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         max_queue_size = int(self.test_params['queue_max_size'])
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
@@ -656,26 +672,26 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
-        # Prepare TCP packet data
-        tos = dscp << 2
-        tos |= ecn
+        # Prepare IP packet data
         ttl = 64
         default_packet_length = 64
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = construct_ip_pkt(default_packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
 
-        print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}".format(
-            dst_port_id, src_port_id
+        print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan
         )
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
 
@@ -771,12 +787,12 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 # This test looks to measure xon threshold (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
-    def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id):
+    def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
         print >> sys.stderr, "dst_port_id:{}, src_port_id:{}".format(dst_port_id, src_port_id)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
         )
         print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
         return dst_port_id
@@ -803,11 +819,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
 
-        tos = dscp << 2
-        tos |= ecn
         ttl = 64
 
         # TODO: pass in dst_port_id and _ip as a list
@@ -845,41 +860,47 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # create packet
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = construct_ip_pkt(default_packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
         dst_port_id = self.get_rx_port(
-            src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id
+            src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
         )
 
         # create packet
         pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
-        pkt2 = simple_ip_packet(pktlen=default_packet_length,
-                                 eth_dst=pkt_dst_mac2,
-                                 eth_src=src_port_mac,
-                                 ip_src=src_port_ip,
-                                 ip_dst=dst_port_2_ip,
-                                 ip_tos=tos,
-                                 ip_ttl=ttl)
+        pkt2 = construct_ip_pkt(default_packet_length,
+                                pkt_dst_mac2,
+                                src_port_mac,
+                                src_port_ip,
+                                dst_port_2_ip,
+                                dscp,
+                                src_port_vlan,
+                                ecn=ecn,
+                                ttl=ttl)
         dst_port_2_id = self.get_rx_port(
-            src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id
+            src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
         )
 
         # create packet
         pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
-        pkt3 = simple_ip_packet(pktlen=default_packet_length,
-                                 eth_dst=pkt_dst_mac3,
-                                 eth_src=src_port_mac,
-                                 ip_src=src_port_ip,
-                                 ip_dst=dst_port_3_ip,
-                                 ip_tos=tos,
-                                 ip_ttl=ttl)
+        pkt3 = construct_ip_pkt(default_packet_length,
+                                pkt_dst_mac3,
+                                src_port_mac,
+                                src_port_ip,
+                                dst_port_3_ip,
+                                dscp,
+                                src_port_vlan,
+                                ecn=ecn,
+                                ttl=ttl)
         dst_port_3_id = self.get_rx_port(
-            src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id
+            src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
         )
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
@@ -1383,6 +1404,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
         print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
@@ -1398,22 +1420,30 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         queue_6_num_of_pkts = int(self.test_params['q6_num_of_pkts'])
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        topo = self.test_params['topo']
 
+        if 'backend' not in topo:
+            prio_list = [3, 4, 8, 0, 5, 46, 48]
+        else:
+            prio_list = [3, 4, 1, 0, 2, 5, 6]
+        q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts, queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
 
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=64,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_ttl=64)
+        pkt = construct_ip_pkt(64,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               0,
+                               src_port_vlan,
+                               ttl=64)
 
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
 
@@ -1423,97 +1453,19 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
 
-        # Send packets to each queue based on dscp field
-        dscp = 3
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_3_num_of_pkts)
-
-        dscp = 4
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_4_num_of_pkts)
-
-        dscp = 8
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_0_num_of_pkts)
-
-        dscp = 0
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_1_num_of_pkts)
-
-        dscp = 5
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_2_num_of_pkts)
-
-        dscp = 46
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_5_num_of_pkts)
-
-        dscp = 48
-        tos = dscp << 2
-        tos |= ecn
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                    eth_dst=pkt_dst_mac,
-                    eth_src=src_port_mac,
-                    ip_src=src_port_ip,
-                    ip_dst=dst_port_ip,
-                    ip_tos=tos,
-                    ip_id=exp_ip_id,
-                    ip_ttl=64)
-        send_packet(self, src_port_id, pkt, queue_6_num_of_pkts)
+        # Send packets to each queue based on priority/dscp field
+        for prio, pkt_cnt in zip(prio_list, q_pkt_cnt):
+            pkt = construct_ip_pkt(default_packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   prio,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ecn=ecn,
+                                   ttl=64)
+            send_packet(self, src_port_id, pkt, pkt_cnt)
 
         # Set receiving socket buffers to some big value
         for p in self.dataplane.ports.values():
@@ -1534,27 +1486,26 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             recv_pkt = scapy.Ether(received.packet)
 
             try:
-                if recv_pkt.payload.src == src_port_ip and recv_pkt.payload.dst == dst_port_ip and recv_pkt.payload.id == exp_ip_id:
+                if recv_pkt[scapy.IP].src == src_port_ip and recv_pkt[scapy.IP].dst == dst_port_ip and recv_pkt[scapy.IP].id == exp_ip_id:
                     cnt += 1
                     pkts.append(recv_pkt)
             except AttributeError:
                 continue
 
-        queue_pkt_counters = [0] * 49
-        queue_num_of_pkts  = [0] * 49
-        queue_num_of_pkts[8]  = queue_0_num_of_pkts
-        queue_num_of_pkts[0]  = queue_1_num_of_pkts
-        queue_num_of_pkts[5]  = queue_2_num_of_pkts
-        queue_num_of_pkts[3]  = queue_3_num_of_pkts
-        queue_num_of_pkts[4]  = queue_4_num_of_pkts
-        queue_num_of_pkts[46] = queue_5_num_of_pkts
-        queue_num_of_pkts[48] = queue_6_num_of_pkts
+        queue_pkt_counters = [0] * (prio_list[-1] + 1)
+        queue_num_of_pkts  = [0] * (prio_list[-1] + 1)
+        for prio, q_cnt in zip(prio_list, q_pkt_cnt):
+            queue_num_of_pkts[prio] = q_cnt
+
         total_pkts = 0
 
         diff_list = []
 
         for pkt_to_inspect in pkts:
-            dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
+            if 'backend' in topo:
+                dscp_of_pkt = pkt_to_inspect[scapy.Dot1Q].prio
+            else:
+                dscp_of_pkt = pkt_to_inspect.payload.tos >> 2
             total_pkts += 1
 
             # Count packet ordering
@@ -1599,14 +1550,13 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_2_mac = self.dataplane.get_mac(0, dst_port_2_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # prepare tcp packet data
-        tos = dscp << 2
-        tos |= ecn
         ttl = 64
 
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
@@ -1625,18 +1575,20 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
 
@@ -1709,6 +1661,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
         asic_type = self.test_params['sonic_asic_type']
@@ -1724,23 +1677,23 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
-        tos = dscp << 2
-        tos |= ecn
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
 
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
 
@@ -1827,6 +1780,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
         asic_type = self.test_params['sonic_asic_type']
@@ -1836,24 +1790,24 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = int(self.test_params['cell_size'])
 
         # Prepare TCP packet data
-        tos = dscp << 2
-        tos |= ecn
         ttl = 64
         default_packet_length = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=default_packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = construct_ip_pkt(default_packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
 
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
 
@@ -1931,6 +1885,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
         asic_type = self.test_params['sonic_asic_type']
@@ -1946,23 +1901,23 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_occupancy = (packet_length + cell_size - 1) / cell_size
 
         # Prepare TCP packet data
-        tos = dscp << 2
-        tos |= ecn
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = simple_ip_packet(pktlen=packet_length,
-                                eth_dst=pkt_dst_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
 
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d" % (dst_port_id, src_port_id)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
 
