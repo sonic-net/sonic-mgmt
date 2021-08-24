@@ -46,6 +46,18 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_unsupported_asic_type(duthost):
+    SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
+    vendor = duthost.facts["asic_type"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
+        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+        if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
+            pytest.skip(
+                "Skipping test since subport is not supported on {0} {1} platforms".format(vendor, asic))
+
+
 @pytest.fixture(params=['port', 'port_in_lag'])
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
