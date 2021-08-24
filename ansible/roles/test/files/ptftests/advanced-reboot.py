@@ -586,11 +586,11 @@ class ReloadTest(BaseTest):
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
 
-            # Pre-generate list of packets to be sent in send_in_background method.
-            generate_start = datetime.datetime.now()
-            if not self.vnet:
-                self.generate_bidirectional()
-            self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
+        # Pre-generate list of packets to be sent in send_in_background method.
+        generate_start = datetime.datetime.now()
+        if not self.vnet:
+            self.generate_bidirectional()
+        self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
@@ -895,43 +895,24 @@ class ReloadTest(BaseTest):
         self.check_alive()
         self.fails['dut'].clear()
 
-        self.log("Wait until control plane up")
-        port_up_signal = multiprocessing.Event()
-        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up, args=(port_up_signal,))
-
-        self.log("Wait until data plane stops")
-        forward_stop_signal = multiprocessing.Event()
-        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop, args=(forward_stop_signal,))
-
-        try:
-            async_cpu_up.get(timeout=self.task_timeout)
-            self.no_control_stop = self.cpu_state.get_state_time('up')
-            self.log("Control plane down stops %s" % str(self.no_control_stop))
-        except TimeoutError as e:
-            port_up_signal.set()
-            self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
-            self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
-            raise
-
-        try:
-            self.no_routing_start, self.upper_replies = async_forward_stop.get(timeout=self.task_timeout)
-            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
-        except TimeoutError:
-            forward_stop_signal.set()
-            self.log("Data plane never stop")
-            self.routing_always = True
-            self.upper_replies = [self.nr_vl_pkts]
-
-        if self.no_routing_start is not None:
-            self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
-                    self.task_timeout,
-                    "DUT hasn't started to work for %d seconds" % self.task_timeout)
-        else:
-            self.no_routing_stop = datetime.datetime.min
-            self.no_routing_start = datetime.datetime.min
+        self.send_and_sniff()
 
         # Stop watching DUT
         self.watching = False
+        self.log("Stopping reachability state watch thread.")
+        self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
+
+        self.save_sniffed_packets()
+
+        examine_start = datetime.datetime.now()
+        self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
+        self.examine_flow()
+        self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
+
+        self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+        self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+        self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
+            (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
 
     def handle_warm_reboot_health_check(self):
         self.send_and_sniff()
@@ -998,11 +979,6 @@ class ReloadTest(BaseTest):
             else:
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
-
-        if self.reboot_type == 'fast-reboot':
-            self.no_cp_replies = self.extract_no_cpu_replies(self.upper_replies)
-            if self.no_cp_replies < 0.95 * self.nr_vl_pkts:
-                self.fails['dut'].add("Dataplane didn't route to all servers, when control-plane was down: %d vs %d" % (self.no_cp_replies, self.nr_vl_pkts))
 
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
