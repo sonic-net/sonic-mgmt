@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
+from tests.common.helpers.dut_utils import decode_dut_and_container_name
 from tests.common.helpers.dut_utils import is_hitting_start_limit
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -53,7 +54,7 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def update_monit_service(duthost):
+def update_monit_service(duthosts, enum_dut_feature_container, enum_rand_one_per_hwsku_frontend_hostname):
     """Update Monit configuration and restart it.
 
     This function will first reduce the monitoring interval of container checker
@@ -66,7 +67,13 @@ def update_monit_service(duthost):
     Return:
         None.
     """
-    logger.info("Back up Monit configuration files.")
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
+                   "Skips testing container_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+    duthost = duthosts[dut_name]
+
+    logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
     duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
@@ -79,7 +86,8 @@ def update_monit_service(duthost):
     logger.info("Restart the Monit service without delaying to monitor.")
     duthost.shell("sudo systemctl restart monit")
     yield
-    logger.info("Roll back the Monit configuration of container checker.")
+    logger.info("Roll back the Monit configuration of container checker on DuT '[]' ..."
+                .format(duthost.hostname))
     duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
     duthost.shell("sudo mv -f /tmp/sonic-host /etc/monit/conf.d/")
     logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
@@ -152,14 +160,14 @@ def stop_containers(duthost, container_autorestart_states, skip_containers):
 
     for container_name in container_autorestart_states.keys():
         if container_name not in skip_containers:
-            logger.info("Stopping the container '{}'...".format(container_name))
+            logger.info("Stopping the container '{}' on DuT '{}' ...".format(container_name, duthost.hostname))
             duthost.shell("sudo systemctl stop {}.service".format(container_name))
             logger.info("Waiting until container '{}' is stopped...".format(container_name))
             stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                                  CONTAINER_CHECK_INTERVAL_SECS,
                                  check_container_state, duthost, container_name, False)
             pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
-            logger.info("Container '{}' was stopped".format(container_name))
+            logger.info("Container '{}' on DuT '{}' was stopped".format(container_name, duthost.hostname))
             stopped_container_list.append(container_name)
 
     return stopped_container_list
@@ -184,7 +192,7 @@ def get_expected_alerting_messages(stopped_container_list):
     return expected_alerting_messages
 
 
-def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
+def test_container_checker(duthosts, enum_dut_feature_container, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """Tests the feature of container checker.
 
     This function will check whether the container names will appear in the Monit
@@ -198,7 +206,12 @@ def test_container_checker(duthosts, rand_one_dut_hostname, tbinfo):
     Returns:
         None.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
+                   "Skips testing container_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+    duthost = duthosts[dut_name]
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker")
     loganalyzer.expect_regex = []
 
