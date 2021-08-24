@@ -56,7 +56,7 @@ Test all 'bad' memory locations: (timeout + timeout_basic + slow_injection + uns
 
 Following steps are recommended when learning the characteristics of an new ASIC:
 
-1. Add a section for the new asic in SKIP_MEMORY_PER_ASIC with empty lists:
+1. Add a section for the new asic in SKIP_MEMORY_PER_ASIC with empty lists (remove existing entries when re-calibrating an ASIC):
 ```
     'foo' : {
         'timeout' : [
@@ -70,13 +70,13 @@ Following steps are recommended when learning the characteristics of an new ASIC
      }
 ```
 
-2. Add new ASIC lspci signature in function get_asic_name()
+2. Add new ASIC lspci signature in function get_asic_name(), skip this step when recalibrating an ASIC.
 
 3. Copy ser_injector.py to target device and chmod +x ser_injector.py.
 
 4. Note that the test could last for hours. Please disable ssh timeout from DUT by commented out ClientAliveInterval and ClientAliveCountMax config in /etc/ssh/sshd_config, and restart ssh daemon. Logout and login just to be sure.
 
-5. Run ser_injector.py -c thorough once. Add the failed list and timed out list to 'timeout' list in the diction created in step 1. Add unsupported list to 'unsupported'. Add slow injection list to 'slow_injection'. This test would last for longest. Would be better to start this test from a tmux session on trusty8, then ssh to dut, at the same time pipe output to a file for record.
+5. Run ser_injector.py -c thorough once. Add the failed list and timed out list to 'timeout' list in the diction created in step 1. Add unsupported list to 'unsupported'. Add slow injection list to 'slow_injection'. This test would last for longest. Would be better to start this test from a tmux session on a jumpbox, then ssh to dut, at the same time pipe output to a file for record.
 ```
     SER Test failed for memories (*): {...} [...]
     SER Test timed out for memories (*): [...]
@@ -86,7 +86,7 @@ Following steps are recommended when learning the characteristics of an new ASIC
 
 6. Run several times of confident level test, add newly found entries as step 3. Goal is to have at lest 3 confident level test succeeded.
 
-7. Run several times of basic level test, add newly found timeout/failed entries to 'timeout_bais' list. Goal is to have at least 10 basic level test succeeded.
+7. Run several times of basic level test, add newly found timeout/failed entries to 'timeout_basic' list. Goal is to have at least 10 basic level test succeeded. At this step, we don't really expect to see unsupported or slow injection. But if we do, add them accordingly.
 
 
 ## The script I used to run confident and basic level tests:
@@ -105,4 +105,3 @@ Following steps are recommended when learning the characteristics of an new ASIC
 		time ./ser_injector.py -c ${test} -b 20 -s 5 -v -e | tee test-${test}-$(date "+%Y%m%d-%H%M").log
 	done
 ```
-
