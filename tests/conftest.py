@@ -74,6 +74,9 @@ def pytest_addoption(parser):
     parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
                     help="Neighbor devices type")
 
+    # FWUtil options
+    parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
     ############################
     # pfc_asym options         #
     ############################
