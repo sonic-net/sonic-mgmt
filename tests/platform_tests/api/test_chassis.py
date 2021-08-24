@@ -10,7 +10,6 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_version
-from tests.common.platform.interface_utils import get_port_map
 from tests.common.platform.interface_utils import get_physical_port_indices
 
 from platform_api_test_base import PlatformApiTestBase
@@ -56,9 +55,13 @@ ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
 ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
+# get_physical_port_indices() is wrapped around pytest fixture with module
+# scope because this function can be quite time consuming based upon the
+# number of ports on the DUT
 @pytest.fixture(scope="module")
-def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts):
-    return get_physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts)
+def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    return get_physical_port_indices(duthost)
 
 @pytest.fixture(scope="class")
 def gather_facts(request, duthosts):

@@ -1,13 +1,11 @@
 import ast
 import logging
-import re
 
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
-from tests.common.platform.interface_utils import get_port_map
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
 
@@ -109,9 +107,13 @@ class TestSfpApi(PlatformApiTestBase):
     num_sfps = None
     candidate_sfp = None
 
+    # get_physical_port_indices() is wrapped around pytest fixture with module
+    # scope because this function can be quite time consuming based upon the
+    # number of ports on the DUT
     @pytest.fixture(scope="module")
-    def physical_port_indices(self, duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts):
-        return get_physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts)
+    def physical_port_indices(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        return get_physical_port_indices(duthost)
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn fixture, which is scoped at the function

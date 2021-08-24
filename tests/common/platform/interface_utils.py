@@ -125,11 +125,9 @@ def get_port_map(dut, asic_index=None):
 
     return port_mapping
 
-def get_physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts):
+def get_physical_port_indices(duthost):
     """Returns list of physical port numbers of the DUT"""
-    port_index_map = {}
     physical_port_indices = set()
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
     phy_port = re.compile(r'^Ethernet\d+$')
