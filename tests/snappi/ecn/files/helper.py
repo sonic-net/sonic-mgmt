@@ -270,7 +270,7 @@ def __config_capture_ip_pkt(testbed_config, port_id):
 
     """ We only capture IP packets,
         the custom filter setting is to capture IP packets only """
-    ip_filter, = cap.filters.filter()
+    ip_filter = cap.filters.filter()[-1]
     ip_filter.custom.value = '40'
     ip_filter.custom.offset = 14
     ip_filter.custom.mask = '0f'
