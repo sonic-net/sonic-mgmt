@@ -40,7 +40,7 @@ all:
         vms_25:
         vms_26:
         vms_27:
-        vms_28
+        vms_28:
         vms_svc_1:
     servers:
       children:
