@@ -10,12 +10,16 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # lgtm[py/unused-import]
 import ptf.testutils as testutils
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
+
+LOG_ERROR_INSUFFICIENT_RESOURCES = ".*SAI_STATUS_INSUFFICIENT_RESOURCES.*"
 
 ACL_JSON_FILE_SRC = "acl/null_route/acl.json"
 ACL_JSON_FILE_DEST = "/host/" + os.path.basename(ACL_JSON_FILE_SRC)
@@ -60,6 +64,18 @@ def skip_on_dualtor_testbed(tbinfo):
         pytest.skip("Skip running on dualtor testbed")
 
 
+def remove_acl_table(duthost):
+    """
+    A helper function to remove ACL table for testing
+    """
+    cmds= [
+        "config acl remove table {}".format(ACL_TABLE_NAME_V4),
+        "config acl remove table {}".format(ACL_TABLE_NAME_V6)
+    ]
+    logger.info("Removing ACL table for testing")
+    duthost.shell_cmds(cmds=cmds)
+
+
 @pytest.fixture(scope="module")
 def create_acl_table(rand_selected_dut, tbinfo):
     """
@@ -72,14 +88,23 @@ def create_acl_table(rand_selected_dut, tbinfo):
         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, port_channels),
         "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, port_channels)
     ]
-    rand_selected_dut.shell_cmds(cmds=cmds)
+    logger.info("Creating ACL table for testing")
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="null_route_helper")
+    loganalyzer.match_regex = [LOG_ERROR_INSUFFICIENT_RESOURCES]
+
+    # Skip test case if ACL table created failed due to insufficient resources
+    try:
+        with loganalyzer:
+            rand_selected_dut.shell_cmds(cmds=cmds)
+    except LogAnalyzerError as err:
+        skip_msg = "ACL table creation failed due to insufficient resources, test case will be skipped"
+        logger.error(skip_msg)
+        remove_acl_table(rand_selected_dut)
+        pytest.skip(skip_msg)
+    
     yield
 
-    cmds= [
-        "config acl remove table {}".format(ACL_TABLE_NAME_V4),
-        "config acl remove table {}".format(ACL_TABLE_NAME_V6)
-    ]
-    rand_selected_dut.shell_cmds(cmds=cmds)
+    remove_acl_table(rand_selected_dut)
 
 
 @pytest.fixture(scope="module")
@@ -146,12 +171,11 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
     ptfadapter.dataplane.flush()
-    testutils.send_packet(ptfadapter, pkt = pkt, port_id=tx_port)
-    rcvd = testutils.count_matched_packets(ptfadapter, exp_pkt, rx_port)
+    testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
-        return rcvd == 1
+        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
     else:
-        return rcvd == 0
+        testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defined_rules, setup_ptf):
@@ -184,4 +208,4 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
             time.sleep(1)
 
-        assert(send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result))
+        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result)
