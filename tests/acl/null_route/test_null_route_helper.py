@@ -71,7 +71,6 @@ def remove_dataacl_table(rand_selected_dut):
     Remove DATAACL to free TCAM resources
     """
     TABLE_NAME = "DATAACL"
-    cmd = "show acl table " + TABLE_NAME
     lines = rand_selected_dut.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
     data_acl_existing = False
     for line in lines:
@@ -130,12 +129,12 @@ def create_acl_table(rand_selected_dut, tbinfo):
     try:
         with loganalyzer:
             rand_selected_dut.shell_cmds(cmds=cmds)
-    except LogAnalyzerError as err:
+    except LogAnalyzerError:
         skip_msg = "ACL table creation failed due to insufficient resources, test case will be skipped"
         logger.error(skip_msg)
         remove_acl_table(rand_selected_dut)
         pytest.skip(skip_msg)
-    
+
     yield
 
     remove_acl_table(rand_selected_dut)
