@@ -4,6 +4,7 @@ import random
 import pytest
 import os
 import time
+import json
 
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -64,6 +65,39 @@ def skip_on_dualtor_testbed(tbinfo):
         pytest.skip("Skip running on dualtor testbed")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(rand_selected_dut):
+    """
+    Remove DATAACL to free TCAM resources
+    """
+    TABLE_NAME = "DATAACL"
+    cmd = "show acl table " + TABLE_NAME
+    lines = rand_selected_dut.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
+    data_acl_existing = False
+    for line in lines:
+        if TABLE_NAME in line:
+            data_acl_existing = True
+            break
+    if not data_acl_existing:
+        yield
+        return
+    # Remove DATAACL
+    logger.info("Removing ACL table {}".format(TABLE_NAME))
+    rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
+    yield
+    # Recover DATAACL
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    try:
+        entry = json.loads(output)[TABLE_NAME]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}".format(TABLE_NAME, entry['type'], \
+             ",".join(entry['ports']), entry['stage'])
+        logger.info("Restoring ACL table {}".format(TABLE_NAME))
+        rand_selected_dut.shell(cmd_create_table)
+    except Exception as e:
+        pytest.fail(str(e))
+
+
 def remove_acl_table(duthost):
     """
     A helper function to remove ACL table for testing
@@ -114,6 +148,8 @@ def apply_pre_defined_rules(rand_selected_dut, create_acl_table):
     """
     rand_selected_dut.copy(src=ACL_JSON_FILE_SRC, dest=ACL_JSON_FILE_DEST)
     rand_selected_dut.shell("acl-loader update full " + ACL_JSON_FILE_DEST)
+    # Wait 5 seconds for ACL rule creation
+    time.sleep(5)
     yield
     # Clear ACL rules
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'.format(ACL_TABLE_NAME_V4))
