@@ -26,6 +26,8 @@ import telnetlib
 import paramiko
 import time
 import datetime
+import subprocess
+import sys
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
@@ -619,7 +621,11 @@ def main():
     input_file = args['input_file']
 
     if input_file is None:
-        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {}".format(topo_yaml))
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py start {} |& tee sim_op.log".format(topo_yaml))
+        sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
+        if not int(sim_output):
+            sys.exit("Sim is not up. Exiting now")
+            
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.1/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 

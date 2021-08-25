@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 import paramiko
+import sys
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -71,6 +72,12 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs
         cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}\n'.format(drop_version))
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+    cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+    os.system("bash -c '{}'".format(cmd))
+    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    if not int(passed):
+        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")        
 
     for tc in tcs:
         tc = tc.strip()
