@@ -97,7 +97,6 @@ def test_decap_active_tor(
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor):
     if is_t0_mocked_dualtor(tbinfo):
-
         request.getfixturevalue('apply_active_state_to_orchagent')
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
