@@ -15,7 +15,7 @@ def _port_alias_to_name_map_50G(all_ports, s100G_ports,):
 def get_port_alias_to_name_map(hwsku, asic_id=None):
     try:
         from sonic_py_common import multi_asic
-        from module_utils.multi_asic_utils  import load_db_config
+        from ansible.module_utils.multi_asic_utils  import load_db_config
         load_db_config()
         namespace_list = multi_asic.get_all_namespaces()
         for key, list in namespace_list.items():

@@ -3,7 +3,7 @@
 import json
 import sys
 from ansible.module_utils.basic import *
-from module_utils.multi_asic_utils import load_db_config
+from ansible.module_utils.multi_asic_utils import load_db_config
 try:
     from sonic_py_common import multi_asic
     NAMESPACE_LIST = multi_asic.get_namespace_list()
