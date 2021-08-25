@@ -140,10 +140,12 @@ def get_physical_port_indices(duthost):
 	interface_list = get_port_map(duthost, asic_index)
 	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in phy_intfs}
 	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
-	asichost = duthost.asic_instance(asic_index)
 	for intf in interfaces_per_asic:
-	    cmd = 'redis-cli -n 4 hget "PORT|{}" index'.format(intf)
-	    docker_cmd = asichost.get_docker_cmd(cmd, "database")
-	    index = duthost.command(docker_cmd)["stdout"]
+            if asic_index is not None:
+                cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
+            else:
+                cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
+	    index = duthost.command(cmd)["stdout"]
 	    physical_port_indices.add(int(index))
+    #logging.info("$$$ physical port indices = {}".format(physical_port_indices))
     return list(physical_port_indices)
