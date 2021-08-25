@@ -127,7 +127,7 @@
   ptf: vms2-6
   ptf_ip: 10.64.246.79/23
   ptf_ipv6:
-  server: server_2
+  server: server_2      
   vm_base: VM0244
   dut:
     - str-7260cx3-acs-7
@@ -137,7 +137,7 @@
 
 - conf-name: vms2-5-t0-7050-1
   group-name: vms2-5
-  topo: t0
+  topo: t0-35
   ptf_image_name: docker-ptf
   ptf: vms2-5
   ptf_ip: 10.64.247.23/23

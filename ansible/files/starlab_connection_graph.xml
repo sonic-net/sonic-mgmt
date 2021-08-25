@@ -18,7 +18,7 @@
       <Device Hostname="str-s6100-acs-2" HwSku="Force10-S6100" Type="DevSonic"/>
       <Device Hostname="str-s6100-acs-4" HwSku="Force10-S6100" Type="DevSonic"/>
       <Device Hostname="str-s6100-acs-5" HwSku="Force10-S6100" Type="DevSonic"/>
-      <Device Hostname="str-a7050-acs-1" HwSku="Arista-7050QX-32S" Type="DevSonic"/>
+      <Device Hostname="str-a7050-acs-1" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
       <Device Hostname="str-a7050-acs-2" HwSku="Arista-7050-QX32" Type="DevSonic"/>
       <Device Hostname="str-a7050-acs-3" HwSku="Arista-7050QX-32S" Type="DevSonic"/>
       <Device Hostname="str-n3132-acs-1" HwSku="Nexus-3132-GX-Q32" Type="DevSonic"/>
@@ -494,7 +494,10 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-17" EndPort="Ethernet30" StartDevice="str-s6000-acs-11" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-17" EndPort="Ethernet31" StartDevice="str-s6000-acs-11" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-17" EndPort="Ethernet32" StartDevice="str-s6000-acs-11" StartPort="Ethernet124"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet45" StartDevice="str-a7050-acs-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260-08" EndPort="Ethernet45/1" StartDevice="str-a7050-acs-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260-08" EndPort="Ethernet45/2" StartDevice="str-a7050-acs-1" StartPort="Ethernet1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260-08" EndPort="Ethernet45/3" StartDevice="str-a7050-acs-1" StartPort="Ethernet2"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260-08" EndPort="Ethernet45/4" StartDevice="str-a7050-acs-1" StartPort="Ethernet3"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet46" StartDevice="str-a7050-acs-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet47" StartDevice="str-a7050-acs-1" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet48" StartDevice="str-a7050-acs-1" StartPort="Ethernet12"/>
@@ -2905,7 +2908,10 @@
       <InterfaceVlan mode="Access" portname="Ethernet42" vlanids="358"/>
       <InterfaceVlan mode="Access" portname="Ethernet43" vlanids="359"/>
       <InterfaceVlan mode="Access" portname="Ethernet44" vlanids="360"/>
-      <InterfaceVlan mode="Access" portname="Ethernet45" vlanids="521"/>
+      <InterfaceVlan mode="Access" portname="Ethernet45/1" vlanids="969"/>
+      <InterfaceVlan mode="Access" portname="Ethernet45/2" vlanids="970"/>
+      <InterfaceVlan mode="Access" portname="Ethernet45/3" vlanids="971"/>
+      <InterfaceVlan mode="Access" portname="Ethernet45/4" vlanids="521"/>
       <InterfaceVlan mode="Access" portname="Ethernet46" vlanids="522"/>
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="523"/>
       <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="524"/>
