@@ -1,4 +1,3 @@
-test_announce_routes.py
 test_features.py
 test_interfaces.py
 test_nbr_health.py
