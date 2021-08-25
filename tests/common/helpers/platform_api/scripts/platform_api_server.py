@@ -22,11 +22,14 @@ def obj_serialize(obj):
     ''' JSON serializer for objects not serializable by default json library code
         We simply return a dictionary containing the object's class and module
     '''
-    syslog.syslog(syslog.LOG_WARNING, 'Unserializable object: {}.{}'.format(obj.__module__, obj.__class__.__name__))
+    syslog.syslog(syslog.LOG_WARNING,
+            'Unserializable object: {}.{} at {}'.format(
+                obj.__module__, obj.__class__.__name__, hex(id(obj))))
 
     data = {
         '__class__': obj.__class__.__name__,
-        '__module__': obj.__module__
+        '__module__': obj.__module__,
+        'object_id' : hex(id(obj))
     }
     return data
 
