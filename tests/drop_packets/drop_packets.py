@@ -334,10 +334,13 @@ def test_multicast_smac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostnam
     do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
-def test_not_expected_vlan_tag_drop(do_test, ptfadapter, setup, pkt_fields, ports_info):
+def test_not_expected_vlan_tag_drop(do_test, duthosts, rand_one_dut_hostname, ptfadapter, setup, pkt_fields, ports_info):
     """
     @summary: Create a VLAN tagged packet which VLAN ID does not match ingress port VLAN ID.
     """
+    duthost = duthosts[rand_one_dut_hostname]
+    if "mellanox" == duthost.facts["asic_type"]:
+        pytest.SKIP_COUNTERS_FOR_MLNX = True
     start_vlan_id = 2
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     max_vlan_id = 1000
