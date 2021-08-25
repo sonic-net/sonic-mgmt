@@ -78,6 +78,7 @@
       <Device Hostname="str2-acs-serv-25" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str2-acs-serv-26" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str2-acs-serv-27" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str2-acs-serv-28" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-16" EndPort="eno2" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet3/1"/>
@@ -88,8 +89,9 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-21" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet22/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-24" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet24/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-25" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet25/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-26" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet26/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-26" EndPort="enp175s0f1np1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet26/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="eth5" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-28" EndPort="enp175s0f1np1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet53/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-8" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-fan-08" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet11/1"/>
@@ -1934,6 +1936,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet53/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="249-351,481-598"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="217-248,352,401,480,599-600,2716,2748"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="353-400,402-416"/>
@@ -4050,6 +4053,9 @@
     <DevicesL3Info Hostname="str2-acs-serv-27">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.157/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str2-acs-serv-28">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.225/23"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
@@ -4091,6 +4097,7 @@
       <DevicePowerControlInfo Hostname="pdu-120" HwSku="Sentry" ManagementIp="10.3.155.120" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-121" HwSku="Sentry" ManagementIp="10.3.155.121" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry" ManagementIp="10.3.155.123" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="str2-7050cx3-acs-01" EndPort="PSU1" StartDevice="pdu-122" StartPort="48"/>
@@ -4217,6 +4224,7 @@
       <PowerControlLinkInfo EndDevice="str2-acs-serv-25" EndPort="PSU1" StartDevice="pdu-122" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-26" EndPort="PSU1" StartDevice="pdu-121" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-27" EndPort="PSU1" StartDevice="pdu-121" StartPort="12"/>
+      <PowerControlLinkInfo EndDevice="str2-acs-serv-28" EndPort="PSU1" StartDevice="pdu-123" StartPort="26"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>

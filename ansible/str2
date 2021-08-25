@@ -160,6 +160,9 @@ all:
         pdu-122:
           ansible_host: 10.3.155.122
           protocol: snmp
+        pdu-123:
+          ansible_host: 10.3.155.123
+          protocol: snmp
 
 fanout:
   hosts:
@@ -690,3 +693,5 @@ server:
       ansible_host: 10.64.246.156
     str2-acs-serv-27:
       ansible_host: 10.64.246.157
+    str2-acs-serv-28:
+      ansible_host: 10.64.246.225
