@@ -35,7 +35,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces"'
+    default: '-S "pfc_asym span sub_port_interfaces"'
     displayName: Testbed specific
 
 stages:
