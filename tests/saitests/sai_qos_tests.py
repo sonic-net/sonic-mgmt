@@ -667,6 +667,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
+        hwsku = self.test_params['hwsku']
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -710,10 +711,22 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         try:
+            # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
+            # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
+            # actual leakout by sending packets and reading actual leakout from HW
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                pkts_num_leak_out = 0 
+
             # send packets short of triggering pfc
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+            
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
+                send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out) 
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
@@ -840,6 +853,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             hysteresis = 0
         default_packet_length = 64
+        hwsku = self.test_params['hwsku']
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -910,10 +924,22 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id]
             )
+
+            # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
+            # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
+            # actual leakout by sending packets and reading actual leakout from HW
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                pkts_num_leak_out = 0 
+
             send_packet(
                 self, src_port_id, pkt, 
                 pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
             )
+
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
+                send_packet(self, src_port_id, pkt, actual_port_leak_out) 
 
             # send packets to dst port 2, occupying the shared buffer
             xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
@@ -924,11 +950,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
             )
 
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                send_packet(self, src_port_id, pkt2, actual_port_leak_out) 
+
             # send 1 packet to dst port 3, triggering PFC
             xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id]
             )
             send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
+
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                send_packet(self, src_port_id, pkt3, actual_port_leak_out) 
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
@@ -1034,6 +1066,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
         packet_size = self.test_params.get('packet_size')
+
         if packet_size:
             self.pkt_size = packet_size
             cell_size = self.test_params.get('cell_size')
@@ -1448,6 +1481,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
         # Get a snapshot of counter values
@@ -1553,6 +1587,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
+        hwsku = self.test_params['hwsku']
+
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
@@ -1607,8 +1643,20 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         try:
-            # send packets short of triggering egress drop
+            # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
+            # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
+            # actual leakout by sending packets and reading actual leakout from HW
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                pkts_num_leak_out = 0 
+
+           # send packets short of triggering egress drop
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
+                send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out) 
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             # get a snapshot of counter values at recv and transmit ports
@@ -1669,6 +1717,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
+
         if 'packet_size' in self.test_params.keys():
             packet_length = int(self.test_params['packet_size'])
         else:
@@ -1940,6 +1989,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # to leak out
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
             time.sleep(8)
+
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
             if pkts_num_fill_min:
