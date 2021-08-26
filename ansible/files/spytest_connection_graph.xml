@@ -90,7 +90,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-24" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet24/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-25" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet25/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-26" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet26/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="eth5" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-28" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet53/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-8" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet13/1"/>
