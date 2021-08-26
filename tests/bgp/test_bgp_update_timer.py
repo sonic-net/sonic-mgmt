@@ -37,7 +37,13 @@ NEIGHBOR_PORT1 = 11001
 @contextlib.contextmanager
 def log_bgp_updates(duthost, iface, save_path):
     """Capture bgp packets to file."""
-    start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
+    if iface == "any":
+        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+        # defaults to writing in that format when listening on any interface. Therefore,
+        # have it use LINUX_SLL (Linux cooked) instead.
+        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    else:
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     stop_pcap = "pkill -f '%s'" % start_pcap
     start_pcap = "nohup %s &" % start_pcap
     duthost.shell(start_pcap)
@@ -72,7 +78,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if dut_type == 'ToRRouter':
+    if 'ToRRouter' in dut_type:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
