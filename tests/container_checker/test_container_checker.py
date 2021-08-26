@@ -195,7 +195,7 @@ def get_expected_alerting_message(container_name):
     return expected_alerting_messages
 
 
-def test_container_checker(duthosts, enum_dut_feature, rand_selected_dut, tbinfo):
+def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_dut, tbinfo):
     """Tests the feature of container checker.
 
     This function will check whether the container names will appear in the Monit
@@ -203,14 +203,14 @@ def test_container_checker(duthosts, enum_dut_feature, rand_selected_dut, tbinfo
 
     Args:
         duthosts: list of DUTs.
-        enum_dut_feature: A list contains strings ("<dut_name>|<container_name>").
+        enum_dut_feature_container: A list contains strings ("<dut_name>|<container_name>").
         rand_selected_dut: The fixture returns a randomly selected DuT.
         tbinfo: Testbed information.
 
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature)
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
     pytest_require(dut_name == rand_selected_dut.hostname and container_name != "unknown",
                    "Skips testing container_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, rand_selected_dut.hostname))
