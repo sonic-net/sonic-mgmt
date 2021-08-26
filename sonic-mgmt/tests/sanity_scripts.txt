@@ -1,9 +1,8 @@
-test_announce_routes.py
+bgp/test_bgp_fact.py
 test_features.py
 test_interfaces.py
 test_nbr_health.py
 test_pretest.py
 test_procdockerstatsd.py
-test_posttest.py
-bgp/test_bgp_fact.py
 lldp/test_lldp.py
+test_posttest.py

@@ -6,7 +6,8 @@ import logging
 import os
 import subprocess
 import time
-import datetime
+import paramiko
+import sys
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -18,33 +19,67 @@ def _create_parser():
                       required=False,default=None)
     parser.add_argument('-p', '--only_parse', action='store_true', help='Just Parse results',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
-                      required=False,default="mth32")
-    parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
+    parser.add_argument('-c', '--collect_logs', action='store_true', help='Just Parse results',
+                      default=False)                  
+    parser.add_argument('-a', '--dut_address', type=str, help='specify dut address',
                       required=False,default=None)
+    parser.add_argument('-d', '--dut_name', type=str, help='DUT name specified to run tests',
+                      required=False,default='mathilda-01')
+    parser.add_argument('-t', '--topo_name', type=str, help='Topo name specified to run tests',
+                      required=False,default='docker-ptf')
     return parser
 
-def run_scripts(dut_name,script_file,drop_version,log_dir,tstamp):
+def run_exec_cmds(host,port,user,passwd,cmd_list):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    for cmd in cmd_list:
+        ssh.connect(host, port, user, passwd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        stdout.channel.recv_exit_status()
+        out = stdout.read().decode("ascii").strip()
+        error = stderr.read()
+        print(out)
+        if error:
+            print('There was an error pulling the runtime: {}'.format(error))
+        ssh.close()
+
+
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs=False,dut_address=None):
     if drop_version is not None:
-        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
+        filename = "ongoing_result_{}.txt".format(drop_version)
     else:
-        filename = 'ongoing_result_{}.csv'.format(tstamp)
+        filename = 'ongoing_result.txt'
     if log_dir is not None:
         log_dir = '/data/tests/{}'.format(log_dir)
     else:
         log_dir = '/data/tests/run_logs'
     current_result_file = open(filename, 'w')
-    current_result_file.write("Sno,Feature,T,P,F,S\n")
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
-    sno = 0
     total_passed = 0
     total_failed = 0
     total_skipped = 0
+    total_error = 0
     final_total = 0
+    ssh_port = 22
+    dut_uname = 'cisco'
+    dut_passwd = 'cisco123'
+    if collect_logs and dut_address is not None:
+        cmd_list = list()
+        cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))
+        cmd_list.append('sudo rm /var/log/swss/*.gz\n')
+        cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}\n'.format(drop_version))
+        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
+        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+    cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+    os.system("bash -c '{}'".format(cmd))
+    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    if not int(passed):
+        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")        
+
     for tc in tcs:
-        if '#' in tc:
-            continue
         tc = tc.strip()
         tc_name = tc.split('/')
         tc_name = tc_name[len(tc_name)-1].split('.')[0]
@@ -52,8 +87,21 @@ def run_scripts(dut_name,script_file,drop_version,log_dir,tstamp):
             tc_name = tc_name + "_" + drop_version
 
         print("Executing: {}".format(tc))
-        print("./run_tests.sh -n docker-ptf -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(dut_name,log_dir,tc,tc_name))
-        cmd = "./run_tests.sh -n docker-ptf -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(dut_name,log_dir,tc,tc_name)
+
+        if collect_logs and dut_address is not None:
+            cmd_list = list()
+            cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
+            cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
+            cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+            cmd_list.append('sudo rm /var/log/syslog.*\n')
+            cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
+            cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
+            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+
+        cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
@@ -61,21 +109,25 @@ def run_scripts(dut_name,script_file,drop_version,log_dir,tstamp):
         skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(tc_name), shell=True).strip()
         errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(tc_name), shell=True).strip()
         time.sleep(10)
-        sno += 1
         final_total += int(total_tests)
         total_passed += int(passed)
         total_failed += int(failed)
         total_skipped += int(skipped)
-        total_skipped += int(errored)
+        total_error += int(errored)
 
-        print("{}:{}     : {} : {} : {} : {} : {}".format(sno, tc_name,total_tests,passed,failed,skipped,errored))
+        print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
 
-        current_result_file.write("{}, {}     , {} , {} , {} , {} \n".format(sno, tc_name,total_tests,passed,failed,skipped))
+        current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
         current_result_file.flush()
+        if collect_logs and dut_address is not None:
+            cmd_list = list()
+            cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+            cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-    current_result_file.write("Total     , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped))
+
+    current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
-    os.system("cat {}".format(filename))
 
 def parse_results():
     total_passed = 0
@@ -91,7 +143,7 @@ def parse_results():
         else:
             continue
 
-    result_file = open('final_result.csv', 'w')
+    result_file = open('final_result.txt', 'w')
     if len(log_list) > 0:
         for log_file in log_list:
             os.system("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g'  >> all_result.txt".format(log_file))
@@ -122,20 +174,21 @@ def main():
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     only_parse = args['only_parse']
-    device_type = args['device_type']
-    tstamp = args['tstamp']
-    if device_type == 'sherman':
-        dut_name = 'sherman-01'
-    else:
-        dut_name = 'mathilda-01'
-
-    if tstamp is None:        
-        tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+    collect_logs = args['collect_logs']
+    dut_address = args.get('dut_address')
+    dut_name = args['dut_name']
+    topo_name = args['topo_name']
 
     if only_parse:
         parse_results()
     else:
-        run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
+        if not collect_logs:
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name)
+        else:
+            if dut_address is None:
+                print('Missing DUT Address, specify DUT address for collecting logs')
+                exit     
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs,dut_address)
 
 if __name__ == '__main__':
   main()
