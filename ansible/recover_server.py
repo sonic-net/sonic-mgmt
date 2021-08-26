@@ -265,8 +265,11 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                 dry_run=dry_run
             ) for tb in tbs
         ]
-        # ceos topology doesn't need to start-vm
-        if vmtype != 'ceos':
+
+        # only cEOS container doesn't need to start-vm
+        need_start_vms = vmtype != 'ceos'
+
+        if need_start_vms:
             jobs = [
                 Job(
                     'start-vms',
