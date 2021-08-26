@@ -32,6 +32,7 @@ import pickle
 from operator import itemgetter
 import scapy.all as scapyall
 import enum
+import ast
 
 class Arista(object):
     DEBUG = False
@@ -43,7 +44,8 @@ class Arista(object):
         self.password = password
         self.conn = None
         self.arista_prompt = None
-        self.v4_routes = [test_params['vlan_ip_range'], test_params['lo_prefix']]
+        self.v4_routes = list(ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes.append(test_params['lo_prefix'])
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
         self.info = set()
@@ -121,11 +123,15 @@ class Arista(object):
         samples[cur_time] = sample
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
-            cmd = self.queue.get()
-            if cmd == 'quit':
-                self.log('quit command received')
-                quit_enabled = True
-                continue
+            cmd = None
+            # quit command was received, we don't process next commands
+            # but wait for v4_routing_ok and v6_routing_ok
+            if not quit_enabled:
+                cmd = self.queue.get()
+                if cmd == 'quit':
+                    quit_enabled = True
+                    continue
+
             cur_time = time.time()
             info = {}
             debug_info = {}

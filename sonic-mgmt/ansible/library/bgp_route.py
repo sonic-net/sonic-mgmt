@@ -228,7 +228,7 @@ class BgpRoutes(object):
 
         p = json.loads(cmd_result)
 
-        if not p.has_key('prefix'):
+        if 'prefix' not in p:
             self.facts['bgp_route'][prefix]['found'] = False
             return
 

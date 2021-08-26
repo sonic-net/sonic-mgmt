@@ -13,8 +13,8 @@
       delegate_to: localhost
 
     - set_fact:
-        peer_host: "{{device_info['mgmtip']}}"
-        peer_hwsku: "{{device_info['HwSku']}}"
+        peer_host: "{{device_info[peer_device]['mgmtip']}}"
+        peer_hwsku: "{{device_info[peer_device]['HwSku']}}"
 
     - set_fact:
         intfs_to_exclude: "{{interface}}"

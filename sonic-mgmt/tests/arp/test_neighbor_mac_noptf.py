@@ -30,22 +30,33 @@ class TestNeighborMacNoPtf:
         6: {"intfIp": "fe00::1/64", "NeighborIp": "fe00::2"},
     }	
 
-    def count_routes(self, host, prefix):
+    def count_routes(self, asichost, prefix):
         # Counts routes in ASIC_DB with a given prefix
-        num = host.shell(
-                'sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(ROUTE_TABLE_NAME, prefix),
+        num = asichost.shell(
+                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(asichost.sonic_db_cli, ROUTE_TABLE_NAME, prefix),
                 module_ignore_errors=True, verbose=True)['stdout']
         return int(num)
 
+    def _get_bgp_routes_asic(self, asichost):
+        # Get the routes installed by BGP in ASIC_DB by filtering out all local routes installed on asic
+        localv6 = self.count_routes(asichost, "fc") + self.count_routes(asichost, "fe")
+        localv4 = self.count_routes(asichost, "10.") + self.count_routes(asichost, "192.168.0.")
+        # these routes are present only on multi asic device, on single asic platform they will be zero
+        internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
+        allroutes = self.count_routes(asichost, "")
+        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}".format(asichost.asic_index, localv4, localv6, internal, allroutes))
+        bgp_routes_asic = allroutes - localv6 - localv4 - internal - DEFAULT_ROUTE_NUM
+
+        return bgp_routes_asic
+
     def _check_no_bgp_routes(self, duthost):
-        # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on testbeds
-        localv6 = self.count_routes(duthost, "fc") + self.count_routes(duthost, "fe")
-        localv4 = self.count_routes(duthost, "10.") + self.count_routes(duthost, "192.168.0.")
-        allroutes = self.count_routes(duthost, "")
-        bgproutes = allroutes - localv6 - localv4 - DEFAULT_ROUTE_NUM
-
-        return bgproutes == 0
-
+        bgp_routes = 0
+        # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on testbed
+        for asic in duthost.asics:
+            bgp_routes += self._get_bgp_routes_asic(asic)
+        
+        return bgp_routes == 0
+            
     @pytest.fixture(scope="module", autouse=True)
     def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """

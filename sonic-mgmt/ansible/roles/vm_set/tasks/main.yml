@@ -249,6 +249,14 @@
       set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
       when: topology['VMs'] is defined
 
+    - name: Set vm configuration properties when configuration is defined
+      set_fact: vm_properties="{{ configuration | expand_properties(configuration_properties) }}"
+      when: configuration is defined
+
+    - name: Set vm configuration properties when configuration is not defined
+      set_fact: vm_properties={}
+      when: configuration is not defined
+
     - name: Stop VMs
       include_tasks: stop.yml
       when: action == 'stop'

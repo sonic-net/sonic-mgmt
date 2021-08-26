@@ -2,11 +2,11 @@ simulation:
   no_image_copy: true
   slurm_flags:
     hours: 120
-          
+
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2.new
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@docker-ptf:/#
@@ -17,6 +17,7 @@ devices:
     mgmt_intf_name: mgmt
     data_ports:
       - eth[0..64]
+      - backplane
 
   sonic_dut:
     platform: spitfire_f
@@ -25,12 +26,12 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_11.0/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_14.0/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/vxr1/sonic-images/SDK1.42.1_NPS1.77.2/npl
-        ConfigS1NpsuiteVer: 1.77.2
+       shelf:
+         ConfigS1NplPath: /auto/vxr1/sonic-images/dt_drop_14.0/npl
+         ConfigS1NpsuiteVer: 1.78.5
 
   sonic_mgmt :
     platform: linux
@@ -199,4 +200,4 @@ connections:
       backplane:
         ports:
         - veos[1..24].Ethernet9
-        - docker_ptf.eth32  
+        - docker_ptf.backplane

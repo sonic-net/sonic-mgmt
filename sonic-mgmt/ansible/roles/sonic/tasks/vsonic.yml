@@ -64,3 +64,9 @@
   when: hostname in configuration
   notify:
     - Restart BGP service
+
+- name: Load PTF image
+  block:
+    - copy: src="docker-ptf.tar" dest="docker-ptf.tar"
+    - shell: docker load -i docker-ptf.tar || true
+    - shell: rm -f docker-ptf.tar

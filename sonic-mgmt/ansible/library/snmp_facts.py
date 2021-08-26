@@ -298,6 +298,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             host=dict(required=True),
+            timeout=dict(reqired=False, type='int', default=5),
             version=dict(required=True, choices=['v2', 'v2c', 'v3']),
             community=dict(required=False, default=False),
             username=dict(required=False),
@@ -367,7 +368,7 @@ def main():
     # (e.g. S6000) when cpu utilization is high, increse timeout to tolerate the delay.
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=5.0),
+        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.sysDescr,),
     )
 

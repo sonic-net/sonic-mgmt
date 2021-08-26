@@ -15,6 +15,7 @@
     Parameters:
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
             is disabled.
+        --send_rate_limit: Used to set custom server send rate-limit pps. Default is 2000 pps
 
 """
 
@@ -44,7 +45,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "myip",
                                   "peerip",
                                   "nn_target_interface",
-                                  "nn_target_namespace"])
+                                  "nn_target_namespace",
+                                  "send_rate_limit"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -160,7 +162,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
-              "peerip": test_params.peerip}
+              "peerip": test_params.peerip,
+              "send_rate_limit": test_params.send_rate_limit}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -187,6 +190,7 @@ def _gather_test_params(tbinfo, duthost, request):
     """
 
     swap_syncd = request.config.getoption("--copp_swap_syncd")
+    send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_index_map = {
@@ -215,7 +219,8 @@ def _gather_test_params(tbinfo, duthost, request):
                                myip=myip,
                                peerip = peerip,
                                nn_target_interface=nn_target_interface,
-                               nn_target_namespace=nn_target_namespace)
+                               nn_target_namespace=nn_target_namespace,
+                               send_rate_limit=send_rate_limit)
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """

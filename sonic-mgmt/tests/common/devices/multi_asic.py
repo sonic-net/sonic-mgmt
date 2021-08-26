@@ -186,7 +186,7 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_id))
         return ns_cmd
-    
+
     def get_linux_ip_cmd_for_namespace(self, cmd, namespace):
         if not namespace:
             return cmd
@@ -350,8 +350,8 @@ class MultiAsicSonicHost(object):
     def has_config_subcommand(self, command):
         """
         Check if a config/show subcommand exists on the device
-        
-        It is up to the caller of the function to ensure that `command` 
+
+        It is up to the caller of the function to ensure that `command`
         does not have any unintended side effects when run
 
         Args:
@@ -360,9 +360,101 @@ class MultiAsicSonicHost(object):
             (bool) True if the command exists, false otherwise
         """
         try:
-            self.shell(command) 
+            self.shell(command)
             # If the command executes successfully, we can assume it exists
             return True
         except RunAnsibleModuleFail as e:
             # If 'No such command' is found in stderr, the command doesn't exist
             return 'No such command' not in e.results['stderr']
+
+    def disable_syslog_rate_limit(self, feature):
+        """
+        Disable Rate limit for a given service
+        """
+        services = [feature]
+
+        if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
+            services = [asic.get_docker_name(feature) for asic in self.asics]
+
+        for docker in services:
+            cmd_disable_rate_limit = (
+                r"docker exec -i {} sed -i "
+                r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
+                r"/etc/rsyslog.conf"
+            )
+            cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+            cmds = []
+            cmds.append(cmd_disable_rate_limit.format(docker))
+            cmds.append(cmd_reload.format(docker))
+            self.sonichost.shell_cmds(cmds=cmds)
+
+    def get_bgp_neighbors(self):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: None
+
+        Returns: dictionary { (neighbor_ip : info_dict)* }
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            bgp_info = asic.bgp_facts()
+            bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
+
+        return bgp_neigh
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        neigh_ips = [ip.lower() for ip in neigh_ips]
+        neigh_ok = []
+
+        for asic in self.asics:
+            bgp_facts = asic.bgp_facts()['ansible_facts']
+            logging.info("bgp_facts: {}".format(bgp_facts))
+            for k, v in bgp_facts['bgp_neighbors'].items():
+                if v['state'] == state:
+                    if k.lower() in neigh_ips:
+                        neigh_ok.append(k)
+            logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
+
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+
+    def get_bgp_route_info(self, prefix, ns=None):
+        """
+        @summary: return BGP routes information.
+
+        @param prefix: IP prefix
+        @param ns: network namespace
+        """
+        prefix = ipaddress.ip_network(unicode(str(prefix)))
+        if isinstance(prefix, ipaddress.IPv4Network):
+            check_cmd = "vtysh -c 'show bgp ipv4 %s json'"
+        else:
+            check_cmd = "vtysh -c 'show bgp ipv6 %s json'"
+        check_cmd %= prefix
+        if ns is not None:
+            check_cmd = self.get_vtysh_cmd_for_namespace(check_cmd, ns)
+        return json.loads(self.shell(check_cmd, verbose=False)['stdout'])
+
+
+    def check_bgp_default_route(self, ipv4=True,  ipv6=True):
+        """
+        @summary: check if bgp default route is present.
+        
+        @param ipv4: check ipv4 default
+        @param ipv6: check ipv6 default
+        """
+        if ipv4 and len(self.get_bgp_route_info("0.0.0.0/0")) == 0:
+            return False
+        if ipv6 and len(self.get_bgp_route_info("::/0")) == 0:
+            return False
+        return True

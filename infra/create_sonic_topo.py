@@ -26,6 +26,8 @@ import telnetlib
 import paramiko
 import time
 import datetime
+import subprocess
+import sys
 
 # Return a list that only contains the entries in 'data' whose keys start with 'sonic_dut_'
 def get_dut_entries(data):
@@ -199,6 +201,7 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
     tdata['devices']['str-acs-serv-01']['ansible']['ansible_host'] = data['mux_sim']['xr_mgmt_ip'] + '/24'
     tdata['host_vars']['str-acs-serv-01']['mgmt_gw'] = data['mux_sim']['xr_mgmt_ip']
     tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
+    tdata['devices']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -647,7 +650,12 @@ def main():
     if input_file is None:
         if clean_sim:
             os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
-        os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py start {}".format(topo_yaml))
+
+        os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py start {} |& tee sim_op.log".format(topo_yaml))
+        sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
+        if not int(sim_output):
+            sys.exit("Sim is not up. Exiting now")
+            
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 

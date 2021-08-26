@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from vnet_constants import *
 from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
                        apply_dut_config_files, generate_dut_config_files
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,6 @@ SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
 SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 RESTART_BGP_CMD = "sudo systemctl restart bgp"
 CONFIG_SAVE_CMD = "sudo config save -y"
-CONFIG_RELOAD_CMD = "sudo config reload -y"
 BACKUP_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json /etc/sonic/config_db.json.route_leak_orig"
 RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.route_leak_orig /etc/sonic/config_db.json"
 DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.route_leak_orig"
@@ -75,7 +75,7 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
 
         if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost):
             logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
-            duthost.shell(CONFIG_RELOAD_CMD)
+            config_reload(duthost)
     else:
         logger.info("Skipping cleanup")
 
@@ -196,7 +196,7 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
 
     logger.info("Saving and reloading CONFIG_DB")
     duthost.shell(CONFIG_SAVE_CMD)
-    duthost.shell(CONFIG_RELOAD_CMD)
+    config_reload(duthost)
 
     pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 

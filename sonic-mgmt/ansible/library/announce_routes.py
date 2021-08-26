@@ -50,13 +50,13 @@ IPV6_BASE_PORT = 6000
 
 
 def get_topo_type(topo_name):
-    pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2)')
+    pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
     match = pattern.match(topo_name)
     if not match:
-        raise Exception("Unsupported testbed type - {}".format(topo_name))
+        return "unsupported"
     topo_type = match.group()
-    if 'dualtor' in topo_type:
-        # set dualtor topology type to 't0' to avoid adding it in each test script.
+    if topo_type in ['dualtor', 'mgmttor']:
+        # set dualtor/mgmttor topology type to 't0' to avoid adding it in each test script.
         topo_type = 't0'
     return topo_type
 
@@ -80,7 +80,7 @@ def announce_routes(ptf_ip, port, routes):
 
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
-    r = requests.post(url, data=data)
+    r = requests.post(url, data=data, timeout=90)
     assert r.status_code == 200
 
 # AS path from Leaf router for T0 topology
@@ -421,17 +421,21 @@ def main():
 
     topo_type = get_topo_type(topo_name)
 
-    if topo_type == "t0":
-        fib_t0(topo, ptf_ip)
-        module.exit_json(changed=True)
-    elif topo_type == "t1":
-        fib_t1_lag(topo, ptf_ip)
-        module.exit_json(changed=True)
-    elif topo_type == "t2":
-        fib_t2_lag(topo, ptf_ip)
-        module.exit_json(changed=True)
-    else:
-        module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
+    try:
+        if topo_type == "t0":
+            fib_t0(topo, ptf_ip)
+            module.exit_json(changed=True)
+        elif topo_type == "t1":
+            fib_t1_lag(topo, ptf_ip)
+            module.exit_json(changed=True)
+        elif topo_type == "t2":
+            fib_t2_lag(topo, ptf_ip)
+            module.exit_json(changed=True)
+        else:
+            module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
+    except Exception as e:
+        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}'\
+            .format(topo_name, topo_type, repr(e)))
 
 
 if __name__ == '__main__':

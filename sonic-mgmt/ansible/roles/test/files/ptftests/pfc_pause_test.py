@@ -55,12 +55,12 @@ class PfcPauseTest(BaseTest):
     def setUp(self):
         add_filter(udp_filter)
         self.dataplane = ptf.dataplane_instance
-        self.mac_src = self.test_params['mac_src']
-        self.mac_dst = self.test_params['mac_dst']
         self.pkt_count = int(self.test_params['pkt_count'])
         self.pkt_intvl = float(self.test_params['pkt_intvl'])
         self.port_src = int(self.test_params['port_src'])
         self.port_dst = self.test_params['port_dst']
+        self.mac_src = self.dataplane.get_mac(0, self.port_src)
+        self.mac_dst = self.dataplane.get_mac(0, self.port_dst)
         self.ip_src = self.test_params['ip_src']
         self.ip_dst = self.test_params['ip_dst']
         self.dscp = self.test_params['dscp']
@@ -70,11 +70,97 @@ class PfcPauseTest(BaseTest):
         """ if DUT has MAC information """
         self.dut_has_mac = self.test_params['dut_has_mac']
         self.debug = self.test_params.get('debug', False)
+        self.vlan_id = self.test_params.get('vlan_id', None)
+        self.testbed_type = self.test_params.get('testbed_type', None)
+
+    def construct_pkt(self, sport, dport):
+        tos = self.dscp<<2
+        tos_bg = self.dscp_bg<<2
+
+        pkt_args = {
+            'eth_dst': self.mac_dst,
+            'eth_src': self.mac_src,
+            'ip_src': self.ip_src,
+            'ip_dst': self.ip_dst,
+            'ip_tos': tos,
+            'udp_sport': sport,
+            'udp_dport': dport,
+            'ip_ttl': 64
+        }
+        if self.vlan_id is not None:
+            pkt_args['dl_vlan_enable'] = True
+            pkt_args['vlan_vid'] = int(self.vlan_id)
+            pkt_args['vlan_pcp'] = self.dscp
+        pkt = simple_udp_packet(**pkt_args)
+
+        pkt_bg_args = {
+            'eth_dst': self.mac_dst,
+            'eth_src': self.mac_src,
+            'ip_src': self.ip_src,
+            'ip_dst': self.ip_dst,
+            'ip_tos': tos_bg,
+            'udp_sport': sport,
+            'udp_dport': dport,
+            'ip_ttl': 64
+        }
+        if self.vlan_id is not None:
+            pkt_bg_args['dl_vlan_enable'] = True
+            pkt_bg_args['vlan_vid'] = int(self.vlan_id)
+            pkt_bg_args['vlan_pcp'] = self.dscp_bg
+        pkt_bg = simple_udp_packet(**pkt_bg_args)
+
+        exp_pkt_args = {
+            'ip_src': self.ip_src,
+            'ip_dst': self.ip_dst,
+            'ip_tos': tos_bg,
+            'udp_sport': sport,
+            'udp_dport': dport,
+            'ip_ttl': 63
+        }
+        if self.vlan_id is not None:
+            exp_pkt_args['dl_vlan_enable'] = True
+            exp_pkt_args['vlan_vid'] = int(self.vlan_id)
+            exp_pkt_args['vlan_pcp'] = self.dscp_bg
+        exp_pkt = simple_udp_packet(**exp_pkt_args)
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
+        if 'backend' in self.testbed_type:
+             masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
+
+        return pkt, pkt_bg, masked_exp_pkt
+
+    def populate_fdb(self):
+        pkt_args = {
+            'eth_dst': self.mac_dst,
+            'eth_src': self.mac_src,
+            'ip_src': self.ip_src,
+            'ip_dst': self.ip_dst
+        }
+        if self.vlan_id is not None:
+            pkt_args['dl_vlan_enable'] = True
+            pkt_args['vlan_vid'] = int(self.vlan_id)
+            pkt_args['vlan_pcp'] = 0
+
+        pkt = simple_udp_packet(**pkt_args)
+
+        send_packet(self, self.port_src, pkt, 5)
+
+        pkt_args['eth_dst'] = self.mac_src
+        pkt_args['eth_src'] = self.mac_dst
+        pkt_args['ip_src'] = self.ip_dst
+        pkt_args['ip_dst'] = self.ip_src
+
+        pkt = simple_udp_packet(**pkt_args)
+
+        send_packet(self, self.port_dst, pkt, 5)
 
     def runTest(self):
         pass_cnt = 0
-        tos = self.dscp<<2
-        tos_bg = self.dscp_bg<<2
         if self.debug:
             # remove previous debug files
             files = glob.glob("/tmp/pfc_pause_{}*".format(self.dscp))
@@ -82,64 +168,15 @@ class PfcPauseTest(BaseTest):
                 os.remove(file)
             current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
             log_file = open("/tmp/pfc_pause_{}_{}".format(self.dscp, current_time), "w")
-
         """ If DUT needs to learn MAC addresses """
         if not self.dut_has_mac:
-            pkt = simple_udp_packet(
-                eth_dst=self.mac_dst,
-                eth_src=self.mac_src,
-                ip_src=self.ip_src,
-                ip_dst=self.ip_dst)
-
-            send_packet(self, self.port_src, pkt, 5)
-
-            pkt = simple_udp_packet(
-                eth_dst=self.mac_src,
-                eth_src=self.mac_dst,
-                ip_src=self.ip_dst,
-                ip_dst=self.ip_src)
-
-            send_packet(self, self.port_dst, pkt, 5)
+            self.populate_fdb()
 
         for x in range(self.pkt_count):
             sport = random.randint(0, 65535)
             dport = random.randint(0, 65535)
 
-            pkt = simple_udp_packet(
-                        eth_dst=self.mac_dst,
-                        eth_src=self.mac_src,
-                        ip_src=self.ip_src,
-                        ip_dst=self.ip_dst,
-                        ip_tos=tos,
-                        udp_sport=sport,
-                        udp_dport=dport,
-                        ip_ttl=64)
-
-            pkt_bg = simple_udp_packet(
-                        eth_dst=self.mac_dst,
-                        eth_src=self.mac_src,
-                        ip_src=self.ip_src,
-                        ip_dst=self.ip_dst,
-                        ip_tos=tos_bg,
-                        udp_sport=sport,
-                        udp_dport=dport,
-                        ip_ttl=64)
-
-            exp_pkt = simple_udp_packet(
-                        ip_src=self.ip_src,
-                        ip_dst=self.ip_dst,
-                        ip_tos=tos_bg,
-                        udp_sport=sport,
-                        udp_dport=dport,
-                        ip_ttl=63)
-
-            masked_exp_pkt = Mask(exp_pkt)
-            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-
+            pkt, pkt_bg, masked_exp_pkt = self.construct_pkt(sport, dport)
             send_packet(self, self.port_src, pkt, 1)
             send_packet(self, self.port_src, pkt_bg, 1)
 
@@ -154,7 +191,11 @@ class PfcPauseTest(BaseTest):
 
             """ If the queue is paused, we should only receive the background packet """
             if self.queue_paused:
-                pass_cnt += int(len(pkts) == 1 and scapy.Ether(pkts[0])[scapy.IP].tos == tos_bg)
+                if 'backend' in self.testbed_type:
+                    filter_expr = (hex(scapy.Ether(pkts[0]).type) == '0x8100' and int(scapy.Ether(pkts[0])[scapy.Dot1Q].prio) == self.dscp_bg and int(scapy.Ether(pkts[0])[scapy.Dot1Q].vlan) == self.vlan_id)
+                else:
+                    filter_expr = (scapy.Ether(pkts[0])[scapy.IP].tos == tos_bg)
+                pass_cnt += int(len(pkts) == 1 and filter_expr)
 
             else:
                 pass_cnt += int(len(pkts) == 2)

@@ -1,7 +1,7 @@
 import pytest
 import ipaddress
 import logging
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -10,11 +10,13 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index):
+def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
+    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
 
@@ -46,16 +48,18 @@ def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostna
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
 
-def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index):
+def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     check if ipv6 default route nexthop address uses global address
 
     """
+    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
-    pytest_assert(rtinfo['nexthops'] > 0, "cannot find ipv6 nexthop for default route")
+    pytest_assert(len(rtinfo['nexthops']) > 0, "cannot find ipv6 nexthop for default route")
     for nh in rtinfo['nexthops']:
         pytest_assert(not nh[0].is_link_local, \
                 "use link local address {} for nexthop".format(nh[0]))

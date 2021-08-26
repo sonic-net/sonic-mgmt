@@ -16,7 +16,11 @@ OTHER_PATTERNS = {
     "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
     "FINALIZER|End": re.compile(r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),
     "SYNCD_CREATE_SWITCH|Start": re.compile(r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
-    "SYNCD_CREATE_SWITCH|End": re.compile(r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*')
+    "SYNCD_CREATE_SWITCH|End": re.compile(r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*'),
+    "FPMSYNCD_RECONCILIATION|Start": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart timer started.*'),
+    "FPMSYNCD_RECONCILIATION|End": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart reconciliation processed.*'),
+    "ROUTE_DEFERRAL_TIMER|Start": re.compile(r'.*ADJCHANGE: neighbor .* in vrf default Up.*'),
+    "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*')
 }
 
 SAIREDIS_PATTERNS = {
@@ -27,9 +31,11 @@ SAIREDIS_PATTERNS = {
 }
 
 OFFSET_ITEMS = ['DATABASE', 'FINALIZER', 'INIT_VIEW', 'SYNCD_CREATE_SWITCH',
-	'PORT_INIT', 'PORT_READY', 'SAI_CREATE_SWITCH', 'NEIGHBOR_ENTRY',
-    'DEFAULT_ROUTE_SET', 'APPLY_VIEW', 'LAG_READY']
+    'FPMSYNCD_RECONCILIATION', 'PORT_INIT', 'PORT_READY', 'SAI_CREATE_SWITCH',
+    'NEIGHBOR_ENTRY', 'DEFAULT_ROUTE_SET', 'APPLY_VIEW', 'LAG_READY',
+    'ROUTE_DEFERRAL_TIMER']
 
 TIME_SPAN_ITEMS = ['RADV', 'BGP', 'SYNCD', 'SWSS', 'TEAMD', 'DATABASE',
     'SYNCD_CREATE_SWITCH', 'SAI_CREATE_SWITCH', 'APPLY_VIEW', 'INIT_VIEW',
-    'NEIGHBOR_ENTRY', 'PORT_INIT', 'PORT_READY', 'FINALIZER', 'LAG_READY']
+    'NEIGHBOR_ENTRY', 'PORT_INIT', 'PORT_READY', 'FINALIZER', 'LAG_READY',
+    'FPMSYNCD_RECONCILIATION', 'ROUTE_DEFERRAL_TIMER']

@@ -10,6 +10,7 @@ DROP = "drop"
 OUTPUT = "output"
 FLAP_COUNTER = "flap_counter"
 CLEAR_FLAP_COUNTER = "clear_flap_counter"
+RESET = "reset"
 
 MUX_SIM_ALLOWED_DISRUPTION_SEC = 5
 CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC = 120

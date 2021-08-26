@@ -47,6 +47,19 @@ devices:
       username: null
     device_type: FanoutLeaf
     hwsku: Arista-7260QX-64
+  docker-ptf:
+    device_type: blank
+    hwsku:
+    ansible:
+        ansible_ssh_user: root
+        ansible_host: 1.74.23.21/16
+        ansible_hostv6: fc0b::1/64
+        ansible_ssh_pass: root
+    credentials:
+        password: root
+        username: root
+
+
 docker_registry:
   docker_registry_host: sonicdev-microsoft.azurecr.io:443
   docker_registry_password: sonic

@@ -15,6 +15,7 @@
   - [test_mtu_inherited_from_parent_port](#Test-case-test_mtu_inherited_from_parent_port)
   - [test_vlan_config_impact](#Test-case-test_vlan_config_impact)
   - [test_routing_between_sub_ports](#Test-case-test_routing_between_sub_ports)
+  - [test_routing_between_sub_ports_and_port](#Test-case-test_routing_between_sub_ports_and_port)
 
 ## Revision
 
@@ -23,6 +24,7 @@
 | 0.1 |  11/30/2020 | Intel: Oleksandr Kozodoi |          Initial version           |
 | 0.2 |  02/23/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 | 0.3 |  03/18/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
+| 0.4 |  06/09/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 
 
 ## Overview
@@ -328,9 +330,89 @@ Example the customized testbed with applied T0 topo for test_routing_between_sub
 - Setup configuration of sub-ports on the PTF.
 - Add one of the sub-ports to namespace on the PTF.
 - Setup static routes between sub-port and sub-port in namespace on the PTF
-- Create ICMP packet.
-- Send ICMP request packet from sub-port to sub-port in namespace on the PTF.
-- Verify that sub-port in namespace sends ICMP reply packet to sub-port on the PTF.
+- Create packet (TCP, UDP or ICMP).
+- Send packet from sub-port to sub-port in namespace on the PTF.
+- Verify that sub-port gets received packet on the PTF.
+- Remove static routes from PTF
+- Remove namespaces from PTF
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+
+### Test teardown
+
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+## Test case test_routing_between_sub_ports_and_port
+
+### Test objective
+
+Validates that packets are routed between sub-ports and ports
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+- apply_route_config_for_port fixture(scope="function"): setup static routes between sub-ports and ports on the PTF
+
+Example the customized testbed with applied T0 topo for test_routing_between_sub_ports_and_port test case:
+##### Routing between sub-port and L3 RIF
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|══════════════════════╗          |
+  ║   |   _________   DUT   _║_______   |
+  ║   |  [Ethernet4]       [Ethernet8]  |
+  ║   |__[_________]_______[_.10_.20_]__|
+  ║      [         ]       [ ║|   |  ]
+  ║      [         ]       [ ║|   |  ]
+  ║      [         ]  ┌────[─║|─┐ |  ]
+  ║    __[_________]__│____[_V|_│_|__]__
+  ║   |  [         ]  │    [.10 │.20 ]  |
+  ╚═══|═>[__eth1___]  │    [__eth2___]  |
+      |               │         │       |
+      |               │  netns8 │       |
+      |               └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+##### Routing between sub-ports and SVI
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|══════════════════════╗          |
+  ║   |─────────────┐ DUT    ║          |
+  ║   |    Vlan999  │        ║          |
+  ║   |   _________ │       _║_______   |
+  ║   |  [Ethernet4]│      [Ethernet8]  |
+  ║   |__[_________]│______[_.10_.20_]__|
+  ║      [         ]       [ ║|   |  ]
+  ║      [         ]       [ ║|   |  ]
+  ║      [         ]  ┌────[─║|─┐ |  ]
+  ║    __[_________]__│____[_V|_│_|__]__
+  ║   |  [         ]  │    [.10 │.20 ]  |
+  ╚═══|═>[eth1.999_]  │    [__eth2___]  |
+      |               │         │       |
+      |               │  netns8 │       |
+      |               └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+### Test steps
+- Setup configuration of sub-ports on the DUT.
+- Setup configuration of sub-ports on the PTF.
+- Setup L3 RIF or SVI on the DUT.
+- Setup neighbor port for L3 RIF or SVI on the PTF.
+- Add one of the sub-ports to namespace on the PTF.
+- Setup static routes between port and sub-port in namespace on the PTF
+- Create packet (TCP, UDP or ICMP).
+- Send packet from sub-port to sub-port in namespace on the PTF.
+- Verify that sub-port gets received packet on the PTF.
 - Remove static routes from PTF
 - Remove namespaces from PTF
 - Clear configuration of sub-ports on the DUT.

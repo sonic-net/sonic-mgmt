@@ -54,6 +54,9 @@ class snmpPduController(PduControllerBase):
             self.pduType = "APC"
         if 'Emerson' in pdu:
             self.pduType = 'Emerson'
+        if 'PX2' in pdu:
+            self.pduType = 'Raritan'
+
         return
 
     def pduCntrlOid(self):
@@ -77,6 +80,11 @@ class snmpPduController(PduControllerBase):
         SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1"
         SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.2"
         SENTRY4_PORT_POWER_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.9"
+        # MIB OID for 'Raritan PX2':
+        RARITAN_PORT_NAME_BASE_OID = "1.3.6.1.4.1.13742.6.3.5.3.1.3"
+        RARITAN_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.3"
+        RARITAN_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.2"
+
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -103,8 +111,17 @@ class snmpPduController(PduControllerBase):
             self.PORT_POWER_BASE_OID     = SENTRY4_PORT_POWER_BASE_OID
             self.has_lanes = False
             self.max_lanes = 1
+        elif self.pduType == "Raritan":
+            self.CONTROL_ON = "1"
+            self.CONTROL_OFF = "0"
+            self.STATUS_ON = "7"
+            self.STATUS_OFF = "8"
+            self.PORT_NAME_BASE_OID      = RARITAN_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = RARITAN_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = RARITAN_PORT_CONTROL_BASE_OID
+
         else:
-            pass
+            raise RuntimeError("The pduType is not supported:{}".format(self.pduType))
 
 
     def _build_outlet_maps(self, port_oid, label):
@@ -221,7 +238,7 @@ class snmpPduController(PduControllerBase):
             (port_oid, rfc1902.Integer(self.CONTROL_OFF))
         )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
+            logging.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
