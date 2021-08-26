@@ -57,6 +57,7 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     @param request: Pytest request instance
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    add_fail_step_to_reboot('fast-reboot')
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
 
@@ -71,6 +72,7 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     @param request: Pytest request instance
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    add_fail_step_to_reboot('warm-reboot')
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
 
