@@ -3,7 +3,10 @@ Helper script for checking status of interfaces
 
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
+
+import re
 import logging
+from natsort import natsorted
 from transceiver_utils import all_transceivers_detected
 
 
@@ -121,3 +124,28 @@ def get_port_map(dut, asic_index=None):
         port_mapping[k] = [v]
 
     return port_mapping
+
+def get_physical_port_indices(duthost):
+    """Returns list of physical port numbers of the DUT"""
+    physical_port_indices = set()
+
+    intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
+    phy_port = re.compile(r'^Ethernet\d+$')
+    phy_intfs = [k for k in intf_facts.keys() if re.match(phy_port, k)]
+    phy_intfs = natsorted(phy_intfs)
+    logging.info("physical interfaces = {}".format(phy_intfs))
+
+    for asic_index in duthost.get_frontend_asic_ids():
+	# Get interfaces of this asic
+	interface_list = get_port_map(duthost, asic_index)
+	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in phy_intfs}
+	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+	for intf in interfaces_per_asic:
+            if asic_index is not None:
+                cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
+            else:
+                cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
+	    index = duthost.command(cmd)["stdout"]
+	    physical_port_indices.add(int(index))
+    #logging.info("$$$ physical port indices = {}".format(physical_port_indices))
+    return list(physical_port_indices)
