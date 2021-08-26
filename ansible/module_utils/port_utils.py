@@ -204,7 +204,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         else:
             for i in range(1,9):
                 port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "B6510-48VS8CQ" or "RA-B6510-48V8C":
+    elif hwsku == "B6510-48VS8CQ" or hwsku == "RA-B6510-48V8C":
         for i in range(1,49):
             port_alias_to_name_map["twentyfiveGigE0/%d" % i] = "Ethernet%d" % i
         for i in range(49,57):
