@@ -4,18 +4,23 @@ import random
 import pytest
 import os
 import time
+import json
 
 from ptf.mask import Mask
 import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # lgtm[py/unused-import]
 import ptf.testutils as testutils
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
+
+LOG_ERROR_INSUFFICIENT_RESOURCES = ".*SAI_STATUS_INSUFFICIENT_RESOURCES.*"
 
 ACL_JSON_FILE_SRC = "acl/null_route/acl.json"
 ACL_JSON_FILE_DEST = "/host/" + os.path.basename(ACL_JSON_FILE_SRC)
@@ -60,6 +65,50 @@ def skip_on_dualtor_testbed(tbinfo):
         pytest.skip("Skip running on dualtor testbed")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(rand_selected_dut):
+    """
+    Remove DATAACL to free TCAM resources
+    """
+    TABLE_NAME = "DATAACL"
+    lines = rand_selected_dut.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
+    data_acl_existing = False
+    for line in lines:
+        if TABLE_NAME in line:
+            data_acl_existing = True
+            break
+    if not data_acl_existing:
+        yield
+        return
+    # Remove DATAACL
+    logger.info("Removing ACL table {}".format(TABLE_NAME))
+    rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
+    yield
+    # Recover DATAACL
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    try:
+        entry = json.loads(output)[TABLE_NAME]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}".format(TABLE_NAME, entry['type'], \
+             ",".join(entry['ports']), entry['stage'])
+        logger.info("Restoring ACL table {}".format(TABLE_NAME))
+        rand_selected_dut.shell(cmd_create_table)
+    except Exception as e:
+        pytest.fail(str(e))
+
+
+def remove_acl_table(duthost):
+    """
+    A helper function to remove ACL table for testing
+    """
+    cmds= [
+        "config acl remove table {}".format(ACL_TABLE_NAME_V4),
+        "config acl remove table {}".format(ACL_TABLE_NAME_V6)
+    ]
+    logger.info("Removing ACL table for testing")
+    duthost.shell_cmds(cmds=cmds)
+
+
 @pytest.fixture(scope="module")
 def create_acl_table(rand_selected_dut, tbinfo):
     """
@@ -72,14 +121,23 @@ def create_acl_table(rand_selected_dut, tbinfo):
         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, port_channels),
         "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, port_channels)
     ]
-    rand_selected_dut.shell_cmds(cmds=cmds)
+    logger.info("Creating ACL table for testing")
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="null_route_helper")
+    loganalyzer.match_regex = [LOG_ERROR_INSUFFICIENT_RESOURCES]
+
+    # Skip test case if ACL table created failed due to insufficient resources
+    try:
+        with loganalyzer:
+            rand_selected_dut.shell_cmds(cmds=cmds)
+    except LogAnalyzerError:
+        skip_msg = "ACL table creation failed due to insufficient resources, test case will be skipped"
+        logger.error(skip_msg)
+        remove_acl_table(rand_selected_dut)
+        pytest.skip(skip_msg)
+
     yield
 
-    cmds= [
-        "config acl remove table {}".format(ACL_TABLE_NAME_V4),
-        "config acl remove table {}".format(ACL_TABLE_NAME_V6)
-    ]
-    rand_selected_dut.shell_cmds(cmds=cmds)
+    remove_acl_table(rand_selected_dut)
 
 
 @pytest.fixture(scope="module")
@@ -89,6 +147,8 @@ def apply_pre_defined_rules(rand_selected_dut, create_acl_table):
     """
     rand_selected_dut.copy(src=ACL_JSON_FILE_SRC, dest=ACL_JSON_FILE_DEST)
     rand_selected_dut.shell("acl-loader update full " + ACL_JSON_FILE_DEST)
+    # Wait 5 seconds for ACL rule creation
+    time.sleep(5)
     yield
     # Clear ACL rules
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'.format(ACL_TABLE_NAME_V4))
@@ -146,12 +206,11 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
     ptfadapter.dataplane.flush()
-    testutils.send_packet(ptfadapter, pkt = pkt, port_id=tx_port)
-    rcvd = testutils.count_matched_packets(ptfadapter, exp_pkt, rx_port)
+    testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
-        return rcvd == 1
+        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
     else:
-        return rcvd == 0
+        testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defined_rules, setup_ptf):
@@ -184,4 +243,4 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
             time.sleep(1)
 
-        assert(send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result))
+        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result)
