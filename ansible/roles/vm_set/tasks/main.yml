@@ -174,7 +174,13 @@
     - set_fact:
         home_path: "{{ getent_passwd[ansible_user][4] }}"
       when: home_path is not defined
-    - debug: msg="{{ home_path }}"
+
+    # root_path is supposed to be absolute path. 
+    - set_fact:
+        root_path: "{{ home_path + '/' + root_path }}"
+      when: "not '{{ root_path }}'.startswith('/')"
+
+    - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
 
 - name: Require veos or SONiC VMs by default
   set_fact:

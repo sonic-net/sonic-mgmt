@@ -24,6 +24,7 @@ from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
+from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -74,6 +75,9 @@ def pytest_addoption(parser):
     parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
                     help="Neighbor devices type")
 
+    # FWUtil options
+    parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
     ############################
     # pfc_asym options         #
     ############################
@@ -123,13 +127,32 @@ def pytest_addoption(parser):
     ############################
     # platform sfp api options #
     ############################
-
     # Allow user to skip the absent sfp modules. User can use it like below:
     # "--skip-absent-sfp=True"
     # If this option is not specified, False will be used by default.
     parser.addoption("--skip-absent-sfp", action="store", type=bool, default=False,
         help="Skip test on absent SFP",
     )
+
+    ############################
+    # upgrade_path options     #
+    ############################
+    parser.addoption("--upgrade_type", default="warm",
+        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
+    )
+
+    parser.addoption("--base_image_list", default="",
+        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
+    )
+
+    parser.addoption("--target_image_list", default="",
+        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
+    )
+
+    parser.addoption("--restore_to_image", default="",
+        help="Specify the target image to restore to, or stay in target image if empty",
+    )
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -924,7 +947,7 @@ def generate_dut_feature_container_list(request):
     List of features and container names are both obtained from
     metadata file
     """
-    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+    empty = [ encode_dut_and_container_name("unknown", "unknown") ]
 
     meta = get_testbed_metadata(request)
 
@@ -942,9 +965,9 @@ def generate_dut_feature_container_list(request):
 
             if services is not None:
                 for service in services:
-                    container_list.append(encode_dut_port_name(dut, service))
+                    container_list.append(encode_dut_and_container_name(dut, service))
             else:
-                container_list.append(encode_dut_port_name(dut, feature))
+                container_list.append(encode_dut_and_container_name(dut, feature))
 
     return container_list
 

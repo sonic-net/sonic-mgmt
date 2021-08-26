@@ -7,7 +7,7 @@ import random
 import re
 from collections import defaultdict
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
@@ -55,6 +55,8 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv
         with open("/tmp/from_t1.json", "w") as ar_config:
             json.dump(arp_responder_conf, ar_config)
         ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
+        ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.shell('supervisorctl reread && supervisorctl update')
         ptfhost.shell('supervisorctl restart arp_responder')
