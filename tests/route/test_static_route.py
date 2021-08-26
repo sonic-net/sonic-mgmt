@@ -142,16 +142,6 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
             assert prefix in adv_routes
 
 
-def route_redistribution_static(duthost, ipv6, removed=False):
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
-    if ipv6:
-        duthost.shell("vtysh -c 'configure terminal' -c 'router bgp {}' -c 'address-family ipv6' -c '{}redistribute static'".format(mg_facts["minigraph_bgp_asn"],
-                        "no " if removed else ''))
-    else:
-        duthost.shell("vtysh -c 'configure terminal' -c 'router bgp {}' -c '{}redistribute static'".format(mg_facts["minigraph_bgp_asn"],
-                        "no " if removed else ''))
-
-
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp
     clear_arp_ndp(duthost, ipv6=ipv6)
@@ -160,8 +150,6 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
     try:
-        # Enable redistribution of static routes
-        route_redistribution_static(duthost, ipv6)
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
         time.sleep(5)
@@ -177,7 +165,6 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         if config_reload_test:
             duthost.shell('config save -y')
             config_reload(duthost, wait=350)
-            route_redistribution_static(duthost, ipv6)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
@@ -191,8 +178,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Check the advertised route get removed
         time.sleep(5)
         check_route_redistribution(duthost, prefix, ipv6, removed=True)
-        # Disable redistribution of static routes
-        route_redistribution_static(duthost, ipv6, removed=True)
+
         # Config save if the saved config_db was updated
         if config_reload_test:
             duthost.shell('config save -y')
