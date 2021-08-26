@@ -1,7 +1,7 @@
 import logging
 import pytest
-import json
-import urllib2
+
+import requests
 
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
@@ -74,23 +74,21 @@ def _get(server_url):
         server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1]
     Returns:
         dict: A dict decoded from server's response.
-        None: Returns None is error is detected.
+        None: Returns None if request failed.
     """
-    req = urllib2.Request(url=server_url)
     try:
-        res = urllib2.urlopen(req)
-        data = res.read()
-        return json.loads(data)
-    except urllib2.HTTPError as e:
-        err_msg = json.loads(e.read().decode())['err_msg']
-        logger.warn("get request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
-    except urllib2.URLError as e:
-        logger.warn("get request returns err. err_msg = {}".format(str(e)))
-    except json.decoder.JSONDecodeError as e:
-        logger.warn("failed to parse response as json. err_msg = {}".format(str(e)))
+        logger.debug('GET {}'.format(server_url))
+        headers = {'Accept': 'application/json'}
+        resp = requests.get(server_url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            logger.warn("GET {} failed with {}".format(server_url, resp.text))
     except Exception as e:
-        logger.warn("get request returns err. err_msg = {}".format(str(e)))
+        logger.warn("GET {} failed with {}".format(server_url, repr(e)))
+
     return None
+
 
 def _post(server_url, data):
     """
@@ -102,22 +100,15 @@ def _post(server_url, data):
     Returns:
         True if succeed. False otherwise
     """
-    data = json.dumps(data).encode(encoding='utf-8')
-    header = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-    req = urllib2.Request(url=server_url, data=data, headers=header)
     try:
-        _ = urllib2.urlopen(req)
-    except urllib2.HTTPError as e:
-        try:
-            err_msg = json.loads(e.read().decode())['err_msg']
-            logger.warn("post request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
-        except Exception:
-            logger.warn("post request returns err. status_code = {}".format(e.code))
-        return False
-    except urllib2.URLError as e:
-        logger.warn("post request returns err. err_msg = {}".format(str(e)))
-        return False
-    return True
+        logger.debug('POST {} with {}'.format(server_url, data))
+        headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        resp = requests.post(server_url, json=data, headers=headers)
+        return resp.status_code == 200
+    except Exception as e:
+        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+
+    return False
 
 
 @pytest.fixture(scope='function')
@@ -393,7 +384,7 @@ def reset_simulator_port(url):
 
     def _reset_simulator_port(interface_name=None):
         logger.warn("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
-        server_url = url(interface_name=interface_name, action=RESET) 
+        server_url = url(interface_name=interface_name, action=RESET)
         pytest_assert(_post(server_url, {}))
 
     return _reset_simulator_port
