@@ -41,7 +41,7 @@ root.addHandler(handler)
 def parse_testbed(testbedfile, testbed_servers):
     """Return a dictionary containing mapping from server name to testbeds."""
     testbed = imp.load_source('testbed', os.path.join(SONIC_MGMT_DIR, 'tests/common/testbed.py'))
-    testbeds = {_: list() for _ in testbed_servers}
+    testbeds = {server_name: list() for server_name in testbed_servers}
     for tbname, tb in testbed.TestbedInfo(testbedfile).testbed_topo.items():
         if tb['server'] in testbeds:
             testbeds[tb['server']].append(tb)
@@ -306,7 +306,7 @@ if __name__ == '__main__':
     parser.add_argument('--testbed', default='testbed.csv', help='testbed file(default: testbed.csv)')
     parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
     parser.add_argument('--vm-type', default='veos', help='vm type (veos|ceos|vsonic, default: veos)')
-    parser.add_argument('--inventory', help='Deprecated, will acquire from testbed configuration automatically')
+    parser.add_argument('--inventory', help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
     parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
     parser.add_argument('--skip-cleanup', action='store_true', help='Skip cleanup server')
     parser.add_argument('--dry-run', action='store_true', help='Dry run')
