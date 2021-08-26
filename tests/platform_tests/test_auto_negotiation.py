@@ -252,7 +252,7 @@ def test_auto_negotiation_advertised_speeds_all():
             pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 
 
-def test_auto_negotiation_advertised_each_speed(enum_dut_portname_module_fixture):
+def test_auto_negotiation_dut_advertises_each_speed(enum_dut_portname_module_fixture):
     """Test all candidate ports to advertised all supported speeds one by one and verify
        that the port operational status is up after auto negotiation
     """
@@ -333,7 +333,7 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_dut_portname_module_
         if not success:
             # Fanout does not support set advertise speeds for this port
             logger.info('Ignore port {} due to fanout port {} does not support setting advertised speeds'.format(dut_port, fanout_port))
-            return
+            continue
         logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
         wait_result = wait_until(SINGLE_PORT_WAIT_TIME, 
                                 PORT_STATUS_CHECK_INTERVAL, 
