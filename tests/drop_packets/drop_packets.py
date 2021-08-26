@@ -10,6 +10,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -33,14 +34,22 @@ def sai_acl_drop_adj_enabled(rand_selected_dut):
     """
     Determines if the `sai_adjust_acl_drop_in_rx_drop` property is enabled
 
+    Note that this property is specific to BRCM platforms
+
     Since this leads to an undpredictable number of packets getting
     counted as RX_DRP (in certain test cases), if it is enabled we need to
     skip checking the drop counters for certain test cases
     """
-    check_cmd = "bcmcmd 'config show' | grep 'sai_adjust_acl_drop_in_rx_drop=1'"
-    res = rand_selected_dut.shell(check_cmd)
+    check_cmd = "which bcmcmd > /dev/null && bcmcmd 'config show' | grep 'sai_adjust_acl_drop_in_rx_drop=1'"
+    try:
+        rand_selected_dut.shell(check_cmd)
+    except RunAnsibleModuleFail:
+        # If the above command fails, we can assume that either
+        # we are not on a BRCM platform or the specified property
+        # is not enabled/available
+        return False
 
-    return res["rc"] == 0
+    return True
 
 
 @pytest.fixture
