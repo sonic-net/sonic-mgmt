@@ -103,28 +103,7 @@ stages:
 
         steps:
 
-          - task: AzureKeyVault@1
-            displayName: Get Secrets
-            inputs:
-              azureSubscription: 'Network Production Environment -- SONiC(9355ef17-3aa2-493a-94ab-a43a9bf8cd70)'
-              KeyVaultName: 'SONiC'
-              SecretsFilter: '*'
-              RunAsPreJob: false
-
-          - task: Bash@3
-            displayName: Save Secrets
-            inputs:
-              targetType: 'inline'
-              script: |
-                # Download secrets.json from Azure Key Vault
-                # The AzureKeyVault task automatically set variable for each secret found in key vault
-                # Secrets available: nm-secrets, ansible-vault-passwd
-                echo '$(nm-secrets)' > ansible/group_vars/all/secrets.json
-                echo '$(ansible-vault-passwd)' > ansible/password.txt
-
-                # decrypt the secret file
-                md5sum ansible/group_vars/all/secrets.json
-                ansible-vault decrypt ansible/group_vars/all/secrets.json --vault-password-file=ansible/password.txt
+          - template: get_secrets.yml
 
           - task: PythonScript@0
             displayName: Parse Testbed Info
