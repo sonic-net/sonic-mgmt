@@ -6,28 +6,31 @@ import time
 from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
+from tests.common.utilities import skip_release
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
 
-def skip_201911_and_older(duthost):
-    """ Skip the current test if the DUT version is 201911 or older.
-    """
-    if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
-        pytest.skip("Test not supported for 201911 images or older. Skipping the test")
+
+def check_disk_ro(duthost):
+    try:
+        result = duthost.shell("touch ~/disk_check.tst", module_ignore_errors=True)
+        return rc != 0
+    finally:
+        logger.info("touch file failed as expected")
+        return True
 
 
 def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
-    time.sleep(30)
+    assert wait_until(30, 2, check_disk_ro, duthost), "disk not in ro state"
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -44,7 +47,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_201911_and_older(duthost)
+    skip_release(duthost, ["201911", "201811"])
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
@@ -75,7 +78,8 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
-        time.sleep(120)
+        assert wait_until(600, 20, chk_ssh_remote_run, localhost, dutip,
+                rw_user, rw_pass, "cat /etc/passwd"), "Failed to ssh upon reboot"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
 
