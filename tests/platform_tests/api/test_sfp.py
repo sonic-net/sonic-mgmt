@@ -110,7 +110,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     @pytest.fixture(scope="module")
     def is_platform_api_implemented(self, duthost):
-        if "202012" in duthost.os_version:
+        if "202012" == duthost.sonic_release:
             platform = duthost.facts['platform']
             if 'arista' in platform or 'mlnx' in platform:
                 return False
@@ -132,7 +132,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if duthost.is_supervisor_node():
             pytest.skip("skipping for supervisor node")
-        self.skip_absent_sfp = True #request.config.getoption("--skip-absent-sfp")
+        self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
         self.list_sfps = physical_port_indices
         #logging.info("physical_port_indices {}".format(physical_port_indices))
         self.candidate_sfp = []
