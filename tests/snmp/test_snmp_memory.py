@@ -54,13 +54,11 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                                 community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     facts = collect_memory(duthost)
     compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
-               ('ansible_sysCachedMemory', 'Cached'))
+               ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
     # Verify correct behaviour of sysTotalMemery, sysTotalSharedMemory
     pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
-                  "Unexpected res sysTotalMemery {}".format(snmp_facts['ansible_sysTotalMemery']))
-    pytest_assert(not abs(snmp_facts['ansible_sysTotalSharedMemory'] - int(facts['Shmem'])),
-                  "Unexpected res sysTotalSharedMemory {}".format(snmp_facts['ansible_sysTotalSharedMemory']))
+                  "Unexpected res sysTotalMemery {} v.s. {}".format(snmp_facts['ansible_sysTotalMemery'], facts['MemTotal']))
 
     # Verify correct behaviour of sysTotalFreeMemery, sysTotalBuffMemory, sysCachedMemory
     snmp_diff = [snmp for snmp, sys_data in compare if CALC_DIFF(snmp_facts[snmp],
