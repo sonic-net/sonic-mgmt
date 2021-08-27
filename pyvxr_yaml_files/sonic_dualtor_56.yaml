@@ -41,12 +41,14 @@ devices:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
+    #linux_username: "admin"
+    #linux_password: "YourPaSsWoRd"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_12.3/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/devpatha/sonic-cisco-8000-dualtor-msft-202012.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-default-10799/npl
+           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-1.43.0.3-buster-1.7.1-10811/npl
            ConfigS1NpsuiteVer: 1.78.1
 
   sonic_dut_1:

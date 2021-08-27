@@ -29,10 +29,28 @@ import datetime
 import subprocess
 import sys
 
-# Return a list that only contains the entries in 'data' whose keys start with 'sonic_dut_'
-def get_dut_entries(data):
-    # N.B. for some reason tuple expansion with dict.items() does not work here
-    return [data[key] for key in data if key.startswith('sonic_dut_')]
+# Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
+# For example: ['sonic_dut_1', 'sonic_dut_2']
+def get_dut_names(data):
+    return [key for key in data if key.startswith('sonic_dut')]
+
+# Converts a DUT device name from a VXR topology into the proper non-VXR topology name
+# For example:
+#   - Use legacy "platform-01" format for older VXR toplogies with just a single DUT
+#       ('sonic_dut',   'sherman')  -> 'sherman-01'
+#
+#   - For VXR topologies with multiple DUT, use 0-indexed single digit
+#       ('sonic_dut_0', 'mathilda') -> 'mathilda-0'
+#       ('sonic_dut_1', 'sherman')  -> 'sherman-1'
+def get_tdata_dut_name(vxr_dut_name, dut_platform):
+    assert vxr_dut_name.startswith('sonic_dut')
+
+    if vxr_dut_name == 'sonic_dut':
+        return "{}-01".format(dut_platform)
+    else:
+        dut_id = vxr_dut_name.split('_')[-1]
+        return "{}-{}".format(dut_platform, dut_id)
+
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
@@ -179,22 +197,17 @@ def vEOS_inital_cfg(data,vEOS_count):
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
+def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform):
     input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
 
     # Find each device listed in the VXR topology that starts with "sonic_dut_"
-    for vxr_device in data.keys():
-        if vxr_device.startswith('sonic_dut_'):
-            # 0-indexed id parsed from 'sonic_dut_{}' devices in VXR topo file
-            dut_id = vxr_device.split('_')[-1]
-            # 'matilda-0', 'matilda-1', etc, from non-VXR topo file
-            dut_name = "{}-{}".format(dut_prefix, dut_id)
-
-            tdata['devices'][dut_name]['ansible']['ansible_host'] = data[vxr_device]['xr_mgmt_ip']
-            tdata['devices'][dut_name]['ansible']['ansible_ssh_user'] = data[vxr_device]['uname']
+    for vxr_device_name in get_dut_names(data):
+        tdata_dut_name = get_tdata_dut_name(vxr_device_name, dut_platform)
+        tdata['devices'][tdata_dut_name]['ansible']['ansible_host'] = data[vxr_device_name]['xr_mgmt_ip']
+        tdata['devices'][tdata_dut_name]['ansible']['ansible_ssh_user'] = data[vxr_device_name]['uname']
 
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
@@ -212,17 +225,15 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_name, dut_prefix):
         yaml.dump(tdata,f)
         f.close()
 
-def change_dut_passwd(dut_entry):
-    #TODO this needs to be reworked to allow multiple "sonic_dut" entries
-    #for (entry_key, entry_value) in data.items():
-    #    if entry_key.startswith('sonic_dut_'):
-    host = dut_entry['HostAgent']
-    port = dut_entry['xr_redir22']
-    user = dut_entry['uname']
-    passwd = dut_entry['passwd']
+# Invoked on each DUT device found in topology
+def change_dut_passwd(device):
+    host = device['HostAgent']
+    port = device['xr_redir22']
+    user = device['uname']
+    passwd = device['passwd']
     #passwd = "cisco123"
     new_passwd = "cisco123"
-    mgmt_ip = dut_entry['xr_mgmt_ip']
+    mgmt_ip = device['xr_mgmt_ip']
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -373,7 +384,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
     ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
     ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
-    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')  
+    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
@@ -391,7 +402,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
 def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'])
+    ssh.connect(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'])
     ftp_client=ssh.open_sftp()
     ftp_client.get('/tmp/config_db.json','config_db_current.json')
     ftp_client.close()
@@ -414,7 +425,7 @@ def replace_dut_mgmt_address(data):
         json.dump(cfg_data, cfg_file, indent=4)
         cfg_file.close()
 
-    ssh.connect(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'])
+    ssh.connect(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'])
     ftp_client=ssh.open_sftp()
     ftp_client.put('config_db.json','/tmp/config_db_new.json')
     ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
@@ -426,7 +437,7 @@ def reload_dut_with_newCFG(data):
     cmd_list.append('sudo cp /tmp/config_db_new.json /etc/sonic/config_db.json\n')
     cmd_list.append('sudo cp /tmp/minigraph.xml /etc/sonic/minigraph.xml\n')
     cmd_list.append('sudo reboot\n')
-    run_exec_cmds(dut_entry['HostAgent'], dut_entry['xr_redir22'], dut_entry['uname'], dut_entry['passwd'], cmd_list)
+    run_exec_cmds(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'], cmd_list)
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
@@ -602,11 +613,9 @@ def main():
     branch = args['branch']
     ptf_intfcount = 32
     if device_type == 'sherman':
-        dut_name = 'sherman-01'
-        dut_prefix = "sherman"
+        dut_platform = "sherman"
     else:
-        dut_name = 'mathilda-01'
-        dut_prefix = "mathilda"
+        dut_platform = "mathilda"
 
     if topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
@@ -655,17 +664,16 @@ def main():
         sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
         if not int(sim_output):
             sys.exit("Sim is not up. Exiting now")
-            
+
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
 
     with open(input_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
-    for (entry_key, entry_value) in data.items():
-        if entry_key.startswith('sonic_dut_'):
-            data[entry_key]['uname'] = dut_uname
-            data[entry_key]['passwd'] = dut_passwd
+    for dut_name in get_dut_names(data):
+        data[dut_name]['uname'] = dut_uname
+        data[dut_name]['passwd'] = dut_passwd
 
     data['branch'] = branch
     data['ptf_intf_count'] = ptf_intfcount
@@ -679,16 +687,16 @@ def main():
 
     # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
-    create_testbed_file(data,base_topo_file,vEOS_count,dut_name,dut_prefix)
+    create_testbed_file(data,base_topo_file,vEOS_count,dut_platform)
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
     upload_tb_files(data,topo_type,base_topo_file,device_type)
 
     # Change DUT password and set mgmt ip address
-    for (i, dut_entry) in enumerate(get_dut_entries(data)):
-            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(i))
-            change_dut_passwd(dut_entry)
+    for dut_name in get_dut_names(data):
+            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+            change_dut_passwd(data[dut_name])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
@@ -713,8 +721,9 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    for (i, dut_entry) in enumerate(get_dut_entries(data)):
-        print("Sonic DUT #{} (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
+    for dut_name in get_dut_names(data):
+        device = data[dut_name]
+        print("Sonic DUT '{}' (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
@@ -739,8 +748,9 @@ def main():
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
 
-    for (i, dut_entry) in enumerate(get_dut_entries(data)):
-        print("Sonic DUT (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_entry['HostAgent'], dut_entry['serial0'], dut_entry['xr_mgmt_ip'], dut_entry['xr_redir22']))
+    for dut_name in get_dut_names(data):
+        device = data[dut_name]
+        print("Sonic DUT '{}' (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 

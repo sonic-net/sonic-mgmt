@@ -117,7 +117,8 @@ def run_cmd(cmdline):
         'stdout': stdout.splitlines(),
         'stderr': stderr.splitlines()
     }
-    app.logger.debug(json.dumps(msg, indent=2))
+    #app.logger.debug(json.dumps(msg, indent=2))
+    app.logger.debug(msg)
 
     if ret_code != 0:
         raise Exception(msg)
