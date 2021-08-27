@@ -8,6 +8,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, thermal
+from tests.common.utilities import skip_version_for_platform
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -202,9 +203,7 @@ class TestThermalApi(PlatformApiTestBase):
 
     def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        platform = duthost.facts['platform']
-        if platform in ('x86_64-arista_7050_qx32', 'x86_64-arista_7050_qx32s'):
-            pytest.skip('skip test_set_low_threshold for {}'.format(platform))
+        skip_version_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
@@ -223,9 +222,7 @@ class TestThermalApi(PlatformApiTestBase):
 
     def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        platform = duthost.facts['platform']
-        if platform in ('x86_64-arista_7050_qx32', 'x86_64-arista_7050_qx32s'):
-            pytest.skip('skip test_set_high_threshold for {}'.format(platform))
+        skip_version_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
