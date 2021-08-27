@@ -263,7 +263,7 @@ Once the topology has been created, we need to give the DUT an initial configura
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 ```
 ssh admin@10.250.0.101
-admin@10.250.0.101's password: <password_in_password.txt>
+admin@10.250.0.101's password: password
 ```
 3. After logged in to the SONiC KVM, you should be able to see BGP sessions with:
 ```
