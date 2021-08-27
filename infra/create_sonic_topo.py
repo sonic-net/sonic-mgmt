@@ -197,7 +197,7 @@ def vEOS_inital_cfg(data,vEOS_count):
         add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout)
 
 
-def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform):
+def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform, device_type):
     input_file = base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
@@ -211,10 +211,13 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform):
 
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
-    tdata['devices']['str-acs-serv-01']['ansible']['ansible_host'] = data['mux_sim']['xr_mgmt_ip'] + '/24'
-    tdata['host_vars']['str-acs-serv-01']['mgmt_gw'] = data['mux_sim']['xr_mgmt_ip']
-    tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
     tdata['devices']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
+
+    if 'dualtor' in device_type:
+        tdata['devices']['str-acs-serv-01']['ansible']['ansible_host'] = data['mux_sim']['xr_mgmt_ip'] + '/24'
+        tdata['host_vars']['str-acs-serv-01']['mgmt_gw'] = data['mux_sim']['xr_mgmt_ip']
+        tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
+
     base = 100
 
     for i in range (1,vEOS_count+1):
@@ -687,7 +690,7 @@ def main():
 
     # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
-    create_testbed_file(data,base_topo_file,vEOS_count,dut_platform)
+    create_testbed_file(data,base_topo_file,vEOS_count,dut_platform,device_type)
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
@@ -729,7 +732,8 @@ def main():
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
 
-    print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+    if 'dualtor' in device_type:
+        print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
@@ -756,7 +760,8 @@ def main():
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
 
-    print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+    if 'dualtor' in device_type:
+        print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
