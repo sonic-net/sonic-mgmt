@@ -296,9 +296,6 @@ class TestQosSai(QosSaiBase):
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
-        if not 'hdrm_pool_size' in qosConfig.keys():
-            pytest.skip("Headroom pool size is not enabled on this DUT")
-
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
