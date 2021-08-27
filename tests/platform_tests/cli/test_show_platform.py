@@ -346,7 +346,7 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     platform = duthost.facts['platform']
     if platform in ('x86_64-arista_7050_qx32', 'x86_64-arista_7050_qx32s'):
-            pytest.skip('skip {} test for {}'.format(funcName, platform))
+            pytest.skip('skip test_show_platform_firmware_status for {}'.format(platform))
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 

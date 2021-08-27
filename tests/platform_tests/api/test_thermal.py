@@ -204,7 +204,7 @@ class TestThermalApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         platform = duthost.facts['platform']
         if platform in ('x86_64-arista_7050_qx32', 'x86_64-arista_7050_qx32s'):
-            pytest.skip('skip {} test for {}'.format(funcName, platform))
+            pytest.skip('skip test_set_low_threshold for {}'.format(platform))
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
@@ -225,7 +225,7 @@ class TestThermalApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         platform = duthost.facts['platform']
         if platform in ('x86_64-arista_7050_qx32', 'x86_64-arista_7050_qx32s'):
-            pytest.skip('skip {} test for {}'.format(funcName, platform))
+            pytest.skip('skip test_set_high_threshold for {}'.format(platform))
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
