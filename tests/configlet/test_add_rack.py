@@ -17,6 +17,42 @@ from helpers import *
 import files_create
 from common import *
 
+# Test Description:
+# configlet is a generic tool that can patch any entry in CONFIG-DB.
+# AddRack is one of the scenarios that uses configlet
+#
+# AddRack:
+#   This is part of building of a new cluster with a T0. 
+#   Using AddRack-configlet, this new T0 could be added to a T1
+#   This includes the following
+#
+#   Use CLI to ensure that this port is marked as down
+#
+#   a) Adds a new Device Neighbor
+#   b) Adds a new Portchannel for this port
+#   c) Appends to ACL_TABLE for Everflow
+#   d) Adds other port related entries 
+#       CABLE_LENGTH, QUEUE, BUGGER_PG, BUFFER_QUEUE, BUFFER_PG,
+#       BUFFER_PORT_INGRESS_PROFILE_LIST & BUFFER_PORT_EGRESS_PROFILE_LIST, if 
+#       Mellanox, PORT_QOS_MAP, PFC_WD
+#   e) Add a new BGP Neighbor
+#   
+#   Use CLI to set this port up
+# 
+# How this test works ?
+#   a) Load the current/original minigraph for this device, which has all T0s
+#      per its topology
+#   b) Take a dump of CONFIG-DB, APP-DB & ASIC-DB
+#   c) Generate a new minigraph, by removing a T0 from the original minigraph
+#   d) Load the new minigraph
+#   e) Generate the configlet for this removed T0
+#   f) Apply this configlet
+#   g) Get dump of CONFIG-DB, APP-DB & ASIC-DB
+#   h) Verify the following
+#       a) BGP is up for this new neighbor
+#       b) Compare the DB dumps with the dumps taken with original minigraph
+#
+
 pytestmark = [
         pytest.mark.topology("t1")
         ]
