@@ -46,12 +46,8 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_f
 
 
 def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, key='src'):
-    interfaces = None
-    is_backend_topology = constants.IS_BACKEND_TOPOLOGY_KEY in mg_facts.keys() and mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY]
-    if is_backend_topology:
-        interfaces = mg_facts['minigraph_vlan_sub_interfaces']
-    else:
-        interfaces = mg_facts['minigraph_interfaces']
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+    interfaces = mg_facts['minigraph_vlan_sub_interfaces'] if is_backend_topology else mg_facts['minigraph_interfaces']
 
     if not interfaces:
         pytest.fail("interfaces is not defined.")

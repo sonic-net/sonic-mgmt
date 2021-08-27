@@ -11,6 +11,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
 from tests.common.helpers.assertions import pytest_assert
@@ -52,6 +53,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     server_ips = []
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(duthost)
@@ -68,7 +70,10 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     # populate dst intf and ptf id
     ptf_portmap = mg_facts['minigraph_ptf_indices']
     dst_port = random.choice(vlan['ports'])
-    ptf_dst_port = ptf_portmap[dst_port]
+    if is_backend_topology:
+        ptf_dst_port = str(ptf_portmap[dst_port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + mg_facts["minigraph_vlans"].values()[0]["vlanid"]
+    else:
+        ptf_dst_port = ptf_portmap[dst_port]
     ptf_vlan_ports = [ptf_portmap[ifname] for ifname in vlan['ports']]
     # populate portchannel intf, peer address and ptf ids
     pc = dict()
