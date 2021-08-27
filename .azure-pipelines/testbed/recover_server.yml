@@ -1,0 +1,102 @@
+# This job is for recovering all the testbeds on a server. It can only be manually triggered.
+
+name: RecoverServer_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: SERVER
+    type: string
+    default: server_1
+    values:
+      - server_1
+      - server_2
+      - server_3
+      - server_6
+      - server_7
+      - server_11
+      - server_12
+      - server_13
+      - server_16
+      - server_17
+      - server_18
+      - server_19
+      - server_20
+      - server_21
+    displayName: "Server name"
+
+  - name: VM_FILE
+    type: string
+    default: veos
+    displayName: "VM file"
+
+  - name: VM_TYPE
+    type: string
+    default: ceos
+    values:
+      - veos
+      - ceos
+    displayName: "VM type"
+
+  - name: SKIP_CLEANUP
+    type: boolean
+    default: false
+    displayName: "Skip cleanup"
+
+  - name: DRY_RUN
+    type: boolean
+    default: true
+    displayName: "Dry run"
+
+stages:
+  - stage: Recover
+    jobs:
+      - job: RecoverServer
+        pool: nightly
+        timeoutInMinutes: 720
+
+        steps:
+
+          - task: AzureKeyVault@1
+            displayName: Get Secrets
+            inputs:
+              azureSubscription: 'Network Production Environment -- SONiC(9355ef17-3aa2-493a-94ab-a43a9bf8cd70)'
+              KeyVaultName: 'SONiC'
+              SecretsFilter: '*'
+              RunAsPreJob: false
+
+          - task: Bash@3
+            displayName: Save Secrets
+            inputs:
+              targetType: 'inline'
+              script: |
+                # Download secrets.json from Azure Key Vault
+                # The AzureKeyVault task automatically set variable for each secret found in key vault
+                # Secrets available: nm-secrets, ansible-vault-passwd
+                echo '$(nm-secrets)' > ansible/group_vars/all/secrets.json
+                echo '$(ansible-vault-passwd)' > ansible/password.txt
+
+                # decrypt the secret file
+                md5sum ansible/group_vars/all/secrets.json
+                ansible-vault decrypt ansible/group_vars/all/secrets.json --vault-password-file=ansible/password.txt
+
+          - task: Bash@3
+            displayName: Recover server
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.SKIP_CLEANUP }} == True ]]; then
+                    arg_skip_cleanup='--skip-cleanup'
+                else
+                    arg_skip_cleanup=''
+                fi
+                if [[ ${{ parameters.DRY_RUN }} == True ]]; then
+                    arg_dry_run='--dry-run'
+                else
+                    arg_dry_run=''
+                fi
+
+                python ansible/recover_server.py --testbed-servers ${{ parameters.SERVER }}  --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
