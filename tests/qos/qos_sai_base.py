@@ -9,6 +9,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/un
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 
 logger = logging.getLogger(__name__)
 
@@ -627,7 +629,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
         swapSyncd, enable_container_autorestart, disable_container_autorestart,
-        tbinfo
+        tbinfo, upper_tor_host, lower_tor_host
     ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -639,7 +641,11 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = upper_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         def updateDockerService(host, docker="", action="", service=""):
             """
@@ -675,10 +681,10 @@ class QosSaiBase(QosBase):
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
-        """ Disable linkmgr """
+        """ Stop mux container for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-            duthost.shell('sudo config feature state mux disabled')
-            logger.info("Disable linkmgr for dual ToR testbed")
+            duthost.shell('sudo systemctl stop mux')
+            logger.info("Stop mux container for dual ToR testbed")
 
         yield
 
@@ -686,10 +692,10 @@ class QosSaiBase(QosBase):
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
-        """ Enable linkmgr """
+        """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-            duthost.shell('sudo config feature state mux enabled')
-            logger.info("Enable linkmgr for dual ToR testbed")
+            duthost.shell('sudo systemctl start mux')
+            logger.info("Start mux container for dual ToR testbed")
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):

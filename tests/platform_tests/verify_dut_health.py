@@ -157,28 +157,32 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def add_fail_step_to_reboot(request, localhost, duthosts, rand_one_dut_hostname):
+def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    test_name = request.node.name
-    if "warm" in test_name:
-        reboot_script = "warm-reboot"
-    elif "fast" in test_name:
-        reboot_script = "fast-reboot"
+    params = tuple()
+    def add_exit_to_script(reboot_type):
+        if "warm" in reboot_type:
+            reboot_script = "warm-reboot"
+        elif "fast" in reboot_type:
+            reboot_script = "fast-reboot"
 
-    cmd_format = "sed -i 's/{}/{}/' {}"
-    reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
-    original_line = 'set +e'
-    replaced_line = 'exit -1; set +e'
-    replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
-    logging.info("Modify {} to exit before set +e".format(reboot_script_path))
-    duthost.shell(replace_cmd)
+        cmd_format = "sed -i 's/{}/{}/' {}"
+        reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
+        original_line = 'set +e'
+        replaced_line = 'exit -1; set +e'
+        replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
+        logging.info("Modify {} to exit before set +e".format(reboot_script_path))
+        duthost.shell(replace_cmd)
+        params = (cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path)
 
-    yield
+    yield add_exit_to_script
 
-    replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
-    logging.info("Revert {} script to original".format(reboot_script_path))
-    duthost.shell(replace_cmd)
+    if params:
+        cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path = params
+        replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
+        logging.info("Revert {} script to original".format(reboot_script_path))
+        duthost.shell(replace_cmd)
     # cold reboot DUT to restore any bad state caused by negative test
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD)
 
