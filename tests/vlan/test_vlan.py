@@ -161,6 +161,7 @@ def add_test_routes(duthost, vlan_ports_list):
 
     duthost.shell_cmds(cmds=cmds)
 
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_intfs_list, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
@@ -168,18 +169,16 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_i
     try:
         portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
 
-        shutdown_portchannels(duthost, portchannel_interfaces) 
-
-        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list)
-
-        startup_portchannels(duthost, portchannel_interfaces) 
+        shutdown_portchannels(duthost, portchannel_interfaces)
 
         create_vlan_interfaces(vlan_ports_list, ptfhost)
 
-        add_test_routes(duthost, vlan_ports_list) 
-
         setUpArpResponder(vlan_ports_list, ptfhost)
 
+        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list)
+
+        startup_portchannels(duthost, portchannel_interfaces)
+        add_test_routes(duthost, vlan_ports_list)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
