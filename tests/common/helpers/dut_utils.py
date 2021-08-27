@@ -181,7 +181,6 @@ def get_disabled_container_list(duthost):
 
     return disabled_containers
 
-
 def check_link_status(duthost, iface_list, expect_status):
     """
     check if the link status specified in the iface_list equal to expect status
@@ -195,3 +194,39 @@ def check_link_status(duthost, iface_list, expect_status):
         if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
             return False
     return True
+
+def encode_dut_and_container_name(dut_name, container_name):
+    """Gets a string by combining dut name and container name.
+
+    Args:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+
+    Returns:
+      A string includes the DuT and container names.
+    """
+
+    return dut_name + "|" + container_name
+
+
+def decode_dut_and_container_name(name_str):
+    """Gets DuT name and container name by parsing the string 'name_str'.
+
+    Args:
+      A string includes the DuT and container names.
+
+    Returns:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+    """
+    dut_name = ""
+    container_name = ""
+
+    name_list = name_str.strip().split("|")
+    if len(name_list) >= 2:
+        dut_name = name_list[0]
+        container_name = name_list[1]
+    elif len(name_list) == 1:
+        container_name = name_list[0]
+
+    return dut_name, container_name
