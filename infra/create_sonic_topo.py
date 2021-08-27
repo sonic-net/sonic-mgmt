@@ -300,6 +300,7 @@ def run_python_script(host,port,user,passwd,cmd_list):
 def run_exec_cmds(host,port,user,passwd,cmd_list):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    out = ""
     for cmd in cmd_list:
         ssh.connect(host, port, user, passwd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -310,6 +311,7 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         if error:
             print('There was an error pulling the runtime: {}'.format(error))
         ssh.close()
+    return out
 
 def add_vEOS_admin_user(veos1_host,veos1_port, connection_timeout):
     tn = telnetlib.Telnet(veos1_host,veos1_port, connection_timeout)
@@ -342,6 +344,7 @@ def download_mg(data,topo_type,dut_name):
     ftp_client.get('/home/vxr/sonic-test/sonic-mgmt/ansible/minigraph/{}.{}.xml'.format(dut_name,topo_type), 'minigraph.xml')
     ftp_client.close()
     ssh.close()
+
 
 def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ssh = paramiko.SSHClient()
@@ -545,6 +548,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         tc = tc.strip()
         tc_name = tc.split('/')
         tc_name = tc_name[len(tc_name)-1].split('.')[0]
+
 
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     later = datetime.datetime.now() + datetime.timedelta(hours=1)
