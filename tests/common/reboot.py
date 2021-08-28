@@ -33,7 +33,7 @@ reboot_ctrl_dict = {
     REBOOT_TYPE_POWEROFF: {
         "timeout": 300,
         "wait": 120,
-        "cause": "Power Loss",
+        "cause": "Power",
         "test_reboot_cause_only": True
     },
     REBOOT_TYPE_COLD: {
@@ -206,7 +206,6 @@ def get_reboot_cause(dut):
     logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
     cause  = output['stdout']
-
     for type, ctrl in reboot_ctrl_dict.items():
         if re.search(ctrl['cause'], cause):
             return type
@@ -221,5 +220,5 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logging.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
+    logging.info("dut {} last reboot-cause {} expected-reboot-cause {}".format(dut.hostname, reboot_cause_got, reboot_cause_expected))
     return reboot_cause_got == reboot_cause_expected
