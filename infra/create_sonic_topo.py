@@ -405,42 +405,44 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
 def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'])
-    ftp_client=ssh.open_sftp()
-    ftp_client.get('/tmp/config_db.json','config_db_current.json')
-    ftp_client.close()
-    ssh.close()
+    for dut_name in get_dut_names(data):
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ftp_client=ssh.open_sftp()
+        ftp_client.get('/tmp/config_db.json','config_db_current.json')
+        ftp_client.close()
+        ssh.close()
 
-    with open('config_db_current.json') as cfg_file:
-        cfg_data = json.load(cfg_file)
-        current_mgm_intf = cfg_data["MGMT_INTERFACE"]
-        current_mac = cfg_data["DEVICE_METADATA"]["localhost"]["mac"]
-        print(cfg_data["MGMT_INTERFACE"])
-        cfg_file.close()
+        with open('config_db_current.json') as cfg_file:
+            cfg_data = json.load(cfg_file)
+            current_mgm_intf = cfg_data["MGMT_INTERFACE"]
+            current_mac = cfg_data["DEVICE_METADATA"]["localhost"]["mac"]
+            print(cfg_data["MGMT_INTERFACE"])
+            cfg_file.close()
 
-    with open('config_db.json') as cfg_file:
-        cfg_data = json.load(cfg_file)
-        cfg_file.close()
+        with open('config_db.json') as cfg_file:
+            cfg_data = json.load(cfg_file)
+            cfg_file.close()
 
-    with open('config_db.json','w') as cfg_file:
-        cfg_data["MGMT_INTERFACE"] = current_mgm_intf
-        cfg_data["DEVICE_METADATA"]["localhost"]["mac"] = current_mac
-        json.dump(cfg_data, cfg_file, indent=4)
-        cfg_file.close()
+        with open('config_db.json','w') as cfg_file:
+            cfg_data["MGMT_INTERFACE"] = current_mgm_intf
+            cfg_data["DEVICE_METADATA"]["localhost"]["mac"] = current_mac
+            json.dump(cfg_data, cfg_file, indent=4)
+            cfg_file.close()
 
-    ssh.connect(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'])
-    ftp_client=ssh.open_sftp()
-    ftp_client.put('config_db.json','/tmp/config_db_new.json')
-    ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
-    ftp_client.close()
-    ssh.close()
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ftp_client=ssh.open_sftp()
+        ftp_client.put('config_db.json','/tmp/config_db_new.json')
+        ftp_client.put('minigraph.xml', '/tmp/minigraph.xml')
+        ftp_client.close()
+        ssh.close()
 
 def reload_dut_with_newCFG(data):
-    cmd_list = list()
-    cmd_list.append('sudo cp /tmp/config_db_new.json /etc/sonic/config_db.json\n')
-    cmd_list.append('sudo cp /tmp/minigraph.xml /etc/sonic/minigraph.xml\n')
-    cmd_list.append('sudo reboot\n')
-    run_exec_cmds(data['HostAgent'], data['xr_redir22'], data['uname'], data['passwd'], cmd_list)
+    for dut_name in get_dut_names(data):
+        cmd_list = list()
+        cmd_list.append('sudo cp /tmp/config_db_new.json /etc/sonic/config_db.json\n')
+        cmd_list.append('sudo cp /tmp/minigraph.xml /etc/sonic/minigraph.xml\n')
+        cmd_list.append('sudo reboot\n')
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
 
 def add_ptf_backplane_addr(data):
     cmd_list = list()
@@ -731,7 +733,6 @@ def main():
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
-
     if 'dualtor' in device_type:
         print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
@@ -759,7 +760,6 @@ def main():
     print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
     print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
-
     if 'dualtor' in device_type:
         print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
