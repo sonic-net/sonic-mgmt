@@ -149,7 +149,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
 
     # stop garp service for single tor
-    if 'dualtor' not in tbinfo['topo']['name'] and rand_unselected_dut is None:
+    if 'dualtor' not in tbinfo['topo']['name']:
         logging.info("Stopping GARP service on single tor")
         ptfhost.shell("supervisorctl stop garp_service")
 
