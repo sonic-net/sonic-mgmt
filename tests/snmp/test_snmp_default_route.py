@@ -14,7 +14,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
+    pytest_require('backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
