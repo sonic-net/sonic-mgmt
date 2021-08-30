@@ -3,6 +3,8 @@ import time
 import pytest
 import httplib
 
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
@@ -96,3 +98,15 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
         yield conn
     finally:
         conn.close()
+
+@pytest.fixture(autouse=True)
+def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost,
+                                  marker_prefix="platformapi_test")
+    marker = loganalyzer.init()
+    yield
+    loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
+    loganalyzer.analyze(marker)
+    
