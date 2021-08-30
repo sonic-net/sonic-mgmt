@@ -208,9 +208,9 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
-        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
+        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
     else:
-        testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=2)
+        testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defined_rules, setup_ptf):
