@@ -96,7 +96,7 @@ BYTES_COUNT = "bytes_count"
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -147,6 +147,11 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+
+    # stop garp service for single tor
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logging.info("Stopping GARP service on single tor")
+        ptfhost.shell("supervisorctl stop garp_service")
 
     # If running on a dual ToR testbed, any uplink for either ToR is an acceptable
     # source or destination port
@@ -859,7 +864,7 @@ class BaseAclTest(object):
         if dropped:
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
         else:
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction), timeout=20)
 
 
 class TestBasicAcl(BaseAclTest):
