@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def check_disk_ro(duthost):
     try:
         result = duthost.shell("touch ~/disk_check.tst", module_ignore_errors=True)
-        return rc != 0
+        return result["rc"] != 0
     finally:
         logger.info("touch file failed as expected")
         return True
@@ -58,7 +58,14 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     rw_pass = creds_all_duts[duthost]['tacacs_rw_user_passwd']
 
     res = duthost.shell("ls -l /home/{}".format(ro_user), module_ignore_errors=True)
-    assert res["rc"] != 0, "ro user pre-exists"
+    if  res["rc"] == 0:
+        logger.debug("ro user pre-exists; deleting")
+        try:
+            duthost.shell("sudo deluser --remove-home {}".format(ro_user),
+                    module_ignore_errors=True)
+        finally:
+            # If any failure, it implies user not valid, which is good enough.
+            logger.info("del user {} done".format(ro_user))
 
     try:
         # Ensure rw user can get in, as we need this to be able to reboot
