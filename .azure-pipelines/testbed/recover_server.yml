@@ -99,4 +99,5 @@ stages:
                     arg_dry_run=''
                 fi
 
-                python ansible/recover_server.py --testbed-servers ${{ parameters.SERVER }}  --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
+                cd ansible
+                python recover_server.py --testbed-servers ${{ parameters.SERVER }}  --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
