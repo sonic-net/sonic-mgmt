@@ -1,6 +1,5 @@
 import ast
 import logging
-import inspect
 
 import pytest
 
