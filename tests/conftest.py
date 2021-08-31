@@ -404,6 +404,11 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
     vm_base = int(tbinfo['vm_base'][2:])
     neighbor_type = request.config.getoption("--neighbor_type")
+
+    if not 'VMs' in tbinfo['topo']['properties']['topology']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        return devices
+
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
