@@ -1647,7 +1647,7 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
-                   self.ping_v4(v["peer_ipv4"], count=10, ns_arg=ns_arg)):
+                   self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
                     ip_ifaces[k] = {
                         "ipv4": v["ipv4"],
                         "peer_ipv4": v["peer_ipv4"],
