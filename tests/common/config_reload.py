@@ -1,6 +1,5 @@
 import time
 import logging
-from common.plugins.sanity_check.constants import RECOVER_METHODS
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +64,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         else:
             is_buffer_model_dynamic = False
         duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
-        time.sleep(RECOVER_METHODS.get("load_minigraph", {}).get("recover_wait", 60))
+        time.sleep(60)
         if start_bgp:
             duthost.shell('config bgp startup all')
         if is_buffer_model_dynamic:
