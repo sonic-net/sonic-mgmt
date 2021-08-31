@@ -61,6 +61,18 @@ def skip_release_for_platform(duthost, release_list, platform_list):
 				", ".join(release_list), 
 				", ".join(platform_list)))
 
+def skip_release_for_platform(duthost, release_list, platform_list):
+    """
+    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    @param platform_list: A list of incompatible platforms
+    """
+    if any(release in duthost.os_version for release in release_list) and any(platform in duthost.facts['platform'] for platform in platform_list):
+        pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(duthost.os_version, 
+            duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
+
+
 def wait(seconds, msg=""):
     """
     @summary: Pause specified number of seconds
