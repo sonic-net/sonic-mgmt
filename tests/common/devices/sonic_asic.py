@@ -370,6 +370,21 @@ class SonicAsic(object):
 
         return self.sonichost.command(cmdstr)
 
+    def run_vtysh(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("vtysh {}".format(cmdstr))
+
+        cmdstr = "vtysh -n {} {}".format(self.asic_index, cmdstr)
+        return self.sonichost.command(cmdstr)
+
     def run_redis_cmd(self, argv=[]):
         """
         Runs redis command on DUT.
