@@ -24,6 +24,9 @@ L3_COL_KEY = RX_ERR
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
 
+ACL_COUNTERS_UPDATE_INTERVAL = 10
+LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
+LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
 LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
@@ -256,6 +259,55 @@ def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports)
         data["dst_mac"] = setup['intf_per_namespace'][ns][data["dut_iface"]]['macaddress']
     data["src_mac"] = ptfadapter.dataplane.ports[(0, data["ptf_tx_port_id"])].mac()
     return data
+
+
+def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+              dut_clear_conf_file_path):
+    for duthost in duthosts:
+        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+        if 'DATAACL' not in acl_facts.keys():
+            pytest.skip("Skipping test since DATAACL table is not present on DUT")
+
+        duthost.command("mkdir -p {}".format(dut_tmp_dir))
+        dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path)
+        logger.info("Generating clear config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
+
+        logger.info("Applying {}".format(dut_conf_file_path))
+
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer[duthost.hostname]:
+            duthost.command("config acl update full {}".format(dut_conf_file_path))
+
+
+def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
+    for duthost in duthosts:
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer[duthost.hostname]:
+            logger.info("Applying {}".format(dut_clear_conf_file_path))
+            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
+            logger.info("Removing {}".format(dut_tmp_dir))
+            duthost.command("rm -rf {}".format(dut_tmp_dir))
+            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
+
+
+@pytest.fixture
+def acl_ingress(duthosts, loganalyzer):
+    """ Create acl rule defined in config file. Delete rule after test case finished """
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, 'acl_templates')
+    acl_rules_template = "acltb_test_rule.json"
+    del_acl_rules_template = "acl_rule_del.json"
+    dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
+    dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
+
+    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+              dut_clear_conf_file_path)
+    yield
+    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
 
 
 def log_pkt_params(dut_iface, mac_dst, mac_src, ip_dst, ip_src):
@@ -772,3 +824,30 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
 
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
     do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+
+
+def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, acl_ingress,
+                  ports_info):
+    """
+        @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if tx_dut_ports[ports_info["dut_iface"]] not in \
+            duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+        pytest.skip("RX DUT port absent in 'DATAACL' table")
+
+    ip_src = "20.0.0.5"
+
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                   ip_src)
+
+    pkt = testutils.simple_tcp_packet(
+        eth_dst=ports_info["dst_mac"],  # DUT port
+        eth_src=ports_info["src_mac"],  # PTF port
+        ip_src=ip_src,
+        ip_dst=pkt_fields["ipv4_dst"],
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"]
+    )
+
+    do_test("ACL", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
