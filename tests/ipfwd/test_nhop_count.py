@@ -8,6 +8,7 @@ from collections import namedtuple
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -239,8 +240,11 @@ def test_nhop(request, duthost):
     - clean up
     - Verify no erros and crash
     """
+    skip_release(duthost, ["201811", "201911"])
     default_max_nhop_paths = 32
     nhop_group_limit = 1024
+    # program more than the advertised limit
+    extra_nhops = 10
 
     asic = duthost.asic_instance()
 
@@ -252,7 +256,7 @@ def test_nhop(request, duthost):
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
-    nhop_group_count = min(max_nhop, nhop_group_limit)
+    nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces().keys()
