@@ -287,20 +287,49 @@ def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
     A module level fixture to toggle all ports to randomly selected tor
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
+    logger.info("Toggling mux cable to {}".format(rand_one_dut_hostname))
+    duthost = duthosts[rand_one_dut_hostname]
     dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
     if dut_index == 0:
         data = {"active_side": UPPER_TOR}
     else:
         data = {"active_side": LOWER_TOR}
 
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
+    def _check_all_active(duthost):
+        lines = duthost.shell("show muxcable status")['stdout_lines']
+        """
+        The length of output of 'show muxcable status' must be larger than 2
+        PORT         STATUS    HEALTH
+        -----------  --------  ---------
+        Ethernet0    standby   unhealthy
+        ...
+        """
+        if len(lines) <= 2:
+            return False
+        for line in lines[2:]:
+            _, status, _ = line.split()
+            if status != 'active':
+                logger.warn("Unexpected mux status {}".format(line))
+                return False
+        return True
+
+    # Allow retry for mux cable toggling
+    RETRY = 3
+    while RETRY > 0:
+        _post(mux_server_url, data)
+        time.sleep(5)
+        if _check_all_active(duthost):
+            break
+        RETRY -= 1
+
+    pytest_assert(RETRY > 0, "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
