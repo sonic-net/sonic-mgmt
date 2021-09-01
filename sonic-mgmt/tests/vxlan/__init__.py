@@ -90,3 +90,25 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
 
     combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
     return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
+
+@pytest.fixture(scope="module")
+def vnet_config_ecmp(minigraph_facts, vnet_test_params, scaled_vnet_params):
+    """
+    Fixture to generate vnet configuration from templates/vnet_config_ecmp.j2
+
+    Args:
+        minigraph_facts: minigraph information/facts
+        vnet_test_params: Dictionary holding vnet test parameters
+        scaled_vnet_params: Dictionary holding scaled vnet testing parameters
+
+    Returns:
+        A dictionary containing the generated vnet configuration information
+    """
+
+    num_rifs = vnet_test_params[NUM_INTF_PER_VNET_KEY] * scaled_vnet_params[NUM_VNET_KEY]
+
+    if num_rifs > 128:
+        logger.warning("Total number of configured interfaces will be greater than 128. This is not a supported test scenario")
+
+    combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
+    return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config_ecmp.j2")).render(combined_args))

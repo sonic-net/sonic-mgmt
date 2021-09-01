@@ -95,6 +95,38 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
     render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config)
     render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
 
+def generate_dut_config_files_ecmp(duthost, mg_facts, vnet_test_params, vnet_config_ecmp):
+    """
+    Generate VNET and VXLAN config files and copy them to DUT
+
+    Note:
+        Does not actually apply any of these new configs
+
+    Args
+        duthost: DUT host object
+        mg_facts: Minigraph facts
+        vnet_test_params: Dictionary holding vnet test parameters
+        vnet_config_ecmp: Configuration generated from templates/vnet_config_ecmp.j2
+    """
+
+    logger.info("Generating config files and copying to DUT")
+
+    vnet_switch_config = [{
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": VXLAN_PORT,
+            "vxlan_router_mac": VXLAN_MAC
+        },
+        "OP": "SET"
+    }]
+
+    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_JSON)
+
+    render_template_to_host("vnet_vxlan_ecmp.j2", duthost, DUT_VNET_CONF_JSON, vnet_config_ecmp, mg_facts, vnet_test_params)
+    render_template_to_host("vnet_interface.j2", duthost, DUT_VNET_INTF_JSON, vnet_config_ecmp)
+    render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config_ecmp)
+    render_template_to_host("vnet_routes_ecmp.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config_ecmp, op="SET")
+
+
 def apply_dut_config_files(duthost, vnet_test_params):
     """
     Applies config files that are stored on the given DUT
@@ -176,6 +208,20 @@ def cleanup_vnet_routes(duthost, vnet_config):
     """
 
     render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
+    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
+    sleep(3)
+
+def cleanup_vnet_routes_ecmp(duthost, vnet_config):
+    """
+    Generates, pushes, and applies VNET route config to clear routes set during test
+
+    Args:
+        duthost: DUT host object
+        vnet_config: VNET configuration generated from templates/vnet_config.j2
+    """
+
+    render_template_to_host("vnet_routes_ecmp.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
     duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
     sleep(3)
