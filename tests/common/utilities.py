@@ -466,3 +466,12 @@ def dump_scapy_packet_show_output(packet):
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
+
+
+def compose_dict_from_cli(fields_list):
+    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+
+    Args:
+        fields_list: A list of lines, the output of redis-cli hgetall command
+    """
+    return dict(zip(fields_list[0::2], fields_list[1::2]))
