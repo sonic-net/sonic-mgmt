@@ -521,7 +521,7 @@ sonic_mlnx_100:
   hosts:
     str-msn2700-20:
       ansible_host: 10.64.247.235
-      hwsku: Mellanox-SN2700-D48C8
+      hwsku: Mellanox-SN2700-D40C8S8
       model: MSN2700-CS2FO
       serial: MT1648X06682
       base_mac: 24:8a:07:80:6c:80

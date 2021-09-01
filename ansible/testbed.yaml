@@ -92,7 +92,7 @@
 
 - conf-name: vms2-2-t0-2700
   group-name: vms2-2
-  topo: t0-56
+  topo: t0-56-po2vlan
   ptf_image_name: docker-ptf
   ptf: vms2-2
   ptf_ip: 10.64.246.27/23
