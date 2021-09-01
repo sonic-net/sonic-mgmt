@@ -151,7 +151,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
         logging.info("Stopping GARP service on single tor")
-        ptfhost.shell("supervisorctl stop garp_service")
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
 
     # If running on a dual ToR testbed, any uplink for either ToR is an acceptable
     # source or destination port
