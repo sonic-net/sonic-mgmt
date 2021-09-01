@@ -7,6 +7,7 @@ https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 import json
 import logging
 import time
+from retry.api import retry_call
 
 import pytest
 
@@ -271,9 +272,9 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
     logging.info('Mock FAN status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked FAN status data...')
-    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+    retry_call(check_cli_output_with_mocker, fargs=[duthost, mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2], tries=3, delay=30)
 
-    pytest_assert(result, 'FAN mock data mismatch')
+
 
 
 @pytest.mark.disable_loganalyzer
@@ -290,9 +291,7 @@ def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_host
     logging.info('Mock Thermal status data...')
     mocker.mock_data()
     logging.info('Wait and check actual data with mocked Thermal status data...')
-    result = check_cli_output_with_mocker(duthost, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME)
-
-    pytest_assert(result, 'Thermal mock data mismatch')
+    retry_call(check_cli_output_with_mocker, fargs=[duthost, mocker, CMD_PLATFORM_TEMPER, THERMAL_CONTROL_TEST_WAIT_TIME], tries=3, delay=30)
 
 
 @pytest.mark.disable_loganalyzer
