@@ -10,6 +10,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -27,6 +28,28 @@ LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
 LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope='module')
+def sai_acl_drop_adj_enabled(rand_selected_dut):
+    """
+    Determines if the `sai_adjust_acl_drop_in_rx_drop` property is enabled
+
+    Note that this property is specific to BRCM platforms
+
+    Since this leads to an undpredictable number of packets getting
+    counted as RX_DRP (in certain test cases), if it is enabled we need to
+    skip checking the drop counters for certain test cases
+    """
+    check_cmd = "which bcmcmd > /dev/null && bcmcmd 'config show' | grep 'sai_adjust_acl_drop_in_rx_drop=1'"
+    try:
+        rand_selected_dut.shell(check_cmd)
+    except RunAnsibleModuleFail:
+        # If the above command fails, we can assume that either
+        # we are not on a BRCM platform or the specified property
+        # is not enabled/available
+        return False
+
+    return True
 
 
 @pytest.fixture
@@ -586,13 +609,13 @@ def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, p
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
     """
     @summary: Create an IP packet with TTL=0.
     """
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
-
+    
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
@@ -602,11 +625,11 @@ def test_ip_pkt_with_expired_ttl(do_test, ptfadapter, setup, tx_dut_ports, pkt_f
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
-def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, pkt_field, value, ports_info):
+def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, pkt_field, value, ports_info, sai_acl_drop_adj_enabled):
     """
     @summary: Create a packet with broken IP header.
     """
@@ -622,10 +645,10 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
-def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
     """
     @summary: Create packets with absent IP header.
     """
@@ -645,7 +668,7 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
