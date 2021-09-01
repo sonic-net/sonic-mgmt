@@ -76,6 +76,8 @@ all:
           ansible_host: 10.64.246.158
         vms24-2:
           ansible_host: 10.64.246.159
+        vms28-1:
+          ansible_host: 10.64.246.238
 
     pdu:
       hosts:
@@ -227,6 +229,8 @@ fanout:
       ansible_host: 10.3.146.165
     str2-7260cx3-acs-fan-24:
       ansible_host: 10.3.146.174
+    str2-7260cx3-acs-fan-25:
+      ansible_host: 10.3.146.50
 
 sonic:
   vars:
@@ -590,6 +594,8 @@ sonic_cisco_8102:
   hosts:
     str2-8102-01:
       ansible_host: 10.3.146.133
+    str2-8102-02:
+      ansible_host: 10.3.146.68
 
 sonic_dell_z9332f:
   vars:
