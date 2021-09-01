@@ -25,7 +25,7 @@ def test_sensors(duthosts, rand_one_dut_hostname, creds):
     logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))
 
     # Special treatment for Mellanox platforms which have two different A0 and A1 types    
-    if platform in ['x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4600-r0', 'x86_64-mlnx_msn4410-r0']:
+    if platform in ['x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0']:
         # Check the hardware version and choose sensor conf data accordingly
         output = duthost.command('cat /run/hw-management/system/config1', module_ignore_errors=True)
         if output["rc"] == 0 and output["stdout"] == '1':
