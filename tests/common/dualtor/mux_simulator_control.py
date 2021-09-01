@@ -312,9 +312,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
-def toggle_all_simulator_ports_against_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_unselected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
     """
-    A function level fixture to toggle all ports against randomly selected tor
+    A function level fixture to toggle all ports to randomly unselected tor
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -325,7 +325,7 @@ def toggle_all_simulator_ports_against_rand_selected_tor(mux_server_url, tbinfo,
     else:
         data = {"active_side": UPPER_TOR}
 
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports against {}".format(rand_one_dut_hostname))
+    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to the randomly unselected tor, the counterpart of {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
