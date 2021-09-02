@@ -190,7 +190,7 @@
       cmd: "bind"
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
-      vm_names: "{{ VM_hosts }}"
+      vm_names: "{{ VM_targets }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
@@ -244,3 +244,4 @@
   - fetch: src=docker-ptf.tar dest=docker-ptf.tar flat=yes
   - shell: rm -f docker-ptf.tar
   run_once: yes
+  when: vm_type is defined and vm_type == "vsonic"

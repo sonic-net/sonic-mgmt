@@ -114,3 +114,10 @@
     become: yes
 
   when: container_type == "IxANVL-CONF-TESTER"
+
+- name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ VM_targets }}"
+  become: yes
+  when: vm_type is defined and vm_type=="ceos"

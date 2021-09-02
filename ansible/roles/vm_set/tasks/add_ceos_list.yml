@@ -2,7 +2,7 @@
   become: yes
   vm_topology:
     cmd:          'create'
-    vm_names:     "{{ VM_hosts }}"
+    vm_names:     "{{ VM_targets }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
     topo: "{{ topology }}"
@@ -86,7 +86,14 @@
   retries: 10
   delay: 30
 
-- include_tasks: add_ceos_network.yml
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
+  become: yes
+  ceos_network:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    vm_name:    "{{ vm_name }}"
+    fp_mtu:     "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
