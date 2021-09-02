@@ -2,8 +2,8 @@
   - name: set time out threshold
     set_fact:
       timeout_threshold: 120
-    
-  - name: wait for container's mgmt-ip reachable
+
+  - name: wait until container's mgmt-ip is reachable
     wait_for:
       port: 22
       host: "{{ ansible_host }}"
@@ -42,7 +42,7 @@
     when: ceos_reachability.failed and ceos_reachability.elapsed >= timeout_threshold
     delegate_to: "{{ VM_host[0] }}"
 
-  - name: update container_reachable
+  - name: update variable container_reachable
     set_fact:
       container_reachable: "{{ not ceos_reachability.failed|bool }}"
 

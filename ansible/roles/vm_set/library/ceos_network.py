@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
+import datetime
+import json
+import logging
 import subprocess
-import re
-import os
-import os.path
-import re
-import docker
-from ansible.module_utils.basic import *
+import shlex
 import traceback
-from pprint import pprint
+
+import docker
+
+from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
 ---
@@ -43,7 +44,6 @@ DEFAULT_MTU = 0
 NUM_FP_VLANS_PER_FP = 4
 VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 CMD_DEBUG_FNAME = "/tmp/ceos_network.cmds.%s.txt"
-EXCEPTION_DEBUG_FNAME = "/tmp/ceos_network.exception.%s.txt"
 
 OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
@@ -51,12 +51,23 @@ FP_TAP_TEMPLATE = '%s-t%d'
 BP_TAP_TEMPLATE = '%s-back'
 MGMT_TAP_TEMPLATE = '%s-m'
 INT_TAP_TEMPLATE = 'eth%d'
-RETRIES = 3
 
-cmd_debug_fname = None
+
+def config_logging():
+    curtime = datetime.datetime.now().isoformat()
+    logging.basicConfig(
+        filename=CMD_DEBUG_FNAME % curtime,
+        format='%(asctime)s %(levelname)s #%(lineno)d: %(message)s',
+        level=logging.DEBUG)
+
 
 class CeosNetwork(object):
+    """This class is for creating CEOS network.
 
+    This creates veth pairs and add one of the veth interface to the CEOS network docker. The external veth interface
+    is added to corresponding bridges.
+
+    """
     def __init__(self, ctn_name, vm_name, mgmt_br_name, fp_mtu, max_fp_num):
         self.ctn_name = ctn_name
         self.vm_name = vm_name
@@ -66,13 +77,11 @@ class CeosNetwork(object):
 
         self.pid = CeosNetwork.get_pid(self.ctn_name)
         if self.pid is None:
-            raise Exception("canot find pid for %s" % (self.ctn_name))
-        self.host_ifaces = CeosNetwork.ifconfig('ifconfig -a')
-
-        return
+            raise Exception("cannot find pid for %s" % (self.ctn_name))
 
     def init_network(self):
-
+        """Create CEOS network
+        """
         # create mgmt link
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
         self.add_veth_if_to_docker(mp_name, INT_TAP_TEMPLATE % 0)
@@ -88,88 +97,97 @@ class CeosNetwork(object):
         # create backplane
         self.add_veth_if_to_docker(BP_TAP_TEMPLATE % (self.vm_name), INT_TAP_TEMPLATE % (self.max_fp_num + 1))
 
-        return
-
-    def update(self):
-        errmsg = []
-        i = 0
-        while i < 3:
-            try:
-                self.host_br_to_ifs, self.host_if_to_br = CeosNetwork.brctl_show()
-                self.host_ifaces = CeosNetwork.ifconfig('ifconfig -a')
-                if self.pid is not None:
-                    self.cntr_ifaces = CeosNetwork.ifconfig('nsenter -t %s -n ifconfig -a' % self.pid)
-                else:
-                    self.cntr_ifaces = []
-                break
-            except Exception as error:
-                errmsg.append(str(error))
-                i += 1
-
-        if i == 3:
-            raise Exception("update failed for %d times. %s" % (i, "|".join(errmsg)))
-
-        return
 
     def add_veth_if_to_docker(self, ext_if, int_if):
-        self.update()
+        """Create a pair of veth interfaces and add one of them to namespace of docker.
 
-        if ext_if in self.host_ifaces and int_if not in self.cntr_ifaces:
+        Args:
+            ext_if (str): External interface of the veth pair. It remains in host.
+            int_if (str): Internal interface of the veth pair. It is added to docker namespace.
+        """
+        logging.info("=== Create veth pair %s and %s. Add %s to docker with Pid %s ===" %
+            (ext_if, int_if, int_if, self.pid))
+
+        if CeosNetwork.intf_exists(ext_if) and not CeosNetwork.intf_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link del %s" % ext_if)
-            self.update()
 
         t_int_if = int_if + '_t'
-        if ext_if not in self.host_ifaces:
+        if not CeosNetwork.intf_exists(ext_if):
             CeosNetwork.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
-            self.update()
 
         if self.fp_mtu != DEFAULT_MTU:
             CeosNetwork.cmd("ip link set dev %s mtu %d" % (ext_if, self.fp_mtu))
-            if t_int_if in self.host_ifaces:
+            if CeosNetwork.intf_exists(t_int_if):
                 CeosNetwork.cmd("ip link set dev %s mtu %d" % (t_int_if, self.fp_mtu))
-            elif t_int_if in self.cntr_ifaces:
+            elif CeosNetwork.intf_exists(t_int_if, self.pid):
                 CeosNetwork.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, t_int_if, self.fp_mtu))
-            elif int_if in self.cntr_ifaces:
+            elif CeosNetwork.intf_exists(int_if, self.pid):
                 CeosNetwork.cmd("nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, int_if, self.fp_mtu))
 
         CeosNetwork.iface_up(ext_if)
 
-        self.update()
-
-        if t_int_if in self.host_ifaces and t_int_if not in self.cntr_ifaces and int_if not in self.cntr_ifaces:
+        if CeosNetwork.intf_exists(t_int_if) \
+            and not CeosNetwork.intf_exists(t_int_if, self.pid) \
+            and not CeosNetwork.intf_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link set netns %s dev %s" % (self.pid, t_int_if))
-            self.update()
 
-        if t_int_if in self.cntr_ifaces and int_if not in self.cntr_ifaces:
+        if CeosNetwork.intf_exists(t_int_if, self.pid) and not CeosNetwork.intf_exists(int_if, self.pid):
             CeosNetwork.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_if, int_if))
 
         CeosNetwork.iface_up(int_if, self.pid)
 
-        return
-
     def add_if_to_ovs_bridge(self, intf, bridge):
+        """Add interface to OVS bridge
+
+        Args:
+            intf (str): Interface name
+            bridge (str): OVS bridge name
         """
-        add interface to ovs bridge
-        """
+        logging.info("=== Add interface %s to OVS bridge %s ===" % (intf, bridge))
+
         ports = CeosNetwork.get_ovs_br_ports(bridge)
         if intf not in ports:
             CeosNetwork.cmd('ovs-vsctl add-port %s %s' % (bridge, intf))
 
     def add_if_to_bridge(self, intf, bridge):
-        self.update()
+        """Add interface to bridge
 
-        if intf not in self.host_if_to_br:
+        Args:
+            intf (str): Interface name
+            bridge (str): Bridge name
+        """
+        logging.info("=== Add interface %s to bridge %s" % (intf, bridge))
+
+        _, if_to_br = CeosNetwork.brctl_show()
+
+        if intf not in if_to_br:
             CeosNetwork.cmd("brctl addif %s %s" % (bridge, intf))
 
-        return
+    @staticmethod
+    def intf_exists(intf, pid=None):
+        """Check if the specified interface exists.
 
-    def remove_if_from_bridge(self, intf, bridge):
-        self.update()
+        This function uses command "ifconfig <intf name>" to check the existence of the specified interface. By default
+        the command is executed on host. If a pid is specified, this command is executed in the network namespace
+        of the specified pid. The meaning is to check if the interface exists in a specific docker.
 
-        if intf in self.host_if_to_br:
-            CeosNetwork.cmd("brctl delif %s %s" % (self.host_if_to_br[intf], intf))
+        Args:
+            intf (str): Name of the interface.
+            pid (str), optional): Pid of docker. Defaults to None.
 
-        return
+        Returns:
+            bool: True if the interface exists. Otherwise False.
+        """
+        if pid:
+            cmdline = 'nsenter -t %s -n ifconfig %s' % (pid, intf)
+        else:
+            cmdline = 'ifconfig %s' % intf
+
+        try:
+            CeosNetwork.cmd(cmdline)
+            return True
+        except:
+            return False
 
     @staticmethod
     def iface_up(iface_name, pid=None):
@@ -181,33 +199,46 @@ class CeosNetwork(object):
 
     @staticmethod
     def iface_updown(iface_name, state, pid):
+        logging.info('=== Bring %s interface %s, pid: %s ===' % (state, iface_name, str(pid)))
         if pid is None:
             return CeosNetwork.cmd('ip link set %s %s' % (iface_name, state))
         else:
             return CeosNetwork.cmd('nsenter -t %s -n ip link set %s %s' % (pid, iface_name, state))
 
     @staticmethod
-    def iface_disable_txoff(iface_name, pid=None):
-        if pid is None:
-            return CeosNetwork.cmd('ethtool -K %s tx off' % (iface_name))
+    def cmd(cmdline, grep_cmd=None):
+        logging.debug('*** CMD: %s, grep: %s' % (cmdline, grep_cmd))
+        process = subprocess.Popen(
+            shlex.split(cmdline),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        if grep_cmd:
+            process_grep = subprocess.Popen(
+                shlex.split(grep_cmd),
+                stdin=process.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            out, err = process_grep.communicate()
+            ret_code = process_grep.returncode
         else:
-            return CeosNetwork.cmd('nsenter -t %s -n ethtool -K %s tx off' % (pid, iface_name))
+            out, err = process.communicate()
+            ret_code = process.returncode
+        out, err = out.decode('utf-8'), err.decode('utf-8')
 
-    @staticmethod
-    def cmd(cmdline):
-        with open(cmd_debug_fname, 'a') as fp:
-            pprint("CMD: %s" % cmdline, fp)
-        cmd = cmdline.split(' ')
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        ret_code = process.returncode
+        msg = {
+            'cmd': cmdline,
+            'grep_cmd': grep_cmd,
+            'ret_code': ret_code,
+            'stdout': out.splitlines(),
+            'stderr': err.splitlines()
+        }
+        logging.debug('*** OUTPUT: \n%s' % json.dumps(msg, indent=2))
 
         if ret_code != 0:
-            raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
+            raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
 
-        with open(cmd_debug_fname, 'a') as fp:
-            pprint("OUTPUT: %s" % stdout, fp)
-        return stdout.decode('utf-8')
+        return out
 
     @staticmethod
     def get_ovs_br_ports(bridge):
@@ -217,22 +248,6 @@ class CeosNetwork(object):
             if port != "":
                 ports.add(port)
         return ports
-
-    @staticmethod
-    def ifconfig(cmdline):
-        out = CeosNetwork.cmd(cmdline)
-
-        ifaces = set()
-
-        rows = out.split('\n')
-        for row in rows:
-            if len(row) == 0:
-                continue
-            terms = row.split()
-            if not row[0].isspace():
-                ifaces.add(terms[0].rstrip(':'))
-
-        return ifaces
 
     @staticmethod
     def get_pid(ctn_name):
@@ -245,11 +260,18 @@ class CeosNetwork(object):
         return ctn.attrs['State']['Pid']
 
     @staticmethod
-    def brctl_show():
-        out = CeosNetwork.cmd("brctl show")
-
+    def brctl_show(bridge=None):
         br_to_ifs = {}
         if_to_br = {}
+
+        cmdline = "brctl show "
+        if bridge:
+            cmdline += bridge
+        try:
+            out = CeosNetwork.cmd(cmdline)
+        except:
+            logging.error('!!! Failed to run %s' % cmdline)
+            return br_to_ifs, if_to_br
 
         rows = out.split('\n')[1:]
         cur_br = None
@@ -269,13 +291,6 @@ class CeosNetwork(object):
 
         return br_to_ifs, if_to_br
 
-def check_params(module, params, mode):
-    for param in params:
-        if param not in module.params:
-            raise Exception("Parameter %s is required in %s mode" % (param, mode))
-
-    return
-
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -293,27 +308,18 @@ def main():
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
 
-    curtime = datetime.datetime.now().isoformat()
-
-    global cmd_debug_fname
-    cmd_debug_fname = CMD_DEBUG_FNAME % curtime
-    exception_debug_fname = EXCEPTION_DEBUG_FNAME % curtime
+    config_logging()
 
     try:
-        if os.path.exists(cmd_debug_fname) and os.path.isfile(cmd_debug_fname):
-            os.remove(cmd_debug_fname)
-
         cnet = CeosNetwork(name, vm_name, mgmt_bridge, fp_mtu, max_fp_num)
 
         cnet.init_network()
 
     except Exception as error:
-        with open(exception_debug_fname, 'w') as fp:
-            traceback.print_exc(file=fp)
+        logging.error(traceback.format_exc())
         module.fail_json(msg=str(error))
 
     module.exit_json(changed=True)
 
 if __name__ == "__main__":
     main()
-
