@@ -125,7 +125,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
         SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
+    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     bgp_neighbors = []
 
