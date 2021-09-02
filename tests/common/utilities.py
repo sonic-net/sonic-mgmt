@@ -17,6 +17,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 
@@ -31,7 +32,9 @@ def skip_version(duthost, version_list):
     @param version_list: A list of incompatible versions
     """
     if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
+        pytest.skip(
+            "DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
+
 
 def skip_release(duthost, release_list):
     """
@@ -41,10 +44,13 @@ def skip_release(duthost, release_list):
     @param release_list: A list of incompatible releases
     """
     if any(release in duthost.os_version for release in release_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
+        pytest.skip(
+            "DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
 
     if any(release == duthost.sonic_release for release in release_list):
-        pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+        pytest.skip(
+            "DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+
 
 def wait(seconds, msg=""):
     """
@@ -68,7 +74,7 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
         exception, log the error and keep waiting and polling.
     """
     logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s" % \
-        (condition.__name__, timeout, interval))
+                 (condition.__name__, timeout, interval))
     start_time = time.time()
     elapsed_time = 0
     while elapsed_time < timeout:
@@ -93,7 +99,7 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
         return False
 
 
-def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30):
+def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
     """
     @summary: Wait until tcp connection is ready or timeout
     @param client: The tcp client host instance
@@ -107,7 +113,8 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (str(server_hostname), listening_port, timeout_s))
+        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (
+        str(server_hostname), listening_port, timeout_s))
         return False
     return True
 
@@ -324,7 +331,7 @@ def get_test_server_host(inv_files, server):
         logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
         return None
     for host in group.get_hosts():
-        if not re.match(r'VM\d+', host.name):   # This must be the test server host
+        if not re.match(r'VM\d+', host.name):  # This must be the test server host
             return host
     return None
 
@@ -451,3 +458,22 @@ def dump_scapy_packet_show_output(packet):
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
+
+
+def get_intf_by_sub_intf(sub_intf, vlan_id):
+    """
+    Strip sub interface's vlan id
+    Args:
+        sub_intf (str): sub interface name, e.g. Ethernet100.10
+        vlan_id (str): vlan id, e.g. 10
+
+    Returns:
+        str: interface name, e.g. Ethernet100
+    """
+    if not vlan_id:
+        return sub_intf
+
+    vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
+    if sub_intf.endswith(vlan_suffix):
+        return sub_intf[:-len(vlan_suffix)]
+    return sub_intf
