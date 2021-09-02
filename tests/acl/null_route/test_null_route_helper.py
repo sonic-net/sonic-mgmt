@@ -149,6 +149,11 @@ def apply_pre_defined_rules(rand_selected_dut, create_acl_table):
     rand_selected_dut.shell("acl-loader update full " + ACL_JSON_FILE_DEST)
     # Wait 5 seconds for ACL rule creation
     time.sleep(5)
+    #  remove default DROP rule to make ACCEPT by default
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|{}|DEFAULT_RULE"'.format(ACL_TABLE_NAME_V4))
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|{}|DEFAULT_RULE"'.format(ACL_TABLE_NAME_V6))
+    time.sleep(5)
+
     yield
     # Clear ACL rules
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'.format(ACL_TABLE_NAME_V4))
