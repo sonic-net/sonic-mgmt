@@ -533,7 +533,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
     resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+    #print(resp.decode("ascii"))
 
     chan.send('exit \n')
     time.sleep(3)
