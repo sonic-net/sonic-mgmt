@@ -88,7 +88,8 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
                     break
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None, skip_counter_check=False):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None,
+                      skip_counter_check=False, drop_information=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -132,7 +133,8 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
         acl_drops = 0
         for duthost in duthosts:
-            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]["RULE_1"]["packets_count"]
+            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][
+                drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
         if acl_drops != PKT_NUMBER:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}".format(
                 tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER
@@ -209,7 +211,8 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test(duthosts):
-    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None, skip_counter_check=False):
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,
+                         comparable_pkt=None, skip_counter_check=False, drop_information=None):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -221,7 +224,8 @@ def do_test(duthosts):
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports, skip_counter_check=skip_counter_check)
+        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
+                          skip_counter_check=skip_counter_check, drop_information=drop_information)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
