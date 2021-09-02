@@ -33,7 +33,7 @@ parameters:
 
   - name: VM_TYPE
     type: string
-    default: ceos
+    default: veos
     values:
       - veos
       - ceos
