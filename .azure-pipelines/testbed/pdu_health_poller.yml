@@ -1,0 +1,76 @@
+# This job is for periodically polling PDU health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "34 */3 * * *"   # Run every 3 hours. Minute 34 is randomly chosen.
+    displayName: PduHealthPollingScheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: UPLOAD_METHOD
+    type: string
+    default: GROUP
+    values:
+      - GROUP
+      - INDIVIDUAL
+    displayName: "Results uploading method"
+
+stages:
+  - stage: PduHealthPolling
+    jobs:
+      - job: PduHealthPolling
+        pool: nightly
+        timeoutInMinutes: 30
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run Polling
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                INVS='str str2 strsvc'
+                GRPS='sonic fanout server'
+
+                for inv in ${INVS}; do
+                    for grp in ${GRPS}; do
+                    ./devutils -i ${inv} -a pdu_status -g ${grp} -j > ${inv}_${grp}_pdu.json
+                  done
+                done
+
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd ../test_reporting
+                pip3 install -r requirements.txt
+
+                FILES=$(ls ../ansible/*pdu*.json)
+
+                if [[ ${{ parameters.UPLOAD_METHOD }} == "GROUP" ]]; then
+                    python3 report_uploader.py -c "pdu_status" ${FILES} SonicTestData
+                else
+                    for f in ${FILES}; do
+                        python3 report_uploader.py -c "pdu_status" ${f} SonicTestData
+                    done
+
+                fi
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
