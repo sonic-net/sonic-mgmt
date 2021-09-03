@@ -1,3 +1,4 @@
+from tests.common import reboot, port_toggle
 import os
 import time
 import random

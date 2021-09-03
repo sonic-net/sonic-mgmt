@@ -829,7 +829,7 @@ class SonicHost(AnsibleHostBase):
 
     def get_ip_route_info(self, dstip, ns=""):
         """
-        @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
+        @summary: return route information for a destionation. The destination could an ip address or ip prefix.
 
         @param dstip: destination. either ip_address or ip_network
 
