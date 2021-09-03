@@ -181,6 +181,19 @@ def get_disabled_container_list(duthost):
 
     return disabled_containers
 
+def check_link_status(duthost, iface_list, expect_status):
+    """
+    check if the link status specified in the iface_list equal to expect status
+    :param duthost: dut host object
+    :param iface_list: the interface list
+    :param expect_status: expected status for the interface specified in the iface_list
+    :return: True if the status of all the interfaces specified in the iface_list equal to expect status, else False
+    """
+    int_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for intf in iface_list:
+        if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
+            return False
+    return True
 
 def encode_dut_and_container_name(dut_name, container_name):
     """Gets a string by combining dut name and container name.
