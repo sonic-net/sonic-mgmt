@@ -83,11 +83,17 @@ parameters:
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
 
-  # Individual nightly test scehduler file could override this variable
+  # Individual nightly test scheduler file could override this variable
   # to add more scripts to the skip list.
   - name: SKIP_SCRIPTS
     type: string
     default: " "
+
+  # Individual nightly test scheduler file could override this variable
+  # to skip uploading test results to kusto.
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
 
 stages:
 
@@ -328,6 +334,12 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
+
+                if [[ ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }} == True ]]; then
+                    echo "SKIP_TEST_RESULTS_UPLOADING=True, skip uploading test results to Kusto"
+                    exit 0
+                fi
+
                 echo "Activate python3 virtual environment"
                 source /var/AzDevOps/env-python3/bin/activate
 

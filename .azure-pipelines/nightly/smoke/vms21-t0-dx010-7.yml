@@ -36,6 +36,11 @@ parameters:
     default: -S "platform_tests dualtor" -I "bgp ntp"
     displayName: Testbed specific
 
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -44,3 +49,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
