@@ -68,7 +68,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
             logger.info("del user {} done".format(ro_user))
 
     try:
-        # Ensure rw user can get in, as we need this to be able to reboot
+        # Sanity check, if rw user can get in.
         ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
         
         assert ret, "Failed to ssh as rw user"
