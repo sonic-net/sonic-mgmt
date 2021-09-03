@@ -230,6 +230,7 @@ class DHCPTest(DataplaneBaseTest):
     def server_send_advertise_relay_reply(self):
         # Form and send DHCPv6 RELAY-REPLY encapsulating ADVERTISE packet
         advertise_relay_reply_packet = self.create_dhcp_advertise_relay_reply_packet()
+        advertise_relay_reply_packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
         testutils.send_packet(self, self.server_port_indices[0], advertise_relay_reply_packet)
 
     # Verify that the DHCPv6 ADVERTISE would be received by our simulated client
@@ -279,6 +280,7 @@ class DHCPTest(DataplaneBaseTest):
     def server_send_reply_relay_reply(self):
         # Form and send DHCPv6 RELAY-REPLY encapsulating REPLY packet
         reply_relay_reply_packet = self.create_dhcp_reply_relay_reply_packet()
+        reply_relay_reply_packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
         testutils.send_packet(self, self.server_port_indices[0], reply_relay_reply_packet)
 
     # Verify that the DHCPv6 REPLY would be received by our simulated client
