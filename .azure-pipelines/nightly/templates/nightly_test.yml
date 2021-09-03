@@ -106,6 +106,8 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 

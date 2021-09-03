@@ -8,7 +8,6 @@ pr: none
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: " "
     displayName: "Testbed name"
 
 stages:
@@ -17,6 +16,9 @@ stages:
       - job: AnnounceRoutes
         pool: nightly
         timeoutInMinutes: 30
+        variables:
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 

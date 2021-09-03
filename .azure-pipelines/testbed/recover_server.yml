@@ -8,7 +8,6 @@ pr: none
 parameters:
   - name: SERVER
     type: string
-    default: server_1
     values:
       - server_1
       - server_2
@@ -55,6 +54,9 @@ stages:
       - job: RecoverServer
         pool: nightly
         timeoutInMinutes: 720
+        variables:
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 
