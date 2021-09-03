@@ -19,6 +19,12 @@ def incrementIpAddress(ip_addr, by=1):
     new_addr = new_addr + by
     return str(new_addr)
 
+def ipv4_filter(pkt_str):
+    try:
+        pkt = scapy.Ether(pkt_str)
+        return scapy.IPv4 in pkt
+    except:
+        return False
 
 
 class DataplaneBaseTest(BaseTest):
@@ -26,6 +32,7 @@ class DataplaneBaseTest(BaseTest):
         BaseTest.__init__(self)
 
     def setUp(self):
+        testutils.add_filter(testutils.ipv4_filter)
         self.dataplane = ptf.dataplane_instance
         self.dataplane.flush()
         if config["log_dir"] is not None:
@@ -120,9 +127,13 @@ class DHCPTest(DataplaneBaseTest):
 
         self.switch_loopback_ip = self.test_params['switch_loopback_ip']
 
+        self.uplink_mac = self.test_params['uplink_mac']
+
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
+
+        self.testbed_mode = self.test_params['testbed_mode']
 
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.
@@ -202,7 +213,7 @@ class DHCPTest(DataplaneBaseTest):
         # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
         #       which it received the broadcast DHCPDISCOVER from client. This appears to
         #       be loopback. We could pull from minigraph and check here.
-        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.uplink_mac, type=0x0800)
         ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=328, ttl=64)
         udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=308)
         bootp = scapy.BOOTP(op=1,
@@ -231,7 +242,7 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_offer_packet(self):
         return testutils.dhcp_offer_packet(eth_server=self.server_iface_mac,
-                    eth_dst=self.relay_iface_mac,
+                    eth_dst=self.uplink_mac,
                     eth_client=self.client_mac,
                     ip_server=self.server_ip,
                     ip_dst=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
@@ -311,7 +322,7 @@ class DHCPTest(DataplaneBaseTest):
         # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
         #       which it received the broadcast DHCPREQUEST from client. This appears to
         #       be loopback. We could pull from minigraph and check here.
-        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.relay_iface_mac, type=0x0800)
+        ether = scapy.Ether(dst=self.BROADCAST_MAC, src=self.uplink_mac, type=0x0800)
         ip = scapy.IP(src=self.DEFAULT_ROUTE_IP, dst=self.BROADCAST_IP, len=336, ttl=64)
         udp = scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT, len=316)
         bootp = scapy.BOOTP(op=1,
@@ -342,7 +353,7 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_ack_packet(self):
         return testutils.dhcp_ack_packet(eth_server=self.server_iface_mac,
-                    eth_dst=self.relay_iface_mac,
+                    eth_dst=self.uplink_mac,
                     eth_client=self.client_mac,
                     ip_server=self.server_ip,
                     ip_dst=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
