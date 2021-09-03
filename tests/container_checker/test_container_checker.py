@@ -235,7 +235,7 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
     expected_alerting_message = get_expected_alerting_message(container_name)
     loganalyzer.expect_regex.extend(expected_alerting_message)
     with loganalyzer:
-        # Wait for 1 minutes such that Monit has a chance to write alerting message into syslog.
+        # Wait for 70 seconds such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep 70 seconds to wait for the alerting message ...")
         time.sleep(70)
 
