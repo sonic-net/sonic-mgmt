@@ -84,9 +84,8 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
-        assert wait_until(600, 20, chk_ssh_remote_run, localhost, dutip,
-                rw_user, rw_pass, "cat /etc/passwd"), "Failed to ssh upon reboot"
+        reboot(duthost, localhost)
+        assert wait_until(600, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
 
