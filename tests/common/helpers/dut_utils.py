@@ -180,3 +180,53 @@ def get_disabled_container_list(duthost):
             disabled_containers.append(container_name)
 
     return disabled_containers
+
+def check_link_status(duthost, iface_list, expect_status):
+    """
+    check if the link status specified in the iface_list equal to expect status
+    :param duthost: dut host object
+    :param iface_list: the interface list
+    :param expect_status: expected status for the interface specified in the iface_list
+    :return: True if the status of all the interfaces specified in the iface_list equal to expect status, else False
+    """
+    int_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for intf in iface_list:
+        if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
+            return False
+    return True
+
+def encode_dut_and_container_name(dut_name, container_name):
+    """Gets a string by combining dut name and container name.
+
+    Args:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+
+    Returns:
+      A string includes the DuT and container names.
+    """
+
+    return dut_name + "|" + container_name
+
+
+def decode_dut_and_container_name(name_str):
+    """Gets DuT name and container name by parsing the string 'name_str'.
+
+    Args:
+      A string includes the DuT and container names.
+
+    Returns:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+    """
+    dut_name = ""
+    container_name = ""
+
+    name_list = name_str.strip().split("|")
+    if len(name_list) >= 2:
+        dut_name = name_list[0]
+        container_name = name_list[1]
+    elif len(name_list) == 1:
+        container_name = name_list[0]
+
+    return dut_name, container_name

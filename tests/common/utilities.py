@@ -17,6 +17,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 
@@ -45,6 +46,21 @@ def skip_release(duthost, release_list):
 
     if any(release == duthost.sonic_release for release in release_list):
         pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+
+def skip_release_for_platform(duthost, release_list, platform_list):
+    """
+    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    @param platform_list: A list of incompatible platforms
+    """
+    if any(release in duthost.os_version for release in release_list) and \
+		any(platform in duthost.facts['platform'] for platform in platform_list):
+        pytest.skip("DUT has version {} and platform {} and \
+			test does not support {} for {}".format(duthost.os_version,
+            			duthost.facts['platform'], 
+				", ".join(release_list), 
+				", ".join(platform_list)))
 
 def wait(seconds, msg=""):
     """
@@ -451,3 +467,31 @@ def dump_scapy_packet_show_output(packet):
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
+
+
+def compose_dict_from_cli(fields_list):
+    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+
+    Args:
+        fields_list: A list of lines, the output of redis-cli hgetall command
+    """
+    return dict(zip(fields_list[0::2], fields_list[1::2]))
+
+
+def get_intf_by_sub_intf(sub_intf, vlan_id):
+    """
+    Deduce interface from sub interface by striping vlan id
+    Args:
+        sub_intf (str): sub interface name, e.g. Ethernet100.10
+        vlan_id (str): vlan id, e.g. 10
+
+    Returns:
+        str: interface name, e.g. Ethernet100
+    """
+    if not vlan_id:
+        return sub_intf
+
+    vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
+    if sub_intf.endswith(vlan_suffix):
+        return sub_intf[:-len(vlan_suffix)]
+    return sub_intf

@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.conftest import duthost
@@ -29,6 +29,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
+    pytest.mark.usefixtures('backup_and_restore_config_db_on_duts')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -95,7 +96,7 @@ BYTES_COUNT = "bytes_count"
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -146,6 +147,11 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+
+    # stop garp service for single tor
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logging.info("Stopping GARP service on single tor")
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
 
     # If running on a dual ToR testbed, any uplink for either ToR is an acceptable
     # source or destination port
@@ -311,7 +317,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_and_restore_config_db_module):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -319,9 +325,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
         setup: Parameters for the ACL tests.
         stage: The ACL stage under test.
-        ip_version: The IP version under test.
-        backup_and_restore_config_db_module: A fixture that handles restoring Config DB
-                after the tests are over.
+        ip_version: The IP version under test
 
     Yields:
         The ACL table configuration.
@@ -860,7 +864,7 @@ class BaseAclTest(object):
         if dropped:
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
         else:
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction), timeout=20)
 
 
 class TestBasicAcl(BaseAclTest):
