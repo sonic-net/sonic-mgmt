@@ -17,6 +17,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 
@@ -475,3 +476,22 @@ def compose_dict_from_cli(fields_list):
         fields_list: A list of lines, the output of redis-cli hgetall command
     """
     return dict(zip(fields_list[0::2], fields_list[1::2]))
+
+
+def get_intf_by_sub_intf(sub_intf, vlan_id):
+    """
+    Deduce interface from sub interface by striping vlan id
+    Args:
+        sub_intf (str): sub interface name, e.g. Ethernet100.10
+        vlan_id (str): vlan id, e.g. 10
+
+    Returns:
+        str: interface name, e.g. Ethernet100
+    """
+    if not vlan_id:
+        return sub_intf
+
+    vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
+    if sub_intf.endswith(vlan_suffix):
+        return sub_intf[:-len(vlan_suffix)]
+    return sub_intf
