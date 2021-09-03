@@ -23,8 +23,7 @@ def get_pfc_time():
             break
 
     if not ret:
-        log_info("PFC_WD is not running, use some default")
-        ret = 200
+        log_info("PFC_WD is not running")
 
     return ret
 
