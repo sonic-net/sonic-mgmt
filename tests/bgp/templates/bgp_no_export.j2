@@ -19,7 +19,7 @@ enable password zebra
 !
 ! bgp multiple-instance
 !
-{% if 'LeafRouter' in DEVICE_METADATA['localhost']['type'] %}
+{% if DEVICE_METADATA['localhost']['type'] == 'LeafRouter' %}
 route-map TO_TIER0_V4 permit 30
  set community no-export additive
 !
@@ -32,7 +32,6 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   bgp log-neighbor-changes
   bgp bestpath as-path multipath-relax
   no bgp default ipv4-unicast
-  no bgp ebgp-requires-policy
 {# Advertise graceful restart capability for ToR #}
 {% if DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
   bgp graceful-restart
@@ -70,7 +69,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% if bgp_session['asn'] | int != 0 %}
   neighbor {{ neighbor_addr }} remote-as {{ bgp_session['asn'] }}
   neighbor {{ neighbor_addr }} description {{ bgp_session['name'] }}
-{% if 'LeafRouter' in DEVICE_METADATA['localhost']['type'] and 'ToRRouter' in DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] or 'ToRRouter' in DEVICE_METADATA['localhost']['type'] %}
+{% if DEVICE_METADATA['localhost']['type'] == 'LeafRouter' and DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == 'ToRRouter' or DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
   neighbor {{ neighbor_addr }} allowas-in 1
 {% endif %}
 {% if 'admin_status' in bgp_session and bgp_session['admin_status'] == 'down' or 'admin_status' not in bgp_session and 'default_bgp_status' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['default_bgp_status'] == 'down' and DEVICE_METADATA.localhost.type != 'ToRRouter' %}
@@ -80,8 +79,8 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   address-family ipv4
     neighbor {{ neighbor_addr }} activate
     maximum-paths 64
-{% if 'LeafRouter' in DEVICE_METADATA['localhost']['type'] %}
- {%- if 'ToRRouter' in DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] %}
+{% if DEVICE_METADATA['localhost']['type'] == 'LeafRouter' %}
+ {%- if DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] == 'ToRRouter' %}
     neighbor {{ neighbor_addr }} route-map TO_TIER0_V4 out
     neighbor {{ neighbor_addr }} send-community
     neighbor {{ neighbor_addr }} allowas-in 1
