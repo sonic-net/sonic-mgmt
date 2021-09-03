@@ -80,7 +80,7 @@ class DualTorIO:
         logger.info("VLAN interfaces: {}".format(str(self.vlan_interfaces)))
         logger.info("PORTCHANNEL interfaces: {}".format(str(self.tor_pc_intfs)))
 
-        self.time_to_listen = 180.0
+        self.time_to_listen = 300.0
         self.sniff_time_incr = 0
         # Inter-packet send-interval (minimum interval 3.5ms)
         if send_interval < 0.0035:
@@ -374,15 +374,16 @@ class DualTorIO:
             time.sleep(self.send_interval)
             # the stop_early flag can be set to True by data_plane_utils to stop prematurely
             if self.stop_early:
-                time.sleep(5)
-                self.stop_sniffer_early()
-                logger.info("Stop the sender thread gracefully after sending {} packets"\
-                    .format(sent_packets_count))
                 break
             testutils.send_packet(self.ptfadapter, *entry)
             self.packets_sent_per_server[server_addr] =\
                 self.packets_sent_per_server.get(server_addr, 0) + 1
             sent_packets_count = sent_packets_count + 1
+
+        time.sleep(10)
+        self.stop_sniffer_early()
+        logger.info("Stop the sender thread gracefully after sending {} packets"\
+            .format(sent_packets_count))
 
         logger.info("Sender finished running after {}".format(
             str(datetime.datetime.now() - sender_start)))
@@ -440,7 +441,7 @@ class DualTorIO:
             }
         )
         scapy_sniffer.start()
-        time.sleep(2)               # Let the scapy sniff initialize completely.
+        time.sleep(10)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
         scapy_sniffer.join()
         logger.info("Sniffer finished running after {}".\

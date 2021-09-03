@@ -27,6 +27,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   bgp log-neighbor-changes
   bgp bestpath as-path multipath-relax
   no bgp default ipv4-unicast
+  no bgp ebgp-requires-policy
 {# Advertise graceful restart capability for ToR #}
 {% if DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
   bgp graceful-restart

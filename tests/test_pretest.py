@@ -8,7 +8,8 @@ import time
 from collections import defaultdict
 
 from jinja2 import Template
-from common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def collect_dut_info(dut):
 
     if dut.sonichost.is_multi_asic:
         front_end_asics = dut.get_frontend_asic_ids()
-        back_end_asic = dut.get_backend_asic_ids()
+        back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
@@ -70,18 +71,27 @@ def collect_dut_info(dut):
         # and one backend ASIC
         if dut.sonichost.is_multi_asic:
             fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asic)
+            be = random.choice(back_end_asics)
             asic_services[service] = [
                 dut.get_docker_name(service, asic_index=fe),
                 dut.get_docker_name(service, asic_index=be)
             ]
 
-    return {
+    dut_info = {
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
     }
 
+    if dut.sonichost.is_multi_asic:
+        dut_info.update(
+            {
+                "frontend_asics": front_end_asics,
+                "backend_asics": back_end_asics
+            }
+        )
+
+    return dut_info
 
 def test_update_testbed_metadata(duthosts, tbinfo):
     metadata = {}
@@ -132,8 +142,8 @@ def collect_dut_lossless_prio(dut):
     if 'pfc_enable' not in port_qos_map[intf]:
         return []
 
-    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
-    return result 
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
 
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -169,7 +179,7 @@ def test_collect_testbed_prio(duthosts, tbinfo):
         lossless_prio[dut.hostname] = collect_dut_lossless_prio(dut)
         lossy_prio[dut.hostname] = collect_dut_lossy_prio(dut)
 
-    prio_info = [all_prio, lossless_prio, lossy_prio]  
+    prio_info = [all_prio, lossless_prio, lossy_prio]
     file_names = [tbname + '-' + x + '.json' for x in ['all', 'lossless', 'lossy']]
     folder = 'priority'
 
@@ -231,6 +241,22 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
     dut.copy(content=rendered, dest='/tmp/y_cable_simulator_client.py')
     dut.shell('cp /tmp/y_cable_simulator_client.py /usr/lib/python3/dist-packages/')
     dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
+
+    # Below changes are required after these PRs are merged:
+    # * https://github.com/Azure/sonic-platform-common/pull/213
+    # * https://github.com/Azure/sonic-platform-daemons/pull/197
+    # For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
+    # When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
+    # File /etc/sonic/mux_simulator.json can co-exist with the 'y_cable_simulator_client.py' file injected above.
+    # Process xcvrd will determine which one to load or use.
+    mux_simulator_config = {
+        'server_ip': mux_simulator_server,
+        'server_port': mux_simulator_port,
+        'vm_set': tbinfo['group-name'],
+        'side': UPPER_TOR if tbinfo['duts'].index(enum_dut_hostname) == 0 else LOWER_TOR
+    }
+    dut.copy(content=json.dumps(mux_simulator_config, indent=2), dest='/etc/sonic/mux_simulator.json')
+
     dut.shell('systemctl restart pmon')
 
 def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):

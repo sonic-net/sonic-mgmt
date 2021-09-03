@@ -159,7 +159,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 ```
 ./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
 ```
-If you use SONiC image as the VMs, you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
+If you use SONiC image as the neighbor devices (***Not DUT***), you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
 - **Reminder:** By default, this shell script requires a password file. If you are not using Ansible Vault, just create a file with a dummy password and pass the filename to the command line.
 
@@ -263,7 +263,7 @@ Once the topology has been created, we need to give the DUT an initial configura
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 ```
 ssh admin@10.250.0.101
-admin@10.250.0.101's password: <password_in_password.txt>
+admin@10.250.0.101's password: password
 ```
 3. After logged in to the SONiC KVM, you should be able to see BGP sessions with:
 ```

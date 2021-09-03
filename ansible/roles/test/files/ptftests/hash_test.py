@@ -133,8 +133,9 @@ class HashTest(BaseTest):
 
         hit_count_map = {}
         if hash_key == 'ingress-port':
-            # Unenough samples for hash_key ingress-port, check it loosely
-            # Just verify if the asic actually use the hash field as a load-balancing factor
+            # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
+            # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different
+            # ingress ports and expect that they are forwarded from same egress port.
             for ingress_port in self.get_ingress_ports(exp_port_list, dst_ip):
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'\
                     .format(hash_key, ingress_port, exp_port_list, dst_ip))

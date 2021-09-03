@@ -133,7 +133,7 @@ def acl_setup(duthosts, loganalyzer):
             time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None, skip_counter_check=False):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -148,6 +148,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
 
     send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
+
+    # Some test cases will not increase the drop counter consistently on certain platforms
+    if skip_counter_check:
+        logger.info("Skipping counter check")
+        return None
+
     if discard_group == "L2":
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
         for duthost in duthosts:
@@ -248,7 +254,7 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test(duthosts):
-    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None, skip_counter_check=False):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -260,7 +266,7 @@ def do_test(duthosts):
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports)
+        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports, skip_counter_check=skip_counter_check)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
