@@ -61,11 +61,11 @@ parameters:
     displayName: "Run deploy-mg to deploy minigraph to DUT?"
 
 stages:
-  - stage: RedepoyTopology
+  - stage: RedeployTopology
     jobs:
-      - job: RedepoyTopology
+      - job: RedeployTopology
         pool: nightly
-        timeoutInMinutes: 30
+        timeoutInMinutes: 120
         variables:
           skipComponentGovernanceDetection: true
 
