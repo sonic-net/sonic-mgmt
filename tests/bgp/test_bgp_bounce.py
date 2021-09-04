@@ -38,39 +38,41 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     vm_names = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
     vm_hosts = [nbrhosts[vm_name]['host'] for vm_name in vm_names]
 
-    # Apply bgp plain config
-    apply_bgp_config(duthost, bgp_plain_config)
+    for i in range(20):
 
-    # Give additional delay for routes to be propogated
-    time.sleep(BGP_ANNOUNCE_TIME)
+        # Apply bgp plain config
+        apply_bgp_config(duthost, bgp_plain_config)
 
-    # Take action on one of the ToR VM
-    for vm_host in vm_hosts:
-        try:
-            no_export_route_num = get_no_export_output(vm_host)
-        except Exception as detail:
-            vm_host.ping()
-            vm_host.eos_command(commands=['show version'])
-            vm_host.eos_command(commands=['show ip bgp sum'])
-            vm_host.eos_command(commands=['show run'])
-            raise detail
-        pytest_assert(not no_export_route_num, "Routes has no_export attribute")
+        # Give additional delay for routes to be propogated
+        time.sleep(BGP_ANNOUNCE_TIME)
 
-    # Apply bgp no export config
-    apply_bgp_config(duthost, bgp_no_export_config)
+        # Take action on one of the ToR VM
+        for vm_host in vm_hosts:
+            try:
+                no_export_route_num = get_no_export_output(vm_host)
+            except Exception as detail:
+                vm_host.ping()
+                vm_host.eos_command(commands=['show version'])
+                vm_host.eos_command(commands=['show ip bgp sum'])
+                vm_host.eos_command(commands=['show run'])
+                raise detail
+            pytest_assert(not no_export_route_num, "Routes has no_export attribute")
 
-    # Give additional delay for routes to be propogated
-    time.sleep(BGP_ANNOUNCE_TIME)
+        # Apply bgp no export config
+        apply_bgp_config(duthost, bgp_no_export_config)
 
-    # Take action on one of the ToR VM
-    for vm_host in vm_hosts:
-        try:
-            no_export_route_num = get_no_export_output(vm_host)
-        except Exception as detail:
-            vm_host.ping()
-            vm_host.eos_command(commands=['show version'])
-            vm_host.eos_command(commands=['show run'])
-            vm_host.eos_command(commands=['show ip bgp sum'])
-            raise detail
-        pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
+        # Give additional delay for routes to be propogated
+        time.sleep(BGP_ANNOUNCE_TIME)
+
+        # Take action on one of the ToR VM
+        for vm_host in vm_hosts:
+            try:
+                no_export_route_num = get_no_export_output(vm_host)
+            except Exception as detail:
+                vm_host.ping()
+                vm_host.eos_command(commands=['show version'])
+                vm_host.eos_command(commands=['show run'])
+                vm_host.eos_command(commands=['show ip bgp sum'])
+                raise detail
+            pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
 
