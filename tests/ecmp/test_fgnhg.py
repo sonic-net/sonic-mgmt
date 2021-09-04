@@ -1,26 +1,21 @@
 import pytest
-import datetime
+import difflib
 import time
 import logging
 import ipaddress
 import json
 import collections
 from tabulate import tabulate
+from tests.common.reboot import reboot
+from multiprocessing.pool import ThreadPool, TimeoutError
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
-<<<<<<< HEAD
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-=======
-from tests.common.reboot import reboot
-from multiprocessing.pool import ThreadPool, TimeoutError
->>>>>>> Adding warm boot automation
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
-
 
 # Constants
 NUM_NHs = 8
@@ -31,7 +26,7 @@ PREFIX_IPV4_LIST = [u'100.50.25.12/32', u'100.50.25.13/32', u'100.50.25.14/32']
 PREFIX_IPV6_LIST = [u'fc:05::/128', u'fc:06::/128', u'fc:07::/128']
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
-WARM_BOOT_TESTING = False
+WARM_BOOT_TESTING = True
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
 
@@ -164,6 +159,7 @@ def configure_dut(duthost, cmd):
     logger.info("Configuring dut with " + cmd)
     duthost.shell(cmd, executable="/bin/bash")
 
+
 def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
     log_file = "/tmp/fg_ecmp_test.FgEcmpTest.{}".format(test_case)
     params = {
@@ -183,14 +179,30 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             log_file=log_file)
 
 def hash_view_cli_verification(duthost, prefix_list):
-    header = ["FG_NHG_PREFIX", "Next Hop", "Hash buckets"]
+    header = ["FG NHG Prefix", "Next Hop", "Hash buckets"]
     table = []
+    mode = ""
+    compressed_ipv6_prefixes = [] 
+
+    if ":" in prefix_list[0]:
+        mode = "fgnhg_v6" 
+        for ipv6_prefix in prefix_list:
+            subnet = ipv6_prefix.split("/")[1]
+            ipv6_prefix = ipv6_prefix.split("/")[0]
+            ipv6_prefix = unicode(str(ipaddress.IPv6Address(ipv6_prefix)) + "/" + subnet)
+            compressed_ipv6_prefixes.append(ipv6_prefix)
+        prefix_list = compressed_ipv6_prefixes
+    else:
+        mode = "fgnhg_v4" 
+
     prefix_list = sorted(prefix_list)
+   
     for prefix in prefix_list:
         nh_bucket_dict = {}
         command = 'redis-cli -n 6 HGETALL "FG_ROUTE_TABLE|' + str(prefix) + '"'
         data = duthost.command(command,module_ignore_errors=True)
         data = data['stdout'].split('\n')
+
         pairs = zip(data[::2], data[1::2])
         for banknh in pairs:
             nh=str(banknh[1]).split("@")[0]
@@ -203,12 +215,28 @@ def hash_view_cli_verification(duthost, prefix_list):
             nh_bucket_dict[nh] = sorted_hb
         nh_bucket_dict = collections.OrderedDict(sorted(nh_bucket_dict.items()))
         for nhip, val in nh_bucket_dict.items():
-            formatted_banks = ','.replace(',', ', ').join(nh_bucket_dict[nhip])
-            table.append([prefix, nhip, formatted_banks])
+            bank_output = ""
+            displayed_banks = []
+            formatted_banks = (nh_bucket_dict[nhip])
+            for bankid in formatted_banks:
+                if (len(str(bankid)) == 1):
+                    displayed_banks.append(str(bankid) + "  ")
+
+                if (len(str(bankid)) == 2):
+                    displayed_banks.append(str(bankid) + " ")
+
+                if (len(str(bankid)) == 3):
+                    displayed_banks.append(str(bankid))
+
+            for i in range (0, len(displayed_banks), 8):
+                bank_output = bank_output + " ".join(displayed_banks[i:i+8]) + "\n"            
+            table.append([prefix, nhip, bank_output])
+
+
     derived_hash_view = (tabulate(table,header))
     logger.info ("Derived hash-view")
     logger.info (derived_hash_view)
-    cli_output = duthost.command('show fg-nhg-hash-view', module_ignore_errors = True)
+    cli_output = duthost.command('show fg-nhg-hash-view {}'.format(mode), module_ignore_errors = True)
     cli_hash_view = cli_output['stdout']
     logger.info ("CLI hash-view")
     logger.info (cli_hash_view)
@@ -216,7 +244,7 @@ def hash_view_cli_verification(duthost, prefix_list):
         logger.info ("CLI hash-view output validated!")
     else:
         logger.info ("Discrepancy betwen derived hash-view and CLI hash-view")
-
+    
 def reprogram_ecmp_routes(duthost, prefix_list, ip_to_port, ipcmd):
     logger.info ("Reprogramming ECMP routes")
     vtysh_base_cmd = "vtysh -c 'configure terminal'"
@@ -229,7 +257,6 @@ def reprogram_ecmp_routes(duthost, prefix_list, ip_to_port, ipcmd):
            configure_dut(duthost, cmd)
 
 def hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
-    logger.info ("I ran hash_check_warm_boot")
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'hash_check_warm_boot', dst_ip, exp_flow_count)    
 
@@ -237,10 +264,7 @@ def continuous_hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
     t_end = time.time() + 60 * 6
     while time.time() < t_end:
         hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count)         
-        logger.info ("hash check time is")
-        logger.info (time.asctime( time.localtime(time.time()) ))
-
-
+       
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list, localhost):
 
     # Init base test params
@@ -265,7 +289,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     configure_dut(duthost, "config interface shutdown " + dut_if_shutdown)
     time.sleep(30)
 
-    hash_view_cli_verification(duthost, prefix_list)
+   
 
     # Now add the route and nhs
     for prefix in prefix_list:
@@ -275,6 +299,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         configure_dut(duthost, cmd)
 
     time.sleep(3)
+
+    hash_view_cli_verification(duthost, prefix_list)
 
     # Calculate expected flow counts per port to verify in ptf host
     exp_flow_count = {}
@@ -301,7 +327,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'initial_hash_check', dst_ip, exp_flow_count)
- 
+
     if WARM_BOOT_TESTING == True:
         warm_reboot_start_time = time.asctime( time.localtime(time.time()) ) 
         logger.info ("warm reboot start time is ")
@@ -319,8 +345,13 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         pool2 = ThreadPool()  
         pool2.apply_async(continuous_hash_check_warm_boot, args = (ptfhost, dst_ip_list, exp_flow_count, ))
 
-        time.sleep(660)
-
+        pool.close()
+        pool.join()
+        pool1.close()
+        pool1.join()
+        pool2.close()
+        pool2.join()
+        
     for prefix in prefix_list:
            cmd = vtysh_base_cmd
            for nexthop in ip_to_port:
@@ -342,6 +373,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link)
+
 
     ### Send the same flows again, but withdraw one next-hop before sending the flows, check if hash bucket
     ### rebalanced as expected, and the number of flows received on a link is as expected
@@ -430,6 +462,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         exp_flow_count[port] = flows_per_nh
 
     partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port) 
+
 
     ### Simulate route and link flap conditions by toggling the route
     ### and ensure that there is no orch crash and data plane impact
@@ -618,4 +651,3 @@ def test_fg_ecmp(common_setup_teardown, ptfhost, localhost):
     port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, localhost)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, cfg_facts)
-
