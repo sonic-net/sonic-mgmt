@@ -47,7 +47,7 @@ def test_active_tor_reboot_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu
+        action=toggle_upper_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(upper_tor_host)
     verify_tor_states(
@@ -67,7 +67,7 @@ def test_active_tor_reboot_downstream_standby(
     """
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu
+        action=toggle_upper_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(upper_tor_host)
     verify_tor_states(
@@ -87,7 +87,7 @@ def test_standby_tor_reboot_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True,
-        action=toggle_lower_tor_pdu
+        action=toggle_lower_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(lower_tor_host)
     verify_tor_states(
@@ -107,7 +107,7 @@ def test_standby_tor_reboot_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True,
-        action=toggle_lower_tor_pdu
+        action=toggle_lower_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(lower_tor_host)
     verify_tor_states(
