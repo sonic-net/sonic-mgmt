@@ -176,6 +176,8 @@ test_t1_lag() {
     bgp/test_bgp_allow_list.py \
     bgp/test_bgp_fact.py \
     bgp/test_bgpmon.py \
+    bgp/test_bgp_multipath_relax.py \
+    bgp/test_bgp_bbr.py \
     bgp/test_bgp_update_timer.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
