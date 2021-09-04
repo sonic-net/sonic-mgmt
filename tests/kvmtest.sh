@@ -173,6 +173,14 @@ test_t2() {
 test_t1_lag() {
     tgname=t1_lag
     tests="\
+    bgp/test_bgp_fact.py \
+    bgp/test_bgpmon.py \
+    bgp/test_bgp_update_timer.py \
+    lldp/test_lldp.py \
+    monit/test_monit_status.py \
+    platform_tests/test_cpu_memory_usage.py \
+    route/test_default_route.py \
+    test_interfaces.py \
     container_checker/test_container_checker.py"
 
     pushd $SONIC_MGMT_DIR/tests
