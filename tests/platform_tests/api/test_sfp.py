@@ -1,7 +1,8 @@
 import ast
 import logging
-
 import pytest
+
+from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
@@ -9,6 +10,7 @@ from tests.common.utilities import skip_version
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -29,7 +31,32 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+@pytest.fixture(scope="class")
+def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    sfp_setup = {}
+    sfp_port_indices = []
+    if duthost.is_supervisor_node():
+        pytest.skip("skipping for supervisor node")
 
+    # We are interested only in ports that are used for device connection
+    physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
+
+    physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
+  
+    sfp_setup["sfp_port_indices"] = [physical_port_index_map[intf] \
+        for intf in natsorted(physical_port_index_map.keys())]
+
+    if len(xcvr_skip_list[duthost.hostname]):
+        logging.info("Skipping tests on {}".format(xcvr_skip_list[duthost.hostname]))
+
+    sfp_setup["sfp_test_port_indices"] = [physical_port_index_map[intf] for intf in \
+                                                natsorted(physical_port_index_map.keys()) \
+                                                if intf not in xcvr_skip_list[duthost.hostname]]
+    if request.cls is not None:
+        request.cls.sfp_setup = sfp_setup
+
+@pytest.mark.usefixtures("setup")
 class TestSfpApi(PlatformApiTestBase):
     """
     This class contains test cases intended to verify the functionality and
@@ -105,39 +132,6 @@ class TestSfpApi(PlatformApiTestBase):
 
     chassis_facts = None
     duthost_vars = None
-    num_sfps = None
-    candidate_sfp = None
-
-    # get_physical_port_indices() is wrapped around pytest fixture with module
-    # scope because this function can be quite time consuming based upon the
-    # number of ports on the DUT
-    @pytest.fixture(scope="module")
-    def physical_port_indices(self, duthosts, enum_rand_one_per_hwsku_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        return get_physical_port_indices(duthost)
-
-    # This fixture would probably be better scoped at the class level, but
-    # it relies on the platform_api_conn fixture, which is scoped at the function
-    # level, so we must do the same here to prevent a scope mismatch.
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, request, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, physical_port_indices):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        if duthost.is_supervisor_node():
-            pytest.skip("skipping for supervisor node")
-        self.skip_absent_sfp = request.config.getoption("--skip-absent-sfp")
-        self.list_sfps = physical_port_indices
-        #logging.info("physical_port_indices {}".format(physical_port_indices))
-        self.candidate_sfp = []
-        if self.skip_absent_sfp:
-            # Skip absent SFP if option "--skip-absent-sfp" set to True 
-            for i in self.list_sfps:
-                try:
-                    if sfp.get_presence(platform_api_conn, i):
-                        self.candidate_sfp.append(i)
-                except Exception:
-                    pytest.fail("get_presence API is not supported for index {}, failed to compose present SFP list".format(i))
-        else:
-            self.candidate_sfp = self.list_sfps
 
     #
     # Helper functions
@@ -145,7 +139,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def compare_value_with_platform_facts(self, key, value, sfp_idx, duthost):
         expected_value = None
-        sfp_id = self.list_sfps.index(sfp_idx)
+        sfp_id = self.sfp_setup["sfp_port_indices"].index(sfp_idx)
         if duthost.facts.get("chassis"):
             expected_sfps = duthost.facts.get("chassis").get("sfps")
             if expected_sfps:
@@ -194,7 +188,7 @@ class TestSfpApi(PlatformApiTestBase):
     #
 
     def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
@@ -202,7 +196,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             presence = sfp.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve transceiver {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Transceiver {} presence appears incorrect".format(i)):
@@ -213,7 +207,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             model = sfp.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve transceiver {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Transceiver {} model appears incorrect".format(i))
@@ -223,37 +217,16 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             serial = sfp.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Unable to retrieve transceiver {} serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Transceiver {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-
-        for i in self.candidate_sfp:
-            status = sfp.get_status(platform_api_conn, i)
-            if self.expect(status is not None, "Unable to retrieve transceiver {} status".format(i)):
-                self.expect(isinstance(status, bool), "Transceiver {} status appears incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_position_in_parent(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-
-        for i in self.candidate_sfp:
-            position = sfp.get_position_in_parent(platform_api_conn, i)
-            if self.expect(position is not None, "Failed to perform get_position_in_parent for sfp {}".format(i)):
-                self.expect(isinstance(position, int), "Position value must be an integer value for sfp {}".format(i))
-        self.assert_expectations()
-
     def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-
-        for sfp_id in self.candidate_sfp:
+        for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
             replaceable = sfp.is_replaceable(platform_api_conn, sfp_id)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for sfp {}".format(sfp_id)):
                 self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for sfp {}".format(sfp_id))
@@ -265,7 +238,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_get_transceiver_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Do more sanity checking on transceiver info values
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
@@ -292,7 +265,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
             if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
                 if self.expect(isinstance(bulk_status_dict, dict), "Transceiver {} bulk status appears incorrect".format(i)):
@@ -311,7 +284,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
             if self.expect(thold_info_dict is not None, "Unable to retrieve transceiver {} threshold info".format(i)):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
@@ -331,7 +304,7 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         # TODO: Do more sanity checking on the data we retrieve
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             reset_status = sfp.get_reset_status(platform_api_conn, i)
             if self.expect(reset_status is not None, "Unable to retrieve transceiver {} reset status".format(i)):
                 self.expect(isinstance(reset_status, bool), "Transceiver {} reset status appears incorrect".format(i))
@@ -342,7 +315,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             rx_los = sfp.get_rx_los(platform_api_conn, i)
             if self.expect(rx_los is not None, "Unable to retrieve transceiver {} RX loss-of-signal data".format(i)):
                 self.expect(isinstance(rx_los, list) and (all(isinstance(item, bool) for item in rx_los)),
@@ -354,7 +327,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             tx_fault = sfp.get_tx_fault(platform_api_conn, i)
             if self.expect(tx_fault is not None, "Unable to retrieve transceiver {} TX fault data".format(i)):
                 self.expect(isinstance(tx_fault, list) and (all(isinstance(item, bool) for item in tx_fault)),
@@ -366,7 +339,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             temp = sfp.get_temperature(platform_api_conn, i)
             if self.expect(temp is not None, "Unable to retrieve transceiver {} temperatue".format(i)):
                 self.expect(isinstance(temp, float), "Transceiver {} temperature appears incorrect".format(i))
@@ -377,7 +350,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             voltage = sfp.get_voltage(platform_api_conn, i)
             if self.expect(voltage is not None, "Unable to retrieve transceiver {} voltage".format(i)):
                 self.expect(isinstance(voltage, float), "Transceiver {} voltage appears incorrect".format(i))
@@ -388,7 +361,7 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         # TODO: Do more sanity checking on the data we retrieve
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Determine whether the transceiver type supports TX Bias
             if not self.is_xcvr_optical(info_dict):
@@ -407,7 +380,7 @@ class TestSfpApi(PlatformApiTestBase):
         # TODO: Do more sanity checking on the data we retrieve
         # TODO: Should we should expect get_rx_power() to return None or a list of "N/A" strings
         # if the transceiver is non-optical, e.g., DAC
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # Determine whether the transceiver type supports RX power
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -428,7 +401,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             tx_power = sfp.get_tx_power(platform_api_conn, i)
             if self.expect(tx_power is not None, "Unable to retrieve transceiver {} TX power data".format(i)):
                 continue
@@ -452,7 +425,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                continue
@@ -469,7 +442,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -493,7 +466,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -523,7 +496,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports low-power mode
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -549,7 +522,7 @@ class TestSfpApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
@@ -578,7 +551,7 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests get_error_description() API (supported on 202106 and above)"""
         skip_version(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
 
-        for i in self.candidate_sfp:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)
             if self.expect(error_description is not None, "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
@@ -588,7 +561,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_thermals(self, platform_api_conn):
-        for sfp_id in self.candidate_sfp:
+        for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
             try:
                 num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))
             except Exception:
