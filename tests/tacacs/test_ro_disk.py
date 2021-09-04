@@ -7,7 +7,6 @@ from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
-from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
@@ -68,7 +67,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
             logger.info("del user {} done".format(ro_user))
 
     try:
-        # Sanity check, if rw user can get in.
+        # Ensure rw user can get in, as we need this to be able to reboot
         ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
         
         assert ret, "Failed to ssh as rw user"
@@ -84,7 +83,10 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-        reboot(duthost, localhost)
+        # Regular reboot command would not work, as it would try to 
+        # collect show tech, which will fail in RO state.
+        #
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
         assert wait_until(600, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
