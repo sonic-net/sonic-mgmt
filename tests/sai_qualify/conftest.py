@@ -147,8 +147,8 @@ def _is_rpc_server_ready(dut_ip):
         transport.open()
         logger.info("Successful in creating rpc connection : {}:{}".format(dut_ip, SAI_PRC_PORT))
         return True
-    except Exception as e: 
-        logger.info("Attempting to open rpc connection failed : {}".format(e))
+    except Exception: 
+        logger.info("Failed to open rpc connection.")
         return False
     finally:
         transport.close()
@@ -302,8 +302,8 @@ def _is_container_running(duthost, container_name):
     try:
         result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
         return result["stdout_lines"][0].strip() == "true"
-    except Exception as e:
-        logger.info("Cannot get container '{}' running state as error: {}".format(duthost.hostname, e))
+    except Exception:
+        logger.info("Cannot get container '{}' running state.".format(duthost.hostname))
     return False
 
 
@@ -318,8 +318,8 @@ def _is_container_exists(duthost, container_name):
     try:
         result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
         return bool(result["stdout_lines"][0].strip())
-    except Exception as e:
-        logger.info("Cannot get container '{}' running state with error : {}".format(duthost.hostname, e))
+    except Exception:
+        logger.info("Cannot get container '{}' running state.".format(duthost.hostname))
     return False
 
 
