@@ -174,11 +174,13 @@ test_t1_lag() {
     tgname=t1_lag
     tests="\
     bgp/test_bgp_allow_list.py \
+    bgp/test_bgp_bounce.py \
     bgp/test_bgp_fact.py \
     bgp/test_bgpmon.py \
     bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_update_timer.py \
+    bgp/test_traffic_shift.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
     platform_tests/test_cpu_memory_usage.py \
