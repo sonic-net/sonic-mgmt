@@ -125,20 +125,24 @@ def get_port_map(dut, asic_index=None):
 
     return port_mapping
 
-def get_physical_port_indices(duthost):
-    """Returns list of physical port numbers of the DUT"""
-    physical_port_indices = set()
+def get_physical_port_indices(duthost, logical_intfs=None):
+    """
+    @summary: Returns dictionary map of logical ports to corresponding physical port indices
+    @param logical_intfs: List of logical interfaces of the DUT
+    """
+    physical_port_index_dict = {}
 
-    intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
-    phy_port = re.compile(r'^Ethernet\d+$')
-    phy_intfs = [k for k in intf_facts.keys() if re.match(phy_port, k)]
-    phy_intfs = natsorted(phy_intfs)
-    logging.info("physical interfaces = {}".format(phy_intfs))
+    if logical_intfs is None:
+        intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
+        phy_port = re.compile(r'^Ethernet\d+$')
+        logical_intfs = [k for k in intf_facts.keys() if re.match(phy_port, k)]
+        logical_intfs = natsorted(logical_intfs)
+        logging.info("physical interfaces = {}".format(logical_intfs))
 
     for asic_index in duthost.get_frontend_asic_ids():
 	# Get interfaces of this asic
 	interface_list = get_port_map(duthost, asic_index)
-	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in phy_intfs}
+	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in logical_intfs}
 	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
 	for intf in interfaces_per_asic:
             if asic_index is not None:
@@ -146,6 +150,6 @@ def get_physical_port_indices(duthost):
             else:
                 cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
 	    index = duthost.command(cmd)["stdout"]
-	    physical_port_indices.add(int(index))
-    #logging.info("$$$ physical port indices = {}".format(physical_port_indices))
-    return list(physical_port_indices)
+	    physical_port_index_dict[intf] = (int(index))
+
+    return physical_port_index_dict
