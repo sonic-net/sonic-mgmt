@@ -1,6 +1,20 @@
+#!/bin/bash
 
-start() {
+#Do not support the multi instance in current saiserver edition
+start() {    
+    
+    NET_NS=""
+    SONIC_CFGGEN="sonic-cfggen"
+    SONIC_DB_CLI="sonic-db-cli"
+
+    # Obtain our platform as we will mount directories with these names in each docker
+    PLATFORM=${PLATFORM:-`$SONIC_CFGGEN -H -v DEVICE_METADATA.localhost.platform`}
+
+    # Obtain our HWSKU as we will mount directories with these names in each docker
+    HWSKU=${HWSKU:-`$SONIC_CFGGEN -d -v 'DEVICE_METADATA["localhost"]["hwsku"]'`}
+
     docker create --privileged --net=host \
+        -v /usr/share/sonic/device/$PLATFORM/$HWSKU:/usr/share/sonic/hwsku:ro \
         --name=$DOCKERNAME docker-saiserver-brcm:latest || {
             echo "Failed to docker run" >&1
             exit 4
