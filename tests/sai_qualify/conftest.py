@@ -29,6 +29,10 @@ SAI_TEST_CASE_DIR_ON_PTF = "tests"
 SAI_TEST_REPORT_DIR_ON_PTF = "test_results"
 SAI_TEST_REPORT_TMP_DIR_ON_PTF = "test_results_tmp"
 SAISERVER_CONTAINER = "saiserver"
+SAISERVER_CHECK_INTERVAL_IN_SEC = 140
+SAISERVER_RESTART_INTERVAL_IN_SEC = 35
+RPC_RESTART_INTERVAL_IN_SEC = 32
+RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
 def pytest_addoption(parser):
@@ -83,8 +87,6 @@ def start_saiserver_with_retry(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    saiserver_check_waiting_time = 140
-    saiserver_restart_interval = 35
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     logger.info("Checking the PRC connection before starting the saiserver.")
@@ -92,8 +94,8 @@ def start_saiserver_with_retry(duthost):
     
     if not rpc_ready:
         logger.info("Attempting to start saiserver.")
-        sai_ready = wait_until(saiserver_check_waiting_time, saiserver_restart_interval, _is_saiserver_restarted, duthost)
-        pt_assert(sai_ready, "SaiServer failed to start in {}s".format(saiserver_check_waiting_time))
+        sai_ready = wait_until(SAISERVER_CHECK_INTERVAL_IN_SEC, SAISERVER_RESTART_INTERVAL_IN_SEC, _is_saiserver_restarted, duthost)
+        pt_assert(sai_ready, "SaiServer failed to start in {}s".format(SAISERVER_CHECK_INTERVAL_IN_SEC))
         
         logger.info("Successful in starting SaiServer at : {}:{}".format(dut_ip, SAI_PRC_PORT))
     else:
@@ -119,15 +121,13 @@ def _is_saiserver_restarted(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    connection_checking_time = 32
-    connection_checking_interval = 4
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     if _is_container_exists(duthost, 'saiserver'):
         logger.info("saiserver already exists, stop and remove it for a clear restart.")
         stop_and_rm_saiserver(duthost)
     _start_saiserver(duthost)
-    rpc_ready = wait_until(connection_checking_time, connection_checking_interval, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, _is_rpc_server_ready, dut_ip)
     if not rpc_ready:
         logger.info("Failed to start up saiserver, stop it for a restart")
     return rpc_ready
