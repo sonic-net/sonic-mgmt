@@ -49,9 +49,10 @@ def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case):
             dut_ip, 
             PORT_MAP_FILE_PATH))
         logger.info("Test case [{}] passed.".format(test_case))
-    except BaseException:               
+    except BaseException as e:               
         stop_and_rm_saiserver(duthost)
-        pytest.fail("Test case [{}] failed.".format(test_case))
+        logger.info("Test case [{}] failed as {}".format(test_case, e))
+        pytest.fail("Test case [{}] failed".format(test_case), e)
     finally:
         _store_test_result(ptfhost)
 
