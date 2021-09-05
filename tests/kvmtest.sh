@@ -181,6 +181,8 @@ test_t1_lag() {
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_update_timer.py \
     bgp/test_traffic_shift.py \
+    configlet/test_add_rack.py \
+    http/test_http_copy.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
     platform_tests/test_cpu_memory_usage.py \
