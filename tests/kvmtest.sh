@@ -188,7 +188,6 @@ test_t1_lag() {
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py"
 
-
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
     popd
