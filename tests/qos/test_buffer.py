@@ -1424,7 +1424,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         objects_in_appl_db = duthost.shell('redis-cli keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
         if expected_objects:
             expected_object_keys = ['{}:{}:{}'.format(table, port_to_test, objectid) for objectid in expected_objects.keys()]
-            pytest_assert(expected_object_keys == objects_in_appl_db,
+            pytest_assert(set(expected_object_keys) == set(objects_in_appl_db),
                           "Objects in {} on admin-down port is {} but should be {}".format(table, objects_in_appl_db, expected_object_keys))
             for objectid, expected_profile in expected_objects.items():
                 profile = duthost.shell('redis-cli hget {}:{}:{} profile'.format(table, port_to_test, objectid))['stdout']
