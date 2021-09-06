@@ -27,6 +27,14 @@ DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.vnet_monitor_or
 ENABLE_VNET_MONITOR_CMD = "sudo config feature state vnet_monitor enabled"
 VNET_MONITOR_CONTAINER_NAME = 'vnet_monitor'
 
+
+@pytest.fixture(scope='module', autouse=True)
+def check_vnet_monitor_feature(rand_selected_dut):
+    feature_status, ret = rand_selected_dut.get_feature_status()
+    KEY = 'vnet_monitor'
+    if not ret or KEY not in feature_status:
+        pytest.skip('{} feature is not enabled on DUT'.format(KEY))
+
 class VnetMonitorTest:
     def __init__(self, duthost, minigraph_facts, vnet_config, vnet_test_params):
         self.tagged = True
