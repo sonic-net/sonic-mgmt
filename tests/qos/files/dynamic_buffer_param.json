@@ -42,7 +42,7 @@
 		"3-4": "[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]",
 		"5-6": "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]"
 	    },
-	    "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:ingress_lossless_zero_profile]", "[BUFFER_PROFILE_TABLE:ingress_lossy_zero_profile]"],
+	    "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:ingress_lossless_zero_profile]"],
 	    "BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]", "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]"]
 	}
     }

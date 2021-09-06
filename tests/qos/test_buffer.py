@@ -151,6 +151,12 @@ def load_test_parameters(duthost):
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
 
+        # For ingress profile list, we need to check whether the ingress lossy profile exists
+        ingress_lossy_pool = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
+        if ingress_lossy_pool:
+            ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
+            ingress_profile_list.append('[BUFFER_PROFILE_TABLE:ingress_lossy_profile]')
+
 
 def configure_shared_headroom_pool(duthost, enable):
     """Enable or disable the shared headroom pool according to the argument
