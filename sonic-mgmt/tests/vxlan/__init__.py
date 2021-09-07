@@ -52,6 +52,11 @@ def vnet_test_params(request):
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
     params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
+    # ECMP
+    params[TOTAL_NUMBER_OF_ENDPOINTS] = request.config.option.total_number_of_endpoints
+    params[ECMP_NHS_PER_DESTINATION] = request.config.option.ecmp_nhs_per_destination
+    params[TOTAL_NUMBER_OF_NEXTHOPS] = request.config.option.total_number_of_nexthops
+    params['number_of_destinations'] = int(params[TOTAL_NUMBER_OF_NEXTHOPS] / params[ECMP_NHS_PER_DESTINATION])
     return params
 
 @pytest.fixture(scope="module")

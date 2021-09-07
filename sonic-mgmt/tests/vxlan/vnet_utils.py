@@ -121,7 +121,7 @@ def generate_dut_config_files_ecmp(duthost, mg_facts, vnet_test_params, vnet_con
 
     duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_JSON)
 
-    render_template_to_host("vnet_vxlan_ecmp.j2", duthost, DUT_VNET_CONF_JSON, vnet_config_ecmp, mg_facts, vnet_test_params)
+    render_template_to_host("vnet_vxlan.j2", duthost, DUT_VNET_CONF_JSON, vnet_config_ecmp, mg_facts, vnet_test_params)
     render_template_to_host("vnet_interface.j2", duthost, DUT_VNET_INTF_JSON, vnet_config_ecmp)
     render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config_ecmp)
     render_template_to_host("vnet_routes_ecmp.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config_ecmp, op="SET")

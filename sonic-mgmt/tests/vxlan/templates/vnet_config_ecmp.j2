@@ -25,7 +25,7 @@
 {% set vlan_rif_base = 2000 %}
 
 {# A single vnet batch contains 8 Vnets #}
-{% set num_vnet_batch = 1 %}
+{% set num_vnet_batch = 8 %}
 num_vnet_batch: {{ num_vnet_batch }}
 
 {# A single vnet batch has total 18 routes and 8 endpoints including peers if ipv6_vxlan_test == true.
@@ -68,6 +68,7 @@ num_vnet_batch: {{ num_vnet_batch }}
 {% endif %}
 {% set topo_vlan = minigraph_vlans.keys()[0] %}
 
+{% set num_routes_iterations = 10 %}
 {# Max RIFs support currently is 128 #}
 {% if num_vnet > 128 %}
   {% set max_rif = 128 %}
@@ -195,29 +196,34 @@ vnet_subnet_routes:
   {% set endpoints_iters = endpoints_iters + 1 %}
 {% endif %}
 
+{# ##################################
+# All next-hops. Currently we support upto 1020 next hops
+# Create a list of random nexthops.
+#}
+{%- set list_of_all_endpoints = [] %}
+{%- for end_index in range(0, total_number_of_endpoints) %}
+  {%- set part_a, part_b = ((end_index//255)|int)+1, ((end_index % 255)|int)+1 %}
+  {%- set _ = list_of_all_endpoints.append((range(200, 220)|random|string +  "." + part_a|string + "." + part_b|string + "." + range(0, 255)|random|string)) %}
+{% endfor %}
+
 vnet_route_list_ecmp:
-{% for vnet_batch in range (1, 1 + num_vnet)|batch(8) %}
-  {% set temp = (vnet_batch[0]-1)|int %}
-  {% set ip_r_a, ip_r_b = ((temp//100)|int)+100, ((temp%100)|int)+1  %}
-  {% set endpoints_batch_idx = (loop.index0%endpoints_iters)*num_routes_iterations*num_endpoints_batch %}
-  {% set temp_routes_iterations = num_routes_iterations %}
-  {% if ( (endpoints_batch_idx+(num_routes_iterations*num_endpoints_batch)) > num_endpoints ) %}
-    {% set temp_routes_iterations = ((num_endpoints-endpoints_batch_idx)//num_endpoints_batch)|int %}
-  {% endif %}
- 
-  - Vnet{{ vnet_batch[0] }}_route_list_ecmp:
-    {% if number_of_ecmp_nhs is undefined %}
-      {%- set number_of_ecmp_nhs = 128 -%}
-    {% endif %}
-    {% for idx in range (0, num_routes_iterations*2, 2) -%}
+  - Vnet1_route_list_ecmp:
+{%- set count_total_number_of_nexthops = [] %}
+{%- for destination in range(number_of_destinations) %}
+  {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+    {%- for idx in range (0, num_routes_iterations*2, 2) -%}
       {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
-      {%- set e_idx = endpoints_batch_idx+(idx%(temp_routes_iterations*2)) -%}
-      {%- set e_idx_a, e_idx_b = ((e_idx//100)|int)+1, ((e_idx%100)|int)+1  -%}
       {%- set endpoints_list = [] -%}
-      {% for ecmp_nh in range(0, number_of_ecmp_nhs) %}
-        {%- set _ = endpoints_list.append("200.1." +  ecmp_nh|string + ".1") -%}
-      {% endfor %}
+      {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+        {%- set index_endpoints = count_total_number_of_nexthops|length % total_number_of_endpoints %}
+        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops %}
+          {%- set _ = endpoints_list.append( list_of_all_endpoints[index_endpoints] ) %}
+        {%- endif %}
+        {%- set _ = count_total_number_of_nexthops.append(1) %}
+      {%- endfor %}
+      {%- if endpoints_list|length != 0 %}
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
         end: '{{ endpoints_list|join(',') }}'
-    {% endfor %}
-{% endfor %}
+      {%- endif %}
+    {%- endfor %}
+{%- endfor %}

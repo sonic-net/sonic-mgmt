@@ -67,6 +67,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config_ecmp):
         "dut_mac": dut_facts["router_mac"],
         "vnet_interfaces": vnet_config_ecmp["vnet_intf_list"],
         "vnet_routes": vnet_config_ecmp["vnet_route_list_ecmp"],
+        "vnet_local_routes": [],
         "vnet_neighbors": vnet_config_ecmp["vnet_nbr_list"],
         "vnet_peers": vnet_config_ecmp["vnet_peer_list"]
     }
@@ -173,7 +174,6 @@ def test_vnet_vxlan_ecmp(setup, vxlan_status, duthosts, rand_one_dut_hostname, p
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
-    import pdb; pdb.set_trace()
     ptf_runner(ptfhost,
                "ptftests",
                "vnet_vxlan_ecmp.VNET",

@@ -436,7 +436,8 @@ class VNET(BaseTest):
               # This will ensure that every nh is used atleast once.
               for i in range(8):
                 tcp_sport = get_incremental_value('tcp_sport')
-                tcp_dport = get_incremental_value('tcp_dport')
+                #tcp_dport = get_incremental_value('tcp_dport')
+                tcp_dport = 5000
                 pkt = simple_tcp_packet(
                     pktlen=pkt_len,
                     eth_dst=self.dut_mac,
@@ -508,7 +509,7 @@ class VNET(BaseTest):
                   scapy_pkt  = Ether(received_pkt)
                   # Store every destination that was received.
                   dest_ip = scapy_pkt['IP'].dst
-                  print ("Storing ip address:{}".format(dest_ip))
+                  #print ("Storing ip address:{}".format(dest_ip))
                   try:
                     returned_ip_addresses[dest_ip] = returned_ip_addresses[dest_ip] + 1
                   except KeyError:
@@ -525,11 +526,13 @@ class VNET(BaseTest):
             # The number of returned IP addresses should be same as the number of ip addresses in NH group.
             #assert len(returned_ip_addresses.keys()) == len(host_addresses), "{}, {}".format(len(returned_ip_addresses.keys()), len(host_addresses))
             if check_ecmp == 1 and not self.routes_removed:
-              if len(returned_ip_addresses.keys()) == len(host_addresses):
+              if set(host_addresses) - set(returned_ip_addresses.keys()) == set([]):
                 print ("Each address has been used")
               else:
-                raise RuntimeError("ECMP might have failed, we expected every ip address in the nexthop group to be used, but not so: Used addresses:{}".format(returned_ip_addresses.keys()))
-
+                  raise RuntimeError('''ECMP might have failed for:{}, we expected every ip address in the nexthop group({} of them) 
+                to be used, but only {} are used:\nUsed addresses:{}\nUnused Addresses:{}'''.format(test['dst'],
+                     len(host_addresses), len(returned_ip_addresses.keys()),
+                     returned_ip_addresses.keys(), set(host_addresses)-set(returned_ip_addresses.keys())))
             pkt.load = '0' * 60 + str(len(self.packets))
             self.packets.append((test['port'], str(pkt).encode("base64")))
 

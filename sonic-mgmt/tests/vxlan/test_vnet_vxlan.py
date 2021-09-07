@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0"),
     pytest.mark.sanity_check(post_check=True),
-    pytest.mark.asic("mellanox")
+    #pytest.mark.asic("mellanox")
 ]
 
 vlan_tagging_mode = ""
@@ -173,6 +173,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         logger.info("Skipping cleanup")
         pytest.skip("Skip cleanup specified")
 
+    #import pdb;pdb.set_trace()
     logger.debug("Starting PTF runner")
     ptf_runner(ptfhost,
                "ptftests",

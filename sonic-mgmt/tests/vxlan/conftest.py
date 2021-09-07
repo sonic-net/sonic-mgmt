@@ -70,3 +70,28 @@ def pytest_addoption(parser):
         type=int,
         help="Highest expected src port for VXLAN UPD packet"
     )
+
+    vxlan_group.addoption(
+        "--total_number_of_endpoints",
+        action="store",
+        default=1020,
+        type=int,
+        help="Total number of uniq endpoints that can be used in the DUT"
+    )
+
+    vxlan_group.addoption(
+        "--ecmp_nhs_per_destination",
+        action="store",
+        default=128,
+        type=int,
+        help="ECMP: Number of tunnel endpoints to provide for each tunnel destination"
+    )
+
+    # This will decide the number of destinations.
+    vxlan_group.addoption(
+        "--total_number_of_nexthops",
+        action="store",
+        default=32768, # 32 K
+        type=int,
+        help="ECMP: Number of tunnel nexthops to be tested. (number of nhs_per_destination X number_of_destinations)"
+    )
