@@ -27,6 +27,7 @@
     capabilities:
       - net_admin
     privileged: yes
+    memory: 2G
     env:
       CEOS=1
       container=docker
