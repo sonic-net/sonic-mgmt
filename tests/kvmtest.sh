@@ -125,6 +125,7 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
@@ -181,6 +182,7 @@ test_t1_lag() {
     bgp/test_bgp_bounce.py \
     bgp/test_bgp_update_timer.py \
     bgp/test_traffic_shift.py \
+    configlet/test_add_rack.py \
     http/test_http_copy.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
@@ -204,6 +206,7 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_default_route.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
