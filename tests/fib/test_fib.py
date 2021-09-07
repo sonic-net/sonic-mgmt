@@ -1,11 +1,9 @@
 import time
 import logging
-import random
 
 from datetime import datetime
 
 import pytest
-import requests
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
@@ -13,7 +11,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lg
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.ptf_runner import ptf_runner
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
