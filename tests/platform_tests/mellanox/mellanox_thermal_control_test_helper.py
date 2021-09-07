@@ -1008,9 +1008,10 @@ class AbnormalFanMocker(SingleFanMocker):
                                                                                                           self.expect_led_color)
                 except SysfsNotExistError as e:
                     logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
-                return
-
-        assert 0, 'Expected data not found'
+                return True
+        
+        logging.error('Expected data not found')
+        return False
 
     def is_fan_removable(self):
         """
