@@ -207,7 +207,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "dest_mac_address": BROADCAST_MAC,
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                           "uplink_mac": str(dhcp_relay_data['uplink_mac']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
@@ -256,7 +256,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "dest_mac_address": BROADCAST_MAC,
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                           "uplink_mac": str(dhcp_relay_data['uplink_mac']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
@@ -313,7 +313,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "dest_mac_address": BROADCAST_MAC,
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                           "uplink_mac": str(dhcp_relay_data['uplink_mac']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
@@ -346,7 +346,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "dest_mac_address": duthost.facts["router_mac"],
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                           "uplink_mac": str(dhcp_relay_data['uplink_mac']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
@@ -379,7 +379,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "dest_mac_address": BROADCAST_MAC,
                            "client_udp_src_port": RANDOM_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                           "uplink_mac": str(dhcp_relay_data['uplink_mac']),
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
