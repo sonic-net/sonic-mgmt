@@ -4520,7 +4520,12 @@ sensors_checks:
       power:
       - - pmbus-i2c-25-62/pin/power1_input
         - pmbus-i2c-25-62/pin/power1_max
-      
+    
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {} 
     sensor_skip_per_version: {}
 
   x86_64-8102_64h_o-r0:
@@ -4800,7 +4805,12 @@ sensors_checks:
       power:
       - - pmbus-i2c-24-62/pin/power1_input
         - pmbus-i2c-24-62/pin/power1_max
-      
+
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}       
     sensor_skip_per_version: {}
 
   x86_64-mlnx_msn4600-r0-a1:
