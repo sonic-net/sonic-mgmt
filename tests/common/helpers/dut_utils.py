@@ -181,6 +181,7 @@ def get_disabled_container_list(duthost):
 
     return disabled_containers
 
+
 def check_link_status(duthost, iface_list, expect_status):
     """
     check if the link status specified in the iface_list equal to expect status
@@ -194,6 +195,7 @@ def check_link_status(duthost, iface_list, expect_status):
         if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
             return False
     return True
+
 
 def encode_dut_and_container_name(dut_name, container_name):
     """Gets a string by combining dut name and container name.
@@ -239,7 +241,8 @@ def verify_features_state(duthost):
       duthost: An Ansible object of DuT.
 
     Returns:
-      None.
+      If states of all features are valid, returns True; otherwise,
+      returns False.
     """
     feature_status, succeeded = duthost.get_feature_status()
     if not succeeded:
@@ -247,13 +250,9 @@ def verify_features_state(duthost):
         return False
 
     for feature_name, status in feature_status.items():
-        get_command = 'sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name)
-        get_command_result = duthost.shell(get_command)["stdout_lines"][0]
-        feature_state = get_command_result.strip()
+        logger.info("The state of '{}' is '{}'.".format(feature_name, status))
 
-        logger.info("The state of '{}' is '{}'.".format(feature_name, feature_state))
-
-        if feature_state not in ("enabled", "always_enabled", "disabled", "always_disabled"):
+        if status not in ("enabled", "always_enabled", "disabled", "always_disabled"):
             logger.info("The state of '{}' is invalid!".format(feature_name))
             return False
 
