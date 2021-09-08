@@ -153,6 +153,14 @@ def pytest_addoption(parser):
         help="Specify the target image to restore to, or stay in target image if empty",
     )
 
+    ###############################
+    # SONiC Metadata upgrade test #
+    ###############################
+
+    parser.addoption(
+        "--metadata_process", action="store_true", default=True, help="Upgrade using metadata procedure"
+    )
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
