@@ -20,3 +20,5 @@ def load_db_config():
         pass
     except NameError:
         pass
+    except AttributeError:
+        pass
