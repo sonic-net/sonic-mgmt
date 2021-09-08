@@ -19,20 +19,12 @@ def incrementIpAddress(ip_addr, by=1):
     new_addr = new_addr + by
     return str(new_addr)
 
-def ipv4_filter(pkt_str):
-    try:
-        pkt = scapy.Ether(pkt_str)
-        return scapy.IPv4 in pkt
-    except:
-        return False
-
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
 
     def setUp(self):
-        testutils.add_filter(testutils.ipv4_filter)
         self.dataplane = ptf.dataplane_instance
         self.dataplane.flush()
         if config["log_dir"] is not None:
