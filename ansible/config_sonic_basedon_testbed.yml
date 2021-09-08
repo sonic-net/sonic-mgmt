@@ -200,7 +200,7 @@
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
-    when: front_panel_asic_ifnames != [] 
+    when: front_panel_asic_ifnames != []
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -248,7 +248,7 @@
       set_fact:
         subject_server: "{{ telemetry_certs['subject_server'] }}"
       when: telemetry_certs['subject_server'] is defined
-    
+
     - name: read client subject
       set_fact:
         subject_client: "{{ telemetry_certs['subject_client'] }}"
@@ -263,7 +263,7 @@
         dsmsroot_key: "{{ dsmsroot_key_t }}"
         cert_subject: "{{ subject_server }}"
         root_subject: "{{ subject_client }}"
-    
+
     when: deploy is defined and deploy|bool == true
 
   - block:
@@ -409,6 +409,17 @@
         become: true
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
+
+      # FIXME: This is a temporary workaround for the un-rendered j2 in config_db issue to unblock sonic-mgmt PR testing
+      # Currently the j2 template in /etc/sonic/init.json is un-rendered properly into running config_db.
+      # This caused unexpected dhcp_relay feature status in "show feature status" and failed sonic-mgmt PR testing.
+      # Need to revert this change after the image issue is fixed,
+      - name: Temporary workaround for un-rendered j2 in config_db
+        become: true
+        shell: sonic-cfggen -m -t /etc/sonic/init_cfg.json > /tmp/init_cfg.json.tmp
+      - name: Copy /tmp/init_cfg.json.tmp to /etc/sonic/init_cfg.json
+        become: true
+        shell: cp /tmp/init_cfg.json.tmp /etc/sonic/init_cfg.json
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
