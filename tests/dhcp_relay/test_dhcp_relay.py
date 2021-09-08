@@ -343,7 +343,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
-                           "dest_mac_address": duthost.facts["router_mac"],
+                           "dest_mac_address": duthost.facts["router_mac"] if testbed_mode != 'dual_testbed' else str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
