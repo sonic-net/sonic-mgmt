@@ -78,9 +78,22 @@ parameters:
     type: string
     default: ""
 
-  - name: SKIP_SCRIPTS
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+
+  # Individual nightly test scheduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
+
+  # Individual nightly test scheduler file could override this variable
+  # to skip uploading test results to kusto.
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
 
 stages:
 
@@ -93,31 +106,12 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 
-          - task: AzureKeyVault@1
-            displayName: Get Secrets
-            inputs:
-              azureSubscription: 'Network Production Environment -- SONiC(9355ef17-3aa2-493a-94ab-a43a9bf8cd70)'
-              KeyVaultName: 'SONiC'
-              SecretsFilter: '*'
-              RunAsPreJob: false
-
-          - task: Bash@3
-            displayName: Save Secrets
-            inputs:
-              targetType: 'inline'
-              script: |
-                # Download secrets.json from Azure Key Vault
-                # The AzureKeyVault task automatically set variable for each secret found in key vault
-                # Secrets available: nm-secrets, ansible-vault-passwd
-                echo '$(nm-secrets)' > ansible/group_vars/all/secrets.json
-                echo '$(ansible-vault-passwd)' > ansible/password.txt
-
-                # decrypt the secret file
-                md5sum ansible/group_vars/all/secrets.json
-                ansible-vault decrypt ansible/group_vars/all/secrets.json --vault-password-file=ansible/password.txt
+          - template: get_secrets.yml
 
           - task: PythonScript@0
             displayName: Parse Testbed Info
@@ -246,7 +240,7 @@ stages:
                 fi
                 cd ansible
 
-                # ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
                 ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
@@ -289,7 +283,7 @@ stages:
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "${{ parameters.SKIP_SCRIPTS }}" \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t "$EXECUTION_TOPOLOGY" \
@@ -342,6 +336,12 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
+
+                if [[ ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }} == True ]]; then
+                    echo "SKIP_TEST_RESULTS_UPLOADING=True, skip uploading test results to Kusto"
+                    exit 0
+                fi
+
                 echo "Activate python3 virtual environment"
                 source /var/AzDevOps/env-python3/bin/activate
 

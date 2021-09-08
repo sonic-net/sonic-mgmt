@@ -1,0 +1,35 @@
+# This job is for announcing routes to specified testbed. It can only be manually triggered.
+
+name: AnnounceRoutes_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed name"
+
+stages:
+  - stage: AnnounceRoutes
+    jobs:
+      - job: AnnounceRoutes
+        pool: nightly
+        timeoutInMinutes: 30
+        variables:
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Announce routes
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./testbed-cli.sh announce-routes ${{ parameters.TESTBED_NAME }} password.txt

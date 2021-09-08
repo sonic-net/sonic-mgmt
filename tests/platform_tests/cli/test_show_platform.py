@@ -21,6 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import skip_release_for_platform
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -345,6 +346,9 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+
+
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))

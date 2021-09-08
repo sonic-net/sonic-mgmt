@@ -40,7 +40,7 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "platform_tests/test_advanced_reboot.py platform_tests/test_reboot.py"
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
     displayName: "Skip Scripts"
 
 stages:

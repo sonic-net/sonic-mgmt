@@ -76,6 +76,8 @@ all:
           ansible_host: 10.64.246.158
         vms24-2:
           ansible_host: 10.64.246.159
+        vms28-1:
+          ansible_host: 10.64.246.238
 
     pdu:
       hosts:
@@ -160,6 +162,9 @@ all:
         pdu-122:
           ansible_host: 10.3.155.122
           protocol: snmp
+        pdu-123:
+          ansible_host: 10.3.155.123
+          protocol: snmp
 
 fanout:
   hosts:
@@ -224,6 +229,8 @@ fanout:
       ansible_host: 10.3.146.165
     str2-7260cx3-acs-fan-24:
       ansible_host: 10.3.146.174
+    str2-7260cx3-acs-fan-25:
+      ansible_host: 10.3.146.50
 
 sonic:
   vars:
@@ -307,30 +314,165 @@ sonic_arista:
     str2-7050cx3-acs-01:
       ansible_host: 10.3.146.85
       hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE20432334
+      base_mac: 94:8e:d3:05:34:e4
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE20432334"
+        "0x24": "948ed30534e4"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18938843"
+        "0x2f": "JPE20432334"
     str2-7050cx3-acs-02:
       ansible_host: 10.3.146.187
       hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE20424995
+      base_mac: 94:8e:d3:04:bf:d8
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE20424995"
+        "0x24": "948ed304bfd8"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18938843"
+        "0x2f": "JPE20424995"
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21041273
+      base_mac: 94:8e:d3:99:00:10
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21041273"
+        "0x24": "948ed3990010"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18938843"
+        "0x2f": "JPE21041273"
     str2-7050cx3-acs-06:
       ansible_host: 10.3.147.26
       hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPW20281061
+      base_mac: d4:af:f7:4d:a4:44
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPW20281061"
+        "0x24": "d4aff74da444"
+        "0x25": "2020/09/24 18:43:41"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18917935"
+        "0x2f": "JPW20281061"
     str2-7050cx3-acs-07:
       ansible_host: 10.3.147.24
       hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPW20281078
+      base_mac: d4:af:f7:4d:af:18
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPW20281078"
+        "0x24": "d4aff74daf18"
+        "0x25": "2020/09/25 19:14:47"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18917935"
+        "0x2f": "JPW20281078"
     str2-7050cx3-acs-08:
       ansible_host: 10.3.147.22
       hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPW20280924
+      base_mac: d4:af:f7:4d:a5:4c
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPW20280924"
+        "0x24": "d4aff74da54c"
+        "0x25": "2020/09/24 20:29:39"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18917935"
+        "0x2f": "JPW20280924"
     str2-7050cx3-acs-09:
       ansible_host: 10.3.147.20
       hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPW20281034
+      base_mac: d4:af:f7:4d:a8:64
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPW20281034"
+        "0x24": "d4aff74da864"
+        "0x25": "2020/09/25 00:34:03"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18917935"
+        "0x2f": "JPW20281034"
     str2-7050cx3-acs-10:
       ansible_host: 10.3.146.122
       hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE20437840
+      base_mac: 94:8e:d3:04:eb:28
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE20437840"
+        "0x24": "948ed304eb28"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18938843"
+        "0x2f": "JPE20437840"
     str2-7050cx3-acs-11:
       ansible_host: 10.3.146.127
       hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE20432360
+      base_mac: d4:af:f7:cb:c8:ec
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE20432360"
+        "0x24": "d4aff7cbc8ec"
+        "0x25": "2020/10/30 11:27:31"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal6-6.1.11-18938843"
+        "0x2f": "JPE20432360"
     str2-7060-spy-1:
       ansible_host: 10.3.146.241
       hwsku: Arista-7060CX-32S-C32
@@ -358,7 +500,7 @@ sonic_arista_QX:
   hosts:
     str2-7050qx-32s-acs-01:
       ansible_host: 10.3.146.158
-      hwsku: Arista-7050-QX-32S
+      hwsku: Arista-7050QX32S-Q32
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
@@ -452,6 +594,8 @@ sonic_cisco_8102:
   hosts:
     str2-8102-01:
       ansible_host: 10.3.146.133
+    str2-8102-02:
+      ansible_host: 10.3.146.68
 
 sonic_dell_z9332f:
   vars:
@@ -460,16 +604,84 @@ sonic_dell_z9332f:
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       hwsku: DellEMC-Z9332f-M-O16C64
+      model: 04CN21
+      serial: 8ZHXCW2
+      base_mac: C8:F7:50:EB:AE:C1
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET009BR0030"
+        "0x24": "C8:F7:50:EB:AE:C1"
+        "0x25": "12/02/2019 10:38:54"
+        "0x26": "1"
+        "0x27": "A00"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "8ZHXCW2"
+        "0xFD": "674"
+        "0xFE": "0x98790533"
       pdu_host: pdu-111
     str2-z9332f-05:
       ansible_host: 10.3.146.228
       hwsku: DellEMC-Z9332f-M-O16C64
+      model: 04CN21
+      serial: 2FRXCW2
+      base_mac: C8:F7:50:ED:15:41
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET0004K0123"
+        "0x24": "C8:F7:50:ED:15:41"
+        "0x25": "05/07/2020 21:33:13"
+        "0x26": "1"
+        "0x27": "A01"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "2FRXCW2"
+        "0xFD": "674"
+        "0xFE": "0x4FCF505B"
       pdu_host: pdu-111
+      skip_modules:
+        'psus':
+          - PSU1
     str2-z9332f-01:
       ansible_host: 10.3.146.248
       hwsku: DellEMC-Z9332f-O32
+      model: 04CN21
+      serial: 9DRXCW2
+      base_mac: C8:F7:50:ED:7C:C1
+      syseeprom_info:
+        "0x21": "Z9332F-ON"
+        "0x22": "04CN21"
+        "0x23": "TH04CN21CET0004K0214"
+        "0x24": "C8:F7:50:ED:7C:C1"
+        "0x25": "05/13/2020 01:43:36"
+        "0x26": "1"
+        "0x27": "A01"
+        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
+        "0x29": "0.0.3"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "Dell EMC"
+        "0x2E": "0.5.1"
+        "0x2F": "9DRXCW2"
+        "0xFD": "674"
+        "0xFE": "0x5E7C686F"
       pdu_host: pdu-111
-
+      skip_modules:
+        'psus':
+          - PSU1
 server:
   hosts:
     str2-acs-serv-16:
@@ -492,3 +704,5 @@ server:
       ansible_host: 10.64.246.156
     str2-acs-serv-27:
       ansible_host: 10.64.246.157
+    str2-acs-serv-28:
+      ansible_host: 10.64.246.225

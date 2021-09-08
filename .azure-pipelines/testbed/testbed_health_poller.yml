@@ -1,0 +1,55 @@
+# This job is for periodically polling testbed health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "*/15 * * * *"
+    displayName: TestbedHealthPollingScheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+  - stage: TestbedHealthPolling
+    jobs:
+      - job: TestbedHealthPolling
+        pool: nightly
+        timeoutInMinutes: 30
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run Polling
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./devutils -i str -a ping -g sonic -j > str_ping.json
+                ./devutils -i str2 -a ping -g sonic -j > str2_ping.json
+                ./devutils -i strsvc -a ping -g sonic -j > strsvc_ping.json
+
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd ../test_reporting
+                pip3 install -r requirements.txt
+
+                python3 report_uploader.py -c "reachability" ../ansible/str_ping.json SonicTestData
+                python3 report_uploader.py -c "reachability" ../ansible/str2_ping.json SonicTestData
+                python3 report_uploader.py -c "reachability" ../ansible/strsvc_ping.json SonicTestData
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)

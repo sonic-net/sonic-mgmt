@@ -22,6 +22,7 @@ str2-7260cx3-acs-fan-18,10.3.146.144/23,Arista-7260CX3,FanoutLeaf,
 str2-7260cx3-acs-fan-19,10.3.146.156/23,Arista-7260CX3,FanoutLeaf,
 str2-7260cx3-acs-fan-20,10.3.146.165/23,Arista-7260CX3,FanoutLeaf,
 str2-7260cx3-acs-fan-24,10.3.146.174/23,Arista-7260CX3,FanoutLeaf,
+str2-7260cx3-acs-fan-25,10.3.146.50/23,Arista-7260CX3,FanoutLeaf,
 str2-7260cx3-02,10.3.146.79/23,Arista-7260CX3,FanoutLeaf,
 str2-7060-spy-3,10.3.146.242,Arista-7060CX-32S-C32,DevSonic,
 str2-7060-spy-4,10.3.146.243,Arista-7060CX-32S-C32,DevSonic,
@@ -61,6 +62,7 @@ str2-msn4600c-acs-01,10.3.146.51/23,ACS-MSN4600C,DevSonic,
 str2-dx010-acs-6,10.64.246.100/23,Celestica-DX010-C32,DevSonic,
 str2-dx010-acs-7,10.3.146.202/23,Celestica-DX010-C32,DevSonic,
 str2-8102-01,10.3.146.133/23,64x100Gb,DevSonic,
+str2-8102-02,10.3.146.68/23,64x100Gb,DevSonic,
 str2-7170-azd,10.3.146.76/23,Arista-7170-64C,DevSonic,
 str2-7215-acs-1,10.3.146.59/23,Nokia-7215,DevSonic,
 str2-7215-acs-2,10.3.146.63/23,Nokia-7215,FanoutLeafSonic,
@@ -76,6 +78,7 @@ str2-acs-serv-24,10.64.246.154/23,TestServ,Server,
 str2-acs-serv-25,10.64.246.155/23,TestServ,Server,
 str2-acs-serv-26,10.64.246.156/23,TestServ,Server,
 str2-acs-serv-27,10.64.246.157/23,TestServ,Server,
+str2-acs-serv-28,10.64.246.225/23,TestServ,Server,
 pdu-96,10.3.155.96,Sentry,Pdu,snmp
 pdu-97,10.3.155.97,Sentry,Pdu,snmp
 pdu-98,10.3.155.98,Sentry,Pdu,snmp
@@ -103,6 +106,7 @@ pdu-119,10.3.155.119,Sentry,Pdu,snmp
 pdu-120,10.3.155.120,Sentry,Pdu,snmp
 pdu-121,10.3.155.121,Sentry,Pdu,snmp
 pdu-122,10.3.155.122,Sentry,Pdu,snmp
+pdu-123,10.3.155.123,Sentry,Pdu,snmp
 console-80,10.3.145.80,Cisco,ConsoleServer,ssh
 console-81,10.3.145.81,Cisco,ConsoleServer,ssh
 console-82,10.3.145.82,Cisco,ConsoleServer,ssh

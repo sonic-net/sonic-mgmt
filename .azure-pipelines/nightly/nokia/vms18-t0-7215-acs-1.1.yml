@@ -51,19 +51,23 @@ parameters:
               iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark_unicast \
               iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_multicast \
               iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_unicast \
+              platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmware_version \
+              platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power \
+              platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_update_notification \
+              platform_tests/api/test_component.py::TestComponentApi::test_update_firmware \
               platform_tests/api/test_psu.py::TestPsuApi::test_power \
               platform_tests/api/test_psu.py::TestPsuApi::test_temperature \
               platform_tests/api/test_psu.py::TestPsuApi::test_led \
               platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led \
               platform_tests/api/test_sfp.py::TestSfpApi::test_power_override \
               platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel \
-              platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode \
-              platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led \
               platform_tests/link_flap/test_cont_link_flap.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot \
+              platform_tests/test_reboot.py::test_watchdog_reboot \
+              platform_tests/test_reboot.py::test_power_off_reboot \
               pfc/test_unknown_mac.py \
               route/test_route_perf.py \
               snmp/test_snmp_queue.py \

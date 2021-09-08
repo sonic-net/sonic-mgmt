@@ -26,6 +26,8 @@ stages:
         timeoutInMinutes: 30
         variables:
           - group: GIT_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 

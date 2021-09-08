@@ -112,6 +112,7 @@ test_t0() {
     pc/test_po_cleanup.py \
     pc/test_po_update.py \
     route/test_default_route.py \
+    route/test_static_route.py \
     arp/test_neighbor_mac.py \
     arp/test_neighbor_mac_noptf.py \
     snmp/test_snmp_cpu.py \
@@ -124,6 +125,7 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
@@ -203,6 +205,7 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_default_route.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py"
 
     pushd $SONIC_MGMT_DIR/tests

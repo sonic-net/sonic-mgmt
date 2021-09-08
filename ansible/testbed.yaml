@@ -92,7 +92,7 @@
 
 - conf-name: vms2-2-t0-2700
   group-name: vms2-2
-  topo: t0-56
+  topo: t0-56-po2vlan
   ptf_image_name: docker-ptf
   ptf: vms2-2
   ptf_ip: 10.64.246.27/23
@@ -127,7 +127,7 @@
   ptf: vms2-6
   ptf_ip: 10.64.246.79/23
   ptf_ipv6:
-  server: server_2
+  server: server_2      
   vm_base: VM0244
   dut:
     - str-7260cx3-acs-7
@@ -137,7 +137,7 @@
 
 - conf-name: vms2-5-t0-7050-1
   group-name: vms2-5
-  topo: t0
+  topo: t0-35
   ptf_image_name: docker-ptf
   ptf: vms2-5
   ptf_ip: 10.64.247.23/23
@@ -1139,6 +1139,21 @@
   vm_base: VM2184
   dut:
     - str2-8102-01
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms28-t1-8102-02
+  group-name: vms28-1
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms28-1
+  ptf_ip: 10.64.246.238/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2800
+  dut:
+    - str2-8102-02
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia

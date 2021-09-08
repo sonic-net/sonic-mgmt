@@ -15,6 +15,7 @@ ansible/plugins/*/*.pyc
 
 # Dev tools
 .vscode/
+.idea/
 
 # Credential files
 ansible/group_vars/all/secrets.json

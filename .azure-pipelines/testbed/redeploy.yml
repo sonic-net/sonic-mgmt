@@ -1,0 +1,209 @@
+# In case there is something wrong with current testbed, this job can be manually triggered to re-deploy the testbed.
+# Tool "testbed-cli.sh" is used to perform the redeploy tasks.
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed name"
+
+  - name: TESTBED_FILE
+    type: string
+    default: testbed.yaml
+    values:
+      - testbed.csv
+      - testbed.yaml
+    displayName: "Testbed file"
+
+  - name: CURRENT_VM_TYPE
+    type: string
+    default: veos
+    values:
+      - veos
+      - ceos
+    displayName: "VM type of current topology"
+
+  - name: TARGET_VM_TYPE
+    type: string
+    default: veos
+    values:
+      - veos
+      - ceos
+    displayName: "Target VM type of re-deployed topology"
+
+  - name: RUN_REMOVE_TOPO
+    type: boolean
+    default: true
+    displayName: "Run remove-topo to unbind topology?"
+
+  - name: RUN_STOP_TOPO_VMS
+    type: boolean
+    default: true
+    displayName: "Run stop-topo-vms to delete neighbor VMs for this testbed? (Should be unchecked if CURRENT_VM_TYPE is ceos)"
+
+  - name: RUN_START_TOPO_VMS
+    type: boolean
+    default: true
+    displayName: "Run start-topo-vms to start neighbor VMs for this testbed? (Should be unchecked if TARGET_VM_TYPE is ceos)"
+
+  - name: RUN_ADD_TOPO
+    type: boolean
+    default: true
+    displayName: "Run add-topo to bind topology?"
+
+  - name: RUN_DEPLOY_MG
+    type: boolean
+    default: true
+    displayName: "Run deploy-mg to deploy minigraph to DUT?"
+
+stages:
+  - stage: RedeployTopology
+    jobs:
+      - job: RedeployTopology
+        pool: nightly
+        timeoutInMinutes: 120
+        variables:
+          skipComponentGovernanceDetection: true
+
+        steps:
+
+          - task: Bash@3
+            displayName: Validate Parameters
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.CURRENT_VM_TYPE }} == "ceos" && "${{ parameters.RUN_STOP_TOPO_VMS }}" == True ]]; then
+                    echo "Bad parameter combinations: CURRENT_VM_TYPE=ceos, RUN_STOP_TOPO_VMS=True"
+                    echo "If CURRENT_VM_TYPE is ceos, then the neighbor VMs are deleted during remove-topo."
+                    echo "There is no need to run stop-topo-vms."
+                    exit 1
+                fi
+
+                if [[ ${{ parameters.TARGET_VM_TYPE }} == "ceos" && "${{ parameters.RUN_START_TOPO_VMS }}" == True ]]; then
+                    echo "Bad parameter combinations: TARGET_VM_TYPE=ceos, RUN_START_TOPO_VMS=True"
+                    echo "If TARGET_VM_TYPE is ceos, then ceos will be used as neighbors. They will be created during add-tpo"
+                    echo "There is no need to run start-topo-vms."
+                    exit 1
+                fi
+
+                if [[ ${{ parameters.RUN_STOP_TOPO_VMS }} == True && ${{ parameters.TARGET_VM_TYPE }} == "veos" && ${{ parameters.RUN_START_TOPO_VMS }} == False && ${{ parameters.RUN_ADD_TOPO }} == True ]]; then
+                  echo "RUN_STOP_TOPO_VMS=True, TARGET_VM_TYPE=veos, RUN_START_TOPO_VMS=False, RUN_ADD_TOPO=True"
+                  echo "If VM type of target topology is veos, need to run start-topo-vms firstly to start VMs for current testbed before running add-topo"
+                  exit 1
+                fi
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - task: PythonScript@0
+            displayName: Parse Testbed Info
+            inputs:
+              scriptSource: 'inline'
+              script: |
+                from __future__ import print_function
+                import os, imp, sys
+
+                testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
+                testbed_name = '${{ parameters.TESTBED_NAME }}'.strip()
+                testbed_file = '${{ parameters.TESTBED_FILE }}'.strip()
+                tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
+                target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+
+                if not target_testbed:
+                    print('Testbed {} not found!'.format(testbed_name))
+                    sys.exit(1)
+                dut_list = target_testbed.get('duts', [])
+                dut_list_str = ' '.join(x for x in dut_list)
+
+                print('Basic info of testbed {}:'.format(testbed_name))
+                print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
+                print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
+                print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+                print('          DUT_LIST={}'.format(dut_list_str))
+
+                # Below code can create dynamic azure pipeline variables
+                # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
+                print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+                print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
+
+          - task: Bash@3
+            displayName: Run remove-topo
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.RUN_REMOVE_TOPO }} == False ]]; then
+                  echo "Skip remove-topo"
+                  exit 0
+                fi
+
+                cd ansible
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} -k ${{ parameters.CURRENT_VM_TYPE }} remove-topo ${{ parameters.TESTBED_NAME }} password.txt -vv
+
+          - task: Bash@3
+            displayName: Run stop-topo-vms
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.RUN_STOP_TOPO_VMS }} == False ]]; then
+                  echo "Skip stop-topo-vms"
+                  exit 0
+                fi
+
+                cd ansible
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} stop-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
+
+          - task: Bash@3
+            displayName: Run start-topo-vms
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.RUN_START_TOPO_VMS }} == False ]]; then
+                  echo "Skip start-topo-vms"
+                  exit 0
+                fi
+
+                cd ansible
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
+
+          - task: Bash@3
+            displayName: Run add-topo
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.RUN_ADD_TOPO }} == False ]]; then
+                  echo "Skip add-topo"
+                  exit 0
+                fi
+
+                cd ansible
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} -k ${{ parameters.TARGET_VM_TYPE }} add-topo ${{ parameters.TESTBED_NAME }} password.txt -vv
+
+          - task: Bash@3
+            displayName: Run deploy-mg
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ ${{ parameters.RUN_DEPLOY_MG }} == False ]]; then
+                  echo "Skip deploy-mg"
+                  exit 0
+                fi
+
+                cd ansible
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -vv

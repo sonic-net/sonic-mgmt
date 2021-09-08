@@ -38,6 +38,36 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, skip unsupported test cases
+  # Unsupported platform API test cases are skipped - this can be removed once platform API capability validation is implemented
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/api/test_chassis.py::TestChassisApi::test_status_led \
+              platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager \
+              platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed \
+              platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed \
+              platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led \
+              platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led \
+              platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_target_speed \
+              platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed \
+              platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led \
+              platform_tests/api/test_psu.py::TestPsuApi::test_led \
+              platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed \
+              platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed \
+              platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold"
+    displayName: "Skip Scripts"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "sub_port_interfaces"'
+    displayName: Testbed specific
+    
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -45,3 +75,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
