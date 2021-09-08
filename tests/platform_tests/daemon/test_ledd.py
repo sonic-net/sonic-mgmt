@@ -122,10 +122,6 @@ def test_pmon_ledd_term_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(daemon_status != expected_running_status and pre_daemon_pid != daemon_pid,
-                          "{} status for SIG_TERM should not be {} with pid:{}!".format(daemon_name, daemon_status, daemon_pid))
-
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
