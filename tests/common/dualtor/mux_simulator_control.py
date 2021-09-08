@@ -404,7 +404,10 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo):
     upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
-    utilities.wait_until(30, 5, _check_mux_status_consistency)
+    pytest_assert(
+        utilities.wait_until(30, 5, _check_mux_status_consistency),
+        "Mux status is inconsistent between the DUTs and mux simulator after toggle"
+    )
 
 
 @pytest.fixture
