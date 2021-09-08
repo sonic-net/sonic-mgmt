@@ -230,3 +230,33 @@ def decode_dut_and_container_name(name_str):
         container_name = name_list[0]
 
     return dut_name, container_name
+
+
+def verify_features_state(duthost):
+    """Checks whether the state of each feature is valid.
+
+    Args:
+      duthost: An Ansible object of DuT.
+
+    Returns:
+      None.
+    """
+    feature_status, succeeded = duthost.get_feature_status()
+    if not succeeded:
+        logger.info("Failed to get list of feature names.")
+        return False
+
+    for feature_name, status in feature_status.items():
+        get_command = 'sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name)
+        get_command_result = duthost.shell(get_command)["stdout_lines"][0]
+        feature_state = get_command_result.strip()
+
+        logger.info("The state of '{}' is '{}'.".format(feature_name, feature_state))
+
+        if feature_state not in ("enabled", "always_enabled", "disabled", "always_disabled"):
+            logger.info("The state of '{}' is invalid!".format(feature_name))
+            return False
+
+        logger.info("The state of '{}' is valid.".format(feature_name))
+
+    return True
