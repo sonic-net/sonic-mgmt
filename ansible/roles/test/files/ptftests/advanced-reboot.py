@@ -1187,6 +1187,7 @@ class ReloadTest(BaseTest):
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
+            self.check_reboot_cause_history_after_reboot()
         except Exception as e:
             self.fails['dut'].add(e)
         finally:
@@ -1219,6 +1220,52 @@ class ReloadTest(BaseTest):
             if current_version != target_version:
                 raise Exception("Sonic upgrade failed. Target={} Current={}".format(\
                     target_version, current_version))
+
+    def check_reboot_cause_history_after_reboot(self):
+        """
+        The function is to check the reboot hihstory after reboot
+        Reboot history example:
+            show reboot-cause history
+            Name                 Cause                                Time                             User    Comment
+            -------------------  -----------------------------------  -------------------------------  ------  ---------
+            2021_09_02_22_18_31  warm-reboot                          Thu 02 Sep 2021 10:17:34 PM UTC  admin   N/A
+            2021_09_02_20_03_01  reboot                               Thu 02 Sep 2021 08:02:04 PM UTC  admin   N/A
+            2021_09_02_19_53_36  Hardware - Other (Reset from ComEx)  N/A                              N/A     N/A
+        """
+        reboot_history_pattern = {
+            "title": r"^Name[\s]{2,}Cause[\s]*Time[\s]{2,}User[\s]{2,}Comment",
+            "split_dotted_line": r"^-------------------[\s]{2}[-]*[\s]{2}[-]*[\s]{2}[-]*[\s]{2}[-]*",
+            "reboot_cause_content": r"^\d{4}_(0[1-9]|1[0-2])_(0[1-9]|[1-2][0-9]|3[0-1])_(20|21|22|23|[0-1]\d)_"
+                                    r"[0-5]\d_[0-5]\d[\s]{2,}(reboot|fast-reboot|warm-reboot|Watchdog .*|Unknown .*|"
+                                    r"Hardware .*|Power Loss .*)[\s]{2,}(N\/A|(Mon|Tue|Wed|Thu|Fri|Sat|Sun) .*)"
+                                    r"[\s]{2,}(.*)[\s]{2,}(.*)"
+        }
+        stdout, stderr, return_code = self.dut_connection.execCommand("show reboot-cause history")
+        self.log("Reboot cause history is {}".format(stdout))
+        if stdout:
+            reboot_history_list = stdout
+            reboot_history_min_len = 3
+            if len(reboot_history_list) < reboot_history_min_len:
+                raise Exception("Reboot-cause history is less than 3 line")
+
+            if not re.match(reboot_history_pattern["title"], reboot_history_list[0]):
+                raise Exception(
+                    "The title of reboot-cause history is not correct. Current title is {}, expected title pattern is {}".format(
+                        reboot_history_list[0], reboot_history_pattern["title"]))
+
+            if not re.match(reboot_history_pattern["split_dotted_line"], reboot_history_list[1]):
+                raise Exception(
+                    "The split_dotted_line of reboot-cause history is not correct. Current split dotted line is {}, expected split dotted line pattern is {}".format(
+                        reboot_history_list[1], reboot_history_pattern["split_dotted_line"]))
+
+            for line in reboot_history_list[2:]:
+                if not re.match(reboot_history_pattern["reboot_cause_content"], line):
+                    raise Exception(
+                        "The content of reboot-cause history is not correct. Current content is {}, expected context pattern is {}".format(
+                            line, reboot_history_pattern["reboot_cause_content"]))
+            self.log("Reboot-cause history check pass")
+            return True
+        raise Exception("Reboot-cause is empty")
 
     def extract_no_cpu_replies(self, arr):
       """
