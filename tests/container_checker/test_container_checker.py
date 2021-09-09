@@ -216,8 +216,7 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
                    .format(container_name, dut_name, rand_selected_dut.hostname))
     duthost = duthosts[dut_name]
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker")
-    loganalyzer.expect_regex = []
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
 
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -232,14 +231,8 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
                    "Container '{}' is skipped for testing.".format(container_name))
     stop_container(duthost, container_name)
 
-    expected_alerting_message = get_expected_alerting_message(container_name)
-    loganalyzer.expect_regex.extend(expected_alerting_message)
-    marker = loganalyzer.init()
-
-    # Wait for 1 minutes such that Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 1 minutes to wait for the alerting message...")
-    time.sleep(70)
-
-    logger.info("Checking the alerting messages from syslog...")
-    loganalyzer.analyze(marker)
-    logger.info("Found all the expected alerting messages from syslog!")
+    loganalyzer.expect_regex = get_expected_alerting_message(container_name)
+    with loganalyzer:
+        # Wait for 1 minutes such that Monit has a chance to write alerting message into syslog.
+        logger.info("Sleep 1 minutes to wait for the alerting message...")
+        time.sleep(70)
