@@ -4,8 +4,8 @@
  - [Scope](#scope)
  - [Test Setup](#test-setup)
  - [Test Cases](#test-cases)
-     
-# Introduction 
+
+# Introduction
 
 This is the test plan for the next hop group split enhancement
 
@@ -43,7 +43,7 @@ Verify that IPv4 routes and next hop groups can be programmed and cause the corr
 ## Test Case 2. IPv6 routes
 
 ### Test Objective
-Verify that IPv4 routes and next hop groups can be programmed and cause the correct data plane behaviour.
+Verify that IPv6 routes and next hop groups can be programmed and cause the correct data plane behaviour.
 
 ### Test Steps
 * Create an IPv6 next hop group with a single next hop
