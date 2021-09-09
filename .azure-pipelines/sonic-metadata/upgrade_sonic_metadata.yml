@@ -1,20 +1,10 @@
 parameters:
-- name: BRANCH
-  type: string
-  default: internal
 - name: TESTBED_NAME
   type: string
   default: ""
-- name: INVENTORY_NAME
-  type: string
-  default: str
-  values:
-  - str
-  - str2
 - name: UPGRADE_TYPE
   type: string
   default: warm
-
 - name: IMAGE_BRANCH
   type: string
   default: "201811"
@@ -41,10 +31,7 @@ steps:
     set -x
     cd sonic-mgmt-int
     BASE_PATH=`pwd`
-    export ANSIBLE_CONFIG=$BASE_PATH/ansible
-    export ANSIBLE_LIBRARY=$BASE_PATH/ansible/library/
 
-    cd ansible
     IMAGE_TYPE=${{ parameters.IMAGE_TYPE }}
     IMAGE_BRANCH=${{ parameters.IMAGE_BRANCH }}
     ASIC_TYPE=${{ parameters.ASIC_TYPE }}
@@ -61,7 +48,7 @@ steps:
             IMAGE_URL=http://100.127.20.23/pipelines/Networking-acs-buildimage-Official/broadcom/internal-201911/tagged/sonic-aboot-broadcom-20191130
         fi
     fi
-    cd ../tests
+    cd tests
 
     FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
     TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
