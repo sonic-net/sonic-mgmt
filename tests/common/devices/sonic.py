@@ -1015,6 +1015,49 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
                 return True
         return False
 
+    def _parse_route_summary(self, output):
+        """
+        Sample command output:
+Route Source         Routes               FIB  (vrf default)
+kernel               34                   34
+connected            11                   11
+static               1                    0
+ebgp                 6404                 6404
+ibgp                 0                    0
+------
+Totals               6450                 6449
+
+        Sample parsing output:
+        {
+            'kernel' : { 'routes' : 34 , 'FIB' : 34 },
+            ... ...
+            'Totals' : { 'routes' : 6450, 'FIB' : 6449 }
+        }
+        """
+        ret = {}
+        for line in output:
+            tokens = line.split()
+            if len(tokens) > 1:
+                key = tokens[0]
+                val = {}
+                if tokens[1].isdigit():
+                    val['routes'] = tokens[1]
+                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    ret[key] = val
+        return ret
+
+    def get_ip_route_summary(self):
+        """
+        @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
+                  Going forward, this show command should use tabular output so that
+                  we can simply call show_and_parse() function.
+        """
+        ipv4_output = self.shell("show ip route sum")["stdout_lines"]
+        ipv4_summary = self._parse_route_summary(ipv4_output)
+        ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
+        ipv6_summary = self._parse_route_summary(ipv6_output)
+        return ipv4_summary, ipv6_summary
+
     def get_dut_iface_mac(self, iface_name):
         """
         Gets the MAC address of specified interface.
@@ -1228,7 +1271,7 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         self.update_backend_flag(tbinfo, mg_facts)
 
         return mg_facts
-    
+
     def update_backend_flag(self, tbinfo, mg_facts):
         mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY] = self.assert_topo_is_backend(tbinfo)
 
