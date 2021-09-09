@@ -244,12 +244,12 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                 logging.warn('On DUT expected aspath: {}, actual aspath: {}'.format(dut_route_aspath_expected, dut_route_aspath))
                 return False
             if 'advertisedTo' not in dut_route:
-                logging.warn("DUT doesn't advertise the route")
+                logging.warn("DUT didn't advertise the route")
                 return False
             advertised_to = set([bgp_neighbors[_]['name'] for _ in dut_route['advertisedTo']])
             for vm in other_vms:
                 if vm not in advertised_to:
-                    logging.warn("DUT doesn't advertise route to neighbor %s" % vm)
+                    logging.warn("DUT didn't advertise route to neighbor %s" % vm)
                     return False
         else:
             if dut_route:
