@@ -22,12 +22,22 @@ SAISERVER_SCRIPT = "saiserver.sh"
 SCRIPTS_SRC_DIR = "scripts/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon"]
 SAI_PRC_PORT = 9092
+
+'''
+PTF_TEST_ROOT_DIR is the root folder for SAI testing
+DUT_WORKING_DIR is the working folder of DUT
+'''
 PTF_TEST_ROOT_DIR = "/tmp/sai_qualify"
 DUT_WORKING_DIR = "/home/admin"
+
+'''
+These paths are for the SAI cases/results 
+'''
+SAI_TEST_CASE_DIR_ON_PTF = "/tmp/sai_qualify/tests"
+SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
+SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
+
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
-SAI_TEST_CASE_DIR_ON_PTF = "tests"
-SAI_TEST_REPORT_DIR_ON_PTF = "test_results"
-SAI_TEST_REPORT_TMP_DIR_ON_PTF = "test_results_tmp"
 SAISERVER_CONTAINER = "saiserver"
 SAISERVER_CHECK_INTERVAL_IN_SEC = 140
 SAISERVER_RESTART_INTERVAL_IN_SEC = 35
@@ -392,3 +402,4 @@ def update_saithrift_ptf(request, ptfhost):
         pytest.fail("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
+
