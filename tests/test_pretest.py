@@ -8,8 +8,11 @@ import time
 from collections import defaultdict
 
 from jinja2 import Template
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.helpers.dut_utils import verify_features_state
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,26 @@ pytestmark = [
     pytest.mark.topology('util'),
     pytest.mark.disable_loganalyzer
 ]
+
+
+FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
+FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
+
+
+def test_features_state(duthosts, enum_dut_hostname):
+    """Checks whether the state of each feature is valid or not.
+    Args:
+      duthosts: Fixture returns a list of Ansible object DuT.
+      enum_dut_hostname: Fixture returns name of DuT.
+
+    Returns:
+      None.
+    """
+    duthost = duthosts[enum_dut_hostname]
+    logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
+    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS,
+                             verify_features_state, duthost), "Not all service states are valid!")
+    logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
 
 def test_cleanup_cache():
