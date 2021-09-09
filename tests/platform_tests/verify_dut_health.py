@@ -1,6 +1,7 @@
 import copy
 import pytest
 import logging
+import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
@@ -160,8 +161,8 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
 def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    params = tuple()
     def add_exit_to_script(reboot_type):
+        add_exit_to_script.params = tuple()
         if "warm" in reboot_type:
             reboot_script = "warm-reboot"
         elif "fast" in reboot_type:
@@ -174,12 +175,13 @@ def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
         replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
         logging.info("Modify {} to exit before set +e".format(reboot_script_path))
         duthost.shell(replace_cmd)
-        params = (cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path)
+        add_exit_to_script.params = (cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path)
+
 
     yield add_exit_to_script
 
-    if params:
-        cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path = params
+    if add_exit_to_script.params:
+        cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path = add_exit_to_script.params
         replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
         logging.info("Revert {} script to original".format(reboot_script_path))
         duthost.shell(replace_cmd)
