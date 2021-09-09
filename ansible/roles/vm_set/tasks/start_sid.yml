@@ -58,6 +58,7 @@
       - net_admin
     privileged: yes
     memory: 8G
+    memory_swap: 8G
     env: "{{ sid_env }}"
     command: /usr/sbin/init
   become: yes
