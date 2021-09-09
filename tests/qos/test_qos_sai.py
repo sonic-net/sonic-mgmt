@@ -479,6 +479,41 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    def testQosSaiDot1pQueueMapping(
+        self, ptfhost, dutTestParams, dutConfig
+    ):
+        """
+            Test QoS SAI Dot1p to queue mapping
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if "backend" not in dutTestParams["topo"]:
+            pytest.skip("Dot1p-queue mapping is not supported on {}".format(dutTestParams["topo"]))
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "vlan_id": dutConfig["testPorts"]["src_port_vlan"]
+        })
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.Dot1pToQueueMapping",
+            testParams=testParams
+        )
+
     def testQosSaiDwrr(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
     ):
