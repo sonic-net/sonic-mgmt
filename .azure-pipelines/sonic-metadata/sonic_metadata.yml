@@ -13,7 +13,7 @@ resources:
   - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
     type: git
     name: sonic-metadata
-    ref: patch-filter-fdb-entries
+    ref: master
 
 parameters:
 - name: TESTBED_NAME
