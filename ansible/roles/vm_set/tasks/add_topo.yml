@@ -185,6 +185,11 @@
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
+  - name: Set VM_targets to empty string for ptf topologies
+    set_fact:
+      VM_targets: ""
+    when: topo | search("ptf")
+
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "bind"
