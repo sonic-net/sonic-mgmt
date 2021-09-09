@@ -1,13 +1,13 @@
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import wait
+import json
 logger = logging.getLogger(__name__)
 
-DUT_AS_NUM = 65100
 TGEN_AS_NUM = 65200
-TIMEOUT = 30
+TIMEOUT = 40
 BGP_TYPE = 'ebgp'
-
+temp_tg_port=dict()
 
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
@@ -33,13 +33,10 @@ def run_bgp_local_link_failover_test(cvg_api,
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,
-                       multipath,
-                       route_type)
+                       port_count,)
 
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        tgen_ports,
                                         port_count,
                                         number_of_routes,
                                         route_type,)
@@ -56,10 +53,7 @@ def run_bgp_local_link_failover_test(cvg_api,
                                             route_type,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost,
-                   tgen_ports,
-                   port_count,
-                   route_type,)
+    cleanup_config(duthost)
 
 
 def run_bgp_remote_link_failover_test(cvg_api,
@@ -84,13 +78,10 @@ def run_bgp_remote_link_failover_test(cvg_api,
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,
-                       multipath,
-                       route_type,)
+                       port_count,)
 
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        tgen_ports,
                                         port_count,
                                         number_of_routes,
                                         route_type,)
@@ -107,10 +98,8 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                              route_type,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost,
-                   tgen_ports,
-                   port_count,
-                   route_type,)
+    cleanup_config(duthost)
+
 
 
 def run_rib_in_convergence_test(cvg_api,
@@ -137,13 +126,10 @@ def run_rib_in_convergence_test(cvg_api,
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,
-                       multipath,
-                       route_type,)
+                       port_count,)
 
     """  Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        tgen_ports,
                                         port_count,
                                         number_of_routes,
                                         route_type,) 
@@ -160,10 +146,7 @@ def run_rib_in_convergence_test(cvg_api,
                            route_type,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost,
-                   tgen_ports,
-                   port_count,
-                   route_type,)
+    cleanup_config(duthost)
 
 
 def run_RIB_IN_capacity_test(cvg_api,
@@ -190,31 +173,23 @@ def run_RIB_IN_capacity_test(cvg_api,
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,
-                       multipath,
-                       route_type,)
+                       port_count,)
 
 
     """ Run the RIB-IN capacity test by increasig the route count step by step """
     get_RIB_IN_capacity(cvg_api,
-                        tgen_ports,
                         multipath,
                         start_value,
                         step_value,
                         route_type,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost,
-                   tgen_ports,
-                   port_count,
-                   route_type,)
+    cleanup_config(duthost)
 
 
 def duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,
-                       multipath,
-                       route_type,):
+                       port_count,):
     """
     Configures BGP on the DUT with N-1 ecmp
 
@@ -223,55 +198,51 @@ def duthost_bgp_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count:multipath + 1
         multipath: ECMP value for BGP config
-        route_type: IPv4 or IPv6 routes
     """
-    if route_type == 'IPv4':
-        peer_ip = 'peer_ip'
-        ip = 'ip'
-        prefix = 'prefix'
-        address_type = ['ip', 'ipv4']
-    else:
-        peer_ip = 'peer_ipv6'
-        ip = 'ipv6'
-        prefix = 'ipv6_prefix'
-        address_type = ['ipv6', 'ipv6']
+    duthost.command("sudo config save -y")
+    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
+    global temp_tg_port
+    temp_tg_port = tgen_ports
     for i in range(0, port_count):
         intf_config = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'interface %s' "
-            "-c '%s address %s/%s' "
+            "sudo config interface ip remove %s %s/%s \n"
+            "sudo config interface ip remove %s %s/%s \n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], address_type[0], tgen_ports[i][peer_ip], tgen_ports[i][prefix])
-        logger.info('Configuring IP Address %s' % tgen_ports[i][ip])
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
-    bgp_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'bgp bestpath as-path multipath-relax' "
-        "-c 'maximum-paths %s' "
-        "-c 'exit' "
-    )
-    bgp_config %= (DUT_AS_NUM, multipath)
-    duthost.shell(bgp_config)
-    for i in range(1, port_count):
-        bgp_config_neighbor = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family %s unicast' "
-        "-c 'neighbor %s activate' "
-        "-c 'exit' "
+
+    for i in range(0, port_count):
+        portchannel_config = (
+        "sudo config portchannel add PortChannel%s \n"
+        "sudo config portchannel member add PortChannel%s %s\n"
+        "sudo config interface ip add PortChannel%s %s/%s\n"
+        "sudo config interface ip add PortChannel%s %s/%s\n"
         )
-        bgp_config_neighbor %= (DUT_AS_NUM, tgen_ports[i][ip], TGEN_AS_NUM, address_type[1], tgen_ports[i][ip])
-        logger.info('Configuring BGP Neighbor %s' % tgen_ports[i][ip])
-        duthost.shell(bgp_config_neighbor)
+        portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
+        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[1]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
+        duthost.shell(portchannel_config)
+    logger.info('Configuring BGP in config_db.json')
+    bgp_neighbors = dict()
+    for i in range(1, port_count):
+        bgp_neighbors[tgen_ports[i]['ipv6']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[i]['peer_ipv6'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
+        bgp_neighbors[tgen_ports[i]['ip']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[i]['peer_ip'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
+
+    cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    for neighbor, neighbor_info in bgp_neighbors.items():
+        cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
+
+    with open("/tmp/sconfig_db.json", 'w') as fp:
+        json.dump(cdf, fp, indent=4)
+    duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
+    cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
+    duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json","/etc/sonic/config_db.json"))
+    logger.info('Reloading config to apply BGP config')
+    duthost.shell("sudo config reload -y \n")
+    wait(TIMEOUT+60,"For Config to reload \n")
 
 
 def __tgen_bgp_config(cvg_api,
-                      tgen_ports,
                       port_count,
                       number_of_routes,
                       route_type,):
@@ -280,7 +251,6 @@ def __tgen_bgp_config(cvg_api,
 
     Args:
         cvg_api (pytest fixture): snappi API
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count: multipath + 1
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
@@ -288,9 +258,19 @@ def __tgen_bgp_config(cvg_api,
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
     for i in range(1, port_count+1):
-        config.ports.port(name='Test_Port_%d' % i, location=tgen_ports[i-1]['location'])
+        config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+        c_lag = config.lags.lag(name="lag%d" % i)[-1]
+        lp = c_lag.ports.port(port_name='Test_Port_%d' % i)[-1]
+        lp.ethernet.name = 'lag_eth_%d' % i
+        if len(str(hex(i).split('0x')[1])) == 1:
+            m = '0'+hex(i).split('0x')[1]
+        else:
+            m = hex(i).split('0x')[1]
+        lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+        lp.ethernet.name = "lag_Ethernet %s" % i
+        lp.ethernet.mac = "00:10:01:00:00:%s" % m
         config.devices.device(name='Topology %d' % i)
-        config.devices[i-1].container_name = config.ports[i-1].name
+        config.devices[i-1].container_name = c_lag.name
 
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
@@ -306,9 +286,9 @@ def __tgen_bgp_config(cvg_api,
         config.devices[0].ethernet.name = 'Ethernet 1'
         config.devices[0].ethernet.mac = "00:00:00:00:00:01"
         config.devices[0].ethernet.ipv4.name = 'IPv4 1'
-        config.devices[0].ethernet.ipv4.address = tgen_ports[0]['ip']
-        config.devices[0].ethernet.ipv4.gateway = tgen_ports[0]['peer_ip']
-        config.devices[0].ethernet.ipv4.prefix = int(tgen_ports[0]['prefix'])
+        config.devices[0].ethernet.ipv4.address = temp_tg_port[0]['ip']
+        config.devices[0].ethernet.ipv4.gateway = temp_tg_port[0]['peer_ip']
+        config.devices[0].ethernet.ipv4.prefix = int(temp_tg_port[0]['prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
             if len(str(hex(i).split('0x')[1])) == 1:
@@ -320,14 +300,14 @@ def __tgen_bgp_config(cvg_api,
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv4_stack = ethernet_stack.ipv4
             ipv4_stack.name = 'IPv4 %d' % i
-            ipv4_stack.address = tgen_ports[i-1]['ip']
-            ipv4_stack.gateway = tgen_ports[i-1]['peer_ip']
-            ipv4_stack.prefix = int(tgen_ports[i-1]['prefix'])
+            ipv4_stack.address = temp_tg_port[i-1]['ip']
+            ipv4_stack.gateway = temp_tg_port[i-1]['peer_ip']
+            ipv4_stack.prefix = int(temp_tg_port[i-1]['prefix'])
             bgpv4_stack = ipv4_stack.bgpv4
             bgpv4_stack.name = 'BGP %d' % i
             bgpv4_stack.as_type = BGP_TYPE
-            bgpv4_stack.dut_address = tgen_ports[i-1]['peer_ip']
-            bgpv4_stack.local_address = tgen_ports[i-1]['ip']
+            bgpv4_stack.dut_address = temp_tg_port[i-1]['peer_ip']
+            bgpv4_stack.local_address = temp_tg_port[i-1]['ip']
             bgpv4_stack.as_number = int(TGEN_AS_NUM)
             route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group %d" % i)[-1]
             route_range.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=number_of_routes)
@@ -338,9 +318,9 @@ def __tgen_bgp_config(cvg_api,
         config.devices[0].ethernet.name = 'Ethernet 1'
         config.devices[0].ethernet.mac = "00:00:00:00:00:01"
         config.devices[0].ethernet.ipv6.name = 'IPv6 1'
-        config.devices[0].ethernet.ipv6.address = tgen_ports[0]['ipv6']
-        config.devices[0].ethernet.ipv6.gateway = tgen_ports[0]['peer_ipv6']
-        config.devices[0].ethernet.ipv6.prefix = int(tgen_ports[0]['ipv6_prefix'])
+        config.devices[0].ethernet.ipv6.address = temp_tg_port[0]['ipv6']
+        config.devices[0].ethernet.ipv6.gateway = temp_tg_port[0]['peer_ipv6']
+        config.devices[0].ethernet.ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
             if len(str(hex(i).split('0x')[1])) == 1:
@@ -352,14 +332,14 @@ def __tgen_bgp_config(cvg_api,
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv6_stack = ethernet_stack.ipv6
             ipv6_stack.name = 'IPv6 %d' % i
-            ipv6_stack.address = tgen_ports[i-1]['ipv6']
-            ipv6_stack.gateway = tgen_ports[i-1]['peer_ipv6']
-            ipv6_stack.prefix = int(tgen_ports[i-1]['ipv6_prefix'])
+            ipv6_stack.address = temp_tg_port[i-1]['ipv6']
+            ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
+            ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
             bgpv6_stack = ipv6_stack.bgpv6
             bgpv6_stack.name = r'BGP+ %d' % i
             bgpv6_stack.as_type = BGP_TYPE
-            bgpv6_stack.dut_address = tgen_ports[i-1]['peer_ipv6']
-            bgpv6_stack.local_address = tgen_ports[i-1]['ipv6']
+            bgpv6_stack.dut_address = temp_tg_port[i-1]['peer_ipv6']
+            bgpv6_stack.local_address = temp_tg_port[i-1]['ipv6']
             bgpv6_stack.as_number = int(TGEN_AS_NUM)
             route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group %d" % i)[-1]
             route_range.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=number_of_routes)
@@ -653,7 +633,6 @@ def get_rib_in_convergence(cvg_api,
 
 
 def get_RIB_IN_capacity(cvg_api,
-                        tgen_ports,
                         multipath,
                         start_value,
                         step_value,
@@ -661,7 +640,7 @@ def get_RIB_IN_capacity(cvg_api,
     """
     Args:
         cvg_api (pytest fixture): snappi API
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        temp_tg_port (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
         start_value:  Start value of the number of BGP routes
         step_value: Step value of the number of BGP routes to be incremented
@@ -672,7 +651,7 @@ def get_RIB_IN_capacity(cvg_api,
         conv_config = cvg_api.convergence_config()
         config = conv_config.config
         for i in range(1, 3):
-            config.ports.port(name='Test_Port_%d' % i, location=tgen_ports[i-1]['location'])
+            config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
             config.devices.device(name='Topology %d' % i)
             config.devices[i-1].container_name = config.ports[i-1].name
 
@@ -690,9 +669,9 @@ def get_RIB_IN_capacity(cvg_api,
             config.devices[0].ethernet.name = 'Ethernet 1_%d' % routes
             config.devices[0].ethernet.mac = "00:00:00:00:00:01"
             config.devices[0].ethernet.ipv4.name = 'IPv4 1_%d' % routes
-            config.devices[0].ethernet.ipv4.address = tgen_ports[0]['ip']
-            config.devices[0].ethernet.ipv4.gateway = tgen_ports[0]['peer_ip']
-            config.devices[0].ethernet.ipv4.prefix = int(tgen_ports[0]['prefix'])
+            config.devices[0].ethernet.ipv4.address = temp_tg_port[0]['ip']
+            config.devices[0].ethernet.ipv4.gateway = temp_tg_port[0]['peer_ip']
+            config.devices[0].ethernet.ipv4.prefix = int(temp_tg_port[0]['prefix'])
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
@@ -704,14 +683,14 @@ def get_RIB_IN_capacity(cvg_api,
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv4_stack = ethernet_stack.ipv4
                 ipv4_stack.name = 'IPv4_%d_%d' % (i, routes)
-                ipv4_stack.address = tgen_ports[i-1]['ip']
-                ipv4_stack.gateway = tgen_ports[i-1]['peer_ip']
-                ipv4_stack.prefix = int(tgen_ports[i-1]['prefix'])
+                ipv4_stack.address = temp_tg_port[i-1]['ip']
+                ipv4_stack.gateway = temp_tg_port[i-1]['peer_ip']
+                ipv4_stack.prefix = int(temp_tg_port[i-1]['prefix'])
                 bgpv4_stack = ipv4_stack.bgpv4
                 bgpv4_stack.name = 'BGP_%d_%d' % (i, routes)
                 bgpv4_stack.as_type = BGP_TYPE
-                bgpv4_stack.dut_address = tgen_ports[i-1]['peer_ip']
-                bgpv4_stack.local_address = tgen_ports[i-1]['ip']
+                bgpv4_stack.dut_address = temp_tg_port[i-1]['peer_ip']
+                bgpv4_stack.local_address = temp_tg_port[i-1]['ip']
                 bgpv4_stack.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group %d_%d" % (i, routes))[-1]
                 route_range.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=routes)
@@ -722,9 +701,9 @@ def get_RIB_IN_capacity(cvg_api,
             config.devices[0].ethernet.name = 'Ethernet 1'
             config.devices[0].ethernet.mac = "00:00:00:00:00:01"
             config.devices[0].ethernet.ipv6.name = 'IPv6 1'
-            config.devices[0].ethernet.ipv6.address = tgen_ports[0]['ipv6']
-            config.devices[0].ethernet.ipv6.gateway = tgen_ports[0]['peer_ipv6']
-            config.devices[0].ethernet.ipv6.prefix = int(tgen_ports[0]['ipv6_prefix'])
+            config.devices[0].ethernet.ipv6.address = temp_tg_port[0]['ipv6']
+            config.devices[0].ethernet.ipv6.gateway = temp_tg_port[0]['peer_ipv6']
+            config.devices[0].ethernet.ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
@@ -736,14 +715,14 @@ def get_RIB_IN_capacity(cvg_api,
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv6_stack = ethernet_stack.ipv6
                 ipv6_stack.name = 'IPv6 %d' % i
-                ipv6_stack.address = tgen_ports[i-1]['ipv6']
-                ipv6_stack.gateway = tgen_ports[i-1]['peer_ipv6']
-                ipv6_stack.prefix = int(tgen_ports[i-1]['ipv6_prefix'])
+                ipv6_stack.address = temp_tg_port[i-1]['ipv6']
+                ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
+                ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
                 bgpv6_stack = ipv6_stack.bgpv6
                 bgpv6_stack.name = r'BGP+ %d' % i
                 bgpv6_stack.as_type = BGP_TYPE
-                bgpv6_stack.dut_address = tgen_ports[i-1]['peer_ipv6']
-                bgpv6_stack.local_address = tgen_ports[i-1]['ipv6']
+                bgpv6_stack.dut_address = temp_tg_port[i-1]['peer_ipv6']
+                bgpv6_stack.local_address = temp_tg_port[i-1]['ipv6']
                 bgpv6_stack.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group %d_%d" % (routes, i))[-1]
                 route_range.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=routes)
@@ -794,42 +773,14 @@ def get_RIB_IN_capacity(cvg_api,
             break
     logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
 
-def cleanup_config(duthost,
-                   tgen_ports,
-                   port_count,
-                   route_type,):
+def cleanup_config(duthost):
     """
     Cleaning up dut config at the end of the test
 
     Args:
         duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        port_count:multipath + 1
-        route_type: IPv4 or IPv6 routes
     """
-    if route_type == 'IPv4':
-        peer_ip = 'peer_ip'
-        ip = 'ip'
-        prefix = 'prefix'
-    else:
-        peer_ip = 'peer_ipv6'
-        ip = 'ipv6'
-        prefix = 'ipv6_prefix'
-    logger.info('Cleaning Up Interface and BGP config')
-    bgp_config_cleanup = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'no router bgp %s' "
-    )
-    bgp_config_cleanup %= (DUT_AS_NUM)
-    duthost.shell(bgp_config_cleanup)
-    for i in range(0, port_count):
-        intf_config_cleanup = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'interface %s' "
-            "-c 'no %s address %s/%s' "
-        )
-        intf_config_cleanup %= (tgen_ports[i]['peer_port'], ip, tgen_ports[i][peer_ip], tgen_ports[i][prefix])
-        duthost.shell(intf_config_cleanup)
+    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
+    duthost.shell("sudo config reload -y \n")
+    wait(TIMEOUT+60,"For Cleanup to complete \n")
     logger.info('Convergence Test Completed')
