@@ -223,7 +223,7 @@ class TestChassisApi(PlatformApiTestBase):
         # Ensure the base MAC address is sane
         base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
         pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
-        #pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
+        pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
 
         # Ensure the serial number is sane
         serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
@@ -238,7 +238,6 @@ class TestChassisApi(PlatformApiTestBase):
                           "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
                           format(field, syseeprom_info_dict[field], expected_syseeprom_info_dict[field], duthost.hostname))
 
-        #self.compare_value_with_device_facts(duthost, 'syseeprom_info', syseeprom_info_dict)
 
     def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
