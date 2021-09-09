@@ -4265,11 +4265,11 @@
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-02" EndPort="PSU2" StartDevice="pdu-121" StartPort="46"/>
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU1" StartDevice="pdu-122" StartPort="39"/>
       <PowerControlLinkInfo EndDevice="str2-7050qx-32s-acs-03" EndPort="PSU2" StartDevice="pdu-121" StartPort="39"/>
-      <PowerControlLinkInfo EndDevice="str2-z9332f-01" EndPort="PSU1" StartDevice="pdu-111" StartPort="44"/>
+      <PowerControlLinkInfo EndDevice="str2-z9332f-01" EndPort="PSU2" StartDevice="pdu-111" StartPort="40"/>
       <PowerControlLinkInfo EndDevice="str2-z9332f-02" EndPort="PSU1" StartDevice="pdu-111" StartPort="48"/>
       <PowerControlLinkInfo EndDevice="str2-z9332f-03" EndPort="PSU1" StartDevice="pdu-111" StartPort="45"/>
-      <PowerControlLinkInfo EndDevice="str2-z9332f-04" EndPort="PSU1" StartDevice="pdu-111" StartPort="47"/>
-      <PowerControlLinkInfo EndDevice="str2-z9332f-05" EndPort="PSU1" StartDevice="pdu-111" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-z9332f-04" EndPort="PSU2" StartDevice="pdu-111" StartPort="47"/>
+      <PowerControlLinkInfo EndDevice="str2-z9332f-05" EndPort="PSU2" StartDevice="pdu-111" StartPort="46"/>
       <PowerControlLinkInfo EndDevice="str2-7060-spy-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="34"/>
       <PowerControlLinkInfo EndDevice="str2-7060-spy-1" EndPort="PSU2" StartDevice="pdu-119" StartPort="33"/>
       <PowerControlLinkInfo EndDevice="str2-7060-spy-2" EndPort="PSU1" StartDevice="pdu-120" StartPort="32"/>
