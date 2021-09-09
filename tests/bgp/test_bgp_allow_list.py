@@ -88,7 +88,9 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
     spine_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')])
-    other_neighbors = tor_neighbors[1:3] + spine_neighbors[0:2]  # Only check a few neighbors to save time
+    other_neighbors = tor_neighbors[1:3]    # Only check a few neighbors to save time
+    if spine_neighbors:
+        other_neighbors += spine_neighbors[0:2]
 
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset

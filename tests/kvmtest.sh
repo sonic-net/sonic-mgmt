@@ -99,18 +99,20 @@ test_t0() {
     test_interfaces.py \
     arp/test_arp_dualtor.py \
     bgp/test_bgp_fact.py \
-    bgp/test_bgp_gr_helper.py \
+    bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
     bgp/test_bgp_speaker.py \
     bgp/test_bgp_update_timer.py \
     cacl/test_ebtables_application.py \
     cacl/test_cacl_application.py \
     cacl/test_cacl_function.py \
     dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py \
     lldp/test_lldp.py \
     ntp/test_ntp.py \
     pc/test_po_cleanup.py \
     pc/test_po_update.py \
     route/test_default_route.py \
+    route/test_static_route.py \
     arp/test_neighbor_mac.py \
     arp/test_neighbor_mac_noptf.py \
     snmp/test_snmp_cpu.py \
@@ -123,6 +125,7 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
@@ -179,6 +182,7 @@ test_t1_lag() {
     bgp/test_bgp_bounce.py \
     bgp/test_bgp_update_timer.py \
     bgp/test_traffic_shift.py \
+    http/test_http_copy.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
     platform_tests/test_cpu_memory_usage.py \
@@ -201,6 +205,7 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_default_route.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -245,7 +250,7 @@ if [ x$test_suite == x"t0" ]; then
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
-    test_multi_asic_t1_lag 
+    test_multi_asic_t1_lag
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 else

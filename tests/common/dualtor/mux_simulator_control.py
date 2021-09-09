@@ -1,7 +1,7 @@
 import logging
 import pytest
-import json
-import urllib2
+
+import requests
 
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
@@ -9,7 +9,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM,
 
 __all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
            'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
-           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor']
+           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor', 'toggle_all_simulator_ports', 'get_mux_status', 'reset_simulator_port']
 
 logger = logging.getLogger(__name__)
 
@@ -74,23 +74,21 @@ def _get(server_url):
         server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1]
     Returns:
         dict: A dict decoded from server's response.
-        None: Returns None is error is detected.
+        None: Returns None if request failed.
     """
-    req = urllib2.Request(url=server_url)
     try:
-        res = urllib2.urlopen(req)
-        data = res.read()
-        return json.loads(data)
-    except urllib2.HTTPError as e:
-        err_msg = json.loads(e.read().decode())['err_msg']
-        logger.warn("get request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
-    except urllib2.URLError as e:
-        logger.warn("get request returns err. err_msg = {}".format(str(e)))
-    except json.decoder.JSONDecodeError as e:
-        logger.warn("failed to parse response as json. err_msg = {}".format(str(e)))
+        logger.debug('GET {}'.format(server_url))
+        headers = {'Accept': 'application/json'}
+        resp = requests.get(server_url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            logger.warn("GET {} failed with {}".format(server_url, resp.text))
     except Exception as e:
-        logger.warn("get request returns err. err_msg = {}".format(str(e)))
+        logger.warn("GET {} failed with {}".format(server_url, repr(e)))
+
     return None
+
 
 def _post(server_url, data):
     """
@@ -98,26 +96,19 @@ def _post(server_url, data):
 
     Args:
         server_url: a str, the full address of mux server, like http://10.0.0.64:8080/mux/vms17-8[/1/drop|output]
-        data: data to post {"out_ports": ["nic", "upper_tor", "lower_tor"]}
+        data: data to post {"out_sides": ["nic", "upper_tor", "lower_tor"]}
     Returns:
         True if succeed. False otherwise
     """
-    data = json.dumps(data).encode(encoding='utf-8')
-    header = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-    req = urllib2.Request(url=server_url, data=data, headers=header)
     try:
-        _ = urllib2.urlopen(req)
-    except urllib2.HTTPError as e:
-        try:
-            err_msg = json.loads(e.read().decode())['err_msg']
-            logger.warn("post request returns err. status_code = {} err_msg = {}".format(e.code, err_msg))
-        except Exception:
-            logger.warn("post request returns err. status_code = {}".format(e.code))
-        return False
-    except urllib2.URLError as e:
-        logger.warn("post request returns err. err_msg = {}".format(str(e)))
-        return False
-    return True
+        logger.debug('POST {} with {}'.format(server_url, data))
+        headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        resp = requests.post(server_url, json=data, headers=headers)
+        return resp.status_code == 200
+    except Exception as e:
+        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+
+    return False
 
 
 @pytest.fixture(scope='function')
@@ -137,7 +128,7 @@ def set_drop(url, recover_all_directions):
         """
         drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
     yield _set_drop
@@ -161,7 +152,7 @@ def set_output(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": directions}
+        data = {"out_sides": directions}
         pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
     return _set_output
@@ -215,7 +206,7 @@ def recover_all_directions(url):
             None.
         """
         server_url = url(interface_name, OUTPUT)
-        data = {"out_ports": [UPPER_TOR, LOWER_TOR, NIC]}
+        data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
         pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
 
     return _recover_all_directions
@@ -296,20 +287,49 @@ def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
     _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
     A module level fixture to toggle all ports to randomly selected tor
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
+    logger.info("Toggling mux cable to {}".format(rand_one_dut_hostname))
+    duthost = duthosts[rand_one_dut_hostname]
     dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
     if dut_index == 0:
         data = {"active_side": UPPER_TOR}
     else:
         data = {"active_side": LOWER_TOR}
 
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
+    def _check_all_active(duthost):
+        lines = duthost.shell("show muxcable status")['stdout_lines']
+        """
+        The length of output of 'show muxcable status' must be larger than 2
+        PORT         STATUS    HEALTH
+        -----------  --------  ---------
+        Ethernet0    standby   unhealthy
+        ...
+        """
+        if len(lines) <= 2:
+            return False
+        for line in lines[2:]:
+            _, status, _ = line.split()
+            if status != 'active':
+                logger.warn("Unexpected mux status {}".format(line))
+                return False
+        return True
+
+    # Allow retry for mux cable toggling
+    RETRY = 3
+    while RETRY > 0:
+        _post(mux_server_url, data)
+        time.sleep(5)
+        if _check_all_active(duthost):
+            break
+        RETRY -= 1
+
+    pytest_assert(RETRY > 0, "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
@@ -388,11 +408,12 @@ def simulator_clear_flap_counters(url):
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def reset_simulator_port(url):
 
-    def _reset_simulator_port(interface_name):
-        server_url = url(interface_name=interface_name, action=RESET) 
+    def _reset_simulator_port(interface_name=None):
+        logger.warn("Resetting simulator ports {}".format('all' if interface_name is None else interface_name))
+        server_url = url(interface_name=interface_name, action=RESET)
         pytest_assert(_post(server_url, {}))
 
     return _reset_simulator_port
@@ -402,3 +423,11 @@ def reset_all_simulator_ports(url):
 
     server_url = url(action=RESET)
     pytest_assert(_post(server_url, {}))
+
+@pytest.fixture(scope='module')
+def get_mux_status(url):
+
+    def _get_mux_status(interface_name=None):
+        return _get(url(interface_name=interface_name))
+
+    return _get_mux_status

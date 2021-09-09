@@ -181,21 +181,25 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     return int(float(orch_cpu)) < orch_cpu_threshold
 
 
-def check_bgp_routes(dut, start_time_ip_route_counts, ipv4=False):
+def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
     """
-    Make Sure all ip routes are relearned with jitter of ~5
+    Make Sure all ip routes are relearned with jitter of ~MAX_DIFF
 
     Args:
         dut: DUT host object
-        start_time_ip_route_counts: IP route counts at start
-        ipv4: Version of IP
+        start_time_ipv4_route_counts: IPv4 route counts at start
+        start_time_ipv6_route_counts: IPv6 route counts at start
     """
-    if ipv4:
-        end_time_ip_route_counts = dut.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
-        logger.info("IPv4 routes at end: %s", end_time_ip_route_counts)
-    else:
-        end_time_ip_route_counts = dut.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
-        logger.info("IPv6 routes at end: %s", end_time_ip_route_counts)
+    MAX_DIFF = 5
 
-    incr_ip_route_counts = abs(int(float(start_time_ip_route_counts)) - int(float(end_time_ip_route_counts)))
-    return incr_ip_route_counts < 5
+    sumv4, sumv6 = dut.get_ip_route_summary()
+    totalsv4 = sumv4.get('Totals', {})
+    totalsv6 = sumv6.get('Totals', {})
+    routesv4 = totalsv4.get('routes', 0)
+    routesv6 = totalsv6.get('routes', 0)
+    logger.info("IPv4 routes: start {} end {}, summary {}".format(start_time_ipv4_route_counts, routesv4, sumv4))
+    logger.info("IPv6 routes: start {} end {}, summary {}".format(start_time_ipv6_route_counts, routesv6, sumv6))
+
+    incr_ipv4_route_counts = abs(int(float(start_time_ipv4_route_counts)) - int(float(routesv4)))
+    incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
+    return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF

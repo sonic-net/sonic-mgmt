@@ -1,4 +1,15 @@
 import pytest
+import logging
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import get_snmp_facts
+
+try:
+    import ntplib
+    NTPLIB_INSTALLED = True
+except ImportError:
+    NTPLIB_INSTALLED = False
+
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
@@ -11,16 +22,32 @@ SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
 def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
-    """Test control plane ACL functionality on a SONiC device
-    """
+    """Test control plane ACL functionality on a SONiC device"""
+
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
-    # Ensure we can gather basic SNMP facts from the device
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'])
+    # Start an NTP client
+    if NTPLIB_INSTALLED:
+        ntp_client = ntplib.NTPClient()
+    else:
+        logging.warning("Will not check NTP connection. ntplib is not installed.")
 
-    if 'ansible_facts' not in res:
-        pytest.fail("Failed to retrieve SNMP facts from DuT!")
+    # Ensure we can gather basic SNMP facts from the device. Should fail on timeout
+    get_snmp_facts(localhost, 
+                   host=dut_mgmt_ip, 
+                   version="v2c", 
+                   community=creds['snmp_rocommunity'], 
+                   wait=True, 
+                   timeout = 20, 
+                   interval=20)
+
+    # Ensure we can send an NTP request
+    if NTPLIB_INSTALLED:
+        try:
+            ntp_client.request(dut_mgmt_ip)
+        except ntplib.NTPException:
+            pytest.fail("NTP did timed out when expected to succeed!")
 
     # Copy config_service_acls.sh to the DuT (this also implicitly verifies we can successfully SSH to the DuT)
     duthost.copy(src="scripts/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode="0755")
@@ -38,12 +65,11 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              port=SONIC_SSH_PORT,
                              state='stopped',
                              search_regex=SONIC_SSH_REGEX,
-                             delay=0,
-                             timeout=20,
+                             delay=30,
+                             timeout=40,
                              module_ignore_errors=True)
 
-    if res.is_failed:
-        pytest.fail("SSH port did not stop. {}".format(res.get('msg', '')))
+    pytest_assert(not res.is_failed, "SSH port did not stop. {}".format(res.get('msg', '')))
 
     # Try to SSH back into the DuT, it should time out
     res = localhost.wait_for(host=dut_mgmt_ip,
@@ -54,16 +80,21 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              timeout=10,
                              module_ignore_errors=True)
 
-    if not res.is_failed:
-        pytest.fail("SSH did not timeout when expected. {}".format(res.get('msg', '')))
+    pytest_assert(res.is_failed, "SSH did not timeout when expected. {}".format(res.get('msg', '')))
 
     # Ensure we CANNOT gather basic SNMP facts from the device
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                               module_ignore_errors=True)
+    res = get_snmp_facts(localhost, host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
+                         module_ignore_errors=True)
 
-    if 'ansible_facts' in res or "No SNMP response received before timeout" not in res.get('msg', ''):
-        pytest.fail("SNMP did not time out when expected")
+    pytest_assert('ansible_facts' not in res and "No SNMP response received before timeout" in res.get('msg', ''))
 
+    # Ensure we cannot send an NTP request to the DUT
+    if NTPLIB_INSTALLED:
+        try:
+            ntp_client.request(dut_mgmt_ip)
+            pytest.fail("NTP did not time out when expected")
+        except ntplib.NTPException:
+            pass
 
     # Wait until the original service ACLs are reinstated and the SSH port on the
     # DUT is open to us once again. Note that the timeout here should be set sufficiently
@@ -77,15 +108,16 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
                              timeout=90,
                              module_ignore_errors=True)
 
-    if res.is_failed:
-        pytest.fail("SSH did not start working when expected. {}".format(res.get('msg', '')))
+    pytest_assert(not res.is_failed, "SSH did not start working when expected. {}".format(res.get('msg', '')))
 
     # Delete config_service_acls.sh from the DuT
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
-    # Ensure we can gather basic SNMP facts from the device once again
-    res = localhost.snmp_facts(host=dut_mgmt_ip, version='v2c', community=creds['snmp_rocommunity'],
-                               module_ignore_errors=True)
-
-    if 'ansible_facts' not in res:
-        pytest.fail("Failed to retrieve SNMP facts from DuT!")
+    # Ensure we can gather basic SNMP facts from the device once again. Should fail on timeout
+    get_snmp_facts(localhost, 
+                   host=dut_mgmt_ip, 
+                   version="v2c", 
+                   community=creds['snmp_rocommunity'], 
+                   wait=True, 
+                   timeout = 20, 
+                   interval=20)

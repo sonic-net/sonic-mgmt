@@ -1,11 +1,15 @@
-import pytest
-import logging
 import json
-import time
+import logging
 import os
+import pytest
+import random
+import time
+
+from collections import defaultdict
 
 from jinja2 import Template
-from common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,12 @@ def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
         # Remove old dump files.
         duthost.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
 
+        # delete other log files that are more than a day old,
+        # this step is needed to remove some backup files or the debug files added by users
+        # which can create issue for log-analyzer
+        duthost.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
+            module_ignore_errors=True, executable="/bin/bash")
+
     # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
     if ptfhost:
         ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
@@ -50,8 +60,38 @@ def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_cont
 def collect_dut_info(dut):
     status = dut.show_interface(command='status')['ansible_facts']['int_status']
     features, _ = dut.get_feature_status()
-    return { 'intf_status' : status, 'features' : features }
 
+    if dut.sonichost.is_multi_asic:
+        front_end_asics = dut.get_frontend_asic_ids()
+        back_end_asics = dut.get_backend_asic_ids()
+
+    asic_services = defaultdict(list)
+    for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
+        # for multi ASIC randomly select one frontend ASIC
+        # and one backend ASIC
+        if dut.sonichost.is_multi_asic:
+            fe = random.choice(front_end_asics)
+            be = random.choice(back_end_asics)
+            asic_services[service] = [
+                dut.get_docker_name(service, asic_index=fe),
+                dut.get_docker_name(service, asic_index=be)
+            ]
+
+    dut_info = {
+        "intf_status": status,
+        "features": features,
+        "asic_services": asic_services,
+    }
+
+    if dut.sonichost.is_multi_asic:
+        dut_info.update(
+            {
+                "frontend_asics": front_end_asics,
+                "backend_asics": back_end_asics
+            }
+        )
+
+    return dut_info
 
 def test_update_testbed_metadata(duthosts, tbinfo):
     metadata = {}
@@ -82,15 +122,10 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
-    cmd_disable_rate_limit = r"docker exec -i {} sed -i 's/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' /etc/rsyslog.conf"
-    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
             continue
-        cmds = []
-        cmds.append(cmd_disable_rate_limit.format(feature_name))
-        cmds.append(cmd_reload.format(feature_name))
-        duthost.shell_cmds(cmds=cmds)
+        duthost.disable_syslog_rate_limit(feature_name)
 
 def collect_dut_lossless_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -107,8 +142,8 @@ def collect_dut_lossless_prio(dut):
     if 'pfc_enable' not in port_qos_map[intf]:
         return []
 
-    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]    
-    return result 
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
 
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -144,7 +179,7 @@ def test_collect_testbed_prio(duthosts, tbinfo):
         lossless_prio[dut.hostname] = collect_dut_lossless_prio(dut)
         lossy_prio[dut.hostname] = collect_dut_lossy_prio(dut)
 
-    prio_info = [all_prio, lossless_prio, lossy_prio]  
+    prio_info = [all_prio, lossless_prio, lossy_prio]
     file_names = [tbname + '-' + x + '.json' for x in ['all', 'lossless', 'lossy']]
     folder = 'priority'
 
@@ -206,6 +241,22 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
     dut.copy(content=rendered, dest='/tmp/y_cable_simulator_client.py')
     dut.shell('cp /tmp/y_cable_simulator_client.py /usr/lib/python3/dist-packages/')
     dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
+
+    # Below changes are required after these PRs are merged:
+    # * https://github.com/Azure/sonic-platform-common/pull/213
+    # * https://github.com/Azure/sonic-platform-daemons/pull/197
+    # For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
+    # When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
+    # File /etc/sonic/mux_simulator.json can co-exist with the 'y_cable_simulator_client.py' file injected above.
+    # Process xcvrd will determine which one to load or use.
+    mux_simulator_config = {
+        'server_ip': mux_simulator_server,
+        'server_port': mux_simulator_port,
+        'vm_set': tbinfo['group-name'],
+        'side': UPPER_TOR if tbinfo['duts'].index(enum_dut_hostname) == 0 else LOWER_TOR
+    }
+    dut.copy(content=json.dumps(mux_simulator_config, indent=2), dest='/etc/sonic/mux_simulator.json')
+
     dut.shell('systemctl restart pmon')
 
 def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):

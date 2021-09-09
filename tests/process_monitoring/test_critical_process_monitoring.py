@@ -241,7 +241,7 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
                 # TODO: Should remove `sensord` from the following if statement once it is added
                 # into the 'critical_processes' file.
                 if "pmon" in container_name_in_namespace and ("thermalctld" in critical_process
-                                                              or "syseepromd" in critical_process 
+                                                              or "syseepromd" in critical_process
                                                               or "sensord" in critical_process):
                     continue
 
@@ -518,7 +518,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
+def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -543,12 +543,15 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo):
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited, which will not trigger alarm message.
+    skip_containers.append("restapi")
     # Skip 'acms' container since 'acms' process is not running on lab devices and
     # another process `cert_converter.py' is set to auto-restart if exited.
     skip_containers.append("acms")
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
+    skip_containers = skip_containers + skip_vendor_specific_container
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 

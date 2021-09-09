@@ -3,6 +3,7 @@
 import json
 import sys
 from ansible.module_utils.basic import *
+from ansible.module_utils.multi_asic_utils import load_db_config
 try:
     from sonic_py_common import multi_asic
     NAMESPACE_LIST = multi_asic.get_namespace_list()
@@ -48,7 +49,7 @@ class LagModule(object):
         self.get_po_names()
         for po,ns in self.lag_names.items():
             self.lags[po] = {}
-            if 'multi_asic' in sys.modules:
+            if 'sonic_py_common' in sys.modules:
                 ns_id = multi_asic.get_asic_id_from_name(ns) if ns else ''
             else:
                 ns_id = ''
@@ -63,6 +64,8 @@ class LagModule(object):
         '''
             Collect configured lag interface names
         '''
+        # load db config
+        load_db_config()
         for ns in NAMESPACE_LIST:
             rt, out, err = self.module.run_command("sonic-cfggen -m /etc/sonic/minigraph.xml {} -v \"PORTCHANNEL.keys() | join(' ')\"".format('-n ' + ns if ns else ''))
             if rt != 0:
@@ -70,7 +73,7 @@ class LagModule(object):
                 self.module.fail_json(msg=fail_msg)
             else:
                 for po in out.split():
-                    if 'multi_asic' in sys.modules and multi_asic.is_port_channel_internal(po):
+                    if 'sonic_py_common' in sys.modules and multi_asic.is_port_channel_internal(po):
                         continue
                     self.lag_names[po] = ns
         return

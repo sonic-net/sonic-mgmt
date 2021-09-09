@@ -142,7 +142,7 @@ class Parse_Lab_Graph():
                 continue
             elif '-' in vlanid:
                 vlanlist = list(map(str.strip, vlanid.split('-')))
-                vlans.extend(range(int(vlanlist[0]), int(vlanlist[1])+1))
+                vlans.extend(list(range(int(vlanlist[0]), int(vlanlist[1])+1)))
                 continue
             elif vlanid != '':
                 raise ValueError('vlan range error "%s"' % vlanrange)

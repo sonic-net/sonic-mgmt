@@ -113,7 +113,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
         if bool(disruption_after_traffic):
             failures.append("Traffic on server {} was disrupted after test end, "
                             "missing {} packets from the end of the packet flow"
-                            .format(server_ip, disruption_after_traffic))
+                            .format(server_ip, result['sent_packets'] - disruption_after_traffic))
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
 
@@ -156,7 +156,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         wait_until(timeout=stop_after, interval=0.5, condition=\
             lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
-            logger.info("Sender/Snifffer threads are still running. Sending signal "\
+            logger.info("Sender/Sniffer threads are still running. Sending signal "\
                 "to stop the IO test after {}s of the action".format(stop_after))
             tor_IO.stop_early = True
     # Wait for the IO to complete before doing checks
