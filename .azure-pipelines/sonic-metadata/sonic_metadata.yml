@@ -146,7 +146,6 @@ stages:
     - template: upgrade_sonic_metadata.yml
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-        INVENTORY_NAME: $(INVENTORY_NAME)
         UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
         IMAGE_BRANCH: ${{ parameters.IMAGE_BRANCH }}
         IMAGE_TYPE: ${{ parameters.IMAGE_TYPE }}

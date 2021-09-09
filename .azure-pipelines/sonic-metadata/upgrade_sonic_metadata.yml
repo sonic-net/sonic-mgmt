@@ -68,7 +68,7 @@ steps:
           EXTRA_PARAMS="--upgrade_type=$type --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --metadata_process"
 
           ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-            -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+            -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
             -m individual \
             -l INFO \
             -e "$EXTRA_PARAMS" \
@@ -85,6 +85,8 @@ steps:
     if [ "$TEST_PASS" = FAIL ]; then
         exit 1
     fi
+  env:
+    INVENTORY_NAME: $(INVENTORY_NAME)
 
   displayName: UpgradeSonic
 - script: |
