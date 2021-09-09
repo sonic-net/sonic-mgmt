@@ -182,7 +182,24 @@ def check_ports_up(duthost, dut_ports, expect_speed=None):
     else:
         return False
 
+@pytest.fixture(params=['ALL_SPEEDS_BY_ALL_LITERAL', 'ALL_SPEEDS_BY_SPEEDS_LIST'])
+def dut_all_supported_speeds(request):
+    speed_val_repr = request.param
 
+    def get_speeds_func(duthost, port_name):
+        if speed_val_repr == 'ALL_SPEEDS_BY_ALL_LITERAL':
+            return 'all'
+        speeds = duthost.get_supported_speeds(port_name)
+        return ','.join(speeds)
+
+    res = {}
+    for dutname, candidates in cadidate_test_ports.items():
+        port_speeds = {}
+        for duthost, dut_port, fanout, fanout_port in candidates.values():
+            port_speeds[dut_port] = get_speeds_func(duthost, dut_port)
+        res[dutname] = port_speeds
+    return res
+    
 def test_auto_negotiation_advertised_speeds_all():
     """Test all candidate ports to advertised all supported speeds and verify:
         1. All ports are up after auto negotiation
@@ -235,7 +252,7 @@ def test_auto_negotiation_advertised_speeds_all():
             pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 
 
-def test_auto_negotiation_advertised_each_speed(enum_dut_portname_module_fixture):
+def test_auto_negotiation_dut_advertises_each_speed(enum_dut_portname_module_fixture):
     """Test all candidate ports to advertised all supported speeds one by one and verify
        that the port operational status is up after auto negotiation
     """
@@ -281,6 +298,54 @@ def test_auto_negotiation_advertised_each_speed(enum_dut_portname_module_fixture
         fanout_actual_speed = fanout.get_speed(fanout_port)
         pytest_assert(fanout_actual_speed == speed, 'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed))
 
+def test_auto_negotiation_fanout_advertises_each_speed(enum_dut_portname_module_fixture, dut_all_supported_speeds):
+    """
+    Test the case when DUT advertises all supported speeds while fanout advertises one speed at a time.
+    Verify that the port operational status is up after auto negotiation
+    """
+    dutname, portname = decode_dut_port_name(enum_dut_portname_module_fixture)
+    if dutname not in cadidate_test_ports.keys() or portname not in cadidate_test_ports[dutname].keys():
+        pytest.skip('%s port was not selected for test' % enum_dut_portname_module_fixture)
+
+    duthost, dut_port, fanout, fanout_port = cadidate_test_ports[dutname][portname]
+
+    logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
+
+    dut_advertised_speeds = dut_all_supported_speeds[dutname][dut_port]
+    duthost.shell('config interface autoneg {} enabled'.format(dut_port))
+    duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, dut_advertised_speeds))
+
+    logger.info('Trying to get a common supported speed set among dut port, fanout port and cable')
+    supported_speeds = get_supported_speeds_for_port(duthost, dut_port, fanout, fanout_port)
+    if not supported_speeds:
+        logger.warn('Ignore test for port {} due to cannot get supported speed for it'.format(dut_port))
+        return
+
+    logger.info('Run test based on supported speeds: {}'.format(supported_speeds))
+    success = fanout.set_auto_negotiation_mode(fanout_port, True)
+    if not success:
+        # Fanout does not support set auto negotiation mode for this port
+        logger.info('Ignore port {} due to fanout port {} does not support setting auto-neg mode'.format(dut_port, fanout_port))
+        return
+
+    for speed in supported_speeds:
+        success = fanout.set_speed(fanout_port, speed)
+        if not success:
+            # Fanout does not support set advertise speeds for this port
+            logger.info('Ignore port {} due to fanout port {} does not support setting advertised speeds'.format(dut_port, fanout_port))
+            continue
+        logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
+        wait_result = wait_until(SINGLE_PORT_WAIT_TIME, 
+                                PORT_STATUS_CHECK_INTERVAL, 
+                                check_ports_up, 
+                                duthost, 
+                                [dut_port], 
+                                speed)
+
+        pytest_assert(wait_result, '{} are still down. Advertised speeds: DUT = {}, fanout = {}'
+            .format(dut_port, dut_advertised_speeds, speed))
+        fanout_actual_speed = fanout.get_speed(fanout_port)
+        pytest_assert(fanout_actual_speed == speed, 'expected fanout speed: {}, but got {}'.format(speed, fanout_actual_speed))
 
 def test_force_speed(enum_dut_portname_module_fixture):
     """Test all candidate ports to force to all supported speeds one by one and verify
