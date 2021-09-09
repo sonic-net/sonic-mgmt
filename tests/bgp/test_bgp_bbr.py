@@ -18,6 +18,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
+from tests.common.utilities import wait_until
+
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -210,32 +212,49 @@ def prepare_routes(setup, ptfhost):
 
 def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
-    tor1 = setup['tor1']
-    tor1_asn = setup['tor1_asn']
-    other_vms = setup['other_vms']
+    def check_tor1(nbrhosts, setup, route):
+        tor1 = setup['tor1']
+        # Check route on tor1
+        logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
+        tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
+        if not route.prefix in tor1_route['vrfs']['default']['bgpRouteEntries'].keys():
+            logging.warn('No route for {} found on {}'.format(route.prefix, tor1))
+            return False
+        tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
+            ['asPathEntry']['asPath']
+        if not tor1_route_aspath == route.aspath:
+            logging.warn('On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath))
+            return False
+        return True
 
-    # Check route on tor1
-    logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
-    tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
-    pytest_assert(route.prefix in tor1_route['vrfs']['default']['bgpRouteEntries'].keys(),
-        'No route for {} found on {}'.format(route.prefix, tor1))
-    tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-        ['asPathEntry']['asPath']
-    pytest_assert(tor1_route_aspath==route.aspath,
-        'On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath))
+    def check_dut(duthost, other_vms, bgp_neighbors, setup, route, accepted=True):
+        tor1_asn = setup['tor1_asn']
+        # Check route on DUT
+        logger.info('Check route on DUT')
+        dut_route = duthost.get_route(route.prefix, setup['tor1_namespace'])
 
-    # Check route on DUT
-    logger.info('Check route on DUT')
-    dut_route = duthost.get_route(route.prefix, setup['tor1_namespace'])
-    if accepted:
-        pytest_assert(dut_route, 'No route for {} found on DUT'.format(route.prefix))
-        dut_route_aspath = dut_route['paths'][0]['aspath']['string']
-        # Route path from DUT: -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
-        dut_route_aspath_expected = '{} {}'.format(tor1_asn, route.aspath)
-        pytest_assert(dut_route_aspath==dut_route_aspath_expected,
-            'On DUT expected aspath: {}, actual aspath: {}'.format(dut_route_aspath_expected, dut_route_aspath))
-    else:
-        pytest_assert(not dut_route, 'Prefix {} should not be accepted by DUT'.format(route.prefix))
+        if accepted:
+            if not dut_route:
+                logging.warn('No route for {} found on DUT'.format(route.prefix))
+                return False
+            dut_route_aspath = dut_route['paths'][0]['aspath']['string']
+            # Route path from DUT: -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
+            dut_route_aspath_expected = '{} {}'.format(tor1_asn, route.aspath)
+            if not dut_route_aspath == dut_route_aspath_expected:
+                logging.warn('On DUT expected aspath: {}, actual aspath: {}'.format(dut_route_aspath_expected, dut_route_aspath))
+                return False
+            if 'advertisedTo' not in dut_route:
+                logging.warn("DUT didn't advertise the route")
+                return False
+            advertised_to = set([bgp_neighbors[_]['name'] for _ in dut_route['advertisedTo']])
+            for vm in other_vms:
+                if vm not in advertised_to:
+                    logging.warn("DUT didn't advertise route to neighbor %s" % vm)
+                    return False
+        else:
+            if dut_route:
+                logging.warn('Prefix {} should not be accepted by DUT'.format(route.prefix))
+        return True
 
     # Check route on other VMs
     @reset_ansible_local_tmp
@@ -266,6 +285,15 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
         results[node] = vm_route
+
+    other_vms = setup['other_vms']
+    bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --var-json 'BGP_NEIGHBOR'")['stdout'])
+
+    # check tor1
+    pytest_assert(wait_until(5, 1, check_tor1, nbrhosts, setup, route), 'tor1 check failed')
+
+    # check DUT
+    pytest_assert(wait_until(5, 1, check_dut, duthost, other_vms, bgp_neighbors, setup, route, accepted=accepted), 'DUT check failed')
 
     results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
 
