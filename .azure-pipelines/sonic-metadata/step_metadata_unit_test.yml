@@ -1,0 +1,6 @@
+steps:
+- script: |
+    # set -x        
+    cd sonic-metadata/scripts/tests
+    pytest test_cleanup_firmware.py
+  displayName: Unit test SONiC metadata scripts

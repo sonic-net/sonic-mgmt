@@ -1,0 +1,166 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger: none
+pr: none
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  default: vms7-t0-s6100
+- name: TESTBED_FILE
+  type: string
+  default: testbed.yaml
+  values:
+    - testbed.csv
+    - testbed.yaml
+- name: UPGRADE_TYPE
+  type: string
+  default: warm
+- name: IMAGE_BRANCH
+  type: string
+  values:
+  - "201811"
+  - "201911"
+  - "202012"
+- name: IMAGE_TYPE
+  type: string
+  default: bin
+  values:
+  - bin
+  - swi
+- name: ASIC_TYPE
+  type: string
+  default: broadcom
+  values:
+  - mellanox
+  - broadcom
+- name: FROM_IMAGE_LIST
+  type: string
+- name: TO_IMAGE_LIST
+  type: string
+
+stages:
+- stage: SONiCMetadataTest
+
+  jobs:
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Unit Test"
+    timeoutInMinutes: 720
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_unit_test.yml
+
+  - job:
+    pool: nightly
+    displayName: "Test SONiC Metadata Files"
+    timeoutInMinutes: 720
+    variables:
+      - group: TBSHARE_SECRETS
+      - group: KUSTO_SECRETS
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+
+    # - template: step_get_secrets.yml
+    - task: AzureKeyVault@1
+      displayName: Get Secrets
+      inputs:
+        azureSubscription: 'Network Production Environment -- SONiC(9355ef17-3aa2-493a-94ab-a43a9bf8cd70)'
+        KeyVaultName: 'SONiC'
+        SecretsFilter: '*'
+        RunAsPreJob: false
+
+    - task: Bash@3
+      displayName: Save Secrets
+      inputs:
+        targetType: 'inline'
+        script: |
+          cd sonic-mgmt-int
+          # Download secrets.json from Azure Key Vault
+          # The AzureKeyVault task automatically set variable for each secret found in key vault
+          # Secrets available: nm-secrets, ansible-vault-passwd
+          echo '$(nm-secrets)' > ansible/group_vars/all/secrets.json
+          echo '$(ansible-vault-passwd)' > ansible/password.txt
+
+          # decrypt the secret file
+          md5sum ansible/group_vars/all/secrets.json
+          ansible-vault decrypt ansible/group_vars/all/secrets.json --vault-password-file=ansible/password.txt
+
+    - task: PythonScript@0
+      displayName: Parse Testbed Info
+      inputs:
+        scriptSource: 'inline'
+        script: |
+          from __future__ import print_function
+          import os, imp, sys
+
+          testbed_module = imp.load_source('testbed', 'sonic-mgmt-int/tests/common/testbed.py')
+          testbed_name = '${{ parameters.TESTBED_NAME }}'
+          testbed_file = '${{ parameters.TESTBED_FILE }}'
+          tbinfo = testbed_module.TestbedInfo('sonic-mgmt-int/ansible/{}'.format(testbed_file))
+          target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+          if not target_testbed:
+              print('Testbed {} not found!'.format(testbed_name))
+              sys.exit(1)
+          dut_list = target_testbed.get('duts', [])
+          dut_list_str = ' '.join(x for x in dut_list)
+
+          print('Basic info of testbed {}:'.format(testbed_name))
+          print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
+          print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
+          print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+          print('          DUT_LIST={}'.format(dut_list_str))
+
+          # Below code can create dynamic azure pipeline variables
+          # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
+          print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
+          print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
+          print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+          print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
+
+    - task: PythonScript@0
+      displayName: Lock Testbed
+      inputs:
+        scriptSource: 'filePath'
+        scriptPath: ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py
+        arguments: lock
+      env:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+          TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+
+    - template: upgrade_sonic_metadata.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+        IMAGE_BRANCH: ${{ parameters.IMAGE_BRANCH }}
+        IMAGE_TYPE: ${{ parameters.IMAGE_TYPE }}
+        ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
+        FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+        TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+
+    - task: PythonScript@0
+      displayName: Release Testbed
+      inputs:
+        scriptSource: 'filePath'
+        scriptPath: ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py
+        arguments: release
+      env:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+          TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+      condition: always()
