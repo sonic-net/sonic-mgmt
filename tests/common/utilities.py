@@ -10,6 +10,7 @@ import six
 import sys
 import threading
 import time
+import traceback
 from io import BytesIO
 
 import pytest
@@ -92,8 +93,10 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
-            logger.error("Exception caught while checking %s: %s" % (condition.__name__, repr(e)))
+        except Exception:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
             check_result = False
 
         if check_result:
