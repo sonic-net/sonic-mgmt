@@ -52,7 +52,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf"'
+    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf vxlan radv"'
     displayName: Testbed specific
 
 stages:
