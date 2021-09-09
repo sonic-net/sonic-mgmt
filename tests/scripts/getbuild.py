@@ -74,7 +74,7 @@ def download_artifacts(url, content_type, platform, buildid):
     """find latest successful build id for a branch"""
 
     if content_type == 'image':
-        if platform == 'kvm':
+        if platform == 'vs':
             filename = 'sonic-vs.img.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
@@ -113,7 +113,7 @@ def main():
     parser.add_argument('--buildid', metavar='buildid', type=int, help='build id')
     parser.add_argument('--branch', metavar='branch', type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-            choices=['broadcom', 'mellanox', 'kvm'],
+            choices=['broadcom', 'mellanox', 'vs'],
             help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
             choices=['all', 'image'], default='image',
