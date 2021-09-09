@@ -354,22 +354,23 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
         exp_ttl = 63
 
         # According to SONiC configuration dot1ps are classified as follows:
-        # dot1p 0 -> queue 0
-        # dot1p 1 -> queue 6
-        # dot1p 2 -> queue 5
+        # dot1p 0 -> queue 1
+        # dot1p 1 -> queue 0
+        # dot1p 2 -> queue 2
         # dot1p 3 -> queue 3
         # dot1p 4 -> queue 4
-        # dot1p 5 -> queue 2
-        # dot1p 6 -> queue 1
-        # dot1p 7 -> queue 0
+        # dot1p 5 -> queue 5
+        # dot1p 6 -> queue 6
+        # dot1p 7 -> queue 7
         queue_dot1p_map = {
-            0 : [0, 7],
-            1 : [6],
-            2 : [5],
+            0 : [1],
+            1 : [0],
+            2 : [2],
             3 : [3],
             4 : [4],
-            5 : [2],
-            6 : [1]
+            5 : [5],
+            6 : [6],
+            7 : [7]
         }
         print >> sys.stderr, queue_dot1p_map
 
