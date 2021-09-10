@@ -379,8 +379,12 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_sfps is not an integer")
         list_sfps = []
-        list_sfps = physical_port_indices
-        logging.info("Physical port indices = {}".format(list_sfps))
+        for k, v in physical_port_indices.items():
+            list_sfps.append(v)
+        list_sfps = list(set(list_sfps))
+        list_sfps.sort()
+
+        #logging.info("Physical port indices = {}".format(list_sfps))
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
             pytest_assert(num_sfps == expected_num_sfps,
@@ -391,10 +395,10 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
 
-        for i in range(num_sfps):
+        for i in range(len(list_sfps)):
             index = list_sfps[i]
             sfp = chassis.get_sfp(platform_api_conn, index)
-            self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
+            self.expect(sfp and sfp == sfp_list[i], "SFP number {} object is incorrect index {}".format(i, index))
         self.assert_expectations()
 
     def test_status_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
