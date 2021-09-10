@@ -31,13 +31,7 @@ the connected PTF port(s) required to setup the RADV tests
 
 @pytest.fixture(scope="module", autouse=True)
 def radv_test_setup(request, duthosts, ptfhost, tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        # Select upper ToR to run RADV tests
-        duthost = duthosts[tbinfo['duts'][0]]
-    else:
-        hostname = request.getfixturevalue('rand_one_dut_hostname')
-        duthost = duthosts[hostname]
-
+    duthost = duthosts[0]
     logging.info("radv_test_setup() DUT {}".format(duthost.hostname))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
