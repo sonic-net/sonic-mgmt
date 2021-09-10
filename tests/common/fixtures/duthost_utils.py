@@ -31,7 +31,6 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 
-
 @pytest.fixture(scope="module")
 def backup_and_restore_config_db_on_duts(duthosts):
     """
