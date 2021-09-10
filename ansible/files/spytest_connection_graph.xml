@@ -4108,7 +4108,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="3375"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str2-7215-acs-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.47/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.140/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7215-acs-4">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.48/23"/>
