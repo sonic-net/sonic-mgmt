@@ -18,8 +18,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
-from tests.common.utilities import compose_dict_from_cli
-from tests.common.utilities import wait_until
+from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +38,7 @@ SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
 
+STATE_DB = 6
 syseepromd_tbl_key = ""
 
 @pytest.fixture(scope="module", autouse=True)
@@ -71,11 +71,11 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         time.sleep(10)
 
 def collect_data(duthost):
-    keys = duthost.shell('redis-cli -n 6 keys "EEPROM_INFO|*"')['stdout_lines']
+    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "EEPROM_INFO|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('redis-cli -n 6 hgetall "{}"'.format(k))['stdout_lines']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
     
@@ -157,8 +157,7 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, ra
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    if "201811" in duthost.os_version or "201911" in duthost.os_version:
-        pytest.skip("Skip: SIG_TERM behaves differnetly in {} on {}".format(daemon_name, duthost.os_version))
+    skip_release(duthost, ["201811", "201911", "202012"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
