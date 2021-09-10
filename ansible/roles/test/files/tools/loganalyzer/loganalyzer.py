@@ -20,10 +20,12 @@ from __future__ import print_function
 import sys
 import getopt
 import re
+import os
 import csv
 import pprint
 import logging
 import logging.handlers
+import subprocess
 from datetime import datetime
 
 #---------------------------------------------------------------------
@@ -32,6 +34,7 @@ from datetime import datetime
 tokenizer = ','
 comment_key = '#'
 system_log_file = '/var/log/syslog'
+re_rsyslog_pid = re.compile("PID:\s+(\d+)")
 
 #-- List of ERROR codes to be returned by AnsibleLogAnalyzer
 err_duplicate_start_marker = -1
@@ -124,6 +127,33 @@ class AnsibleLogAnalyzer:
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
 
+    def flush_rsyslogd(self):
+        '''
+        @summary: flush all remaining buffer in rsyslogd to disk
+
+        rsyslog.service - System Logging Service
+            Loaded: loaded (/lib/systemd/system/rsyslog.service; enabled; vendor preset: enabled)
+            Active: active (running) since Fri 2021-09-03 15:50:17 UTC; 14h ago
+        TriggeredBy: syslog.socket
+            Docs: man:rsyslogd(8)
+             https://www.rsyslog.com/doc/
+         Main PID: 17516 (rsyslogd)
+         Tasks: 5 (limit: 3402)
+         Memory: 3.3M
+         CGroup: /system.slice/rsyslog.service
+              17516 /usr/sbin/rsyslogd -n
+        '''
+        pid = None
+        out = subprocess.check_output("systemctl status rsyslog", shell=True)
+        for l in out.split('\n'):
+            m = re.search(re_rsyslog_pid, l)
+            if m:
+                pid = int(m.group(1))
+                break
+
+        if pid:
+            os.system("sudo kill -HUP {}".format(pid))
+
     def place_marker_to_file(self, log_file, marker):
         '''
         @summary: Place marker into each log file specified.
@@ -148,6 +178,7 @@ class AnsibleLogAnalyzer:
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
         syslogger.info('\n')
+        self.flush_rsyslogd()
 
     def place_marker(self, log_file_list, marker):
         '''
