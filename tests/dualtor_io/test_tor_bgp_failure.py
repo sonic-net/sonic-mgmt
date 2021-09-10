@@ -31,17 +31,17 @@ def test_active_tor_kill_bgpd_upstream(
     Action: Shutdown all BGP sessions on the active ToR
     Expectation:
         Verify packet flow after the active ToR (A) loses BGP sessions
-        ToR A DBs indicate active, ToR B DBs indicate standby
-        T1 switch receives packet from the initial active ToR (A) and not the standby ToR (B)
-        Verify traffic interruption < 1 second
+        ToR A DBs indicate standby, ToR B DBs indicate active
+        T1 switch receives packet from the initial standby ToR (B) and not the active ToR (A)
+        Verify traffic interruption < threshold
     '''
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: kill_bgpd(upper_tor_host)
     )
     verify_tor_states(
-        expected_active_host=upper_tor_host,
-        expected_standby_host=lower_tor_host
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
     )
 
 
@@ -97,16 +97,14 @@ def test_active_tor_kill_bgpd_downstream_standby(
     Action: Shutdown all BGP sessions on the active ToR
     Expectation:
         Verify packet flow after the active ToR (A) loses BGP sessions
-        T1 switch continues to receive IP-in-IP traffic, from lower to upper ToR
-        No switchover occurs
-        verify traffic interruption is < 1 second
+        Verify ToR A standby, ToR B active
+        Verify traffic interruption is < 1 second
     '''
-    with tunnel_traffic_monitor(lower_tor_host, existing=True):
-        send_t1_to_server_with_action(
-            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: kill_bgpd(upper_tor_host)
-        )
+    send_t1_to_server_with_action(
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        action=lambda: kill_bgpd(upper_tor_host)
+    )
     verify_tor_states(
-        expected_active_host=upper_tor_host,
-        expected_standby_host=lower_tor_host
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
     )
