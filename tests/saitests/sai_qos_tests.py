@@ -1718,6 +1718,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
+        hwsku = self.test_params['hwsku']
 
         if 'packet_size' in self.test_params.keys():
             packet_length = int(self.test_params['packet_size'])
@@ -1752,18 +1753,36 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # or the leak out is simply less than expected as we have occasionally observed
         margin = 2
 
+        # Get a snapshot of counter values
+        xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         # send packets
         try:
+            # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
+            # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
+            # actual leakout by sending packets and reading actual leakout from HW
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                pkts_num_leak_out = pkts_num_leak_out - margin 
+
             # send packets to fill pg min but not trek into shared pool
             # so if pg min is zero, it directly treks into shared pool by 1
             # this is the case for lossy traffic
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+
+            # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
+                if actual_pkts_num_leak_out > pkts_num_leak_out:
+                    send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
             pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, pg_shared_wm_res[pg])
+
             if pkts_num_fill_min:
                 assert(pg_shared_wm_res[pg] == 0)
             else:
@@ -1943,6 +1962,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_trig_drp = int(self.test_params['pkts_num_trig_drp'])
         cell_size = int(self.test_params['cell_size'])
+        hwsku = self.test_params['hwsku']
+
         if 'packet_size' in self.test_params.keys():
             packet_length = int(self.test_params['packet_size'])
         else:
@@ -1980,16 +2001,31 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # shared test, so the margin here actually means extra capacity margin
         margin = 8
 
+        xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         # send packets
         try:
+            # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
+            # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
+            # actual leakout by sending packets and reading actual leakout from HW
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                pkts_num_leak_out = pkts_num_leak_out - margin 
+
             # send packets to fill queue min but not trek into shared pool
             # so if queue min is zero, it will directly trek into shared pool by 1
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
             send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+
+            # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+                xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
+                if actual_pkts_num_leak_out > pkts_num_leak_out:
+                    send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
