@@ -18,10 +18,13 @@ def get_pfc_time():
     ret = 0
     pfc_wd = config_db_data_wo_t0.get("PFC_WD", {})
     for n, val in pfc_wd.items():
-        ret = int(val["detection_time"])
+        ret = int(val.get("detection_time", 0))
+        if ret:
+            break
 
     if not ret:
-        log_info("PFC_WD is not supported")
+        log_info("PFC_WD is not running")
+
     return ret
 
 
