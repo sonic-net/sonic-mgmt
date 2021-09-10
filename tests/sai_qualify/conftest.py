@@ -22,11 +22,27 @@ SAISERVER_SCRIPT = "saiserver.sh"
 SCRIPTS_SRC_DIR = "scripts/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon"]
 SAI_PRC_PORT = 9092
+
+'''
+PTF_TEST_ROOT_DIR is the root folder for SAI testing
+DUT_WORKING_DIR is the working folder of DUT
+'''
 PTF_TEST_ROOT_DIR = "/tmp/sai_qualify"
 DUT_WORKING_DIR = "/home/admin"
+
+'''
+These paths are for the SAI cases/results 
+'''
+SAI_TEST_CASE_DIR_ON_PTF = "/tmp/sai_qualify/tests"
+SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
+SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
+
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
-SAI_TEST_CASE_DIR_ON_PTF = "tests"
-SAI_TEST_REPORT_DIR_ON_PTF = "test_results"
+SAISERVER_CONTAINER = "saiserver"
+SAISERVER_CHECK_INTERVAL_IN_SEC = 140
+SAISERVER_RESTART_INTERVAL_IN_SEC = 35
+RPC_RESTART_INTERVAL_IN_SEC = 32
+RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
 def pytest_addoption(parser):
@@ -40,9 +56,9 @@ def start_saiserver(duthost, creds, deploy_saiserver):
     """
         Starts SAIServer docker on DUT.
     """
-    _start_saiserver_with_retry(duthost)
+    start_saiserver_with_retry(duthost)
     yield
-    _stop_saiserver(duthost)
+    stop_and_rm_saiserver(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -67,28 +83,45 @@ def prepare_saiserver_script(duthost):
 
 
 @pytest.fixture(scope="module")
-def prepare_ptf_server(ptfhost, duthost):
+def prepare_ptf_server(ptfhost, duthost, request):
+    update_saithrift_ptf(request, ptfhost)
     _create_sai_port_map_file(ptfhost, duthost)
     yield
     _delete_sai_port_map_file(ptfhost)
 
 
-def _start_saiserver_with_retry(duthost):
+def start_saiserver_with_retry(duthost):
     """
     Attempts to start a saisever with retry.
 
     Args:
         duthost (SonicHost): The target device.
     """
-    saiserver_check_waiting_time = 140
-    saiserver_restart_interval = 35
 
-    logger.info("Attempting to start saiserver.")
-
-    sai_ready = wait_until(saiserver_check_waiting_time, saiserver_restart_interval, _is_saiserver_restarted, duthost)
-    pt_assert(sai_ready, "SaiServer failed to start in {}s".format(saiserver_check_waiting_time))
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    logger.info("Successful in starting SaiServer at : {}:{}".format(dut_ip, SAI_PRC_PORT))
+    logger.info("Checking the PRC connection before starting the saiserver.")
+    rpc_ready = wait_until(1, 1, _is_rpc_server_ready, dut_ip)
+    
+    if not rpc_ready:
+        logger.info("Attempting to start saiserver.")
+        sai_ready = wait_until(SAISERVER_CHECK_INTERVAL_IN_SEC, SAISERVER_RESTART_INTERVAL_IN_SEC, _is_saiserver_restarted, duthost)
+        pt_assert(sai_ready, "SaiServer failed to start in {}s".format(SAISERVER_CHECK_INTERVAL_IN_SEC))
+        
+        logger.info("Successful in starting SaiServer at : {}:{}".format(dut_ip, SAI_PRC_PORT))
+    else:
+        logger.info("PRC connection already set up before starting the saiserver.")
+
+
+def stop_and_rm_saiserver(duthost):
+    """
+    Stops the saiserver by a script.
+
+    Args:
+        duthost (SonicHost): The target device.
+    """
+    logger.info("Stopping the container 'saiserver'...")
+    duthost.shell(OPT_DIR + "/" + SAISERVER_SCRIPT + " stop")
+    duthost.delete_container(SAISERVER_CONTAINER)
 
 
 def _is_saiserver_restarted(duthost):
@@ -98,16 +131,13 @@ def _is_saiserver_restarted(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    connection_checking_time = 32
-    connection_checking_interval = 4
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     if _is_container_exists(duthost, 'saiserver'):
         logger.info("saiserver already exists, stop and remove it for a clear restart.")
-        _stop_saiserver(duthost)
-        duthost.shell("docker rm saiserver")
+        stop_and_rm_saiserver(duthost)
     _start_saiserver(duthost)
-    rpc_ready = wait_until(connection_checking_time, connection_checking_interval, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, _is_rpc_server_ready, dut_ip)
     if not rpc_ready:
         logger.info("Failed to start up saiserver, stop it for a restart")
     return rpc_ready
@@ -127,8 +157,8 @@ def _is_rpc_server_ready(dut_ip):
         transport.open()
         logger.info("Successful in creating rpc connection : {}:{}".format(dut_ip, SAI_PRC_PORT))
         return True
-    except Exception as e: 
-        logger.info("Attempting to open rpc connection failed : {}".format(e))
+    except Exception: 
+        logger.info("Failed to open rpc connection.")
         return False
     finally:
         transport.close()
@@ -143,18 +173,6 @@ def _start_saiserver(duthost):
     """
     logger.info("Starting SAIServer docker for testing")      
     duthost.shell(OPT_DIR + "/" + SAISERVER_SCRIPT + " start")
-
-
-def _stop_saiserver(duthost):
-    """
-    Stops the saiserver by a script.
-
-    Args:
-        duthost (SonicHost): The target device.
-    """
-
-    logger.info("Stopping the container 'saiserver'...")
-    duthost.shell(OPT_DIR + "/" + SAISERVER_SCRIPT + " stop")
 
 
 def _deploy_saiserver(duthost, creds):
@@ -218,14 +236,13 @@ def _remove_saiserver_deploy(duthost, creds):
     """
     logger.info("Delete saiserver docker from DUT host '{0}'".format(duthost.hostname))
     vendor_id = _get_sai_running_vendor_id(duthost)
-    container_name = "saiserver"
 
-    docker_saiserver_name = "docker-{}-{}".format(container_name, vendor_id)
+    docker_saiserver_name = "docker-{}-{}".format(SAISERVER_CONTAINER, vendor_id)
     docker_saiserver_image = docker_saiserver_name
 
     logger.info("Cleaning the SAI Testing env ...")
     registry = load_docker_registry_info(duthost, creds)
-    duthost.delete_container(container_name)    
+    duthost.delete_container(SAISERVER_CONTAINER)    
 
     logger.info("Removing the image '{}'...".format(docker_saiserver_image))
     duthost.shell("docker image rm {}".format(docker_saiserver_image))
@@ -245,7 +262,7 @@ def _copy_saiserver_script(duthost):
         Returns:
             None
     """
-    logger.info("Copy saiserver script to DUT: '{0}'".format(duthost.hostname))
+    logger.info("Copy saiserver script to DUT: '{}'".format(duthost.hostname))
     duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SAISERVER_SCRIPT), dest=OPT_DIR)
     duthost.shell("sudo chmod +x " + OPT_DIR + "/" + SAISERVER_SCRIPT)
 
@@ -257,7 +274,7 @@ def _delete_saiserver_script(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    logger.info("Delete saiserver script from DUT host '{0}'".format(duthost.hostname))
+    logger.info("Delete saiserver script from DUT host '{}'".format(duthost.hostname))
     duthost.file(path=os.path.join(OPT_DIR, SAISERVER_SCRIPT), state="absent")
 
 
@@ -295,8 +312,8 @@ def _is_container_running(duthost, container_name):
     try:
         result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
         return result["stdout_lines"][0].strip() == "true"
-    except Exception as e:
-        logger.info("Cannot get container '{0}' running state".format(duthost.hostname))
+    except Exception:
+        logger.info("Cannot get container '{}' running state.".format(duthost.hostname))
     return False
 
 
@@ -311,8 +328,8 @@ def _is_container_exists(duthost, container_name):
     try:
         result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
         return bool(result["stdout_lines"][0].strip())
-    except Exception as e:
-        logger.info("Cannot get container '{0}' running state".format(duthost.hostname))
+    except Exception:
+        logger.info("Cannot get container '{}' running state.".format(duthost.hostname))
     return False
 
 
@@ -369,4 +386,20 @@ def _delete_sai_port_map_file(ptfhost):
     """
     logger.info("Deleting {0} file.".format(PORT_MAP_FILE_PATH))
     ptfhost.file(path=PORT_MAP_FILE_PATH, state="absent")
+
+
+def update_saithrift_ptf(request, ptfhost):
+    '''
+    Install the correct python saithrift package on the ptf
+    '''
+    py_saithrift_url = request.config.getoption("--py_saithrift_url")
+    if not py_saithrift_url:
+        pytest.fail("No URL specified for python saithrift package")
+    pkg_name = py_saithrift_url.split("/")[-1]
+    ptfhost.shell("rm -f {}".format(pkg_name))
+    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
+    if result["failed"] != False or "OK" not in result["msg"]:
+        pytest.fail("Download failed/error while installing python saithrift package")
+    ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    logging.info("Python saithrift package installed successfully")
 

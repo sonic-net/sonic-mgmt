@@ -15,6 +15,7 @@ import ptf.packet as scapy
 import tests.common.system_utils.docker as docker
 import tests.common.fixtures.ptfhost_utils as ptfhost_utils
 from conftest import *
+from community_cases import *
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +23,43 @@ pytestmark = [
     pytest.mark.topology("ptf")
 ]
 
+TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '2@eth2' \
+    --interface '3@eth3' --interface '4@eth4' --interface '5@eth5' --interface '6@eth6' \
+    --interface '7@eth7'"
 
-def test_sai_from_ptf(sai_testbed, duthost, ptfhost):
+
+
+@pytest.mark.parametrize("test_case", COMMUN_TEST_CASE)
+def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case):
     """
         trigger the test here
     """
-    _run_tests(duthost, ptfhost)
+    logger.info("Checking test environment before running test.")
+    dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    start_saiserver_with_retry(duthost)
+    try:
+        logger.info("Running test: {0}".format(test_case))
+        ptfhost.shell("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} \
+            -t \"server='{4}';port_map_file='{5}'\""
+        .format(
+            SAI_TEST_CASE_DIR_ON_PTF, 
+            test_case, 
+            TEST_INTERFACE_PARAMS,
+            SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
+            dut_ip, 
+            PORT_MAP_FILE_PATH))
+        logger.info("Test case [{}] passed.".format(test_case))
+    except BaseException as e:               
+        stop_and_rm_saiserver(duthost)
+        logger.info("Test case [{}] failed as {}".format(test_case, e))
+        pytest.fail("Test case [{}] failed".format(test_case), e)
+    finally:
+        _store_test_result(ptfhost)
 
 
 @pytest.fixture(scope="module")
 def sai_testbed(
     duthost,
-    creds,
     request,
     ptfhost,
     start_saiserver,
@@ -54,7 +80,7 @@ def _setup_dut(ptfhost, request):
     """
     logger.info("Set up SAI tests.")
 
-    _prepare_test_env(ptfhost, request)
+    _prepare_test_cases(ptfhost, request)
 
 
 def _teardown_dut(duthost, ptfhost, request):
@@ -63,7 +89,6 @@ def _teardown_dut(duthost, ptfhost, request):
     """
     logger.info("Teardown SAI tests.")
     _collect_test_result(duthost, ptfhost, request)
-    _cleanup_dut(duthost)
     _cleanup_ptf(ptfhost)
 
 
@@ -86,7 +111,7 @@ def _delete_sai_test_cases(ptfhost):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Delete SAI tests cases")
-    ptfhost.file(path="{0}/{1}".format(PTF_TEST_ROOT_DIR, SAI_TEST_CASE_DIR_ON_PTF), state="absent")
+    ptfhost.file(path="{0}".format(SAI_TEST_CASE_DIR_ON_PTF), state="absent")
 
 
 def _delete_sai_test_folder(ptfhost):
@@ -100,7 +125,7 @@ def _delete_sai_test_folder(ptfhost):
     ptfhost.file(path=PTF_TEST_ROOT_DIR, state="absent")
 
 
-def _prepare_test_env(ptfhost, request):
+def _prepare_test_cases(ptfhost, request):
     """
     Prepare SAI test env including create root test folder and copy cases.
 
@@ -108,11 +133,11 @@ def _prepare_test_env(ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Preparing SAI test environment.")
-    _create_sai_test_folder(ptfhost)
-    _copy_sai_test_cases(ptfhost, request.config.option.sai_test_dir)
+    _create_sai_test_folders(ptfhost)
+    _copy_sai_test_cases(ptfhost, request)
 
 
-def _create_sai_test_folder(ptfhost):
+def _create_sai_test_folders(ptfhost):
     """
     Create SAI test root folder on PTF server.
 
@@ -121,9 +146,11 @@ def _create_sai_test_folder(ptfhost):
     """
     logger.info("Creating SAI tests root folder: {0}.".format(PTF_TEST_ROOT_DIR))
     ptfhost.shell("mkdir -p {0}".format(PTF_TEST_ROOT_DIR))
+    logger.info("Creating SAI tests report folder: {0}.".format(SAI_TEST_REPORT_DIR_ON_PTF))
+    ptfhost.shell("mkdir -p {0}".format(SAI_TEST_REPORT_DIR_ON_PTF))
 
 
-def _copy_sai_test_cases(ptfhost, SAI_TEST_DIR):
+def _copy_sai_test_cases(ptfhost, request):
     """
     Copy SAI test cases to PTF server.
 
@@ -131,8 +158,7 @@ def _copy_sai_test_cases(ptfhost, SAI_TEST_DIR):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Copying SAI test cases to PTF server.")
-    ptfhost.shell("cd {0} && mkdir -p {1} && mkdir -p {2}".format(PTF_TEST_ROOT_DIR, SAI_TEST_CASE_DIR_ON_PTF, SAI_TEST_REPORT_DIR_ON_PTF))
-    ptfhost.copy(src=SAI_TEST_DIR, dest=PTF_TEST_ROOT_DIR + "/" + SAI_TEST_CASE_DIR_ON_PTF)
+    ptfhost.copy(src=request.config.option.sai_test_dir, dest=PTF_TEST_ROOT_DIR + "/")
 
 
 def _collect_test_result(duthost, ptfhost, request):
@@ -144,38 +170,12 @@ def _collect_test_result(duthost, ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Collecting test result and related information.")
-    _collect_sonic_os_and_platform_info(duthost, request.config.option.sai_test_report_dir)
-    _collect_sai_test_report_xml(ptfhost, request.config.option.sai_test_report_dir)
+    # TODO : collect DUT test report
+    _collect_sonic_os_and_platform_info(duthost, request)
+    _collect_sai_test_report_xml(ptfhost, request)
 
 
-def _run_tests(dut, ptfhost):
-    """
-    Run SAI tests.
-
-    Args:
-        duthost (SonicHost): The DUT.
-        ptfhost (AnsibleHost): The PTF server.
-    """
-    logger.info("Start SAI tests")
-
-    test_case = "L2AccessToAccessVlanTest"
-    dut_ip = dut.host.options['inventory_manager'].get_host(dut.hostname).vars['ansible_host']
-    ptfhost.shell("cd {0} && ptf --test-dir {1} sail2.{2} --interface '0@eth0' --interface '1@eth1' --xunit --xunit-dir {3} -t \"server='{4}';port_map_file='{5}'\"".format(PTF_TEST_ROOT_DIR, SAI_TEST_CASE_DIR_ON_PTF, test_case, SAI_TEST_REPORT_DIR_ON_PTF, dut_ip, PORT_MAP_FILE_PATH))
-
-
-def _cleanup_dut(duthost):
-    """
-    Clean up DUT.
-
-    Args:
-        duthost (SonicHost): The DUT.
-    """
-
-    logger.info("Cleanup DUT.")
-    duthost.file(path="{0}/version.txt".format(DUT_WORKING_DIR), state="absent")
-
-
-def _collect_sonic_os_and_platform_info(duthost, SAI_TEST_REPORT_DIR):
+def _collect_sonic_os_and_platform_info(duthost, request):
     """
     Collect SONiC OS and Testbed info.
 
@@ -183,11 +183,49 @@ def _collect_sonic_os_and_platform_info(duthost, SAI_TEST_REPORT_DIR):
         duthost (SonicHost): The DUT.
     """
     logger.info("Getting SONiC OS version and Testbed platform info.")
-    duthost.shell("cd {0} && show version > version.txt".format(DUT_WORKING_DIR))
-    duthost.fetch(src="{0}/version.txt".format(DUT_WORKING_DIR), dest=SAI_TEST_REPORT_DIR + "/", flat=True)
+
+    out = duthost.shell("cd {0} && show version".format(DUT_WORKING_DIR))
+    _parse_info(out['stdout'], request.config.option.sai_test_report_dir)
 
 
-def _collect_sai_test_report_xml(ptfhost, SAI_TEST_REPORT_DIR):
+def _parse_info(content, report_path):
+    OS_VERSION=""
+    PLT_VERSION=""
+
+    with open(report_path + "/version.txt", 'w+') as f:
+        f.writelines(content)
+
+    with open(report_path + "/version.txt", 'r') as f:
+        cc = f.readlines()
+
+        for line in cc:
+            if "SONiC Software Version" in line:
+                OS_VERSION = line.split(":")[1].strip()
+            if "Platform" in line:
+                PLT_VERSION = line.split(":")[1].strip()
+
+    # TODO: Getting info should not depend on AZP, later this logging command will be removed
+    logger.info('Get SONiC version: {0}, Platform: {1}'.format(OS_VERSION, PLT_VERSION))
+    logger.info('##vso[task.setvariable variable=OS_VERSION]{}'.format(OS_VERSION))
+    logger.info('##vso[task.setvariable variable=PLT_VERSION]{}'.format(PLT_VERSION))
+
+
+def _store_test_result(ptfhost):
+    """
+        Backup the test result
+    
+    Args:
+        ptfhost (AnsibleHost): The PTF server.
+    """
+    logger.info("Copying file from folder: {0} to folder: {1}".format(
+		SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
+		SAI_TEST_REPORT_DIR_ON_PTF))
+    ptfhost.shell("cp {0}/*.* {1}/".format(
+		SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
+		SAI_TEST_REPORT_DIR_ON_PTF))
+
+
+def _collect_sai_test_report_xml(ptfhost, request):
     """
     Collect SAI test report.
 
@@ -195,6 +233,9 @@ def _collect_sai_test_report_xml(ptfhost, SAI_TEST_REPORT_DIR):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Collecting xunit SAI tests log from ptf")
-    ptfhost.shell("cd {0}/{1} && tar -czvf result.tar.gz *".format(PTF_TEST_ROOT_DIR, SAI_TEST_REPORT_DIR_ON_PTF))
-    ptfhost.fetch(src="{0}/{1}/result.tar.gz".format(PTF_TEST_ROOT_DIR,SAI_TEST_REPORT_DIR_ON_PTF), dest=SAI_TEST_REPORT_DIR + "/", flat=True)
+    ptfhost.shell("cd {0} && tar -czvf result.tar.gz *".format(SAI_TEST_REPORT_DIR_ON_PTF))
+    ptfhost.fetch(
+        src="{0}/result.tar.gz".format(SAI_TEST_REPORT_DIR_ON_PTF), 
+        dest=request.config.option.sai_test_report_dir + "/", 
+        flat=True)
 
