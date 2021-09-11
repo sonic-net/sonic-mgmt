@@ -30,7 +30,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_MARVELL_202012)
     displayName: "py_saithrift URL"
 
   - name: EXTRA_PARAMS
