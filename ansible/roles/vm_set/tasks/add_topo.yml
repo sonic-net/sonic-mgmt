@@ -75,6 +75,8 @@
             capabilities:
               - net_admin
             privileged: yes
+            memory: 4G
+            memory_swap: 4G
           become: yes
 
         - name: Bind ptf_ip to keysight_api_server
@@ -109,6 +111,8 @@
         capabilities:
           - net_admin
         privileged: yes
+        memory: 4G
+        memory_swap: 4G
       become: yes
 
     - name: Get dut ports
@@ -160,6 +164,8 @@
       capabilities:
         - net_admin
       privileged: yes
+      memory: 4G
+      memory_swap: 4G
     become: yes
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
