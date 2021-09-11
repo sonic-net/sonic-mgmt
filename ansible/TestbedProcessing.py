@@ -388,7 +388,13 @@ def makeLab(data, devices, testbed, outfile):
                 toWrite.write("[" + key + "]\n")
                 for host in value.get("host"):
                     entry = host
-                    dev = devices.get(host.lower())
+
+                    if host.lower() in devices:
+                        dev = devices.get(host.lower())
+                    elif host.lower() in testbed:
+                        dev = testbed.get(host.lower())
+                    else:
+                        dev = None
 
                     if "ptf" in key:
                         try: #get ansible host
@@ -458,8 +464,8 @@ def makeLab(data, devices, testbed, outfile):
 
                         if card_type != 'supervisor':
                            entry += "\tstart_switchid=" + str( start_switchid )
-                           if num_asic is not None:
-                              start_switchid += int( num_asic )
+                           if num_asics is not None:
+                              start_switchid += int( num_asics )
                            else:
                               start_switchid += 1
 
@@ -525,6 +531,13 @@ def makeLab(data, devices, testbed, outfile):
                                entry += "\tmax_cores=" + str( max_cores )
                         except AttributeError:
                             print("\t\t" + host + " max_cores not found")
+
+                        try: #get os
+                            os = dev.get("os")
+                            if os is not None:
+                               entry += "\tos=" + str( os )
+                        except AttributeError:
+                            print("\t\t" + host + " os not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
