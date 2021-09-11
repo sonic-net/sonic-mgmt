@@ -247,6 +247,7 @@ class LogAnalyzer:
         ignore_messages_regex = re.compile('|'.join(self.ignore_regex)) if len(self.ignore_regex) else None
         expect_messages_regex = re.compile('|'.join(self.expect_regex)) if len(self.expect_regex) else None
 
+        logging.debug("Analyze files {}".format(file_list))
         analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
         # Print file content and remove the file
         for folder in file_list:

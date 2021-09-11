@@ -77,10 +77,14 @@ import os
 import gzip
 import re
 import sys
+import logging
+import logging.handlers
 from datetime import datetime
 from functools import cmp_to_key
 from ansible.module_utils.basic import *
 
+
+logger = logging.getLogger('ExtractLog')
 
 def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
@@ -234,9 +238,13 @@ def combine_logs_and_save(directory, filenames, start_string, target_filename):
 
 
 def extract_log(directory, prefixname, target_string, target_filename):
+    logger.debug("extract_log for start string {}".format(target_string.replace("start-", "")))
     filenames = list_files(directory, prefixname)
+    logger.debug("extract_log from files {}".format(filenames))
     file_with_latest_line, file_create_time, latest_line = extract_latest_line_with_string(directory, filenames, target_string)
+    logger.debug("extract_log start file {}".format(file_with_latest_line))
     files_to_copy = calculate_files_to_copy(filenames, file_with_latest_line)
+    logger.debug("extract_log subsequent files {}".format(files_to_copy))
     combine_logs_and_save(directory, files_to_copy, latest_line, target_filename)
 
 
@@ -250,7 +258,12 @@ def main():
         ),
         supports_check_mode=False)
 
+    handler = logging.handlers.SysLogHandler(address='/dev/log')
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+
     p = module.params;
+
     try:
         extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])
     except:
