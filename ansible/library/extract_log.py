@@ -77,6 +77,7 @@ import os
 import gzip
 import re
 import sys
+import hashlib
 import logging
 import logging.handlers
 from datetime import datetime
@@ -100,7 +101,8 @@ def extract_lines(directory, filename, target_string):
         # messes up with the comparator.
         # Prehandle lines to remove these sub-strings
         dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
-        result = [(filename, dt, line.replace('\x00', '')) for line in file if target_string in line and 'nsible' not in line]
+        sz = os.path.getsize(path)
+        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'nsible' not in line]
 
     return result
 
@@ -219,33 +221,50 @@ def calculate_files_to_copy(filenames, file_with_latest_line):
     return files_to_copy
 
 
-def combine_logs_and_save(directory, filenames, start_string, target_filename):
+def combine_logs_and_save(directory, filenames, start_string, target_string, target_filename):
     do_copy = False
+    line_processed = 0
+    line_copied = 0
     with open(target_filename, 'w') as fp:
         for filename in reversed(filenames):
             path = os.path.join(directory, filename)
+            dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
+            sz = os.path.getsize(path)
+            logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
                 file = gzip.GzipFile(path)
             else:
                 file = open(path)
+
             with file:
                 for line in file:
-                    if line == start_string:
-                        do_copy = True
-                    if do_copy:
+                    line_processed += 1
+                    if do_copy == False:
+                        if line == start_string or target_string in line:
+                            do_copy = True
+                            fp.write(line)
+                            line_copied += 1
+                    else:
                         fp.write(line)
+                        line_copied += 1
+
+            logger.debug("extract_log combine_logs from file {}, {} lines processed, {} lines copied".format(path, line_processed, line_copied))
 
 
 def extract_log(directory, prefixname, target_string, target_filename):
     logger.debug("extract_log for start string {}".format(target_string.replace("start-", "")))
     filenames = list_files(directory, prefixname)
     logger.debug("extract_log from files {}".format(filenames))
-    file_with_latest_line, file_create_time, latest_line = extract_latest_line_with_string(directory, filenames, target_string)
-    logger.debug("extract_log start file {}".format(file_with_latest_line))
+    file_with_latest_line, file_create_time, latest_line, file_size = extract_latest_line_with_string(directory, filenames, target_string)
+    m = hashlib.md5()
+    m.update(latest_line)
+    logger.debug("extract_log start file {} size {}, ctime {}, latest line md5sum {}".format(file_with_latest_line, file_size, file_create_time, m.hexdigest()))
     files_to_copy = calculate_files_to_copy(filenames, file_with_latest_line)
     logger.debug("extract_log subsequent files {}".format(files_to_copy))
-    combine_logs_and_save(directory, files_to_copy, latest_line, target_filename)
+    combine_logs_and_save(directory, files_to_copy, latest_line, target_string, target_filename)
+    filenames = list_files(directory, prefixname)
+    logger.debug("extract_log check logs files {}".format(filenames))
 
 
 def main():
