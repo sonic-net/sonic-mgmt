@@ -67,6 +67,8 @@
     capabilities:
       - net_admin
     privileged: yes
+    memory: 200M
+    memory_swap: 200M
   async: 300
   poll: 0
   loop: "{{ VM_targets|flatten(levels=1) }}"
