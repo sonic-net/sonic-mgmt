@@ -14,6 +14,10 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 profile_format = 'pg_lossless_{}_{}_profile'
 LOSSLESS_PROFILE_PATTERN = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
 
