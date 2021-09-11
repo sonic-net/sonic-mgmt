@@ -1166,7 +1166,7 @@ def get_l2_info(dut):
 @pytest.fixture(scope='session')
 def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):
     """
-    Configures L2 switch mode according to 
+    Configures L2 switch mode according to
     https://github.com/Azure/SONiC/wiki/L2-Switch-mode
 
     Currently not compatible with version 201811
