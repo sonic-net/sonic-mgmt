@@ -1,5 +1,7 @@
 import logging
 import pytest
+import time
+import json
 
 import requests
 
@@ -331,6 +333,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
 
     pytest_assert(RETRY > 0, "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
+
 @pytest.fixture
 def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
@@ -340,12 +343,72 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url):
     """
     _toggle_all_simulator_ports(mux_server_url, TOGGLE)
 
+
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(mux_server_url):
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo):
     """
     A module level fixture to toggle all ports to a random side.
     """
+    def _get_mux_status(duthost):
+        cmd = 'show mux status --json'
+        return json.loads(duthost.shell(cmd)['stdout'])
+
+    def _check_mux_status_consistency():
+        """Ensure mux status is consistent between the ToRs and mux simulator."""
+        upper_tor_mux_status = _get_mux_status(upper_tor_host)
+        lower_tor_mux_status = _get_mux_status(lower_tor_host)
+        simulator_mux_status = _get(mux_server_url)
+
+        if not upper_tor_mux_status:
+            logging.warn("Failed to retrieve mux status from the upper tor")
+            return False
+        if not lower_tor_mux_status:
+            logging.warn("Failed to retrieve mux status from the lower tor")
+            return False
+        if not simulator_mux_status:
+            logging.warn("Failed to retrieve mux status from the mux simulator")
+            return False
+
+        if not set(upper_tor_mux_status.keys()) == set(lower_tor_mux_status.keys()):
+            logging.warn("Ports mismatch between the upper tor and lower tor")
+            return False
+
+        # get mapping from port indices to mux status
+        simulator_port_mux_status = {int(k.split('-')[-1]):v for k,v in simulator_mux_status.items()}
+        for intf in upper_tor_mux_status['MUX_CABLE']:
+            intf_index = port_indices[intf]
+            if intf_index not in simulator_port_mux_status:
+                logging.warn("No mux status for interface %s from mux simulator", intf)
+                return False
+
+            simulator_status = simulator_port_mux_status[intf_index]
+            upper_tor_status = upper_tor_mux_status['MUX_CABLE'][intf]['STATUS']
+            lower_tor_status = lower_tor_mux_status['MUX_CABLE'][intf]['STATUS']
+
+            if upper_tor_status == 'active' and lower_tor_status == 'standby' and simulator_status['active_side'] == 'upper_tor':
+                continue
+            if upper_tor_status == 'standby' and lower_tor_status == 'active' and simulator_status['active_side'] == 'lower_tor':
+                continue
+            logging.warn(
+                "For interface %s, upper tor mux status: %s, lower tor mux status: %s, simulator status: %s",
+                intf, upper_tor_status, lower_tor_status, simulator_status
+            )
+            logging.warn("Inconsistent mux status for interface %s", intf)
+            return False
+        return True
+
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
     _toggle_all_simulator_ports(mux_server_url, RANDOM)
+    upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
+    mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
+    port_indices = mg_facts['minigraph_port_indices']
+    pytest_assert(
+        utilities.wait_until(30, 5, _check_mux_status_consistency),
+        "Mux status is inconsistent between the DUTs and mux simulator after toggle"
+    )
+
 
 @pytest.fixture
 def simulator_server_down(set_drop, set_output):
