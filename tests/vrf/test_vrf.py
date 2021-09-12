@@ -327,6 +327,11 @@ def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None, \
     ptfhost.template(src="vrf/vrf_fib.j2", dest=render_file)
 
 def get_default_vrf_fib_dst_intfs(vrf, tbinfo):
+    '''
+    Get default vrf fib destination interfaces(PortChannels) according to the given vrf.
+    The test configuration is dynamic and can work with 4 and 8 PCs as the number of VMs.
+    The first half of PCs are related to Vrf1 and the second to Vrf2.
+    '''
     dst_intfs = []
     vms_num = len(tbinfo['topo']['properties']['topology']['VMs'])
     if vrf == 'Vrf1':
