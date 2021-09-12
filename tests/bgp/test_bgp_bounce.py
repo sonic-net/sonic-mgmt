@@ -55,6 +55,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
                 vm_host.eos_command(commands=['show version'])
                 vm_host.eos_command(commands=['show ip bgp sum'])
                 vm_host.eos_command(commands=['show run'])
+                no_export_route_num = get_no_export_output(vm_host)
                 raise detail
             pytest_assert(not no_export_route_num, "Routes has no_export attribute")
 
@@ -73,6 +74,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
                 vm_host.eos_command(commands=['show version'])
                 vm_host.eos_command(commands=['show run'])
                 vm_host.eos_command(commands=['show ip bgp sum'])
+                no_export_route_num = get_no_export_output(vm_host)
                 raise detail
             pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
 
