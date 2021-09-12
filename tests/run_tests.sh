@@ -103,6 +103,12 @@ function setup_environment()
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
 
+    # Kill pytest and ansible-playbook process
+    pkill --signal 9 pytest
+    pkill --signal 9 ansible-playbook
+    # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
+    pkill --signal 9 -f "^ssh.*/\.ansible"
+
     rm -fr ${BASE_PATH}/tests/_cache
 }
 
