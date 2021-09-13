@@ -76,8 +76,7 @@ def monitor_system(duthost):
 
         max_mem = max(max_mem, dut_stats[0])
         max_cpu = max(max_cpu, dut_stats[1])
-
-
+        time.sleep(1)
 
 def work(dut_mgmt_ip, commands, baselines):
     """Runs commands over ssh on the DUT"""
