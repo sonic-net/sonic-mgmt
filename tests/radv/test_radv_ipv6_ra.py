@@ -4,7 +4,12 @@ import time
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_garp_service # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
@@ -24,10 +29,10 @@ the connected PTF port(s) required to setup the RADV tests
 
 """
 
-@pytest.fixture(scope="module")
-def radv_test_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
-
+@pytest.fixture(scope="module", autouse=True)
+def radv_test_setup(request, duthosts, ptfhost, tbinfo):
+    duthost = duthosts[0]
+    logging.info("radv_test_setup() DUT {}".format(duthost.hostname))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # RADVd is configured for each VLAN interface
@@ -109,8 +114,14 @@ def dut_update_radv_periodic_ra_interval(duthost):
 @summary: Test validates the RADVd's periodic router advertisement sent on each VLAN interface
 
 """
+def test_radv_router_advertisement(
+                    request, tbinfo,
+                    duthost, ptfhost,
+                    radv_test_setup,
+                    dut_update_radv_periodic_ra_interval):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
-def test_radv_router_advertisement(dut_update_radv_periodic_ra_interval, duthost, ptfhost, radv_test_setup):
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -132,7 +143,9 @@ def test_radv_router_advertisement(dut_update_radv_periodic_ra_interval, duthost
 
 """
 
-def test_solicited_router_advertisement(ptfhost, duthost, radv_test_setup):
+def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
