@@ -173,19 +173,6 @@ test_t2() {
 test_t1_lag() {
     tgname=t1_lag
     tests="\
-    monit/test_monit_status.py \
-    test_interfaces.py \
-    bgp/test_bgp_fact.py \
-    bgp/test_bgp_allow_list.py \
-    bgp/test_bgp_multipath_relax.py \
-    bgp/test_bgp_bbr.py \
-    bgp/test_bgp_bounce.py \
-    bgp/test_bgp_update_timer.py \
-    http/test_http_copy.py \
-    lldp/test_lldp.py \
-    route/test_default_route.py \
-    platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py"
 
