@@ -91,15 +91,8 @@ class Arista(object):
             self.shell.send(cmd + '\n')
 
         input_buffer = ''
-        loop_times = 0
         while re.search(prompt, input_buffer) is None:
             input_buffer += self.shell.recv(16384)
-            loop_times += 1
-            # cEOS will not return a arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
-            # then an endless loop emerges,
-            # so if input_buffer is merely an 'exit', we can break the loop immediately
-            if loop_times > 10 and input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit':
-                break
 
         return input_buffer
 
