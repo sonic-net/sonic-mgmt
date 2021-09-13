@@ -30,13 +30,13 @@ TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '
 
 
 @pytest.mark.parametrize("test_case", COMMUN_TEST_CASE)
-def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case):
+def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case, request):
     """
         trigger the test here
     """
     logger.info("Checking test environment before running test.")
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    start_saiserver_with_retry(duthost)
+    start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     try:
         logger.info("Running test: {0}".format(test_case))
         ptfhost.shell("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} \
@@ -50,7 +50,7 @@ def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case):
             PORT_MAP_FILE_PATH))
         logger.info("Test case [{}] passed.".format(test_case))
     except BaseException as e:               
-        stop_and_rm_saiserver(duthost)
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
         logger.info("Test case [{}] failed as {}".format(test_case, e))
         pytest.fail("Test case [{}] failed".format(test_case), e)
     finally:
@@ -62,7 +62,7 @@ def sai_testbed(
     duthost,
     request,
     ptfhost,
-    start_saiserver,
+    start_sai_test_container,
     prepare_ptf_server):
     """
         Pytest fixture to handle setup and cleanup for the SAI tests.
