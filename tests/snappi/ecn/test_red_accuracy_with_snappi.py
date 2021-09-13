@@ -41,7 +41,7 @@ def test_red_accuracy(request,
     Returns:
         N/A
     """
-    disable_test = request.config.getoption("--disable_ecn_test")
+    disable_test = request.config.getoption("--disable_ecn_snappi_test")
     if disable_test:
         pytest.skip("test_red_accuracy is disabled")
 

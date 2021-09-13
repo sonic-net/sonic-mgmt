@@ -10,7 +10,7 @@ def add_ecn_args(parser):
     ecn_group = parser.getgroup("ECN test suite options")
 
     ecn_group.addoption(
-        "--disable_ecn_test",
+        "--disable_ecn_snappi_test",
         action="store",
         type=bool,
         default=True,

@@ -39,7 +39,7 @@ def test_dequeue_ecn(request,
     Returns:
         N/A
     """
-    disable_test = request.config.getoption("--disable_ecn_test")
+    disable_test = request.config.getoption("--disable_ecn_snappi_test")
     if disable_test:
         pytest.skip("test_dequeue_ecn is disabled")
 
