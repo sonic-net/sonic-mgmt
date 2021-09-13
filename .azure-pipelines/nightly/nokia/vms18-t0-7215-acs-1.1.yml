@@ -35,7 +35,7 @@ parameters:
 
   - name: EXTRA_PARAMS
     type: string
-    default: "--skip-absent-sfp=True"
+    default: "--skip-absent-sfp=True --no_dscp_uniform"
     displayName: "Extra pytest params"
 
   - name: SKIP_SCRIPTS
@@ -66,6 +66,7 @@ parameters:
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot \
+              platform_tests/test_reboot.py::test_soft_reboot \
               platform_tests/test_reboot.py::test_watchdog_reboot \
               platform_tests/test_reboot.py::test_power_off_reboot \
               pfc/test_unknown_mac.py \
