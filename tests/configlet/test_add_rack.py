@@ -108,6 +108,8 @@ def restore_orig_minigraph(duthost):
     if ret["stat"]["exists"]:
         duthost.shell("cp /etc/sonic/orig/minigraph.xml.addRack.orig /etc/sonic/minigraph.xml")
         duthost.shell("chmod u+w /etc/sonic/minigraph.xml")
+        # Reload original minigraph
+        load_minigraph(duthost, duthost.hostname)
         log_info("restored minigraph")
         return True
     else:
