@@ -10,7 +10,7 @@ This test was verified on a t0 topology, but should work on any other topology s
 
 ## Test Procedure
 
-1. The PTF container generates a 1 GB file with random bytes.
+1. The PTF container generates a 0.5 GB file with random bytes.
 2. AN MD5 checksum is generated for the generated file.
 3. The DUT requests this file from the PTF via scp started from the DUT.
 4. An MD5 checksum is generated for the file on the DUT.
