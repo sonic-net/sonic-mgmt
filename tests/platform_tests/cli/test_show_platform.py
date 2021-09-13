@@ -89,7 +89,6 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
 
 
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
-
     """
     @summary: Verify output of `show platform syseeprom`
     """
