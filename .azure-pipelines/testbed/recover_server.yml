@@ -81,4 +81,18 @@ stages:
                 fi
 
                 cd ansible
+
+                rm -fr /tmp/recover_server*  # Cleanup old logs
                 python recover_server.py --testbed-servers ${{ parameters.SERVER }}  --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
+
+          - task: CopyFiles@2
+            displayName: Collect log files
+            inputs:
+              sourceFolder: '/tmp'
+              contents: 'recover_server*/**'
+              targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+          - publish: '$(Build.ArtifactStagingDirectory)'
+            displayName: "Archive recover_server logs"
+            artifact: RecoverServer.log@$(System.JobAttempt)
+            condition: always()
