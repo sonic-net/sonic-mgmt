@@ -148,6 +148,8 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         return result
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] != "mellanox":
+        pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
 
     default_lossless_profiles = load_lossless_info_from_pg_profile_lookup(duthost)
 
