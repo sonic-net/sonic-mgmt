@@ -119,6 +119,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                          "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
                          "config_portchannels": config_portchannels,
                          "pch_ips": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address']},
+                         "pch_masks": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['netmask']},
                          "outer_vrf": ["red"],
                          "inner_vrf": ["blue", "yellow"],
                          interface_type: {"vrf_conf": SETUP_CONF[interface_type]["vrf"],
