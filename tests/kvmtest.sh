@@ -181,7 +181,7 @@ test_t1_lag() {
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \
     bgp/test_bgp_update_timer.py \
-    configlet/test_add_rack.py \
+    bgp/test_traffic_shift.py \
     http/test_http_copy.py \
     lldp/test_lldp.py \
     route/test_default_route.py \
