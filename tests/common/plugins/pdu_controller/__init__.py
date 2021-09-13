@@ -42,16 +42,18 @@ def pdu_controller(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts,
 
 @pytest.fixture(scope="module")
 def get_pdu_controller(conn_graph_facts, pdu):
-    controller = None
+    controller_map = {}
 
     def pdu_controller_helper(duthost):
-        pdu_hosts = get_pdu_hosts(duthost)
-        controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu)
+        if duthost.hostname not in controller_map:
+            pdu_hosts = get_pdu_hosts(duthost)
+            controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu)
+            controller_map[duthost.hostname] = controller
 
-        return controller
+        return controller_map[duthost.hostname]
 
     yield pdu_controller_helper
 
-    if controller:
+    for controller in controller_map.values():
         controller.turn_on_outlet()
         controller.close()
