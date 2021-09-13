@@ -216,7 +216,7 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
                    .format(container_name, dut_name, rand_selected_dut.hostname))
     duthost = duthosts[dut_name]
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name), wait_expected_events=True, wait_timeout=180, wait_interval=15)
 
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -229,10 +229,12 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
 
     pytest_require(container_name not in skip_containers,
                    "Container '{}' is skipped for testing.".format(container_name))
-    stop_container(duthost, container_name)
 
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
-    with loganalyzer:
-        # Wait for 1 minutes such that Monit has a chance to write alerting message into syslog.
-        logger.info("Sleep 1 minutes to wait for the alerting message...")
-        time.sleep(70)
+
+    try:
+        loganalyzer.disable_log_rotate()
+        with loganalyzer:
+            stop_container(duthost, container_name)
+    finally:
+        loganalyzer.enable_log_rotate()

@@ -7,6 +7,7 @@ import pprint
 
 import system_msg_handler
 
+from tests.common.utilities import wait_until
 from system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
 from os.path import normpath
@@ -25,7 +26,7 @@ class LogAnalyzerError(Exception):
 
 
 class LogAnalyzer:
-    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}):
+    def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}, wait_expected_events=False, wait_timeout=60, wait_interval=15):
         self.ansible_host = ansible_host
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
@@ -40,9 +41,14 @@ class LogAnalyzer:
         self.expected_matches_target = 0
         self._markers = []
         self.fail = True
+        self.logrotate_ref_count = 0
 
         self.additional_files = list(additional_files.keys())
         self.additional_start_str = list(additional_files.values())
+
+        self.wait_expected_events = wait_expected_events
+        self.wait_timeout = wait_timeout
+        self.wait_interval = wait_interval
 
     def _add_end_marker(self, marker):
         """
@@ -75,7 +81,10 @@ class LogAnalyzer:
         """
         Analyze syslog messages.
         """
-        self.analyze(self._markers.pop(), fail=self.fail)
+        marker = self._markers.pop()
+        if self.wait_expected_events:
+            self.wait_for_all_expected_events(marker, self.wait_timeout, self.wait_interval)
+        self.analyze(marker, fail=self.fail)
 
     def _verify_log(self, result):
         """
@@ -170,7 +179,35 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def analyze(self, marker, fail=True):
+    def disable_log_rotate(self):
+        self.logrotate_ref_count = self.logrotate_ref_count + 1
+        if self.logrotate_ref_count > 1:
+            return
+
+        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
+
+        logging.debug("Waiting for logrotate from previous cron task run to finish")
+        # Wait for logrotate from previous cron task run to finish
+        end = time.time() + 60
+        while time.time() < end:
+            # Verify for exception because self.ansible_host automatically handle command return codes and raise exception for none zero code
+            try:
+                self.ansible_host.command("pgrep -f logrotate")
+            except Exception:
+                break
+            else:
+                time.sleep(5)
+                continue
+        else:
+            logging.error("Logrotate from previous task was not finished during 60 seconds")
+
+    def enable_log_rotate(self):
+        if self.logrotate_ref_count > 0:
+            self.logrotate_ref_count = self.logrotate_ref_count - 1
+            if self.logrotate_ref_count == 0:
+                self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+
+    def analyze(self, marker, fail=True, check_end_marker=True):
         """
         @summary: Extract syslog logs based on the start/stop markers and compose one file. Download composed file, analyze file based on defined regular expressions.
 
@@ -197,26 +234,11 @@ class LogAnalyzer:
             start_string = self.start_marker
 
         try:
-            # Disable logrotate cron task
-            self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
-
-            logging.debug("Waiting for logrotate from previous cron task run to finish")
-            # Wait for logrotate from previous cron task run to finish
-            end = time.time() + 60
-            while time.time() < end:
-                # Verify for exception because self.ansible_host automatically handle command return codes and raise exception for none zero code
-                try:
-                    self.ansible_host.command("pgrep -f logrotate")
-                except Exception:
-                    break
-                else:
-                    time.sleep(5)
-                    continue
-            else:
-                logging.error("Logrotate from previous task was not finished during 60 seconds")
+            self.disable_log_rotate()
 
             # Add end marker into DUT syslog
-            self._add_end_marker(marker)
+            if check_end_marker:
+                self._add_end_marker(marker)
 
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
             self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)
@@ -229,8 +251,7 @@ class LogAnalyzer:
                     start_str = start_string
                 self.ansible_host.extract_log(directory=file_dir, file_prefix=file_name, start_string=start_str, target_filename=extracted_file_name)
         finally:
-            # Enable logrotate cron task back
-            self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+            self.enable_log_rotate()
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
         self.save_extracted_log(dest=tmp_folder)
@@ -248,7 +269,7 @@ class LogAnalyzer:
         expect_messages_regex = re.compile('|'.join(self.expect_regex)) if len(self.expect_regex) else None
 
         logging.debug("Analyze files {}".format(file_list))
-        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
+        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex, check_end_marker)
         # Print file content and remove the file
         for folder in file_list:
             with open(folder) as fo:
@@ -301,3 +322,22 @@ class LogAnalyzer:
         @param src: Source path to store downloaded file.
         """
         self.ansible_host.fetch(dest=dest, src=src, flat="yes")
+
+    def _wait_for_expected_event(self, marker):
+        result = self.analyze(marker, fail=False, check_end_marker=False)
+        unused = result.get('unused_expected_regexp')
+        length = len(unused)
+        logging.info("Log analzyer result: {} {} {}".format(result, unused, length))
+        return length == 0
+
+    def wait_for_all_expected_events(self, marker, timeout=60, interval=15):
+        """
+        @summary: Wait until expected events are all collected.
+
+        @param marker: the start marker
+
+        @param timeout: the total time to wait before failing.
+
+        @param interval: the interval to check events.
+        """
+        return wait_until(timeout, interval, self._wait_for_expected_event, marker)

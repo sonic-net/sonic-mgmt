@@ -380,7 +380,7 @@ class AnsibleLogAnalyzer:
 
         return ret_code
 
-    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex, expect_messages_regex):
+    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex, expect_messages_regex, check_end_marker = True):
         '''
         @summary: Analyze input file content for messages matching input regex
                   expressions. See line_matches() for details on matching criteria.
@@ -395,6 +395,9 @@ class AnsibleLogAnalyzer:
 
         @param expect_messages_regex:
             regex class instance containing messages that are expected to appear in logfile.
+
+        @param check_end_marker:
+            control if end_marker needs to be matched
 
         @param end_marker_regex - end marker
 
@@ -422,7 +425,7 @@ class AnsibleLogAnalyzer:
         end_marker = self.create_end_marker()
 
         for rev_line in reversed(log_file.readlines()):
-            if stdin_as_input:
+            if stdin_as_input or not check_end_marker:
                 in_analysis_range = True
             else:
                 if rev_line.find(end_marker) != -1:
@@ -442,7 +445,7 @@ class AnsibleLogAnalyzer:
                         sys.exit(err_duplicate_start_marker)
                     found_start_marker = True
 
-                    if(not in_analysis_range):
+                    if(not in_analysis_range and check_end_marker):
                         print('ERROR: found start marker:%s without corresponding end marker' % rev_line)
                         sys.exit(err_no_end_marker)
                     in_analysis_range = False
@@ -465,14 +468,14 @@ class AnsibleLogAnalyzer:
                 print('ERROR: start marker was not found')
                 sys.exit(err_no_start_marker)
 
-            if (not found_end_marker):
+            if (not found_end_marker and check_end_marker):
                 print('ERROR: end marker was not found')
                 sys.exit(err_no_end_marker)
 
         return matching_lines, expected_lines
     #---------------------------------------------------------------------
 
-    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex):
+    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex, check_end_marker = True):
         '''
         @summary: Analyze input files messages matching input regex expressions.
             See line_matches() for details on matching criteria.
@@ -488,6 +491,9 @@ class AnsibleLogAnalyzer:
         @param expect_messages_regex:
             regex class instance containing messages that are expected to appear in logfile.
 
+        @param check_end_marker:
+            control if end_marker needs to be matched
+
         @return: Returns map <file_name, list_of_matching_strings>
         '''
         res = {}
@@ -495,7 +501,7 @@ class AnsibleLogAnalyzer:
         for log_file in log_file_list:
             if not len(log_file):
                 continue
-            match_strings, expect_strings = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex, expect_messages_regex)
+            match_strings, expect_strings = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex, expect_messages_regex, check_end_marker)
 
             match_strings.reverse()
             expect_strings.reverse()
