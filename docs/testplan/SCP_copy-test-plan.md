@@ -3,10 +3,10 @@
  - [Test Procedure](#test-procedure)
 
 ## Overview
-The purpose of this test is to ensure that the DUT is able to fetch from an external SCP server without loss of file integrity. The file used by the test exceeds a gigabyte in order to ensure integrity even for large file sizes.
+The purpose of this test is to ensure that the DUT is able to fetch from an external SCP server without loss of file integrity. The file used by the test is close to half a gigabyte in order to ensure integrity even for large file sizes.
 
 ### Scope
-This test was verified on a t0 topology, but should work on any other topology since the only interaction is between the host computer running the SCP server and the DUT.
+This test was verified on a t0 topology, but should work on any other topology since the only interaction is between the host computer, DUT and the PTF.
 
 ## Test Procedure
 
