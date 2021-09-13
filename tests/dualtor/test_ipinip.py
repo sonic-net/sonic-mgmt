@@ -98,9 +98,6 @@ def test_decap_active_tor(
     tbinfo, rand_selected_dut, tunnel_traffic_monitor):
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_active_state_to_orchagent')
-        # stop garp service for single tor
-        logging.info("Stopping GARP service on single tor")
-        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
