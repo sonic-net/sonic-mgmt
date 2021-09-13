@@ -1,0 +1,503 @@
+parameters:
+  - name: TESTBED_NAME
+    type: string
+
+  - name: SAI_BRANCH
+    type: string
+    default: v1.7
+    displayName: "SAI Branch Name"
+
+  - name: SAI_TEST_CONTAINER
+    type: string
+    default: saiserver
+    displayName: "SAI Test Container"
+
+  - name: TESTBED_FILE
+    type: string
+    default: testbed.yaml
+    values:
+      - testbed.csv
+      - testbed.yaml
+
+  - name: SAI_TESTBED_FILE
+    type: string
+    default: testbed_sai.yaml
+    values:
+      - testbed_sai.yaml
+
+  - name: SAI_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 30 hours
+
+  # WorkFlow parameters
+  - name: LOCK_TESTBED
+    displayName: "Lock Testbed"
+    type: boolean
+    default: true
+  
+  - name: UPDATE_IMAGE
+    displayName: "Update Image"
+    type: boolean
+    default: false
+  
+  - name: CHANGE_TOPO
+    displayName: "Deploy non-topo"
+    type: boolean
+    default: true
+
+  - name: RECOVER_TOPO
+    displayName: "Recover Topo"
+    type: boolean
+    default: true
+  
+  - name: RUN_TEST
+    displayName: "Run Test"
+    type: boolean
+    default: true
+
+  # ============ Test Parameters ============
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: ""
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: ""
+  - name: ALWAYS_INSTALL_NEW_IMAGE
+    type: boolean
+    default: true
+  - name: UPGRADE_TYPE
+    type: string
+    default: sonic
+    values:
+      - sonic
+      - onie
+  - name: PAUSE_TIME
+    type: number
+    default: 0
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # SAI test report parameters
+  # todo : collect reports from DUT
+  - name: SAI_TESTREPORT_PATH
+    type: string
+    default: "tests/sai_qualify/reports"
+  
+  #SAI test report path, relative to SAI_REPO_PATH
+  - name: SAI_TEST_PATH
+    type: string
+    default: "tests"
+
+  #SAI test report path, relative to bash execute path
+  - name: SAI_REPO_PATH
+    type: string
+    default: "SAI/test/saithrift"
+
+  #SAI test root folder on agent
+  - name: SAI_TEST_ENDPOINT
+    type: string
+    default: "tests"
+  
+  - name: SAI_PYTEST_ENDPOINT
+    type: string
+    default: sai_qualify/sai_infra.py::test_sai_from_ptf
+
+  
+stages:
+
+  - stage: Test
+    jobs:
+
+      - job: SAITest
+        pool: nightly
+        timeoutInMinutes: ${{ parameters.SAI_TEST_TIMEOUT }}
+        variables:
+          - group: TBSHARE_SECRETS
+          - group: KUSTO_SAI_SECRETS
+
+        steps:
+
+          - template: get_secrets.yml
+
+          - task: PythonScript@0
+            displayName: Parse Testbed Info
+            inputs:
+              scriptSource: 'inline'
+              script: |
+                from __future__ import print_function
+                import os, imp, sys, datetime
+
+                testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
+                testbed_name = os.environ.get('TESTBED_NAME')
+                testbed_file = os.environ.get('TESTBED_FILE')
+                tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
+                target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+                if not target_testbed:
+                    print('Testbed {} not found!'.format(testbed_name))
+                    sys.exit(1)
+
+                print('Basic info of testbed {}:'.format(testbed_name))
+                print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
+                print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
+                print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+
+                # Below code can create dynamic azure pipeline variables
+                # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
+                print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+
+                #change builder id with testbed name
+                buildid = os.environ.get('BUILD_ID')
+                timestamp = datetime.datetime.now().strftime("%Y%m%d")
+                builder_id = "SAI_Qualification_" + "Running_On_" + testbed_name + "_" + buildid + "_" + str(timestamp)
+                print("##vso[build.updatebuildnumber]{0}".format(builder_id))
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
+              BUILD_ID: $(Build.BuildId)
+
+          - task: PythonScript@0
+            displayName: Lock Testbed            
+            condition: ${{ parameters.LOCK_TESTBED }}
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
+              arguments: lock
+            env:
+                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          
+          - task: Bash@3
+            condition: ${{ parameters.UPDATE_IMAGE }}
+            displayName: "Upgrade Image"
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                if [[ -z "$IMAGE_URL" ]]; then
+                    echo "Skipping image upgrading ..."
+                    exit 0
+                fi
+
+                cd ansible
+
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$UPGRADE_TYPE" == "sonic" ]]; then
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                        -i $(INVENTORY_NAME) \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e image_url=$IMAGE_URL.PREV.1 \
+                        -e upgrade_type=$UPGRADE_TYPE \
+                        --vault-password-file password.txt \
+                        -e pause_time=60 -vv || true
+                fi
+                ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                    -i $(INVENTORY_NAME) \
+                    -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                    -e image_url=$IMAGE_URL \
+                    -e upgrade_type=$UPGRADE_TYPE \
+                    --vault-password-file password.txt \
+                    -e pause_time=$PAUSE_TIME -vv
+
+                sleep 90
+            env:
+              IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
+              UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+              PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
+
+
+          - task: Bash@3
+            displayName: remove current Testbed topo
+            condition: ${{ parameters.CHANGE_TOPO }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./testbed-cli.sh remove-topo $TESTBED_NAME password.txt
+                sleep 30
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+          - task: Bash@3
+            displayName: Add SAI Testbed Topo
+            condition: ${{ parameters.CHANGE_TOPO }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./testbed-cli.sh -t $SAI_TESTBED_FILE add-topo $TESTBED_NAME password.txt 
+                sleep 60
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+          - task: Bash@3
+            displayName: Deploy SAI Minigraph
+            condition: ${{ parameters.CHANGE_TOPO }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                CONFIG_PARAMS=""
+
+                if [[ "$ENABLE_DATAACL" == "false" ]]; then
+                  # the underlaying template default is to enable data acl
+                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                fi
+                cd ansible
+
+                # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
+                ./testbed-cli.sh -t $SAI_TESTBED_FILE deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                sleep 60
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+          - task: Bash@3
+            displayName: Get Bash Env Param
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+
+          - task: Bash@3
+            displayName: Fetch SAI Repo
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                rm -rf ./SAI
+                git init SAI
+                cd SAI
+                git remote add origin https://github.com/opencomputeproject/SAI.git
+                git fetch origin
+                git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
+                ls -l
+
+          - task: Bash@3
+            displayName: Run SAI tests
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                BASE_PATH=`pwd`
+                CONFIG_PARAMS=""
+                LOG_LEVEL=info    
+
+                INVT=$BASE_PATH/ansible/str,$BASE_PATH/ansible/veos
+                MPATH=$BASE_PATH/ansible
+                TESTBED_FILE=$BASE_PATH/ansible/${SAI_TESTBED_FILE}
+                export ANSIBLE_CONFIG=$BASE_PATH/ansible
+
+                export ANSIBLE_LIBRARY=$BASE_PATH/ansible/library/
+                export ANSIBLE_CONNECTION_PLUGINS=$BASE_PATH/ansible/plugins/connection/
+                export ANSIBLE_KEEP_REMOTE_FILES=1
+                export PYTEST_ADDOPTS="-vvvvv --allow_recover --skip_sanity \
+                --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH} \
+                --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
+                --disable_loganalyzer \
+                --py_saithrift_url=${PY_SAITHRIFT_URL} \
+                --sai_test_container=${SAI_TEST_CONTAINER}"
+                
+
+                rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+                mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+
+                cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+                pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/sai_infra.py::test_sai_from_ptf --inventory $INVT --host-pattern all \
+                --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+                --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
+                --collect_techsupport=False --topology='ptf'
+            env:
+              SAI_TEST_CONTAINER: ${{ parameters.SAI_TEST_CONTAINER }}
+              PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+              SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+              SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
+              SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
+              PYTEST_ENDPOINT: $${{ parameters.SAI_PYTEST_ENDPOINT }}
+
+
+          - task: Bash@3
+            displayName: Organize SAI Test Result
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+                pwd
+                ls
+                tar -zxvf result.tar.gz
+            env:
+              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)                
+  
+
+          - task: PythonScript@0
+            displayName: Publish SAI test results and generate builder id
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              scriptSource: 'inline'
+              script: |
+                from __future__ import print_function
+                import os, imp, sys, datetime
+
+                sai_test_report_path = '{}/{}'.format(os.environ.get('BASH_WORKING_FOLDER'), os.environ.get('SAI_TESTREPORT_PATH'))
+                
+                for filename in os.listdir(sai_test_report_path):
+                  if filename.endswith(".xml"): 
+                      print('##vso[results.publish type=JUnit;mergeResults=false;publishRunAttachments=true;resultFiles={}/{};failTaskOnFailedTests=false;]'.format(sai_test_report_path, filename))    
+                      continue
+                  else:
+                      continue    
+
+                timestamp = datetime.datetime.now().strftime("%Y%m%d")
+                # TODO: Getting info should not depend on AZP, later this logging command will be removed
+                os_version = os.environ.get('OS_VERSION')
+                testbed_conf_name = os.environ.get('TESTBED_NAME')
+                builder_id = "SAI_Qualification_"
+                buildid = os.environ.get('BUILD_ID')
+
+                if not os_version:
+                  builder_id = builder_id + "Failed_On_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
+                else:
+                  builder_id = builder_id + os_version + "_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
+
+                print("##vso[build.updatebuildnumber]{0}".format(builder_id))
+            env:
+              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}   
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              OS_VERSION: ${{ variables.OS_VERSION }}
+              PLT_VERSION: $(PLT_VERSION)
+              BUILD_ID: $(Build.BuildId)
+
+
+          - task: Bash@3
+            displayName: remove SAI Testbed topo
+            condition: and(always(), ${{ parameters.RECOVER_TOPO }} )
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./testbed-cli.sh -t $SAI_TESTBED_FILE remove-topo $TESTBED_NAME password.txt
+                sleep 30
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+
+          - task: Bash@3
+            displayName: Recover Testbed Topo
+            condition: and(always(), ${{ parameters.RECOVER_TOPO }} )
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd ansible
+                ./testbed-cli.sh add-topo $TESTBED_NAME password.txt
+                sleep 60
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+
+          - task: Bash@3
+            displayName: Recover Minigraph
+            condition: and(always(), ${{ parameters.RECOVER_TOPO }})
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                CONFIG_PARAMS=""
+
+                if [[ "$ENABLE_DATAACL" == "false" ]]; then
+                  # the underlaying template default is to enable data acl
+                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                fi
+                cd ansible
+
+                ./testbed-cli.sh deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                sleep 30
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
+              ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+
+          - task: PythonScript@0
+            displayName: Release Testbed
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
+              arguments: release
+            env:
+                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            condition: and(always(), ${{ parameters.LOCK_TESTBED }} )
+          
+
+          - task: Bash@3
+            displayName: Upload Test Results
+            condition: ${{ parameters.RUN_TEST }}
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                echo "Activate python3 virtual environment"
+                source /var/AzDevOps/env-python3/bin/activate
+                mv ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+                
+                cd ${BASH_WORKING_FOLDER}/test_reporting
+                pip3 install -r requirements.txt
+
+                python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+
+                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
+
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+              SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}

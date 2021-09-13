@@ -43,8 +43,6 @@ COMMUN_TEST_CASE = [
         "saidebugcounters.EditingDropReasons",
         "saifdb.L2FDBMissUnicastTest",
         "saifdb.L2FDBMissBroadcastTest",
-        "saihostif.NoPolicyTest",
-        "saihostif.PolicyTest",
         "saihostif.ARPTest",
         "saihostif.DHCPTest",
         "saihostif.LLDPTest",
