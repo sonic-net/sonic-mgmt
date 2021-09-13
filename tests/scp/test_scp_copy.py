@@ -1,9 +1,5 @@
-import os
 import pytest
-import time
 from tests.common.helpers.assertions import pytest_assert
-import logging
-import pwd
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -14,11 +10,11 @@ pytestmark = [
 SCP_PORT = 22
 TEST_FILE_NAME = "test_file.bin"
 TEST_FILE_2_NAME = "test_file_2.bin"
+BLOCK_SIZE = 500000000
 
 @pytest.fixture
 def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
-
     # Copies script to DUT
     duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")
 
@@ -33,24 +29,23 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
         ptfhost.file(path=file, state="absent")
 
 def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
+
     duthost = duthosts[rand_one_dut_hostname]
     ptf_ip = ptfhost.mgmt_ip
 
-    duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")
-
     # Generate the file from /dev/urandom
-    ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs=1000000000 iflag=fullblock".format(TEST_FILE_NAME)))
+    ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs={} iflag=fullblock"\
+            .format(TEST_FILE_NAME, BLOCK_SIZE)))
 
     # Ensure that file was downloaded
     res = ptfhost.command("ls -ltr ./{}".format(TEST_FILE_NAME), module_ignore_errors=True)["rc"]
-    pytest_assert(res==0, "Test file was not downloaded on the DUT")
+    pytest_assert(res==0, "Test file was not created on the DUT")
 
     # Generate MD5 checksum to compare with the sent file
     output = ptfhost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
-    #output = os.system("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
     orig_checksum = output.split()[0]
 
-    duthost.command("python3 perform_scp.py y {} /root/{} /home/admin root".format(ptf_ip, TEST_FILE_NAME))
+    duthost.command("python3 perform_scp.py in {} /root/{} /home/admin root".format(ptf_ip, TEST_FILE_NAME))
 
     # Validate file was received
     res = duthost.command("ls -ltr ./{}".format(TEST_FILE_NAME), module_ignore_errors=True)["rc"]
@@ -62,10 +57,13 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
     new_checksum = output.split()[0]
 
     # Confirm that the received file is identical to the original file
-    pytest_assert(orig_checksum == new_checksum, "Original file differs from file sent to the DUT")
+    pytest_assert(orig_checksum == new_checksum,
+            "PTF file ({}) checksum ({}) differs from DUT file({}) checksum ({})"\
+            .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("python3 perform_scp.py n {} /home/admin/{} /root/{} root".format(ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME))
+    duthost.command("python3 perform_scp.py out {} /home/admin/{} /root/{} root"\
+            .format(ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME))
 
     # Validate that the file copied is now present in the PTF
     res = ptfhost.command("ls -ltr ./{}".format(TEST_FILE_2_NAME), module_ignore_errors=True)["rc"]
@@ -75,4 +73,6 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
     output = ptfhost.command("md5sum ./{}".format(TEST_FILE_2_NAME))["stdout"]
     fin_checksum = output.split()[0]
 
-    pytest_assert(new_checksum == fin_checksum, "Copied file on PTF differs from copied DUT file")
+    pytest_assert(new_checksum == fin_checksum, 
+            "Checksum ({}) of new file({}) on PTF differs from checksum ({}) of file ({}) on DUT"\
+            .format(fin_checksum, TEST_FILE_2_NAME, new_checksum, TEST_FILE_NAME))
