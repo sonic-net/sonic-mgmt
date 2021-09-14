@@ -24,7 +24,7 @@
 
 - name: Control PTF portchannel
   ptf_portchannel:
-    cmd: "{{ptf_portchannel_action}}"
+    cmd: "{{ ptf_portchannel_action }}"
     portchannel_config: "{{ portchannel_config }}"
   delegate_to: "{{ ptf_host }}"
 
