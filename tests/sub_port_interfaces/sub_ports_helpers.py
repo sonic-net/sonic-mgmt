@@ -66,7 +66,8 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
 
     return None
 
-def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action=None, type_of_traffic=None, ttl=64, pktlen=100, ip_tunnel=None):
+def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action=None,
+                                type_of_traffic=None, ttl=64, pktlen=100, ip_tunnel=None):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -93,7 +94,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src,
         elif 'ICMP' in tr_type:
             generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl)
         elif 'decap' in tr_type:
-            generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl, 104, ip_tunnel)
+            generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, ip_tunnel)
         else:
             pytest.skip('Unsupported type of traffic')
 
@@ -234,7 +235,7 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
         testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, dst_port_list)
 
 
-def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl=64, pktlen=104, ip_tunnel=None):
+def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, ip_tunnel=None):
     """
     Send encapsulated packet from PTF to DUT and
     verify that DUT sends/doesn't send TCP/UDP packet to PTF.
@@ -242,27 +243,16 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
     Args:
         duthost: DUT host object
         ptfadapter: PTF adapter
-        src_port: Port of PTF
-        dst_port: Port of DUT
+        src_port: Source port of PTF
+        dst_port: Destination port of PTF
         ip_src: Source IP address of PTF
-        ip_dst: Destination IP address of DUT
-        pkt_action: Packet action (forwarded or drop)
+        ip_dst: Destination IP address of PTF
         tr_type: Type of traffic (TCP or UDP)
-        pktlen: packet length
-        ttl: Time to live
         ip_tunnel: Tunnel IP address of DUT
     """
-    # Get VLAN ID from name of sub-port
-    src_vlan_vid = int(src_port.split('.')[1])
-    dl_vlan_enable = True
-
-    dst_vlan_vid = int(dst_port.split('.')[1])
-
     router_mac = duthost.facts['router_mac']
     src_port_number = int(get_port_number(src_port))
     dst_port_number = int(get_port_number(dst_port))
-    src_mac = ptfadapter.dataplane.get_mac(0, src_port_number)
-    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port_number)
 
     ip_src = ip_src.split('/')[0]
     ip_dst = ip_dst.split('/')[0]
@@ -270,21 +260,21 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     # Define encapsulated packet
     pkt = create_packet(eth_dst=router_mac,
-                        eth_src=src_mac,
+                        eth_src=ptfadapter.dataplane.get_mac(0, src_port_number),
                         ip_src=ip_src,
                         ip_dst=ip_dst,
                         ip_tunnel=ip_tunnel,
-                        vlan_vid=src_vlan_vid,
-                        dl_vlan_enable=dl_vlan_enable,
+                        vlan_vid=int(src_port.split('.')[1]),
+                        dl_vlan_enable=True,
                         tr_type=tr_type,
                         ttl=64)
 
     # Build expected packet
     inner_packet = pkt[packet.IP].payload[packet.IP].copy()
-    exp_pkt = Ether(src=router_mac, dst=dst_mac) / Dot1Q(vlan=dst_vlan_vid) / inner_packet
+    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) / Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
     exp_pkt['IP'].ttl -= 1
 
-    update_arp_table(duthost, ip_dst)
+    update_dut_arp_table(duthost, ip_dst)
     ptfadapter.dataplane.flush()
 
     testutils.send_packet(ptfadapter, src_port_number, pkt)
@@ -849,12 +839,12 @@ def remove_sub_port_from_ptf(ptfhost, sub_port, ip):
     ptfhost.shell("ip link del {}".format(sub_port))
 
 
-def update_arp_table(duthost, ip):
+def update_dut_arp_table(duthost, ip):
     """
-    Add entry to ARP table
+    Add entry to DUT ARP table
 
     Args:
         duthost: DUT host object
-        ip: IP address of directly connected inteface
+        ip: IP address of directly connected interface
     """
     duthost.command("ping {} -c 3".format(ip), module_ignore_errors=True)

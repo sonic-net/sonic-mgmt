@@ -7,7 +7,7 @@
             "ecn_mode": "copy_from_outer",
             "dscp_mode": "pipe",
             "tunnel_type": "IPINIP"
-        }{% if not loop.last %},
-{% endif %}{% endfor %}
+        }{% if not loop.last %},{% endif %}
+{% endfor %}
     }
 }

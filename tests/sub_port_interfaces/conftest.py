@@ -396,12 +396,12 @@ def apply_tunnel_table_to_dut(duthost, apply_route_config):
         tunnel_ip = sub_ports[src_port]['ip'].split('/')[0]
         tunnel_addr_list.append(tunnel_ip)
 
-    tunnel_config_path = os.path.join(DUT_TMP_DIR, TUNNEL_TEMPLATE)
-    config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, TUNNEL_TEMPLATE)).read())
-
     tunnel_vars = {
         'tunnel_addr_list': tunnel_addr_list
     }
+
+    tunnel_config_path = os.path.join(DUT_TMP_DIR, TUNNEL_TEMPLATE)
+    config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, TUNNEL_TEMPLATE)).read())
 
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
     duthost.copy(content=config_template.render(tunnel_vars), dest=tunnel_config_path)
