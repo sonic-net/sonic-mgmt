@@ -63,7 +63,15 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 @pytest.fixture(scope="module")
 def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    return get_physical_port_indices(duthost)
+    port_map = get_physical_port_indices(duthost)
+    result = []
+    visited_intfs = set()
+    for intf in natsorted(port_map.keys()):
+        if intf in visited_intfs:
+            continue
+        visited_intfs.add(intf)
+        result.append(port_map[intf])
+    return result
 
 @pytest.fixture(scope="class")
 def gather_facts(request, duthosts):
@@ -380,7 +388,7 @@ class TestChassisApi(PlatformApiTestBase):
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
-        list_sfps = [physical_port_indices[intf] for intf in natsorted(physical_port_indices.keys())]
+        list_sfps = physical_port_indices
         logging.info("Physical port indices = {}".format(list_sfps))
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
