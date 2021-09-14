@@ -10,6 +10,7 @@ import six
 import sys
 import threading
 import time
+import traceback
 from io import BytesIO
 
 import pytest
@@ -56,11 +57,11 @@ def skip_release_for_platform(duthost, release_list, platform_list):
     """
     if any(release in duthost.os_version for release in release_list) and \
 		any(platform in duthost.facts['platform'] for platform in platform_list):
-        pytest.skip("DUT has version {} and platform {} and \
-			test does not support {} for {}".format(duthost.os_version,
-            			duthost.facts['platform'], 
-				", ".join(release_list), 
-				", ".join(platform_list)))
+        pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
+            duthost.os_version,
+            duthost.facts['platform'],
+			", ".join(release_list),
+			", ".join(platform_list)))
 
 def wait(seconds, msg=""):
     """
@@ -92,8 +93,10 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
-            logger.error("Exception caught while checking %s: %s" % (condition.__name__, repr(e)))
+        except Exception:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
             check_result = False
 
         if check_result:
@@ -131,6 +134,10 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
+    def __init__(self, **kwargs):
+        super(InterruptableThread, self).__init__(**kwargs)
+        self._e = None
+
     def set_error_handler(self, error_handler):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
@@ -140,7 +147,6 @@ class InterruptableThread(threading.Thread):
         @summary: Run the target function, call `start()` to start the thread
                   instead of directly calling this one.
         """
-        self._e = None
         try:
             threading.Thread.run(self)
         except Exception:
