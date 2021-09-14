@@ -391,8 +391,9 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
 
-        for i in list_sfps:
-            sfp = chassis.get_sfp(platform_api_conn, i)
+        for i in range(num_sfps):
+            index = list_sfps[i]
+            sfp = chassis.get_sfp(platform_api_conn, index)
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()
 

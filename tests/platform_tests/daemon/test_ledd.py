@@ -18,6 +18,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,10 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
     if daemon_status is not "RUNNING":
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
+
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
 
 def test_pmon_ledd_running_status(duthosts, rand_one_dut_hostname):
     """
@@ -122,11 +127,7 @@ def test_pmon_ledd_term_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(daemon_status != expected_running_status and pre_daemon_pid != daemon_pid,
-                          "{} status for SIG_TERM should not be {} with pid:{}!".format(daemon_name, daemon_status, daemon_pid))
-
-    time.sleep(10)
+    wait_until(30, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,

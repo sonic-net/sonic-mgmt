@@ -182,6 +182,21 @@ def get_disabled_container_list(duthost):
     return disabled_containers
 
 
+def check_link_status(duthost, iface_list, expect_status):
+    """
+    check if the link status specified in the iface_list equal to expect status
+    :param duthost: dut host object
+    :param iface_list: the interface list
+    :param expect_status: expected status for the interface specified in the iface_list
+    :return: True if the status of all the interfaces specified in the iface_list equal to expect status, else False
+    """
+    int_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for intf in iface_list:
+        if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
+            return False
+    return True
+
+
 def encode_dut_and_container_name(dut_name, container_name):
     """Gets a string by combining dut name and container name.
 
@@ -217,3 +232,30 @@ def decode_dut_and_container_name(name_str):
         container_name = name_list[0]
 
     return dut_name, container_name
+
+
+def verify_features_state(duthost):
+    """Checks whether the state of each feature is valid.
+
+    Args:
+      duthost: An Ansible object of DuT.
+
+    Returns:
+      If states of all features are valid, returns True; otherwise,
+      returns False.
+    """
+    feature_status, succeeded = duthost.get_feature_status()
+    if not succeeded:
+        logger.info("Failed to get list of feature names.")
+        return False
+
+    for feature_name, status in feature_status.items():
+        logger.info("The state of '{}' is '{}'.".format(feature_name, status))
+
+        if status not in ("enabled", "always_enabled", "disabled", "always_disabled"):
+            logger.info("The state of '{}' is invalid!".format(feature_name))
+            return False
+
+        logger.info("The state of '{}' is valid.".format(feature_name))
+
+    return True
