@@ -584,6 +584,22 @@ sonic_nokia_7215:
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+      model: 3HE16794AARA01
+      serial: NK205210084
+      base_mac: 50:E0:EF:7A:F1:D1
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210084"
+        "0x24": "50:E0:EF:7A:F1:D1"
+        "0x25": "12/30/2020 08:32:41"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x330F7F44"
     str2-7215-acs-3:
       ansible_host: 10.3.147.140
 
