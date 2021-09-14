@@ -258,7 +258,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             template = Template(f.read())
 
         ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
-        ptfhost.copy(content=template.render(garp_service_args = '--interval 1'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+        ptfhost.copy(content=template.render(garp_service_args = '--interval 10'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
         logger.info("Starting GARP Service on PTF host")
         ptfhost.shell('supervisorctl update')
         ptfhost.shell('supervisorctl start garp_service')
