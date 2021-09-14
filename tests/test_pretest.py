@@ -13,6 +13,8 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.helpers.dut_utils import verify_features_state
 from tests.common.utilities import wait_until
+from tests.common.reboot import reboot
+from tests.common.platform.processes_utils import wait_critical_processes
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
 
 
-def test_features_state(duthosts, enum_dut_hostname):
+def test_features_state(duthosts, enum_dut_hostname, localhost):
     """Checks whether the state of each feature is valid or not.
     Args:
       duthosts: Fixture returns a list of Ansible object DuT.
@@ -38,10 +40,15 @@ def test_features_state(duthosts, enum_dut_hostname):
     """
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
+    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, verify_features_state, duthost):
+        logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
+        reboot(duthost, localhost)
+        # Some services are not ready immeidately after reboot
+        wait_critical_processes(duthost)
+
     pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS,
                              verify_features_state, duthost), "Not all service states are valid!")
     logger.info("The states of features in 'CONFIG_DB' are all valid.")
-
 
 def test_cleanup_cache():
     folder = '_cache'
