@@ -9,13 +9,15 @@
 """
 
 import pytest, socket, sys, itertools, logging
-from struct import pack, unpack
-from ptf.mask import Mask
 import ptf.packet as scapy
 import tests.common.system_utils.docker as docker
 import tests.common.fixtures.ptfhost_utils as ptfhost_utils
+import time
+
 from conftest import *
 from community_cases import *
+from struct import pack, unpack
+from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +26,10 @@ pytestmark = [
 ]
 
 TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '2@eth2' \
-    --interface '3@eth3' --interface '4@eth4' --interface '5@eth5' --interface '6@eth6' \
-    --interface '7@eth7'"
-
+--interface '3@eth3' --interface '4@eth4' --interface '5@eth5' --interface '6@eth6' \
+--interface '7@eth7'"
+PROBE_RETRY_TIMES = 12
+PROBE_INTERVAL_IN_SEC = 5
 
 
 @pytest.mark.parametrize("test_case", COMMUN_TEST_CASE)
@@ -34,27 +37,16 @@ def test_sai_from_ptf(sai_testbed, duthost, ptfhost, test_case, request):
     """
         trigger the test here
     """
-    logger.info("Checking test environment before running test.")
+    probe_test(duthost, ptfhost, PROBE_TEST_CASE, request)
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     try:
-        logger.info("Running test: {0}".format(test_case))
-        ptfhost.shell("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} \
-            -t \"server='{4}';port_map_file='{5}'\""
-        .format(
-            SAI_TEST_CASE_DIR_ON_PTF, 
-            test_case, 
-            TEST_INTERFACE_PARAMS,
-            SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
-            dut_ip, 
-            PORT_MAP_FILE_PATH))
-        logger.info("Test case [{}] passed.".format(test_case))
+        run_case_from_ptf(dut_ip, ptfhost, test_case)
     except BaseException as e:               
         stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
         logger.info("Test case [{}] failed as {}".format(test_case, e))
-        pytest.fail("Test case [{}] failed".format(test_case), e)
+        pytest.fail("Test case [{}] failed".format(test_case), e)  
     finally:
-        _store_test_result(ptfhost)
+        _store_test_result(ptfhost)    
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +63,45 @@ def sai_testbed(
         _setup_dut(ptfhost, request)
         yield  
     finally:  
+        _store_test_result(ptfhost)
         _teardown_dut(duthost, ptfhost, request)
+
+
+def run_case_from_ptf(dut_ip, ptfhost, test_case):
+    logger.info("Running test: {0}".format(test_case))
+    ptfhost.shell(("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} " + 
+        "-t \"server='{4}';port_map_file='{5}'\"")
+    .format(
+        SAI_TEST_CASE_DIR_ON_PTF, 
+        test_case, 
+        TEST_INTERFACE_PARAMS,
+        SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
+        dut_ip, 
+        PORT_MAP_FILE_PATH))
+    logger.info("Test case [{}] passed.".format(test_case))
+
+
+def probe_test(duthost, ptfhost, probe_test_case, request):
+    """
+        Run a probe the test.
+    """
+    logger.info("Checking test environment before running test.")
+    dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
+    passed_probe = False
+    for retry in range(PROBE_RETRY_TIMES):
+        try:
+            run_case_from_ptf(dut_ip, ptfhost, probe_test_case)
+            passed_probe=True
+            break
+        except BaseException as e:  
+            logger.info("Run probe test [{}], retry: [{}/{}] failed as {}".format(probe_test_case, retry + 1, PROBE_RETRY_TIMES,  e))
+            if retry + 1 < PROBE_RETRY_TIMES:
+                logger.info("Probe test waiting {} sec for another retry.".format(PROBE_INTERVAL_IN_SEC))
+                time.sleep(PROBE_INTERVAL_IN_SEC)
+            else:
+                logger.info("Probe test failed. TestBed is not ready. Error: {}".format(e))
+                raise e
 
 
 def _setup_dut(ptfhost, request):

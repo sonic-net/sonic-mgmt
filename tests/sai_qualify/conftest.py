@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+import time
 
 from thrift.transport import TSocket
 from thrift.transport import TTransport
@@ -24,6 +25,7 @@ SAISERVER_SCRIPT = "saiserver.sh"
 SCRIPTS_SRC_DIR = "scripts/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 SAI_PRC_PORT = 9092
+SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
 
 
 #PTF_TEST_ROOT_DIR is the root folder for SAI testing
@@ -125,7 +127,8 @@ def start_sai_test_conatiner_with_retry(duthost, container_name):
         logger.info("Attempting to start {}.".format(container_name))
         sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, _is_sai_test_container_restarted, duthost, container_name)
         pt_assert(sai_ready, "[{}] sai test container failed to start in {}s".format(container_name, SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC))
-        
+        logger.info("Waiting for another {} second for sai test container warm up.".format(SAI_TEST_CONTAINER_WARM_UP_IN_SEC))
+        time.sleep(SAI_TEST_CONTAINER_WARM_UP_IN_SEC)
         logger.info("Successful in starting {} at : {}:{}".format(container_name, dut_ip, SAI_PRC_PORT))
     else:
         logger.info("PRC connection already set up before starting the {}.".format(container_name))
@@ -386,9 +389,11 @@ def _services_env_stop_check(duthost):
     """
     running_services = []
     def ready_for_sai_test():
+        running_services = []
         for service in SERVICES_LIST:
             if _is_container_running(duthost, service):
                 running_services.append(service)
+                duthost.shell("docker stop {}".format(service))
         if running_services:
             return False
         return True
