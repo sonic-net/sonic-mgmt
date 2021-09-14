@@ -213,7 +213,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "acl_allow": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -262,7 +263,8 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "acl_allow": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -319,7 +321,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "acl_allow": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -352,7 +355,8 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "acl_allow": True},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")
 
 
@@ -385,5 +389,41 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
-                           "testing_mode": testing_mode},
+                           "testing_mode": testing_mode,
+                           "acl_allow": True},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+
+
+def test_dhcp_acl(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_unselected_tor):
+    """Test DHCP ACL on T0 topology.
+
+       For each DHCP relay agent running on the DuT, verify DHCP Discover / Request packets can be blocked
+    """
+    testing_mode, duthost, testbed_mode = testing_config
+
+    if testbed_mode != 'dual_testbed':
+        pytest.skip("skip the dhcp acl testcase on single tor testbeds")
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "testbed_mode": testbed_mode,
+                           "testing_mode": testing_mode,
+                           "acl_allow": False},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log")

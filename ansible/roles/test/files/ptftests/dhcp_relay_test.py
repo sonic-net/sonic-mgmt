@@ -127,6 +127,8 @@ class DHCPTest(DataplaneBaseTest):
 
         self.testbed_mode = self.test_params['testbed_mode']
 
+        self.acl_allow = self.test_params['acl_allow']
+
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.
         # It consists of the following:
@@ -413,7 +415,7 @@ class DHCPTest(DataplaneBaseTest):
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
     # packet.
-    def verify_relayed_discover(self):
+    def verify_relayed_discover(self, acl_allow=True):
         # Create a packet resembling a relayed DCHPDISCOVER packet
         dhcp_discover_relayed = self.create_dhcp_discover_relayed_packet()
 
@@ -442,7 +444,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
 
         # Count the number of these packets received on the ports connected to our leaves
-        num_expected_packets = self.num_dhcp_servers
+        num_expected_packets = self.num_dhcp_servers if acl_allow else 0
         discover_count = testutils.count_matched_packets_all_ports(self, masked_discover, self.server_port_indices)
         self.assertTrue(discover_count == num_expected_packets,
                 "Failed: Discover count of %d != %d" % (discover_count, num_expected_packets))
@@ -455,7 +457,7 @@ class DHCPTest(DataplaneBaseTest):
         testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
 
     # Verify that the DHCPOFFER would be received by our simulated client
-    def verify_offer_received(self):
+    def verify_offer_received(self, acl_allow=True):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
 
         masked_offer = Mask(dhcp_offer)
@@ -493,7 +495,7 @@ class DHCPTest(DataplaneBaseTest):
     # Verify that the DHCP relay actually received and relayed the DHCPREQUEST message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
     # packet.
-    def verify_relayed_request(self):
+    def verify_relayed_request(self, acl_allow=True):
         # Create a packet resembling a relayed DCHPREQUEST packet
         dhcp_request_relayed = self.create_dhcp_request_relayed_packet()
 
@@ -522,7 +524,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
 
         # Count the number of these packets received on the ports connected to our leaves
-        num_expected_packets = self.num_dhcp_servers
+        num_expected_packets = self.num_dhcp_servers if acl_allow else 0
         request_count = testutils.count_matched_packets_all_ports(self, masked_request, self.server_port_indices)
         self.assertTrue(request_count == num_expected_packets,
                 "Failed: Request count of %d != %d" % (request_count, num_expected_packets))
@@ -533,7 +535,7 @@ class DHCPTest(DataplaneBaseTest):
         testutils.send_packet(self, self.server_port_indices[0], dhcp_ack)
 
     # Verify that the DHCPACK would be received by our simulated client
-    def verify_ack_received(self):
+    def verify_ack_received(self, acl_allow=True):
         dhcp_ack = self.create_dhcp_ack_relayed_packet()
 
         masked_ack = Mask(dhcp_ack)
@@ -563,11 +565,11 @@ class DHCPTest(DataplaneBaseTest):
 
     def runTest(self):
         self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
-        self.verify_relayed_discover()
+        self.verify_relayed_discover(self.acl_allow)
         self.server_send_offer()
         self.verify_offer_received()
         self.client_send_request(self.dest_mac_address, self.client_udp_src_port)
-        self.verify_relayed_request()
+        self.verify_relayed_request(self.acl_allow)
         self.server_send_ack()
         self.verify_ack_received()
 
