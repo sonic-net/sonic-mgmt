@@ -2,6 +2,7 @@ import ipaddress
 import pytest
 import random
 import time
+import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -22,6 +23,7 @@ DEFAULT_DHCP_CLIENT_PORT = 68
 SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
 
+logger = logging.getLogger(__name__)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
@@ -114,18 +116,27 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     return dhcp_relay_data_list
 
 
-@pytest.fixture(scope="module")
-def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
-    """Fixture to valid a route to each DHCP server exist
+def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
+    """Validate there is route on DUT to each DHCP server
     """
-    duthost = duthosts[rand_one_dut_hostname]
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
         dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
+        if len(rtInfo["nexthops"]) == 0:
+            logger.info("Failed to find route to DHCP server '{0}'".format(dhcp_server))
+            return False
+    return True
+        
+
+@pytest.fixture(scope="module")
+def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+    """Fixture to valid a route to each DHCP server exist
+    """
+    pytest_assert(check_routes_to_dhcp_server(duthosts[rand_one_dut_hostname], dut_dhcp_relay_data),
+                    "Failed to find route for DHCP server")
 
 
 def restart_dhcp_service(duthost):
@@ -239,9 +250,10 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} up'.format(iface))
-
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "up"),
-                      "Not all uplinks are up")
+            
+        # Wait until uplinks are up and routes are recovered
+        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+                      "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -297,8 +309,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} up'.format(iface))
 
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "up"),
-                      "Not all uplinks are up")
+        # Wait until uplinks are up and routes are recovered
+        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+                      "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
