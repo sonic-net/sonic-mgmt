@@ -46,8 +46,7 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_f
 
 
 def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, key='src'):
-    interfaces = None
-    is_backend_topology = constants.IS_BACKEND_TOPOLOGY_KEY in mg_facts.keys() and mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY]
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     if is_backend_topology:
         interfaces = mg_facts['minigraph_vlan_sub_interfaces']
     else:
@@ -159,7 +158,7 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
             facts.update(dst_port_facts)
 
     if src is None or dst is None:
-        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".duthost.hostname)
+        pytest.fail("Did not find 2 lag or interfaces that are up on host {}".format(duthost.hostname))
     logger.info("gathered_new_facts={}".format(json.dumps(facts, indent=2)))
 
     yield facts

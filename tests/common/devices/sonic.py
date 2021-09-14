@@ -10,7 +10,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-from ansible import constants
+from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
@@ -48,10 +48,10 @@ class SonicHost(AnsibleHostBase):
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
-            user_def = constants.config.get_configuration_definition(
+            user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
                 )
-            pass_def = constants.config.get_configuration_definition(
+            pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
                 )
             for user_var in (_['name'] for _ in user_def['vars']):
@@ -794,6 +794,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to shutdown
         """
+        logging.info("Shutting down {}".format(ifname))
         return self.command("sudo config interface shutdown {}".format(ifname))
 
     def shutdown_multiple(self, ifnames):
@@ -813,6 +814,7 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifname: the interface to bring up
         """
+        logging.info("Starting up {}".format(ifname))
         return self.command("sudo config interface startup {}".format(ifname))
 
     def no_shutdown_multiple(self, ifnames):
@@ -827,7 +829,7 @@ class SonicHost(AnsibleHostBase):
 
     def get_ip_route_info(self, dstip, ns=""):
         """
-        @summary: return route information for a destionation. The destination coulb an ip address or ip prefix.
+        @summary: return route information for a destionation. The destination could an ip address or ip prefix.
 
         @param dstip: destination. either ip_address or ip_network
 
@@ -852,6 +854,13 @@ raw data
         nexthop via 10.0.0.5  dev PortChannel0002 weight 1
         nexthop via 10.0.0.9  dev PortChannel0003 weight 1
         nexthop via 10.0.0.13  dev PortChannel0004 weight 1
+
+raw data (starting from Bullseye)
+192.168.8.0/25 nhid 296 proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_address(unicode("20c0:a818::")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
@@ -867,6 +876,13 @@ raw data
 20c0:a818::/64 via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 20c0:a818::/64 via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 20c0:a818::/64 via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+raw data (starting from Bullseye)
+20c0:a818::/64 nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'), (IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'), (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
@@ -877,6 +893,13 @@ default proto 186 src 10.1.0.32 metric 20
         nexthop via 10.0.0.5  dev PortChannel0002 weight 1
         nexthop via 10.0.0.9  dev PortChannel0003 weight 1
         nexthop via 10.0.0.13  dev PortChannel0004 weight 1
+
+raw data (starting from Bullseye)
+default nhid 296 proto bgp src 10.1.0.32 metric 20
+        nexthop via 10.0.0.57 dev PortChannel0001 weight 1
+        nexthop via 10.0.0.59 dev PortChannel0002 weight 1
+        nexthop via 10.0.0.61 dev PortChannel0003 weight 1
+        nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'), (IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'), (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
@@ -886,6 +909,13 @@ default via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref
 default via fc00::a dev PortChannel0002 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::12 dev PortChannel0003 proto 186 src fc00:1::32 metric 20  pref medium
 default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pref medium
+
+raw data (starting from Bullseye)
+default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
+        nexthop via fc00::72 dev PortChannel0001 weight 1
+        nexthop via fc00::76 dev PortChannel0002 weight 1
+        nexthop via fc00::7a dev PortChannel0003 weight 1
+        nexthop via fc00::7e dev PortChannel0004 weight 1
 ----------------
         """
 
@@ -905,10 +935,13 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             # parse set_src
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            m2 = re.match(r"^(default|\S+) nhid (\d+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
                 rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
             elif m1:
                 rtinfo['set_src'] = ipaddress.ip_address(unicode(m1.group(5)))
+            elif m2:
+                rtinfo['set_src'] = ipaddress.ip_address(unicode(m2.group(4)))
 
             # parse nexthops
             for l in rt:
@@ -981,6 +1014,49 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             if 'bgpStateIs' in nbinfo and nbinfo['bgpStateIs'].lower() == "passiveNSF".lower():
                 return True
         return False
+
+    def _parse_route_summary(self, output):
+        """
+        Sample command output:
+Route Source         Routes               FIB  (vrf default)
+kernel               34                   34
+connected            11                   11
+static               1                    0
+ebgp                 6404                 6404
+ibgp                 0                    0
+------
+Totals               6450                 6449
+
+        Sample parsing output:
+        {
+            'kernel' : { 'routes' : 34 , 'FIB' : 34 },
+            ... ...
+            'Totals' : { 'routes' : 6450, 'FIB' : 6449 }
+        }
+        """
+        ret = {}
+        for line in output:
+            tokens = line.split()
+            if len(tokens) > 1:
+                key = tokens[0]
+                val = {}
+                if tokens[1].isdigit():
+                    val['routes'] = tokens[1]
+                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    ret[key] = val
+        return ret
+
+    def get_ip_route_summary(self):
+        """
+        @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
+                  Going forward, this show command should use tabular output so that
+                  we can simply call show_and_parse() function.
+        """
+        ipv4_output = self.shell("show ip route sum")["stdout_lines"]
+        ipv4_summary = self._parse_route_summary(ipv4_output)
+        ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
+        ipv6_summary = self._parse_route_summary(ipv6_output)
+        return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
         """
@@ -1195,7 +1271,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
         self.update_backend_flag(tbinfo, mg_facts)
 
         return mg_facts
-    
+
     def update_backend_flag(self, tbinfo, mg_facts):
         mg_facts[constants.IS_BACKEND_TOPOLOGY_KEY] = self.assert_topo_is_backend(tbinfo)
 
@@ -1513,7 +1589,10 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
             the auto negotiation mode is unknown or unsupported.
         """
         cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
-        mode = self.shell(cmd)['stdout'].strip()
+        try:
+            mode = self.shell(cmd)['stdout'].strip()
+        except RunAnsibleModuleFail:
+            return None
         if not mode:
             return None
         return True if mode == 'on' else False
@@ -1611,7 +1690,7 @@ default via fc00::1a dev PortChannel0004 proto 186 src fc00:1::32 metric 20  pre
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
-                   self.ping_v4(v["peer_ipv4"], count=10, ns_arg=ns_arg)):
+                   self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
                     ip_ifaces[k] = {
                         "ipv4": v["ipv4"],
                         "peer_ipv4": v["peer_ipv4"],

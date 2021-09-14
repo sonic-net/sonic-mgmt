@@ -1,6 +1,6 @@
 import ipaddress
 import json
-
+import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -12,6 +12,22 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+ignored_iptable_rules = []
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
+    global ignored_iptable_rules
+    # There are some hardcoded cacl rule for dualtot testbed, which should be ignored
+    if "dualtor" in tbinfo['topo']['name']:
+        rules_to_ignore = [
+        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
+        "-A DHCP -j RETURN",
+        "-N DHCP"
+        ]
+        ignored_iptable_rules += rules_to_ignore
+
+
 @pytest.fixture(scope="module")
 def docker_network(duthost):
 
@@ -19,7 +35,7 @@ def docker_network(duthost):
 
     docker_containers_info = json.loads(output['stdout'])[0]['Containers']
     ipam_info = json.loads(output['stdout'])[0]['IPAM']
-    
+
     docker_network = {}
     docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0]['Gateway'],
                                 'IPv6Address' : ipam_info['Config'][1]['Gateway'] }
@@ -27,7 +43,7 @@ def docker_network(duthost):
     docker_network['container'] = {}
     for k,v in docker_containers_info.items():
          docker_network['container'][v['Name']] = {'IPv4Address' : v['IPv4Address'].split('/')[0], 'IPv6Address' : v['IPv6Address'].split('/')[0]}
- 
+
     return docker_network
 
 
@@ -169,8 +185,11 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
             ifaces = cfg_facts[iface_table_name]
             for iface_name in ifaces:
                 for iface_cidr in ifaces[iface_name]:
-                    ip_ntwrk = ipaddress.ip_network(iface_cidr, strict=False)
-
+                    try:
+                        # There are non-ip_address keys in ifaces. We ignore them with the except
+                        ip_ntwrk = ipaddress.ip_network(iface_cidr, strict=False)
+                    except ValueError:
+                        pass
                     # For VLAN interfaces, the IP address we want to block is the default gateway (i.e.,
                     # the first available host IP address of the VLAN subnet)
                     ip_addr = next(ip_ntwrk.hosts()) if iface_table_name == "VLAN_INTERFACE" else ip_ntwrk.network_address
@@ -208,13 +227,13 @@ def generate_expected_rules(duthost, docker_network, asic_index):
             ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(v['IPv6Address'], docker_network['bridge']['IPv6Address']))
 
     else:
-        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv4Address'], 
+        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv4Address'],
                                                                             docker_network['container']['database' + str(asic_index)]['IPv4Address']))
-        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], 
+        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'],
                                                                             docker_network['container']['database' + str(asic_index)]['IPv4Address']))
-        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv6Address'], 
+        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['container']['database' + str(asic_index)]['IPv6Address'],
                                                                                docker_network['container']['database' + str(asic_index)]['IPv6Address']))
-        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], 
+        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'],
                                                                                docker_network['container']['database' + str(asic_index)]['IPv6Address']))
 
 
@@ -277,8 +296,6 @@ def generate_expected_rules(duthost, docker_network, asic_index):
             ip_protocols = ACL_SERVICES[acl_service]["ip_protocols"]
             dst_ports = ACL_SERVICES[acl_service]["dst_ports"]
 
-            acl_rules = {}
-
             table_ip_version = None
 
             for rule in table["rules"]:
@@ -328,7 +345,7 @@ def generate_expected_rules(duthost, docker_network, asic_index):
                             tcp_flags_mask = int(tcp_flags_mask, 16)
 
                             if tcp_flags_mask > 0:
-                                new_iptables_rule += " --tcp-flags {mask} {flags}".format(mask=self.parse_int_to_tcp_flags(tcp_flags_mask), flags=self.parse_int_to_tcp_flags(tcp_flags))
+                                new_iptables_rule += " --tcp-flags {mask} {flags}".format(mask=parse_int_to_tcp_flags(tcp_flags_mask), flags=parse_int_to_tcp_flags(tcp_flags))
 
                         # Append the packet action as the jump target
                         new_iptables_rule += " -j {}".format(rule["action"])
@@ -402,7 +419,7 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
 def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
 
-    
+
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
 

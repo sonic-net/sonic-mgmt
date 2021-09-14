@@ -20,10 +20,14 @@ from __future__ import print_function
 import sys
 import getopt
 import re
+import os
+import os.path
 import csv
+import time
 import pprint
 import logging
 import logging.handlers
+import subprocess
 from datetime import datetime
 
 #---------------------------------------------------------------------
@@ -32,6 +36,7 @@ from datetime import datetime
 tokenizer = ','
 comment_key = '#'
 system_log_file = '/var/log/syslog'
+re_rsyslog_pid = re.compile("PID:\s+(\d+)")
 
 #-- List of ERROR codes to be returned by AnsibleLogAnalyzer
 err_duplicate_start_marker = -1
@@ -124,6 +129,33 @@ class AnsibleLogAnalyzer:
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
 
+    def flush_rsyslogd(self):
+        '''
+        @summary: flush all remaining buffer in rsyslogd to disk
+
+        rsyslog.service - System Logging Service
+            Loaded: loaded (/lib/systemd/system/rsyslog.service; enabled; vendor preset: enabled)
+            Active: active (running) since Fri 2021-09-03 15:50:17 UTC; 14h ago
+        TriggeredBy: syslog.socket
+            Docs: man:rsyslogd(8)
+             https://www.rsyslog.com/doc/
+         Main PID: 17516 (rsyslogd)
+         Tasks: 5 (limit: 3402)
+         Memory: 3.3M
+         CGroup: /system.slice/rsyslog.service
+              17516 /usr/sbin/rsyslogd -n
+        '''
+        pid = None
+        out = subprocess.check_output("systemctl status rsyslog", shell=True)
+        for l in out.split('\n'):
+            m = re.search(re_rsyslog_pid, l)
+            if m:
+                pid = int(m.group(1))
+                break
+
+        if pid:
+            os.system("sudo kill -HUP {}".format(pid))
+
     def place_marker_to_file(self, log_file, marker):
         '''
         @summary: Place marker into each log file specified.
@@ -148,8 +180,50 @@ class AnsibleLogAnalyzer:
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
         syslogger.info('\n')
+        self.flush_rsyslogd()
 
-    def place_marker(self, log_file_list, marker):
+    def wait_for_marker(self, marker, timeout=60, polling_interval=10):
+        '''
+        @summary: Wait the marker to appear in the /var/log/syslog file
+        @param marker:         Marker to be placed into log files.
+        @param timeout:        Maximum time in seconds to wait till Marker in /var/log/syslog
+        @param polling_interval:  Polling interval during the wait
+        '''
+
+        wait_time = 0
+        last_check_pos = 0
+        syslog_file = "/var/log/syslog"
+        prev_syslog_file = "/var/log/syslog.1"
+        last_dt = os.path.getctime(syslog_file)
+        while wait_time <= timeout:
+            with open(syslog_file, 'r') as fp:
+                dt = os.path.getctime(syslog_file)
+                if last_dt != dt:
+                    try:
+                        with open(prev_syslog_file, 'r') as pfp:
+                            pfp.seek(last_check_pos)
+                            for l in fp:
+                                if marker in l:
+                                    return True
+                    except FileNotFoundError:
+                        print("cannot find file {}".format(prev_syslog_file))
+                    last_check_pos = 0
+                    last_dt = dt
+                # resume from last search position
+                if last_check_pos:
+                    fp.seek(last_check_pos)
+                # check if marker in the file
+                for l in fp:
+                    if marker in l:
+                        return True
+                # record last search position
+                last_check_pos = fp.tell()
+            time.sleep(polling_interval)
+            wait_time += polling_interval
+
+        return False
+
+    def place_marker(self, log_file_list, marker, wait_for_marker=False):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
@@ -160,6 +234,9 @@ class AnsibleLogAnalyzer:
             self.place_marker_to_file(log_file, marker)
 
         self.place_marker_to_syslog(marker)
+        if wait_for_marker:
+            if self.wait_for_marker(marker) is False:
+                raise RuntimeError("cannot find marker {} in /var/log/syslog".format(marker))
 
         return
     #---------------------------------------------------------------------
@@ -666,7 +743,7 @@ def main(argv):
         ignore_file_list = ignore_files_in.split(tokenizer)
         expect_file_list = expect_files_in.split(tokenizer)
 
-        analyzer.place_marker(log_file_list, analyzer.create_end_marker())
+        analyzer.place_marker(log_file_list, analyzer.create_end_marker(), wait_for_marker=True)
 
         match_messages_regex, messages_regex_m = analyzer.create_msg_regex(match_file_list)
         ignore_messages_regex, messages_regex_i = analyzer.create_msg_regex(ignore_file_list)
@@ -682,7 +759,7 @@ def main(argv):
         write_result_file(run_id, out_dir, result, messages_regex_e, unused_regex_messages)
         write_summary_file(run_id, out_dir, result, unused_regex_messages)
     elif (action == "add_end_marker"):
-        analyzer.place_marker(log_file_list, analyzer.create_end_marker())
+        analyzer.place_marker(log_file_list, analyzer.create_end_marker(), wait_for_marker=True)
         return 0
 
     else:

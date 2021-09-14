@@ -28,19 +28,22 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope='module')
+def ttl_dscp_params(duthost, supported_ttl_dscp_params):
+    if "uniform" in supported_ttl_dscp_params.values() and ("201811" in duthost.os_version or "201911" in duthost.os_version):
+        pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
+    
+    return supported_ttl_dscp_params
+
+
 @pytest.fixture(scope="module")
-def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts):
+def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts, ttl_dscp_params):
 
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
-    # Initialize parameters
-    if "201811" in duthosts[0].os_version or "201911" in duthosts[0].os_version:
-        dscp_mode = "pipe"
-    else:
-        dscp_mode = "uniform"
-
     ecn_mode = "copy_from_outer"
-    ttl_mode = "pipe"
+    dscp_mode = ttl_dscp_params['dscp']
+    ttl_mode = ttl_dscp_params['ttl']
 
     # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
     hostvars = duthosts[0].host.options["variable_manager"]._hostvars[duthosts[0].hostname]
@@ -48,7 +51,6 @@ def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts)
     mellanox_hwskus = hostvars.get("mellanox_hwskus", [])
 
     if sonic_hwsku in mellanox_hwskus:
-        dscp_mode = "uniform"
         ecn_mode = "standard"
 
     setup_info = {
@@ -133,7 +135,7 @@ def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
 
 
-def test_decap(tbinfo, duthosts, mux_server_url, setup_teardown, ptfhost, set_mux_random):
+def test_decap(tbinfo, duthosts, mux_server_url, setup_teardown, ptfhost, set_mux_random, ttl_dscp_params):
 
     setup_info = setup_teardown
 
