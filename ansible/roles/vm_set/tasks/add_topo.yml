@@ -228,6 +228,8 @@
 
   - name: Start PTF portchannel service
     include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: start
 
   - name: Announce routes
     include_tasks: announce_routes.yml
