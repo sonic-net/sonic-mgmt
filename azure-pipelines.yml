@@ -45,18 +45,3 @@ stages:
         ptf_name: ptf_vms6-2
         tbtype: t1-lag
         vmtype: ceos
-
-  - job:
-    pool: sonictest-sonic-t0
-    displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 240
-
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0-sonic
-        vmtype: vsonic
-
