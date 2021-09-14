@@ -24,7 +24,7 @@ def test_active_link_down_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_upper_tor_intfs
+        allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -44,7 +44,7 @@ def test_active_link_down_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_upper_tor_intfs
+        allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -64,7 +64,7 @@ def test_active_link_down_downstream_standby(
     """
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_upper_tor_intfs
+        allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -84,7 +84,7 @@ def test_standby_link_down_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_lower_tor_intfs
+        allowed_disruption=2, action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -104,7 +104,7 @@ def test_standby_link_down_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_lower_tor_intfs
+        allowed_disruption=2, action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -124,7 +124,7 @@ def test_standby_link_down_downstream_standby(
     """
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=shutdown_fanout_lower_tor_intfs
+        allowed_disruption=2, action=shutdown_fanout_lower_tor_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,

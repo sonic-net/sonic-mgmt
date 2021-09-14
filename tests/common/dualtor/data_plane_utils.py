@@ -117,10 +117,9 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
 
-def verify_and_report(tor_IO, verify, delay):
+def verify_and_report(tor_IO, verify, delay, allowed_disruption):
     # Wait for the IO to complete before doing checks
     if verify:
-        allowed_disruption = 0 if delay == 0 else 1
         validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption,
             delay=delay)
     return tor_IO.get_test_results()
@@ -196,7 +195,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     
     duthosts_list = []
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
                             stop_after=None):
         """
         Helper method for `send_t1_to_server_with_action`.
@@ -227,7 +226,12 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="t1_to_server", stop_after=stop_after)
 
-        return verify_and_report(tor_IO, verify, delay)
+        # If a delay is allowed but no numebr of allowed disruptions
+        # is specified, default to 1 allowed disruption
+        if delay and not allowed_disruption:
+            allowed_disruption = 1
+
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield t1_to_server_io_test
 
@@ -258,7 +262,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
 
     duthosts_list = []
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
-                            delay=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
                             stop_after=None):
         """
         Helper method for `send_server_to_t1_with_action`.
@@ -288,7 +292,12 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="server_to_t1", stop_after=stop_after)
 
-        return verify_and_report(tor_IO, verify, delay)
+        # If a delay is allowed but no numebr of allowed disruptions
+        # is specified, default to 1 allowed disruption
+        if delay and not allowed_disruption:
+            allowed_disruption = 1
+
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield server_to_t1_io_test
 

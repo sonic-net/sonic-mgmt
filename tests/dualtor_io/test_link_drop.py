@@ -5,17 +5,16 @@ import tabulate
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_utils import upper_tor_host
-from tests.common.dualtor.dual_tor_utils import lower_tor_host
-from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action
-from tests.common.dualtor.mux_simulator_control import set_drop
-from tests.common.dualtor.mux_simulator_control import set_output
-from tests.common.dualtor.mux_simulator_control import simulator_flap_counter
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import set_drop # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import set_output # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses             # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
@@ -95,6 +94,7 @@ def test_active_link_drop_upstream(
         upper_tor_host,
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
@@ -120,6 +120,7 @@ def test_active_link_drop_downstream_active(
         upper_tor_host,
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
@@ -145,6 +146,7 @@ def test_active_link_drop_downstream_standby(
         lower_tor_host,
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
         action=drop_flow_upper_tor
     )
     verify_tor_states(
@@ -168,7 +170,8 @@ def test_standby_link_drop_upstream(
     send_server_to_t1_with_action(
         upper_tor_host,
         verify=True,
-        delay=0,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
         action=drop_flow_lower_tor
     )
     verify_tor_states(
@@ -176,7 +179,7 @@ def test_standby_link_drop_upstream(
         expected_standby_host=lower_tor_host,
         expected_standby_health="unhealthy"
     )
-    check_simulator_flap_counter(0)
+    check_simulator_flap_counter(2)
 
 
 def test_standby_link_drop_downstream_active(
@@ -194,7 +197,8 @@ def test_standby_link_drop_downstream_active(
     send_t1_to_server_with_action(
         upper_tor_host,
         verify=True,
-        delay=0,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
         action=drop_flow_lower_tor
     )
     verify_tor_states(
@@ -202,7 +206,7 @@ def test_standby_link_drop_downstream_active(
         expected_standby_host=lower_tor_host,
         expected_standby_health="unhealthy"
     )
-    check_simulator_flap_counter(0)
+    check_simulator_flap_counter(2)
 
 
 def test_standby_link_drop_downstream_standby(
@@ -220,7 +224,8 @@ def test_standby_link_drop_downstream_standby(
     send_t1_to_server_with_action(
         lower_tor_host,
         verify=True,
-        delay=0,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
         action=drop_flow_lower_tor
     )
     verify_tor_states(
@@ -228,4 +233,4 @@ def test_standby_link_drop_downstream_standby(
         expected_standby_host=lower_tor_host,
         expected_standby_health="unhealthy"
     )
-    check_simulator_flap_counter(0)
+    check_simulator_flap_counter(2)
