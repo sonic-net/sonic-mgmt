@@ -131,6 +131,7 @@ def set_drop(url, recover_all_directions):
         drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
         data = {"out_sides": directions}
+        logger.info("Dropping packets to {} on {}".format(directions, interface_name))
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
     yield _set_drop
