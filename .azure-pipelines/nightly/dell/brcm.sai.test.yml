@@ -1,0 +1,89 @@
+name: $(Build.DefinitionName)_Running_Init_$(Build.BuildId)_$(Date:yyyyMMdd)
+
+trigger: none
+pr: none
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name"
+
+  - name: SAI_BRANCH
+    type: string
+    default: v1.7
+    displayName: "SAI Branch Name"
+
+  - name: SAI_TEST_CONTAINER
+    type: string
+    default: saiserver
+    displayName: "SAI Test Container"
+    values: 
+    - saiserver
+    - syncd
+  
+  # WorkFlow parameters
+  - name: LOCK_TESTBED
+    displayName: "Lock Testbed"
+    type: boolean
+    default: true
+  
+  - name: UPDATE_IMAGE
+    displayName: "Update Image"
+    type: boolean
+    default: false
+
+  - name: CHANGE_TOPO
+    displayName: "Deploy non-topo"
+    type: boolean
+    default: true
+
+  - name: RECOVER_TOPO
+    displayName: "Recover Topo"
+    type: boolean
+    default: true
+  
+  - name: RUN_TEST
+    displayName: "Run Test"
+    type: boolean
+    default: true
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_202012)
+    displayName: "Image URL"
+    values: 
+    - $(IMAGE_BRCM_202012)
+    - $(IMAGE_BRCM_202012_SLIM)
+    - $(IMAGE_BRCM_ABOOT_202012)
+    - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
+    values: 
+    - $(SAITHRIFT_BRCM_202012)
+    - $(SAITHRIFT_BRCM_PUBLIC)
+    - $(SAITHRIFT_MLNX_202012)
+    - $(SAITHRIFT_MLNX_PUBLIC)
+
+
+stages:
+  - template: ../templates/sai_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
+      SAI_TEST_CONTAINER: ${{ parameters.SAI_TEST_CONTAINER }}
+      LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+      UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
+      CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
+      RECOVER_TOPO: ${{ parameters.RECOVER_TOPO }}
+      RUN_TEST: ${{ parameters.RUN_TEST }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
