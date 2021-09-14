@@ -667,9 +667,6 @@ sonic_dell_z9332f:
         "0xFD": "674"
         "0xFE": "0x4FCF505B"
       pdu_host: pdu-111
-      skip_modules:
-        'psus':
-          - PSU1
     str2-z9332f-01:
       ansible_host: 10.3.146.248
       hwsku: DellEMC-Z9332f-O32
@@ -695,9 +692,6 @@ sonic_dell_z9332f:
         "0xFD": "674"
         "0xFE": "0x5E7C686F"
       pdu_host: pdu-111
-      skip_modules:
-        'psus':
-          - PSU1
 server:
   hosts:
     str2-acs-serv-16:
