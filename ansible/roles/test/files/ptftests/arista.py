@@ -142,7 +142,8 @@ class Arista(object):
             cur_time = time.time()
             info = {}
             debug_info = {}
-            lacp_output = self.do_cmd('show lacp neighbor')
+            # 'show lacp neighbor' command is deprecated by 'show lacp peer'
+            lacp_output = self.do_cmd('show lacp peer')
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
@@ -177,7 +178,7 @@ class Arista(object):
             samples[cur_time] = sample
             if self.DEBUG:
                 debug_data[cur_time] = {
-                    'show lacp neighbor' : lacp_output,
+                    'show lacp peer' : lacp_output,
                     'show ip bgp neighbors' : bgp_neig_output,
                     'show ip route bgp' : bgp_route_v4_output,
                     'show ipv6 route bgp' : bgp_route_v6_output,
