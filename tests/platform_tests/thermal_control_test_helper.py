@@ -303,9 +303,10 @@ class ThermalPolicyFileContext:
         thermal control daemon to make it effect.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
-        self.dut.copy(src=os.path.join(FILES_DIR, self.src), dest=self.thermal_policy_file_path)
-        restart_thermal_control_daemon(self.dut)
+        if os.path.exists(self.thermal_policy_file_path):
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+            self.dut.copy(src=os.path.join(FILES_DIR, self.src), dest=self.thermal_policy_file_path)
+            restart_thermal_control_daemon(self.dut)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -315,8 +316,10 @@ class ThermalPolicyFileContext:
         :param exc_tb: Not used.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
-        restart_thermal_control_daemon(self.dut)
+
+        if os.path.exists(self.thermal_policy_file_backup_path):
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
+            restart_thermal_control_daemon(self.dut)
 
 
 @pytest.fixture
