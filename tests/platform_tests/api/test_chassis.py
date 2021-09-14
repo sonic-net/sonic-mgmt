@@ -4,6 +4,8 @@ import re
 import pytest
 import yaml
 
+from natsort import natsorted
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
@@ -378,8 +380,7 @@ class TestChassisApi(PlatformApiTestBase):
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
-        list_sfps = []
-        list_sfps = physical_port_indices
+        list_sfps = [physical_port_indices[intf] for intf in natsorted(physical_port_indices.keys())]
         logging.info("Physical port indices = {}".format(list_sfps))
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
