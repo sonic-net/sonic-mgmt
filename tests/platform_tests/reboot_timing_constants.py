@@ -6,10 +6,10 @@ SERVICE_PATTERNS = {
         "Started": re.compile(r'.*Started.*(service|container).*')
     },
     "201911": {
-        "Stopping": re.compile(r'.*Stopping.*', re.IGNORECASE),
-        "Stopped": re.compile(r'.*Stopped.*', re.IGNORECASE),
-        "Starting": re.compile(r'.*Starting.*', re.IGNORECASE),
-        "Started": re.compile(r'.*Started.*', re.IGNORECASE)
+        "Stopping": re.compile(r'.*Stopping.*'),
+        "Stopped": re.compile(r'.*Stopped.*'),
+        "Starting": re.compile(r'.*Starting.*'),
+        "Started": re.compile(r'.*Started.*')
     }
 }
 
