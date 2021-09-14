@@ -639,7 +639,7 @@ sonic_dell_z9332f:
         "0x2D": "Dell EMC"
         "0x2E": "0.5.1"
         "0x2F": "8ZHXCW2"
-        "0xFD": "674"
+        "0xFD": ""
         "0xFE": "0x98790533"
       pdu_host: pdu-111
     str2-z9332f-05:
@@ -664,7 +664,7 @@ sonic_dell_z9332f:
         "0x2D": "Dell EMC"
         "0x2E": "0.5.1"
         "0x2F": "2FRXCW2"
-        "0xFD": "674"
+        "0xFD": ""
         "0xFE": "0x4FCF505B"
       pdu_host: pdu-111
     str2-z9332f-01:
@@ -689,7 +689,7 @@ sonic_dell_z9332f:
         "0x2D": "Dell EMC"
         "0x2E": "0.5.1"
         "0x2F": "9DRXCW2"
-        "0xFD": "674"
+        "0xFD": ""
         "0xFE": "0x5E7C686F"
       pdu_host: pdu-111
 server:
