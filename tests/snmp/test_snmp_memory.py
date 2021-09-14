@@ -5,11 +5,14 @@ Parameters:
 """
 
 import pytest
+import logging
 from tests.common.helpers.assertions import pytest_assert # pylint: disable=import-error
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+logger = logging.getLogger(__name__)
 
 CALC_DIFF = lambda snmp, sys_data: float(abs(snmp - int(sys_data)) * 100) / float(snmp)
 
@@ -50,23 +53,36 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
-                                community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
-    facts = collect_memory(duthost)
     compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
-               ('ansible_sysCachedMemory', 'Cached'))
+               ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
-    # Verify correct behaviour of sysTotalMemery, sysTotalSharedMemory
-    pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
-                  "Unexpected res sysTotalMemery {}".format(snmp_facts['ansible_sysTotalMemery']))
-    pytest_assert(not abs(snmp_facts['ansible_sysTotalSharedMemory'] - int(facts['Shmem'])),
-                  "Unexpected res sysTotalSharedMemory {}".format(snmp_facts['ansible_sysTotalSharedMemory']))
+    # Checking memory attributes within a certain percentage is not guarantee to
+    # work 100% of the time. There could always be a big memory change between the
+    # test read from snmp and read from system.
+    # Allow the test to retry a few times before claiming failure.
+    for _ in range(3):
+        snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
+                                    community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+        facts = collect_memory(duthost)
+        # Verify correct behaviour of sysTotalMemery
+        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
+                      "Unexpected res sysTotalMemery {} v.s. {}".format(snmp_facts['ansible_sysTotalMemery'], facts['MemTotal']))
 
-    # Verify correct behaviour of sysTotalFreeMemery, sysTotalBuffMemory, sysCachedMemory
-    snmp_diff = [snmp for snmp, sys_data in compare if CALC_DIFF(snmp_facts[snmp],
-                                                                 facts[sys_data]) > percent]
-    pytest_assert(not snmp_diff,
-                  "Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
+        # Verify correct behaviour of sysTotalFreeMemery, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
+        new_comp = set()
+        snmp_diff = []
+        for snmp, sys_data in compare:
+            if CALC_DIFF(snmp_facts[snmp], facts[sys_data]) > percent:
+                snmp_diff.append(snmp)
+                new_comp.add((snmp, sys_data))
+
+        compare = new_comp
+        if not snmp_diff:
+            return
+
+        logging.info("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
+
+    pytest.fail("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
 
 
 def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, load_memory):

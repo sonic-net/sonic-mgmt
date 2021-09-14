@@ -48,8 +48,8 @@ def main():
         num_fabric_asic = int( m_args[ 'num_fabric_asic' ] )
         v4pfx = str( m_args[ 'asics_host_basepfx' ] ).split("/")
         v6pfx = str( m_args[ 'asics_host_basepfx6' ] ).split("/")
-        v4base = int( ipaddress.IPv4Address(v4pfx[0]) )
-        v6base = int( ipaddress.IPv6Address(v6pfx[0]) )
+        v4base = int( ipaddress.IPv4Address(unicode(v4pfx[0])) )
+        v6base = int( ipaddress.IPv6Address(unicode(v6pfx[0])) )
         for asic_id in range(num_fabric_asic):
             key = "ASIC%d" % asic_id
             next_v4addr = str( ipaddress.IPv4Address(v4base + asic_id) )
@@ -59,10 +59,10 @@ def main():
                      'ip6_prefix': next_v6addr + "/" + v6pfx[-1] }
             fabric_info.append( data )
         module.exit_json(ansible_facts={'fabric_info': fabric_info})
-    except (IOError, OSError), e:
+    except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
-    except Exception, e:
+    except Exception as e:
         fail_msg = "failed to find the correct fabric asic info " + str(e)
         module.fail_json(msg=fail_msg)
 

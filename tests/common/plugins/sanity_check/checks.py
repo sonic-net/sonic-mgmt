@@ -504,6 +504,7 @@ def check_mux_simulator(toggle_all_simulator_ports, get_mux_status, reset_simula
                 failed, reason = _check_single_intf_status(status, expected_side=side)
 
                 if failed:
+                    logger.warning('Mux sanity check failed for status:\n{}'.format(status))
                     results['failed'] = failed
                     results['failed_reason'] = reason
                     results['action'] = reset_simulator_port
@@ -584,7 +585,13 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=600)
+        timeout = 600
+        # Increase the timeout for multi-asic virtual switch DUT.
+        for node in duthosts.nodes:
+            if 'kvm' in node.sonichost.facts['platform'] and node.sonichost.is_multi_asic:
+                timeout = 1000
+                break
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout)
         return result.values()
 
     @reset_ansible_local_tmp

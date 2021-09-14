@@ -21,6 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import skip_release_for_platform
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -130,13 +131,14 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
         for line in syseeprom_output_lines[6:]:
             t1 = regex_int.match(line)
             if t1:
-                parsed_syseeprom[t1.group(2).strip()] = t1.group(4).strip()
+                tlv_code_lower_case = t1.group(2).strip().lower()
+                parsed_syseeprom[tlv_code_lower_case] = t1.group(4).strip()
 
         for field in expected_syseeprom_info_dict:
-            pytest_assert(field in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
-            pytest_assert(parsed_syseeprom[field] == expected_syseeprom_info_dict[field],
+            pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(parsed_syseeprom[field.lower()] == expected_syseeprom_info_dict[field],
                           "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, parsed_syseeprom[field], expected_syseeprom_info_dict[field], duthost.hostname))
+                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field], duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
@@ -344,6 +346,9 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+
+
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))

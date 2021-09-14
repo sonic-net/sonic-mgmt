@@ -14,7 +14,6 @@ from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
-from .args.api_sfp_args import add_api_sfp_args
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -126,14 +125,25 @@ def get_report_summary(analyze_result, reboot_type):
     }
     return result_summary
 
+def get_kexec_time(duthost, messages, result):
+    reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
+    reboot_time = "N/A"
+    logging.info("FINDING REBOOT PATTERN")
+    for message in messages:
+        # Get timestamp of reboot - Rebooting string
+        if re.search(reboot_pattern, message):
+            logging.info("FOUND REBOOT PATTERN for {}", duthost.hostname)
+            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
+            continue
+    result["reboot_time"] = {
+        "timestamp": {"Start": reboot_time},
+    }
 
 def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
     if not messages:
         logging.error("Expected messages not found in syslog")
         return None
-
-    reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
 
     def service_time_check(message, status):
         time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
@@ -149,10 +159,6 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
 
     reboot_time = "N/A"
     for message in messages:
-        # Get timestamp of reboot - Rebooting string
-        if re.search(reboot_pattern, message):
-            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
-            continue
         # Get stopping to started timestamps for services (swss, bgp, etc)
         for status, pattern in SERVICE_PATTERNS.items():
             if re.search(pattern, message):
@@ -195,9 +201,6 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
-    result["reboot_time"] = {
-        "timestamp": {"Start": reboot_time},
-    }
     return result
 
 
@@ -283,7 +286,10 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     offset_from_kexec = dict()
 
     for key, messages in result["expect_messages"].items():
-        if "syslog" in key or "bgpd.log" in key:
+        if "syslog" in key:
+            get_kexec_time(duthost, messages, analyze_result)
+            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+        elif "bgpd.log" in key:
             analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
         elif "sairedis.rec" in key:
             analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
@@ -332,7 +338,6 @@ def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
     add_normal_reboot_args(parser)
-    add_api_sfp_args(parser)
 
 
 def pytest_generate_tests(metafunc):

@@ -31,7 +31,8 @@ def config_reload_after_tests(duthost):
     config_reload(duthost)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature_container):
+def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
+                                          enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -95,7 +96,11 @@ def ignore_expected_loganalyzer_exception(duthost, loganalyzer, enum_dut_feature
         'teamd' : swss_syncd_teamd_regex,
     }
 
-    _, container_name = decode_dut_port_name(enum_dut_feature_container)
+    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
+                   "Skips testing auto-restart of container '{}' on DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+    duthost = duthosts[dut_name]
     feature = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
 
     if loganalyzer:
@@ -379,21 +384,17 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
-def test_containers_autorestart(
-    duthosts, enum_dut_feature_container,
-    enum_rand_one_per_hwsku_frontend_hostname, tbinfo
-):
+def test_containers_autorestart(duthosts, enum_dut_feature_container,
+                                enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    dut_name, feature = decode_dut_port_name(enum_dut_feature_container)
-    pytest_require(
-        dut_name == enum_rand_one_per_hwsku_frontend_hostname and feature != "unknown",
-        "Skip test on dut host {} (chosen {}) feature {}"
-        .format(dut_name, enum_rand_one_per_hwsku_frontend_hostname, feature)
-    )
-
+    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
+                   "Skips testing auto-restart of container '{}' on DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
     duthost = duthosts[dut_name]
-    run_test_on_single_container(duthost, feature, tbinfo)
+
+    run_test_on_single_container(duthost, container_name, tbinfo)
