@@ -125,7 +125,6 @@ test_t0() {
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
-    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
