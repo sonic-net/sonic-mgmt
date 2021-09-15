@@ -239,8 +239,15 @@ class TestChassisApi(PlatformApiTestBase):
         serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
+        host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
+        expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
 
-        self.compare_value_with_device_facts(duthost, 'syseeprom_info', syseeprom_info_dict)
+        for field in expected_syseeprom_info_dict:
+            pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
+                          "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
+                          format(field, syseeprom_info_dict[field], expected_syseeprom_info_dict[field], duthost.hostname))
+
 
     def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
