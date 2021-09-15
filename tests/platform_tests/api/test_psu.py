@@ -9,6 +9,8 @@ from tests.common.helpers.platform_api import chassis, psu
 from tests.common.utilities import skip_version
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.utilities import skip_release_for_platform
+
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
