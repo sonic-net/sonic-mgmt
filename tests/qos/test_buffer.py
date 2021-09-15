@@ -155,7 +155,7 @@ def load_test_parameters(duthost):
         ingress_lossy_pool = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
         if ingress_lossy_pool:
             ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
-            ingress_profile_list.append('[BUFFER_PROFILE_TABLE:ingress_lossy_profile]')
+            ingress_profile_list.append('[BUFFER_PROFILE_TABLE:ingress_lossy_zero_profile]')
 
 
 def configure_shared_headroom_pool(duthost, enable):
