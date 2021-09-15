@@ -41,7 +41,7 @@ def get_feature_facts(module):
     output_lines = stdout.splitlines()
     for line in output_lines:
         feature_name = line.split('|')[1]
-        rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB HGET "FEATURE|{}" status'.format(feature_name))
+        rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name))
         if rc != SUCCESS_CODE:
             module.fail_json(msg='Failed to get feature status, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
         features[feature_name] = stdout.rstrip('\n')
