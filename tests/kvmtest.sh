@@ -122,6 +122,7 @@ test_t0() {
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_default_route.py \
+    ssh/test_ssh_stress.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
