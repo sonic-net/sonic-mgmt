@@ -243,9 +243,6 @@ def test_nhop(request, duthost):
     """
     skip_release(duthost, ["201811", "201911"])
 
-    if is_mellanox_device(duthost):
-        pytest.skip("Skipping on Mellanox platform")
-
     default_max_nhop_paths = 32
     nhop_group_limit = 1024
     # program more than the advertised limit
@@ -325,9 +322,11 @@ def test_nhop(request, duthost):
     loganalyzer.analyze(marker)
 
     # verify the test used up all the NHOP group resources
-    pytest_assert(
-        crm_after["available"] == 0,
-        "Unused NHOP group resource: {}, used:{}".format(
-            crm_after["available"], crm_after["used"]
+    # skip this check on Mellanox as ASIC resources are shared
+    if not is_mellanox_device(duthost):
+        pytest_assert(
+            crm_after["available"] == 0,
+            "Unused NHOP group resource: {}, used:{}".format(
+                crm_after["available"], crm_after["used"]
+            )
         )
-    )
