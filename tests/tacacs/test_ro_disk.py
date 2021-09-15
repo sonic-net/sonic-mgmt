@@ -8,7 +8,6 @@ from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
-from tests.common.plugins.sanity_check.recover import reboot_dut
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
