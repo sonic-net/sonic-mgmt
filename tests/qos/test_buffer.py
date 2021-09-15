@@ -42,13 +42,13 @@ TESTPARAM_LOSSY_PG = None
 BUFFER_MODEL_DYNAMIC = True
 
 ASIC_TABLE_KEYS_LOADED = False
-cell_size = None
-pipeline_latency = None
-mac_phy_delay = None
+CELL_SIZE = None
+PIPELINE_LATENCY = None
+MAC_PHY_DELAY = None
 
 LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
-lossless_mtu = None
-small_packet_percentage = None
+LOSSLESS_MTU = None
+SMALL_PACKET_PERCENTAGE = None
 
 
 def detect_buffer_model(duthost):
@@ -108,44 +108,44 @@ def detect_default_mtu(duthost, port_to_test):
 
 def detect_asic_table_keys(duthost):
     """
-    Load cell_size, pipeline_latency and mac_phy_delay from ASIC_TABLE 
+    Load CELL_SIZE, PIPELINE_LATENCY and MAC_PHY_DELAY from ASIC_TABLE 
     """
-    global cell_size
-    global pipeline_latency
-    global mac_phy_delay
+    global CELL_SIZE
+    global PIPELINE_LATENCY
+    global MAC_PHY_DELAY
     global ASIC_TABLE_KEYS_LOADED
 
     # Get cell size from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'cell_size'
     asic_keys = duthost.shell('redis-cli -n 6 keys *ASIC_TABLE*')['stdout']
-    cell_size = float(duthost.shell('redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
+    CELL_SIZE = float(duthost.shell('redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
 
-    # Get pipeline_latency from state DB
+    # Get PIPELINE_LATENCY from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'pipeline_latency'
-    pipeline_latency = float(duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
+    PIPELINE_LATENCY = float(duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
 
-    # Get mac_phy_delay from state DB
+    # Get MAC_PHY_DELAY from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'mac_phy_delay'
-    mac_phy_delay = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
+    MAC_PHY_DELAY = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
 
     ASIC_TABLE_KEYS_LOADED = True
 
 
-def detec_lossless_traffic_pattern_keys(duthost):
+def detect_lossless_traffic_pattern_keys(duthost):
     """
-    Load lossless_mtu, small_packet_percentage from LOSSLESS_TRAFFIC_PATTERN table 
+    Load LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE from LOSSLESS_TRAFFIC_PATTERN table 
     """
-    global lossless_mtu
-    global small_packet_percentage
+    global LOSSLESS_MTU
+    global SMALL_PACKET_PERCENTAGE
     global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED
-    # Get lossless_mtu from config DB
+    # Get LOSSLESS_MTU from config DB
     # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'mtu'
     lossless_traffic_keys = duthost.shell('redis-cli -n 4 keys LOSSLESS_TRAFFIC_PATTERN*')['stdout']
-    lossless_mtu = float(duthost.shell('redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
+    LOSSLESS_MTU = float(duthost.shell('redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
 
-    # Get small_packet_percentage from config DB
+    # Get SMALL_PACKET_PERCENTAGE from config DB
     # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'small_packet_percentage'
-    small_packet_percentage = float(
+    SMALL_PACKET_PERCENTAGE = float(
         duthost.shell('redis-cli -n 4 hget "{}" "small_packet_percentage"'.format(lossless_traffic_keys))['stdout'])
 
     LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = True
@@ -210,7 +210,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         detect_ingress_pool_number(duthost)
         detect_shared_headroom_pool_mode(duthost)
         detect_asic_table_keys(duthost)
-        detec_lossless_traffic_pattern_keys(duthost)
+        detect_lossless_traffic_pattern_keys(duthost)
         load_test_parameters(duthost)
 
         logging.info("Cable length: default {}".format(DEFAULT_CABLE_LENGTH_LIST))
@@ -1923,13 +1923,13 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     This algorithm is the same as the implementation in https://github.com/Azure/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
     """
     global ASIC_TABLE_KEYS_LOADED
-    global cell_size
-    global pipeline_latency
-    global mac_phy_delay
+    global CELL_SIZE
+    global PIPELINE_LATENCY
+    global MAC_PHY_DELAY
 
     global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED
-    global lossless_mtu
-    global small_packet_percentage
+    global LOSSLESS_MTU
+    global SMALL_PACKET_PERCENTAGE
 
     over_subscribe_ratio = 0
     peer_response_time = 0
@@ -2000,25 +2000,25 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         # Get cell size from state DB
         # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'cell_size'
         asic_keys = duthost.shell('redis-cli -n 6 keys *ASIC_TABLE*')['stdout']
-        cell_size = float(duthost.shell('redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
+        CELL_SIZE = float(duthost.shell('redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
 
-        # Get pipeline_latency from state DB
+        # Get PIPELINE_LATENCY from state DB
         # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'pipeline_latency'
-        pipeline_latency = float(duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
+        PIPELINE_LATENCY = float(duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
 
-        # Get mac_phy_delay from state DB
+        # Get MAC_PHY_DELAY from state DB
         # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'mac_phy_delay'
-        mac_phy_delay = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
+        MAC_PHY_DELAY = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
 
     if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
-        # Get lossless_mtu from config DB
+        # Get LOSSLESS_MTU from config DB
         # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'mtu'
         lossless_traffic_keys = duthost.shell('redis-cli -n 4 keys LOSSLESS_TRAFFIC_PATTERN*')['stdout']
-        lossless_mtu = float(duthost.shell('redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
+        LOSSLESS_MTU = float(duthost.shell('redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
 
-        # Get small_packet_percentage from config DB
+        # Get SMALL_PACKET_PERCENTAGE from config DB
         # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'small_packet_percentage'
-        small_packet_percentage = float(
+        SMALL_PACKET_PERCENTAGE = float(
             duthost.shell('redis-cli -n 4 hget "{}" "small_packet_percentage"'.format(lossless_traffic_keys))['stdout'])
 
     # Get over_subscribe_ratio from config DB
@@ -2053,17 +2053,17 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     speed_overhead = 0
 
     if is_8lane:
-        pipeline_latency = pipeline_latency * 2 - 1024
+        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
 
-    if cell_size > 2 * minimal_packet_size:
-        worst_case_factor = cell_size / minimal_packet_size
+    if CELL_SIZE > 2 * minimal_packet_size:
+        worst_case_factor = CELL_SIZE / minimal_packet_size
     else:
-        worst_case_factor = (2 * cell_size) / (1 + cell_size)
+        worst_case_factor = (2 * CELL_SIZE) / (1 + CELL_SIZE)
 
-    cell_occupancy = (100 - small_packet_percentage + small_packet_percentage * worst_case_factor) / 100
+    cell_occupancy = (100 - SMALL_PACKET_PERCENTAGE + SMALL_PACKET_PERCENTAGE * worst_case_factor) / 100
 
     if gearbox_delay == 0:
         bytes_on_gearbox = 0
@@ -2073,12 +2073,12 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
 
     peer_response_time = (float(pause_quanta)) * 512 / (1024 * 8)
     bytes_on_cable = 2 * (float(cable_length)) * port_speed * 1000000000 / speed_of_light / (8 * 1024)
-    propagation_delay = port_mtu + bytes_on_cable + 2 * bytes_on_gearbox + mac_phy_delay + peer_response_time * 1024
+    propagation_delay = port_mtu + bytes_on_cable + 2 * bytes_on_gearbox + MAC_PHY_DELAY + peer_response_time * 1024
 
     # Calculate the xoff and xon and then round up at 1024 bytes
-    xoff_value = lossless_mtu + propagation_delay * cell_occupancy
+    xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
     xoff_value = math.ceil(xoff_value / 1024) * 1024
-    xon_value = pipeline_latency
+    xon_value = PIPELINE_LATENCY
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:
