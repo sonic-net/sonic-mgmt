@@ -9,6 +9,8 @@ from datetime import datetime
 
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
@@ -132,7 +134,7 @@ def get_kexec_time(duthost, messages, result):
     for message in messages:
         # Get timestamp of reboot - Rebooting string
         if re.search(reboot_pattern, message):
-            logging.info("FOUND REBOOT PATTERN for {}", duthost.hostname)
+            logging.info("FOUND REBOOT PATTERN for {}".format(duthost.hostname))
             reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
             continue
     result["reboot_time"] = {
@@ -141,6 +143,21 @@ def get_kexec_time(duthost, messages, result):
 
 def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
+    derived_patterns = OTHER_PATTERNS.get("COMMON")
+    service_patterns = dict()
+    # get platform specific regexes
+    if is_broadcom_device(duthost):
+        derived_patterns.update(OTHER_PATTERNS.get("BRCM"))
+    elif is_mellanox_device(duthost):
+        derived_patterns.update(OTHER_PATTERNS.get("MLNX"))
+    # get image specific regexes
+    if "20191130" in duthost.os_version:
+        derived_patterns.update(OTHER_PATTERNS.get("201911"))
+        service_patterns.update(SERVICE_PATTERNS.get("201911"))
+    else:
+        derived_patterns.update(OTHER_PATTERNS.get("LATEST"))
+        service_patterns.update(SERVICE_PATTERNS.get("LATEST"))
+
     if not messages:
         logging.error("Expected messages not found in syslog")
         return None
@@ -150,6 +167,8 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
         time = time.strftime(FMT)
         service_name = message.split(status + " ")[1].split()[0]
         service_name = service_name.upper()
+        if service_name == "ROUTER":
+            service_name = "RADV"
         service_dict = service_restart_times.get(service_name, {"timestamp": {}})
         timestamps = service_dict.get("timestamp")
         if status in timestamps:
@@ -160,16 +179,16 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
     reboot_time = "N/A"
     for message in messages:
         # Get stopping to started timestamps for services (swss, bgp, etc)
-        for status, pattern in SERVICE_PATTERNS.items():
+        for status, pattern in service_patterns.items():
             if re.search(pattern, message):
                 service_time_check(message, status)
                 break
         # Get timestamps of all other entities
-        for state, pattern in OTHER_PATTERNS.items():
+        for state, pattern in derived_patterns.items():
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
                 state_name = state.split("|")[0].strip()
-                if state_name + "|End" not in OTHER_PATTERNS.keys():
+                if state_name + "|End" not in derived_patterns.keys():
                     state_times = get_state_times(timestamp, state, offset_from_kexec)
                     offset_from_kexec.update(state_times)
                 else:

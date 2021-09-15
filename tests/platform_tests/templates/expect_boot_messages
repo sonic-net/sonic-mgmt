@@ -1,7 +1,6 @@
 r, ".* NOTICE admin: Rebooting with /sbin/kexec -e to.*..."
 
 r, ".* systemd.* (Stopping|Stopped|Starting|Started).* Database container.*"
-
 r, ".* NOTICE admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd).* service.*"
 r, ".* NOTICE admin: Stopped.* swss.* service.*"
 r, ".* NOTICE root: (Stopping|Stopped|Starting|Started).* (swss|syncd|gbsyncd).* service.*"
@@ -31,3 +30,25 @@ r, ".*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*"
 # bgpd.log messages
 r, ".*ADJCHANGE: neighbor .* in vrf default Up.*"
 r, ".*rcvd End-of-RIB for IPv4 Unicast from.*"
+
+# mlnx specific regexes
+r, ".* syncd.*mlnx_sai_switch.*mlnx_create_switch: Create switch.*INIT_SWITCH=true.*"
+r, ".* syncd#SDK.*mlnx_sai_switch.*mlnx_create_switch.*Created switch Switch ID.*"
+
+# 201911 specific regexes
+r, ".* NOTICE admin: Stopping radv ....*"
+r, ".* INFO systemd.*Stopped Router advertiser container.*"
+r, ".* INFO systemd.*Starting Router advertiser container.*"
+r, ".* INFO systemd.*Started Router advertiser container.*"
+r, ".* NOTICE admin: Stopping bgp.*"
+r, ".* NOTICE admin: Stopped  bgp.*"
+r, ".* INFO systemd.*Started BGP container.*"
+r, ".* NOTICE admin: Stopping teamd.*"
+r, ".* NOTICE admin: Stopped teamd.*"
+r, ".* INFO systemd.*Starting TEAMD container.*"
+r, ".* INFO systemd.*Started TEAMD container.*"
+r, ".* swss#orchagent.*sai_redis_notify_syncd.*sending syncd.*INIT view.*"
+r, ".* swss#orchagent.*initSaiRedis.*Notify syncd INIT_VIEW.*"
+r, ".* swss#orchagent.*sai_redis_notify_syncd.*sending syncd.*APPLY view.*"
+r, ".* syncd#SDK.*notifySyncd.*setting very first run to FALSE, op = APPLY_VIEW.*"
+r, ".* teamd#teammgrd.*setLagAdminStatus.*Set port channel PortChannel.*admin status to up.*"
