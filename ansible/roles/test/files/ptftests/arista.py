@@ -83,6 +83,38 @@ class Arista(object):
         # match all modes - A#, A(config)#, A(config-if)#
         return prompt.strip().replace('>', '.*#')
 
+    def exec_command(self, cmd):
+        """
+        Execute single command without interaction
+        Args:
+            cmd (str): command, e.g. show version
+        Returns:
+            int: command execution status code
+            str: command return value
+        """
+        stdin, stdout, stderr = self.conn.exec_command(cmd)
+        return stdout.channel.recv_exit_status(), stdout.read()
+
+    def exec_command_compatible(self, *cmds):
+        """
+        Execute several equivalent commands:
+            return first success command returned value,
+            return last command returned value if all failed.
+        Used for compatible scenario, for example:
+            in EOS 4.20.15M lacp show command is 'show lacp neighbor', but in EOS 4.25.5.1M it is 'show lacp peer'
+        Args:
+            cmds (*str): command, e.g. 'show lacp neighbor', 'show lacp peer'
+        Returns:
+            str: command return value
+        """
+        value = None
+        for cmd in cmds:
+            (code, value) = self.exec_command(cmd)
+            if code == 0:
+                break
+        return value
+
+
     def do_cmd(self, cmd, prompt = None):
         if prompt == None:
             prompt = self.arista_prompt
@@ -143,7 +175,8 @@ class Arista(object):
             info = {}
             debug_info = {}
             # 'show lacp neighbor' command is deprecated by 'show lacp peer'
-            lacp_output = self.do_cmd('show lacp peer')
+            # execute both of them, get the success returned one as lacp_output
+            lacp_output = self.exec_command_compatible('show lacp neighbor', 'show lacp peer')
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
@@ -178,7 +211,7 @@ class Arista(object):
             samples[cur_time] = sample
             if self.DEBUG:
                 debug_data[cur_time] = {
-                    'show lacp peer' : lacp_output,
+                    'show lacp neighbor/peer' : lacp_output,
                     'show ip bgp neighbors' : bgp_neig_output,
                     'show ip route bgp' : bgp_route_v4_output,
                     'show ipv6 route bgp' : bgp_route_v6_output,
