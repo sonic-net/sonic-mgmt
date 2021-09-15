@@ -179,7 +179,7 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def disable_log_rotate(self):
+    def _disable_log_rotate(self):
         self.logrotate_ref_count = self.logrotate_ref_count + 1
         if self.logrotate_ref_count > 1:
             return
@@ -201,7 +201,7 @@ class LogAnalyzer:
         else:
             logging.error("Logrotate from previous task was not finished during 60 seconds")
 
-    def enable_log_rotate(self):
+    def _enable_log_rotate(self):
         if self.logrotate_ref_count > 0:
             self.logrotate_ref_count = self.logrotate_ref_count - 1
             if self.logrotate_ref_count == 0:
@@ -234,7 +234,7 @@ class LogAnalyzer:
             start_string = self.start_marker
 
         try:
-            self.disable_log_rotate()
+            self._disable_log_rotate()
 
             # Add end marker into DUT syslog
             if check_end_marker:
@@ -251,7 +251,7 @@ class LogAnalyzer:
                     start_str = start_string
                 self.ansible_host.extract_log(directory=file_dir, file_prefix=file_name, start_string=start_str, target_filename=extracted_file_name)
         finally:
-            self.enable_log_rotate()
+            self._enable_log_rotate()
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
         self.save_extracted_log(dest=tmp_folder)

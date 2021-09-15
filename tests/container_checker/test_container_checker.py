@@ -232,9 +232,5 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
 
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
 
-    try:
-        loganalyzer.disable_log_rotate()
-        with loganalyzer:
-            stop_container(duthost, container_name)
-    finally:
-        loganalyzer.enable_log_rotate()
+    with loganalyzer:
+        stop_container(duthost, container_name)
