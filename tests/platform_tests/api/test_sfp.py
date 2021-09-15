@@ -2,8 +2,6 @@ import ast
 import logging
 import pytest
 
-from natsort import natsorted
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_version
@@ -33,9 +31,9 @@ pytestmark = [
 
 @pytest.fixture(scope="class")
 def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     sfp_setup = {}
-    sfp_port_indices = []
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    
     if duthost.is_supervisor_node():
         pytest.skip("skipping for supervisor node")
 
@@ -44,15 +42,17 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
   
-    sfp_setup["sfp_port_indices"] = [physical_port_index_map[intf] \
-        for intf in natsorted(physical_port_index_map.keys())]
+    sfp_port_indices = set([physical_port_index_map[intf] \
+        for intf in physical_port_index_map.keys()])
+    sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
 
     if len(xcvr_skip_list[duthost.hostname]):
         logging.info("Skipping tests on {}".format(xcvr_skip_list[duthost.hostname]))
 
-    sfp_setup["sfp_test_port_indices"] = [physical_port_index_map[intf] for intf in \
-                                                natsorted(physical_port_index_map.keys()) \
-                                                if intf not in xcvr_skip_list[duthost.hostname]]
+    sfp_port_indices = set([physical_port_index_map[intf] for intf in \
+                                                physical_port_index_map.keys() \
+                                                if intf not in xcvr_skip_list[duthost.hostname]])
+    sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
 
