@@ -193,13 +193,15 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
             if jobs[0].failed_task is not None:
                 output.append('Server %s cleanup failed, skip recovery.' % server)
             jobs = jobs[1:]
-        # start-vms output
-        if jobs[0].failed_task is None:
-            start_vms_result = 'Succeed.'
-        else:
-            start_vms_result = 'Failed.'
-        output.append('Server %s start-vms result: %s ' % (server, start_vms_result))
-        jobs = jobs[1:]
+
+        if vmtype != 'ceos':
+            # start-vms output. If vmtype is ceos, start-vms is not required
+            if jobs[0].failed_task is None:
+                start_vms_result = 'Succeed.'
+            else:
+                start_vms_result = 'Failed.'
+            output.append('Server %s start-vms result: %s ' % (server, start_vms_result))
+            jobs = jobs[1:]
 
         output.append('Server %s recovery result:' % server)
         headers = [server, 'add-topo', 'deploy-mg']
@@ -305,7 +307,7 @@ if __name__ == '__main__':
     parser.add_argument('--testbed-servers', action='append', type=str, required=True, help='testbed server to recover')
     parser.add_argument('--testbed', default='testbed.csv', help='testbed file(default: testbed.csv)')
     parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
-    parser.add_argument('--vm-type', default='veos', help='vm type (veos|ceos|vsonic, default: veos)')
+    parser.add_argument('--vm-type', default='veos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
     parser.add_argument('--inventory', help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
     parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
     parser.add_argument('--skip-cleanup', action='store_true', help='Skip cleanup server')
