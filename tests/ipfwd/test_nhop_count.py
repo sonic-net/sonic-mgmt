@@ -7,6 +7,7 @@ import time
 from collections import namedtuple
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import skip_release
 
@@ -241,6 +242,10 @@ def test_nhop(request, duthost):
     - Verify no erros and crash
     """
     skip_release(duthost, ["201811", "201911"])
+
+    if is_mellanox_device(duthost):
+        pytest.skip("Skipping on Mellanox platform")
+
     default_max_nhop_paths = 32
     nhop_group_limit = 1024
     # program more than the advertised limit
