@@ -59,7 +59,11 @@ parameters:
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold \
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold \
               platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold \
-              platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold"
+              platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded \
+              platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded \
+              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json \
+              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json"
     displayName: "Skip Scripts"
 
   # Testbed specific, to skip and/or include directories
