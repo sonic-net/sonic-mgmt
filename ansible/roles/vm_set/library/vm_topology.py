@@ -842,9 +842,9 @@ class VMTopology(object):
             bool: True if the interface exists. Otherwise False.
         """
         if pid:
-            cmdline = 'nsenter -t %s -n ifconfig %s' % (pid, intf)
+            cmdline = 'nsenter -t %s -n ifconfig -a %s' % (pid, intf)
         else:
-            cmdline = 'ifconfig %s' % intf
+            cmdline = 'ifconfig -a %s' % intf
 
         try:
             VMTopology.cmd(cmdline)
