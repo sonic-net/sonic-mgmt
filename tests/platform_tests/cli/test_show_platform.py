@@ -93,6 +93,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
