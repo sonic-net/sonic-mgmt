@@ -2395,7 +2395,7 @@ sensors_checks:
       - pmbus-i2c-4-58/vout1/in2_lcrit_alarm
       - pmbus-i2c-4-58/vout1/in2_crit_alarm
       temp:
-      - coretemp-isa-0000/Physical id 0/temp1_crit_alarm
+      - coretemp-isa-0000/Package id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - lm73-i2c-88-48/Front panel temp sensor/temp1_min_alarm
@@ -2429,8 +2429,8 @@ sensors_checks:
       - - pmbus-i2c-4-58/iout1/curr2_input
         - pmbus-i2c-4-58/iout1/curr2_max
       temp:
-      - - coretemp-isa-0000/Physical id 0/temp1_input
-        - coretemp-isa-0000/Physical id 0/temp1_max
+      - - coretemp-isa-0000/Package id 0/temp1_input
+        - coretemp-isa-0000/Package id 0/temp1_max
       - - coretemp-isa-0000/Core 0/temp2_input
         - coretemp-isa-0000/Core 0/temp2_max
       - - coretemp-isa-0000/Core 1/temp3_input
