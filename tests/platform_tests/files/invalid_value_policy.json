@@ -22,6 +22,10 @@
                 {
                     "type": "fan.all.set_speed",
                     "speed": "-1"
+                },
+                {
+                    "type": "fan.all.set_speed",
+                    "speed": "-1"
                 }
             ]
         }
