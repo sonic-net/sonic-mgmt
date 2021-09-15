@@ -352,3 +352,18 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                 if not exist:
                     pytest.fail('lag member {} not found in system lag member table {}'
                                 .format(member, lag_member_list))
+
+def is_lag_in_app_db(asic):
+    """
+    Returnes True if lag in app db else False
+    It runs the command e.g. 'redis-cli -n 0 --raw keys "*LAG_TABLE*"'
+    Args:
+        asic<obj>: asic
+    """
+    appdb = AppDbCli(asic)
+    app_db_lag_list = appdb.get_app_db_lag_list()
+    for lag in app_db_lag_list:
+        if TMP_PC in lag:
+            return True
+
+    return False
