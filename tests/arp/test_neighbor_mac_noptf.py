@@ -115,7 +115,7 @@ class TestNeighborMacNoPtf:
                         testRoutedInterface[asichost.asic_index] = intf
                 return testRoutedInterface
 
-        if not wait_until(120, 2.0, find_routed_interface):
+        if not wait_until(120, 2, find_routed_interface):
             pytest.fail('Failed to find routed interface in 120 s')
 
         yield testRoutedInterface
