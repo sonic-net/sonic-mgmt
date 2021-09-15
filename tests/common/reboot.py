@@ -5,10 +5,16 @@ import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
 from collections import deque
 
+from tests.common.utilities import wait_until
+from tests.common.platform.transceiver_utils import check_transceiver_basic
+from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
+from tests.common.platform.daemon_utils import check_pmon_daemon_status
+from tests.common.platform.processes_utils import wait_critical_processes
+
 logger = logging.getLogger(__name__)
 
 # SSH defines
-SONIC_SSH_PORT  = 22
+SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
@@ -17,7 +23,7 @@ REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
-REBOOT_TYPE_UNKNOWN  = "Unknown"
+REBOOT_TYPE_UNKNOWN = "Unknown"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -83,9 +89,61 @@ REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 # Retry logic config
 MAX_RETRIES = 3
 RETRY_BACKOFF_TIME = 15
+MAX_WAIT_TIME_FOR_INTERFACES = 300
+MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, timeout=300, reboot_type=None):
+    """
+    Perform a further check after reboot-cause, including transceiver status, interface status
+    @param localhost: The Localhost object.
+    @param dut: The AnsibleHost object of DUT.
+    @param interfaces: DUT's interfaces defined by minigraph
+    """
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(dut, timeout)
+
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
+
+    if dut.is_supervisor_node():
+        logging.info("skipping interfaces related check for supervisor")
+    else:
+        logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
+        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces,
+                            xcvr_skip_list)
+        assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+            MAX_WAIT_TIME_FOR_INTERFACES)
+
+        logging.info("Check transceiver status")
+        for asic_index in dut.get_frontend_asic_ids():
+            # Get the interfaces pertaining to that asic
+            interface_list = get_port_map(dut, asic_index)
+            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
+            check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+
+        logging.info("Check pmon daemon status")
+        assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
+
+    if dut.facts["asic_type"] in ["mellanox"]:
+
+        from tests.platform_tests.mellanox.check_hw_mgmt_service import check_hw_management_service
+        from tests.platform_tests.mellanox.check_sysfs import check_sysfs
+
+        logging.info("Check the hw-management service")
+        check_hw_management_service(dut)
+
+        logging.info("Check sysfs")
+        check_sysfs(dut)
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10, \
-    timeout=0, wait=0, wait_for_ssh=True, reboot_helper=None, reboot_kwargs=None):
+           timeout=0, wait=0, wait_for_ssh=True, reboot_helper=None, reboot_kwargs=None):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -104,7 +162,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     dut_ip = duthost.mgmt_ip
     hostname = duthost.hostname
     try:
-        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
         if timeout == 0:
             timeout = reboot_ctrl['timeout']
@@ -131,38 +189,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         reboot_res = pool.apply_async(execute_reboot_helper)
 
     logger.info('waiting for ssh to drop on {}'.format(hostname))
-    res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
-                             state='absent',
-                             search_regex=SONIC_SSH_REGEX,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
+    check_ssh_drop(duthost, localhost, delay=delay, timeout=timeout, wait_for_ssh=True)
 
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        if reboot_res.ready():
-            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
-        raise Exception('DUT {} did not shutdown'.format(hostname))
-
-    if not wait_for_ssh:
-        return
+    logger.info('waiting for ssh to start on {}'.format(hostname))
+    check_ssh_startup(duthost, localhost, delay=delay, timeout=timeout, wait_for_ssh=True)
 
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
-
-    logger.info('waiting for ssh to startup on {}'.format(hostname))
-    res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
-                             state='started',
-                             search_regex=SONIC_SSH_REGEX,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not startup'.format(hostname))
-
-    logger.info('ssh has started up on {}'.format(hostname))
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
@@ -176,6 +210,43 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
+def check_ssh_drop(duthost, localhost, delay=10, timeout=0, wait_for_ssh=True):
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
+    logger.info('waiting for ssh to drop on {}'.format(hostname))
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='absent',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=delay,
+                             timeout=timeout,
+                             module_ignore_errors=True)
+
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        raise Exception('DUT {} did not shutdown'.format(hostname))
+
+    if not wait_for_ssh:
+        return
+
+
+def check_ssh_startup(duthost, localhost, delay=10, timeout=0):
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
+    logger.info('waiting for ssh to startup on {}'.format(hostname))
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='started',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=delay,
+                             timeout=timeout,
+                             module_ignore_errors=True)
+
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        raise Exception('DUT {} did not startup'.format(hostname))
+
+    logger.info('ssh has started up on {}'.format(hostname))
+
+
 def get_reboot_cause(dut):
     """
     @summary: get the reboot cause on DUT.
@@ -183,7 +254,7 @@ def get_reboot_cause(dut):
     """
     logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
-    cause  = output['stdout']
+    cause = output['stdout']
 
     for type, ctrl in reboot_ctrl_dict.items():
         if re.search(ctrl['cause'], cause):
@@ -194,7 +265,7 @@ def get_reboot_cause(dut):
 
 def check_reboot_cause(dut, reboot_cause_expected):
     """
-    @summary: Check the reboot cause on DUT. Can be used with wailt_until
+    @summary: Check the reboot cause on DUT. Can be used with wait_until
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """

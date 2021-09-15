@@ -9,6 +9,8 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
+SERVER_PORT = 8000
+IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
@@ -38,12 +40,12 @@ def check_critical_processes(dut, watch_secs=0):
             time.sleep(min(5, watch_secs))
         watch_secs = watch_secs - 5
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, timeout=300):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical processes are healthy")
-    pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
+    pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")
 

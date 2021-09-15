@@ -7,8 +7,9 @@ from time import sleep
 from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
-from tests.common.helpers.assertions import pytest_assert
-
+from tests.common.reboot import check_interfaces_and_services, check_ssh_startup
+from tests.nat.nat_helpers import exec_command
+from tests.common.platform.processes_utils import IPTABLES_PREPEND_RULE_CMD
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
@@ -27,7 +28,7 @@ pytestmark = [
 ]
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
-REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
+REGEX_SERIAL_NUMBER = r'^[-A-Za-z0-9]+$'
 REGEX_IP_ADDRESS = r'^(?:[0-9]{1,3}\.){3}([0-9]{1,3})$'
 
 MODULE_TYPE = ['SUPERVISOR', 'LINE-CARD', 'FABRIC-CARD']
@@ -309,7 +310,7 @@ class TestModuleApi(PlatformApiTestBase):
 
             sfp_list = module.get_all_sfps(platform_api_conn, mod_idx)
             if not self.expect(sfp_list is not None, "Module {}: Failed to retrieve SFPs".format(mod_idx)):
-               continue
+                continue
 
             self.expect(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "Module {}: SFPs appear to be incorrect".format(mod_idx))
 
@@ -381,16 +382,35 @@ class TestModuleApi(PlatformApiTestBase):
                 self.expect(status in MODULE_STATUS, "Module {}  status {} is invalid value".format(i, status))
         self.assert_expectations()
 
-    def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn, conn_graph_facts, xcvr_skip_list):
+
         reboot_type = 'default'
-        reboot_timeout = 300
+        timeout = 450
+        SERVER_PORT = 8000
+        IPTABLES_ENTRY = 'INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
+
             if mod_name in self.skip_mod_list:
                 logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
-                sleep(reboot_timeout)
-                mod_status = module.get_oper_status(platform_api_conn, mod_idx)
-                pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
+                if module_reboot is False:
+                    logger.info("Reboot for module {} is not supported".format(mod_name))
+                else:
+                    # Which ssh to DUTs in duthost gets dropped is platform specific - so doing generic sleep
+                    logger.info("Sleeping for 60 seconds to allow for the module to shutdown")
+                    sleep(60)
+                    for dut in duthosts:
+                        check_ssh_startup(dut, localhost, timeout=timeout)
+
+                    for dut in duthosts:
+                        # This iptables rule is not persistent after the reboot of the dut.
+                        # That's why we need to add it back
+                        output_cli = exec_command(dut, ["sudo iptables --list-rules"])
+                        if IPTABLES_ENTRY not in output_cli['stdout']:
+                            dut.command(IPTABLES_PREPEND_RULE_CMD)
+
+                        interfaces = conn_graph_facts["device_conn"][dut.hostname]
+                        check_interfaces_and_services(dut, interfaces, xcvr_skip_list, timeout=timeout)
