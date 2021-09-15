@@ -561,6 +561,7 @@ class ReloadTest(BaseTest):
         self.random_vlan           = random.choice(self.vlan_ports)
         self.from_server_src_port  = self.random_vlan
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
+        self.from_server_src_mac   = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
         self.from_server_dst_ports = self.portchannel_ports
 
@@ -694,6 +695,7 @@ class ReloadTest(BaseTest):
     def generate_from_vlan(self):
         packet = simple_tcp_packet(
                       eth_dst=self.dut_mac,
+                      eth_src=self.from_server_src_mac,
                       ip_src=self.from_server_src_addr,
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=5000
@@ -712,23 +714,27 @@ class ReloadTest(BaseTest):
         self.from_vlan_packet = str(packet)
 
     def generate_ping_dut_lo(self):
+        self.ping_dut_packets = []
         dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
-        packet = simple_icmp_packet(eth_dst=self.dut_mac,
-                                    ip_src=self.from_server_src_addr,
-                                    ip_dst=dut_lo_ipv4)
+        for src_port in self.vlan_host_map:
+            src_addr = random.choice(self.vlan_host_map[src_port].keys())
+            src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
+            packet = simple_icmp_packet(eth_src=src_mac,
+                                        eth_dst=self.dut_mac,
+                                        ip_src=src_addr,
+                                        ip_dst=dut_lo_ipv4)
+            self.ping_dut_packets.append((src_port, str(packet)))
 
         exp_packet = simple_icmp_packet(eth_src=self.dut_mac,
                                         ip_src=dut_lo_ipv4,
-                                        ip_dst=self.from_server_src_addr,
                                         icmp_type='echo-reply')
 
 
         self.ping_dut_exp_packet  = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-
-        self.ping_dut_packet = str(packet)
 
     def generate_arp_ping_packet(self):
         vlan = next(k for k, v in self.ports_per_vlan.items() if v)
@@ -1747,7 +1753,8 @@ class ReloadTest(BaseTest):
 
     def pingDut(self):
         for i in xrange(self.ping_dut_pkts):
-            testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_packet)
+            src_port, packet = random.choice(self.ping_dut_packets)
+            testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
