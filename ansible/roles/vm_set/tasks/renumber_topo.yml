@@ -15,6 +15,11 @@
       mux_simulator_action: stop
     when: "'dualtor' in topo"
 
+  - name: Stop PTF portchannel service
+    include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: stop
+
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
@@ -102,6 +107,8 @@
 
   - name: Start PTF portchannel service
     include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: start
 
   - name: Announce routes
     include_tasks: announce_routes.yml

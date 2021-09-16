@@ -27,4 +27,3 @@
     cmd: "{{ ptf_portchannel_action }}"
     portchannel_config: "{{ portchannel_config }}"
   delegate_to: "{{ ptf_host }}"
-
