@@ -293,9 +293,8 @@ class CeosNetwork(object):
                 else:
                     # Result is unexpected, need to retry
                     continue
-        else:
-            # Reached max retry, fail with exception
-            raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
+        # Reached max retry, fail with exception
+        raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
 
     @staticmethod
     def get_ovs_br_ports(bridge):
