@@ -118,3 +118,6 @@ COMMUN_TEST_CASE = [
         "saitunnel.IpIpP2PTunnelDecapTestIpv4inIpv6GRE",
         "saitunnel.IpIpP2PTunnelDecapTestIpv6inIpv6GRE"
         ]
+
+
+PROBE_TEST_CASE = "sail3.L3IPv4HostTest"
