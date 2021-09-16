@@ -97,6 +97,29 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
         return True
 
+    def _check_buffer_item_in_asic_db(duthost, port, buffer_item, buffer_profile_oid, asic_key_name, should_have_profile, use_assert):
+        buffer_item_asic_oid = pg_name_map['{}:{}'.format(port, buffer_item)]
+        buffer_item_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_item_asic_oid))['stdout']
+        buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} {}'.format(buffer_item_asic_key, asic_key_name))['stdout']
+        if should_have_profile:
+            if buffer_profile_oid:
+                if not _check_condition(buffer_profile_oid == buffer_profile_oid_in_pg,
+                                        "Different OIDs in buffer items ({}) and ({}) in port {}".format(buffer_profile_oid, buffer_profile_oid_in_pg, port),
+                                        use_assert):
+                    return None, False
+            else:
+                buffer_profile_oid = buffer_profile_oid_in_pg
+        else:
+            buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, buffer_item)]
+            buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
+            buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
+            if not _check_condition(not buffer_profile_oid_in_pg or buffer_profile_oid_in_pg == 'oid:0x0',
+                                    "Buffer PG configured on admin down port in ASIC_DB {}".format(port),
+                                    use_assert):
+                return None, False
+
+        return buffer_profile_oid, True
+
     def _check_port_buffer_info_and_get_profile_oid(duthost, port, expected_profile, use_assert=True):
         """Check port's buffer information against CONFIG_DB and ASIC_DB
 
@@ -117,29 +140,17 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                 return None, False
 
             if pg_name_map:
+                buffer_profile_oid = None
                 for pg in ['3', '4']:
-                    buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
-                    buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
-                    buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
-                    if buffer_profile_oid:
-                        if not _check_condition(buffer_profile_oid == buffer_profile_oid_in_pg,
-                                                "Different OIDs in PG 3 ({}) and 4 ({}) in port {}".format(buffer_profile_oid, buffer_profile_oid_in_pg, port),
-                                                use_assert):
-                            return None, False
-                    else:
-                        buffer_profile_oid = buffer_profile_oid_in_pg
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, pg, buffer_profile_oid, 'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE', True, use_assert)
+                    if not success:
+                        return None, False
         else:
             if not _check_condition(not profile_in_pg, "Buffer PG configured on admin down port {}".format(port), use_assert):
                 return None, False
             if pg_name_map:
                 for pg in ['3', '4']:
-                    buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
-                    buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
-                    buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
-                    if not _check_condition(not buffer_profile_oid_in_pg or buffer_profile_oid_in_pg == 'oid:0x0',
-                                            "Buffer PG configured on admin down port in ASIC_DB {}".format(port),
-                                            use_assert):
-                        return None, False
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, pg, None, 'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE', False, use_assert)
 
         return buffer_profile_oid, True
 
@@ -191,8 +202,8 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                     # Further check the buffer profile in ASIC_DB
                     buffer_profile_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_profile_oid))['stdout']
                     buffer_profile_asic_info = make_dict_from_output_lines(duthost.shell('redis-cli -n 1 hgetall {}'.format(buffer_profile_key))['stdout'].split())
-                    pytest_assert(buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_XON_TH'] == profile_info['xon'] and
-                                  buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_XOFF_TH'] == profile_info['xoff'] and
+                    pytest_assert(buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') == profile_info.get('xon') and
+                                  buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') == profile_info.get('xoff') and
                                   buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] == profile_info['size'] and
                                   (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] == 'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
                                    buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] == profile_info['dynamic_th'] or
