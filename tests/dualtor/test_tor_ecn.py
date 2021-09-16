@@ -20,6 +20,7 @@ from scapy.all import Ether, IP
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -41,6 +42,24 @@ def mock_common_setup_teardown(
     request
 ):
     request.getfixturevalue("run_garp_service")
+
+@pytest.fixture(scope="function")
+def setup_dualtor_tor_active(
+    tbinfo, request
+):
+    if is_t0_mocked_dualtor(tbinfo):
+        request.getfixturevalue('apply_active_state_to_orchagent')
+    else:
+        request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
+
+@pytest.fixture(scope="function")
+def setup_dualtor_tor_standby(
+    tbinfo, request
+):
+    if is_t0_mocked_dualtor(tbinfo):
+        request.getfixturevalue('apply_standby_state_to_orchagent')
+    else:
+        request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
 @pytest.fixture(scope="function")
 def build_encapsulated_ip_packet(
@@ -213,15 +232,11 @@ def verify_ecn_on_received_packet(
         logging.info("the expected ECN: {0:02b} matching with received ECN: {0:02b}".format(exp_ecn, rec_ecn))
 
 def test_dscp_to_queue_during_decap_on_active(
-    apply_active_state_to_orchagent,
-    build_encapsulated_ip_packet,
-    rand_selected_interface, 
-    ptfadapter,
-    tbinfo, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor, 
-    duthosts, 
-    rand_one_dut_hostname
+    setup_dualtor_tor_active,
+    build_encapsulated_ip_packet, request,
+    rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor, 
+    duthosts, rand_one_dut_hostname
 ):
     """
     Test if DSCP to Q mapping for inner header is matching with outer header during decap on active
@@ -272,6 +287,7 @@ def write_standby(rand_selected_dut):
         pytest.skip('file {} not found'.format(file))
 
 def test_dscp_to_queue_during_encap_on_standby(
+    setup_dualtor_tor_standby,
     build_non_encapsulated_ip_packet,
     rand_selected_interface, ptfadapter,
     tbinfo, 
@@ -304,13 +320,10 @@ def test_dscp_to_queue_during_encap_on_standby(
        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
 
 def test_ecn_during_decap_on_active(
-    apply_active_state_to_orchagent,
-    build_encapsulated_ip_packet,
-    rand_selected_interface, 
-    ptfadapter,
-    tbinfo, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor
+    setup_dualtor_tor_active,
+    build_encapsulated_ip_packet, request,
+    rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
@@ -333,12 +346,10 @@ def test_ecn_during_decap_on_active(
     verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
 def test_ecn_during_encap_on_standby(
+    setup_dualtor_tor_standby,
     build_non_encapsulated_ip_packet,
-    rand_selected_interface, 
-    ptfadapter,
-    tbinfo, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor,
+    rand_selected_interface, ptfadapter,
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,
     write_standby
 ):
     """
