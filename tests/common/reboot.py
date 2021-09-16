@@ -269,9 +269,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
                 logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
                     index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index]["cause"]))
                 return False
-        else:
-            return True
-    else:
-        logging.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
-            reboot_type_history_len, len(reboot_type_history_queue)))
-        return False
+        return True
+    logging.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
+        reboot_type_history_len, len(reboot_type_history_queue)))
+    return False
