@@ -210,18 +210,21 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
             expected_profile = '[BUFFER_PROFILE|pg_lossless_{}_{}_profile]'.format(speed, cable_length)
 
             buffer_items_to_check = [('BUFFER_PG', '3-4', expected_profile),
-                                     ('BUFFER_PG', '0', 'BUFFER_PROFILE|ingress_lossy_profile'),
-                                     ('BUFFER_QUEUE', '0-2', 'BUFFER_PROFILE|q_lossy_profile'),
-                                     ('BUFFER_QUEUE', '3-4', 'BUFFER_PROFILE|egress_lossless_profile'),
-                                     ('BUFFER_QUEUE', '5-6', 'BUFFER_PROFILE|q_lossy_profile')
+                                     ('BUFFER_PG', '0', '[BUFFER_PROFILE|ingress_lossy_profile]'),
+                                     ('BUFFER_QUEUE', '0-2', '[BUFFER_PROFILE|q_lossy_profile]'),
+                                     ('BUFFER_QUEUE', '3-4', '[BUFFER_PROFILE|egress_lossless_profile]'),
+                                     ('BUFFER_QUEUE', '5-6', '[BUFFER_PROFILE|q_lossy_profile]')
                                      ]
 
             for table, ids, expected_profile in buffer_items_to_check:
+                logging.info("Checking buffer item {}|{}|{}".format(table, port, ids))
                 buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(duthost, table, ids, port, expected_profile)
 
                 if expected_profile not in profiles_checked:
                     profile_info = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "{}"'.format(expected_profile[1:-1]))['stdout'].split())
-                    pytest_assert(profile_info == default_lossless_profiles[(speed, cable_length)], "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, default_lossless_profiles[(speed, cable_length)]))
+                    is_ingress_lossless = expected_profile[:12] == 'pg_lossless_'
+                    if is_ingress_lossless:
+                        pytest_assert(profile_info == default_lossless_profiles[(speed, cable_length)], "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, default_lossless_profiles[(speed, cable_length)]))
 
                     if buffer_profile_oid:
                         # Further check the buffer profile in ASIC_DB
@@ -238,11 +241,12 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                                       "Buffer profile {} {} doesn't align with ASIC_TABLE {}".format(expected_profile, profile_info, buffer_profile_asic_info))
 
                     profiles_checked[expected_profile] = buffer_profile_oid
-                    if not lossless_pool_oid:
-                        lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
-                    else:
-                        pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
-                                      "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
+                    if is_ingress_lossless:
+                        if not lossless_pool_oid:
+                            lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
+                        else:
+                            pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                          "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
                 else:
                     pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
                                   "PG {}|3-4 has different OID of profile from other PGs sharing the same profile {}".format(port, expected_profile))
