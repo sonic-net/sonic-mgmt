@@ -347,7 +347,7 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
