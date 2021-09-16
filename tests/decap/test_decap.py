@@ -51,6 +51,7 @@ def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts,
     mellanox_hwskus = hostvars.get("mellanox_hwskus", [])
 
     if sonic_hwsku in mellanox_hwskus:
+        dscp_mode = "uniform"
         ecn_mode = "standard"
 
     setup_info = {
