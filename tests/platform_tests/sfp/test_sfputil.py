@@ -14,6 +14,7 @@ import pytest
 from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
+from tests.common.platform.interface_utils import get_port_map, check_interface_status
 from tests.common.utilities import skip_version
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -119,10 +120,9 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
+    for asic_index in duthost.get_frontend_asic_ids():
+        interface_list = get_port_map(duthost, asic_index)
+        assert check_interface_status(duthost, asic_index, interface_list, []), "Not all interfaces are up"
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list):
