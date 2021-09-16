@@ -777,15 +777,16 @@ def check_nexthops_balance(rand_selected_dut,
         # Hierarchical ECMP validation (in case of standby MUXs):
         # Step 1: Calculate total uplink share.
         total_uplink_share = expect_packet_num * (nexthops_count - len(expected_downlink_ports))
-        # Step 2: Divide uplink share among all uplinks
-        expect_packet_num = total_uplink_share // len(expected_uplink_ports)
+        # Step 2: Divide uplink share among all portchannels
+        expect_packet_num = total_uplink_share // (len(expected_uplink_ports) / 2)
         # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
         for uplink_int in expected_uplink_ports:
             pkt_num_lo = expect_packet_num * (1.0 - 0.25)
             pkt_num_hi = expect_packet_num * (1.0 + 0.25)
             count = port_packet_count.get(uplink_int, 0)
             logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
-            if count < pkt_num_lo or count > pkt_num_hi:
+            # Within a single portchannel, just one interface could receive the pkts as the outer header is the same
+            if count != 0 and (count < pkt_num_lo or count > pkt_num_hi):
                 balance = False
                 pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on uplink port {}".format(uplink_int))
 
