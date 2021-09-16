@@ -107,15 +107,18 @@ class Arista(object):
         Returns:
             str: command return value
         """
+        self.log('exec_command_compatible is: %s' % (str(cmds)))
         value = None
         for cmd in cmds:
             (code, value) = self.exec_command(cmd)
             if code == 0:
                 break
+        self.log('exec_command_compatible return is: %s' % (value))
         return value
 
 
     def do_cmd(self, cmd, prompt = None):
+        self.log('do_cmd is: %s' % (cmd))
         if prompt == None:
             prompt = self.arista_prompt
 
@@ -132,7 +135,7 @@ class Arista(object):
             # so if input_buffer is merely an 'exit', we can break the loop immediately
             if loop_times > 10 and input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit':
                 break
-
+        self.log('do_cmd return is: %s' % (input_buffer))
         return input_buffer
 
     def disconnect(self):
@@ -163,6 +166,7 @@ class Arista(object):
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
+            self.log('quit_enabled is: %s' % (quit_enabled))
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
             if not quit_enabled:
@@ -178,20 +182,24 @@ class Arista(object):
             # execute both of them, get the success returned one as lacp_output
             lacp_output = self.exec_command_compatible('show lacp neighbor', 'show lacp peer')
             info['lacp'] = self.parse_lacp(lacp_output)
+            self.log('lacp is: %s' % (info['lacp']))
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
+            self.log('bgp_neig is: %s' % (str(info['bgp_neig'])))
 
             v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
             if v4_routing != v4_routing_ok:
                 v4_routing_ok = v4_routing
                 self.log('BGP routing for ipv4 OK: %s' % (v4_routing_ok))
             info['bgp_route_v4'] = v4_routing_ok
+            self.log('bgp_route_v4 is: %s' % (str(info['bgp_route_v4'])))
 
             v6_routing, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
             if v6_routing != v6_routing_ok:
                 v6_routing_ok = v6_routing
                 self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
+            self.log('bgp_route_v6 is: %s' % (info['bgp_route_v6']))
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
             portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
@@ -408,9 +416,11 @@ class Arista(object):
         gr_timer = None
         for line in output.split('\n'):
             if 'Restart timer is' in line:
+                self.log('bgp_neig line is: |%s|' % (line))
                 gr_active = 'is active' in line
                 gr_timer = str(line[-9:-1])
-
+                self.log('bgp_neig1 gr_active: %s, gr_timer: |%s|' % (gr_active, gr_timer))
+        self.log('bgp_neig2 gr_active: %s, gr_timer: |%s|' % (gr_active, gr_timer))
         return gr_active, gr_timer
 
     def parse_bgp_route(self, output, expects):
