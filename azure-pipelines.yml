@@ -30,6 +30,7 @@ stages:
         tbname: vms-kvm-t0
         ptf_name: ptf_vms6-1
         tbtype: t0
+        vmtype: ceos
 
   - job:
     pool: sonictest-t1-lag
@@ -43,3 +44,4 @@ stages:
         tbname: vms-kvm-t1-lag
         ptf_name: ptf_vms6-2
         tbtype: t1-lag
+        vmtype: ceos

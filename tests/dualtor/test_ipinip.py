@@ -78,22 +78,22 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
     return packet
 
 
-def build_expected_packet_to_server(encapsulated_packet):
+def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
     """Build packet expected to be received by server from the tunnel packet."""
     inner_packet = encapsulated_packet[IP].payload[IP].copy()
     # use dummy mac address that will be ignored in mask
     inner_packet = Ether(src="aa:bb:cc:dd:ee:ff", dst="aa:bb:cc:dd:ee:ff") / inner_packet
+    if decrease_ttl:
+        inner_packet.ttl = inner_packet.ttl - 1
     exp_pkt = mask.Mask(inner_packet)
     exp_pkt.set_do_not_care_scapy(Ether, "dst")
     exp_pkt.set_do_not_care_scapy(Ether, "src")
-    exp_pkt.set_do_not_care_scapy(IP, "tos")
-    exp_pkt.set_do_not_care_scapy(IP, "ttl")
     exp_pkt.set_do_not_care_scapy(IP, "chksum")
     return exp_pkt
 
 
 def test_decap_active_tor(
-    build_encapsulated_packet, request,
+    build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor):
     if is_t0_mocked_dualtor(tbinfo):
@@ -106,21 +106,13 @@ def test_decap_active_tor(
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
-    exp_pkt = build_expected_packet_to_server(encapsulated_packet)
+    exp_pkt = build_expected_packet_to_server(encapsulated_packet, decrease_ttl=True)
 
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
-    rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
-    exp_ttl = encapsulated_packet[IP].payload[IP].ttl - 1
-    exp_tos = encapsulated_packet[IP].payload[IP].tos
-    if rec_pkt[IP].ttl != exp_ttl:
-        pytest.fail("the expected ttl should be %s" % exp_ttl)
-    if rec_pkt[IP].tos != exp_tos:
-        pytest.fail("the expected tos should be %s" % exp_tos)
+    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
+    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index)
 
 
 def test_decap_standby_tor(
