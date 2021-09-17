@@ -8,7 +8,7 @@ from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 __all__ = [
     'require_mocked_dualtor',
@@ -239,7 +239,14 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
     for i, intf in enumerate(tor_mux_intfs):
         # For each VLAN interface, get the corresponding PTF interface MAC
         ptf_port_index = dut_ptf_intf_map[intf]
-        ptf_mac = ptfadapter.dataplane.ports[(0, ptf_port_index)].mac()
+        for retry in range(10):
+            ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
+            if ptf_mac != None:
+                break
+            else:
+                time.sleep(2)
+        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+
         server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
 
     return server_ip_mac_map
