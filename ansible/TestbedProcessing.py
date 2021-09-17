@@ -38,6 +38,7 @@ parser = argparse.ArgumentParser(description="Process testbed.yml file")
 parser.add_argument('-i', help='a file for the testbed processing script', nargs="?", default="testbed-new.yaml")
 parser.add_argument('-basedir', help='base directory to find the files, points to /sonic-mgmt/ansible', default="")
 parser.add_argument('-backupdir', help='backup directory to store files,  points to /sonic-mgmt/ansible/backup',nargs="?", default="backup")
+parser.add_argument('-yaml', help='make lab and veos file in YAML format', action='store_true')
 args = parser.parse_args()
 
 # FILES TO BACKUP
@@ -552,6 +553,84 @@ def makeLab(data, devices, testbed, outfile):
                         toWrite.write(key2 + "=" + val2 + "\n")
                 toWrite.write("\n")
 
+
+def makeLabYAML(data, devices, testbed, outfile):
+    """
+    Generates /lab file in YAML format based on parsed dictionaries from testbed file.
+
+    Args:
+        data: reads from devices-groups, this helps separate the function into 3 components; sonic, fanout, ptf
+        devices: reads from devices
+        testbed: reads from testbed (to accomodate for PTF container(s))
+        outfile: writes to lab in YAML file format
+
+    """
+    deviceGroup = data
+    result = dict()
+    sonicDict = dict()
+    fanoutDict = dict()
+    ptfDict = dict()
+    dutDict = dict()
+
+    if "sonic" in deviceGroup['lab']['children']:
+        for group in deviceGroup['sonic']['children']:
+            sonicDict[group] = {'vars': {'iface_speed': deviceGroup[group].get("vars").get("iface_speed")}, 'hosts': {}}
+            for dut in deviceGroup[group]['host']:
+                if dut in devices:
+                    dutDict.update({dut:
+                        {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
+                        'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
+                        'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
+                        'hwsku': devices[dut].get("hwsku"),
+                        'snmp_rocommunity': devices[dut].get("snmp_rocommunity"),
+                        'sonic_version': devices[dut].get("sonic_version"),
+                        'sonic_hwsku': devices[dut].get("sonic_hwsku"),
+                        'base_mac': devices[dut].get("base_mac"),
+                        'device_type': devices[dut].get("device_type"),
+                        'ptf_host': devices[dut].get("ptf_host"),
+                        'serial': devices[dut].get("serial"),
+                        'os': devices[dut].get("os"),
+                        'model': devices[dut].get("model")
+                        }
+                    })
+                    sonicDict[group]['hosts'].update(dutDict)
+    if "fanout" in deviceGroup['lab']['children']:
+        for fanout in deviceGroup['fanout']['host']:
+            if fanout in devices:
+                fanoutDict.update({fanout:
+                    {'ansible_host': devices[fanout].get("ansible").get("ansible_host"),
+                    'ansible_ssh_user': devices[fanout].get("ansible").get("ansible_ssh_user"),
+                    'ansible_ssh_pass': devices[fanout].get("ansible").get("ansible_ssh_pass"),
+                    'os': devices[fanout].get("os"),
+                    'device_type': devices[fanout].get("device_type")
+                    }
+                })
+    if 'ptf' in deviceGroup:
+        for ptfhost in deviceGroup['ptf']['host']:
+            if ptfhost in testbed:
+                ptfDict.update({ptfhost:
+                    {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
+                    'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
+                    'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
+                    }
+                })
+    result.update({'all':
+                    {'children':
+                        {'lab':
+                            {'vars': deviceGroup['lab']['vars'],
+                            'children':
+                                {'sonic': {'children': sonicDict},
+                                'fanout': {'hosts': fanoutDict}
+                                }
+                            },
+                        'ptf': {'hosts': ptfDict}
+                        }
+                    }
+    })
+
+    with open(outfile, "w") as toWrite:
+        yaml.dump(result, stream=toWrite, default_flow_style=False)
+
 """
 makeVeos(data, veos, devices, outfile)
 @:parameter data - reads from either veos-groups, this helps separate the function into 3 components; children, host, vars
@@ -604,6 +683,57 @@ def makeVeos(data, veos, devices, outfile):
                         toWrite.write(key2 + "=" + val2 + "\n")
                 toWrite.write("\n")
 
+
+def makeVeosYAML(data, veos, devices, outfile):
+    """
+    Generates /veos file in YAML format based on parsed dictionaries from testbed file.
+
+    Args:
+        data: reads from either veos-groups, this helps separate the function into 3 components; vm_host, eos, servers
+        veos: reads from either veos
+        devices: reads from devices
+        outfile: writes to veos in YAML file format
+
+    """
+    group = data
+    result = dict()
+    vmDict = dict()
+    eosDict = dict()
+    serversDict = dict()
+
+    if 'vm_host' in group:
+        for vm_host in group['vm_host']['children']:
+            vmDict.update({vm_host: None})
+            server = group[vm_host]['host'][0]
+            result.update({vm_host:
+                {'hosts':
+                    {server: {'ansible_host': devices[server.lower()].get("ansible").get("ansible_host")}}
+                }
+            })
+    if 'eos' in group:
+        for eos in group['eos']['children']:
+            eosDict.update({eos: None})
+            result.update({eos: {'hosts': veos[eos]}})
+    if 'servers' in group:
+        serversDict.update({'vars': group['servers'].get("vars"), 'children': {}})
+        for server in group['servers']['children']:
+            serversDict['children'].update({server: None})
+            result.update({server: {'children':{group[server]['children'][0]: None,
+                                                group[server]['children'][1]: None},
+                                    'vars': group[server]['vars']
+                                    }
+            })
+    result.update({'all':
+                    {'children':
+                        {'vm_host': {'children': vmDict},
+                        'eos': {'children': eosDict},
+                        'servers': serversDict
+                        }
+                    }
+    })
+
+    with open(outfile, "w") as toWrite:
+        yaml.dump(result, stream=toWrite, default_flow_style=False)
 
 """
 makeHost_var(data)
@@ -691,9 +821,15 @@ def main():
     print("\tCREATING MAIN.YML: " + args.basedir + main_file)
     makeMain(veos, args.basedir + main_file)  # Generate main.yml (MAIN)
     print("\tCREATING LAB FILE: " + args.basedir + lab_file)
-    makeLab(device_groups, devices, testbed, args.basedir + lab_file)  # Generate lab (LAB)
+    if args.yaml:
+        makeLabYAML(device_groups, devices, testbed, args.basedir + lab_file) # Generate lab in YAML file format (LAB)
+    else:
+        makeLab(device_groups, devices, testbed, args.basedir + lab_file)  # Generate lab in INI file format (LAB)
     print("\tCREATING VEOS FILE: " + args.basedir + veos_file)
-    makeVeos(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos (VEOS)
+    if args.yaml:
+        makeVeosYAML(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos in YAML file format(VEOS)
+    else:
+        makeVeos(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos in INI file format(VEOS)
     print("\tCREATING HOST VARS FILE(S): one or more files generated")
     makeHostVar(host_vars)  # Generate host_vars (HOST_VARS)
     print("UPDATING FILES FROM CONFIG FILE")
