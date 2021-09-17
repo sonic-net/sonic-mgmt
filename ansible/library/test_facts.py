@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 import traceback
 import ipaddr as ipaddress
 import csv
@@ -144,7 +145,10 @@ class ParseTestbedTopoinfo():
                         line['ptf_ipv6'], line['ptf_netmask_v6'] = \
                             _cidr_to_ip_mask(line["ptf_ipv6"])
 
-                    line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                    if sys.version_info < (3, 0):
+                        line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                    else:
+                        line['duts'] = line['dut'].translate(str.maketrans("", "", "[] ")).split(';')
                     line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                     del line['dut']
 

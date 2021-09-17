@@ -99,7 +99,7 @@ test_t0() {
     test_interfaces.py \
     arp/test_arp_dualtor.py \
     bgp/test_bgp_fact.py \
-    bgp/test_bgp_gr_helper.py \
+    bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
     bgp/test_bgp_speaker.py \
     bgp/test_bgp_update_timer.py \
     cacl/test_ebtables_application.py \
@@ -112,6 +112,7 @@ test_t0() {
     pc/test_po_cleanup.py \
     pc/test_po_update.py \
     route/test_default_route.py \
+    route/test_static_route.py \
     arp/test_neighbor_mac.py \
     arp/test_neighbor_mac_noptf.py \
     snmp/test_snmp_cpu.py \
@@ -121,9 +122,11 @@ test_t0() {
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_default_route.py \
+    ssh/test_ssh_stress.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
@@ -150,6 +153,17 @@ test_t0() {
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+    popd
+}
+
+test_t0_sonic() {
+    # Run tests_1vlan on vlab-01 virtual switch
+    # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
+    tgname=t0-sonic
+    tests="bgp/test_bgp_fact.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --skip_sanity --disable_loganalyzer"
     popd
 }
 
@@ -203,6 +217,7 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_default_route.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -244,10 +259,12 @@ mkdir -p  $SONIC_MGMT_DIR/tests/logs
 # run tests
 if [ x$test_suite == x"t0" ]; then
     test_t0
+elif [ x$test_suite == x"t0-sonic" ]; then
+    test_t0_sonic
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
-    test_multi_asic_t1_lag 
+    test_multi_asic_t1_lag
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 else

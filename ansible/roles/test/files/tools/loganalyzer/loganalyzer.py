@@ -16,15 +16,19 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
+from __future__ import print_function
 import sys
 import getopt
 import re
+import os
+import os.path
 import csv
+import time
 import pprint
 import logging
 import logging.handlers
+import subprocess
 from datetime import datetime
-from __builtin__ import True
 
 #---------------------------------------------------------------------
 # Global variables
@@ -32,6 +36,7 @@ from __builtin__ import True
 tokenizer = ','
 comment_key = '#'
 system_log_file = '/var/log/syslog'
+re_rsyslog_pid = re.compile("PID:\s+(\d+)")
 
 #-- List of ERROR codes to be returned by AnsibleLogAnalyzer
 err_duplicate_start_marker = -1
@@ -90,7 +95,7 @@ class AnsibleLogAnalyzer:
         if (not self.verbose):
             return
 
-        print '[LogAnalyzer][diagnostic]:%s' % message
+        print('[LogAnalyzer][diagnostic]:%s' % message)
     #---------------------------------------------------------------------
 
     def create_start_marker(self):
@@ -124,6 +129,33 @@ class AnsibleLogAnalyzer:
         return self.end_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
 
+    def flush_rsyslogd(self):
+        '''
+        @summary: flush all remaining buffer in rsyslogd to disk
+
+        rsyslog.service - System Logging Service
+            Loaded: loaded (/lib/systemd/system/rsyslog.service; enabled; vendor preset: enabled)
+            Active: active (running) since Fri 2021-09-03 15:50:17 UTC; 14h ago
+        TriggeredBy: syslog.socket
+            Docs: man:rsyslogd(8)
+             https://www.rsyslog.com/doc/
+         Main PID: 17516 (rsyslogd)
+         Tasks: 5 (limit: 3402)
+         Memory: 3.3M
+         CGroup: /system.slice/rsyslog.service
+              17516 /usr/sbin/rsyslogd -n
+        '''
+        pid = None
+        out = subprocess.check_output("systemctl status rsyslog", shell=True)
+        for l in out.split('\n'):
+            m = re.search(re_rsyslog_pid, l)
+            if m:
+                pid = int(m.group(1))
+                break
+
+        if pid:
+            os.system("sudo kill -HUP {}".format(pid))
+
     def place_marker_to_file(self, log_file, marker):
         '''
         @summary: Place marker into each log file specified.
@@ -148,8 +180,50 @@ class AnsibleLogAnalyzer:
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
         syslogger.info('\n')
+        self.flush_rsyslogd()
 
-    def place_marker(self, log_file_list, marker):
+    def wait_for_marker(self, marker, timeout=60, polling_interval=10):
+        '''
+        @summary: Wait the marker to appear in the /var/log/syslog file
+        @param marker:         Marker to be placed into log files.
+        @param timeout:        Maximum time in seconds to wait till Marker in /var/log/syslog
+        @param polling_interval:  Polling interval during the wait
+        '''
+
+        wait_time = 0
+        last_check_pos = 0
+        syslog_file = "/var/log/syslog"
+        prev_syslog_file = "/var/log/syslog.1"
+        last_dt = os.path.getctime(syslog_file)
+        while wait_time <= timeout:
+            with open(syslog_file, 'r') as fp:
+                dt = os.path.getctime(syslog_file)
+                if last_dt != dt:
+                    try:
+                        with open(prev_syslog_file, 'r') as pfp:
+                            pfp.seek(last_check_pos)
+                            for l in fp:
+                                if marker in l:
+                                    return True
+                    except FileNotFoundError:
+                        print("cannot find file {}".format(prev_syslog_file))
+                    last_check_pos = 0
+                    last_dt = dt
+                # resume from last search position
+                if last_check_pos:
+                    fp.seek(last_check_pos)
+                # check if marker in the file
+                for l in fp:
+                    if marker in l:
+                        return True
+                # record last search position
+                last_check_pos = fp.tell()
+            time.sleep(polling_interval)
+            wait_time += polling_interval
+
+        return False
+
+    def place_marker(self, log_file_list, marker, wait_for_marker=False):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
@@ -160,6 +234,9 @@ class AnsibleLogAnalyzer:
             self.place_marker_to_file(log_file, marker)
 
         self.place_marker_to_syslog(marker)
+        if wait_for_marker:
+            if self.wait_for_marker(marker) is False:
+                raise RuntimeError("cannot find marker {} in /var/log/syslog".format(marker))
 
         return
     #---------------------------------------------------------------------
@@ -178,7 +255,7 @@ class AnsibleLogAnalyzer:
         '''
 
         #-- Check if error_string is a string or a list --#
-        if (isinstance(error_string, basestring)):
+        if (isinstance(error_string, str)):
             original_string = error_string
             #-- Escapes out of all the meta characters --#
             error_string = re.escape(error_string)
@@ -248,8 +325,8 @@ class AnsibleLogAnalyzer:
                             messages_regex.append(self.error_to_regx(row[1:]))
 
                     except Exception as e:
-                        print 'ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename)
-                        print repr(e)
+                        print('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename))
+                        print(repr(e))
                         sys.exit(err_invalid_string_format)
 
         if (len(messages_regex)):
@@ -351,7 +428,7 @@ class AnsibleLogAnalyzer:
                 if rev_line.find(end_marker) != -1:
                     self.print_diagnostic_message('found end marker: %s' % end_marker)
                     if (found_end_marker):
-                        print 'ERROR: duplicate end marker found'
+                        print('ERROR: duplicate end marker found')
                         sys.exit(err_duplicate_end_marker)
                     found_end_marker = True
                     in_analysis_range = True
@@ -361,12 +438,12 @@ class AnsibleLogAnalyzer:
                 if rev_line.find(start_marker) != -1 and 'nsible' not in rev_line:
                     self.print_diagnostic_message('found start marker: %s' % start_marker)
                     if (found_start_marker):
-                        print 'ERROR: duplicate start marker found'
+                        print('ERROR: duplicate start marker found')
                         sys.exit(err_duplicate_start_marker)
                     found_start_marker = True
 
                     if(not in_analysis_range):
-                        print 'ERROR: found start marker:%s without corresponding end marker' % rev_line
+                        print('ERROR: found start marker:%s without corresponding end marker' % rev_line)
                         sys.exit(err_no_end_marker)
                     in_analysis_range = False
                     break
@@ -385,11 +462,11 @@ class AnsibleLogAnalyzer:
         # care about the markers only if input is not stdin or no need to check start marker
         if not stdin_as_input and check_marker:
             if (not found_start_marker):
-                print 'ERROR: start marker was not found'
+                print('ERROR: start marker was not found')
                 sys.exit(err_no_start_marker)
 
             if (not found_end_marker):
-                print 'ERROR: end marker was not found'
+                print('ERROR: end marker was not found')
                 sys.exit(err_no_end_marker)
 
         return matching_lines, expected_lines
@@ -428,32 +505,32 @@ class AnsibleLogAnalyzer:
     #---------------------------------------------------------------------
 
 def usage():
-    print 'loganalyzer input parameters:'
-    print '--help                           Print usage'
-    print '--verbose                        Print verbose output during the run'
-    print '--action                         init|analyze - action to perform.'
-    print '                                 init - initialize analysis by placing start-marker'
-    print '                                 to all log files specified in --logs parameter.'
-    print '                                 analyze - perform log analysis of files specified in --logs parameter.'
-    print '                                 add_end_marker - add end marker to all log files specified in --logs parameter.'
-    print '--out_dir path                   Directory path where to place output files, '
-    print '                                 must be present when --action == analyze'
-    print '--logs path{,path}               List of full paths to log files to be analyzed.'
-    print '                                 Implicitly system log file will be also processed'
-    print '--run_id string                  String passed to loganalyzer, uniquely identifying '
-    print '                                 analysis session. Used to construct start/end markers. '
-    print '--match_files_in path{,path}     List of paths to files containing strings. A string from log file'
-    print '                                 By default syslog will be always analyzed and should be passed by match_files_in.'
-    print '                                 matching any string from match_files_in will be collected and '
-    print '                                 reported. Must be present when action == analyze'
-    print '--ignore_files_in path{,path}    List of paths to files containing string. '
-    print '                                 A string from log file matching any string from these'
-    print '                                 files will be ignored during analysis. Must be present'
-    print '                                 when action == analyze.'
-    print '--expect_files_in path{,path}    List of path to files containing string. '
-    print '                                 All the strings from these files will be expected to present'
-    print '                                 in one of specified log files during the analysis. Must be present'
-    print '                                 when action == analyze.'
+    print('loganalyzer input parameters:')
+    print('--help                           Print usage')
+    print('--verbose                        Print verbose output during the run')
+    print('--action                         init|analyze - action to perform.')
+    print('                                 init - initialize analysis by placing start-marker')
+    print('                                 to all log files specified in --logs parameter.')
+    print('                                 analyze - perform log analysis of files specified in --logs parameter.')
+    print('                                 add_end_marker - add end marker to all log files specified in --logs parameter.')
+    print('--out_dir path                   Directory path where to place output files, ')
+    print('                                 must be present when --action == analyze')
+    print('--logs path{,path}               List of full paths to log files to be analyzed.')
+    print('                                 Implicitly system log file will be also processed')
+    print('--run_id string                  String passed to loganalyzer, uniquely identifying ')
+    print('                                 analysis session. Used to construct start/end markers. ')
+    print('--match_files_in path{,path}     List of paths to files containing strings. A string from log file')
+    print('                                 By default syslog will be always analyzed and should be passed by match_files_in.')
+    print('                                 matching any string from match_files_in will be collected and ')
+    print('                                 reported. Must be present when action == analyze')
+    print('--ignore_files_in path{,path}    List of paths to files containing string. ')
+    print('                                 A string from log file matching any string from these')
+    print('                                 files will be ignored during analysis. Must be present')
+    print('                                 when action == analyze.')
+    print('--expect_files_in path{,path}    List of path to files containing string. ')
+    print('                                 All the strings from these files will be expected to present')
+    print('                                 in one of specified log files during the analysis. Must be present')
+    print('                                 when action == analyze.')
 
 #---------------------------------------------------------------------
 
@@ -473,17 +550,17 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
         ret_code = True
     elif (action == 'analyze'):
         if out_dir is None or len(out_dir) == 0:
-            print 'ERROR: missing required out_dir for analyze action'
+            print('ERROR: missing required out_dir for analyze action')
             ret_code = False
 
         elif match_files_in is None or len(match_files_in) == 0:
-            print 'ERROR: missing required match_files_in for analyze action'
+            print('ERROR: missing required match_files_in for analyze action')
             ret_code = False
 
 
     else:
         ret_code = False
-        print 'ERROR: invalid action:%s specified' % action
+        print('ERROR: invalid action:%s specified' % action)
 
     return ret_code
 #---------------------------------------------------------------------
@@ -500,7 +577,7 @@ def check_run_id(run_id):
     ret_code = True
 
     if ((run_id is None) or (len(run_id) == 0)):
-        print 'ERROR: no run_id specified'
+        print('ERROR: no run_id specified')
         ret_code = False
 
     return ret_code
@@ -524,7 +601,7 @@ def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_
     expected_lines_total = []
 
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
-        for key, val in analysis_result_per_file.iteritems():
+        for key, val in analysis_result_per_file.items():
             matching_lines, expected_lines = val
 
             out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
@@ -577,7 +654,7 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_m
     out_file.write("\nLOG ANALYSIS SUMMARY\n")
     total_match_cnt = 0
     total_expect_cnt = 0
-    for key, val in analysis_result_per_file.iteritems():
+    for key, val in analysis_result_per_file.items():
         matching_lines, expecting_lines = val
 
         file_match_cnt = len(matching_lines)
@@ -613,7 +690,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh", ["action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
-        print "Invalid option specified"
+        print("Invalid option specified")
         usage()
         sys.exit(err_invalid_input)
 
@@ -655,7 +732,7 @@ def main(argv):
 
     analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
-    log_file_list = filter(None, log_files_in.split(tokenizer))
+    log_file_list = list(filter(None, log_files_in.split(tokenizer)))
 
     result = {}
     if (action == "init"):
@@ -666,7 +743,7 @@ def main(argv):
         ignore_file_list = ignore_files_in.split(tokenizer)
         expect_file_list = expect_files_in.split(tokenizer)
 
-        analyzer.place_marker(log_file_list, analyzer.create_end_marker())
+        analyzer.place_marker(log_file_list, analyzer.create_end_marker(), wait_for_marker=True)
 
         match_messages_regex, messages_regex_m = analyzer.create_msg_regex(match_file_list)
         ignore_messages_regex, messages_regex_i = analyzer.create_msg_regex(ignore_file_list)
@@ -682,11 +759,11 @@ def main(argv):
         write_result_file(run_id, out_dir, result, messages_regex_e, unused_regex_messages)
         write_summary_file(run_id, out_dir, result, unused_regex_messages)
     elif (action == "add_end_marker"):
-        analyzer.place_marker(log_file_list, analyzer.create_end_marker())
+        analyzer.place_marker(log_file_list, analyzer.create_end_marker(), wait_for_marker=True)
         return 0
 
     else:
-        print 'Unknown action:%s specified' % action
+        print('Unknown action:%s specified' % action)
     return len(result)
 #---------------------------------------------------------------------
 

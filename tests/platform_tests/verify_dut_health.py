@@ -1,6 +1,7 @@
 import copy
 import pytest
 import logging
+import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
@@ -107,7 +108,10 @@ def check_neighbors(duthost, tbinfo):
 
 @handle_test_error
 def verify_no_coredumps(duthost, pre_existing_cores):
-    coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if "20191130" in duthost.os_version:
+        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
     if int(coredumps_count) > int(pre_existing_cores):
         raise RebootHealthError("Core dumps found. Expected: {} Found: {}".format(pre_existing_cores,\
             coredumps_count))
@@ -134,7 +138,10 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
     check_services(duthost)
     check_interfaces_and_transceivers(duthost, request)
     check_neighbors(duthost, tbinfo)
-    pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
     pytest_assert(all(list(test_report.values())), "DUT not ready for test. Health check failed before reboot: {}"
         .format(test_report))
 
@@ -151,28 +158,33 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def add_fail_step_to_reboot(request, localhost, duthosts, rand_one_dut_hostname):
+def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    test_name = request.node.name
-    if "warm" in test_name:
-        reboot_script = "warm-reboot"
-    elif "fast" in test_name:
-        reboot_script = "fast-reboot"
+    def add_exit_to_script(reboot_type):
+        add_exit_to_script.params = tuple()
+        if "warm" in reboot_type:
+            reboot_script = "warm-reboot"
+        elif "fast" in reboot_type:
+            reboot_script = "fast-reboot"
 
-    cmd_format = "sed -i 's/{}/{}/' {}"
-    reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
-    original_line = 'set +e'
-    replaced_line = 'exit -1; set +e'
-    replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
-    logging.info("Modify {} to exit before set +e".format(reboot_script_path))
-    duthost.shell(replace_cmd)
+        cmd_format = "sed -i 's/{}/{}/' {}"
+        reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
+        original_line = 'set +e'
+        replaced_line = 'exit -1; set +e'
+        replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
+        logging.info("Modify {} to exit before set +e".format(reboot_script_path))
+        duthost.shell(replace_cmd)
+        add_exit_to_script.params = (cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path)
 
-    yield
 
-    replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
-    logging.info("Revert {} script to original".format(reboot_script_path))
-    duthost.shell(replace_cmd)
+    yield add_exit_to_script
+
+    if add_exit_to_script.params:
+        cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path = add_exit_to_script.params
+        replace_cmd = cmd_format.format(replaced_line, original_line, reboot_script_path)
+        logging.info("Revert {} script to original".format(reboot_script_path))
+        duthost.shell(replace_cmd)
     # cold reboot DUT to restore any bad state caused by negative test
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD)
 

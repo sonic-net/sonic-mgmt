@@ -453,7 +453,7 @@ class Arista(object):
                 if 'vrfs' in obj and 'default' in obj['vrfs']:
                     obj = obj['vrfs']['default']
                     if 'peers' in obj:
-                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] == state)
+                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] in state)
                     else:
                         self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
                 else:
