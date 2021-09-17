@@ -92,8 +92,11 @@ class Arista(object):
             int: command execution status code
             str: command return value
         """
-        stdin, stdout, stderr = self.conn.exec_command(cmd)
-        return stdout.channel.recv_exit_status(), stdout.read()
+        self.log('exec_command is: %s' % (cmd))
+        stdin, stdout, stderr = self.single_conn.exec_command(cmd)
+        (status_code, res) = (stdout.channel.recv_exit_status(), stdout.read())
+        self.log('exec_command return is, status: %d, value: |%s|' % (status_code, res))
+        return status_code, res
 
     def exec_command_compatible(self, *cmds):
         """
@@ -171,6 +174,7 @@ class Arista(object):
             # but wait for v4_routing_ok and v6_routing_ok
             if not quit_enabled:
                 cmd = self.queue.get()
+                self.log('self.queue.get() finish: %s'%(cmd))
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
