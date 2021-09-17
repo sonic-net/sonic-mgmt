@@ -54,11 +54,11 @@ def make_dict_from_output_lines(lines):
 
 
 def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
-    """The testcase for (traditional) buffer manager
+    """The testcase to verify whether buffer template has been correctly rendered and applied
 
     1. For all ports in the config_db,
        - Check whether there is no lossless buffer PG configured on an admin-down port
-       - Check whether the lossless PG aligns with the port's speed and cable length
+       - Check whether the lossless PG and queues aligns with the port's speed and cable length
        - If name to oid maps exist for port and PG, check whether the information in ASIC_DB aligns with that in CONFIG_DB
        - If a lossless profile hasn't been checked, check whether lossless profile in CONFIG_DB aligns with
          - pg_profile_lookup.ini according to speed and cable length
@@ -85,8 +85,21 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
         return True
 
-    def _check_buffer_item_in_asic_db(duthost, port, buffer_item, buffer_name_map, buffer_profile_oid, asic_key_name, should_have_profile, use_assert):
-        buffer_item_asic_oid = buffer_name_map['{}:{}'.format(port, buffer_item)]
+    def _check_buffer_item_in_asic_db(duthost, port, buffer_item, name_map, buffer_profile_oid, asic_key_name, should_have_profile, use_assert):
+        """Check whether the buffer queues or priority groups align between APPL_DB and ASIC_DB
+
+        Args:
+            buffer_item: ID of buffer queues or priority groups in APPL_DB, like "Ethernet0:3-4".
+            name_map: The map from buffer item's name to its SAI OID.
+                      The map is fetched from CONFIG_DB at the beginning of the test.
+            buffer_profile_oid: The OID of the expected buffer profile.
+                                Not None: It will check whether the OID of profile in ASIC_DB is the same.
+            asic_key_name: The field name buffer profiles of queues or priority groups in ASIC_DB
+            should_have_profile: Whether there should be a profile configured for the buffer object
+            use_assert: In case the test failed, to assert or just return false.
+                        It should return false if it is called in a wait_until loop
+        """
+        buffer_item_asic_oid = name_map['{}:{}'.format(port, buffer_item)]
         buffer_item_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_item_asic_oid))['stdout']
         buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} {}'.format(buffer_item_asic_key, asic_key_name))['stdout']
         if should_have_profile:
@@ -106,6 +119,10 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         return buffer_profile_oid, True
 
     def _ids_to_id_list(ids):
+        """Convert ID map to list of IDs
+
+        Example: "0-2" => ["0", "1", "2"]
+        """
         pattern = "^([0-9])+(-[0-9]+)*$"
         m = re.match(pattern, ids)
         lower = m.group(1)
@@ -117,10 +134,12 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         return [str(x) for x in range(int(lower), int(upper) + 1)]
 
     def _check_port_buffer_info_and_get_profile_oid(duthost, table, ids, port, expected_profile, use_assert=True):
-        """Check port's buffer information against CONFIG_DB and ASIC_DB
+        """Check port's buffer information against APPL_DB and ASIC_DB
 
         Args:
             duthost: The duthost object
+            table: BUFFER_QUEUE or BUFFER_PG
+            ids: The ID map, like "3-4" or "0-2"
             port: The port to test in string
             expected_profile: The expected profile in string
             use_assert: Whether or not to use pytest_assert in case any conditional check isn't satisfied
@@ -128,7 +147,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         Return:
             A tuple consisting of the OID of buffer profile and whether there is any check failed
         """
-        profile_in_pg = duthost.shell('redis-cli hget "{}:{}:{}" profile'.format(table, port, ids))['stdout']
+        profile_in_db = duthost.shell('redis-cli hget "{}:{}:{}" profile'.format(table, port, ids))['stdout']
         buffer_profile_oid = None
         if table == 'BUFFER_PG_TABLE':
             sai_field = 'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'
@@ -140,23 +159,23 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         id_list = _ids_to_id_list(ids)
 
         if expected_profile:
-            if not _check_condition(profile_in_pg == expected_profile, "Buffer profile of lossless PG of port {} isn't the expected ({})".format(port, expected_profile), use_assert):
+            if not _check_condition(profile_in_db == expected_profile, "The profile of {}:{}:{} isn't the expected ({})".format(table, port, item, expected_profile), use_assert):
                 return None, False
 
             if buffer_name_map:
                 buffer_profile_oid = None
-                for pg in id_list:
-                    logging.info("Checking {}:{}:{} in ASIC_DB".format(table, port, pg))
-                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, pg, buffer_name_map, buffer_profile_oid, sai_field, True, use_assert)
+                for item in id_list:
+                    logging.info("Checking {}:{}:{} in ASIC_DB".format(table, port, item))
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, item, buffer_name_map, buffer_profile_oid, sai_field, True, use_assert)
                     if not success:
                         return None, False
         else:
-            if not _check_condition(not profile_in_pg, "Buffer PG configured on admin down port {}".format(port), use_assert):
+            if not _check_condition(not profile_in_db, "{}:{}:{} configured on admin down port".format(table, port, ids), use_assert):
                 return None, False
             if buffer_name_map:
-                for pg in id_list:
-                    logging.info("Checking {}:{}:{} in ASIC_DB".format(table, port, pg))
-                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, pg, buffer_name_map, None, sai_field, False, use_assert)
+                for item in id_list:
+                    logging.info("Checking {}:{}:{} in ASIC_DB".format(table, port, item))
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(duthost, port, item, buffer_name_map, None, sai_field, False, use_assert)
 
         return buffer_profile_oid, True
 
@@ -180,7 +199,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
     default_lossless_profiles = load_lossless_info_from_pg_profile_lookup(duthost)
 
-    # Check whether the COUNTERS_PG_NAME_MAP exists. Skip ASIC_DB checking if it isn't
+    # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = make_dict_from_output_lines(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
     queue_name_map = make_dict_from_output_lines(duthost.shell('redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())

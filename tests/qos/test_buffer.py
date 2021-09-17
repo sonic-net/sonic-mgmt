@@ -1402,6 +1402,22 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         4. Check whether the PGs are correctly applied after port being started up
     """
     def _convert_ref_from_configdb_to_appldb(references):
+        """Convert reference format from CONFIG_DB to APPL_DB
+
+        Args:
+            references: The reference or reference list to CONFIG_DB entry
+
+        Return:
+            The reference or reference list to APPL_DB entry
+
+        Example 1 profile list:
+            Input: '[BUFFER_PROFILE|ingress_lossless_profile],[BUFFER_PROFILE|ingress_lossy_profile]'
+            Output: '[BUFFER_PROFILE_TABLE:ingress_lossless_profile],[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'
+
+        Example 2 single item:
+            Input: '[BUFFER_PROFILE|ingress_lossless_profile]
+            Output: '[BUFFER_PROFILE_TABLE:ingress_lossless_profile]
+        """
         if not references:
             return ''
 
@@ -1413,8 +1429,18 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
         return references_in_appldb[:-1]
 
-    def _check_buffer_object_aligns_between_appldb_configdb(port_to_test, key_format, profile_field_name):
-        objects_in_configdb = duthost.shell('redis-cli -n 4 keys "{}"'.format(key_format))['stdout'].split()
+    def _check_buffer_object_aligns_between_appldb_configdb(port_to_test, key, profile_field_name):
+        """Check whether buffer objects (queues and priority groups) align between APPL_DB and CONFIG_DB
+
+        This is to verify whether the entries in BUFFER_QUEUE, BUFFER_PORT_INGRESS/EGRESS_PROFILE_LIST
+        tables have been popagated to APPL_DB correctly after the port has been started up.
+
+        Args:
+            port_to_test: The port under test
+            key: The key in buffer tables in CONFIG_DB format, like BUFFER_PG|Ethernet0|3-4
+            profile_field_name: profile for BUFFER_QUEUE table and profile_list for buffer profile list tables
+        """
+        objects_in_configdb = duthost.shell('redis-cli -n 4 keys "{}"'.format(key))['stdout'].split()
         if objects_in_configdb:
             for object_in_configdb in objects_in_configdb:
                 profile_in_configdb = duthost.shell('redis-cli -n 4 hget "{}" {}'.format(object_in_configdb, profile_field_name))['stdout']
@@ -1424,9 +1450,18 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                 object_in_app_db = _convert_ref_from_configdb_to_appldb(object_in_configdb)
                 profile_in_appl_db = duthost.shell('redis-cli hget "{}" {}'.format(object_in_app_db, profile_field_name))['stdout']
                 pytest_assert(profile_in_appl_db == expected_profile_in_appldb,
-                              "Buffer object {} contains {} which isn't expected ({})".format(key_format, profile_in_appl_db, expected_profile_in_appldb))
+                              "Buffer object {} contains {} which isn't expected ({})".format(key, profile_in_appl_db, expected_profile_in_appldb))
 
     def _check_buffer_object_aligns_with_expected_ones(port_to_test, table, expected_objects):
+        """Check whether the content in BUFFER_PG or BUFFER_QUEUE tables is exactly the same as the expected objects
+
+        Args:
+            port_to_test: The port under test
+            table: BUFFER_PG or BUFFER_QUEUE
+            expected_objects: The expected buffer items of BUFFER_PG or BUFFER_QUEUE when the port is admin down.
+                              They are predefined parameters and loaded at the beginning of the test.
+                              Typically, they are zero profiles.
+        """
         objects_in_appl_db = duthost.shell('redis-cli keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
         if expected_objects:
             expected_object_keys = ['{}:{}:{}'.format(table, port_to_test, objectid) for objectid in expected_objects.keys()]
@@ -1440,6 +1475,14 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             pytest_assert(not objects_in_appl_db, "There shouldn't be any object in {} on an administratively down port but we got {}".format(table, objects_in_appl_db))
 
     def _check_buffer_object_list_aligns_with_expected_ones(port_to_test, table, expected_objects):
+        """Check whether the content in BUFFER_PG or BUFFER_QUEUE tables is exactly the same as the expected objects
+
+        Args:
+            port_to_test: The port under test
+            table: BUFFER_PG or BUFFER_QUEUE
+            expected_objects: The expected buffer items of BUFFER_PG or BUFFER_QUEUE when the port is admin down.
+                              They are predefined parameters and loaded at the beginning of the test.
+        """
         object_list_in_appl_db = duthost.shell('redis-cli hget "{}:{}" profile_list'.format(table, port_to_test))['stdout'].split(',')
         if expected_objects:
             pytest_assert(set(expected_objects) == set(object_list_in_appl_db),
@@ -1540,17 +1583,17 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
             _check_buffer_object_aligns_with_expected_ones(port_to_test, 'BUFFER_PG_TABLE', expected_pgs)
 
-            # Make sure there isn't any queue on the port
+            # Make sure the zero profiles have been applied on queues on the port
             logging.info('Check whether all queues are configured as zero profile or removed from port {}'.format(port_to_test))
             expected_queues = TESTPARAM_ADMIN_DOWN.get('BUFFER_QUEUE_TABLE')
             _check_buffer_object_aligns_with_expected_ones(port_to_test, 'BUFFER_QUEUE_TABLE', expected_queues)
 
-            # Make sure there isn't any ingress buffer profile list on the port
+            # Make sure the zero profiles have been applied on ingress buffer profile list on the port
             logging.info('Check whether ingress profile list is configured as zero profile or removed from port {}'.format(port_to_test))
             expected_ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
             _check_buffer_object_list_aligns_with_expected_ones(port_to_test, 'BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE', expected_ingress_profile_list)
 
-            # Make sure there isn't any egress buffer profile list on the port
+            # Make sure the zero profiles have been applied on egress buffer profile list on the port
             logging.info('Check whether egress profile list is configured as zero profile or removed from port {}'.format(port_to_test))
             expected_egress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE')
             _check_buffer_object_list_aligns_with_expected_ones(port_to_test, 'BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE', expected_egress_profile_list)
