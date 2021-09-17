@@ -93,7 +93,7 @@ class Arista(object):
             str: command return value
         """
         self.log('exec_command is: %s' % (cmd))
-        stdin, stdout, stderr = self.single_conn.exec_command(cmd)
+        stdin, stdout, stderr = self.conn.exec_command(cmd)
         (status_code, res) = (stdout.channel.recv_exit_status(), stdout.read())
         self.log('exec_command return is, status: %d, value: |%s|' % (status_code, res))
         return status_code, res
