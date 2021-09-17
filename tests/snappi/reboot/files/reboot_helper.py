@@ -312,31 +312,36 @@ def get_convergence_for_reboot_test(duthost,
     p1.src_name = 'IPv4 3'
     p1.dst_ip = "1.1.1.1"
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
-    logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
-    check_bgp_state()
-    responses = cvg_api.send_ping(req).responses
-    assert responses[-1].result == "success"
-    logger.info('Ping from IPv4 3 --> {} : {} after {} seconds after {}'.format(p1.dst_ip, responses[-1].result, 180, reboot_type))
-    request = cvg_api.convergence_request()
-    for i in cs.transmit.flow_names:
-        request.metrics.flow_names = [i]
-        flow = cvg_api.get_results(request).flow_metric
-        assert int(flow[0].frames_tx_rate) != 0, "No Frames sent for traffic item: {}".format(i)
-        assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, "Loss observed for Traffic Item: {}".format(i)
-        logger.info("No Loss Observed in Traffic Item {}".format(i))
+    try:
+        reboot(duthost, localhost, reboot_type=reboot_type)
+        logger.info("Wait until the system is stable")
+        pytest_assert(wait_until(300, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    except Exception as e:
+        logger.info(e)
+    finally:
+        check_bgp_state()
+        responses = cvg_api.send_ping(req).responses
+        assert responses[-1].result == "success","Ping from IPv4 3 --> Loopback1 Failed"
+        logger.info('Ping from IPv4 3 --> {} : {} after {} seconds after {}'.format(p1.dst_ip, responses[-1].result, 180, reboot_type))
+        request = cvg_api.convergence_request()
 
-    request.convergence.flow_names = flow_names
-    convergence_metrics = cvg_api.get_results(request).flow_convergence
-    for metrics in convergence_metrics:
-        dp.append(metrics.data_plane_convergence_us/1000)
-        logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, metrics.data_plane_convergence_us/1000))
+        for i in cs.transmit.flow_names:
+            request.metrics.flow_names = [i]
+            flow = cvg_api.get_results(request).flow_metric
+            assert int(flow[0].frames_tx_rate) != 0, "No Frames sent for traffic item: {}".format(i)
+            assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, "Loss observed for Traffic Item: {}".format(i)
+            logger.info("No Loss Observed in Traffic Item {}".format(i))
 
-    for j, i in enumerate(flow_names):
-        table.append([reboot_type, i, dp[j]])
-    columns = ['Reboot Type', 'Traffic Item Name', 'Data Plane Convergence Time (ms)']
-    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+        request.convergence.flow_names = flow_names
+        convergence_metrics = cvg_api.get_results(request).flow_convergence
+        for metrics in convergence_metrics:
+            dp.append(metrics.data_plane_convergence_us/1000)
+            logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, metrics.data_plane_convergence_us/1000))
+
+        for j, i in enumerate(flow_names):
+            table.append([reboot_type, i, dp[j]])
+        columns = ['Reboot Type', 'Traffic Item Name', 'Data Plane Convergence Time (ms)']
+        logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 def cleanup_config(duthost):
     """
@@ -349,4 +354,4 @@ def cleanup_config(duthost):
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
     wait(TIMEOUT+30, "For Cleanup to complete \n")
-    logger.info('Convergence Test Completed')
+    logger.info('Reboot Test Completed')
