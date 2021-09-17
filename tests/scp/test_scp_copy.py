@@ -28,8 +28,7 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     for file in files_to_remove_2:
         ptfhost.file(path=file, state="absent")
 
-def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
-
+def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, creds):
     duthost = duthosts[rand_one_dut_hostname]
     ptf_ip = ptfhost.mgmt_ip
 
@@ -45,7 +44,8 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
     output = ptfhost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
     orig_checksum = output.split()[0]
 
-    duthost.command("python3 perform_scp.py in {} /root/{} /home/admin root".format(ptf_ip, TEST_FILE_NAME))
+    duthost.command("python3 perform_scp.py in {} /root/{} /home/admin root {}"\
+        .format(ptf_ip, TEST_FILE_NAME, creds["ptf_host_pass"]))
 
     # Validate file was received
     res = duthost.command("ls -ltr ./{}".format(TEST_FILE_NAME), module_ignore_errors=True)["rc"]
@@ -62,8 +62,8 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown):
             .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("python3 perform_scp.py out {} /home/admin/{} /root/{} root"\
-            .format(ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME))
+    duthost.command("python3 perform_scp.py out {} /home/admin/{} /root/{} root {}"\
+            .format(ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME, creds["ptf_host_pass"]))
 
     # Validate that the file copied is now present in the PTF
     res = ptfhost.command("ls -ltr ./{}".format(TEST_FILE_2_NAME), module_ignore_errors=True)["rc"]

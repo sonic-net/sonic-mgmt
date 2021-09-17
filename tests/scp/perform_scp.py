@@ -6,6 +6,7 @@ ip = sys.argv[2]
 source_path = sys.argv[3]
 dest_path = sys.argv[4]
 user = sys.argv[5]
+password = sys.argv[6]
 
 command = ""
 if copy_direction == "in":
@@ -18,7 +19,7 @@ try:
     child = pexpect.spawn(command)
     prompt = child.expect(["password:"])
 
-    child.sendline("root")
+    child.sendline(password)
     while True:
         pxres = child.expect(['scp_progress_output_that_changes', pexpect.EOF, pexpect.TIMEOUT], timeout=4000)
         if pxres==0:
