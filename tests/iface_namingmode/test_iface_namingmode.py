@@ -559,11 +559,13 @@ class TestShowVlan():
         show_vlan_brief = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show vlan brief'.format(ifmode))['stdout']
         logger.info('show_vlan_brief:\n{}'.format(show_vlan_brief))
 
+        vlan_type = minigraph_vlans['Vlan1000'].get('type', 'untagged').lower()
+
         for item in minigraph_vlans['Vlan1000']['members']:
             if mode == 'alias':
-                assert re.search(r'{}.*untagged'.format(setup['port_name_map'][item]), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(setup['port_name_map'][item], vlan_type), show_vlan_brief) is not None
             elif mode == 'default':
-                assert re.search(r'{}.*untagged'.format(item), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(item, vlan_type), show_vlan_brief) is not None
 
     @pytest.mark.usefixtures('setup_vlan')
     def test_show_vlan_config(self, setup, setup_config_mode):
@@ -749,6 +751,9 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_acls = setup['minigraph_facts']['minigraph_acls']
+
+    if 'DataAcl' not in minigraph_acls:
+        pytest.skip("Skipping test since DATAACL table is not supported on this platform")
 
     acl_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show acl table DATAACL'.format(ifmode))['stdout']
     logger.info('acl_table:\n{}'.format(acl_table))

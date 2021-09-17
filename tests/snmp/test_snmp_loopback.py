@@ -1,5 +1,6 @@
 import pytest
 import ipaddress
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 try:  # python3
     from shlex import quote
 except ImportError:  # python2
@@ -33,7 +34,7 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts):
 
 
 @pytest.mark.bsl
-def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts, tbinfo, localhost, creds_all_duts):
+def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_if_no_ports, nbrhosts, tbinfo, localhost, creds_all_duts):
     """
     Test SNMP query to DUT over loopback IP
       - Send SNMP query over loopback IP from one of the BGP Neighbors
@@ -42,7 +43,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrh
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     # Get first neighbor VM information
     nbr = nbrhosts[list(nbrhosts.keys())[0]]

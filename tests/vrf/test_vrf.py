@@ -680,6 +680,17 @@ class TestVrfAclRedirect():
     c_vars = {}
 
     @pytest.fixture(scope="class", autouse=True)
+    def is_redirect_supported(self, duthosts, rand_one_dut_hostname):
+        """
+        Check if switch supports acl redirect_action, if not then skip test cases
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        switch_cap = duthost.switch_capabilities_facts()['ansible_facts']['switch_capabilities']['switch']
+        res = [capabilities for capabilities in switch_cap.values() if "REDIRECT_ACTION" in capabilities]
+        if not res:
+            pytest.skip("Switch does not support ACL REDIRECT_ACTION")
+
+    @pytest.fixture(scope="class", autouse=True)
     def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------

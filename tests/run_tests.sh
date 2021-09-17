@@ -92,7 +92,7 @@ function setup_environment()
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests scripts k8s"
+    SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_INPUT_ORDER="False"
@@ -102,6 +102,12 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+
+    # Kill pytest and ansible-playbook process
+    pkill --signal 9 pytest
+    pkill --signal 9 ansible-playbook
+    # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
+    pkill --signal 9 -f "^ssh.*/\.ansible"
 
     rm -fr ${BASE_PATH}/tests/_cache
 }
@@ -157,7 +163,11 @@ function setup_test_options()
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        if [[ $skip == *"::"* ]]; then
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
+        else
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        fi
     done
 
     if [[ -d ${LOG_PATH} ]]; then

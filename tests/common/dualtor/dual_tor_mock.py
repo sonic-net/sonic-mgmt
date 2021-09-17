@@ -8,8 +8,10 @@ from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 __all__ = [
+    'require_mocked_dualtor',
     'apply_active_state_to_orchagent',
     'apply_dual_tor_neigh_entries',
     'apply_dual_tor_peer_switch_route',
@@ -135,6 +137,12 @@ def is_mocked_dualtor(tbinfo):
     return 'dualtor' not in tbinfo['topo']['name']
 
 
+@pytest.fixture
+def require_mocked_dualtor(tbinfo):
+    pytest_require(is_t0_mocked_dualtor(tbinfo), "This testcase is designed for "
+        "single tor testbed with mock dualtor config. Skip this testcase on real dualtor testbed")
+
+
 def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
     if is_mocked_dualtor(tbinfo):
         set_dual_tor_state_to_orchagent(dut, state, itfs)
@@ -231,7 +239,14 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
     for i, intf in enumerate(tor_mux_intfs):
         # For each VLAN interface, get the corresponding PTF interface MAC
         ptf_port_index = dut_ptf_intf_map[intf]
-        ptf_mac = ptfadapter.dataplane.ports[(0, ptf_port_index)].mac()
+        for retry in range(10):
+            ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
+            if ptf_mac != None:
+                break
+            else:
+                time.sleep(2)
+        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+
         server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
 
     return server_ip_mac_map
