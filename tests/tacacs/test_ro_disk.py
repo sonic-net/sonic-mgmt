@@ -7,6 +7,7 @@ from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
+from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
@@ -40,6 +41,28 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     finally:
         logger.debug("ssh rc={}".format(rc))
     return rc == 0
+
+
+def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
+    # occasionally reboot command fails with some kernel error messages
+    # Hence retry if needed.
+    #
+    wait_time = 120
+    retries = 3
+    for i in range(retries):
+        # Regular reboot command would not work, as it would try to 
+        # collect show tech, which will fail in RO state.
+        #
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
+        try:
+            localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
+            break
+        except RunAnsibleModuleFail as e:
+            logger.error("DUT did not go down, exception: {} attempt:{}/{}".
+                    format(repr(e), i, retries))
+    assert i<3, "Failed to reboot"
+    localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
+    wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
 def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
@@ -83,10 +106,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-        # Regular reboot command would not work, as it would try to 
-        # collect show tech, which will fail in RO state.
-        #
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
+        do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
         assert wait_until(600, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
