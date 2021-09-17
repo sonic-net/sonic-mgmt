@@ -1714,6 +1714,8 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         speed_list = natsorted(speed_list_str.split(','))
         return speed_list[-1]
 
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
     if not supported_speeds:
