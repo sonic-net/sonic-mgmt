@@ -108,11 +108,11 @@ class CeosNetwork(object):
         logging.info("=== Create veth pair %s and %s. Add %s to docker with Pid %s ===" %
             (ext_if, int_if, int_if, self.pid))
 
-        if CeosNetwork.intf_exists(ext_if) and not CeosNetwork.intf_exists(int_if, self.pid):
+        if CeosNetwork.intf_exists(ext_if) and CeosNetwork.intf_not_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link del %s" % ext_if)
 
         t_int_if = int_if + '_t'
-        if not CeosNetwork.intf_exists(ext_if):
+        if CeosNetwork.intf_not_exists(ext_if):
             CeosNetwork.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
 
         if self.fp_mtu != DEFAULT_MTU:
@@ -127,11 +127,11 @@ class CeosNetwork(object):
         CeosNetwork.iface_up(ext_if)
 
         if CeosNetwork.intf_exists(t_int_if) \
-            and not CeosNetwork.intf_exists(t_int_if, self.pid) \
-            and not CeosNetwork.intf_exists(int_if, self.pid):
+            and CeosNetwork.intf_not_exists(t_int_if, self.pid) \
+            and CeosNetwork.intf_not_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link set netns %s dev %s" % (self.pid, t_int_if))
 
-        if CeosNetwork.intf_exists(t_int_if, self.pid) and not CeosNetwork.intf_exists(int_if, self.pid):
+        if CeosNetwork.intf_exists(t_int_if, self.pid) and CeosNetwork.intf_not_exists(int_if, self.pid):
             CeosNetwork.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_if, int_if))
 
         CeosNetwork.iface_up(int_if, self.pid)
@@ -164,6 +164,14 @@ class CeosNetwork(object):
             CeosNetwork.cmd("brctl addif %s %s" % (bridge, intf))
 
     @staticmethod
+    def _intf_cmd(intf, pid=None):
+        if pid:
+            cmdline = 'nsenter -t %s -n ifconfig -a %s' % (pid, intf)
+        else:
+            cmdline = 'ifconfig -a %s' % intf
+        return cmdline
+
+    @staticmethod
     def intf_exists(intf, pid=None):
         """Check if the specified interface exists.
 
@@ -178,13 +186,33 @@ class CeosNetwork(object):
         Returns:
             bool: True if the interface exists. Otherwise False.
         """
-        if pid:
-            cmdline = 'nsenter -t %s -n ifconfig %s' % (pid, intf)
-        else:
-            cmdline = 'ifconfig %s' % intf
+        cmdline = CeosNetwork._intf_cmd(intf, pid=pid)
 
         try:
-            CeosNetwork.cmd(cmdline)
+            CeosNetwork.cmd(cmdline, retry=3)
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def intf_not_exists(intf, pid=None):
+        """Check if the specified interface does not exist.
+
+        This function uses command "ifconfig <intf name>" to check the existence of the specified interface. By default
+        the command is executed on host. If a pid is specified, this command is executed in the network namespace
+        of the specified pid. The meaning is to check if the interface exists in a specific docker.
+
+        Args:
+            intf (str): Name of the interface.
+            pid (str), optional): Pid of docker. Defaults to None.
+
+        Returns:
+            bool: True if the interface does not exist. Otherwise False.
+        """
+        cmdline = CeosNetwork._intf_cmd(intf, pid=pid)
+
+        try:
+            CeosNetwork.cmd(cmdline, retry=3, negative=True)
             return True
         except:
             return False
@@ -206,39 +234,67 @@ class CeosNetwork(object):
             return CeosNetwork.cmd('nsenter -t %s -n ip link set %s %s' % (pid, iface_name, state))
 
     @staticmethod
-    def cmd(cmdline, grep_cmd=None):
-        logging.debug('*** CMD: %s, grep: %s' % (cmdline, grep_cmd))
-        process = subprocess.Popen(
-            shlex.split(cmdline),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        if grep_cmd:
-            process_grep = subprocess.Popen(
-                shlex.split(grep_cmd),
-                stdin=process.stdout,
+    def cmd(cmdline, grep_cmd=None, retry=1, negative=False):
+        """Execute a command and return the output
+
+        Args:
+            cmdline (str): The command line to be executed.
+            grep_cmd (str, optional): Grep command line. Defaults to None.
+            retry (int, optional): Max number of retry if command result is unexpected. Defaults to 1.
+            negative (bool, optional): If negative is True, expect the command to fail. Defaults to False.
+
+        Raises:
+            Exception: If command result is unexpected after max number of retries, raise an exception.
+
+        Returns:
+            str: Output of the command.
+        """
+
+        for attempt in range(retry):
+            logging.debug('*** CMD: %s, grep: %s, attempt: %d' % (cmdline, grep_cmd, attempt+1))
+            process = subprocess.Popen(
+                shlex.split(cmdline),
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
-            out, err = process_grep.communicate()
-            ret_code = process_grep.returncode
-        else:
-            out, err = process.communicate()
-            ret_code = process.returncode
-        out, err = out.decode('utf-8'), err.decode('utf-8')
+            if grep_cmd:
+                process_grep = subprocess.Popen(
+                    shlex.split(grep_cmd),
+                    stdin=process.stdout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+                out, err = process_grep.communicate()
+                ret_code = process_grep.returncode
+            else:
+                out, err = process.communicate()
+                ret_code = process.returncode
+            out, err = out.decode('utf-8'), err.decode('utf-8')
 
-        msg = {
-            'cmd': cmdline,
-            'grep_cmd': grep_cmd,
-            'ret_code': ret_code,
-            'stdout': out.splitlines(),
-            'stderr': err.splitlines()
-        }
-        logging.debug('*** OUTPUT: \n%s' % json.dumps(msg, indent=2))
+            msg = {
+                'cmd': cmdline,
+                'grep_cmd': grep_cmd,
+                'ret_code': ret_code,
+                'stdout': out.splitlines(),
+                'stderr': err.splitlines()
+            }
+            logging.debug('*** OUTPUT: \n%s' % json.dumps(msg, indent=2))
 
-        if ret_code != 0:
-            raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
-
-        return out
+            if negative:
+                if ret_code != 0:
+                    # Result is expected, return early
+                    return out
+                else:
+                    # Result is unexpected, need to retry
+                    continue
+            else:
+                if ret_code == 0:
+                    # Result is expected, return early
+                    return out
+                else:
+                    # Result is unexpected, need to retry
+                    continue
+        # Reached max retry, fail with exception
+        raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
 
     @staticmethod
     def get_ovs_br_ports(bridge):
