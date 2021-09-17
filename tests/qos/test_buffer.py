@@ -2157,8 +2157,6 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    default_lossless_profiles = load_lossless_info_from_pg_profile_lookup(duthost)
-
     # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
     queue_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
