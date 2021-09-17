@@ -98,9 +98,6 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
             else:
                 buffer_profile_oid = buffer_profile_oid_in_pg
         else:
-            buffer_pg_asic_oid = buffer_name_map['{}:{}'.format(port, buffer_item)]
-            buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
-            buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
             if not _check_condition(not buffer_profile_oid_in_pg or buffer_profile_oid_in_pg == 'oid:0x0',
                                     "Buffer PG configured on admin down port in ASIC_DB {}".format(port),
                                     use_assert):
