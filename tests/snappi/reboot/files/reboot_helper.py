@@ -15,6 +15,7 @@ temp_tg_port = dict()
 def run_reboot_test(cvg_api,
                     duthost,
                     localhost,
+                    tgen_ports,
                     reboot_type,):
     """
     Run Local link failover test
@@ -28,7 +29,7 @@ def run_reboot_test(cvg_api,
     """
 
     """ Create bgp config on dut """
-    #duthost_bgp_config(duthost, tgen_ports)
+    duthost_bgp_config(duthost, tgen_ports)
 
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api)
@@ -39,7 +40,7 @@ def run_reboot_test(cvg_api,
     """
     get_convergence_for_reboot_test(duthost, localhost, cvg_api, tgen_bgp_config, reboot_type,)
 
-    #cleanup_config(duthost)
+    cleanup_config(duthost)
 
 
 def duthost_bgp_config(duthost, tgen_ports):
@@ -151,7 +152,6 @@ def __tgen_bgp_config(cvg_api,):
     Args:
         cvg_api (pytest fixture): snappi API
     """
-    temp_tg_port=[{'ip': '24.1.1.2', 'card_id': '4', 'peer_port': 'Ethernet76', 'prefix': u'24', 'location': '10.36.78.53;4;4', 'ipv6': '2000:4::8', 'ipv6_prefix': u'124', 'port_id': '4', 'peer_ip': u'24.1.1.1', 'speed': 'speed_100_gbps', 'peer_device': 'sonic-s6100-dut', 'peer_ipv6': u'2000:4::1'}, {'ip': '23.1.1.2', 'card_id': '4', 'peer_port': 'Ethernet72', 'prefix': u'24', 'location': '10.36.78.53;4;3', 'ipv6': '2000:3::3', 'ipv6_prefix': u'124', 'port_id': '3', 'peer_ip': u'23.1.1.1', 'speed': 'speed_100_gbps', 'peer_device': 'sonic-s6100-dut', 'peer_ipv6': u'2000:3::1'}, {'ip': '22.1.1.2', 'card_id': '4', 'peer_port': 'Ethernet68', 'prefix': u'24', 'location': '10.36.78.53;4;2', 'ipv6': '2000:2::f', 'ipv6_prefix': u'124', 'port_id': '2', 'peer_ip': u'22.1.1.1', 'speed': 'speed_100_gbps', 'peer_device': 'sonic-s6100-dut', 'peer_ipv6': u'2000:2::1'}, {'ip': '21.1.1.2', 'card_id': '4', 'peer_port': 'Ethernet64', 'prefix': u'24', 'location': '10.36.78.53;4;1', 'ipv6': '2000:1::a', 'ipv6_prefix': u'124', 'port_id': '1', 'peer_ip': u'21.1.1.1', 'speed': 'speed_100_gbps', 'peer_device': 'sonic-s6100-dut', 'peer_ipv6': u'2000:1::1'}]
     conv_config = cvg_api.convergence_config()
     cvg_api.enable_scaling(True)
     config = conv_config.config

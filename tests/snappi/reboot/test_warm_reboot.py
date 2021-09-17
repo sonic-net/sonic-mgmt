@@ -11,6 +11,7 @@ import pytest
 def test_reboot(cvg_api,
                 duthost,
                 localhost,
+                tgen_ports,
                 conn_graph_facts,
                 fanout_graph_facts,
                 reboot_type,):
@@ -42,4 +43,5 @@ def test_reboot(cvg_api,
     run_reboot_test(cvg_api,
                     duthost,
                     localhost,
+                    tgen_ports,
                     reboot_type,)
