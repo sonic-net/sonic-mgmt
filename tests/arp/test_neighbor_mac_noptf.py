@@ -113,7 +113,7 @@ class TestNeighborMacNoPtf:
                 for intf, status in intfStatus.items():
                     if "routed" in status["vlan"] and "up" in status["oper_state"]:
                         testRoutedInterface[asichost.asic_index] = intf
-                return testRoutedInterface
+            return testRoutedInterface
 
         if not wait_until(120, 2, find_routed_interface):
             pytest.fail('Failed to find routed interface in 120 s')
