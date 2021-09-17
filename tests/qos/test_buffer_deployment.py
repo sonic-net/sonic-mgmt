@@ -52,18 +52,6 @@ def make_dict_from_output_lines(lines):
         return dict(zip(lines[::2], lines[1::2]))
     return None
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_module(duthosts, rand_one_dut_hostname, request):
-    """Set up module. Called only once when the module is initialized
-
-    Args:
-        duthost: The DUT host object
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
-    if buffer_model == 'dynamic':
-        pytest.skip("Dynamic buffer is enabled, skip the test")
-
 
 def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """The testcase for (traditional) buffer manager
