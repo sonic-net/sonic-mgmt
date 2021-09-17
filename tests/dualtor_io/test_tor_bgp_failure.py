@@ -23,6 +23,32 @@ Out of scope: taking down the active ToR's BGP sessions means the T1 will never 
 Remaining cases for bgp shutdown are defined in this module.
 '''
 
+@pytest.fixture(scope='module', autouse=True)
+def temp_enable_bgp_autorestart(duthosts):
+    autorestart_cmd = 'config feature autorestart bgp {}'
+    config_save_cmd = 'config save -y'
+
+    old_autorestart_vals = {}
+
+    cmds = []
+    cmds.append(autorestart_cmd.format('enabled'))
+    cmds.append(config_save_cmd)
+
+    for duthost in duthosts:
+        autorestart_states = duthost.get_container_autorestart_states()
+        old_autorestart_vals[duthost] = autorestart_states['bgp']
+        duthost.shell_cmds(cmds=cmds)
+
+    yield
+
+    for duthost in duthosts:
+        cmds = []
+        old_state = old_autorestart_vals[duthost]
+        cmds.append(autorestart_cmd.format(old_state))
+        cmds.append(config_save_cmd)
+        duthost.shell_cmds(cmds=cmds)
+
+
 def test_active_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd):

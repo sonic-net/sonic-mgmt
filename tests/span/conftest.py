@@ -54,6 +54,13 @@ def ports_for_test(cfg_facts):
     }
 
 @pytest.fixture(scope='module', autouse=True)
+def skip_unsupported_asic_type(duthost):
+    SPAN_UNSUPPORTED_ASIC_TYPE = ["broadcom"]
+    if duthost.facts["asic_type"] in SPAN_UNSUPPORTED_ASIC_TYPE:
+        pytest.skip(
+            "Skipping span test on {} platform".format(duthost.facts["asic_type"]))
+
+@pytest.fixture(scope='module', autouse=True)
 def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
     '''
     Used to prepare monitor port for test
