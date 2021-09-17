@@ -501,3 +501,14 @@ def get_intf_by_sub_intf(sub_intf, vlan_id):
     if sub_intf.endswith(vlan_suffix):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
+
+def check_release(duthost, release_list):
+    """
+    @summary: Check DUT sonic_release in given release_list.
+    @param duthost: The DUT
+    @param release_list: A list of releases to check
+    """
+    if any(release == duthost.sonic_release for release in release_list):
+        logger.info("DUT release {} exits in release list {}".format(duthost.sonic_release, ", ".join(release_list)))
+        return True
+    return False

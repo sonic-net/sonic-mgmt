@@ -11,6 +11,7 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.utilities import check_release
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +144,10 @@ class QosSaiBase(QosBase):
         else:
             db = "4"
             keystr = "BUFFER_POOL|"
-
-        pool = keystr + bufferProfile["pool"].encode("utf-8")
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
+            pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+        else:
+            pool = keystr + bufferProfile["pool"].encode("utf-8")
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -167,7 +170,17 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        bufferPoolName = bufferProfile["pool"].encode("utf-8")
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
+            if self.isBufferInApplDb(dut_asic):
+                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                    None, "[]").replace("BUFFER_POOL_TABLE:",''
+                )
+            else:
+                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                    None, "[]").replace("BUFFER_POOL|",''
+                )
+        else:
+            bufferPoolName = bufferProfile["pool"].encode("utf-8")
 
         bufferPoolVoid = dut_asic.run_redis_cmd(
             argv = [
@@ -206,8 +219,13 @@ class QosSaiBase(QosBase):
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
             bufkeystr = "BUFFER_POOL|"
 
-        bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-            argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
+            bufferProfileName = dut_asic.run_redis_cmd(
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -270,13 +288,22 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
-        wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGET",
-                "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                "wred_profile"
-            ]
-        )[0].encode("utf-8")
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
+            wredProfileName = dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                    "wred_profile"
+                ]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                    "wred_profile"
+                ]
+            )[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -317,12 +344,20 @@ class QosSaiBase(QosBase):
             Returns:
                 SchedulerParam (dict): Map of scheduler parameters
         """
-        schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGET",
-                "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-            ]
-        )[0].encode("utf-8")
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
+            schedProfile = dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                ]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                ]
+            )[0].encode("utf-8")
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
