@@ -27,7 +27,7 @@ steps:
     pipeline: 1
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
-    runBranch: 'refs/heads/master'
+    runBranch: 'refs/heads/202012'
   displayName: "Download sonic kvm image"
 
 - script: |
