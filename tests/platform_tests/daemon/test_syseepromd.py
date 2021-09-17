@@ -157,7 +157,7 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, ra
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    skip_release(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
