@@ -121,47 +121,47 @@
     {
         "QUEUE": {
             "Ethernet63|0": {
-                "scheduler": "scheduler.0"
+                "scheduler": "[SCHEDULER|scheduler.0]"
             },
             "Ethernet63|1": {
-                "scheduler": "scheduler.0"
+                "scheduler": "[SCHEDULER|scheduler.0]"
             },
             "Ethernet63|2": {
-                "scheduler": "scheduler.0"
+                "scheduler": "[SCHEDULER|scheduler.0]"
             },
             "Ethernet63|3": {
-                "wred_profile": "AZURE_LOSSLESS",
-                "scheduler": "scheduler.1"
+                "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+                "scheduler": "[SCHEDULER|scheduler.1]"
             },
             "Ethernet63|4": {
-                "wred_profile": "AZURE_LOSSLESS",
-                "scheduler": "scheduler.1"
+                "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+                "scheduler": "[SCHEDULER|scheduler.1]"
             },
             "Ethernet63|5": {
-                "scheduler": "scheduler.0"
+                "scheduler": "[SCHEDULER|scheduler.0]"
             },
             "Ethernet63|6": {
-                "scheduler": "scheduler.0"
+                "scheduler": "[SCHEDULER|scheduler.0]"
             }
         }
     },
     {
         "BUFFER_PG": {
             "Ethernet63|0": {
-                "profile": "ingress_lossy_profile"
+                "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
             }
         }
     },
     {
         "BUFFER_QUEUE": {
             "Ethernet63|0-2": {
-                "profile": "egress_lossy_profile"
+                "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
             },  
             "Ethernet63|3-4": {
-                "profile": "egress_lossless_profile"
+                "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
             },  
             "Ethernet63|5-6": {
-                "profile": "egress_lossy_profile"
+                "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
             }  
 
         }
@@ -169,11 +169,11 @@
     {
         "PORT_QOS_MAP": {
             "Ethernet63": {
-                "tc_to_pg_map": "AZURE",
-                "tc_to_queue_map": "AZURE",
+                "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
+                "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
                 "pfc_enable": "3,4",
-                "pfc_to_queue_map": "AZURE",
-                "dscp_to_tc_map": "AZURE"
+                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
+                "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]"
             }
         }
     },

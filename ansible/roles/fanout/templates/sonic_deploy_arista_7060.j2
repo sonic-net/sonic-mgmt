@@ -69,27 +69,27 @@
 {% if sonic_qos_db_fv_reference_with_table == 'true' %}
 {% for alias in device_conn[inventory_hostname] %}
     "{{ alias }}|0": {
-        "scheduler": "scheduler.0"
+        "scheduler": "[SCHEDULER|scheduler.0]"
     },
     "{{ alias }}|1": {
-        "scheduler": "scheduler.0"
+        "scheduler": "[SCHEDULER|scheduler.0]"
     },
     "{{ alias }}|2": {
-        "scheduler": "scheduler.0"
+        "scheduler": "[SCHEDULER|scheduler.0]"
     },
     "{{ alias }}|3": {
-        "wred_profile": "AZURE_LOSSLESS",
-        "scheduler": "scheduler.1"
+        "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+        "scheduler": "[SCHEDULER|scheduler.1]"
     },
     "{{ alias }}|4": {
-        "wred_profile": "AZURE_LOSSLESS",
-        "scheduler": "scheduler.1"
+        "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+        "scheduler": "[SCHEDULER|scheduler.1]"
     },
     "{{ alias }}|5": {
-        "scheduler": "scheduler.0"
+        "scheduler": "[SCHEDULER|scheduler.0]"
     },
     "{{ alias }}|6": {
-        "scheduler": "scheduler.0"
+        "scheduler": "[SCHEDULER|scheduler.0]"
     }{% if not loop.last %},{% endif %}
 {% endfor %}
 {% else %}
@@ -125,13 +125,13 @@
 {% if sonic_qos_db_fv_reference_with_table == 'true' %}
 {% for alias in device_conn[inventory_hostname] %}
     "{{ alias }}|0-2": {
-        "profile": "egress_lossy_profile"
+        "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
     },
     "{{ alias }}|3-4": {
-        "profile": "egress_lossless_profile"
+        "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
     },
     "{{ alias }}|5-6": {
-        "profile": "egress_lossy_profile"
+        "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
     }{% if not loop.last %},{% endif %}
 {% endfor %}
 {% else %}
@@ -153,10 +153,10 @@
 {% if sonic_qos_db_fv_reference_with_table == 'true' %}
 {% for alias in device_conn[inventory_hostname] %}
     "{{ alias }}|0": {
-        "profile": "ingress_lossy_profile"
+        "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
     },
     "{{ alias }}|3-4": {
-        "profile": "pg_lossless_100000_300m_profile"
+        "profile": "[BUFFER_PROFILE|pg_lossless_100000_300m_profile]"
     }{% if not loop.last %},{% endif %}
 {% endfor %}
 {% else %}
@@ -243,17 +243,17 @@
 {% if sonic_qos_db_fv_reference_with_table == 'true' %}
     "egress_lossless_profile": {
         "static_th": "15982720",
-        "pool": "egress_lossless_pool",
+        "pool": "[BUFFER_POOL|egress_lossless_pool]",
         "size": "1518"
     },
     "egress_lossy_profile": {
         "dynamic_th": "3",
-        "pool": "egress_lossy_pool",
+        "pool": "[BUFFER_POOL|egress_lossy_pool]",
         "size": "1518"
     },
     "ingress_lossy_profile": {
         "dynamic_th": "3",
-        "pool": "ingress_lossless_pool",
+        "pool": "[BUFFER_POOL|ingress_lossless_pool]",
         "size": "0"
     },
     "pg_lossless_100000_300m_profile": {
@@ -261,7 +261,7 @@
         "dynamic_th": "0",
         "xon": "2288",
         "xoff": "268736",
-        "pool": "ingress_lossless_pool",
+        "pool": "[BUFFER_POOL|ingress_lossless_pool]",
         "size": "1248"
     }
 {% else %}
@@ -290,4 +290,5 @@
     }
 {% endif %}
 }
+
 }
