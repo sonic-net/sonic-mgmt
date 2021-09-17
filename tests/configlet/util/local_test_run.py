@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import argparse
-import json
 import os
 import socket
 import time
@@ -32,7 +31,7 @@ def main():
         print("run in SONiC switch only")
         return -1
     
-    ct_dir = SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+    ct_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = "{}/test".format(ct_dir)
 
     parser=argparse.ArgumentParser(description="configlet create params")
@@ -106,7 +105,6 @@ def main():
     assert not ret, "Failed to compare dumps"
 
     log_info("test ran successfully")
-    return 0
 
 
 def restore_mini():
@@ -125,17 +123,13 @@ def restore_mini():
 
 
 if __name__ == "__main__":
-    ret = -1
     set_running_in_switch()
     try:
         # restore original
         restore_mini()
-        ret = main()
+        main()
     finally:
         log_info("restoring minigraph")
         restore_mini()
-
-    if ret:
-        log_error("test failed")
 
 

@@ -20,7 +20,9 @@ def do_run(is_mlnx):
 
 
 def main():
+    # Test code to help run in switch to look at generated files.
     # Used only when running in switch
+    # This helps create all files, minigraph.xml w/o T0 and configlet
     #
     import socket
 
@@ -32,7 +34,7 @@ def main():
         print("run in SONiC switch only")
         return -1
     
-    ct_dir = SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+    ct_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = "{}/test".format(ct_dir)
 
     parser=argparse.ArgumentParser(description="configlet create params")
