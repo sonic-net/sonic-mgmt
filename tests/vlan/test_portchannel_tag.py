@@ -9,7 +9,6 @@ import json
 import itertools
 import logging
 
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
@@ -309,6 +308,8 @@ def test_vlan_tc5_unicast(ptfadapter, vlan_ports_list, toggle_all_simulator_port
             tagged_to_untagged_exp_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
             untagged_to_tagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
             untagged_to_tagged_exp_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=dst_mac, dst_mac=src_mac)
+            untagged_to_tagged_exp_pkt = Mask(untagged_to_tagged_exp_pkt)
+            untagged_to_tagged_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
 
             logger.info("Tagged packet {} to be sent from port {} to port {}".format(tagged_test_vlan, src_port[0], dst_port))
             testutils.send(ptfadapter, src_port[0], tagged_to_untagged_pkt)
