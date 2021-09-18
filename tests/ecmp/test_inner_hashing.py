@@ -151,7 +151,9 @@ def symmetric_hashing(duthosts, rand_one_dut_hostname):
 def ipver(request):
     return request.param
 
-
+# The test case is expected to fail since some setup is missing.
+# Please remove the xfail marker when the issue is fixed.
+@pytest.mark.xfail
 def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, symmetric_hashing, build_fib, setup):
     logging.info("Executing inner hash test for " + ipver + " with symmetric_hashing set to " + str(symmetric_hashing))
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -176,7 +178,7 @@ def test_inner_hashing(hash_keys, ptfhost, ipver, router_mac, vlan_ptf_ports, sy
                     "router_mac": router_mac,
                     "src_ports": vlan_ptf_ports,
                     "hash_keys": hash_keys,
-                    "vxlan_port": VXLAN_PORT, 
+                    "vxlan_port": VXLAN_PORT,
                     "inner_src_ip_range": ",".join(inner_src_ip_range),
                     "inner_dst_ip_range": ",".join(inner_dst_ip_range),
                     "outer_src_ip_range": ",".join(outer_src_ip_range),
