@@ -95,7 +95,13 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         return drop_list
     check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()
     if not wait_until(25, 1, check_drops_on_dut):
-        fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-            column_key, dut_iface, column_key, get_drops_across_all_duthosts(), packets_count
-        )
-        pytest.fail(fail_msg)
+        # The actual Drop count should always be equal or 1 or 2 packets more than what is expected due to some other drop may occur
+        # over the interface being examined. When that happens if looking onlyu for exact count it will be a false positive failure.
+        # So do one more check to allow up to 2 packets more dropped than what was expected as an allowed case.
+        actual_drop = get_drops_across_all_duthosts()
+        if ((packets_count+2) in actual_drop) or ((packets_count+1) in actual_drop):
+            logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(actual_drop, packets_count, dut_iface))
+        else:
+            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
+                column_key, dut_iface, column_key, actual_drop, packets_count)
+            pytest.fail(fail_msg)
