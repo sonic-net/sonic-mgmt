@@ -58,6 +58,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     logging.info("Run %s reboot on DUT" % reboot_type)
 
     reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
+    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
 
@@ -77,6 +78,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
             "got reboot-cause failed after rebooted by %s" % reboot_type
 
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logging.info("Skip check reboot-cause history for version before 202012")
+        else:
+            logger.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
             return
