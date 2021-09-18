@@ -22,8 +22,17 @@
   set_fact:
     portchannel_config: "{{ topology['DUT']['portchannel_config'] | default({})}}"
 
-- name: Control PTF portchannel
+- name: Start PTF portchannel
   ptf_portchannel:
-    cmd: "{{ ptf_portchannel_action }}"
+    cmd: start
     portchannel_config: "{{ portchannel_config }}"
   delegate_to: "{{ ptf_host }}"
+  when: ptf_portchannel_action == 'start'
+
+- name: Stop PTF portchannel
+  ptf_portchannel:
+    cmd: stop
+    portchannel_config: "{{ portchannel_config }}"
+  delegate_to: "{{ ptf_host }}"
+  ignore_unreachable: yes
+  when: ptf_portchannel_action == 'stop'
