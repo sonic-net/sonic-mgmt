@@ -10,7 +10,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -644,6 +644,7 @@ def port_to_test(request, duthost):
 
     testPort = set(mgFacts["minigraph_ports"].keys())
     testPort -= set(dutLagInterfaces)
+    pytest_require(len(testPort) > 0, "No port to run test")
 
     PORT_TO_TEST = list(testPort)[0]
     lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
