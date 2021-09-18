@@ -184,6 +184,22 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Disable BGP neighbors
+    # There are a lot of routing entries learnt with BGP neighbors enabled.
+    # There are a lot of speed changing operations during the buffer test,
+    # which causes port operational down and routing entries withdrawn.
+    # Since orchagent works in a single thread model, this can causes buffer related notifications
+    # pended in the queue and can not be drained until routing entries handled,
+    # which in turn significantly slows down the process in orchagent and makes many checks timeout.
+    # As the buffer test has already taken ~30 minutes, we don't want to extend the wait time.
+    # So disabling BGP neighbors is a reasonal way to tolerance this situation.
+    bgp_neighbors = duthost.shell('redis-cli -n 4 keys BGP_NEIGHBOR*')['stdout']
+    if bgp_neighbors:
+        duthost.shell('config bgp shutdown all')
+        logging.info("Shutting down BGP neighbors and waiting for all routing entries withdrawn")
+        time.sleep(60)
+
     detect_buffer_model(duthost)
     enable_shared_headroom_pool = request.config.getoption("--enable_shared_headroom_pool")
     need_to_disable_shared_headroom_pool_after_test = False
@@ -208,6 +224,10 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     if need_to_disable_shared_headroom_pool_after_test:
         configure_shared_headroom_pool(duthost, False)
+
+    if bgp_neighbors:
+        duthost.shell("config bgp startup all")
+        time.sleep(60)
 
 
 def skip_traditional_model():
