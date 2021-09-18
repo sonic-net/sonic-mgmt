@@ -165,6 +165,13 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
         for key, pg in lossless_pgs.items():
             config_db.set_entry('BUFFER_PG', key, pg)
         logger.log_notice("Lossless PGs have been created for {}".format(lossless_pgs.keys()))
+    else:
+        # The lossless_pgs can be None if this script is called immediately after reloading minigraph
+        # because the lossless PGs hasn't been inserted into CONFIG_DB by traditional buffer manager
+        ports = config_db.get_keys('PORT')
+        for port in ports:
+            config_db.set_entry('BUFFER_PG', '{}|3-4'.format(port), {'profile': 'NULL'})
+        logger.log_notice("No lossless PG in CONFIG_DB, lossless PGs have been created for all ports {}".format(ports))
 
     # Add necessary tables to run dynamic model
     default_lossless_param = {'default_dynamic_th': '0'}
