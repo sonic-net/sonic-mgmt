@@ -106,12 +106,17 @@ class TestNeighborMacNoPtf:
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         testRoutedInterface = {}
-        for asichost in duthost.asics:
-            intfStatus = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
-            for intf, status in intfStatus.items():
-                if "routed" in status["vlan"] and "up" in status["oper_state"]:
-                    testRoutedInterface[asichost.asic_index] = intf
-            pytest_assert(testRoutedInterface, "Failed to find a routed interface in '%s'" % intfStatus)
+
+        def find_routed_interface():
+            for asichost in duthost.asics:
+                intfStatus = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
+                for intf, status in intfStatus.items():
+                    if "routed" in status["vlan"] and "up" in status["oper_state"]:
+                        testRoutedInterface[asichost.asic_index] = intf
+            return testRoutedInterface
+
+        if not wait_until(120, 2, find_routed_interface):
+            pytest.fail('Failed to find routed interface in 120 s')
 
         yield testRoutedInterface
 
