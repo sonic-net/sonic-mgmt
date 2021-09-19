@@ -15,7 +15,7 @@
 
 - fail: msg="mellanox_spc3_hwskus is not defined"
   when: "mellanox_spc3_hwskus is not defined"
-  
+
 - set_fact:
     chip: "spectrum"
   when: hostvars[dut_name]['hwsku'] in mellanox_spc1_hwskus
@@ -57,6 +57,8 @@
     capabilities:
       - net_admin
     privileged: yes
+    memory: 8G
+    memory_swap: 8G
     env: "{{ sid_env }}"
     command: /usr/sbin/init
   become: yes
