@@ -40,6 +40,7 @@ class TestDynamicInnerHashing():
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
         balancing_test_times = 150
+        balancing_range = 0.3
 
         ptf_runner(ptfhost,
                    "ptftests",
@@ -55,6 +56,7 @@ class TestDynamicInnerHashing():
                            "outer_src_ip_range": ",".join(outer_src_ip_range),
                            "outer_dst_ip_range": ",".join(outer_dst_ip_range),
                            "balancing_test_times": balancing_test_times,
+                           "balancing_range": balancing_range,
                            "symmetric_hashing": symmetric_hashing},
                    log_file=log_file,
                    qlen=PTF_QLEN,

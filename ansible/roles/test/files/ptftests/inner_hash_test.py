@@ -26,7 +26,7 @@ class InnerHashTest(BaseTest):
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    DEFAULT_BALANCING_RANGE = 0.3
+    DEFAULT_BALANCING_RANGE = 0.25
     BALANCING_TEST_TIMES = 625
     OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
 

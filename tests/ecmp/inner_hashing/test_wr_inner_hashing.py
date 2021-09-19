@@ -41,6 +41,7 @@ class TestDynamicInnerHashing():
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
         balancing_test_times = 200
+        balancing_range = 0.3
 
         duthost.command('sudo config save -y')
         reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
@@ -60,6 +61,7 @@ class TestDynamicInnerHashing():
                            "outer_src_ip_range": ",".join(outer_src_ip_range),
                            "outer_dst_ip_range": ",".join(outer_dst_ip_range),
                            "balancing_test_times": balancing_test_times,
+                           "balancing_range": balancing_range,
                            "outer_encap_formats": outer_encap_format,
                            "symmetric_hashing": symmetric_hashing},
                    log_file=log_file,
