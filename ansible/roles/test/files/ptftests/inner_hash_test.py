@@ -28,7 +28,6 @@ class InnerHashTest(BaseTest):
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
     BALANCING_TEST_TIMES = 625
-    OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
 
     _required_params = [
         'fib_info',
@@ -78,6 +77,7 @@ class InnerHashTest(BaseTest):
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
         self.vxlan_port = self.test_params['vxlan_port']
+        self.outer_encap_formats = self.test_params['outer_encap_formats']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
         self.outer_dst_ip = self.outer_dst_ip_interval.get_first_ip()
 
@@ -89,7 +89,6 @@ class InnerHashTest(BaseTest):
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
-        self.outer_encap_formats = self.test_params.get('outer_encap_formats', self.OUTER_ENCAP_FORMATS)
 
         logging.info("balancing_range:  {}".format(self.balancing_range))
         logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
