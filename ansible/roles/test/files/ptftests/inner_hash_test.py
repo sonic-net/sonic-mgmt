@@ -96,7 +96,7 @@ class InnerHashTest(BaseTest):
         src_port = int(random.choice(self.src_ports))
         logging.info("outer_dst_ip={}, src_port={}, exp_port_list={}".format(self.outer_dst_ip, src_port, self.exp_port_list))
 
-        logging.info("BALANCING_TEST_TIMES:  {}".format(self.balancing_test_times))
+        logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
 
         for outer_encap_format in self.outer_encap_formats:
             hit_count_map = {}
