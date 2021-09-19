@@ -273,20 +273,9 @@ class VNET(BaseTest):
         self.tests = []
         for routes in graph['vnet_routes']:
             for name, rt_list in routes.items():
-                if self.total_routes <= self.max_routes_wo_scaling:
-                    for entry in rt_list:
-                        self.addTest(graph, name, entry)
-                else:
-                    vnet_id = int(name.split('_')[0][4:])
-                    len_rt = len(rt_list)
-                    group_8 = (vnet_id-1)//self.vnet_batch
-                    rt_idx = (group_8//2)%len_rt
-                    if group_8%2:
-                        rt_idx = (len_rt-1)-rt_idx
-
-                    entry = rt_list[rt_idx]
-                    self.addTest(graph, name, entry)
-
+              for entry in rt_list:
+                self.addTest(graph, name, entry)
+                
         self.dut_mac = graph['dut_mac']
 
         ipv4 = None
@@ -426,6 +415,9 @@ class VNET(BaseTest):
             if 'dst_vni' in test:
                 vni = int(test['dst_vni'])
 
+            if isinstance(ip_address(test['dst']), ipaddress.IPv4Address) == isinstance(ip_address(test['src']), ipaddress.IPv6Address):
+                return
+
             # ECMP support, assume it is a string of comma seperated list of addresses.
             host_addresses = test['host'].split(',')
             returned_ip_addresses = {}
@@ -438,7 +430,9 @@ class VNET(BaseTest):
                 tcp_sport = get_incremental_value('tcp_sport')
                 #tcp_dport = get_incremental_value('tcp_dport')
                 tcp_dport = 5000
-                pkt = simple_tcp_packet(
+                valid_combination = True
+                if isinstance(ip_address(test['dst']), ipaddress.IPv4Address) and isinstance(ip_address(test['src']), ipaddress.IPv4Address):
+                  pkt = simple_tcp_packet(
                     pktlen=pkt_len,
                     eth_dst=self.dut_mac,
                     eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
@@ -450,7 +444,7 @@ class VNET(BaseTest):
                     ip_ttl=64,
                     tcp_sport=tcp_sport,
                     tcp_dport=tcp_dport)
-                exp_pkt = simple_tcp_packet(
+                  exp_pkt = simple_tcp_packet(
                     eth_dst=test['mac'],
                     eth_src=self.dut_mac,
                     ip_dst=test['dst'],
@@ -459,6 +453,29 @@ class VNET(BaseTest):
                     ip_ttl=63,
                     tcp_sport=tcp_sport,
                     tcp_dport=tcp_dport)
+                elif isinstance(ip_address(test['dst']), ipaddress.IPv6Address) and isinstance(ip_address(test['src']), ipaddress.IPv6Address):
+                  pkt = simple_tcpv6_packet(
+                    pktlen=pkt_len,
+                    eth_dst=self.dut_mac,
+                    eth_src=self.ptf_mac_addrs['eth%d' % test['port']],
+                    dl_vlan_enable=tagged,
+                    vlan_vid=test['vlan'],
+                    ipv6_dst=test['dst'],
+                    ipv6_src=test['src'],
+                    ipv6_hlim=64,
+                    tcp_sport=tcp_sport,
+                    tcp_dport=tcp_dport)
+                  exp_pkt = simple_tcpv6_packet(
+                    eth_dst=test['mac'],
+                    eth_src=self.dut_mac,
+                    ipv6_dst=test['dst'],
+                    ipv6_src=test['src'],
+                    ipv6_hlim=63,
+                    tcp_sport=tcp_sport,
+                    tcp_dport=tcp_dport)
+                else:
+                    valid_combination = False
+                    print("Unusable combination:src:{} and dst:{}".format(test['src'], test['dst']))
                 udp_sport = 1234 # Use entropy_hash(pkt), it will be ignored in the test later.
                 udp_dport = self.vxlan_port
                 if isinstance(ip_address(host_address), ipaddress.IPv4Address):
@@ -487,7 +504,8 @@ class VNET(BaseTest):
                       vxlan_vni=vni,
                       inner_frame=exp_pkt)
                 else:
-                    raise Exception("Found invalid IP address in test")
+                    print("Unusable combination:src:{} and dst:{}".format(test['src'], test['dst']))
+                    #raise Exception("Found invalid IP address in test")
                 send_packet(self, test['port'], str(pkt), count=10)
   
                 masked_exp_pkt = Mask(encap_pkt)

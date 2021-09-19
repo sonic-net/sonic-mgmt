@@ -72,6 +72,15 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
+        "--ipv6_in_ipv4",
+        action="store",
+        type=bool,
+        default=True,
+        help="Test IPv6 inside IPv4(V6inV4)",
+    )
+
+    # ECMP options
+    vxlan_group.addoption(
         "--total_number_of_endpoints",
         action="store",
         default=1020,

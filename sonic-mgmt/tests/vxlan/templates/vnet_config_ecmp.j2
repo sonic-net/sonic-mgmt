@@ -68,7 +68,7 @@ num_vnet_batch: {{ num_vnet_batch }}
 {% endif %}
 {% set topo_vlan = minigraph_vlans.keys()[0] %}
 
-{% set num_routes_iterations = 10 %}
+{% set num_routes_iterations = 1 %}
 {# Max RIFs support currently is 128 #}
 {% if num_vnet > 128 %}
   {% set max_rif = 128 %}
@@ -169,6 +169,47 @@ vnet_nbr_list:
   - ifname: {{ minigraph_vlans[topo_vlan].members[0] }}
     ip: '10.10.10.102'
 
+vnet_nbr_list:
+{% for vlan_batch in range (vlan_id_base, vlan_id_base + num_vnet)|batch(4) %}
+  {% for vlan in vlan_batch %}
+    {% set vlan_str = (vlan-1)|string %}
+    {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
+  - ifname: Vlan{{ vlan }}
+    ip: 'FDDD::{{ ip_a }}:{{ ip_b }}:10:101'
+    {% if (loop.index0 == 0) or (loop.index0 == 1) %}
+  - ifname: Vlan{{ vlan }}
+    ip: 'FDDD::{{ ip_a }}:{{ ip_b }}:10:102'
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+{% for vlan in range(vlan_rif_base, num_addl_intf * num_vnet + vlan_rif_base) %}
+  {% set vlan_str = vlan|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, vlan_str[2:]|int %}
+  - ifname: Vlan{{ vlan }}
+    ip: 'FDDD::{{ ip_a }}:{{ ip_b }}:10:101'
+{% endfor  %}
+
+vlan_intf_list:
+{% set ports = minigraph_vlans[topo_vlan].members[1:] %}
+{% for vlan in range (vlan_id_base, vlan_id_base + num_vnet) %}
+  {% set vlan_str = (vlan-1)|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ifname: 'Vlan{{ vlan }}'
+    ip: 'FDDD::{{ ip_a }}:{{ ip_b }}:10:1/120'
+    port: '{{ ports[loop.index0%(ports|length)] }}'
+{% endfor %}
+{% for vlan in range(vlan_rif_base, num_addl_intf * num_vnet + vlan_rif_base) %}
+  {% set vlan_str = (vlan)|string %}
+  {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int) %}
+  - vlan_id: '{{ (vlan|int) }}'
+    ifname: 'Vlan{{ vlan }}'
+    ip: 'FDDD::{{ ip_a }}:{{ ip_b }}:10:1/120'
+    port: '{{ ports[loop.index0 // num_addl_intf % (ports|length) ] }}'
+{% endfor %}
+
+
+
 {# Vnet - Subnet tunnel route Configurations #}
 vnet_subnet_routes:
 {% for vlan_batch in range (vlan_id_base, vlan_id_base + max_rif)|batch(4) %}
@@ -200,24 +241,32 @@ vnet_subnet_routes:
 # All next-hops. Currently we support upto 1020 next hops
 # Create a list of random nexthops.
 #}
-{%- set list_of_all_endpoints = [] %}
+{%- set list_of_all_endpoints_v4 = [] %}
 {%- for end_index in range(0, total_number_of_endpoints) %}
   {%- set part_a, part_b = ((end_index//255)|int)+1, ((end_index % 255)|int)+1 %}
-  {%- set _ = list_of_all_endpoints.append((range(200, 220)|random|string +  "." + part_a|string + "." + part_b|string + "." + range(0, 255)|random|string)) %}
+  {%- set _ = list_of_all_endpoints_v4.append((range(200, 220)|random|string +  "." + part_a|string + "." + part_b|string + "." + range(0, 255)|random|string)) %}
 {% endfor %}
 
+{%- set total_number_of_nexthops_v4 = total_number_of_nexthops %}
+{%- set number_of_v4_destinations = number_of_destinations %}
+{%- set number_of_v6_destinations = 0 %}
+{%- if ipv6_in_ipv4 == true %}
+  {%- set total_number_of_nexthops_v4 = (total_number_of_nexthops / 2)|int %}
+  {%- set number_of_v4_destinations = (number_of_destinations/2)|int %}
+  {%- set number_of_v6_destinations = (number_of_destinations/2)|int %}
+{% endif %}
 vnet_route_list_ecmp:
   - Vnet1_route_list_ecmp:
 {%- set count_total_number_of_nexthops = [] %}
-{%- for destination in range(number_of_destinations) %}
+{%- for destination in range(number_of_v4_destinations) %}
   {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
     {%- for idx in range (0, num_routes_iterations*2, 2) -%}
       {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
       {%- set endpoints_list = [] -%}
       {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
         {%- set index_endpoints = count_total_number_of_nexthops|length % total_number_of_endpoints %}
-        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops %}
-          {%- set _ = endpoints_list.append( list_of_all_endpoints[index_endpoints] ) %}
+        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops_v4 %}
+          {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
         {%- endif %}
         {%- set _ = count_total_number_of_nexthops.append(1) %}
       {%- endfor %}
@@ -227,3 +276,23 @@ vnet_route_list_ecmp:
       {%- endif %}
     {%- endfor %}
 {%- endfor %}
+{%- if ipv6_in_ipv4 == true %}
+{%- for destination in range(number_of_v6_destinations) %}
+  {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+    {%- for idx in range (0, num_routes_iterations*2, 2) -%}
+      {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
+      {%- set endpoints_list = [] -%}
+      {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+        {%- set index_endpoints = count_total_number_of_nexthops|length % total_number_of_endpoints %}
+        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops %}
+          {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
+        {%- endif %}
+        {%- set _ = count_total_number_of_nexthops.append(1) %}
+      {%- endfor %}
+      {%- if endpoints_list|length != 0 %}
+      - pfx: 'FDDD::{{ ip_r_a }}:{{ ip_r_b }}:{{ idx_a }}:{{ idx_b }}/128'
+        end: '{{ endpoints_list|join(',') }}'
+      {%- endif %}
+    {%- endfor %}
+{%- endfor %}
+{%- endif %}

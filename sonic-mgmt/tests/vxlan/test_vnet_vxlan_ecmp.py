@@ -1,6 +1,7 @@
 import json
 import logging
 import pytest
+import time
 
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -174,6 +175,7 @@ def test_vnet_vxlan_ecmp(setup, vxlan_status, duthosts, rand_one_dut_hostname, p
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
+    time.sleep(30)
     ptf_runner(ptfhost,
                "ptftests",
                "vnet_vxlan_ecmp.VNET",

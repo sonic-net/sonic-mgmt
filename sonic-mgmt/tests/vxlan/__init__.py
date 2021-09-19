@@ -52,6 +52,7 @@ def vnet_test_params(request):
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
     params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
+    params[IPV6_IN_IPV4] = request.config.option.ipv6_in_ipv4
     # ECMP
     params[TOTAL_NUMBER_OF_ENDPOINTS] = request.config.option.total_number_of_endpoints
     params[ECMP_NHS_PER_DESTINATION] = request.config.option.ecmp_nhs_per_destination
