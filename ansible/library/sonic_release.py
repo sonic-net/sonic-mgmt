@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import re
 import subprocess
 from ansible.module_utils.basic import *
 
@@ -47,7 +46,7 @@ def main():
     if any(release == sonic_release for release in old_format_release_list):
         sonic_qos_db_fv_reference_with_table = true
 
-    module.exit_json(ansible_facts={'sonic_release': sonic_release, 'sonic_qos_db_fv_no_reference_with_table': sonic_qos_db_fv_no_reference_with_table})
+    module.exit_json(ansible_facts={'sonic_release': sonic_release, 'sonic_qos_db_fv_reference_with_table': sonic_qos_db_fv_reference_with_table})
 
 if __name__ == '__main__':
     main()
