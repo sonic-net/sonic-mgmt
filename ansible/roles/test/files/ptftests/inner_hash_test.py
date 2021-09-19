@@ -91,7 +91,9 @@ class InnerHashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
         self.outer_encap_formats = self.test_params.get('outer_encap_formats', self.OUTER_ENCAP_FORMATS)
 
+        logging.info("balancing_range:  {}".format(self.balancing_range))
         logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
+        logging.info("outer_encap_formats:  {}".format(self.outer_encap_formats))
 
 
     def check_hash(self, hash_key):
