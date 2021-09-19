@@ -1,6 +1,3 @@
-# Summary: Inner packet hashing test
-# How to run this test: sudo ./run_tests.sh -n <tb name> -i <inventory files> -u -m group -e --skip_sanity -l info -c ecmp/test_inner_hashing.py
-
 import time
 import json
 import logging
@@ -11,22 +8,17 @@ from datetime import datetime
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
-from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox')
-]
 
 # Standard HASH_KEYs of 'src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto' varied in the inner packets sent and used to validate hashing
 # outer-tuples is also used as a HASH_KEY to validate that varying any outer tuples for encap traffic does not affect inner hashing
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto', 'outer-tuples']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
-SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF']
-DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF']
+SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:A800:0:00::FFFF:FFFF']
+DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:A800:0:01::FFFF:FFFF']
 PTF_QLEN = 2000
 
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
@@ -36,6 +28,7 @@ VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
 IP_VERSIONS_LIST = ["ipv4", "ipv6"]
+OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
 TABLE_NAME = "pbh_table"
 TABLE_DESCRIPTION = "NVGRE and VXLAN"
 HASH_NAME = "inner_hash"
@@ -80,7 +73,8 @@ def config_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -99,7 +93,7 @@ def setup(duthosts, rand_one_dut_hostname):
     time.sleep(3)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='module', autouse=True)
 def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -198,7 +192,7 @@ def inner_ipver(request):
     return request.param
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def setup_dynamic_pbh(request):
     request.getfixturevalue("config_pbh_table")
     request.getfixturevalue("config_hash_fields")
@@ -330,31 +324,3 @@ def get_src_dst_ip_range(ipver):
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
     return src_ip_range, dst_ip_range
-
-
-def test_inner_hashing(duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                       vlan_ptf_ports, symmetric_hashing, build_fib, setup, setup_dynamic_pbh):
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    log_file = "/tmp/inner_hash_test.InnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
-    logging.info("PTF log file: %s" % log_file)
-
-    outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
-    inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
-
-    ptf_runner(ptfhost,
-               "ptftests",
-               "inner_hash_test.InnerHashTest",
-               platform_dir="ptftests",
-               params={"fib_info": FIB_INFO_FILE_DST,
-                       "router_mac": router_mac,
-                       "src_ports": vlan_ptf_ports,
-                       "hash_keys": hash_keys,
-                       "vxlan_port": VXLAN_PORT,
-                       "inner_src_ip_range": ",".join(inner_src_ip_range),
-                       "inner_dst_ip_range": ",".join(inner_dst_ip_range),
-                       "outer_src_ip_range": ",".join(outer_src_ip_range),
-                       "outer_dst_ip_range": ",".join(outer_dst_ip_range),
-                       "symmetric_hashing": symmetric_hashing},
-              log_file=log_file,
-              qlen=PTF_QLEN,
-              socket_recv_size=16384)
