@@ -425,7 +425,7 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
         Whether the expected profile has been found within given time
     """
     def _check_pg_profile(duthost, pg, expected_profile):
-        if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
             profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
             return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
         else:
@@ -711,7 +711,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
 
-    if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+    if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
         profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
     else:
         profile = "BUFFER_PROFILE_TABLE:" + duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
@@ -975,7 +975,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+    if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
         original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
         original_profile_key = original_profile
     else:
@@ -1067,7 +1067,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
         duthost.shell('config interface buffer priority-group lossless remove {}'.format(port_to_test))
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test))
 
-        if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
             check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), original_profile.split(':')[1])
         else:
             check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), original_profile)
@@ -1417,7 +1417,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+    if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
         original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
         original_profile_key = original_profile
     else:

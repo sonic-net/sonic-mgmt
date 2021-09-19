@@ -54,11 +54,11 @@ def setup(duthosts, tbinfo, localhost):
         # scp the config_db's for each card
         logger.info("")
         BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-        if check_release(duthost, ["201811", "201911", "202012", "202106", "none"]) == True:
+        if check_release(duthost, ["201811", "201911", "202012", "202106"]) == True:
             src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
         else:
-       #     src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_qos_new_dbfmt_config_db.json".format(duthost.hostname))
-            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
+            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_qos_new_dbfmt_config_db.json".format(duthost.hostname))
+        #   src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
         dst_cfg_path = os.path.join(os.sep, "tmp", "config_db.json")
         logger.info("Copying {} to /etc/sonic/config_db.json on {}".format(src_cfg_path, duthost.hostname))
         duthost.copy(src=src_cfg_path, dest=dst_cfg_path)
