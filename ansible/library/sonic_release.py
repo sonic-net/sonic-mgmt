@@ -43,7 +43,7 @@ def main():
      '''
      Check for QOS DB format for Field Value refered with tables or not.
      '''
-     old_format_release_list = ["201811", "201911", "202012", "202106"]
+     old_format_release_list = ["201811", "201911", "202012", "202106", "none"]
      if any(release == sonic_release for release in old_format_release_list):
         sonic_qos_db_fv_reference_with_table = true
 
