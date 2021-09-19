@@ -26,7 +26,7 @@ class InnerHashTest(BaseTest):
     #---------------------------------------------------------------------
     # Class variables
     #---------------------------------------------------------------------
-    DEFAULT_BALANCING_RANGE = 0.25
+    DEFAULT_BALANCING_RANGE = 0.3
     BALANCING_TEST_TIMES = 625
     OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
 
@@ -91,12 +91,12 @@ class InnerHashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
         self.outer_encap_formats = self.test_params.get('outer_encap_formats', self.OUTER_ENCAP_FORMATS)
 
+        logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
+
 
     def check_hash(self, hash_key):
         src_port = int(random.choice(self.src_ports))
         logging.info("outer_dst_ip={}, src_port={}, exp_port_list={}".format(self.outer_dst_ip, src_port, self.exp_port_list))
-
-        logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
 
         for outer_encap_format in self.outer_encap_formats:
             hit_count_map = {}

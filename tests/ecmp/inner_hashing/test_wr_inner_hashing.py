@@ -15,43 +15,85 @@ pytestmark = [
     pytest.mark.asic('mellanox')
 ]
 
+@pytest.mark.dynamic_config
+class TestDynamicInnerHashing():
 
-def test_inner_hashing(duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                       vlan_ptf_ports, symmetric_hashing, localhost):
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    log_file = "/tmp/wr_inner_hash_test.InnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
-    logging.info("PTF log file: %s" % log_file)
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_dynamic_pbh(self, request):
+        request.getfixturevalue("config_pbh_table")
+        request.getfixturevalue("config_hash_fields")
+        request.getfixturevalue("config_hash")
+        request.getfixturevalue("config_rules")
 
-    # to reduce test run time, check one of encapsulation formats
-    outer_encap_format = random.choice([["vxlan"], ["nvgre"]])
-    logging.info("Tested encapsulation format: {}".format(outer_encap_format[0]))
+    def test_inner_hashing(self, duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
+                           vlan_ptf_ports, symmetric_hashing, localhost):
+        logging.info("Executing warm boot dynamic inner hash test for outer {} and inner {} with symmetric_hashing"
+                     " set to {}".format(outer_ipver, inner_ipver, str(symmetric_hashing)))
+        timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+        log_file = "/tmp/wr_inner_hash_test.DynamicInnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
+        logging.info("PTF log file: %s" % log_file)
 
-    outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
-    inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
+        # to reduce test run time, check one of encapsulation formats
+        outer_encap_format = random.choice([["vxlan"], ["nvgre"]])
+        logging.info("Tested encapsulation format: {}".format(outer_encap_format[0]))
 
-    balancing_test_times = 200
+        outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
+        inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-    duthost.command('sudo config save -y')
-    reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
-    reboot_thr.start()
+        balancing_test_times = 200
 
-    ptf_runner(ptfhost,
-               "ptftests",
-               "inner_hash_test.InnerHashTest",
-               platform_dir="ptftests",
-               params={"fib_info": FIB_INFO_FILE_DST,
-                       "router_mac": router_mac,
-                       "src_ports": vlan_ptf_ports,
-                       "hash_keys": hash_keys,
-                       "vxlan_port": VXLAN_PORT,
-                       "inner_src_ip_range": ",".join(inner_src_ip_range),
-                       "inner_dst_ip_range": ",".join(inner_dst_ip_range),
-                       "outer_src_ip_range": ",".join(outer_src_ip_range),
-                       "outer_dst_ip_range": ",".join(outer_dst_ip_range),
-                       "balancing_test_times": balancing_test_times,
-                       "outer_encap_formats": outer_encap_format,
-                       "symmetric_hashing": symmetric_hashing},
-               log_file=log_file,
-               qlen=PTF_QLEN,
-               socket_recv_size=16384)
-    reboot_thr.join()
+        duthost.command('sudo config save -y')
+        reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
+        reboot_thr.start()
+
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "inner_hash_test.InnerHashTest",
+                   platform_dir="ptftests",
+                   params={"fib_info": FIB_INFO_FILE_DST,
+                           "router_mac": router_mac,
+                           "src_ports": vlan_ptf_ports,
+                           "hash_keys": hash_keys,
+                           "vxlan_port": VXLAN_PORT,
+                           "inner_src_ip_range": ",".join(inner_src_ip_range),
+                           "inner_dst_ip_range": ",".join(inner_dst_ip_range),
+                           "outer_src_ip_range": ",".join(outer_src_ip_range),
+                           "outer_dst_ip_range": ",".join(outer_dst_ip_range),
+                           "balancing_test_times": balancing_test_times,
+                           "outer_encap_formats": outer_encap_format,
+                           "symmetric_hashing": symmetric_hashing},
+                   log_file=log_file,
+                   qlen=PTF_QLEN,
+                   socket_recv_size=16384)
+        reboot_thr.join()
+
+@pytest.mark.static_config
+class TestStaticInnerHashing():
+
+    def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac, vlan_ptf_ports, symmetric_hashing):
+        logging.info("Executing static inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
+                     .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
+        timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+        log_file = "/tmp/inner_hash_test.StaticInnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
+        logging.info("PTF log file: %s" % log_file)
+
+        outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
+        inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
+
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "inner_hash_test.InnerHashTest",
+                   platform_dir="ptftests",
+                   params={"fib_info": FIB_INFO_FILE_DST,
+                           "router_mac": router_mac,
+                           "src_ports": vlan_ptf_ports,
+                           "hash_keys": hash_keys,
+                           "vxlan_port": VXLAN_PORT,
+                           "inner_src_ip_range": ",".join(inner_src_ip_range),
+                           "inner_dst_ip_range": ",".join(inner_dst_ip_range),
+                           "outer_src_ip_range": ",".join(outer_src_ip_range),
+                           "outer_dst_ip_range": ",".join(outer_dst_ip_range),
+                           "symmetric_hashing": symmetric_hashing},
+                   log_file=log_file,
+                   qlen=PTF_QLEN,
+                   socket_recv_size=16384)

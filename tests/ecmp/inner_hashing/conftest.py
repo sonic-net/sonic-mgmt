@@ -2,6 +2,7 @@ import time
 import json
 import logging
 import tempfile
+import re
 
 from datetime import datetime
 
@@ -66,6 +67,27 @@ HASH_FIELD_CONFIG = {
     "inner_src_ipv6": {"field": "INNER_SRC_IPV6", "sequence": "4", "mask": "::ffff:ffff"},
     "inner_dst_ipv6": {"field": "INNER_DST_IPV6", "sequence": "4", "mask": "::ffff:ffff"}
 }
+
+
+def pytest_addoption(parser):
+    parser.addoption('--static_config', action='store_true', default=False,
+                     help="Test configurations done before the test - static config")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--static_config"):
+        # --static_config given in cli: skip test with dynamic config
+        skip_dynamic_config = pytest.mark.skip(reason="need to remove '--static_config'"
+                                                      " option to run the dynamic config tests")
+        for item in items:
+            if "dynamic_config" in item.keywords:
+                item.add_marker(skip_dynamic_config)
+    else:
+        skip_static_config = pytest.mark.skip(reason="need '--static_config'"
+                                                     " option to run the static config tests")
+        for item in items:
+            if "static_config" in item.keywords:
+                item.add_marker(skip_static_config)
 
 
 @pytest.fixture(scope='module')
@@ -192,14 +214,6 @@ def inner_ipver(request):
     return request.param
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_dynamic_pbh(request):
-    request.getfixturevalue("config_pbh_table")
-    request.getfixturevalue("config_hash_fields")
-    request.getfixturevalue("config_hash")
-    request.getfixturevalue("config_rules")
-
-
 @pytest.fixture(scope="module")
 def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
     test_intfs_str = get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo)
@@ -255,15 +269,15 @@ def config_hash(duthost):
 
 @pytest.fixture(scope="module")
 def config_rules(duthost):
-    for ipver in IP_VERSIONS_LIST:
-        config_ipv4_rules(duthost, ipver)
-        config_ipv6_rules(duthost, ipver)
+    for inner_ipver in IP_VERSIONS_LIST:
+        config_ipv4_rules(duthost, inner_ipver)
+        config_ipv6_rules(duthost, inner_ipver)
 
     yield
 
-    for ipver in IP_VERSIONS_LIST:
-        delete_ipv4_rules(duthost, ipver)
-        delete_ipv6_rules(duthost, ipver)
+    for inner_ipver in IP_VERSIONS_LIST:
+        delete_ipv4_rules(duthost, inner_ipver)
+        delete_ipv6_rules(duthost, inner_ipver)
 
 
 def config_ipv4_rules(duthost, inner_ipver):
@@ -324,3 +338,19 @@ def get_src_dst_ip_range(ipver):
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
     return src_ip_range, dst_ip_range
+
+
+def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys):
+    symmetric_multiplier = 2 if symmetric_hashing else 1
+    exp_port_multiplier = 4  # num of POs in t0 topology
+    hash_keys_multiplier = len(hash_keys)
+    # for hash key "ip-proto", the traffic sends always in one way
+    exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
+                    + (balancing_test_times * exp_port_multiplier))
+    pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
+    for outer_encap_format in OUTER_ENCAP_FORMATS:
+        regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)
+        current_count = re.search(regex, pbh_statistic_output).group(1)
+        assert current_count == exp_count,\
+            "PBH counters are different from expected for {}, outer ipver {}, inner ipver {}. Expected: {}, " \
+            "Current: {}".format(outer_encap_format, outer_ipver, inner_ipver, exp_count, current_count)
