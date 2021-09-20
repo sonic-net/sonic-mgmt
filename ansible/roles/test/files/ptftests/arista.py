@@ -65,6 +65,10 @@ class Arista(object):
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.conn.connect(self.ip, username=self.login, password=self.password, allow_agent=False, look_for_keys=False)
         self.shell = self.conn.invoke_shell()
+        # avoid paramiko Channel.recv() stuck forever
+        self.shell.settimeout(10)
+        # avoid garbage collection from socket
+        self.shell.keep_this = self.conn
 
         first_prompt = self.do_cmd(None, prompt = '>')
         self.arista_prompt = self.get_arista_prompt(first_prompt)
@@ -127,16 +131,24 @@ class Arista(object):
 
         if cmd is not None:
             self.shell.send(cmd + '\n')
-
+        # wait 0.2s for the executing
+        time.sleep(0.2)
         input_buffer = ''
-        loop_times = 0
         while re.search(prompt, input_buffer) is None:
-            input_buffer += self.shell.recv(16384)
-            loop_times += 1
-            # cEOS will not return a arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
+            if not self.shell.recv_ready():
+                time.sleep(0.5)
+                continue
+            try:
+                input_buffer += self.shell.recv(16384)
+            except Exception as err:
+                msg = 'Receive ssh command result error: msg={} type={}'.format(err, type(err))
+                self.log(msg)
+                return msg
+
+            # cEOS will not return an arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
             # then an endless loop emerges,
             # so if input_buffer is merely an 'exit', we can break the loop immediately
-            if loop_times > 10 and input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit':
+            if input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit':
                 break
         self.log('do_cmd return is: %s' % (input_buffer))
         return input_buffer
@@ -149,6 +161,7 @@ class Arista(object):
         return
 
     def run(self):
+        # pr 1
         data = {}
         debug_data = {}
         run_once = False
