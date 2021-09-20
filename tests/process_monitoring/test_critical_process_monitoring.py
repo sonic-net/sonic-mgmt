@@ -26,6 +26,8 @@ pytestmark = [
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+POST_CHECK_INTERVAL_SECS = 1
+POST_CHECK_THRESHOLD_SECS = 360
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -126,6 +128,10 @@ def check_all_critical_processes_running(duthost):
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
+            logger.info("The status of checking process in container '{}' is: {}"
+                        .format(container_name, processes["status"]))
+            logger.info("The processes not running in container '{}' are: '{}'"
+                        .format(container_name, processes["exited_critical_process"]))
             return False
 
     return True
@@ -161,7 +167,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         for 3 minutes. It will return False after timeout.
     """
     logger.info("Post-checking status of critical processes and BGP sessions...")
-    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS,
                       post_test_check, duthost, up_bgp_neighbors)
 
 
