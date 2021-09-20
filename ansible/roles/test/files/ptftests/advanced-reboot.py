@@ -969,19 +969,17 @@ class ReloadTest(BaseTest):
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
             self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
 
-        if 'warm-reboot' in self.reboot_type:
-            if self.total_disrupt_time > self.limit.total_seconds():
-                self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
-                    % (str(self.limit), str(self.total_disrupt_time)))
+        if self.total_disrupt_time > self.limit.total_seconds():
+            self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
+                % (str(self.limit), str(self.total_disrupt_time)))
 
+        if 'warm-reboot' in self.reboot_type:
             # after the data plane is up, check for routing changes
             if self.test_params['inboot_oper'] and self.sad_handle:
                 self.check_inboot_sad_status()
-
             # postboot check for all preboot operations
             if self.test_params['preboot_oper'] and self.sad_handle:
                 self.check_postboot_sad_status()
-
             else:
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
