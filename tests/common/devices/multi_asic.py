@@ -60,7 +60,9 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
             active_asics = []
-            redis_out = self.command("redis-cli -h 10.0.5.16 -p 6380 -n 13  keys \"CHASSIS_ASIC_TABLE|asic*\"")
+            chassis_db_output = self.sonichost.command("grep chassis_db_address /etc/sonic/chassisdb.conf")
+            chassis_db_ip = chassis_db_output['stdout'].split("=")[1]
+            redis_out = self.command("redis-cli -h {} -p 6380 -n 13 keys \"CHASSIS_ASIC_TABLE|asic*\"".format(chassis_db_ip))
             for a_asic_line in redis_out["stdout_lines"]:
                 a_asic_name = a_asic_line.split("|")[1]
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
