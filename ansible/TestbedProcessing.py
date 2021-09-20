@@ -457,7 +457,7 @@ def makeLab(data, devices, testbed, outfile):
                             print("\t\t" + host + " num_fabric_asics not found")
 
                         try: #get num_asics
-                            num_asics = dev.get("num_asics")
+                            num_asics = int(dev.get("num_asics"))
                             if num_asics is not None:
                                entry += "\tnum_asics=" + str( num_asics )
                         except AttributeError:
@@ -491,47 +491,62 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " asics_host_ipv6 not found")
 
-                        try: #get voq_inband_ip
-                            voq_inband_ip = dev.get("voq_inband_ip")
-                            if voq_inband_ip is not None:
-                               entry += "\tvoq_inband_ip=" + str( voq_inband_ip )
-                        except AttributeError:
-                            print("\t\t" + host + " voq_inband_ip not found")
-
-                        try: #get voq_inband_ipv6
-                            voq_inband_ipv6 = dev.get("voq_inband_ipv6")
-                            if voq_inband_ipv6 is not None:
-                               entry += "\tvoq_inband_ipv6=" + str( voq_inband_ipv6 )
-                        except AttributeError:
-                            print("\t\t" + host + " voq_inband_ipv6 not found")
-
-                        try: #get voq_inband_intf
-                            voq_inband_intf = dev.get("voq_inband_intf")
-                            if voq_inband_intf is not None:
-                               entry += "\tvoq_inband_intf=" + str( voq_inband_intf )
-                        except AttributeError:
-                            print("\t\t" + host + " voq_inband_intf not found")
-
-                        try: #get voq_inband_type
-                            voq_inband_type = dev.get("voq_inband_type")
-                            if voq_inband_type is not None:
-                               entry += "\tvoq_inband_type=" + str( voq_inband_type )
-                        except AttributeError:
-                            print("\t\t" + host + " voq_inband_type not found")
-
                         try: #get switch_type
                             switch_type = dev.get("switch_type")
                             if switch_type is not None:
-                               entry += "\tswitch_type=" + str( switch_type )
+                                entry += "\tswitch_type=" + str( switch_type )
+                                if switch_type == 'voq' and card_type != 'supervisor':
+                                    if num_asics is None:
+                                        num_asics = 1
+
+                                    # All fields are a list. For single asic the list is of size 1.
+                                    switchids = dev.get("switchids")                       # switchids, single asic example "[4]", 3 asic example "[4,6,8]"
+                                    voq_inband_ip = dev.get("voq_inband_ip")               # voq_inband_ip
+                                    voq_inband_ipv6 = dev.get("voq_inband_ipv6")           # voq_inband_ipv6
+                                    voq_inband_intf = dev.get("voq_inband_intf")           # voq_inband_intf
+                                    voq_inband_type = dev.get("voq_inband_type")           # voq_inband_type
+                                    max_cores = dev.get("max_cores")                       # max cores
+                                    lo4096_ip = dev.get("loopback4096_ip")                 # loopback4096_ip
+                                    lo4096_ipv6 = dev.get("loopback4096_ipv6")             # loopback4096_ipv6
+                                    num_cores_per_asic = dev.get("num_cores_per_asic", 1)  # number of cores per asic - to be used in calculating the switchids, assuming to be the same for all linecards
+
+                                    # Add fields
+                                    if switchids is None:
+                                        switchids = [start_switchid + (asic_id * num_cores_per_asic) for asic_id in range(num_asics)]
+                                    entry += "\tswitchids=" + str(switchids)
+
+                                    if voq_inband_ip is None:
+                                        voq_inband_ip = ["1.1.1.{}/32".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_ip=" + str(voq_inband_ip)
+
+                                    if voq_inband_ipv6 is None:
+                                        voq_inband_ip = ["1111::1:{}/128".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_ipv6=" + str(voq_inband_ip)
+
+                                    if voq_inband_intf is None:
+                                        voq_inband_intf = ["Ethernet-IB{}".format(asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_intf=" + str(voq_inband_intf)
+
+                                    if voq_inband_type is None:
+                                        voq_inband_type = "port"
+                                    entry += "\tvoq_inband_type=" + voq_inband_type
+
+                                    if max_cores is None:
+                                        max_cores = 48
+                                    entry += "\tmax_cores=" + str(max_cores)
+
+                                    if lo4096_ip is None:
+                                        lo4096_ip = ["8.0.0.{}/32".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tloopback4096_ip=" + lo4096_ip
+
+                                    if lo4096_ipv6 is None:
+                                        lo4096_ipv6 = ["2603:10e2:400::{}/128".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tloopback4096_ipv6=" + lo4096_ipv6
+
+                                    start_switchid += (num_asics * num_cores_per_asic)
+
                         except AttributeError:
                             print("\t\t" + host + " switch_type not found")
-
-                        try: #get max_cores
-                            max_cores = dev.get("max_cores")
-                            if max_cores is not None:
-                               entry += "\tmax_cores=" + str( max_cores )
-                        except AttributeError:
-                            print("\t\t" + host + " max_cores not found")
 
                         try: #get os
                             os = dev.get("os")
