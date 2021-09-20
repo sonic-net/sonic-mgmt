@@ -132,7 +132,7 @@ class MultiAsicSonicHost(object):
 
         return [asic.namespace for asic in self.backend_asics]
 
-    def asic_instance(self, asic_index):
+    def asic_instance(self, asic_index=None):
         if asic_index is None:
             return self.asics[0]
         return self.asics[asic_index]

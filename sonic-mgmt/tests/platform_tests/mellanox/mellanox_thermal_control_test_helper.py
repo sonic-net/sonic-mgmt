@@ -88,7 +88,7 @@ FAN_NAMING_RULE = {
         "name": "psu{}_fan1",
         "speed": "psu{}_fan1_speed_get",
         "power_status": "psu{}_pwr_status",
-        "max_speed": "psu_fan_max",
+        "max_speed": "psu{}_fan_max",
     }
 }
 
@@ -551,10 +551,7 @@ class FanData:
         :return: Max speed of this FAN or -1 if max speed is not available.
         """
         if self.max_speed_file:
-            if 'psu' not in self.max_speed_file:
-                max_speed = self.helper.read_thermal_value(self.max_speed_file)
-            else:
-                max_speed = self.helper.read_value(os.path.join('/run/hw-management/config', self.max_speed_file))
+            max_speed = self.helper.read_thermal_value(self.max_speed_file)
             return int(max_speed)
         else:
             return -1
@@ -1003,14 +1000,16 @@ class AbnormalFanMocker(SingleFanMocker):
             if fan['fan'] == self.fan_data.name:
                 try:
                     actual_color = self.fan_drawer_data.get_status_led()
-                    assert actual_color == self.expect_led_color, 'FAN {} color is {}, expect: {}'.format(fan['fan'],
-                                                                                                          actual_color,
-                                                                                                          self.expect_led_color)
+                    if actual_color != self.expect_led_color:
+                        logging.error('FAN {} color is {}, expect: {}'.format(fan['fan'], actual_color,
+                                                                              self.expect_led_color))
+                        return False
                 except SysfsNotExistError as e:
                     logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
-                return
+                return True
 
-        assert 0, 'Expected data not found'
+        logging.error('Expected data not found')
+        return False
 
     def is_fan_removable(self):
         """

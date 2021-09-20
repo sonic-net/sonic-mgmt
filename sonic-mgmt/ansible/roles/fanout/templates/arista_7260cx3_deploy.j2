@@ -1,5 +1,6 @@
 !
 no errdisable detect cause link-flap
+no errdisable detect cause link-change
 !
 no schedule tech-support
 !
@@ -60,7 +61,7 @@ vrf definition management
    speed forced 10gfull
    no shutdown
 !
-{% endfor %}   
+{% endfor %}
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
@@ -110,7 +111,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }} 
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
  no shutdown
 !
 # LACP packets pass through

@@ -4,5 +4,3 @@
     vlan_ids: "{{ device_vlan_map_list[dut_name] }}"
     cmd: "remove"
   become: yes
-
-

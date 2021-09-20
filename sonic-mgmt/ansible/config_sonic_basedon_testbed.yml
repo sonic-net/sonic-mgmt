@@ -84,7 +84,7 @@
       hwsku: "{{ hwsku }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
-      start_switchid: "{{ start_switchid | default(0) }}"
+      switchids: "{{ switchids | default([0]) }}"
     when: deploy is defined and deploy|bool == true
 
   - name: find interface name mapping and individual interface speed if defined with local data
@@ -93,7 +93,7 @@
       num_asic: "{{ num_asics }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
-      start_switchid: "{{ start_switchid | default(0) }}"
+      switchids: "{{ switchids | default([0]) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -111,8 +111,7 @@
 
   - name: set all VoQ information for iBGP
     set_fact:
-      all_inbands: "{{ all_inbands | default( [] ) + [ hostvars[item]['voq_inband_ip'] ] }}"
-      all_hostnames: "{{ all_hostnames | default( [] ) + [ item ] }}"
+      all_inbands: "{{ all_inbands | default( {} ) | combine( { item : hostvars[item]['voq_inband_ip']}) }}"
     when: hostvars[item]['voq_inband_ip'] is defined
     loop: "{{ ansible_play_batch }}"
 

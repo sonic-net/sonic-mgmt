@@ -6,6 +6,10 @@
   become: yes
   listen: "Update config db"
 
+- name: wait for SONiC update config db to finish
+  pause:
+    seconds: 180
+
 - name: SONiC restart BGP service
   become: true
   service: name=bgp

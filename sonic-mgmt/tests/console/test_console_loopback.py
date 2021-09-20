@@ -82,7 +82,7 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
 
 def create_ssh_client(ip, user, pwd):
     # Set 'echo=False' is very important since pexpect will echo back all inputs to buffer by default
-    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no'.format(user, ip), echo=False)
+    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(user, ip), echo=False)
     client.expect('[Pp]assword:')
     client.sendline(pwd)
     return client

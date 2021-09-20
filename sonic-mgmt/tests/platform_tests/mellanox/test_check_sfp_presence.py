@@ -3,7 +3,6 @@ Cross check show sfp presence with qsfp_status
 """
 import logging
 import os
-import json
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
@@ -13,11 +12,12 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """This test case is to check SFP presence status with CLI and sysfs.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
+    duthost.command("sudo sonic-cfggen -d --var-json PORT")
     check_intf_presence_command = 'show interface transceiver presence {}'
 
     logging.info("Use show interface status information")

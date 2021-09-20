@@ -6,8 +6,9 @@ import random
 import time
 import traceback
 
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
@@ -36,6 +37,23 @@ pytestmark = [pytest.mark.disable_loganalyzer,
              ]
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_wb_tests(duthosts, rand_one_dut_hostname):
+    """
+    Skip Pfcwd warm reboot tests on certain asics
+
+    Args:
+        duthosts (pytest fixture): list of Duts
+        rand_one_dut_hostname (str): hostname of DUT
+
+    Returns:
+        None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    SKIP_LIST = ["td2"]
+    asic_type = duthost.get_asic_name()
+    pytest_require(not (is_broadcom_device(duthost) and asic_type in SKIP_LIST), "Warm reboot is not supported on {}".format(asic_type))
 
 @pytest.fixture(autouse=True)
 def setup_pfcwd(duthosts, rand_one_dut_hostname):

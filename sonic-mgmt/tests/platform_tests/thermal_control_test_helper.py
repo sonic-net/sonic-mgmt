@@ -5,6 +5,7 @@ import os
 import pytest
 
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 
@@ -229,9 +230,10 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key
     """
     time.sleep(max_wait_time)
 
-    result = dut.show_and_parse(command)
-    assert len(result) > 0, "Run and parse output of command '{}' failed".format(command)
-    return mocker_object.check_result(result)
+    parsed_output = dut.show_and_parse(command)
+    assert len(parsed_output) > 0, "Run and parse output of command '{}' failed".format(command)
+    result = mocker_object.check_result(parsed_output)
+    pytest_assert(result, 'mock data and command \"{}\" output are mismatched'.format(command))
 
 
 def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
@@ -301,7 +303,10 @@ class ThermalPolicyFileContext:
         thermal control daemon to make it effect.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        if os.path.exists(self.thermal_policy_file_path):
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        else:
+            logging.warning("Thermal Policy file {} not found".format(self.thermal_policy_file_path))
         self.dut.copy(src=os.path.join(FILES_DIR, self.src), dest=self.thermal_policy_file_path)
         restart_thermal_control_daemon(self.dut)
 
@@ -313,8 +318,10 @@ class ThermalPolicyFileContext:
         :param exc_tb: Not used.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
-        restart_thermal_control_daemon(self.dut)
+
+        if os.path.exists(self.thermal_policy_file_backup_path):
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
+            restart_thermal_control_daemon(self.dut)
 
 
 @pytest.fixture

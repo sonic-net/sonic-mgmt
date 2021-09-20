@@ -96,6 +96,10 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
 def acl_setup(duthosts, loganalyzer):
     """ Create acl rule defined in config file. Delete rule after test case finished """
     for duthost in duthosts:
+        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+        if 'DATAACL' not in acl_facts.keys():
+            pytest.skip("Skipping test since DATAACL table is not supported on this platform")
+
         base_dir = os.path.dirname(os.path.realpath(__file__))
         template_dir = os.path.join(base_dir, 'acl_templates')
         acl_rules_template = "acltb_test_rule.json"
@@ -129,7 +133,7 @@ def acl_setup(duthosts, loganalyzer):
             time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None, skip_counter_check=False):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -144,6 +148,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
 
     send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
+
+    # Some test cases will not increase the drop counter consistently on certain platforms
+    if skip_counter_check:
+        logger.info("Skipping counter check")
+        return None
+
     if discard_group == "L2":
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
         for duthost in duthosts:
@@ -244,7 +254,7 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test(duthosts):
-    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None):
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None, skip_counter_check=False):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -256,7 +266,7 @@ def do_test(duthosts):
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports)
+        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports, skip_counter_check=skip_counter_check)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -305,7 +315,11 @@ def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, t
     @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL and ACL drop counter incremented
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if tx_dut_ports[ports_info["dut_iface"]] not in duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    if 'DATAACL' not in acl_facts.keys():
+        pytest.skip("Skipping test since DATAACL table is not supported on this platform")
+
+    if tx_dut_ports[ports_info["dut_iface"]] not in acl_facts["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
     ip_src = "20.0.0.5"

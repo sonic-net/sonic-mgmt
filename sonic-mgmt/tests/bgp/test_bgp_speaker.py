@@ -7,6 +7,7 @@ import ipaddress
 import json
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
@@ -15,6 +16,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url     # lgtm
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 from tests.common.dualtor.dual_tor_utils import map_hostname_to_tor_side
 from tests.common.helpers.assertions import pytest_require
+from tests.common import constants
 
 
 pytestmark = [
@@ -106,7 +108,13 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     vlan_ports = []
     for i in range(0, 3):
         vlan_ports.append(mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['members'][i]])
+    if "backend" in tbinfo["topo"]["name"]:
+        vlan_id = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][0]['attachto']]['vlanid']
+        ptf_ports = [("eth%s" % _) + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id for _ in vlan_ports]
+    else:
+        ptf_ports = ["eth%s" % _ for _ in vlan_ports]
     logger.info("vlan_ports: %s" % str(vlan_ports))
+    logger.info("ptf_ports: %s", ptf_ports)
 
     # Generate ipv6 nexthops
     vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
@@ -117,19 +125,19 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     logger.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
     logger.info("setup ip/routes in ptf")
     for i in [0, 1, 2]:
-        ptfhost.shell("ip -6 addr add %s dev eth%d:%d" % (nexthops_ipv6[i], vlan_ports[0], i))
+        ptfhost.shell("ip -6 addr add %s dev %s:%d" % (nexthops_ipv6[i], ptf_ports[0], i))
 
     # Issue a ping command to populate entry for next_hop
     for nh in nexthops_ipv6:
         duthost.shell("ping6 %s -c 3" % nh.ip)
 
     logger.info("setup ip/routes in ptf")
-    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[0], vlan_ips[0]))
-    ptfhost.shell("ifconfig eth%d:0 %s" % (vlan_ports[0], speaker_ips[0]))
-    ptfhost.shell("ifconfig eth%d:1 %s" % (vlan_ports[0], speaker_ips[1]))
+    ptfhost.shell("ifconfig %s %s" % (ptf_ports[0], vlan_ips[0]))
+    ptfhost.shell("ifconfig %s:0 %s" % (ptf_ports[0], speaker_ips[0]))
+    ptfhost.shell("ifconfig %s:1 %s" % (ptf_ports[0], speaker_ips[1]))
 
-    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[1], vlan_ips[1]))
-    ptfhost.shell("ifconfig eth%d %s" % (vlan_ports[2], vlan_ips[2]))
+    ptfhost.shell("ifconfig %s %s" % (ptf_ports[1], vlan_ips[1]))
+    ptfhost.shell("ifconfig %s %s" % (ptf_ports[2], vlan_ips[2]))
 
     ptfhost.shell("ip route flush %s/%d" % (lo_addr, lo_addr_prefixlen))
     ptfhost.shell("ip route add %s/%d via %s" % (lo_addr, lo_addr_prefixlen, vlan_addr))
@@ -272,6 +280,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
 
     logger.info("Generate route-port map information")
     extra_vars = {'announce_prefix': prefix,
+                  'is_backend': 'backend' in tbinfo['topo']['name'],
                   'minigraph_portchannels': mg_facts['minigraph_portchannels'],
                   'minigraph_vlans': mg_facts['minigraph_vlans'],
                   'minigraph_port_indices': mg_facts['minigraph_ptf_indices']}

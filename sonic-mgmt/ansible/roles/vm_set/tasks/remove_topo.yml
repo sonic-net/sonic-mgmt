@@ -20,6 +20,11 @@
       mux_simulator_action: stop
     when: "'dualtor' in topo"
 
+  - name: Stop PTF portchannel service
+    include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: stop
+
   - name: Get duts ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
@@ -114,3 +119,10 @@
     become: yes
 
   when: container_type == "IxANVL-CONF-TESTER"
+
+- name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ VM_targets }}"
+  become: yes
+  when: vm_type is defined and vm_type=="ceos"

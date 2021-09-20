@@ -10,6 +10,7 @@ import six
 import sys
 import threading
 import time
+import traceback
 from io import BytesIO
 
 import pytest
@@ -17,6 +18,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 from ansible.vars.manager import VariableManager
 
+from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 
@@ -33,6 +35,33 @@ def skip_version(duthost, version_list):
     if any(version in duthost.os_version for version in version_list):
         pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
 
+def skip_release(duthost, release_list):
+    """
+    @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
+              skip_release is more robust than skip_version.
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    """
+    if any(release in duthost.os_version for release in release_list):
+        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
+
+    if any(release == duthost.sonic_release for release in release_list):
+        pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+
+def skip_release_for_platform(duthost, release_list, platform_list):
+    """
+    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    @param platform_list: A list of incompatible platforms
+    """
+    if any(release in duthost.os_version for release in release_list) and \
+		any(platform in duthost.facts['platform'] for platform in platform_list):
+        pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
+            duthost.os_version,
+            duthost.facts['platform'],
+			", ".join(release_list),
+			", ".join(platform_list)))
 
 def wait(seconds, msg=""):
     """
@@ -64,8 +93,10 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
-            logger.error("Exception caught while checking %s: %s" % (condition.__name__, repr(e)))
+        except Exception:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
             check_result = False
 
         if check_result:
@@ -103,6 +134,10 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
+    def __init__(self, **kwargs):
+        super(InterruptableThread, self).__init__(**kwargs)
+        self._e = None
+
     def set_error_handler(self, error_handler):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
@@ -112,7 +147,6 @@ class InterruptableThread(threading.Thread):
         @summary: Run the target function, call `start()` to start the thread
                   instead of directly calling this one.
         """
-        self._e = None
         try:
             threading.Thread.run(self)
         except Exception:
@@ -439,3 +473,31 @@ def dump_scapy_packet_show_output(packet):
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
+
+
+def compose_dict_from_cli(fields_list):
+    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+
+    Args:
+        fields_list: A list of lines, the output of redis-cli hgetall command
+    """
+    return dict(zip(fields_list[0::2], fields_list[1::2]))
+
+
+def get_intf_by_sub_intf(sub_intf, vlan_id):
+    """
+    Deduce interface from sub interface by striping vlan id
+    Args:
+        sub_intf (str): sub interface name, e.g. Ethernet100.10
+        vlan_id (str): vlan id, e.g. 10
+
+    Returns:
+        str: interface name, e.g. Ethernet100
+    """
+    if not vlan_id:
+        return sub_intf
+
+    vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
+    if sub_intf.endswith(vlan_suffix):
+        return sub_intf[:-len(vlan_suffix)]
+    return sub_intf

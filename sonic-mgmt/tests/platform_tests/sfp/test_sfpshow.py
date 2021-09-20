@@ -22,7 +22,7 @@ pytestmark = [
 ]
 
 
-def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts):
+def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -35,11 +35,12 @@ def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
-        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-        assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
+            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 
-def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts):
+def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -52,5 +53,6 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     sfp_eeprom = duthost.command(cmd_sfp_eeprom)
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
-        assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
-        assert parsed_eeprom[intf] == "SFP EEPROM detected"
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
+            assert parsed_eeprom[intf] == "SFP EEPROM detected"

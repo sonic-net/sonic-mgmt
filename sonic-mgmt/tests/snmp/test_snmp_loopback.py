@@ -34,7 +34,7 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts):
 
 
 @pytest.mark.bsl
-def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts, tbinfo, localhost, creds_all_duts):
+def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_if_no_ports, nbrhosts, tbinfo, localhost, creds_all_duts):
     """
     Test SNMP query to DUT over loopback IP
       - Send SNMP query over loopback IP from one of the BGP Neighbors

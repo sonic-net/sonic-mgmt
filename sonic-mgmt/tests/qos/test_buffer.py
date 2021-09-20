@@ -10,9 +10,13 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 profile_format = 'pg_lossless_{}_{}_profile'
 LOSSLESS_PROFILE_PATTERN = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
@@ -640,6 +644,7 @@ def port_to_test(request, duthost):
 
     testPort = set(mgFacts["minigraph_ports"].keys())
     testPort -= set(dutLagInterfaces)
+    pytest_require(len(testPort) > 0, "No port to run test")
 
     PORT_TO_TEST = list(testPort)[0]
     lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']

@@ -41,7 +41,7 @@ class TestVrfAttrSrcMac():
         # -------- Teardown ----------
         extra_vars = { 'router_mac': dut_facts['router_mac'] }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 

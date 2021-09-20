@@ -4,12 +4,15 @@ import re
 import pytest
 import yaml
 
+from natsort import natsorted
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_version
-from tests.common.platform.interface_utils import get_port_map
+from tests.common.platform.interface_utils import get_physical_port_indices
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -54,12 +57,27 @@ ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
 ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
+# get_physical_port_indices() is wrapped around pytest fixture with module
+# scope because this function can be quite time consuming based upon the
+# number of ports on the DUT
+@pytest.fixture(scope="module")
+def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    port_map = get_physical_port_indices(duthost)
+    result = []
+    visited_intfs = set()
+    for intf in natsorted(port_map.keys()):
+        if intf in visited_intfs:
+            continue
+        visited_intfs.add(intf)
+        result.append(port_map[intf])
+    return result
 
 @pytest.fixture(scope="class")
 def gather_facts(request, duthosts):
     request.cls.inv_files = get_inventory_files(request)
 
-@pytest.mark.usefixtures("gather_facts")
+@pytest.mark.usefixtures("gather_facts", "physical_port_indices")
 class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
     inv_files = None
@@ -221,8 +239,15 @@ class TestChassisApi(PlatformApiTestBase):
         serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
         pytest_assert(serial is not None, "Failed to retrieve serial number")
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
+        host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
+        expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
 
-        self.compare_value_with_device_facts(duthost, 'syseeprom_info', syseeprom_info_dict)
+        for field in expected_syseeprom_info_dict:
+            pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
+                          "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
+                          format(field, syseeprom_info_dict[field], expected_syseeprom_info_dict[field], duthost.hostname))
+
 
     def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Compare return values to potential combinations
@@ -362,7 +387,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn, physical_port_indices):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if duthost.is_supervisor_node():
             pytest.skip("skipping for supervisor node")
@@ -370,17 +395,8 @@ class TestChassisApi(PlatformApiTestBase):
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
         except:
             pytest.fail("num_sfps is not an integer")
-        list_sfps = []
-        if duthost.facts.get("interfaces"):
-            intfs = duthost.facts.get("interfaces")
-            for intf in intfs:
-                index_list = [int(x) for x in duthost.facts["interfaces"][intf]['index'].split(",")]
-                list_sfps.extend(set(index_list))
-        else:
-            int_list = get_port_map(duthost, 'all')
-            for k, v in int_list.items():
-                list_sfps.extend(v)
-        list_sfps.sort()
+        list_sfps = physical_port_indices
+        logging.info("Physical port indices = {}".format(list_sfps))
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
             pytest_assert(num_sfps == expected_num_sfps,
@@ -391,8 +407,9 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
 
-        for i in list_sfps:
-            sfp = chassis.get_sfp(platform_api_conn, i)
+        for i in range(num_sfps):
+            index = list_sfps[i]
+            sfp = chassis.get_sfp(platform_api_conn, index)
             self.expect(sfp and sfp == sfp_list[i], "SFP {} is incorrect".format(i))
         self.assert_expectations()
 

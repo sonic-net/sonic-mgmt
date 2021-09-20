@@ -3,6 +3,7 @@ import time
 import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 

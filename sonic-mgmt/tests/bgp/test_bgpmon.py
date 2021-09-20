@@ -23,6 +23,13 @@ ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def skip_test_bgpmon_on_backend(tbinfo):
+    """Skip test_bgpmon over storage backend topologies."""
+    if "backend" in tbinfo["topo"]["name"]:
+        pytest.skip("Skipping test_bgpmon. Unsupported topology %s." % tbinfo["topo"]["name"])
+
+
 def get_default_route_ports(host, tbinfo):
     mg_facts = host.get_extended_minigraph_facts(tbinfo)
     route_info = json.loads(host.shell("show ip route {} json".format(ZERO_ADDR))['stdout'])
@@ -144,7 +151,7 @@ def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
                       "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(30, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
+        pytest_assert(wait_until(180, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))

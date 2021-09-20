@@ -9,6 +9,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from pkg_resources import parse_version
+from tests.common.devices.ptf import PTFHost
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -27,9 +28,14 @@ def restore_config_db(duthost):
     # Reload to restore configuration
     config_reload(duthost)
 
+@pytest.fixture(scope="module")
+def check_ntp_sync(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    ntp_stat = duthost.command('ntpstat', module_ignore_errors=True)['rc']
+    return ntp_stat
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthosts, rand_one_dut_hostname, localhost):
+def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
     """
     Setup Management vrf configs before the start of testsuite
     """
@@ -69,6 +75,32 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost):
     finally:    # Always restore and reload the original config_db.
         restore_config_db(duthost)
 
+@pytest.fixture(scope='module')
+def ntp_servers(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    ntp_servers = config_facts.get('NTP_SERVER', {})
+    return ntp_servers
+
+@pytest.fixture()
+def ntp_teardown(ptfhost, duthosts, rand_one_dut_hostname, ntp_servers):
+    yield
+
+    duthost = duthosts[rand_one_dut_hostname]
+    # stop ntp server
+    ptfhost.service(name="ntp", state="stopped")
+    # reset ntp client configuration
+    duthost.command("config ntp del %s" % ptfhost.mgmt_ip, module_ignore_errors=True)
+    for ntp_server in ntp_servers:
+        duthost.command("config ntp add %s" % ntp_server, module_ignore_errors=True)
+
+def check_ntp_status(host):
+    ntpstat_cmd = 'ntpstat'
+    if isinstance(host, PTFHost):
+        res = host.command(ntpstat_cmd, module_ignore_errors=True)
+    else:
+        res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
+    return res['rc'] == 0
 
 def verify_show_command(duthost, mvrf=True):
     show_mgmt_vrf = duthost.shell("show mgmt-vrf")["stdout"]
@@ -100,6 +132,18 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
 
+
+def setup_ntp(ptfhost, duthost, ntp_servers):
+    """setup ntp client and server"""
+    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
+    # restart ntp server
+    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+    pytest_assert(wait_until(120, 5, check_ntp_status, ptfhost), \
+        "NTP server was not started in PTF container {}; NTP service start result {}".format(ptfhost.hostname, ntp_en_res))
+    # setup ntp on dut to sync with ntp server
+    for ntp_server in ntp_servers:
+        duthost.command("config ntp del %s" % ntp_server)
+    duthost.command("config ntp add %s" % ptfhost.mgmt_ip)
 
 class TestMvrfInbound():
     def test_ping(self, duthost):
@@ -152,19 +196,18 @@ class TestMvrfOutbound():
 
 
 class TestServices():
-    def check_ntp_status(self, duthost):
-        ntpstat_cmd = "ntpstat"
-        ntp_stat = execute_dut_command(duthost, ntpstat_cmd, mvrf=True, ignore_errors=True)
-        return ntp_stat["rc"] == 0
-
-    def test_ntp(self, duthosts, rand_one_dut_hostname):
+    @pytest.mark.usefixtures("ntp_teardown")
+    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync, ntp_servers):
         duthost = duthosts[rand_one_dut_hostname]
+        # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
+        if check_ntp_sync:
+            setup_ntp(ptfhost, duthost, ntp_servers)
         force_ntp = "ntpd -gq"
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
         execute_dut_command(duthost, force_ntp)
         duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(100, 10, self.check_ntp_status, duthost), "Ntp not started")
+        pytest_assert(wait_until(400, 10, check_ntp_status, duthost), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]

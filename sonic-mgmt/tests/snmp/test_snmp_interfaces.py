@@ -41,7 +41,7 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             result[portname].update({'adminstatus': admin})
             oper = duthost.shell('{} APPL_DB HGET "PORT_TABLE:{}" "oper_status"'.format(sonic_db_cmd, name), module_ignore_errors=False)['stdout']
             result[portname].update({'operstatus': oper})
-            result[portname].update({'description': config_facts.get('PORT', {})[name]['description']})
+            result[portname].update({'description': config_facts.get('PORT', {})[name].get('description', '')})
         elif name.startswith("PortChannel"):
             result.setdefault(name, {})
             key_word = "PORTCHANNEL"
@@ -52,7 +52,7 @@ def collect_all_facts(duthost, ports_list, namespace=None):
             result[name].update({'operstatus': oper['stdout']})
             result[name].update({'description': config_facts.get(key_word, {})[name].get('description', '')})
         else:
-            key_word = "MGMT_PORT" 
+            key_word = "MGMT_PORT"
             result.setdefault(name, {})
             result[name].update({'mtu': str(setup[key]['mtu'])})
             result[name].update({'type': if_type})

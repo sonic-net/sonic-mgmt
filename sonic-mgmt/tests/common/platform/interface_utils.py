@@ -1,9 +1,13 @@
 """
 Helper script for checking status of interfaces
 
+
 This script contains re-usable functions for checking status of interfaces on SONiC.
 """
+
+import re
 import logging
+from natsort import natsorted
 from transceiver_utils import all_transceivers_detected
 
 
@@ -41,46 +45,38 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
-    #TODO Remove this logic when minigraph facts supports namespace in multi_asic
-    mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
-    if asic_index is not None:
-        portmap = get_port_map(dut, asic_index)
-        # Check if the interfaces of this AISC is present in mg_ports
-        interface_list = {k:v for k, v in portmap.items() if k in mg_ports}
-        mg_ports = interface_list
+    ports = get_port_map(dut, asic_index)
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:
-        expected_oper = "up" if intf in mg_ports else "down"
-        expected_admin = "up" if intf in mg_ports else "down"
+        expected_oper = "up" if intf in ports else "down"
+        expected_admin = "up" if intf in ports else "down"
         if intf not in intf_status:
             logging.info("Missing status for interface %s" % intf)
             return False
         if intf_status[intf]["oper"] != expected_oper:
-            logging.info("Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"],
-                                                                               expected_oper))
+            logging.info("Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"], expected_oper))
             return False
         if intf_status[intf]["admin"] != expected_admin:
-            logging.info("Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"],
-                                                                                expected_admin))
+            logging.info("Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"], expected_admin))
             return False
 
         # Cross check the interface SFP presence status
-        if intf not in xcvr_skip_list[dut.hostname]:
+        if xcvr_skip_list and intf not in xcvr_skip_list[dut.hostname]:
             check_presence_output = dut.command(check_intf_presence_command.format(intf))
             presence_list = check_presence_output["stdout_lines"][2].split()
             assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)
             assert 'Present' in presence_list, "Status is not expected, presence status: %s" % str(presence_list)
 
-    logging.info("Check interface status using the interface_facts module")
-    intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
+    intf_facts = dut.interface_facts(up_ports=ports, namespace=namespace)["ansible_facts"]
     down_ports = intf_facts["ansible_interface_link_down_ports"]
     if len(down_ports) != 0:
         logging.info("Some interfaces are down: %s" % str(down_ports))
         return False
 
     return True
+
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
@@ -97,6 +93,7 @@ def check_all_interface_information(dut, interfaces, xcvr_skip_list):
 
     return True
 
+
 # This API to check the interface information per asic.
 def check_interface_information(dut, asic_index, interfaces, xcvr_skip_list):
     if not all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
@@ -107,6 +104,7 @@ def check_interface_information(dut, asic_index, interfaces, xcvr_skip_list):
         return False
 
     return True
+
 
 def get_port_map(dut, asic_index=None):
     """
@@ -121,3 +119,32 @@ def get_port_map(dut, asic_index=None):
         port_mapping[k] = [v]
 
     return port_mapping
+
+def get_physical_port_indices(duthost, logical_intfs=None):
+    """
+    @summary: Returns dictionary map of logical ports to corresponding physical port indices
+    @param logical_intfs: List of logical interfaces of the DUT
+    """
+    physical_port_index_dict = {}
+
+    if logical_intfs is None:
+        intf_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
+        phy_port = re.compile(r'^Ethernet\d+$')
+        logical_intfs = [k for k in intf_facts.keys() if re.match(phy_port, k)]
+        logical_intfs = natsorted(logical_intfs)
+        logging.info("physical interfaces = {}".format(logical_intfs))
+
+    for asic_index in duthost.get_frontend_asic_ids():
+	# Get interfaces of this asic
+	interface_list = get_port_map(duthost, asic_index)
+	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in logical_intfs}
+	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+	for intf in interfaces_per_asic:
+            if asic_index is not None:
+                cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
+            else:
+                cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
+	    index = duthost.command(cmd)["stdout"]
+	    physical_port_index_dict[intf] = (int(index))
+
+    return physical_port_index_dict

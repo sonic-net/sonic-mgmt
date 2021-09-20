@@ -1,10 +1,10 @@
-
 import logging
 
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.onyx import OnyxHost
 from tests.common.devices.ixia import IxiaHost
 from tests.common.devices.eos import EosHost
+from tests.common.devices.aos import AosHost
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,9 @@ class FanoutHost(object):
             # TODO: add ixia chassis abstraction
             self.os = os
             self.host = IxiaHost(ansible_adhoc, os, hostname, device_type)
+        elif os == 'aos':
+            self.os = os
+            self.host = AosHost(ansible_adhoc, hostname, user, passwd)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
@@ -138,7 +141,7 @@ class FanoutHost(object):
             interface_name (str): Interface name
 
         Returns:
-            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            boolean: True if auto negotiation mode is enabled else False. Return None if
             the auto negotiation mode is unknown or unsupported.
         """
         return self.host.get_auto_negotiation_mode(interface_name)
