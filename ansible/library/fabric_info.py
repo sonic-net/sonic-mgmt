@@ -23,8 +23,8 @@ EXAMPLES = '''
 
 RETURN = '''
       ansible_facts{
-        fabric_info: [{'asicname': 'ASIC0', 'ip_prefix': '10.1.0.1/32', 'ip6_prefix': 'FC00:1::1/128'},
-                      {'asicname': 'ASIC1', 'ip_prefix': '10.1.0.2/32', 'ip6_prefix': 'FC00:1::2/128'}]
+        fabric_info: [{'asicname': 'ASIC0', 'asic_id': 0, 'ip_prefix': '10.1.0.1/32', 'ip6_prefix': 'FC00:1::1/128'},
+                      {'asicname': 'ASIC1', 'asic_id': 1, 'ip_prefix': '10.1.0.2/32', 'ip6_prefix': 'FC00:1::2/128'}]
       }
 '''
 
@@ -55,6 +55,7 @@ def main():
             next_v4addr = str( ipaddress.IPv4Address(v4base + asic_id) )
             next_v6addr = str( ipaddress.IPv6Address(v6base + asic_id) )
             data = { 'asicname': key,
+                     'asic_id' : asic_id,
                      'ip_prefix': next_v4addr + "/" + v4pfx[-1],
                      'ip6_prefix': next_v6addr + "/" + v6pfx[-1] }
             fabric_info.append( data )
