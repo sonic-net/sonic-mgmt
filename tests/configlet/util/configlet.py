@@ -61,7 +61,7 @@ def get_port_channel():
         pc_intf["{}|{}/126".format(pc_name, tor_data["ipv6"]["local"])] = {}
     if pc_intf:
         if is_version_2019_higher():
-            pc_intf["{}".format(pc_name)] = {}
+            pc_intf[pc_name] = {}
         ret.append({ "PORTCHANNEL_INTERFACE": pc_intf })
 
     log_debug("clet: portchannel: {}".format(str(ret)))
