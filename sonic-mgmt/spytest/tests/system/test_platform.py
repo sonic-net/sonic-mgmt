@@ -2242,3 +2242,4 @@ def test_ft_fan_oir_simulation():
         st.show(dut, 'sudo cp /tmp/thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
         test_ft_config_reload()
 
+
