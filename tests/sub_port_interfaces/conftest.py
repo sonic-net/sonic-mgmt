@@ -94,17 +94,17 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         vlan_ranges_ptf = range(21, 41, 10)
 
     if 'max_numbers' in request.node.name:
-        vlan_ranges_dut = range(20, max_numbers_of_sub_ports + 20)
-        vlan_ranges_ptf = range(20, max_numbers_of_sub_ports + 20)
+        vlan_ranges_dut = range(11, max_numbers_of_sub_ports + 11)
+        vlan_ranges_ptf = range(11, max_numbers_of_sub_ports + 11)
 
         # Linux has the limitation of 15 characters on an interface name,
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
         # For example: 'PortChannel1.99'
         if 'port_in_lag' in request.param:
-            max_numbers_of_sub_ports = max_numbers_of_sub_ports if max_numbers_of_sub_ports <= 99 else 99
-            vlan_ranges_dut = range(20, max_numbers_of_sub_ports + 20)
-            vlan_ranges_ptf = range(20, max_numbers_of_sub_ports + 20)
+            vlan_range_end = min(100, max_numbers_of_sub_ports + 11)
+            vlan_ranges_dut = range(11, vlan_range_end)
+            vlan_ranges_ptf = range(11, vlan_range_end)
 
     interface_num = 2
     ip_subnet = u'172.16.0.0/16'
