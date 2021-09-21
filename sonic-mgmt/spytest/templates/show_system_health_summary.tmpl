@@ -1,0 +1,6 @@
+Value led_status (\S+)
+Value boot_status (System is currently booting...)
+
+Start
+  ^\s*System status LED\s*${led_status} -> Record
+  ^\s*${boot_status} -> Record
