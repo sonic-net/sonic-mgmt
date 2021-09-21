@@ -404,11 +404,13 @@ class DHCPTest(DataplaneBaseTest):
     def runTest(self):
         self.client_send_solicit()
         self.verify_isc_relayed_solicit_relay_forward()
+        self.client_send_solicit()
         self.verify_relayed_solicit_relay_forward()
         self.server_send_advertise_relay_reply()
         self.verify_relayed_advertise()
         self.client_send_request()
         self.verify_isc_relayed_request_relay_forward()
+        self.client_send_request()
         self.verify_relayed_request_relay_forward()
         self.server_send_reply_relay_reply()
         self.verify_relayed_reply()
