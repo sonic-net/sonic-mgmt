@@ -200,7 +200,8 @@ test_t1_lag() {
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
-    process_monitoring/test_critical_process_monitoring.py"
+    process_monitoring/test_critical_process_monitoring.py \
+    scp/test_scp_copy.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
