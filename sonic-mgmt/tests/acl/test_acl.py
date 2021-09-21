@@ -205,8 +205,6 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
         duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
 
     yield setup_information
-    for dut_port in shut_list:
-        duthost.no_shutdown(dut_port)
         
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
     for duthost in duthosts:
@@ -348,8 +346,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
 
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
+            #with loganalyzer:
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.info("ACL table creation failed, attempting to clean-up...")
@@ -361,8 +359,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, backup_
     finally:
         for duthost, loganalyzer in dut_to_analyzer_map.items():
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+            #with loganalyzer:
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
 
 class BaseAclTest(object):
     """Base class for testing ACL rules.
@@ -437,8 +435,8 @@ class BaseAclTest(object):
 
             try:
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-                with loganalyzer:
-                    self.setup_rules(duthost, acl_table, ip_version)
+                #with loganalyzer:
+                self.setup_rules(duthost, acl_table, ip_version)
 
                 self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
 
