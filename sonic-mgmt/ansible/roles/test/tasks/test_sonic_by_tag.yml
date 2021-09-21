@@ -1,6 +1,3 @@
-- name: RW debug
-  debug: msg="Hostname={{ inventory_hostname }}"
-
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
   tags: always

@@ -14,8 +14,8 @@
 #---------------------------------------------
 
 - set_fact:
-    run_dir: /home/cisco/pfc_wd_tests
-    out_dir: /home/cisco/pfc_wd_tests/results
+    run_dir: /home/admin/pfc_wd_tests
+    out_dir: /home/admin/pfc_wd_tests/results
     docker_testdir: /tmp
     tests_location: roles/test/tasks/pfc_wd
 

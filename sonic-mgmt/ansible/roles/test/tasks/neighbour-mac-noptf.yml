@@ -6,9 +6,6 @@
 - block:
   - setup:
 
-  - name: Wait for some time fefore orchagent check
-    pause: seconds=120
-
   - name: Get orchagent process information, make sure Orchagent is running before test
     shell: pgrep orchagent
     register: pgrep_out
@@ -68,7 +65,7 @@
     command: "ip neigh change {{ v4_nei }} lladdr {{ v4_mac2 }} dev {{ v4_intf }}"
 
   - name: pause a second and check
-    pause: seconds=20
+    pause: seconds=2
 
   - name: gather orchagent pid, make sure orchagent is still running after v4 neighbor change mac
     command: "pgrep orchagent"

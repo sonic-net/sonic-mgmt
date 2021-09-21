@@ -526,12 +526,6 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " max_cores not found")
 
-                            try: # get fanout switch os type
-                                os = devices.get(host.lower()).get("ansible").get("os")
-                                entry += "\tos=" + os
-                            except:
-                                print("\t\t" + host + ": fanout switch OS not found")
-
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
 
@@ -595,36 +589,6 @@ def makeVeos(data, veos, devices, outfile):
                         toWrite.write(key2 + "=[" + ', '.join(val2) + "]\n")
                     else:
                         toWrite.write(key2 + "=" + val2 + "\n")
-                toWrite.write("\n")
-
-"""
-makeLabVeos(data, veos, devices, outfile)
-@:parameter data - reads from either veos-groups, this helps separate the function into 3 components; children, host, vars
-@:parameter veos - reads from either veos
-@:parameter devices - reads from devices
-@:parameter outfile - writes to veos
-"""
-def makeLabVeos(data, veos, devices, outfile):
-    group = data
-    with open(outfile, "a") as toWrite:
-        for key, value in group.items():
-            # host section
-            if "host" in value:
-                toWrite.write("[" + key + "]\n")
-                for host in value.get("host"):
-                    entry = host
-
-                    try:
-                        ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
-                        entry += "\tansible_host=" + ansible_host.split("/")[0]
-                    except:
-                        try:
-                            ansible_host = veos.get(key).get(host).get("ansible_host")
-                            entry += "\tansible_host=" + ansible_host.split("/")[0]
-                        except:
-                            print("\t\t" + host + ": ansible_host not found")
-                    toWrite.write(entry + "\n")
-
                 toWrite.write("\n")
 
 
@@ -717,8 +681,6 @@ def main():
     makeLab(device_groups, devices, testbed, args.basedir + lab_file)  # Generate lab (LAB)
     print("\tCREATING VEOS FILE: " + args.basedir + veos_file)
     makeVeos(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos (VEOS)
-    print("\tADDING VMs TO LAB FILE: " + args.basedir + lab_file)
-    makeLabVeos(veos_groups, veos, devices, args.basedir + lab_file)  # Append VMs to lab file
     print("\tCREATING HOST VARS FILE(S): one or more files generated")
     makeHostVar(host_vars)  # Generate host_vars (HOST_VARS)
     print("UPDATING FILES FROM CONFIG FILE")
