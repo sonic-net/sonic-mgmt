@@ -9,7 +9,7 @@ To save test time, the script randomly chooses 3 ports to do following test:
 import logging
 import pytest
 import random
-
+import re
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -439,7 +439,7 @@ class MlnxCableSupportedSpeedsHelper(object):
 
         if not cls.device_path:
             cls.device_path = duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
-        port_index = cls.sorted_ports[duthost].index(dut_port_name) + 1
+        port_index = cls.get_port_index_for_mlxlink(duthost, dut_port_name)
         cmd = 'mlxlink -d {} -p {} | grep "Supported Cable Speed"'.format(cls.device_path, port_index)
         output = duthost.shell(cmd)['stdout'].strip()
         # Valid output should be something like "Supported Cable Speed:0x68b1f141 (100G,56G,50G,40G,25G,10G,1G)"
@@ -453,3 +453,33 @@ class MlnxCableSupportedSpeedsHelper(object):
         speeds =  [speed[:-1] + '000' for speed in speeds_str.split(',')]
         cls.supported_speeds[(duthost, dut_port_name)] = speeds
         return speeds
+
+    @classmethod
+    def get_port_index_for_mlxlink(cls, duthost, dut_port_name):
+        """
+        Returns port index for mlxlink command
+        :param duthost: MultiAsicSonicHost object
+        :param dut_port_name: portname, Example: 'Ethernet20'
+        :return: '5'
+        """
+        if dut_port_name in duthost.facts['interfaces']:
+            port_name = dut_port_name
+        else:
+            port_name = cls.find_port_name(duthost, dut_port_name)
+        index_list = duthost.facts['interfaces'][port_name]['index']
+        index = index_list.split(',')[0]
+        return index
+
+    @classmethod
+    def find_port_name(cls, duthost, dut_port_name):
+        """
+        Returns port_name of the split port present in the minigraph,
+        :param duthost: MultiAsicSonicHost object
+        :param dut_port_name: Ethernet2
+        :return: Ethernet0
+        """
+        ind = re.search('\d+', dut_port_name).group()
+        for i in range(1, 8):
+            port_name = 'Ethernet{}'.format(int(ind)-i)
+            if port_name in duthost.facts['interfaces']:
+                return port_name
