@@ -24,6 +24,8 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_NAME_REGEX = (r"([a-zA-Z_]+)(\d*)$")
+POST_CHECK_INTERVAL_SECS = 1
+POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
@@ -281,28 +283,57 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
 
 
 def check_all_critical_processes_status(duthost):
+    """Checks whether critical processes are running.
+
+    Args:
+      duthost: An ansible object of DuT.
+
+    Returns:
+      Ture if critical processes are running. Otherwise False.
+    """
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
+            logger.info("The status of checking process in container '{}' is: {}"
+                        .format(container_name, processes["status"]))
+            logger.info("The processes not running in container '{}' are: '{}'"
+                        .format(container_name, processes["exited_critical_process"]))
             return False
 
     return True
 
 def post_test_check(duthost, up_bgp_neighbors):
+    """Checks whether critical processes are running and BGP sessions are established.
+
+    Args:
+      duthost: An ansible object of DuT.
+      up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
+
+    Returns:
+      Ture if critical processes are running and BGP sessions are up; Otherwise False.
+    """
     return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
-    """
-    @summary: Do the post check to see whether all the critical processes are alive after testing
-              the autorestart feature.
-              First we restart the containers which hit the restart limitation and then do the post check
+    """Restarts the containers which hit the restart limitation. Then post checks
+       to see whether all the critical processes are alive and 
+       expected BGP sessions are up after testing the autorestart feature.
+
+    Args:
+      duthost: An ansible object of DuT.
+      container_autorestart_states: A dictionary includes the container name (key) and
+        its auto-restart state (value).
+      up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
+
+    Returns:
+      True if post check succeeds; Otherwise False.
     """
     for container_name in container_autorestart_states.keys():
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS,
                       post_test_check, duthost, up_bgp_neighbors)
 
 
