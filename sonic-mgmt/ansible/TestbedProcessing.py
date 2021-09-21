@@ -457,8 +457,9 @@ def makeLab(data, devices, testbed, outfile):
                             print("\t\t" + host + " num_fabric_asics not found")
 
                         try: #get num_asics
-                            num_asics = int(dev.get("num_asics"))
+                            num_asics = dev.get("num_asics")
                             if num_asics is not None:
+                               num_asics = int(num_asics)
                                entry += "\tnum_asics=" + str( num_asics )
                         except AttributeError:
                             print("\t\t" + host + " num_asics not found")
