@@ -89,3 +89,18 @@
   inv_name: str
   auto_recover: 'True'
   comment: daall
+
+- conf-name: vms20-t0-7050cx3-2
+  group-name: vms20-7
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf32
+  ptf_ip: 10.64.246.125/23
+  ptf_ipv6:
+  server: server_20
+  vm_base: VM2084
+  dut:
+    - str2-7050cx3-acs-02
+  inv_name: str2
+  auto_recover: 'True'
+  comment: lawlee
