@@ -510,13 +510,13 @@
         - lldpd
         - lldp-syncd
 
-          #- name: Remove iptables rule to drop BGP SYN Packet from Peer
-          #shell: "iptables -D INPUT -j DROP -p tcp --destination-port bgp"
-          #become: true
+    - name: Remove iptables rule to drop BGP SYN Packet from Peer
+      shell: "iptables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
 
-          #- name: Remove ip6tables rule to drop BGP SYN Packet from Peer
-          #shell: "ip6tables -D INPUT -j DROP -p tcp --destination-port bgp"
-          #become: true
+    - name: Remove ip6tables rule to drop BGP SYN Packet from Peer
+      shell: "ip6tables -D INPUT -j DROP -p tcp --destination-port bgp"
+      become: true
 
     - name: Enable bgpd
       become: yes

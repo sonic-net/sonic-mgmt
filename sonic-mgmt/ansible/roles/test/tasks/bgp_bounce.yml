@@ -1,5 +1,5 @@
 - set_fact:
-   run_dir: /home/cisco
+   run_dir: /home/admin
    bgp_plain_template: bgp_plain.j2
    bgp_no_export_template: bgp_no_export.j2
 

@@ -129,8 +129,7 @@ def do_checks(request, check_items, *args, **kwargs):
 def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     logger.info("Prepare sanity check")
 
-#    skip_sanity = False
-    skip_sanity = True
+    skip_sanity = False
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = set(copy.deepcopy(SUPPORTED_CHECKS))  # Default check items

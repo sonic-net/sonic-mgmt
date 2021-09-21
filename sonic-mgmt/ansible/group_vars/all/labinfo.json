@@ -9,15 +9,13 @@
         "Arista-7170-64C": "Arista",
         "Arista-VM": "Arista",
         "Nexus-3064-NX": "Nexus",
-        "Nexus-9336-C36": "Nexus",
-        "Nexus-C93180YC-FX": "Nexus",
         "Force10-S6100": "Force10",
         "Force10-S6000": "Force10"
     },
     "switch_login": {
         "Nexus": { 
             "user": "admin",
-            "passwd": ["CAGisgreat!"],
+            "passwd": ["password"], 
             "enable": null
         },
         "Arista": {

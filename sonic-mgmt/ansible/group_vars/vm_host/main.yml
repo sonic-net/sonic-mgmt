@@ -9,14 +9,6 @@ skip_image_downloading: false
 vm_console_base: 7000
 memory: 2097152
 max_fp_num: 4
-memory: 2097152
+
 ptf_bp_ip: 10.10.246.254/24
 ptf_bp_ipv6: fc0a::ff/64
-root_path: veos-vm
-skip_image_downloading: false
-vm_console_base: 7000
-vm_images_url: https://acsbe.blob.core.windows.net/vmimages
-# proxy
-proxy_env:
-  http_proxy: http://173.36.224.109
-  https_proxy: http://173.36.224.109

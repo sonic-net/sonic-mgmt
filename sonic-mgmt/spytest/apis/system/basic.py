@@ -215,7 +215,7 @@ def get_platform_idprom(dut, value=None):
     :param value:  hwsku | platform | asic
     :return:
     """
-    output = st.show(dut, "sudo show platform idprom")
+    output = st.show(dut, "show platform idprom")
     if output:
         return output[0]
     return output
@@ -366,7 +366,7 @@ def shutdown_dut(dut):
     :param dut: dut
     """
     cmd = "shutdown -r now"
-    output = st.config(dut, cmd, skip_tmpl=True)
+    output = st.config(dut, cmd)
     return output
 
 def get_show_services(dut, value=None):
@@ -2660,146 +2660,3 @@ def update_presence_in_thermalzone(dut, val):
     out3 = yaml.dump(out2)
     st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
     st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
-
-def get_platform_content_from_pmon(dut):
-    """
-    get platform json content from pmon container in dut
-    """
-    out = st.show(dut, 'docker exec -it pmon cat /usr/share/sonic/platform/platform.json', skip_tmpl=True)
-    out1 = utils_obj.remove_last_line_from_string(out)
-    out2 = json.loads(out1)
-    thermal_data = out2['chassis']['thermals']
-    temperature_cli_data = get_platform_temperature(dut)
-    sensor_data = [row['sensor'] for row in temperature_cli_data]
-    platform_json_data = [row['name'].encode('utf-8') for row in thermal_data]
-    #Check with Sachin for the comparison for platform.json and show platform temp output 
-    check =  all(item in sensor_data for item in platform_json_data)
-    return check
-
-def update_fan_tray_faulty_presence_in_thermalzone(dut, val):
-    """
-    update the faulty fan check  in thermal_zone.yaml
-    """
-    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
-    st.show(dut, 'sudo cp /opt/cisco/etc/thermal_zone.yaml /opt/cisco/', skip_tmpl=True)
-    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
-    out1 = utils_obj.remove_last_line_from_string(out)
-    out2= yaml.safe_load(out1)
-    #Check how to add an attribute in yaml in python 
-    #out2[val][0]['fans'][0]['name'] ---- fan
-    #out2[val][0]['fans'][0]['faulty'] -- 1
-    #out2[val][0]['faulty']= 1
-    #out2[val][1]['name'] --- fan tray 
-    out2[val][0]['faulty']= 1
-    out3 = yaml.dump(out2)
-    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
-    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
-
-def update_fan_faulty_presence_in_thermalzone(dut, val):
-    """
-    update the faulty fan check  in thermal_zone.yaml
-    """
-    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
-    st.show(dut, 'sudo cp /opt/cisco/etc/thermal_zone.yaml /opt/cisco/', skip_tmpl=True)
-    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
-    out1 = utils_obj.remove_last_line_from_string(out)
-    out2= yaml.safe_load(out1)
-    #Check how to add an attribute in yaml in python 
-    #out2[val][0]['fans'][0]['name'] ---- fan
-    #out2[val][0]['fans'][0]['faulty'] -- 1
-    #out2[val][0]['faulty']= 1
-    #out2[val][1]['name'] --- fan tray 
-    out2[val][0]['fans'][0]['faulty']= 1
-    out2[val][0]['fans'][1]['faulty']= 1
-    out2[val][1]['fans'][0]['faulty']= 1
-    out3 = yaml.dump(out2)
-    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
-    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
-
-
-def get_parsed_date_to_capture_syslog(dut):
-    """
-    Get Parsed date to capture syslog
-    """
-    #Start time 
-    date_string = get_dut_date_time(dut)
-    if date_string is None:
-        raise Exception("The Parsed Date object retuned None")
-    if(date_string[4] == '0'):
-        date_string = date_string.replace('0',' ', 1)
-    month = date_string[7:11]
-    date = date_string[4:7]
-    hours = date_string[16:18]
-    mins = date_string[18:21]
-    if(date_string[25:27] == "PM"):
-        hours = str(int(hours)+12)
-    result_date = month + date + hours + mins
-    return result_date
-
-def get_parsed_temp_output_grep_sensor_name(dut, sensor_name):
-    """
-    Get Parsed temp output
-    """
-    cmd = "show platform temperature | grep {}".format(sensor_name)
-    temp_data_output = st.show(dut, cmd, skip_tmpl=True)
-    if temp_data_output is None:
-        raise Exception("show plat temp for the sensor name {} output is not found ".format(sensor_name))
-    parsed_sensor_data = [s.strip().encode() for s in temp_data_output.split('  ') if s]
-    return parsed_sensor_data
-
-def capture_syslog_between_timestamps(dut, start_point, end_point, filterlog):
-    """
-    Get the expected match syslog to the filterlog
-    """
-    cmd = "sudo sed -n '/{}/,/{}/p' /var/log/syslog*|grep \"{}\"".format(start_point, end_point, filterlog)
-    syslog_data_output = st.show(dut, cmd, skip_tmpl=True)
-    length = syslog_data_output.count('\n')
-    if length >= 1:
-        return True
-    return False
-
-def get_watchdog_status(dut):
-    """
-    Get the status of watchdog
-    """
-    output = st.show(dut, "sudo watchdogutil status")
-    if len(output) <= 0:
-        return None
-    return output
-
-def change_watchdog_status_to_arm(dut):
-    """
-    Get the status of watchdog
-    """
-    output = st.show(dut, "sudo watchdogutil arm")
-    if len(output) <= 0:
-        return None
-    return output
-
-def get_uptime(dut):
-    """
-    Get the dut uptime
-    """
-    output = st.show(dut, "show uptime")
-    if len(output) <= 0:
-        return None
-    return output
-
-def get_system_led_status(dut):
-    """
-    Author: Deekshitha Kankanala
-    Get the show system health summary 
-    """
-    output = st.show(dut, "sudo show system-health summary")
-    if len(output) <= 0:
-        return None
-    return output
-
-
-
-
-
-
-
-    
-

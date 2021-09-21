@@ -65,11 +65,10 @@ class Connection(ConnectionBase):
         attempt = 0
         max_retries = 3
 
-        self._display.vvv("Login: %s" % self.login)
+        self._display.vvv("%s" % self.login)
 
         while attempt < len(self.login['user']):
             (user, login_passwd) = self.login['user'][attempt]
-            self._display.vvv("Password: %s" % login_passwd)
             if user != last_user:
                 cmd = self._ssh_command + ['-l', user, self.host]
                 last_user = user
@@ -191,7 +190,7 @@ class Connection(ConnectionBase):
         return client
 
     def exec_command(self, *args, **kwargs):
-        self._display.vvv("exec_command: %s" % kwargs['login'])
+
         self.template = kwargs['template']
         if kwargs['host'] is not None:
             self.host     = kwargs['host']
