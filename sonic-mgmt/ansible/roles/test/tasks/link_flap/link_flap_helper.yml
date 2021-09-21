@@ -70,6 +70,8 @@
       assert: { that: "ansible_interface_facts[intfs_to_exclude]['active'] == False" }
 
   always:
+    - debug: msg="Peer={{peer_host}} SKU={{peer_hwsku}} map={{hwsku_map[peer_hwsku]}}"
+    - debug: msg="Neigh interface={{neighbor_interface}}"
     - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
       action: apswitch template=neighbor_interface_no_shut_single.j2
       args:

@@ -1,6 +1,6 @@
 ansible_ssh_user: admin
-ansible_connection: multi_passwd_ssh
-ansible_altpassword: YourPaSsWoRd
+# ansible_connection: multi_passwd_ssh
+ansible_altpassword: CAGisgreat!
 
 sonic_version: "v2"
 
@@ -22,6 +22,8 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista-7170-32CD-C32" ]
 
 marvell_hwskus: [ "et6448m" ]
+
+cisco_hwskus: ["x86_64-8101_32h_o-r0", "x86_64-8102_64h_o-r0", "x86_64-8201_32fh_o-r0", "x86_64-8201_sys-r0", "x86_64-8203_sys-r0", "x86_64-8800_lc_36fh-r0", "x86_64-8800_lc_48h-r0", "x86_64-8800_rp-r0"]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we

@@ -1,3 +1,4 @@
+import inspect
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -24,6 +25,7 @@ def get_t0_neigh(tbinfo, topo_config):
         if 'T0' in vm:
             if topo_config[vm].has_key('vips'):
                 dut_t0_neigh.append(vm)
+                print('t0 vips neighbor is {}'.format(vm))
     return dut_t0_neigh
 
 def get_vips_prefix(dut_t0_neigh, topo_config):
@@ -91,6 +93,8 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
     pytest_assert((vips_t0 > 1), "Did not find preconfigured multipath for the vips prefix under test")
 
     # Get the route from the DUT for the prefix
+    result = duthost.critical_services_status()
+
     bgp_route = duthost.bgp_route(prefix=vips_prefix)['ansible_facts']['bgp_route']
 
     logger.info("Bgp route from DUT for prefix {} is {}".format(vips_prefix,bgp_route))

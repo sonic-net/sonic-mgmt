@@ -376,8 +376,8 @@ def main():
         module.fail_json(msg=str(errorIndication) + ' querying system description.')
 
     for oid, val in varBinds:
-        current_oid = oid.prettyPrint()
-        current_val = val.prettyPrint()
+        current_oid = "{}".format(oid)
+        current_val = "{}".format(val)
         if current_oid == v.sysDescr:
             results['ansible_sysdescr'] = decode_hex(current_val)
 
@@ -396,8 +396,8 @@ def main():
         module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
 
     for oid, val in varBinds:
-        current_oid = oid.prettyPrint()
-        current_val = val.prettyPrint()
+        current_oid = "{}".format(oid)
+        current_val = "{}".format(val)
         if current_oid == v.sysObjectId:
             results['ansible_sysobjectid'] = current_val
         elif current_oid == v.sysUpTime:
@@ -438,8 +438,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.ifIndex in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
@@ -504,8 +504,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.ifInDiscards in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifInDiscards'] = current_val
@@ -553,8 +553,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.entPhysDescr in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
@@ -608,8 +608,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.entPhySensorType in current_oid:
                 sensor_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
@@ -656,8 +656,8 @@ def main():
             module.fail_json(msg=str(errorIndication) + ' querying CPU busy indeces')
 
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if current_oid == v.ChStackUnitCpuUtil5sec:
                 results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(module, current_oid, val)
 
@@ -674,8 +674,8 @@ def main():
         module.fail_json(msg=str(errorIndication) + ' querying  lldp local system infomation.')
 
     for oid, val in varBinds:
-        current_oid = oid.prettyPrint()
-        current_val = val.prettyPrint()
+        current_oid = "{}".format(oid)
+        current_val = "{}".format(val)
         if current_oid == v.lldpLocChassisIdSubtype:
             results['snmp_lldp']['lldpLocChassisIdSubtype'] = current_val
         elif current_oid == v.lldpLocChassisId:
@@ -698,8 +698,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.lldpLocPortIdSubtype in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
@@ -724,8 +724,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.lldpLocManAddrLen in current_oid:
                 address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrLen'] = current_val
@@ -758,8 +758,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.lldpRemChassisIdSubtype in current_oid:
                 ifIndex = int(current_oid.split('.')[12])
                 results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
@@ -801,8 +801,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.lldpRemManAddrIfSubtype in current_oid:
                 ifIndex = int(current_oid.split('.')[12])
                 address = '.'.join(current_oid.split('.')[16:])
@@ -830,8 +830,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.cpfcIfRequests in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
@@ -858,8 +858,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.csqIfQosGroupStats in current_oid:
                 ifIndex = int(current_oid.split('.')[-4])
                 ifDirection = int(current_oid.split('.')[-3])
@@ -878,8 +878,8 @@ def main():
 
     for varBinds in varTable:
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if v.cefcFRUPowerOperStatus in current_oid:
                 psuIndex = int(current_oid.split('.')[-1])
                 results['snmp_psu'][psuIndex]['operstatus'] = current_val
@@ -922,8 +922,8 @@ def main():
             module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
 
         for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = "{}".format(oid)
+            current_val = "{}".format(val)
             if current_oid == v.sysTotalMemery:
                 results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalFreeMemery:

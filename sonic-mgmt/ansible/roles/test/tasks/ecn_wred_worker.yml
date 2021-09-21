@@ -10,7 +10,7 @@
 
 # ... and check ASIC DB if it is set
 - name: Get WRED objects
-  shell: docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }} | grep {{ item }}
+  shell: docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }}
   register: wred_objects
   failed_when: wred_objects.rc != 0
 

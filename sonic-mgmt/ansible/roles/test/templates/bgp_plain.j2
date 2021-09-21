@@ -93,7 +93,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% for bgp_peer in BGP_PEER_RANGE.values() %}
   neighbor {{ bgp_peer['name'] }} peer-group
   neighbor {{ bgp_peer['name'] }} passive
-  neighbor {{ bgp_peer['name'] }} remote-as {{ deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']] }}
+  neighbor {{ bgp_peer['name'] }} remote-as {{ constants['deployment_id_asn_map'][DEVICE_METADATA['localhost']['deployment_id']] }}
   neighbor {{ bgp_peer['name'] }} ebgp-multihop 255
   neighbor {{ bgp_peer['name'] }} soft-reconfiguration inbound
 {% for (name, prefix) in LOOPBACK_INTERFACE %}

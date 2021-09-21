@@ -38,5 +38,4 @@
   - import_tasks: rootfanout_connect.yml
     vars:
       deploy_leaf: true
-  when: sw_type == 'FanoutLeaf'
   tags: always

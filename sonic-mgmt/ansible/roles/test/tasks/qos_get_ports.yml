@@ -290,8 +290,8 @@
   shell: redis-cli -n 4 HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
   register: watermark_status
 
-- debug:
-    msg="Watermark polling status {{watermark_status.stdout}}"
+  #- debug:
+  #  msg="Watermark polling status {{watermark_status.stdout}}"
 
 
 # Get scheduler weight

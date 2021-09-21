@@ -33,7 +33,7 @@
 - block:
     # Test case #3(MA): Check configuration applied
     - name: Check if ASIC DB configured qos parameters
-      shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
+      shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE*
       register: grep_queue
       failed_when: grep_queue.rc != 0
 

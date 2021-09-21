@@ -28,7 +28,9 @@ pytestmark = [
 
 # Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
-HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
+#HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port' ]
+
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']

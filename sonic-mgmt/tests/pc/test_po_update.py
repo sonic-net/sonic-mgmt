@@ -93,8 +93,13 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
+<<<<<<< HEAD
         time.sleep(30)
         int_facts = asichost.interface_facts()['ansible_facts']
+=======
+        time.sleep(120)
+        int_facts = duthost.interface_facts()['ansible_facts']
+>>>>>>> RTP testbed 1 support and fixes
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
     finally:
