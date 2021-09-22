@@ -20,6 +20,7 @@ all:
         vm_host_26:
         vm_host_27:
         vm_host_28:
+        vm_host_29:
         vm_svc_host_1:
     eos:
       children:
@@ -41,6 +42,7 @@ all:
         vms_26:
         vms_27:
         vms_28:
+        vms_29:
         vms_svc_1:
     servers:
       children:
@@ -62,6 +64,7 @@ all:
         server_26:
         server_27:
         server_28:
+        server_29:
         server_svc_1:
       vars:
         topologies:
@@ -173,6 +176,10 @@ vm_host_28:
   hosts:
     STR2-ACS-SERV-28:
       ansible_host: 10.64.246.225
+vm_host_29:
+  hosts:
+    STR2-ACS-SERV-29:
+      ansible_host: 10.64.246.237
 vm_svc_host_1:
   hosts:
     SVCSTR-SERV-1:
@@ -3485,6 +3492,201 @@ vms_28:
     VM2895:
       ansible_host: 172.16.147.127
 
+vms_29:
+  hosts:
+    VM2900:
+      ansible_host: 172.16.148.32
+    VM2901:
+      ansible_host: 172.16.148.33
+    VM2902:
+      ansible_host: 172.16.148.34
+    VM2903:
+      ansible_host: 172.16.148.35
+    VM2904:
+      ansible_host: 172.16.148.36
+    VM2905:
+      ansible_host: 172.16.148.37
+    VM2906:
+      ansible_host: 172.16.148.38
+    VM2907:
+      ansible_host: 172.16.148.39
+    VM2908:
+      ansible_host: 172.16.148.40
+    VM2909:
+      ansible_host: 172.16.148.41
+    VM2910:
+      ansible_host: 172.16.148.42
+    VM2911:
+      ansible_host: 172.16.148.43
+    VM2912:
+      ansible_host: 172.16.148.44
+    VM2913:
+      ansible_host: 172.16.148.45
+    VM2914:
+      ansible_host: 172.16.148.46
+    VM2915:
+      ansible_host: 172.16.148.47
+    VM2916:
+      ansible_host: 172.16.148.48
+    VM2917:
+      ansible_host: 172.16.148.49
+    VM2918:
+      ansible_host: 172.16.148.50
+    VM2919:
+      ansible_host: 172.16.148.51
+    VM2920:
+      ansible_host: 172.16.148.52
+    VM2921:
+      ansible_host: 172.16.148.53
+    VM2922:
+      ansible_host: 172.16.148.54
+    VM2923:
+      ansible_host: 172.16.148.55
+    VM2924:
+      ansible_host: 172.16.148.56
+    VM2925:
+      ansible_host: 172.16.148.57
+    VM2926:
+      ansible_host: 172.16.148.58
+    VM2927:
+      ansible_host: 172.16.148.59
+    VM2928:
+      ansible_host: 172.16.148.60
+    VM2929:
+      ansible_host: 172.16.148.61
+    VM2930:
+      ansible_host: 172.16.148.62
+    VM2931:
+      ansible_host: 172.16.148.63
+    VM2932:
+      ansible_host: 172.16.148.64
+    VM2933:
+      ansible_host: 172.16.148.65
+    VM2934:
+      ansible_host: 172.16.148.66
+    VM2935:
+      ansible_host: 172.16.148.67
+    VM2936:
+      ansible_host: 172.16.148.68
+    VM2937:
+      ansible_host: 172.16.148.69
+    VM2938:
+      ansible_host: 172.16.148.70
+    VM2939:
+      ansible_host: 172.16.148.71
+    VM2940:
+      ansible_host: 172.16.148.72
+    VM2941:
+      ansible_host: 172.16.148.73
+    VM2942:
+      ansible_host: 172.16.148.74
+    VM2943:
+      ansible_host: 172.16.148.75
+    VM2944:
+      ansible_host: 172.16.148.76
+    VM2945:
+      ansible_host: 172.16.148.77
+    VM2946:
+      ansible_host: 172.16.148.78
+    VM2947:
+      ansible_host: 172.16.148.79
+    VM2948:
+      ansible_host: 172.16.148.80
+    VM2949:
+      ansible_host: 172.16.148.81
+    VM2950:
+      ansible_host: 172.16.148.82
+    VM2951:
+      ansible_host: 172.16.148.83
+    VM2952:
+      ansible_host: 172.16.148.84
+    VM2953:
+      ansible_host: 172.16.148.85
+    VM2954:
+      ansible_host: 172.16.148.86
+    VM2955:
+      ansible_host: 172.16.148.87
+    VM2956:
+      ansible_host: 172.16.148.88
+    VM2957:
+      ansible_host: 172.16.148.89
+    VM2958:
+      ansible_host: 172.16.148.90
+    VM2959:
+      ansible_host: 172.16.148.91
+    VM2960:
+      ansible_host: 172.16.148.92
+    VM2961:
+      ansible_host: 172.16.148.93
+    VM2962:
+      ansible_host: 172.16.148.94
+    VM2963:
+      ansible_host: 172.16.148.95
+    VM2964:
+      ansible_host: 172.16.148.96
+    VM2965:
+      ansible_host: 172.16.148.97
+    VM2966:
+      ansible_host: 172.16.148.98
+    VM2967:
+      ansible_host: 172.16.148.99
+    VM2968:
+      ansible_host: 172.16.148.100
+    VM2969:
+      ansible_host: 172.16.148.101
+    VM2970:
+      ansible_host: 172.16.148.102
+    VM2971:
+      ansible_host: 172.16.148.103
+    VM2972:
+      ansible_host: 172.16.148.104
+    VM2973:
+      ansible_host: 172.16.148.105
+    VM2974:
+      ansible_host: 172.16.148.106
+    VM2975:
+      ansible_host: 172.16.148.107
+    VM2976:
+      ansible_host: 172.16.148.108
+    VM2977:
+      ansible_host: 172.16.148.109
+    VM2978:
+      ansible_host: 172.16.148.110
+    VM2979:
+      ansible_host: 172.16.148.111
+    VM2980:
+      ansible_host: 172.16.148.112
+    VM2981:
+      ansible_host: 172.16.148.113
+    VM2982:
+      ansible_host: 172.16.148.114
+    VM2983:
+      ansible_host: 172.16.148.115
+    VM2984:
+      ansible_host: 172.16.148.116
+    VM2985:
+      ansible_host: 172.16.148.117
+    VM2986:
+      ansible_host: 172.16.148.118
+    VM2987:
+      ansible_host: 172.16.148.119
+    VM2988:
+      ansible_host: 172.16.148.120
+    VM2989:
+      ansible_host: 172.16.148.121
+    VM2990:
+      ansible_host: 172.16.148.122
+    VM2991:
+      ansible_host: 172.16.148.123
+    VM2992:
+      ansible_host: 172.16.148.124
+    VM2993:
+      ansible_host: 172.16.148.125
+    VM2994:
+      ansible_host: 172.16.148.126
+    VM2995:
+      ansible_host: 172.16.148.127
+
 vms_svc_1:
   hosts:
     VM1000:
@@ -3789,6 +3991,12 @@ server_28:
   children:
     vm_host_28:
     vms_28:
+server_29:
+  vars:
+    host_var_file: host_vars/STR2-ACS-SERV-29.yml
+  children:
+    vm_host_29:
+    vms_29:
 server_svc_1:
   vars:
     host_var_file: host_vars/SVCSTR-SERV-1.yml
