@@ -310,7 +310,7 @@ stages:
                 CONFIG_PARAMS=""
                 LOG_LEVEL=info    
 
-                INVT=$BASE_PATH/ansible/str,$BASE_PATH/ansible/veos
+                INVT=$BASE_PATH/ansible/str,$BASE_PATH/ansible/str2,$BASE_PATH/ansible/strsvc,$BASE_PATH/ansible/veos
                 MPATH=$BASE_PATH/ansible
                 TESTBED_FILE=$BASE_PATH/ansible/${SAI_TESTBED_FILE}
                 export ANSIBLE_CONFIG=$BASE_PATH/ansible
