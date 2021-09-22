@@ -271,7 +271,6 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
 
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
-    ptf_ports = define_sub_ports_configuration['ptf_ports']
     port_type = define_sub_ports_configuration['port_type']
     subnet = define_sub_ports_configuration['subnet']
 
