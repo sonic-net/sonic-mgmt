@@ -491,7 +491,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
 @pytest.fixture(scope="session")
 def vmhost(ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
-    inv_files = request.config.option.ansible_inventory
+    inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
     return VMHost(ansible_adhoc, vmhost.name)
 

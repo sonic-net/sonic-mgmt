@@ -15,6 +15,7 @@ from tests.common.helpers.dut_utils import verify_features_state
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import get_host_visible_vars
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,7 @@ def test_update_saithrift_ptf(request, ptfhost):
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 
-def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
+def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo, vmhost):
     '''
     Inject the Y cable simulator client to both ToRs in a dualtor testbed
     '''
@@ -247,17 +248,14 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
 
     logger.info("Injecting Y cable simulator client to {}".format(enum_dut_hostname))
     dut = duthosts[enum_dut_hostname]
-    mux_simulator_port = 8080
+    tbname = tbinfo['conf-name']
+    _hostvars = get_host_visible_vars(dut.host.options['inventory'], dut.hostname)
+    mux_simulator_port = _hostvars['mux_simulator_http_port'][tbname]
     y_cable_sim_client_template_path = 'templates/y_cable_simulator_client.j2'
-
-    server_num = tbinfo['server'].split('_')[-1]
-    mux_simulator_server = dut.host.options['inventory_manager'] \
-                                    .get_hosts(pattern='vm_host_{}'.format(server_num))[0] \
-                                    .get_vars()['ansible_host']
 
     template_args = {
         'duts_map': json.dumps(tbinfo['duts_map'], sort_keys=True, indent=4),
-        'mux_simulator_server': mux_simulator_server,
+        'mux_simulator_server': vmhost.mgmt_ip,
         'mux_simulator_port': mux_simulator_port,
         'dut_name': enum_dut_hostname,
         'group_name': tbinfo['group-name']
@@ -280,7 +278,7 @@ def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo):
     # File /etc/sonic/mux_simulator.json can co-exist with the 'y_cable_simulator_client.py' file injected above.
     # Process xcvrd will determine which one to load or use.
     mux_simulator_config = {
-        'server_ip': mux_simulator_server,
+        'server_ip': vmhost.mgmt_ip,
         'server_port': mux_simulator_port,
         'vm_set': tbinfo['group-name'],
         'side': UPPER_TOR if tbinfo['duts'].index(enum_dut_hostname) == 0 else LOWER_TOR
