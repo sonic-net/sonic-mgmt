@@ -94,7 +94,7 @@
   group-name: vms20-7
   topo: ptf32
   ptf_image_name: docker-ptf
-  ptf: docker-ptf
+  ptf: vms20-7
   ptf_ip: 10.64.246.125/23
   ptf_ipv6:
   server: server_20
