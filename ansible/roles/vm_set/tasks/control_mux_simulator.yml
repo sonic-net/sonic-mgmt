@@ -6,6 +6,7 @@
 - name: Set variable abs_root_path
   set_fact:
     abs_root_path: "{{ real_root_path.stdout }}"
+    mux_simulator_port: "{{ mux_simulator_http_port[testbed_name] }}"
 
 - name: Start mux simulator
   block:
@@ -21,50 +22,27 @@
       dest: "{{ abs_root_path }}"
       mode: 0755
 
-  - name: Set default mux_simulator_port
-    set_fact:
-      mux_simulator_port: 8080
-    when: mux_simulator_port is not defined
-
   - name: Generate mux-simulator systemd service file
     template:
       src: mux-simulator.service.j2
-      dest: /etc/systemd/system/mux-simulator.service
+      dest: /etc/systemd/system/mux-simulator-{{ mux_simulator_port }}.service
     become: yes
 
-  - name: Start the mux-simulator service
+  - name: Start the mux-simulator service for testbed {{ testbed_name }}
     systemd:
-      name: mux-simulator
+      name: mux-simulator-{{ mux_simulator_port }}
       state: started
       daemon_reload: yes
     become: yes
-
-  - name: Record vm_set of testbed using mux-simulator
-    lineinfile:
-      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
-      line: "{{ vm_set_name }}"
-      state: present
-      create: yes
 
   when: mux_simulator_action == "start"
 
 - name: Stop mux simulator
   block:
 
-  - name: Remove the record of testbed using mux-simulator
-    lineinfile:
-      path: "{{ abs_root_path }}/mux_simulator.setups.txt"
-      line: "{{ vm_set_name }}"
-      state: absent
-
-  - name: Check if the record file is empty
-    command: "grep -P '\\S' {{ abs_root_path }}/mux_simulator.setups.txt"
-    register: record_file_content
-    ignore_errors: yes
-
-  - name: Stop the mux-simulator service if no setup is using it
+  - name: Stop the mux-simulator service for testbed {{ testbed_name }}
     systemd:
-      name: mux-simulator
+      name: mux-simulator-{{ mux_simulator_port }}
       state: stopped
     become: yes
     ignore_errors: yes
