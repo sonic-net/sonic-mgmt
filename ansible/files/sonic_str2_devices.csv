@@ -84,6 +84,7 @@ str2-acs-serv-25,10.64.246.155/23,TestServ,Server,
 str2-acs-serv-26,10.64.246.156/23,TestServ,Server,
 str2-acs-serv-27,10.64.246.157/23,TestServ,Server,
 str2-acs-serv-28,10.64.246.225/23,TestServ,Server,
+str2-acs-serv-29,10.64.246.237/23,TestServ,Server,
 pdu-96,10.3.155.96,Sentry,Pdu,snmp
 pdu-97,10.3.155.97,Sentry,Pdu,snmp
 pdu-98,10.3.155.98,Sentry,Pdu,snmp

@@ -86,6 +86,7 @@
       <Device Hostname="str2-acs-serv-26" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str2-acs-serv-27" HwSku="TestServ" Type="Server"/>
       <Device Hostname="str2-acs-serv-28" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str2-acs-serv-29" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-16" EndPort="eno2" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet3/1"/>
@@ -99,6 +100,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-26" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet26/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-28" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet53/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-28" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet54/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-8" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-fan-08" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet11/1"/>
@@ -2140,6 +2142,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet53/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet54/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="249-351,481-598"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="217-248,352,401,480,599-600,2716,2748"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="353-400,402-416"/>
@@ -4487,6 +4490,9 @@
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-acs-serv-28">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.225/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str2-acs-serv-29">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.237/23"/>
     </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>

@@ -728,3 +728,5 @@ server:
       ansible_host: 10.64.246.157
     str2-acs-serv-28:
       ansible_host: 10.64.246.225
+    str2-acs-serv-29:
+      ansible_host: 10.64.246.237
