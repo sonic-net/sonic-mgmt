@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 import json
+import uuid
 
 import requests
 
@@ -31,9 +32,11 @@ def mux_server_url(request, tbinfo):
     if 'dualtor' in tbinfo['topo']['name']:
         server = tbinfo['server']
         vmset_name = tbinfo['group-name']
+
         inv_files = request.config.option.ansible_inventory
         ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
-        port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
+        _port_map = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')
+        port = _port_map[tbinfo['conf-name']]
         return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
     return ""
 
@@ -103,12 +106,13 @@ def _post(server_url, data):
         True if succeed. False otherwise
     """
     try:
-        logger.debug('POST {} with {}'.format(server_url, data))
+        server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
+        logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         resp = requests.post(server_url, json=data, headers=headers)
         return resp.status_code == 200
     except Exception as e:
-        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))  # lgtm [py/clear-text-logging-sensitive-data]
 
     return False
 
