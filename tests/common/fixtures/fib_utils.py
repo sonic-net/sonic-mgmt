@@ -58,15 +58,19 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
                                 if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
-                                    skip = True
+                                    if len(oports) == 0:
+                                        skip = True
                                 else:
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                    skip = False
                         else:
                             if ports.has_key(ifname):
                                 if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
-                                    skip = True
+                                    if len(oports) == 0:
+                                        skip = True
                                 else:
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                                    skip = False
                             else:
                                 logger.info("Route point to non front panel port {}:{}".format(k, v))
                                 skip = True
