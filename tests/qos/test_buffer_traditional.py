@@ -227,7 +227,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
             _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, None)
 
     port_to_shutdown = admin_up_ports.pop()
-    expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port))['stdout']
+    expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port_to_shutdown))['stdout']
     try:
         # Shutdown the port and check whether the lossless PG has been removed
         logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
