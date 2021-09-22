@@ -13,3 +13,6 @@ sonic_password: "password"
 
 k8s_master_login: "ubuntu"
 k8s_master_password: "use_own_value"
+
+ptf_host_user: root
+ptf_host_pass: root
