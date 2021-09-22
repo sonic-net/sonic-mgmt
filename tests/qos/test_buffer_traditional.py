@@ -5,6 +5,27 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+global DEFAULT_LOSSLESS_PROFILES
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_module(duthosts, rand_one_dut_hostname):
+    """Setup module. Called only once when the module is initialized
+
+    Args:
+        duthosts: The duthosts object
+        rand_one_dut_hostname:
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] != "mellanox":
+        pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
+
+    load_lossless_info_from_pg_profile_lookup(duthost)
+
+
 def load_lossless_info_from_pg_profile_lookup(duthost):
     """Load pg_profile_lookup.ini to a dictionary. Called only once when the module is initialized
 
@@ -14,15 +35,17 @@ def load_lossless_info_from_pg_profile_lookup(duthost):
     Return:
         The dictionary containing the information in pg_profile_lookup.ini
     """
+    global DEFAULT_LOSSLESS_PROFILES
+
     # Check the threshold mode
     threshold_mode = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" mode')['stdout']
     threshold_field_name = 'dynamic_th' if threshold_mode == 'dynamic' else 'static_th'
     dut_hwsku = duthost.facts["hwsku"]
     dut_platform = duthost.facts["platform"]
     skudir = "/usr/share/sonic/device/{}/{}/".format(dut_platform, dut_hwsku)
-    lines = duthost.shell('cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
-    default_lossless_profiles = {}
-    for line in lines.split('\n'):
+    lines = duthost.shell('cat {}/pg_profile_lookup.ini'.format(skudir))["stdout_lines"]
+    DEFAULT_LOSSLESS_PROFILES = {}
+    for line in lines:
         if line[0] == '#':
             continue
         tokens = line.split()
@@ -40,8 +63,7 @@ def load_lossless_info_from_pg_profile_lookup(duthost):
             threshold_field_name: threshold}
         if len(tokens) > 6:
             profile_info['xon_offset'] = tokens[6]
-        default_lossless_profiles[(speed, cable_length)] = profile_info
-    return default_lossless_profiles
+        DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)] = profile_info
 
 
 def make_dict_from_output_lines(lines):
@@ -147,11 +169,9 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         _, result = _check_port_buffer_info_and_get_profile_oid(duthost, port, expected_profile, False)
         return result
 
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] != "mellanox":
-        pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
+    global DEFAULT_LOSSLESS_PROFILES
 
-    default_lossless_profiles = load_lossless_info_from_pg_profile_lookup(duthost)
+    duthost = duthosts[rand_one_dut_hostname]
 
     # Check whether the COUNTERS_PG_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = make_dict_from_output_lines(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
@@ -176,7 +196,7 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
             if expected_profile not in profiles_checked:
                 profile_info = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "{}"'.format(expected_profile[1:-1]))['stdout'].split())
-                pytest_assert(profile_info == default_lossless_profiles[(speed, cable_length)], "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, default_lossless_profiles[(speed, cable_length)]))
+                pytest_assert(profile_info == DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)], "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)]))
 
                 logging.info("Checking buffer profile {}: OID: {}".format(expected_profile, buffer_profile_oid))
                 if buffer_profile_oid:
