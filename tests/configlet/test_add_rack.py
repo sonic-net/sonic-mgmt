@@ -61,7 +61,8 @@ ORIG_DB_SUB_DIR = "orig"
 CLET_DB_SUB_DIR = "clet"
 FILES_SUB_DIR = "files"
 
-data_dir    = "logs/AddRack"
+base_dir    = "logs/configlet"
+data_dir    = "{}/AddRack".format(base_dir)
 orig_db_dir = "{}/{}".format(data_dir, ORIG_DB_SUB_DIR)
 clet_db_dir = "{}/{}".format(data_dir, CLET_DB_SUB_DIR)
 files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
@@ -78,6 +79,9 @@ def do_pause(secs, msg):
 
 def init(duthost, duthost_name):
     global init_data
+
+    if not os.path.exists(base_dir):
+        os.mkdir(base_dir)
 
     for i in [ data_dir, orig_db_dir, clet_db_dir, files_dir ]:
         os.mkdir(i)
@@ -136,8 +140,6 @@ def load_minigraph(duthost, duthost_name):
     config_reload(duthost, config_source="minigraph", wait=180, start_bgp=True) 
     assert wait_until(300, 20, duthost.critical_services_fully_started), \
             "All critical services should fully started!{}".format(duthost.critical_services)
-    assert wait_until(300, 20, chk_for_pfc_wd, duthost, duthost_name, data_dir), \
-                            "PFC_WD is missing in CONFIG-DB"
 
 
 def apply_clet(duthost, duthost_name):
@@ -183,11 +185,11 @@ def download_sonic_files(duthost, dir):
     for f in [ "minigraph.xml", "config_db.json" ]:
         duthost.fetch(src="/etc/sonic/{}".format(f), dest=data_dir)
 
-def chk_bgp_session(duthost, ip):
+def chk_bgp_session(duthost, ip, msg):
     info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
     bgp_state = info.get("bgpState", "")
     assert bgp_state == "Established", \
-            "BGP session for {} = {} not established".format(bgp_state, ip)
+            "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
 
 
 def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
@@ -208,7 +210,12 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     download_sonic_files(duthost, files_dir)
 
     # Create minigraph w/o a T0 & configlet, apply & take dump
-    files_create.do_run()
+    files_create.do_run(duthost.facts["asic_type"] == "mellanox")
+
+    # Ensure BGP session is up before we apply stripped minigraph
+    chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
+    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
+
     apply_clet(duthost, rand_one_dut_hostname)
     take_DB_dumps(duthost, duthost_name, clet_db_dir, data_dir)
 
@@ -216,8 +223,8 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     assert not ret, "Failed to compare dumps"
 
     # Ensure BGP session is up
-    chk_bgp_session(duthost, tor_data["ip"]["remote"])
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower())
+    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
+    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
 
     log_info("Test run is good!")
 
