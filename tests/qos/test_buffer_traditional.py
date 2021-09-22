@@ -23,6 +23,9 @@ def setup_module(duthosts, rand_one_dut_hostname):
     if duthost.facts["asic_type"] != "mellanox":
         pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
 
+    if "201911" not in duthost.os_version:
+        pytest.skip("Buffer test runs on 201911 branch only, skip")
+
     load_lossless_info_from_pg_profile_lookup(duthost)
 
 
@@ -43,7 +46,9 @@ def load_lossless_info_from_pg_profile_lookup(duthost):
     dut_hwsku = duthost.facts["hwsku"]
     dut_platform = duthost.facts["platform"]
     skudir = "/usr/share/sonic/device/{}/{}/".format(dut_platform, dut_hwsku)
-    lines = duthost.shell('cat {}/pg_profile_lookup.ini'.format(skudir))["stdout_lines"]
+    pg_profile_lookup_file = os.path.join(skudir, 'pg_profile_lookup.ini')
+    duthost.file(path=pg_profile_lookup_file, state="file")
+    lines = duthost.shell('cat {}'.format(pg_profile_lookup_file))["stdout_lines"]
     DEFAULT_LOSSLESS_PROFILES = {}
     for line in lines:
         if line[0] == '#':
