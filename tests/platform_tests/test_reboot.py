@@ -255,4 +255,4 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     ls_ending_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     pytest_assert(ls_ending_out.difference(ls_starting_out).size() == 0 and
             ls_starting_out.difference(ls_ending_out).size() == 0,
-            "Console devices have changed.")
+            "Console devices have changed:\n\texpected console devices: %s\n\tgot: %s" % (", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
