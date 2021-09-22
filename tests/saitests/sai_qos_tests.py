@@ -676,7 +676,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # get a snapshot of PG drop packets counter
-        if '201811' not in sonic_version:
+        if '201811' not in sonic_version and 'mellanox' in asic_type:
             # According to SONiC configuration lossless dscps are classified as follows:
             # dscp  3 -> pg 3
             # dscp  4 -> pg 4
@@ -803,7 +803,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             for cntr in egress_counters:
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr])
 
-            if '201811' not in sonic_version:
+            if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
                 logging.info("Dropped packet counters on port #{} :{} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], dscp))
                 # Check that counters per lossless PG increased
