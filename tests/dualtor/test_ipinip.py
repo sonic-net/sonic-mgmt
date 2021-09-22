@@ -9,6 +9,7 @@ import logging
 import pytest
 import random
 import time
+import ptf.packet as scapy
 
 from ptf import mask
 from ptf import testutils
@@ -38,7 +39,24 @@ def mock_common_setup_teardown(
     cleanup_mocked_configs,
     request
 ):
+    # Filter for non-ARP packets
+    def not_arp_filter(pkt_str):
+        try:
+            pkt = scapy.Ether(pkt_str)
+
+            if scapy.ARP in pkt:
+                return False
+            else:
+                return True
+        except:
+            return False
+
     request.getfixturevalue("run_garp_service")
+    logging.info("add arp filter for ptf")
+    testutils.add_filter(not_arp_filter)
+    yield
+    logging.info("reset filter for ptf")
+    testutils.reset_filters()
 
 
 @pytest.fixture(scope="function")
@@ -108,11 +126,11 @@ def test_decap_active_tor(
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet, decrease_ttl=True)
 
-    ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
-    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index)
+    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index, timeout=10)
 
 
 def test_decap_standby_tor(
