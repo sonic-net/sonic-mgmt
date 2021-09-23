@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from qos_fixtures import leaf_fanouts
-from qos_helpers import eos_to_linux_intf
+from qos_helpers import eos_to_linux_intf, nxos_to_linux_intf
 import os
 import time
 import pytest
@@ -84,7 +84,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
     for intf in active_phy_intfs:
         peer_device = conn_facts[intf]['peerdevice']
         peer_port = conn_facts[intf]['peerport']
-        peer_port_name = eos_to_linux_intf(peer_port)
+        peer_port_name = nxos_to_linux_intf(peer_port)
 
         peerdev_ans = fanouthosts[peer_device]
         if is_pfc:
