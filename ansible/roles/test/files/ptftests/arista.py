@@ -36,6 +36,8 @@ import ast
 
 class Arista(object):
     DEBUG = False
+    # unit: second
+    SSH_CMD_TIMEOUT = 10
     def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
@@ -52,8 +54,6 @@ class Arista(object):
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
-        # unit: second
-        self.ssh_cmd_timeout = 10
 
     def __del__(self):
         self.disconnect()
@@ -68,7 +68,7 @@ class Arista(object):
         self.conn.connect(self.ip, username=self.login, password=self.password, allow_agent=False, look_for_keys=False)
         self.shell = self.conn.invoke_shell()
         # avoid paramiko Channel.recv() stuck forever
-        self.shell.settimeout(self.ssh_cmd_timeout)
+        self.shell.settimeout(Arista.SSH_CMD_TIMEOUT)
         # add a reference to avoid garbage collecting destructs the ssh connection
         self.shell.keep_this = self.conn
 
@@ -103,7 +103,7 @@ class Arista(object):
         received_all_data = False
 
         while not received_all_data:
-            recv_ready_timeout = (time.time() - start_time) >= self.ssh_cmd_timeout
+            recv_ready_timeout = (time.time() - start_time) >= Arista.SSH_CMD_TIMEOUT
             # if pipe is empty and not timeout yet, keep waiting
             should_wait = (not recv_ready_timeout) and (not self.shell.recv_ready())
             if should_wait:
