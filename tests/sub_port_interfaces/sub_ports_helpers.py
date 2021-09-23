@@ -12,6 +12,7 @@ import ptf.packet as packet
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.pkt_filter.filter_pkt_in_buffer import FilterPktBuffer
+from tests.common import constants
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -546,7 +547,7 @@ def check_namespace(ptfhost, name_of_namespace):
     return name_of_namespace in out
 
 
-def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None):
+def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, exclude_sub_interface_ports=False):
     """
     Get port configurations from DUT and PTF
 
@@ -556,6 +557,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None):
         interface_num: number of ports
         port_type: Type of port
         ports_to_exclude: Ports that cannot be members of LAG
+        exclude_sub_interface_ports: Exclude ports that has sub interfaces if True
 
     Returns:
         Tuple with port configurations of DUT and PTF
@@ -565,6 +567,9 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None):
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
+    # if port_type is port channel, filter out those ports that has vlan sub interface
+    sub_interface_ports = set([_.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in cfg_facts.get('VLAN_SUB_INTERFACE', {}).keys()])
+
     portchannel_members = []
     for member in cfg_facts.get('PORTCHANNEL_MEMBER', {}).values():
         portchannel_members += member.keys()
@@ -573,7 +578,10 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None):
     port_status = cfg_facts['PORT']
     config_port_indices = {}
     for port, port_id in config_vlan_members.items():
-        if port not in portchannel_members and port_status[port].get('admin_status', 'down') == 'up' and port not in ports_to_exclude:
+        if ((port not in portchannel_members) and
+            (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
+            (port_status[port].get('admin_status', 'down') == 'up') and
+            (port not in ports_to_exclude)):
             config_port_indices[port_id] = port
             if len(config_port_indices) == interface_num:
                 break

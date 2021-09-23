@@ -87,24 +87,24 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
     sub_ports_config = {}
     max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
-    vlan_ranges_dut = range(10, 50, 10)
-    vlan_ranges_ptf = range(10, 50, 10)
+    vlan_ranges_dut = range(20, 60, 10)
+    vlan_ranges_ptf = range(20, 60, 10)
 
     if 'invalid' in request.node.name:
-        vlan_ranges_ptf = range(11, 31, 10)
+        vlan_ranges_ptf = range(21, 41, 10)
 
     if 'max_numbers' in request.node.name:
-        vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
-        vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
+        vlan_ranges_dut = range(11, max_numbers_of_sub_ports + 11)
+        vlan_ranges_ptf = range(11, max_numbers_of_sub_ports + 11)
 
         # Linux has the limitation of 15 characters on an interface name,
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
         # For example: 'PortChannel1.99'
         if 'port_in_lag' in request.param:
-            max_numbers_of_sub_ports = max_numbers_of_sub_ports if max_numbers_of_sub_ports <= 99 else 99
-            vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
-            vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
+            vlan_range_end = min(100, max_numbers_of_sub_ports + 11)
+            vlan_ranges_dut = range(11, vlan_range_end)
+            vlan_ranges_ptf = range(11, vlan_range_end)
 
     interface_num = 2
     ip_subnet = u'172.16.0.0/16'
@@ -271,13 +271,15 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
 
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
-    ptf_ports = define_sub_ports_configuration['ptf_ports']
     port_type = define_sub_ports_configuration['port_type']
     subnet = define_sub_ports_configuration['subnet']
 
-    # Get additional port for configuration of SVI port
+    # Get additional port for configuration of SVI port or L3 RIF
     if 'svi' in request.param:
-        dut_ports, ptf_ports = get_port(duthost, ptfhost, 1, port_type, dut_ports.values())
+        interface_num = 1
+    else:
+        interface_num = 2
+    dut_ports, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, dut_ports.values(), exclude_sub_interface_ports=True)
 
     # Get additional IP addresses for configuration of RIF on the DUT and PTF
     subnet = ipaddress.ip_network(str(subnet.broadcast_address + 1) + u'/24')
@@ -299,6 +301,8 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             # Configure additional sub-port for connection between SVI port of the DUT and PTF
             create_sub_port_on_ptf(ptfhost, ptf_port, ptf_port_ip)
         else:
+            # should remove port from Vlan1000 first to configure L3 RIF
+            remove_member_from_vlan(duthost, '1000', dut_port)
             # Configure L3 RIF on the DUT
             add_ip_to_dut_port(duthost, dut_port, dut_port_ip)
             # Configure L3 RIF on the PTF
@@ -350,7 +354,6 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             remove_static_route(ptfhost, dst_port_network, next_hop_sub_ports['neighbor_ip'])
             remove_namespace(ptfhost, name_of_namespace)
 
-
         if 'svi' in request.param:
             # Remove SVI port from the DUT
             remove_member_from_vlan(duthost, vlan_id, next_hop_sub_ports['dut_port'])
@@ -368,6 +371,12 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             remove_ip_from_port(duthost, next_hop_sub_ports['dut_port'], ip=next_hop_sub_ports['neighbor_ip'])
             # Remove L3 RIF from the PTF
             remove_ip_from_ptf_port(ptfhost, src_port, next_hop_sub_ports['ip'])
+
+            if 'port_in_lag' in port_type:
+                bond_port = src_port
+                cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                remove_lag_port(duthost, cfg_facts, next_hop_sub_ports['dut_port'])
+                remove_bond_port(ptfhost, bond_port, ptf_ports[bond_port])
 
     if 'svi' in request.param:
         remove_vlan(duthost, vlan_id)
