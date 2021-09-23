@@ -94,8 +94,10 @@ show_ip_route.tmpl, .*, sonic, show ip route
 show_ip_route.tmpl, .*, sonic, show ipv6 route
 show_ip_route.tmpl, .*, sonic, show ip route vrf * ospf
 show_vlan_config.tmpl, .*, sonic, show vlan config
+watchdogutil_status.tmpl, .*, sonic, sudo watchdogutil status
+watchdogutil_arm.tmpl, .*, sonic, sudo watchdogutil arm
 show_platform_summary.tmpl, .*, sonic, show platform summary
-show_platform_idprom.tmpl, .*, sonic, show platform idprom
+show_platform_idprom.tmpl, .*, sonic, sudo show platform idprom
 show_platform_temperature.tmpl, .*, sonic, show platform temperature
 show_platform_fan.tmpl, .*, sonic, show platform fan
 show_platform_inventory.tmpl, .*, sonic, show platform inventory
@@ -250,6 +252,7 @@ bcmcmd_l3_ip6route_show.tmpl, .*, sonic, bcmcmd 'l3 ip6route show'
 bcmcmd_l3_l3table_show.tmpl, .*, sonic, bcmcmd 'l3 l3table show'
 bcmcmd_l3_ip6host_show.tmpl, .*, sonic, bcmcmd 'l3 ip6host show'
 show_system_status.tmpl, .*, sonic, show system status
+show_system_health_summary.tmpl, .*, sonic, sudo show system-health summary
 show_error_database.tmpl, .*, sonic, show error_database
 bcmcmd_listmem_l3_entry.tmpl, .*, sonic, bcmcmd 'listmem l3_entry'
 bcmcmd_listmem_defip.tmpl, .*, sonic, bcmcmd 'listmem DEFIP'

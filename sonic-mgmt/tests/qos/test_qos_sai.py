@@ -55,7 +55,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32'
+        'Arista-7050CX3-32S-C32',
+        'cisco-8000'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']

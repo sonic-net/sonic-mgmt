@@ -37,9 +37,9 @@ class FanoutHost(object):
             self.os = os
             self.host = AosHost(ansible_adhoc, hostname, user, passwd)
         else:
-            # Use eos host if the os type is unknown
-            self.os = 'eos'
-            self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
+            # Use nxos host if the os type is unknown - cisco change
+            self.os = 'nxos'
+            self.host = NxosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)

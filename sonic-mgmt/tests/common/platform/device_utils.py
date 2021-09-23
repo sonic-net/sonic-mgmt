@@ -28,7 +28,8 @@ def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
 
 
 def get_dut_psu_line_pattern(dut):
-    if "201811" in dut.os_version or "201911" in dut.os_version:
+    # Added 202012 to dut version - Cisco change
+    if "201811" in dut.os_version or "201911" in dut.os_version  or "202012" in dut.os_version:
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
     else:
         """
