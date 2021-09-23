@@ -135,12 +135,10 @@ def check_interfaces(duthosts):
         check_result = {"failed": True, "check_item": "interfaces", "host": dut.hostname}
         for asic in dut.asics:
             ip_interfaces = []
-            phy_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
                                           source="persistent", verbose=False)['ansible_facts']
-            if "PORT" in cfg_facts:
-                phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
-                                  "admin_status" in v and v["admin_status"] == "up"]
+            phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
+                              "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
             if "VLAN_INTERFACE" in cfg_facts:
