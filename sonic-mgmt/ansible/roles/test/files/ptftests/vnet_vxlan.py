@@ -453,7 +453,7 @@ class VNET(BaseTest):
                     vxlan_vni=vni,
                     inner_frame=exp_pkt)
                 encap_pkt[IP].flags = 0x2
-            elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
                 encap_pkt = simple_vxlanv6_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
