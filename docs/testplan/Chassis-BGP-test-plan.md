@@ -64,7 +64,7 @@ other linecards using iBGP over inband interfaces.
 * Repeat with IPv4, IPv6, dual-stack.
 
 
-## Test Case #4: Test non equal cost BGP paths for a route are propagated and installed.
+## Test Case #4: Test non equal cost BGP paths for a route are propagated.
 
 ### Test Objective
 Verify non equal cost BGP paths are propagated to all linecards and all the linecards converge
