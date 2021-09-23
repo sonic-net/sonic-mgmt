@@ -4,7 +4,6 @@ import logging
 import re
 import pytest
 
-from tests.common.platform.interface_utils import get_port_map
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
@@ -27,7 +26,6 @@ SUBMODE_TARGET_DEFINED = 0
 SUBMODE_ON_CHANGE = 1
 SUBMODE_SAMPLE = 2
 
-
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
     """ Extracts dictionary from redis output.
@@ -40,14 +38,12 @@ def get_dict_stdout(gnmi_out, certs_out):
     params_dict = dict(zip(key_list, value_list))
     return params_dict
 
-
 def get_list_stdout(cmd_out):
     out_list = []
     for x in cmd_out:
         result = x.encode('UTF-8')
         out_list.append(result)
     return out_list
-
 
 def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
@@ -61,7 +57,6 @@ def setup_telemetry_forpyclient(duthost):
     else:
         logger.info('client auth is false. No need to restart telemetry')
 
-
 def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
@@ -72,12 +67,10 @@ def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", 
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode, submode, intervalms, update_count)
     return cmd
 
-
 def assert_equal(actual, expected, message):
     """Helper method to compare an expected value vs the actual value.
     """
     pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
-
 
 @pytest.fixture(scope="module", autouse=True)
 def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
@@ -90,7 +83,6 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
-
 
 @pytest.fixture
 def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
@@ -112,25 +104,11 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
 
-
 def skip_201911_and_older(duthost):
     """ Skip the current test if the DUT version is 201911 or older.
     """
     if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
-
-
-@pytest.fixture(scope='function')
-def skip_if_no_data_port(duthosts, rand_one_dut_hostname):
-    """
-    Fixture that skips test execution in case dut doesn't have data port Ethernet0
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    for asic_index in duthost.get_frontend_asic_ids():
-        interface_list = get_port_map(duthost, asic_index)
-        if "Ethernet0" not in interface_list:
-            pytest.skip("This test is not supported as there is no data port Ethernet0 in dut")
-
 
 # Test functions
 def test_config_db_parameters(duthosts, rand_one_dut_hostname):
@@ -159,7 +137,6 @@ def test_config_db_parameters(duthosts, rand_one_dut_hostname):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-
 def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     """Verify telemetry should be enabled by default
     """
@@ -176,8 +153,7 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled";
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost, skip_if_no_data_port):
+def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -193,7 +169,6 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-
 def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """ Test osbuild/version query.
     """
@@ -205,7 +180,6 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
 
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
-
 
 def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """
@@ -252,8 +226,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
-
-def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, skip_if_no_data_port, ptfhost, localhost):
+def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
