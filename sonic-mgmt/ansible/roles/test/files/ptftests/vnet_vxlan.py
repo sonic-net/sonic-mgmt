@@ -322,10 +322,10 @@ class VNET(BaseTest):
             print test['name']
             self.FromServer(test)
             print "  FromServer passed"
-            #self.FromVM(test)
-            #print "  FromVM  passed"
-            #self.Serv2Serv(test)
-            #print "  Serv2Serv passed"
+            self.FromVM(test)
+            print "  FromVM  passed"
+            self.Serv2Serv(test)
+            print "  Serv2Serv passed"
 
     def FromVM(self, test):
         rv = True
@@ -439,10 +439,7 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            # ECMP support, assume it is a string of comma seperated list of addresses.
-            host_addresses = test['host'].split(',')
-            for host_address in host_addresses:
-              if isinstance(ip_address(host_address), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
                 encap_pkt = simple_vxlan_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -456,7 +453,7 @@ class VNET(BaseTest):
                     vxlan_vni=vni,
                     inner_frame=exp_pkt)
                 encap_pkt[IP].flags = 0x2
-              elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
+            elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
                 encap_pkt = simple_vxlanv6_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
