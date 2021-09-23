@@ -56,9 +56,9 @@ the ECMP group with the same set of nexthops:
 * Inject same route into the selected linecard from two different adjacent VMs so that a eBGP
 ECMP group is formed with equal-cost BGP paths.
 * Verify the route is learned on the selected linecard using eBGP.
-* Verify the route with both the nexthops adveritsing the equal cost BGP paths is learned on the
-other linecards using iBGP over inband interfaces.
-* Verify the route is selected in the RIB with nexthops adveritsing the equal cost BGP paths.
+* Verify the route with is learned with both equal cost BGP paths on the other linecards using
+iBGP over inband interfaces.
+* Verify the route is selected in the RIB with nexthops from equal cost BGP paths.
 * Withdraw the route from the adjacent VM of the selected linecard.
 * Verify the route is withdrawn from all the linecards in the chassis.
 * Repeat with IPv4, IPv6, dual-stack.
@@ -68,18 +68,18 @@ other linecards using iBGP over inband interfaces.
 
 ### Test Objective
 Verify non equal cost BGP paths are propagated to all linecards and all the linecards converge
-on the best BGP path and install the same nexthop that provides the best BGP path.
+on the best BGP path and install the route that provides the best BGP path.
 
 ### Test Steps
 * Select one linecard for injecting routes.
 * Inject same route into the selected linecard from two different adjacent VMs with different AS path lengths.
-* Verify the route is learned on the selected linecard using eBGP and the nexthop providing the best AS
+* Verify the route is learned on the selected linecard using eBGP and the route providing the best AS
 path length is installed in the RIB..
 * Verify the Adj-RIB-In of the other linecards contain both the paths learned via iBGP.
-* Verify the other linecards converge on the best path and install only the nexthop providing
+* Verify the other linecards converge on the best path and installs only the route providing
 the best BGP path.
 * Withdraw the route with the best path from the adjacent VM of the selected linecard.
-* Verify the route is withdrawn from all the linecards in the chassis and the nexthop providing the alternate path
+* Verify the route is withdrawn from all the linecards in the chassis and the route providing the alternate path
 is installed.
 * Repeat with IPv4, IPv6, dual-stack.
 
