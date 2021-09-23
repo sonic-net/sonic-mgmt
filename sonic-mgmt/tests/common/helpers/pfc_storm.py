@@ -17,6 +17,7 @@ class PFCStorm(object):
     _PFC_GEN_DIR = {
         'sonic': '/tmp',
         'eos': '/mnt/flash',
+        'nxos': '/var/home/admin'
     }
 
     def __init__(self, duthost, fanout_graph_facts, fanouthosts, **kwargs):
@@ -90,7 +91,7 @@ class PFCStorm(object):
         """
         Deploy the pfc generation file on the fanout
         """
-        if self.peer_device.os in ('eos', 'sonic'):
+        if self.peer_device.os in ('eos', 'sonic', 'nxos'):
             self._create_pfc_gen()
             self.peer_device.copy(
                 src="common/helpers/{}".format(self.pfc_gen_file),
@@ -169,13 +170,15 @@ class PFCStorm(object):
         """
         Run pfc generator script on a specific OS type.
         """
-        if self.peer_device.os == 'sonic':
+        if self.peer_device.os in ['sonic', 'nxos']:
             with open(self.extra_vars['template_path']) as tmpl_fd:
                 tmpl = Template(tmpl_fd.read())
                 cmds = tmpl.render(**self.extra_vars).splitlines()
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
             self.peer_device.shell(cmd, module_ignore_errors=True)
+            if self.peer_device.os == 'nxos':
+                self.peer_device.shell('exit', module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
