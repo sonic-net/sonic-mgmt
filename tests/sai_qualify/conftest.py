@@ -50,11 +50,13 @@ RPC_RESTART_INTERVAL_IN_SEC = 32
 RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
+
 def pytest_addoption(parser):
     # sai test options
     parser.addoption("--sai_test_dir", action="store", default=None, type=str, help="SAI repo folder where the tests will be run.")
     parser.addoption("--sai_test_report_dir", action="store", default=None, type=str, help="SAI test report directory on mgmt node.")
     parser.addoption("--sai_test_container", action="store", default=None, type=str, help="SAI test container, saiserver or syncd.")
+    parser.addoption("--sai_test_keep_test_env", action="store_true", default=False, help="SAI test debug options. If keep the test environment in DUT and PTF.")
 
 
 @pytest.fixture(scope="module")
@@ -62,11 +64,13 @@ def start_sai_test_container(duthost, creds, deploy_sai_test_container, request)
     """
         Starts sai test container docker on DUT.
     """
+    logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     logger.info("Starting sai test container {}".format(get_sai_test_container_name(request)))
     start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     yield
     logger.info("Stopping and removing sai test container {}".format(get_sai_test_container_name(request)))
-    stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
+    if not request.config.option.sai_test_keep_test_env:
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
 
 
 @pytest.fixture(scope="module")
@@ -77,21 +81,24 @@ def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saise
     container_name = request.config.option.sai_test_container
     prepare_sai_test_container(duthost, creds, container_name)
     yield
-    revert_sai_test_container(duthost, creds, container_name)
+    if not request.config.option.sai_test_keep_test_env:
+        revert_sai_test_container(duthost, creds, container_name)
 
 
 @pytest.fixture(scope="module")
-def stop_other_services(duthost):
+def stop_other_services(duthost, request):
     stop_dockers(duthost)
     yield
-    reload_dut_config(duthost)
+    if not request.config.option.sai_test_keep_test_env:
+        reload_dut_config(duthost)
 
 
 @pytest.fixture(scope="module")
-def prepare_saiserver_script(duthost):
+def prepare_saiserver_script(duthost, request):
     _copy_saiserver_script(duthost)
     yield
-    _delete_saiserver_script(duthost)
+    if not request.config.option.sai_test_keep_test_env:
+        delete_saiserver_script(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -99,7 +106,8 @@ def prepare_ptf_server(ptfhost, duthost, request):
     update_saithrift_ptf(request, ptfhost)
     _create_sai_port_map_file(ptfhost, duthost)
     yield
-    _delete_sai_port_map_file(ptfhost)
+    if not request.config.option.sai_test_keep_test_env:
+        _delete_sai_port_map_file(ptfhost)
 
 
 def prepare_sai_test_container(duthost, creds, container_name):

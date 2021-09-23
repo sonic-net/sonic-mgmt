@@ -39,6 +39,7 @@ def test_sai_from_ptf(
     """
         trigger the test here
     """
+    logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     try:
         run_case_from_ptf(dut_ip, ptfhost, test_case)
@@ -95,7 +96,8 @@ def sai_testbed(
         yield  
     finally:  
         _store_test_result(ptfhost)
-        _teardown_dut(duthost, ptfhost, request)
+        if not request.config.option.sai_test_keep_test_env:
+            _teardown_dut(duthost, ptfhost, request)
 
 
 def run_case_from_ptf(dut_ip, ptfhost, test_case):
