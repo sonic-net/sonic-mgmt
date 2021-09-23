@@ -399,19 +399,24 @@ class Arista(object):
         return set(expects) == prefixes
 
     def parse_supported_show_lacp_command(self, lacp_help):
-        # lacp_help is the result of 'show lacp ?', be like :
-        #   aggregates  Display info about LACP aggregates
-        #   counters    Display LACP counters
-        #   internal    Display information internal to the Link Aggregation Control Protocol
-        #   neighbor    Display identity and info about LACP neighbor(s)
-        #   peer        Display identity and info about LACP neighbor(s)
-        #   sys-id      Display System Identifier used by LACP
-        #   $           list end
-        #   <1-2000>    Channel Group ID(s)
+        """
+        'show lacp neighbor' is deprecated by 'show lacp peer' in high EOS versions,
+        so if 'show lacp neighbor' is supported, use 'show lacp neighbor'
+        otherwise use 'show lacp peer' instead
+        Args:
+            lacp_help (str): result of command 'show lacp ?', be like :
+                                   aggregates  Display info about LACP aggregates
+                                   counters    Display LACP counters
+                                   internal    Display information internal to the Link Aggregation Control Protocol
+                                   neighbor    Display identity and info about LACP neighbor(s)
+                                   peer        Display identity and info about LACP neighbor(s)
+                                   sys-id      Display System Identifier used by LACP
+                                   $           list end
+                                   <1-2000>    Channel Group ID(s)
+        Returns:
+            str: rest command of 'show lacp ', neighbor or peer
+        """
 
-        # 'show lacp neighbor' is deprecated by 'show lacp peer' in high EOS versions,
-        # so if 'show lacp neighbor' is supported, use 'show lacp neighbor'
-        # otherwise use 'show lacp peer' instead
 
         for line in lacp_help.split('\n'):
             if re.match('neighbor *Display.*', line.strip()):
