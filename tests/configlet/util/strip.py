@@ -41,13 +41,14 @@ def get_tor_name(root):
     if not tor_name:
         report_error("Failed to find a TOR name")
     tor_data["name"]["remote"] = name
+    log_debug("found tor name: {}".format(name))
     return name
 
 
 def find_sonic_ports():
     global tor_data, managed_files
 
-    port_table = config_db_data_wo_t0["PORT"]
+    port_table = config_db_data_orig["PORT"]
     alias_map = {}
     for name, obj in port_table.items():
         alias = obj["alias"]
@@ -56,6 +57,8 @@ def find_sonic_ports():
     lst_links = tor_data["links"]
     for link in lst_links:
         link["local"]["sonic_name"] = alias_map[link["local"]["alias"]]
+        log_debug("link.local: alias={} sonic_name={}".format(
+            link["local"]["alias"], link["local"]["sonic_name"]))
 
     return 0
 
@@ -116,6 +119,9 @@ def get_tor_data(root):
         if (tor_data["ip"]["remote"]) and (tor_data["ipv6"]["remote"]):
             break
 
+    log_debug("From BGPSession: ip: {}".format( str(tor_data["ip"])))
+    log_debug("From BGPSession: ipv6: {}".format( str(tor_data["ipv6"])))
+
     for e_rtr in root.iter(ns_a+"BGPRouterDeclaration"):
         asn = ""
         hostname = ""
@@ -127,6 +133,8 @@ def get_tor_data(root):
         if hostname == tor_name:
             tor_data["bgp_info"]["asn"] = asn
             break
+
+    log_debug("asn = {}".format(str(tor_data["bgp_info"])))
 
     for dev_link in root.iter(ns+"DeviceLinkBase"):
         link = { "local": "", "remote": "" }
@@ -163,9 +171,14 @@ def get_tor_data(root):
             else:
                 tor_data["links"].append(link)
 
+    log_debug("links: {}".format(str(tor_data["links"])))
+
     find_sonic_ports()
 
     local_ports, local_sonic_ports = get_local_ports()
+
+    log_debug("local_ports:{}".format(str(local_ports)))
+    log_debug("local_sonic_ports:{}".format(str(local_sonic_ports)))
 
     for pc in root.iter(ns+"PortChannel"):
         pc_name = ""
@@ -180,6 +193,7 @@ def get_tor_data(root):
         if ((ports == local_ports) or (ports == local_sonic_ports)):
             tor_data["portChannel"] = pc_name
             break
+    log_debug("portchannel={}".format(str(tor_data["portChannel"])))
 
     for e0 in root.iter(ns+"PngDec"):
         for e1 in e0:
@@ -209,6 +223,8 @@ def get_tor_data(root):
                         cnt += 1
                 if cnt == 2:                     
                     break
+    log_debug("hwsku={}".format(str(tor_data["hwsku"])))
+    log_debug("mgmt_ip={}".format(str(tor_data["mgmt_ip"])))
 
     if (not tor_data["hwsku"]["local"]):
         report_error("Failed to find hwsku for local={}".
@@ -519,6 +535,7 @@ def main(tmpdir):
     update_png(root)
 
     write_out(tree, tmpdir)
+    log_debug("managed_files={}".format(json.dumps(managed_files, indent=4)))
 
     return 0
 

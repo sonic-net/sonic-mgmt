@@ -29,10 +29,17 @@ def parse_intf_status(lines):
     result = {}
     for line in lines:
         fields = line.split()
-        if len(fields) >= 5:
-            intf = fields[0]
+        intf = fields[0]
+        oper, admin, alias, desc = None, None, None, None
+
+        if len(fields) == 4:  # when port description is empty string ""
+            oper, admin, alias, desc = fields[1], fields[2], fields[3], ''
+        if len(fields) > 4:
             oper, admin, alias, desc = fields[1], fields[2], fields[3], ' '.join(fields[4:])
+
+        if oper and admin and alias:
             result[intf] = {"oper": oper, "admin": admin, "alias": alias, "desc": desc}
+
     return result
 
 
