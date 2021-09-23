@@ -15,41 +15,70 @@ resources:
     name: sonic-metadata
     ref: master
 
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
 parameters:
 - name: TESTBED_NAME
   type: string
   default: vms7-t0-s6100
-- name: TESTBED_FILE
-  type: string
-  default: testbed.yaml
-  values:
-    - testbed.csv
-    - testbed.yaml
+  displayName: "Testbed Name"
+
 - name: UPGRADE_TYPE
   type: string
+  displayName: "Type of upgrade"
   default: warm
-- name: IMAGE_BRANCH
-  type: string
   values:
-  - "201811"
-  - "201911"
-  - "202012"
-- name: IMAGE_TYPE
-  type: string
-  default: bin
-  values:
-  - bin
-  - swi
-- name: ASIC_TYPE
-  type: string
-  default: broadcom
-  values:
-  - mellanox
-  - broadcom
+  - warm
+  - fast
+  - cold
+  - warm fast
+  - warm fast cold
 - name: FROM_IMAGE_LIST
   type: string
+  displayName: "All base image numbers (space separated)"
+- name: FROM_IMAGE_URL
+  displayName: "Base image location"
+  type: string
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_PUBLIC)
 - name: TO_IMAGE_LIST
   type: string
+  displayName: "All target image numbers (space separated)"
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_PUBLIC)
 
 stages:
 - stage: SONiCMetadataTest
@@ -58,11 +87,20 @@ stages:
   - job:
     pool: nightly
     displayName: "SONiC Metadata Unit Test"
-    timeoutInMinutes: 720
+    timeoutInMinutes: 100
     steps:
     - checkout: self
     - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
     - template: step_metadata_unit_test.yml
+
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Linter Test"
+    timeoutInMinutes: 100
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_linter.yml
 
   - job:
     pool: nightly
@@ -110,7 +148,7 @@ stages:
 
           testbed_module = imp.load_source('testbed', 'sonic-mgmt-int/tests/common/testbed.py')
           testbed_name = '${{ parameters.TESTBED_NAME }}'
-          testbed_file = '${{ parameters.TESTBED_FILE }}'
+          testbed_file = 'testbed.yaml'
           tbinfo = testbed_module.TestbedInfo('sonic-mgmt-int/ansible/{}'.format(testbed_file))
           target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
           if not target_testbed:
@@ -147,11 +185,22 @@ stages:
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
-        IMAGE_BRANCH: ${{ parameters.IMAGE_BRANCH }}
-        IMAGE_TYPE: ${{ parameters.IMAGE_TYPE }}
-        ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
         FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+        FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
         TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+        TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+
+    - publish: ./sonic-mgmt-int/tests/logs
+      displayName: "Archive test logs"
+      artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
+      condition: always()
+
+    - task: PublishTestResults@2
+      displayName: Publish test results
+      inputs:
+        testResultsFiles: './sonic-mgmt-int/tests/logs/**/*.xml'
+        testRunTitle: ${{ parameters.TESTBED_NAME}}.upgrade_path
+      condition: always()
 
     - task: PythonScript@0
       displayName: Release Testbed
