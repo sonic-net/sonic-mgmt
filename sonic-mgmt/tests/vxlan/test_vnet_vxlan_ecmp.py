@@ -9,8 +9,6 @@ from vnet_constants import CLEANUP_KEY, LOWER_BOUND_UDP_PORT_KEY, UPPER_BOUND_UD
 from vnet_utils import generate_dut_config_files_ecmp, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes_ecmp
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
-                                                copy_arp_responder_py, copy_ptftests_directory
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
 logger = logging.getLogger(__name__)
