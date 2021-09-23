@@ -45,23 +45,45 @@ and the nexthop that learned over iBGP and resolved recursively.
 as a regular route.
 * Repeat with IPv4, IPv6, dual-stack.
 
-## Test Case #3: Test eBGP ECMP groups are propagated.
+## Test Case #3: Test equal cost BGP paths for a route are propagated and installed.
 
 ### Test Objective
-Verify that eBGP ECMP group is propagated to all linecards.
+Verify equal cost BGP paths are propagated to all linecards and all the linecards form
+the ECMP group with the same set of nexthops:
 
 ### Test Steps
 * Select one linecard for injecting routes.
 * Inject same route into the selected linecard from two different adjacent VMs so that a eBGP
-ECMP group is formed.
+ECMP group is formed with equal-cost BGP paths.
 * Verify the route is learned on the selected linecard using eBGP.
-* Verify the route with both the nexthops is learned on the other linecards using iBGP over
-inband interfaces.
+* Verify the route with both the nexthops adveritsing the equal cost BGP paths is learned on the
+other linecards using iBGP over inband interfaces.
+* Verify the route is selected in the RIB with nexthops adveritsing the equal cost BGP paths.
 * Withdraw the route from the adjacent VM of the selected linecard.
 * Verify the route is withdrawn from all the linecards in the chassis.
 * Repeat with IPv4, IPv6, dual-stack.
 
-## Test Case #4: eBGP convergence on Link flap.
+
+## Test Case #4: Test non equal cost BGP paths for a route are propagated and installed.
+
+### Test Objective
+Verify non equal cost BGP paths are propagated to all linecards and all the linecards converge
+on the best BGP path and install the same nexthop that provides the best BGP path.
+
+### Test Steps
+* Select one linecard for injecting routes.
+* Inject same route into the selected linecard from two different adjacent VMs with different AS path lengths.
+* Verify the route is learned on the selected linecard using eBGP and the nexthop providing the best AS
+path length is installed in the RIB..
+* Verify the Adj-RIB-In of the other linecards contain both the paths learned via iBGP.
+* Verify the other linecards converge on the best path and install only the nexthop providing
+the best BGP path.
+* Withdraw the route with the best path from the adjacent VM of the selected linecard.
+* Verify the route is withdrawn from all the linecards in the chassis and the nexthop providing the alternate path
+is installed.
+* Repeat with IPv4, IPv6, dual-stack.
+
+## Test Case #5: eBGP convergence on Link flap.
 
 ### Test Objective
 Verify eBGP session is reestablished and routes relearnt on a link flap.
@@ -78,7 +100,7 @@ in the chassis.
 the linecards relearn the routes.
 * Repeat with IPv4, IPv6, dual-stack.
 
-## Test Case #5: Disruptive events.
+## Test Case #6: Disruptive events.
 
 ### Test Objective
 Verify that eBGP session and all routes reconverge after disruptive events.
