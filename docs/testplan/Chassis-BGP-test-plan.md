@@ -76,6 +76,7 @@ that the routes learnt via eBGP session is withdrawn from all the other linecard
 in the chassis.
 * Enable the front panel back and verify the eBGP session comes back up and all
 the linecards relearn the routes.
+* Repeat with IPv4, IPv6, dual-stack.
 
 ## Test Case #5: Disruptive events.
 
@@ -91,3 +92,4 @@ Verify that eBGP session and all routes reconverge after disruptive events.
 * With this setup perform, chassis power cycle and supervisor reboot and verify,
 all the eBGP session reconverge on all the linecards and all the routes in the
 previous steps are relearnt.
+* Repeat with IPv4, IPv6, dual-stack.
