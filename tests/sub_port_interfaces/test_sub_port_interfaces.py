@@ -19,6 +19,9 @@ pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
 
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
+
 class TestSubPorts(object):
     """
     TestSubPorts class for testing sub-port interfaces
