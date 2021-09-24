@@ -448,7 +448,6 @@ class Arista(object):
             str: rest command of 'show lacp ', neighbor or peer
         """
 
-
         for line in lacp_help.split('\n'):
             if re.match('neighbor *Display.*', line.strip()):
                 return 'neighbor'
