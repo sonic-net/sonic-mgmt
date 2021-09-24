@@ -22,7 +22,7 @@ from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
-
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -256,5 +256,10 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     @summary: This test case is to perform 3 cold reboot in a row
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    ls_starting_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+    ls_ending_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
+    pytest_assert(ls_ending_out.difference(ls_starting_out).size() == 0 and
+            ls_starting_out.difference(ls_ending_out).size() == 0,
+            "Console devices have changed: expected console devices: {}, got: {}".format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
