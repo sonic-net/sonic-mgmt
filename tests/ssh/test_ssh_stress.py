@@ -137,7 +137,7 @@ def get_baseline_time(ssh, command):
 def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     """This test creates several SSH connections that all run different commands. CPU/Memory are tracked throughout"""
     global done, max_mem, max_cpu
-    pytest.skip("This test failed intermittent, skip for now!")
+
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
