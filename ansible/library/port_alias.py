@@ -9,9 +9,9 @@ from itertools import groupby
 from collections import defaultdict
 
 try:
-    from sonic_py_common import multi_asic  
+    from sonic_py_common import multi_asic
 except ImportError:
-    print("Failed to import multi_asic")     
+    print("Failed to import multi_asic")
 
 DOCUMENTATION = '''
 module: port_alias.py
@@ -23,7 +23,7 @@ Description:
         The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
-        When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with 
+        When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with
         external interfaces.
     Input:
         hwsku num_asic
@@ -104,8 +104,8 @@ class SonicPortAliasMap():
         port_coreid_index = -1
         port_core_portid_index = -1
         num_voq_index = -1
-        # default to ASIC0 as minigraph.py parsing code has that assumption.
-        asic_name = "ASIC0" if asic_id is None else "ASIC" + str(asic_id)
+        # default to Asic0 as minigraph.py parsing code has that assumption.
+        asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
 
         filename = self.get_portconfig_path(asic_id)
         if filename is None:
@@ -209,7 +209,7 @@ def main():
             include_internal=dict(required=False, type='bool', default=False),
             card_type=dict(type='str', required=False),
             hostname=dict(type='str', required=False),
-            start_switchid=dict(type='int', required=False)
+            switchids=dict(type='list', required=False)
         ),
         supports_check_mode=True
     )
@@ -220,7 +220,7 @@ def main():
         aliasmap = {}
         portspeed = {}
         sysports = []
-        # ASIC interface names of front panel interfaces 
+        # ASIC interface names of front panel interfaces
         front_panel_asic_ifnames = []
         # { asic_name: [ asic interfaces] }
         asic_if_names = {}
@@ -235,9 +235,9 @@ def main():
                                            'sysports': sysports})
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        start_switchid = 0
-        if  'start_switchid' in m_args and m_args['start_switchid'] != None:
-           start_switchid = int(m_args['start_switchid'])
+        switchids = None
+        if 'switchids' in m_args and m_args['switchids'] != None:
+           switchids = m_args['switchids']
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
         if m_args['num_asic'] is not None:
@@ -245,9 +245,9 @@ def main():
         else:
             # When this script is run on the device, num_asic parameter
             # is not passed.
-            try: 
+            try:
                 num_asic = multi_asic.get_num_asics()
-            except Exception, e:
+            except Exception as e:
                 num_asic = 1
 
         switchid = 0
@@ -258,8 +258,8 @@ def main():
         if 'hostname' in m_args:
             hostname = m_args['hostname']
         for asic_id in range(num_asic):
-            if asic_id is not None:
-                switchid = start_switchid + asic_id
+            if switchids and asic_id is not None:
+                switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,
@@ -286,10 +286,10 @@ def main():
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
-    except (IOError, OSError), e:
+    except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
-    except Exception, e:
+    except Exception as e:
         fail_msg = "failed to find the correct port config for "+m_args['hwsku'] + str(e)
         module.fail_json(msg=fail_msg)
 

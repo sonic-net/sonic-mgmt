@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 VTEP2_IP = "8.8.8.8"
 VNI_BASE = 336
-COUNT = 10
+COUNT = 1
 
 
 def prepare_ptf(ptfhost, mg_facts, duthost):

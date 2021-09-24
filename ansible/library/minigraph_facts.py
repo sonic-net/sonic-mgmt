@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import calendar
 import os
 import sys
@@ -190,14 +191,14 @@ def parse_png(png, hname):
                 startport = link.find(str(QName(ns, "StartPort"))).text
 
                 if enddevice == hname:
-                    if port_alias_to_name_map.has_key(endport):
+                    if endport in port_alias_to_name_map:
                         endport = port_alias_to_name_map[endport]
                     if startdevice.lower() in namespace_list:
                         neighbors_namespace[endport] = startdevice.lower()
                     else:
                         neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
                 elif startdevice == hname:
-                    if port_alias_to_name_map.has_key(startport):
+                    if startport in port_alias_to_name_map:
                         startport = port_alias_to_name_map[startport]
                     if enddevice.lower() in namespace_list:
                         neighbors_namespace[startport] = enddevice.lower()
@@ -249,7 +250,7 @@ def parse_png(png, hname):
                             elif node.tag == str(QName(ns, "EndDevice")):
                                 mgmt_dev = node.text
 
-    for k, v in neighbors.iteritems():
+    for k, v in neighbors.items():
          v['namespace'] = neighbors_namespace[k]
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
@@ -324,7 +325,12 @@ def parse_dpg(dpg, hname):
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
             intfalias = ipintf.find(str(QName(ns, "AttachTo"))).text
-            intfname = port_alias_to_name_map.get(intfalias, intfalias)
+            if port_alias_to_name_map.has_key(intfalias):
+                intfname = port_alias_to_name_map[intfalias]
+            elif port_alias_asic_map.has_key(intfalias):
+                intfname = port_alias_asic_map[intfalias]
+            else:
+                intfname = intfalias
             ipprefix = ipintf.find(str(QName(ns, "Prefix"))).text
             intfs.append(_parse_intf(intfname, ipprefix))
             ports[intfname] = {'name': intfname, 'alias': intfalias}
@@ -379,6 +385,7 @@ def parse_dpg(dpg, hname):
 
         vlanintfs = child.find(str(QName(ns, "VlanInterfaces")))
         dhcp_servers = []
+        dhcpv6_servers = []
         vlans = {}
         for vintf in vlanintfs.findall(str(QName(ns, "VlanInterface"))):
             vintfname = vintf.find(str(QName(ns, "Name"))).text
@@ -392,6 +399,12 @@ def parse_dpg(dpg, hname):
             else:
                 vlandhcpservers = ""
             dhcp_servers = vlandhcpservers.split(";")
+            vintf_node = vintf.find(str(QName(ns, "Dhcpv6Relays")))
+            if vintf_node is not None and vintf_node.text is not None:
+                vlandhcpservers = vintf_node.text
+            else:
+                vlandhcpservers = ""
+            dhcpv6_servers = vlandhcpservers.split(";")
             for i, member in enumerate(vmbr_list):
                 # Skip PortChannel inside Vlan
                 if member in pcs:
@@ -412,16 +425,16 @@ def parse_dpg(dpg, hname):
             acl_intfs = []
             for member in aclattach:
                 member = member.strip()
-                if pcs.has_key(member):
+                if member in pcs:
                     acl_intfs.extend(pcs[member]['members'])  # For ACL attaching to port channels, we break them into port channel members
-                elif vlans.has_key(member):
-                    print >> sys.stderr, "Warning: ACL " + aclname + " is attached to a Vlan interface, which is currently not supported"
-                elif port_alias_to_name_map.has_key(member):
+                elif member in vlans:
+                    print("Warning: ACL " + aclname + " is attached to a Vlan interface, which is currently not supported", file=sys.stderr)
+                elif member in port_alias_to_name_map:
                     acl_intfs.append(port_alias_to_name_map[member])
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
-        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers
+        return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers
     return None, None, None, None, None, None, None
 
 def parse_cpg(cpg, hname):
@@ -601,6 +614,7 @@ def parse_xml(filename, hostname, asic_name=None):
     resource_type = None
     syslog_servers = []
     dhcp_servers = []
+    dhcpv6_servers = []
     ntp_servers = []
     mgmt_routes = []
     bgp_peers_with_range = []
@@ -627,12 +641,12 @@ def parse_xml(filename, hostname, asic_name=None):
     port_alias_to_name_map, port_alias_asic_map = get_port_alias_to_name_map(hwsku, asic_id)
 
     # Create inverse mapping between port name and alias
-    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.iteritems()}
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
 
     for child in root:
         if asic_name is None:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, hostname)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
             elif child.tag == str(QName(ns, "PngDec")):
@@ -643,7 +657,7 @@ def parse_xml(filename, hostname, asic_name=None):
                 (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers) = parse_dpg(child, asic_name)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, asic_name)
                 host_lo_intfs = parse_host_loopback(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
@@ -655,10 +669,10 @@ def parse_xml(filename, hostname, asic_name=None):
 
     # Associate Port Channel to namespace
     try:
-        for pckey, pcval in pcs.iteritems():
+        for pckey, pcval in pcs.items():
             pcval['namespace'] = neighbors[pcval['members'][0]]['namespace']
     except Exception as e:
-        print >> sys.stderr, "Warning: PortChannel " + pckey + " has no member ports."
+        print("Warning: PortChannel " + pckey + " has no member ports.", file=sys.stderr)
 
     # TODO: Move all alias-related code out of minigraph_facts.py and into
     # its own module to be used as another layer after parsing the minigraph.
@@ -739,6 +753,7 @@ def parse_xml(filename, hostname, asic_name=None):
             results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
     results['syslog_servers'] = syslog_servers
     results['dhcp_servers'] = dhcp_servers
+    results['dhcpv6_servers'] = dhcpv6_servers
     results['ntp_servers'] = ntp_servers
     results['forced_mgmt_routes'] = mgmt_routes
     results['deployment_id'] = deployment_id

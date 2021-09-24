@@ -9,6 +9,7 @@ import logging
 import pytest
 import random
 import time
+import ptf.packet as scapy
 
 from ptf import mask
 from ptf import testutils
@@ -17,6 +18,7 @@ from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -37,7 +39,24 @@ def mock_common_setup_teardown(
     cleanup_mocked_configs,
     request
 ):
+    # Filter for non-ARP packets
+    def not_arp_filter(pkt_str):
+        try:
+            pkt = scapy.Ether(pkt_str)
+
+            if scapy.ARP in pkt:
+                return False
+            else:
+                return True
+        except:
+            return False
+
     request.getfixturevalue("run_garp_service")
+    logging.info("add arp filter for ptf")
+    testutils.add_filter(not_arp_filter)
+    yield
+    logging.info("reset filter for ptf")
+    testutils.reset_filters()
 
 
 @pytest.fixture(scope="function")
@@ -77,46 +96,41 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter, rand_selected
     return packet
 
 
-def build_expected_packet_to_server(encapsulated_packet):
+def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
     """Build packet expected to be received by server from the tunnel packet."""
     inner_packet = encapsulated_packet[IP].payload[IP].copy()
     # use dummy mac address that will be ignored in mask
     inner_packet = Ether(src="aa:bb:cc:dd:ee:ff", dst="aa:bb:cc:dd:ee:ff") / inner_packet
+    if decrease_ttl:
+        inner_packet.ttl = inner_packet.ttl - 1
     exp_pkt = mask.Mask(inner_packet)
     exp_pkt.set_do_not_care_scapy(Ether, "dst")
     exp_pkt.set_do_not_care_scapy(Ether, "src")
-    exp_pkt.set_do_not_care_scapy(IP, "tos")
-    exp_pkt.set_do_not_care_scapy(IP, "ttl")
     exp_pkt.set_do_not_care_scapy(IP, "chksum")
     return exp_pkt
 
 
 def test_decap_active_tor(
-    apply_active_state_to_orchagent,
-    build_encapsulated_packet,
+    build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor
-):
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor):
+    if is_t0_mocked_dualtor(tbinfo):
+        request.getfixturevalue('apply_active_state_to_orchagent')
+    else:
+        request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
+
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
-    exp_pkt = build_expected_packet_to_server(encapsulated_packet)
+    exp_pkt = build_expected_packet_to_server(encapsulated_packet, decrease_ttl=True)
 
-    ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
-    rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
-    exp_ttl = encapsulated_packet[IP].payload[IP].ttl - 1
-    exp_tos = encapsulated_packet[IP].payload[IP].tos
-    if rec_pkt[IP].ttl != exp_ttl:
-        pytest.fail("the expected ttl should be %s" % exp_ttl)
-    if rec_pkt[IP].tos != exp_tos:
-        pytest.fail("the expected tos should be %s" % exp_tos)
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
+    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index, timeout=10)
 
 
 def test_decap_standby_tor(

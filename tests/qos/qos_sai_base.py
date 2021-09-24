@@ -9,6 +9,8 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/un
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +18,10 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor"]
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3"]
+    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -350,9 +352,18 @@ class QosSaiBase(QosBase):
                     break
             pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
+            vlan_id = None
+            if 'type' in mgFacts["minigraph_vlans"][testVlan]:
+                vlan_type = mgFacts["minigraph_vlans"][testVlan]['type']
+                if vlan_type is not None and "Tagged" in vlan_type:
+                    vlan_id =  mgFacts["minigraph_vlans"][testVlan]['vlanid']
+
             for i in range(len(testVlanMembers)):
                 portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
-                dutPortIps.update({portIndex: str(testVlanIp + portIndex + 1)})
+                portIpMap = {'peer_addr': str(testVlanIp + portIndex + 1)}
+                if vlan_id is not None:
+                    portIpMap['vlan_id'] = vlan_id
+                dutPortIps.update({portIndex: portIpMap})
 
         return dutPortIps
 
@@ -411,15 +422,27 @@ class QosSaiBase(QosBase):
 
 
         #TODO: Randomize port selection
+        dstPort = dstPorts[0] if dst_port_ids else testPortIds[dstPorts[0]]
+        dstVlan = testPortIps[dstPort]['vlan_id'] if 'vlan_id' in testPortIps[dstPort] else None
+        dstPort2 = dstPorts[1] if dst_port_ids else testPortIds[dstPorts[1]]
+        dstVlan2 = testPortIps[dstPort2]['vlan_id'] if 'vlan_id' in testPortIps[dstPort2] else None
+        dstPort3 = dstPorts[2] if dst_port_ids else testPortIds[dstPorts[2]]
+        dstVlan3 = testPortIps[dstPort3]['vlan_id'] if 'vlan_id' in testPortIps[dstPort3] else None
+        srcPort = srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]]
+        srcVlan = testPortIps[srcPort]['vlan_id'] if 'vlan_id' in testPortIps[srcPort] else None
         return {
-            "dst_port_id": dstPorts[0] if dst_port_ids else testPortIds[dstPorts[0]],
-            "dst_port_ip": testPortIps[dstPorts[0] if dst_port_ids else testPortIds[dstPorts[0]]],
-            "dst_port_2_id": dstPorts[1] if dst_port_ids else testPortIds[dstPorts[1]],
-            "dst_port_2_ip": testPortIps[dstPorts[1] if dst_port_ids else testPortIds[dstPorts[1]]],
-            'dst_port_3_id': dstPorts[2] if dst_port_ids else testPortIds[dstPorts[2]],
-            "dst_port_3_ip": testPortIps[dstPorts[2] if dst_port_ids else testPortIds[dstPorts[2]]],
+            "dst_port_id": dstPort,
+            "dst_port_ip": testPortIps[dstPort]['peer_addr'],
+            "dst_port_vlan": dstVlan,
+            "dst_port_2_id": dstPort2,
+            "dst_port_2_ip": testPortIps[dstPort2]['peer_addr'],
+            "dst_port_2_vlan": dstVlan2,
+            'dst_port_3_id': dstPort3,
+            "dst_port_3_ip": testPortIps[dstPort3]['peer_addr'],
+            "dst_port_3_vlan": dstVlan3,
             "src_port_id": srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]],
-            "src_port_ip": testPortIps[srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]]],
+            "src_port_ip": testPortIps[srcPorts[0] if src_port_ids else testPortIds[srcPorts[0]]]["peer_addr"],
+            "src_port_vlan": srcVlan
         }
 
     @pytest.fixture(scope='class', autouse=True)
@@ -468,25 +491,40 @@ class QosSaiBase(QosBase):
 
             # get current DUT port IPs
             dutPortIps = {}
-            for portConfig in mgFacts["minigraph_interfaces"]:
+            if 'backend' in topo:
+                intf_map = mgFacts["minigraph_vlan_sub_interfaces"]
+            else:
+                intf_map = mgFacts["minigraph_interfaces"]
+            for portConfig in intf_map:
+                intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
-                    portIndex = mgFacts["minigraph_ptf_indices"][portConfig["attachto"]]
+                    portIndex = mgFacts["minigraph_ptf_indices"][intf]
                     if portIndex in testPortIds:
-                        dutPortIps.update({portIndex: portConfig["peer_addr"]})
+                        portIpMap = {'peer_addr': portConfig["peer_addr"]}
+                        if 'vlan' in portConfig:
+                            portIpMap['vlan_id'] = portConfig['vlan']
+                        dutPortIps.update({portIndex: portIpMap})
 
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
             for iface,addr in dut_asic.get_active_ip_interfaces().items():
+                vlan_id = None
                 if iface.startswith("Ethernet"):
+                    if "." in iface:
+                        iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
-                    dutPortIps.update({portIndex: addr["peer_ipv4"]})
+                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    if vlan_id is not None:
+                        portIpMap['vlan_id'] = vlan_id
+                    dutPortIps.update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
                         iter(mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    dutPortIps.update({portIndex: addr["peer_ipv4"]})
+                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
         else:
@@ -590,7 +628,8 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
-        swapSyncd, enable_container_autorestart, disable_container_autorestart
+        swapSyncd, enable_container_autorestart, disable_container_autorestart,
+        tbinfo, upper_tor_host, lower_tor_host
     ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -602,7 +641,11 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = upper_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         def updateDockerService(host, docker="", action="", service=""):
             """
@@ -638,11 +681,21 @@ class QosSaiBase(QosBase):
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
+        """ Stop mux container for dual ToR """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo systemctl stop mux')
+            logger.info("Stop mux container for dual ToR testbed")
+
         yield
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="start", **service)
+
+        """ Start mux conatiner for dual ToR """
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost.shell('sudo systemctl start mux')
+            logger.info("Start mux container for dual ToR testbed")
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
@@ -1321,6 +1374,8 @@ class QosSaiBaseMasic(QosBase):
         topo = tbinfo["topo"]["name"]
         if topo not in self.SUPPORTED_T1_TOPOS:
             pytest.skip("unsupported topology {}".format(topo))
+
+        pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(asic_index="all")
