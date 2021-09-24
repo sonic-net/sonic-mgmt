@@ -94,7 +94,11 @@ class Arista(object):
             prompt = self.arista_prompt
 
         if cmd is not None:
-            self.shell.send(cmd + '\n')
+            if cmd.endswith('?'):
+                # '?' will auto trigger an 'enter', no need to add '\n' manually
+                self.shell.send(cmd)
+            else:
+                self.shell.send(cmd + '\n')
             # wait 0.2s for the executing
             time.sleep(0.2)
 
@@ -166,7 +170,13 @@ class Arista(object):
             cur_time = time.time()
             info = {}
             debug_info = {}
-            lacp_output = self.do_cmd('show lacp neighbor')
+            lacp_help = self.do_cmd('show lacp ?')
+            show_lacp_command = self.parse_supported_show_lacp_command(lacp_help)
+            self.log("show lacp command is %s"%(show_lacp_command))
+            # sent 'show lacp ?' in previous step already, so there are 'show lacp' in cmd ssh pipe
+            # only need to send 'peer' or 'neighbor' to complete the command
+            # don't send whole command('show lacp peer/neighbor') instead, it will mess the output pipe up
+            lacp_output = self.do_cmd(show_lacp_command)
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd('show ip bgp neighbors')
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
@@ -206,6 +216,7 @@ class Arista(object):
                     'show ip route bgp' : bgp_route_v4_output,
                     'show ipv6 route bgp' : bgp_route_v6_output,
                 }
+            time.sleep(5)
 
         attempts = 60
         log_present = False
@@ -417,6 +428,30 @@ class Arista(object):
                 prefixes.add(prefix)
 
         return set(expects) == prefixes
+
+    def parse_supported_show_lacp_command(self, lacp_help):
+        """
+        'show lacp neighbor' is deprecated by 'show lacp peer' in high EOS versions,
+        so if 'show lacp neighbor' is supported, use 'show lacp neighbor'
+        otherwise use 'show lacp peer' instead
+        Args:
+            lacp_help (str): result of command 'show lacp ?', be like :
+                                   aggregates  Display info about LACP aggregates
+                                   counters    Display LACP counters
+                                   internal    Display information internal to the Link Aggregation Control Protocol
+                                   neighbor    Display identity and info about LACP neighbor(s)
+                                   peer        Display identity and info about LACP neighbor(s)
+                                   sys-id      Display System Identifier used by LACP
+                                   $           list end
+                                   <1-2000>    Channel Group ID(s)
+        Returns:
+            str: rest command of 'show lacp ', neighbor or peer
+        """
+
+        for line in lacp_help.split('\n'):
+            if re.match('neighbor *Display.*', line.strip()):
+                return 'neighbor'
+        return 'peer'
 
     def check_bgp_route(self, expects, ipv6=False):
         cmd = 'show ip route {} | json'
