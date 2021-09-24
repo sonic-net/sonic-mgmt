@@ -36,6 +36,8 @@ import ast
 
 class Arista(object):
     DEBUG = False
+    # unit: second
+    SSH_CMD_TIMEOUT = 10
     def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
@@ -65,6 +67,10 @@ class Arista(object):
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.conn.connect(self.ip, username=self.login, password=self.password, allow_agent=False, look_for_keys=False)
         self.shell = self.conn.invoke_shell()
+        # avoid paramiko Channel.recv() stuck forever
+        self.shell.settimeout(Arista.SSH_CMD_TIMEOUT)
+        # add a reference to avoid garbage collecting destructs the ssh connection
+        self.shell.keep_this = self.conn
 
         first_prompt = self.do_cmd(None, prompt = '>')
         self.arista_prompt = self.get_arista_prompt(first_prompt)
@@ -89,10 +95,35 @@ class Arista(object):
 
         if cmd is not None:
             self.shell.send(cmd + '\n')
+            # wait 0.2s for the executing
+            time.sleep(0.2)
 
         input_buffer = ''
-        while re.search(prompt, input_buffer) is None:
-            input_buffer += self.shell.recv(16384)
+        start_time = time.time()
+        received_all_data = False
+
+        while not received_all_data:
+            recv_ready_timeout = (time.time() - start_time) >= Arista.SSH_CMD_TIMEOUT
+            # if pipe is empty and not timeout yet, keep waiting
+            should_wait = (not recv_ready_timeout) and (not self.shell.recv_ready())
+            if should_wait:
+                time.sleep(0.5)
+                continue
+
+            try:
+                input_buffer += self.shell.recv(16384)
+            except Exception as err:
+                msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(cmd, err, type(err))
+                self.log(msg)
+                return msg
+
+            # Received a prompt or a single 'exit' is considered as received all data
+
+            # cEOS will not return an arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
+            # so if input_buffer is merely an 'exit', it also means received all data
+            received_all_data = (re.search(prompt, input_buffer) is not None) \
+                                or \
+                                (input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit')
 
         return input_buffer
 
