@@ -23,6 +23,8 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 
 marvell_hwskus: [ "et6448m" ]
 
+cisco_hwskus: ["64x100Gb"]
+
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
