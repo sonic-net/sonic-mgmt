@@ -15,9 +15,9 @@ def test_console_driver(duthost):
     ttys = set(out.split())
     pytest_assert(len(ttys) > 0, "No virtual tty devices been created by console driver")
 
-    out = duthost.shell('redis-cli -n 4 keys CONSOLE_PORT* | grep -oP \'(?<=CONSOLE_PORT\|)[0-9]+\'', module_ignore_errors=True)['stdout']
-    for i in out.split():
-        expected_virtual_tty = "/dev/ttyUSB{}".format(int(i)-1)
+    out = duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys()
+    for i in range(0, len(out)):
+        expected_virtual_tty = "/dev/ttyUSB{}".format(i)
         pytest_assert(
             expected_virtual_tty in ttys,
             "Expected virtual tty device [{}] not found.".format(expected_virtual_tty))
