@@ -100,6 +100,8 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
     for itfs_name in up_interfaces:
         if not itfs_name.startswith("PortChannel") and interfaces[itfs_name]['vlan'].startswith("PortChannel"):
             continue
+        if interfaces[itfs_name]['vlan'] == 'trunk':
+            continue
         if ip_version == 4:
             intf_neigh = {
                 'interface' : itfs_name,
@@ -125,6 +127,9 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
         idx_neigh += 1
         if idx_neigh == num_neigh:
             break
+
+    if not intf_neighs:
+        raise Exception('DUT does not have interfaces available for test')
 
     return intf_neighs, str_intf_nexthop
 
