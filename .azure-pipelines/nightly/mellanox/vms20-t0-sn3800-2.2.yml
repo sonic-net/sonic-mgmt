@@ -40,6 +40,12 @@ parameters:
     default: '-I "platform_tests"'
     displayName: Testbed specific
 
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/test_reboot.py::test_fast_reboot, \
+              platform_tests/test_advanced_reboot.py::test_fast_reboot, \
+              platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"
+
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
     default: 1380    # minutes, totally 23 hours
@@ -51,4 +57,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
