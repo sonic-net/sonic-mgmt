@@ -1,0 +1,7 @@
+cd {{pfc_gen_dir}}
+ip netns exec management bash
+{% if (pfc_asym is defined) and (pfc_asym == True) %}
+sudo {% if pfc_storm_stop_defer_time is defined %}sleep {{pfc_storm_stop_defer_time}} &&{% endif %} pkill -f "python {{pfc_gen_file}} -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("Ethernet", "Eth") | replace("/", "-")}}"
+{% else %}
+sudo {% if pfc_storm_stop_defer_time is defined %}sleep {{pfc_storm_stop_defer_time}} &&{% endif %} pkill -f "python {{pfc_gen_file}} -p {{(1).__lshift__(pfc_queue_index)}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("Ethernet", "Eth") | replace("/", "-")}} -r {{ansible_eth0_ipv4_addr}}"
+{% endif %}
