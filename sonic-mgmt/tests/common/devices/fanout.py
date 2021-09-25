@@ -5,6 +5,7 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.onyx import OnyxHost
 from tests.common.devices.ixia import IxiaHost
 from tests.common.devices.eos import EosHost
+from tests.common.devices.nxos import NxosHost
 
 logger = logging.getLogger(__name__)
 
