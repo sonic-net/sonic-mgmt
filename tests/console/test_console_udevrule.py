@@ -15,7 +15,8 @@ def test_console_port_mapping(duthost):
     ttys = set(out.split())
     pytest_assert(len(ttys) > 0, "No console tty devices been created by udev rule")
 
-    for i in range(1, 49):
+    out = duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys()
+    for i in out:
         expected_console_tty = "/dev/C0-{}".format(i)
         pytest_assert(
             expected_console_tty in ttys,
