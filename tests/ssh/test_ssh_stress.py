@@ -131,6 +131,9 @@ def get_baseline_time(ssh, command):
     logging.info("Baseline time for command {} : {} seconds".format(command, tot_time/5))
     return tot_time/5
 
+# This test is not stable, skip it for now.
+# known issue: https://github.com/paramiko/paramiko/issues/1508
+@pytest.mark.skip(reason="This test failed intermittent due to known issue of paramiko, skip for now")
 def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     """This test creates several SSH connections that all run different commands. CPU/Memory are tracked throughout"""
     global done, max_mem, max_cpu
