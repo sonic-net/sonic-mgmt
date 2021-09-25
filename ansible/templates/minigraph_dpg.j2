@@ -19,26 +19,6 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
-      {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
-      {% if loopback4096_ip is defined %}
-        <a:LoopbackIPInterface>
-          <Name>HostIP1</Name>
-          <AttachTo>Loopback4096</AttachTo>
-          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ loopback4096_ip[0] }}</b:IPPrefix>
-          </a:Prefix>
-          <a:PrefixStr>{{ loopback4096_ip[0] }}</a:PrefixStr>
-        </a:LoopbackIPInterface>
-        <a:LoopbackIPInterface>
-          <Name>HostIP1</Name>
-          <AttachTo>Loopback4096</AttachTo>
-          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ loopback4096_ipv6[0] }}</b:IPPrefix>
-          </a:Prefix>
-          <a:PrefixStr>{{ loopback4096_ipv6[0] }}</a:PrefixStr>
-        </a:LoopbackIPInterface>
-      {% endif %}
-      {% endif %}
       {%- if 'addl_loopbacks' in dual_tor_facts -%}
       {%- for loopback_num in dual_tor_facts['addl_loopbacks'][inventory_hostname] -%}
         {%- set loopback_facts = dual_tor_facts['addl_loopbacks'][inventory_hostname][loopback_num] -%}
@@ -81,24 +61,24 @@
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
-{% if num_asics == 1 and (voq_inband_ip is defined or voq_inband_ipv6 is defined) %}
+{% if voq_inband_ip is defined or voq_inband_ipv6 is defined %}
       <VoqInbandInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if voq_inband_ip is defined %}
         <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf[0] }}</Name>
+          <Name>{{ voq_inband_intf }}</Name>
           <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ip[0] }}</a:PrefixStr>
+          <a:PrefixStr>{{ voq_inband_ip }}</a:PrefixStr>
         </a:VoqInbandInterface>
 {% endif %}
 {% if voq_inband_ipv6 is defined %}
         <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf[0] }}</Name>
+          <Name>{{ voq_inband_intf }}</Name>
           <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ipv6[0] }}</a:PrefixStr>
+          <a:PrefixStr>{{ voq_inband_ipv6 }}</a:PrefixStr>
         </a:VoqInbandInterface>
 {% endif %}
       </VoqInbandInterfaces>
-{% endif %}
+{% endif %}      
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
@@ -266,6 +246,5 @@
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
 {% include 'minigraph_dpg_asic.j2' %}
-{% include 'minigraph_dpg_voq_asic.j2' %}
   </DpgDec>
 
