@@ -9,7 +9,7 @@ import logging
 import pytest
 import random
 import time
-import ptf.packet as scapy
+import contextlib
 
 from ptf import mask
 from ptf import testutils
@@ -39,24 +39,7 @@ def mock_common_setup_teardown(
     cleanup_mocked_configs,
     request
 ):
-    # Filter for non-ARP packets
-    def not_arp_filter(pkt_str):
-        try:
-            pkt = scapy.Ether(pkt_str)
-
-            if scapy.ARP in pkt:
-                return False
-            else:
-                return True
-        except:
-            return False
-
     request.getfixturevalue("run_garp_service")
-    logging.info("add arp filter for ptf")
-    testutils.add_filter(not_arp_filter)
-    yield
-    logging.info("reset filter for ptf")
-    testutils.reset_filters()
 
 
 @pytest.fixture(scope="function")
@@ -114,6 +97,14 @@ def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor):
+
+    @contextlib.contextmanager
+    def stop_garp(ptfhost):
+        """Temporarily stop garp service."""
+        ptfhost.shell("supervisorctl stop garp_service")
+        yield
+        ptfhost.shell("supervisorctl start garp_service")
+
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_active_state_to_orchagent')
     else:
@@ -128,9 +119,10 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
-    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index, timeout=10)
+    with stop_garp(ptfhost):
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
+        testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index, timeout=10)
 
 
 def test_decap_standby_tor(
