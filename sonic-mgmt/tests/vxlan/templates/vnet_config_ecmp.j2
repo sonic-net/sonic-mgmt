@@ -237,62 +237,154 @@ vnet_subnet_routes:
   {% set endpoints_iters = endpoints_iters + 1 %}
 {% endif %}
 
+{% set v4_destinations = 0 %}
+{% set v6_destinations = 0 %}
+{% set v4_nexthops = 0 %}
+{% set v6_nexthops = 0 %}
+
+{%- set variations = 0 %}
+{%- if ipv4_in_ipv4 == true %}
+  {%- set variations = variations + 1 %}
+  {%- set v4_destinations += 1 %}
+  {%- set v4_nexthops += 1 %}
+{%- endif %}
+{%- if ipv6_in_ipv4 == true %}
+  {%- set variations = variations + 1 %}
+  {%- set v6_destinations += 1 %}
+  {%- set v4_nexthops  += 1 %}
+{%- endif %}
+{%- if ipv4_in_ipv6 == true %}
+  {%- set variations = variations + 1 %}
+  {%- set v4_destinations += 1 %}
+  {%- set v6_nexthops  += 1 %}
+{%- endif %}
+{%- if ipv6_in_ipv6 == true %}
+  {%- set variations = variations + 1 %}
+  {%- set v6_destinations += 1 %}
+  {%- set v6_nexthops += 1 %}
+{%- endif %}
+
+{{ assert (variations != 0, "Atleast one of v4inv4, v6inv6, v4inv6 or v6inv4 must be true'") }}
+
+{%- set number_of_v4_endpoints = (total_number_of_nexthops * v4_nexthops / (v4_nexthops + v6_nexthops))|int %}
+{%- set number_of_v6_endpoints = (total_number_of_nexthops * v6_nexthops / (v4_nexthops + v6_nexthops))|int %}
+{%- set number_of_v4_destinations = (number_of_destinations * v4_destinations / (v4_destinations + v6_destinations))|int %}
+{%- set number_of_v6_destinations = (number_of_destinations * v6_destinations / (v4_destinations + v6_destinations))|int %}
+{%- set number_of_v4_ecmp_members = (total_number_of_all_ecmp_members * v4_nexthops / (v4_nexthops + v6_nexthops))| int %}
+{%- set number_of_v6_ecmp_members = (total_number_of_all_ecmp_members * v6_nexthops / (v4_nexthops + v6_nexthops))| int %}
+
+{# ############## Now individual numbers #}
+{%- set number_of_v4_in_v4_destinations = number_of_v4_destinations * v4_nexthops / (v4_nexthops + v6_nexthops)
+{%- set number_of_v6_in_v4_destinations = number_of_v4_destinations * v6_nexthops / (v4_nexthops + v6_nexthops)
+{%- set number_of_v4_in_v6_destinations = number_of_v6_destinations * v4_nexthops / (v4_nexthops + v6_nexthops)
+{%- set number_of_v6_in_v6_destinations = number_of_v6_destinations * v6_nexthops / (v4_nexthops + v6_nexthops)
+
 {# ##################################
 # All next-hops. Currently we support upto 1020 next hops
 # Create a list of random nexthops.
 #}
 {%- set list_of_all_endpoints_v4 = [] %}
-{%- for end_index in range(0, total_number_of_endpoints) %}
+{%- for end_index in range(0, number_of_v4_endpoints) %}
   {%- set part_a, part_b = ((end_index//255)|int)+1, ((end_index % 255)|int)+1 %}
   {%- set _ = list_of_all_endpoints_v4.append((range(200, 220)|random|string +  "." + part_a|string + "." + part_b|string + "." + range(0, 255)|random|string)) %}
 {% endfor %}
 
-{%- set total_number_of_nexthops_v4 = total_number_of_nexthops %}
-{%- set number_of_v4_destinations = number_of_destinations %}
-{%- set number_of_v6_destinations = 0 %}
-{%- if ipv6_in_ipv4 == true %}
-  {%- set total_number_of_nexthops_v4 = (total_number_of_nexthops / 2)|int %}
-  {%- set number_of_v4_destinations = (number_of_destinations/2)|int %}
-  {%- set number_of_v6_destinations = (number_of_destinations/2)|int %}
-{% endif %}
+{%- set list_of_all_endpoints_v6 = [] %}
+{%- for end_index in range(0, number_of_v6_endpoints) %}
+  {%- set part_a, part_b = ((end_index//255)|int)+1, ((end_index % 255)|int)+1 %}
+  {%- set _ = list_of_all_endpoints_v6.append( '%0x' % (range(10, 65535)|random|string +  "::" + part_a|string + ":" + part_b|string + ":" + range(0, 255)|random|string)) %}
+{% endfor %}
+
 vnet_route_list_ecmp:
   - Vnet1_route_list_ecmp:
-{%- set count_total_number_of_nexthops = [] %}
-{%- for destination in range(number_of_v4_destinations) %}
-  {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
-    {%- for idx in range (0, num_routes_iterations*2, 2) -%}
-      {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
-      {%- set endpoints_list = [] -%}
-      {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
-        {%- set index_endpoints = count_total_number_of_nexthops|length % total_number_of_endpoints %}
-        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops_v4 %}
-          {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
-        {%- endif %}
-        {%- set _ = count_total_number_of_nexthops.append(1) %}
-      {%- endfor %}
-      {%- if endpoints_list|length != 0 %}
+  {# ##################### V4 in V4 ################################### #}
+  {% if ipv4_in_ipv4 == true %}
+  {%- set count_number_of_nexthops = [] %}
+  {%- for destination in range(number_of_v4_in_v4_destinations) %}
+    {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+      {%- for idx in range (0, num_routes_iterations*2, 2) -%}
+        {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
+        {%- set endpoints_list = [] -%}
+        {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+          {%- set index_endpoints = count_number_of_nexthops|length % total_number_of_endpoints %}
+          {%- if count_total_number_of_nexthops|length < number_of_v4_ecmp_members %}
+            {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
+          {%- endif %}
+          {%- set _ = count_total_number_of_nexthops.append(1) %}
+        {%- endfor %}
+        {%- if endpoints_list|length != 0 %}
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
         end: '{{ endpoints_list|join(',') }}'
-      {%- endif %}
-    {%- endfor %}
-{%- endfor %}
-{%- if ipv6_in_ipv4 == true %}
-{%- for destination in range(number_of_v6_destinations) %}
-  {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
-    {%- for idx in range (0, num_routes_iterations*2, 2) -%}
-      {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
-      {%- set endpoints_list = [] -%}
-      {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
-        {%- set index_endpoints = count_total_number_of_nexthops|length % total_number_of_endpoints %}
-        {%- if count_total_number_of_nexthops|length < total_number_of_nexthops %}
-          {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
         {%- endif %}
-        {%- set _ = count_total_number_of_nexthops.append(1) %}
       {%- endfor %}
-      {%- if endpoints_list|length != 0 %}
+  {%- endfor %}
+{%- endif %}
+
+{# ##################### V6 in V4 ################################### #}
+{%- if ipv6_in_ipv4 == true %}
+  {%- set count_number_of_nexthops = [] %}
+  {%- for destination in range(number_of_v6_in_v4_destinations) %}
+    {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+      {%- for idx in range (0, num_routes_iterations*2, 2) -%}
+        {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
+        {%- set endpoints_list = [] -%}
+        {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+          {%- set index_endpoints = count_number_of_nexthops|length % total_number_of_endpoints %}
+          {%- if count_total_number_of_nexthops|length < number_of_v4_ecmp_members %}
+            {%- set _ = endpoints_list.append( list_of_all_endpoints_v4[index_endpoints] ) %}
+          {%- endif %}
+          {%- set _ = count_total_number_of_nexthops.append(1) %}
+        {%- endfor %}
+        {%- if endpoints_list|length != 0 %}
       - pfx: 'FDDD::{{ ip_r_a }}:{{ ip_r_b }}:{{ idx_a }}:{{ idx_b }}/128'
         end: '{{ endpoints_list|join(',') }}'
-      {%- endif %}
-    {%- endfor %}
-{%- endfor %}
+        {%- endif %}
+      {%- endfor %}
+  {%- endfor %}
+{%- endif %}
+
+{# ##################### V4 in V6 ################################### #}
+{%- if ipv4_in_ipv6 == true %}
+  {%- set count_number_of_nexthops = [] %}
+  {%- for destination in range(number_of_v4_in_v6_destinations) %}
+    {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+      {%- for idx in range (0, num_routes_iterations*2, 2) -%}
+        {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
+        {%- set endpoints_list = [] -%}
+        {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+          {%- set index_endpoints = count_number_of_nexthops|length % total_number_of_endpoints %}
+          {%- if count_total_number_of_nexthops|length < number_of_v6_ecmp_members %}
+            {%- set _ = endpoints_list.append( list_of_all_endpoints_v6[index_endpoints] ) %}
+          {%- endif %}
+          {%- set _ = count_total_number_of_nexthops.append(1) %}
+        {%- endfor %}
+        {%- if endpoints_list|length != 0 %}
+      - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
+        end: '{{ endpoints_list|join(',') }}'
+        {%- endif %}
+      {%- endfor %}
+  {%- endfor %}
+{%- endif %}
+
+{# ##################### V6 in V6 ################################### #}
+{%- if ipv4_in_ipv6 == true %}
+  {%- set count_number_of_nexthops = [] %}
+  {%- for destination in range(number_of_v6_in_v6_destinations) %}
+    {%- set ip_r_a, ip_r_b = ((destination//100)|int)+100, ((destination%100)|int)+1  %}
+      {%- for idx in range (0, num_routes_iterations*2, 2) -%}
+        {%- set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  -%}
+        {%- set endpoints_list = [] -%}
+        {%- for ecmp_nh in range(0, ecmp_nhs_per_destination) %}
+          {%- set index_endpoints = count_number_of_nexthops|length % total_number_of_endpoints %}
+          {%- if count_total_number_of_nexthops|length < number_of_v6_ecmp_members %}
+            {%- set _ = endpoints_list.append( list_of_all_endpoints_v6[index_endpoints] ) %}
+          {%- endif %}
+          {%- set _ = count_total_number_of_nexthops.append(1) %}
+        {%- endfor %}
+        {%- if endpoints_list|length != 0 %}
+      - pfx: 'FDDD::{{ ip_r_a }}:{{ ip_r_b }}:{{ idx_a }}:{{ idx_b }}/128'
+        end: '{{ endpoints_list|join(',') }}'
+        {%- endif %}
+      {%- endfor %}
+  {%- endfor %}
 {%- endif %}

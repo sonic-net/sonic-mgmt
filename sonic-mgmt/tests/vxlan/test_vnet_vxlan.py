@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0"),
     pytest.mark.sanity_check(post_check=True),
-    pytest.mark.asic("mellanox")
+    #pytest.mark.asic("mellanox")
 ]
 
 vlan_tagging_mode = ""
@@ -123,7 +123,6 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
         if result["stdout_lines"] is not None:
             vlan_tagging_mode = result["stdout_lines"][0]
             duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
-
         apply_dut_config_files(duthost, vnet_test_params)
 
         vxlan_enabled = True

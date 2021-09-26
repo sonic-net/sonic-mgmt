@@ -38,9 +38,31 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
-        "--ipv6_vxlan_test",
-        action="store_true",
-        help="Use IPV6 for VxLAN test"
+        "--ipv4_in_ipv4",
+        action="store",
+        default=True,
+        help="Test IPv4 in IPv4"
+    )
+
+    vxlan_group.addoption(
+        "--ipv6_in_ipv4",
+        action="store",
+        default=True,
+        help="Test IPV6 in IPv4"
+    )
+
+    vxlan_group.addoption(
+        "--ipv4_in_ipv6",
+        action="store",
+        default=True,
+        help="Test IPv4 in IPv6"
+    )
+
+    vxlan_group.addoption(
+        "--ipv6_in_ipv6",
+        action="store",
+        default=True,
+        help="Test IPV6 in IPv6"
     )
 
     vxlan_group.addoption(
