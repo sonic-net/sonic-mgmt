@@ -1,7 +1,7 @@
 - block:
   - name: set time out threshold
     set_fact:
-      timeout_threshold: 120
+      timeout_threshold: 240
 
   - name: wait until container's mgmt-ip is reachable
     wait_for:
