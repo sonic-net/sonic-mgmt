@@ -119,10 +119,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                             'peer_ip' : '{}.{}'.format('.'.join(vlan[1].split('.')[:3]), 2 + config_port_indices.keys().index(port)),
                             'remote_ip' : '{}.1.1.{}'.format(vlan[0]&255, 2 + config_port_indices.keys().index(port))
                         }
-                vlan_port['permit_vlanid'] = { item[0] : {
-                    'peer_ip' : '{}.{}'.format('.'.join(item[1].split('.')[:3]), 2 + config_port_indices.keys().index(port)),
-                    'remote_ip' : '{}.1.1.{}'.format(item[0]&255, 2 + config_port_indices.keys().index(port))
-                    } for item in config_ports_vlan[po] }
             if tbinfo['topo']['name'] != 't0-56-po2vlan' and po not in config_ports_vlan:
                 if portchannel_cnt >= 2:
                     continue
