@@ -17,7 +17,7 @@ TIMEOUT_LIMIT   = 120
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     res = localhost.shell("sshpass -p {} ssh "\
                           "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
-                          "{}@{} {}".format(
+                          "{}@{} {} > >(grep -v \"Permanently added\" 1>&2)".format(
             password, username, remote_ip, cmd), module_ignore_errors=True)
     return res
 
