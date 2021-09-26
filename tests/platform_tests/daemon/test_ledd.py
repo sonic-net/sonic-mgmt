@@ -127,11 +127,12 @@ def test_pmon_ledd_term_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    # It would take some time to have LEDD process to consume the SIG_TERM signal, insert a 2 seconds delay 
-    # before run wait_until, otherwise there could be some timing issue and intermittent failures.
+    # Insert 2 seconds delay between termination of the LEDD process by SIG_TERM and status verification, 
+    # to avoid misleading check result which caused by latency of termination process.
     time.sleep(2)
 
-    # TODO: to add one delay parameter into the wait_until API, delay specified time before run the check function 
+    # TODO: To arm the wait_until API with a delay parameter, by which to delay specified time 
+    # before invoking the check function.  
     wait_until(50, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
