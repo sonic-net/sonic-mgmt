@@ -84,14 +84,16 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
+    transceivers = dut.command("bash -c \"show interface transceiver presence | grep Present\"")
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
         interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-        if not all_transceivers_detected(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
+        target_interfaces = [intf for intf in interfaces_per_asic if intf in transceivers]
+        if not all_transceivers_detected(dut, asic_index, target_interfaces, xcvr_skip_list):
             logging.info("Not all transceivers are detected")
             return False
-        if not check_interface_status(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
+        if not check_interface_status(dut, asic_index, target_interfaces, xcvr_skip_list):
             logging.info("Not all interfaces are up")
             return False
 
