@@ -70,7 +70,7 @@ def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslo
         duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
 
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
-    filepath = DOCKER_TMP_PATH + duthost.hostname + DUT_PCAP_FILEPATH
+    filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
 
     pytest_assert(_check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath),
                   "Dummy syslog server IP not seen in the pcap file")
