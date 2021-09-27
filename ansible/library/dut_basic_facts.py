@@ -4,8 +4,6 @@
 # Example output:
 
 from ansible.module_utils.basic import *
-from collections import defaultdict
-from sonic_py_common import multi_asic
 
 
 DOCUMENTATION = '''
