@@ -67,8 +67,7 @@
 
     - name: set vm
       set_fact:
-        vm_base: "{{ testbed_facts['vm_base'] }}"
-      when: "testbed_facts['vm_base'] != ''"
+        vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
@@ -148,7 +147,7 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo or 'docker-keysight-api-server' in ptf_image %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
