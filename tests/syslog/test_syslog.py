@@ -13,6 +13,28 @@ pytestmark = [
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
 
+# Check pcap file for the destination IPs
+def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
+    is_ok_a = False
+    is_ok_b = False
+
+    if dummy_ip_a is None:
+        is_ok_a = True
+    if dummy_ip_b is None:
+        is_ok_b = True
+
+    packets = rdpcap(filepath)
+    for data in packets:
+        proto = "IPv6" if "IPv6" in data else "IP"
+        if is_ok_a is False and data[proto].dst == dummy_ip_a:
+            is_ok_a = True
+        if is_ok_b is False and data[proto].dst == dummy_ip_b:
+            is_ok_b = True
+        if is_ok_a and is_ok_b is True:
+            return True
+
+    return False
+
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b", [("10.0.80.166", None), ("fd82:b34f:cc99::100", None), ("10.0.80.165", "10.0.80.166"), ("fd82:b34f:cc99::100", "10.0.80.166"), ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
 def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -48,29 +70,7 @@ def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslo
         duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
 
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
+    filepath = DOCKER_TMP_PATH + duthost.hostname + DUT_PCAP_FILEPATH
 
-    # Check pcap file for the destination IPs
-    def _check_pcap(dummy_ip_a, dummy_ip_b):
-        is_ok_a = False
-        is_ok_b = False
-
-        if dummy_ip_a is None:
-            is_ok_a = True
-        if dummy_ip_b is None:
-            is_ok_b = True
-
-        filepath = DOCKER_TMP_PATH + duthost.hostname + DUT_PCAP_FILEPATH
-        packets = rdpcap(filepath)
-        for data in packets:
-            proto = "IPv6" if "IPv6" in data else "IP"
-            if is_ok_a is False and data[proto].dst == dummy_ip_a:
-                is_ok_a = True
-            if is_ok_b is False and data[proto].dst == dummy_ip_b:
-                is_ok_b = True
-            if is_ok_a and is_ok_b is True:
-                return True
-
-        return False
-
-    pytest_assert(_check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b),
+    pytest_assert(_check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath),
                   "Dummy syslog server IP not seen in the pcap file")
