@@ -15,7 +15,7 @@ def config_port_qos_map(dut, obj_name, interface, **kwargs):
             st.log("Please provide obj_name like 'AZURE' and interface like 'Ethernet0,Ethernet1'")
             return False
         else:
-            cos_specific_dict = {"tc_to_queue_map": "[TC_TO_QUEUE_MAP|" + obj_name + "]", "dscp_to_tc_map": "[DSCP_TO_TC_MAP|" + obj_name + "]" }
+            cos_specific_dict = {"tc_to_queue_map": obj_name, "dscp_to_tc_map": obj_name}
             temp_data[interface] = cos_specific_dict
         final_data['PORT_QOS_MAP'] = temp_data
         final_data = json.dumps(final_data)
@@ -64,19 +64,19 @@ def config_port_qos_map_all(dut, qos_maps, cli_type=''):
             if qos_map['port'] not in temp_data:
                 temp_data[qos_map['port']] = {}
             if qos_map['map'] == 'dot1p_to_tc_map':
-                temp_data[qos_map['port']].update(dot1p_to_tc_map="[DOT1P_TO_TC_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(dot1p_to_tc_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'dscp_to_tc_map':
-                temp_data[qos_map['port']].update(dscp_to_tc_map="[DSCP_TO_TC_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(dscp_to_tc_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'pfc_to_queue_map':
-                temp_data[qos_map['port']].update(pfc_to_queue_map="[MAP_PFC_PRIORITY_TO_QUEUE|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(pfc_to_queue_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_dot1p_map':
-                temp_data[qos_map['port']].update(tc_to_dot1p_map="[TC_TO_DOT1P_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_dot1p_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_dscp_map':
-                temp_data[qos_map['port']].update(tc_to_dscp_map="[TC_TO_DSCP_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_dscp_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_pg_map':
-                temp_data[qos_map['port']].update(tc_to_pg_map="[TC_TO_PRIORITY_GROUP_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_pg_map="{}".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_queue_map':
-                temp_data[qos_map['port']].update(tc_to_queue_map="[TC_TO_QUEUE_MAP|{}]".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_queue_map="{}".format(qos_map['obj_name']))
             else:
                 st.error('Invalid map: {}'.format(qos_map['map']))
                 return False
