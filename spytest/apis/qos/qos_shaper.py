@@ -39,7 +39,7 @@ def apply_port_shaping_config(dut, shaper_data, **kwargs):
         json_data = {"PORT_QOS_MAP": {}, "SCHEDULER": {policy_name: {}}}
         if shaper_data.get("port"):
             ports = make_list(shaper_data["port"])
-            json_data["PORT_QOS_MAP"] = {port: {"scheduler": "[SCHEDULER|{}]".format(policy_name)} for port in ports}
+            json_data["PORT_QOS_MAP"] = {port: {"scheduler": "{}".format(policy_name)} for port in ports}
         else:
             json_data.pop("PORT_QOS_MAP")
         if ("pir" in shaper_data) or ("pbs" in shaper_data) or shaper_data.get("meter_type"):
@@ -146,7 +146,7 @@ def apply_queue_shaping_config(dut, shaper_data, **kwargs):
                     config_data["SCHEDULER"].update(temp)
                 if ports:
                     queue_map = dict()
-                    queue_map = {"{}|{}".format(port, ent['queue']): {"scheduler": "[SCHEDULER|{}]".format(policy)} for port in ports}
+                    queue_map = {"{}|{}".format(port, ent['queue']): {"scheduler": "{}".format(policy)} for port in ports}
                     config_data["QUEUE"].update(queue_map)
         config_data2 = {key: value for key, value in config_data.items()}
         for key, value in config_data2.items():
@@ -303,7 +303,7 @@ def apply_queue_shcheduling_config(dut, scheduler_data, **kwargs):
             if ent.get('type'):
                 temp[policy].update(type = ent['type'].upper())
             if ports:
-                queue_map = {"{}|{}".format(port, ent['queue']) : {"scheduler": "[SCHEDULER|{}]".format(policy)} for port in ports}
+                queue_map = {"{}|{}".format(port, ent['queue']) : {"scheduler": "{}".format(policy)} for port in ports}
             if temp[policy]:
                 config_data['SCHEDULER'].update(temp)
             if queue_map:

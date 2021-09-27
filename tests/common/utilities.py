@@ -501,3 +501,14 @@ def get_intf_by_sub_intf(sub_intf, vlan_id):
     if sub_intf.endswith(vlan_suffix):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
+
+def check_qos_db_fv_reference_with_table(duthost):
+    """
+    @summary: Check qos db field value refrence with table name or not.
+    @param duthost: The DUT
+    """
+    release_list = ["201811", "201911", "202012", "202106"]
+    if any(release == duthost.sonic_release for release in release_list):
+        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
+        return True
+    return False

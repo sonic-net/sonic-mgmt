@@ -88,7 +88,7 @@ def apply_wred_ecn_config(dut, config, cli_type=''):
                     temp['queue'] = list(range(int(queue1), int(queue2)+1))
                 else:
                     temp['queue'] = q.split(',')
-                temp['wred_profile'] = wred_map['wred_profile'][14:-1]
+                temp['wred_profile'] = wred_map['wred_profile']
                 config_apply_list.append(temp)
             st.debug('port map data is: {}'.format(config_apply_list))
             for entry in config_apply_list:
