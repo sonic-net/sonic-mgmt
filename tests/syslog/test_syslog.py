@@ -30,7 +30,7 @@ def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
             is_ok_a = True
         if is_ok_b is False and data[proto].dst == dummy_ip_b:
             is_ok_b = True
-        if is_ok_a and is_ok_b is True:
+        if is_ok_a and is_ok_b:
             return True
 
     return False
