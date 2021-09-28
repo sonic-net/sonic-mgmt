@@ -510,7 +510,7 @@ class FanData:
         """
         max_speed = self.get_max_speed()
         if max_speed > 0:
-            speed_in_rpm = max_speed * speed / 100
+            speed_in_rpm = int(round(float(max_speed) * speed / 100))
             self.helper.mock_thermal_value(self.speed_file, str(speed_in_rpm))
         else:
             self.helper.mock_thermal_value(self.speed_file, str(speed))
