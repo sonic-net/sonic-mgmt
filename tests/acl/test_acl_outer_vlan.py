@@ -7,6 +7,7 @@ import time
 import logging
 import pytest
 import ipaddress
+import json
 import ptf.testutils as testutils
 from ptf import mask
 from scapy.all import Ether, IP
@@ -57,7 +58,7 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
 
 
-@pytest.fixture(scope="module", params=[IPV6])
+@pytest.fixture(scope="module", params=[IPV4, IPV6])
 def ip_version(request):
     """
     Parametrize Ip version
@@ -123,45 +124,47 @@ def vlan_setup_info(rand_selected_dut, tbinfo):
     # 3 interfaces are required to cover all test scenarios
     pytest_require(len(minigraph_vlan['members']) >= 3, "There is no sufficient ports for testing")
     ports_for_test = minigraph_vlan['members'][:3]
-
+    
     vlan_setup[100] = {
         "vlan_id": 100,
-        "vlan_ip": {IPV4: "192.100.0.1/24", IPV6: "fc02:100::1/96"},
-        "vlan_mac": rand_selected_dut.facts["router_mac"],
-        "tagged_ports": (ports_for_test[0], minigraph_ptf_indices[ports_for_test[0]]),
-        "untagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]]),
+        "vlan_ip": {IPV4: "192.100.0.1/28", IPV6: "fc02:100::1/120"},
+        "tagged_ports": (ports_for_test[0], minigraph_ptf_indices[ports_for_test[0]], "192.100.0.2"),
+        "untagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]], "192.100.0.3"),
     }
     vlan_setup[200] = {
         "vlan_id": 200,
-        "vlan_ip": {IPV4: "192.200.0.1/24", IPV6: "fc02:200::1/96"},
-        "vlan_mac": rand_selected_dut.facts["router_mac"],
-        "tagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]]),
-        "untagged_ports": (ports_for_test[1], minigraph_ptf_indices[ports_for_test[1]])
+        "vlan_ip": {IPV4: "192.200.0.1/28", IPV6: "fc02:200::1/120"},
+        "tagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]], "192.200.0.2"),
+        "untagged_ports": (ports_for_test[1], minigraph_ptf_indices[ports_for_test[1]], "192.200.0.3"),
     }
+    testing_ports = {}
+    for port in ports_for_test:
+        testing_ports[port] = minigraph_ptf_indices[port]
 
-    return vlan_setup, ports_for_test
+    return vlan_setup, testing_ports
 
 def setup_vlan(rand_selected_dut, vlan_setup_info):
     """
     Create vlan 100 and 200 on DUT for testing.
-    - Ethernet0 belongs to Vlan100, tagged
-    - Ethernet2 belongs to Vlan200, untagged
-    - Ethernet4 belongs to both Vlan100 (untagged) and Vlan200 (tagged)
+    - port1 belongs to Vlan100, tagged
+    - port2 belongs to Vlan200, untagged
+    - port3 belongs to both Vlan100 (untagged) and Vlan200 (tagged)
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
     |   VLAN ID | IP Address      | Ports       | Port Tagging   | DHCP Helper Address   | Proxy ARP   |
     +===========+=================+=============+================+=======================+=============+
-    |       100 | 192.100.0.1/24  | Ethernet0   | tagged         |                       | disabled    |
-    |           |                 | Ethernet4   | untagged       |                       |             |
+    |       100 | 192.100.0.1/24  | Ethernet24  | tagged         |                       | disabled    |
+    |           | fc02:100::1/96  | Ethernet32  | untagged       |                       |             |
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
-    |       200 | 192.200.0.1/24  | Ethernet2   | untagged       |                       | disabled    |
-    |           |                 | Ethernet4   | tagged         |                       |             |
+    |       200 | fc02:200::1/96  | Ethernet28  | untagged       |                       | disabled    |
+    |           | 192.200.0.1/24  | Ethernet32  | tagged         |                       |             |
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
     """
+    logger.info("Creating Vlan for testing")
     vlan_setup, test_ports = vlan_setup_info
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
     # Remove interface from default Vlan
     cmds = []
-    for port in test_ports:
+    for port in test_ports.keys():
         cmds.append('config vlan member del {} {}'.format(default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
@@ -198,6 +201,7 @@ def teardown_vlan(rand_selected_dut, vlan_setup_info):
     """
     Remove testing vlan
     """
+    logger.info("Removing Vlan for testing")
     vlan_setup, test_ports = vlan_setup_info
     # Remove ports from test vlan
     cmds= []
@@ -229,20 +233,19 @@ def teardown_vlan(rand_selected_dut, vlan_setup_info):
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
     # Add back interface to default Vlan
     cmds = []
-    for port in test_ports:
+    for port in test_ports.keys():
         cmds.append('config vlan member add {} {} --untagged'.format(default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
 
 
-@pytest.fixture(scope='module', autouse=False)
-def vlan_setup_teardown(rand_selected_dut, vlan_setup_info):
+@pytest.fixture(scope='module', autouse=True)
+def vlan_setup_teardown(rand_selected_dut, ptfadapter, vlan_setup_info, tbinfo):
     try:
         setup_vlan(rand_selected_dut, vlan_setup_info)
         yield
     finally:
         teardown_vlan(rand_selected_dut, vlan_setup_info)
-
 
 def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_action=ACTION_FORWARD):
     """
@@ -288,7 +291,7 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
     return int(result)
 
 
-def craft_packet(src_mac, dst_mac, dst_ip, ip_version, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
+def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
     """
     Generate IPV4/IPV6 packets with single or double Vlan Header
 
@@ -297,41 +300,56 @@ def craft_packet(src_mac, dst_mac, dst_ip, ip_version, tagged_mode, vlan_id=10, 
         dst_mac: Dest MAC address
         dst_ip: IP address of packet
         ip_version: Ip version of packet that should be generated
+        stage: ingress or egress
         tagged_mode:  TAGGED or UNTAGGED
         vlan_id: Vlan Id number
         dl_vlan_outer: Outer Vlan ID
-        pkt_type: packet type to be created, by default UDP
+        pkt_type: packet type to be created
 
     Returns:
-        Simple UDP, QinQ or TCP packet
+        QinQ or TCP packet
     """
+    DUMMY_IP = '8.8.8.8'
+    exp_pkt_with_tag = tagged_mode in [TYPE_TAGGED, TYPE_COMBINE_TAGGED]
     if ip_version == IPV4:
         if pkt_type == 'qinq':
             pkt = testutils.simple_qinq_tcp_packet(eth_src=src_mac,
                                                    eth_dst=dst_mac,
                                                    dl_vlan_outer=outer_vlan_id,
                                                    vlan_vid=vlan_id,
+                                                   ip_src=DUMMY_IP,
                                                    ip_dst=dst_ip)
-            if tagged_mode in [TYPE_TAGGED, TYPE_COMBINE_TAGGED]:
-                """
-                In our test setting, if src_port is tagged, then dst_port is untagged.
-                So the egress packet is without vlan tag
-                """
+            if exp_pkt_with_tag:
                 exp_pkt = testutils.simple_tcp_packet(pktlen=96, # Default len (100) - Dot1Q len (4)
                                                     eth_src=src_mac,
                                                     eth_dst=dst_mac,
                                                     dl_vlan_enable=True,
                                                     vlan_vid=vlan_id,
+                                                    ip_src=DUMMY_IP,
                                                     ip_dst=dst_ip)
             else:
                 exp_pkt = pkt
         else:
-            pkt = testutils.simple_udp_packet(eth_src=src_mac,
+            pkt = testutils.simple_tcp_packet(eth_src=src_mac,
                                             eth_dst=dst_mac,
-                                            dl_vlan_enable=True,
-                                            vlan_vid=vlan_id,
+                                            ip_src=DUMMY_IP,
                                             ip_dst=dst_ip)
-            exp_pkt = pkt
+            if exp_pkt_with_tag:
+                exp_pkt = testutils.simple_tcp_packet(pktlen=104, # Default len(100) + Dot1Q len (4)
+                                                    eth_src=src_mac,
+                                                    eth_dst=dst_mac,
+                                                    dl_vlan_enable=True,
+                                                    vlan_vid=outer_vlan_id,
+                                                    ip_src=DUMMY_IP,
+                                                    ip_dst=dst_ip)
+            else:
+                exp_pkt = pkt.copy()
+
+            exp_pkt = mask.Mask(exp_pkt)
+            exp_pkt.set_do_not_care_scapy(Ether, 'src')
+            exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+            exp_pkt.set_do_not_care_scapy(IP, 'ttl')
+            exp_pkt.set_do_not_care_scapy(IP, 'chksum')
         
     else:
         pkt = testutils.simple_tcpv6_packet(eth_src=src_mac,
@@ -339,7 +357,8 @@ def craft_packet(src_mac, dst_mac, dst_ip, ip_version, tagged_mode, vlan_id=10, 
                                             dl_vlan_enable=True,
                                             vlan_vid=outer_vlan_id,
                                             ipv6_dst=dst_ip)
-        if tagged_mode in [TYPE_TAGGED, TYPE_COMBINE_TAGGED]:
+
+        if exp_pkt_with_tag:
             exp_pkt = testutils.simple_tcpv6_packet(pktlen=96, # Default len (100) - Dot1Q len (4)
                                                     eth_src=src_mac,
                                                     eth_dst=dst_mac,
@@ -365,7 +384,7 @@ def check_rule_counters(duthost):
     else:
         return True
 
-@pytest.fixture(scope="module", autouse=False)
+@pytest.fixture(scope="module", autouse=True)
 def teardown(duthosts, rand_one_dut_hostname):
     """
     Teardown fixture to clean up DUT to initial state
@@ -389,7 +408,7 @@ class AclVlanOuterTest_Base(object):
             table_name,
             table_type,
             stage,
-            ",".join(bind_ports)
+            ",".join(bind_ports.keys())
         )
 
         logger.info("Creating ACL table {} for testing".format(table_name))
@@ -431,7 +450,7 @@ class AclVlanOuterTest_Base(object):
         duthost.template(src=os.path.join(TEMPLATES_DIR, ACL_ADD_RULES_FILE), dest=dest_path)
         logger.info("Creating ACL rule matching vlan {} action {}".format(vlan_id, action))
         duthost.shell("config load -y {}".format(dest_path))
-
+        time.sleep(10)
         pytest_assert(wait_until(60, 2, check_rule_counters, duthost), "Acl rule counters are not ready")
 
     def _remove_acl_rules(self, duthost, stage, ip_ver):
@@ -440,18 +459,6 @@ class AclVlanOuterTest_Base(object):
         remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
         duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, table_name))
         time.sleep(10)
-    
-    def _default_route_interfaces(self, mg_facts):
-        """
-        Return a list including all ptf_idx of portchannel members
-        """
-        portchannel_member_idx = []
-        minigraph_ptf_indices = mg_facts['minigraph_ptf_indices']
-        for _, v in mg_facts['minigraph_portchannels'].items():
-            for port in v['members']:
-                portchannel_member_idx.append(minigraph_ptf_indices[port])
-        
-        return portchannel_member_idx
 
     @abstractmethod
     def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
@@ -461,28 +468,29 @@ class AclVlanOuterTest_Base(object):
         pass
 
     @abstractmethod
-    def pre_running_hook(self, duthost, ip_version, bind_ports):
+    def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
         """
         Setup before test running
         """
         pass
 
     @abstractmethod
-    def post_running_hook(self, duthost, ip_version):
+    def post_running_hook(self, duthost, ptfhost, ip_version):
         """
         Setup post test running
         """
         pass
 
     @pytest.fixture(scope='class', autouse=True)
-    def setup(self, rand_selected_dut, ip_version, vlan_setup_info):
-        _, ports = vlan_setup_info
-        self.pre_running_hook(rand_selected_dut, ip_version, ports)
-        yield
-        self.post_running_hook(rand_selected_dut, ip_version)
+    def setup(self, rand_selected_dut, ptfhost, ip_version, vlan_setup_info):
+        try:
+            self.pre_running_hook(rand_selected_dut, ptfhost, ip_version, vlan_setup_info)
+            yield
+        finally:
+            self.post_running_hook(rand_selected_dut, ptfhost, ip_version)
 
     def _do_verification(self, ptfadapter, duthost, tbinfo, vlan_setup_info, ip_version, tagged_mode, action):
-        vlan_setup, ports = vlan_setup_info
+        vlan_setup, _ = vlan_setup_info
         test_setup_config = self.setup_cfg(duthost, tbinfo, vlan_setup, tagged_mode, ip_version)
 
         stage = test_setup_config['stage']
@@ -497,7 +505,7 @@ class AclVlanOuterTest_Base(object):
 
         pkt_type = QINQ if stage == INGRESS else None
         src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-        dst_mac = ptfadapter.dataplane.get_mac(0, dst_port)
+        dst_mac = test_setup_config.get('dst_mac', ptfadapter.dataplane.get_mac(0, dst_port))
         pkt, exp_pkt = craft_packet(src_mac=src_mac,
                                 dst_mac=dst_mac,
                                 dst_ip=dst_ip,
@@ -505,7 +513,8 @@ class AclVlanOuterTest_Base(object):
                                 vlan_id=vlan_id,
                                 outer_vlan_id=outer_vlan_id,
                                 pkt_type=pkt_type,
-                                tagged_mode=tagged_mode)
+                                tagged_mode=tagged_mode,
+                                stage=stage)
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
         try:
@@ -575,10 +584,10 @@ class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in ingress
     """
-    def pre_running_hook(self, duthost, ip_version, bind_ports):
-        self._setup_acl_table(duthost, INGRESS, ip_version, bind_ports)
+    def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
+        self._setup_acl_table(duthost, INGRESS, ip_version, vlan_setup_info[1])
 
-    def post_running_hook(self, duthost, ip_version):
+    def post_running_hook(self, duthost, ptfhost, ip_version):
         self._remove_acl_table(duthost, INGRESS, ip_version)
     
     def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
@@ -592,27 +601,102 @@ class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
             cfg['src_port'] = vlan_setup[100]['tagged_ports'][1]
             cfg['dst_port'] = vlan_setup[100]['untagged_ports'][1]
             cfg['outer_vlan_id'] = 100
-            cfg['vlan_mac'] = vlan_setup[100]['vlan_mac']
         elif TYPE_UNTAGGED == tagged_mode:
             cfg['src_port'] = vlan_setup[200]['untagged_ports'][1]
             cfg['dst_port'] = vlan_setup[200]['tagged_ports'][1]
             cfg['outer_vlan_id'] = 200
-            cfg['vlan_mac'] = vlan_setup[200]['vlan_mac']
         elif TYPE_COMBINE_TAGGED == tagged_mode:
             cfg['src_port'] = vlan_setup[200]['tagged_ports'][1]
             cfg['dst_port'] = vlan_setup[200]['untagged_ports'][1]
             cfg['outer_vlan_id'] = 200
-            cfg['vlan_mac'] = vlan_setup[200]['vlan_mac']
         else:
             cfg['src_port'] = vlan_setup[100]['untagged_ports'][1]
             cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
             cfg['outer_vlan_id'] = 100
-            cfg['vlan_mac'] = vlan_setup[100]['vlan_mac']
         
         return cfg
 
-#class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
+class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in egress
     """
-    #pass
+    def _setup_arp_responder(self, ptfhost, vlan_setup_info):
+        arp_responder_cfg = {}
+        vlan_setup, bind_ports = vlan_setup_info
+        for new_vlan in TEST_VLAN_LIST:
+            keys = ['tagged_ports', 'untagged_ports']
+            for key in keys:
+                port_info = vlan_setup[new_vlan].get(key, None)
+                if port_info:
+                    _, idx, ip = port_info
+                    eth = 'eth{}'.format(idx)
+                    if eth not in arp_responder_cfg:
+                        arp_responder_cfg[eth] = []
+                    arp_responder_cfg[eth].append(ip)
+
+        CFG_FILE = '/tmp/acl_outer_vlan_test.json'
+        with open(CFG_FILE, 'w') as file:
+            json.dump(arp_responder_cfg, file)
+        ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+
+        extra_vars = {
+                'arp_responder_args': '--conf {}'.format(CFG_FILE)
+        }
+
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+        ptfhost.template(src='templates/arp_responder.conf.j2', dest='/etc/supervisor/conf.d/arp_responder.conf')
+
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
+
+        logger.info("Start arp_responder")
+        ptfhost.command('supervisorctl start arp_responder')
+
+    def _teardown_arp_responder(self, ptfhost):
+        logger.info("Stopping arp_responder")
+        ptfhost.command('supervisorctl stop arp_responder')
+
+    def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
+        # Skip on broadcom platforms
+        pytest_require(duthost.facts["asic_type"] not in ("broadcom"),
+                    "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"]))
+        # Skip IPV6 EGRESS test since arp_responder doesn't support yet
+        pytest_require(ip_version == IPV4, 
+                    "IPV6 EGRESS test not supported")
+
+        self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[1])
+        self._setup_arp_responder(ptfhost, vlan_setup_info)
+
+    def post_running_hook(self, duthost, ptfhost, ip_version):
+        if ip_version == IPV4:
+            self._remove_acl_table(duthost, EGRESS, ip_version)
+        self._teardown_arp_responder(ptfhost)
+    
+    def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        cfg = {}
+        cfg['stage'] = EGRESS
+        cfg['vlan_id'] = 10 #Dummy inner vlan id
+        cfg['dst_mac'] = duthost.facts['router_mac'] # MAC address should be router_mac rather than ptf mac
+        # We will inject packet with vlan from portchannel. The packet will egress from the
+        # interface we setup
+        minigraph_portchannels = mg_facts['minigraph_portchannels']
+        member = list(minigraph_portchannels.values())[-1]['members'][-1]
+        cfg['src_port'] = mg_facts['minigraph_ptf_indices'][member]
+        if TYPE_TAGGED == tagged_mode:
+            cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
+            cfg['outer_vlan_id'] = 100
+            cfg['dst_ip'] = vlan_setup[100]['tagged_ports'][2]
+        elif TYPE_UNTAGGED == tagged_mode:
+            cfg['dst_port'] = vlan_setup[200]['untagged_ports'][1]
+            cfg['outer_vlan_id'] = 200
+            cfg['dst_ip'] = vlan_setup[200]['untagged_ports'][2]
+        elif TYPE_COMBINE_TAGGED == tagged_mode:
+            cfg['dst_port'] = vlan_setup[200]['tagged_ports'][1]
+            cfg['outer_vlan_id'] = 200
+            cfg['dst_ip'] = vlan_setup[200]['tagged_ports'][2]
+        else:
+            cfg['dst_port'] = vlan_setup[100]['untagged_ports'][1]
+            cfg['outer_vlan_id'] = 100
+            cfg['dst_ip'] = vlan_setup[100]['untagged_ports'][2]
+        return cfg
