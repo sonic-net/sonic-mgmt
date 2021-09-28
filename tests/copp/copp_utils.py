@@ -199,8 +199,16 @@ def _map_port_number_to_interface(dut, nn_target_port):
         Retrieves the correct interface for a given port number.
     """
 
-    interfaces = dut.command("portstat")["stdout_lines"][2:]
-    return interfaces[nn_target_port].split()[0]
+    interfaces = dut.command("portstat")["stdout_lines"]
+
+    if_list = []
+
+    for ln in interfaces:
+        match = re.search(r'Ethernet[0-9]+', ln)
+        if match:
+            if_list.append(ln)
+
+    return if_list[nn_target_port].split()[0]
 
 def _get_http_and_https_proxy_ip(creds):
     """
