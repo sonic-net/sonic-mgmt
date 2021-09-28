@@ -128,7 +128,7 @@ class BcastTest(BaseTest):
         Check if broadcast packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list))
+        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
 
         return
 
@@ -171,7 +171,7 @@ class BcastTest(BaseTest):
         Check if broadcast BOOTP packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list))
+        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
 
         return
 
