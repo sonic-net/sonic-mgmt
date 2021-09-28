@@ -737,8 +737,11 @@ def check_nexthops_balance(rand_selected_dut,
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
-    for members in get_t1_ptf_pc_ports(rand_selected_dut, tbinfo).values():
-        for member in members:
+    expected_uplink_portchannels = list()
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    for pc, intfs in portchannel_ports.items():
+        expected_uplink_portchannels.append(pc)
+        for member in intfs:
             expected_uplink_ports.append(int(member.strip("eth")))
     logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
     logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
@@ -777,17 +780,23 @@ def check_nexthops_balance(rand_selected_dut,
         # Hierarchical ECMP validation (in case of standby MUXs):
         # Step 1: Calculate total uplink share.
         total_uplink_share = expect_packet_num * (nexthops_count - len(expected_downlink_ports))
-        # Step 2: Divide uplink share among all uplinks
-        expect_packet_num = total_uplink_share // len(expected_uplink_ports)
+        # Step 2: Divide uplink share among all portchannels
+        expect_packet_num = total_uplink_share // len(expected_uplink_portchannels)
+        pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+        pkt_num_hi = expect_packet_num * (1.0 + 0.25)
         # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
-        for uplink_int in expected_uplink_ports:
-            pkt_num_lo = expect_packet_num * (1.0 - 0.25)
-            pkt_num_hi = expect_packet_num * (1.0 + 0.25)
-            count = port_packet_count.get(uplink_int, 0)
-            logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
+        for pc, intfs in portchannel_ports.items():
+            count = 0
+            # Collect the packets count within a single portchannel
+            for member in intfs:
+                uplink_int = int(member.strip("eth"))
+                count = count + port_packet_count.get(uplink_int, 0)
+            logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
-                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on uplink port {}".format(uplink_int))
+                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
+                    pc))
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
