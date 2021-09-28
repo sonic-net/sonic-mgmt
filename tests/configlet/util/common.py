@@ -10,7 +10,7 @@ MINIGRAPH_FILE = "etc/sonic/minigraph.xml"
 
 tor_data = {}
 managed_files = {}
-config_db_data_wo_t0 = {}
+config_db_data_orig = {}
 
 init_data = {
         "version": "",
@@ -19,6 +19,7 @@ init_data = {
         "data_dir": ""
         }
 
+running_in_switch = False
 
 #
 # App-DB/"LLDP_ENTRY_TABLE" is very dynamic -- not a candidate for comparison
@@ -33,7 +34,7 @@ scan_dbs = {
         "app-db": {
             "db_no": 0,
             "keys_to_compare": set(),
-            "keys_to_skip_comp": {"LLDP_ENTRY_TABLE", "NEIGH_TABLE:eth0"},
+            "keys_to_skip_comp": {"LLDP_ENTRY_TABLE", "NEIGH_TABLE:eth0", "NEIGH_TABLE_DEL_SET"},
             "keys_skip_val_comp": set()
             },
         "state-db": {
@@ -54,7 +55,7 @@ scan_dbs = {
 
 
 def init_global_data():
-    global tor_data, managed_files, config_db_data_wo_t0
+    global tor_data, managed_files, config_db_data_orig
 
     for k in init_data:
         if not init_data[k]:
@@ -89,7 +90,7 @@ def init_global_data():
     log_info("managed_files.update={}".format(json.dumps(managed_files, indent=4)))
 
     with open(managed_files["config_db_file"], "r") as s:
-        config_db_data_wo_t0.update(json.load(s))
+        config_db_data_orig.update(json.load(s))
 
 
 def report_error(m):
@@ -121,6 +122,25 @@ def chk_for_pfc_wd(duthost, duthost_name, data_dir):
         ret = True
     return ret
 
+def set_running_in_switch():
+    global running_in_switch
+
+    running_in_switch = True
+
+
+def dut_dump(redis_cmd, duthost, duthost_name, data_dir, fname):
+    db_read = {}
+    if not running_in_switch:
+        duthost.shell("{} -o /tmp/{}.json".format(redis_cmd, fname))
+        duthost.fetch(src="/tmp/{}.json".format(fname), dest=data_dir)
+        with open("{}/{}/tmp/{}.json".format(data_dir, duthost_name, fname), "r") as s:
+            db_read = json.load(s)
+    else:
+        os.system("{} -o {}/tmp/{}.json".format(redis_cmd, data_dir, fname))
+        with open("{}/tmp/{}.json".format(data_dir, fname), "r") as s:
+            db_read = json.load(s)
+    return db_read
+
 
 def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):
     db_no = db_info["db_no"]
@@ -128,25 +148,20 @@ def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):
 
     db_read = {}
     if not lst_keys:
-        duthost.shell("redis-dump -d {} --pretty -o /tmp/{}.json".format(db_no, db_name))
-        duthost.fetch(src="/tmp/{}.json".format(db_name), dest=data_dir)
-        with open("{}/{}/tmp/{}.json".format(data_dir, duthost_name, db_name), "r") as s:
-            db_read = json.load(s)
+        db_read = dut_dump("redis-dump -d {} --pretty".format(db_no),
+                duthost, duthost_name, data_dir, db_name)
     else:
         for k in lst_keys:
             fname = "{}_{}.json".format(k, db_name)
-            duthost.shell('redis-dump -d {} --pretty -k \"{}*\" -o /tmp/{}'.
-                    format(db_no, k, fname))
-            duthost.fetch(src="/tmp/{}".format(fname), dest=data_dir)
-            with open("{}/{}/tmp/{}".format(data_dir, duthost_name, fname), "r") as s:
-                db_read.update(json.load(s))
+            cmd = 'redis-dump -d {} --pretty -k \"{}*\"'.format(db_no, k)
+            db_read.update(dut_dump(cmd, duthost, duthost_name, data_dir, fname))
 
     keys_skip_cmp = db_info["keys_to_skip_comp"]
     keys_skip_val = db_info["keys_skip_val_comp"]
 
     db_write = {}
     for k in db_read:
-        if not match_key(k, keys_skip_cmp):
+        if ((not k.startswith("_")) and (not match_key(k, keys_skip_cmp))):
             db_write[k] = {} if match_key(k, keys_skip_val) else db_read[k]
 
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
@@ -227,7 +242,11 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
                     fname, k, orig_data[k]["value"], clet_data[k]["value"]))
                 mismatch_cnt += 1
 
-    log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
+    if not mismatch_cnt:
+        log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
+    else:
+        log_info("{} compare failed orig={} clet={} mismatch_cnt={}".format(
+            db_name, orig_db_dir, clet_db_dir, mismatch_cnt))
     return mismatch_cnt
 
 

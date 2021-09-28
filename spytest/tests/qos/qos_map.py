@@ -58,17 +58,17 @@ dscp_to_tc_map_2 = {"0-2,6-7,9-19,21-45,47,49,51-63":"1", "3":"3", "4,46":"4", "
 dscp_val_2,tc_val_2 = ["20","46"],["2","4"]
 dscp_val_3,tc_val_3 = ["20","46"],["1","5"]
 
-dscp_bind_port = {"dscp_to_tc_map"  : "[DSCP_TO_TC_MAP|AZURE]"}
+dscp_bind_port = {"dscp_to_tc_map"  : "AZURE"}
 
 sched_0, sched_1, sched_2, sched_3 = "scheduler.0", "scheduler.1", "scheduler.2", "scheduler.3"
 sched_strict = {"type"  : "STRICT", "weight": "25"}
 sched_dwrr_1 = {"type"  : "DWRR", "weight": "50"}
 sched_dwrr_2 = {"type"  : "DWRR", "weight": "20"}
 sched_dwrr_3 = {"type"  : "DWRR", "weight": "10"}
-sched_bind_0 = {"scheduler"   : "[SCHEDULER|scheduler.0]"}
-sched_bind_1 = {"scheduler"   : "[SCHEDULER|scheduler.1]"}
-sched_bind_2 = {"scheduler"   : "[SCHEDULER|scheduler.2]"}
-sched_bind_3 = {"scheduler"   : "[SCHEDULER|scheduler.3]"}
+sched_bind_0 = {"scheduler"   : "scheduler.0"}
+sched_bind_1 = {"scheduler"   : "scheduler.1"}
+sched_bind_2 = {"scheduler"   : "scheduler.2"}
+sched_bind_3 = {"scheduler"   : "scheduler.3"}
 pfc_bind = {"pfc_enable" : "2"}
 wred_obj = "AZURE_LOSSLESS"
 wred_profile = "WRED_PROFILE"
@@ -87,7 +87,7 @@ wred_input = {
             "yellow_drop_probability": "5",
             "red_drop_probability"   : "5"
             }
-wred_bind = {"wred_profile": "[" + wred_profile + "|" + wred_obj + "]"}
+wred_bind = {"wred_profile": wred_obj}
 
 
 def create_glob_vars():

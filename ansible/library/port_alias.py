@@ -249,6 +249,12 @@ def main():
                 num_asic = multi_asic.get_num_asics()
             except Exception as e:
                 num_asic = 1
+        # Modify KVM platform string based on num_asic
+        global KVM_PLATFORM
+        if num_asic == 4:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_4_asic-r0"
+        if num_asic == 6:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_6_asic-r0"
 
         switchid = 0
         include_internal = False

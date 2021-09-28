@@ -75,8 +75,8 @@
             capabilities:
               - net_admin
             privileged: yes
-            memory: 4G
-            memory_swap: 4G
+            memory: 8G
+            memory_swap: 8G
           become: yes
 
         - name: Bind ptf_ip to keysight_api_server
@@ -111,8 +111,8 @@
         capabilities:
           - net_admin
         privileged: yes
-        memory: 4G
-        memory_swap: 4G
+        memory: 8G
+        memory_swap: 8G
       become: yes
 
     - name: Get dut ports
@@ -164,8 +164,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 4G
-      memory_swap: 4G
+      memory: 8G
+      memory_swap: 8G
     become: yes
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
@@ -218,7 +218,7 @@
     include_tasks: ptf_change_mac.yml
     when: topo != 'fullmesh'
 
-  - name: Send arp ping packet to gw for flusing the ARP table
+  - name: Send arp ping packet to gw for flushing the ARP table
     command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
     become: yes
 
