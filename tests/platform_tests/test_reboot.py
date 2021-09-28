@@ -260,6 +260,5 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
     ls_ending_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
-    pytest_assert(ls_ending_out.difference(ls_starting_out).size() == 0 and
-            ls_starting_out.difference(ls_ending_out).size() == 0,
+    pytest_assert(ls_ending_out == ls_starting_out,
             "Console devices have changed: expected console devices: {}, got: {}".format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
