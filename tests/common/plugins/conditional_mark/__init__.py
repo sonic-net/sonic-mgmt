@@ -21,15 +21,21 @@ DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions
 
 
 def pytest_addoption(parser):
-    """Add option for specifying your own mark conditions definition file.
-
-    If this option is not specified, the default mark conditions file will be used.
+    """Add options for the conditional mark plugin.
     """
     parser.addoption(
         '--mark-conditions-file',
+        action='store',
         dest='mark_conditions_file',
         default='',
-        help="Enable DUT hardware resources monitoring")
+        help="Location of your own mark conditions file. If it is not specified, the default file will be used.")
+
+    parser.addoption(
+        '--ignore-conditional-mark',
+        action='store_true',
+        dest='ignore_conditional_mark',
+        default=False,
+        help="Ignore the conditional mark plugin. No conditional mark will be added.")
 
 
 def load_conditions(session):
@@ -54,7 +60,6 @@ def load_conditions(session):
             logger.debug('Loaded tests skip conditions from {}'.format(conditions_file))
             return yaml.safe_load(f)
     except Exception as e:
-        logger.error(repr(e))
         logger.error('Failed to load {}, exception: {}'.format(conditions_file, repr(e)), exc_info=True)
 
     return None
@@ -228,13 +233,20 @@ def evaluate_conditions(conditions, basic_facts):
 def pytest_collection(session):
     """Hook for loading conditions and basic facts.
 
-    The pytest session.config.cache is used for caching loaded conditions and basic facts. The cached content can
-    persis across different pytest sessions. You can add pytest command line option '--clear-cache' to always clear
-    cache before pytest run.
+    The pytest session.config.cache is used for caching loaded conditions and basic facts for later use.
 
     Args:
         session (obj): Pytest session object.
     """
+
+    # Always clear cached conditions and basic facts of previous run.
+    session.config.cache.set('TESTS_MARK_CONDITIONS', None)
+    session.config.cache.set('BASIC_FACTS', None)
+
+    if session.config.option.ignore_conditional_mark:
+        logger.info('Ignore conditional mark')
+        return
+
     conditions = load_conditions(session)
     if conditions:
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
@@ -255,13 +267,13 @@ def pytest_collection_modifyitems(session, config, items):
 
     conditions = config.cache.get('TESTS_MARK_CONDITIONS', None)
     if not conditions:
-        logger.debug('No skip condition is defined')
+        logger.debug('No mark condition is defined')
         return
-    logger.debug('Predefined skip conditions\n{}'.format(json.dumps(conditions, indent=2)))
+    logger.debug('Predefined mark conditions\n{}'.format(json.dumps(conditions, indent=2)))
 
     basic_facts = config.cache.get('BASIC_FACTS', None)
     if not basic_facts:
-        logger.debug('Not able to get basic facts')
+        logger.debug('No basic facts')
         return
     logger.info('Available basic facts that can be used in conditional skip:\n{}'.format(
         json.dumps(basic_facts, indent=2)))
