@@ -120,3 +120,8 @@
 #  - GitHub:
 #    - https://github.com/Azure/sonic-buildimage/issues/7602
 #    - https://github.com/Azure/sonic-buildimage/issues/7643
+
+## Ignore specific test platform_tests/cli/test_show_platform.py::test_show_platform_fan if branch is 202012
+#platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+#  - Branch:
+#    - 202012

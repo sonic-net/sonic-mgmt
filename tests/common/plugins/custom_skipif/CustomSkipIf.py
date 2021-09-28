@@ -4,6 +4,7 @@ import pytest
 import logging
 import os
 import sys
+import subprocess
 
 from abc import ABCMeta, abstractmethod
 
@@ -11,7 +12,7 @@ logger = logging.getLogger()
 
 CUSTOM_SKIP_IF_DICT = 'custom_skip_if_dict'
 CUSTOM_TEST_SKIP_PLATFORM_TYPE = 'dynamic_tests_skip_platform_type'
-PLATFORM = 'Platform'
+CUSTOM_TEST_SKIP_BRANCH_NAME = 'dynamic_tests_skip_branch_name'
 
 
 def pytest_collection(session):
@@ -21,6 +22,7 @@ def pytest_collection(session):
 def initialize_cached_variables(session):
     session.config.cache.set(CUSTOM_SKIP_IF_DICT, None)
     session.config.cache.set(CUSTOM_TEST_SKIP_PLATFORM_TYPE, None)
+    session.config.cache.set(CUSTOM_TEST_SKIP_BRANCH_NAME, None)
 
 
 def pytest_runtest_setup(item):
@@ -196,6 +198,33 @@ def run_checkers_in_parallel(skip_checkers_list):
         proc.join(timeout=60)
 
     return skip_dict_result
+
+
+def run_cmd_on_dut(pytest_item_obj, cmd):
+    """
+    Run command on DUT using ansible and return output
+    """
+    host = pytest_item_obj.session.config.option.ansible_host_pattern
+    inventory = pytest_item_obj.session.config.option.ansible_inventory
+    inv = get_inventory_argument(inventory)
+    output = subprocess.check_output('ansible {} {} -a "{}"'.format(host, inv, cmd), shell=True)
+    return output
+
+
+def get_inventory_argument(inventory):
+    """
+    Get Ansible inventory arguments
+    """
+    inv = ''
+
+    if type(inventory) is list:
+        for inv_item in inventory:
+            inv += ' -i {}'.format(inv_item)
+    else:
+        for inv_item in inventory.split(','):
+            inv += ' -i {}'.format(inv_item)
+
+    return inv
 
 
 class CustomSkipIf:

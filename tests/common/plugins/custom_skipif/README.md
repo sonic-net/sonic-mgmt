@@ -3,7 +3,7 @@
 Below is described possibility of custom_skipif plugin usage.
 
 ##### Structure
-custom_skipif plugin allows to skip test cases dynamically based on GitHub issue or Platform
+custom_skipif plugin allows to skip test cases dynamically based on GitHub issue or Platform or Branch
 
 Plugin can use different issue/ticket systems: GitHub, Jira, Redmine etc.
 By default implemented only GitHub support. Jira, Redmine etc. can be implemented by users.
@@ -14,7 +14,7 @@ If in plugin folder available file "tests_to_be_skipped_conditionally.yaml" - it
 tests according to this file.
 
 Example how to skip test "test platform_tests/cli/test_show_platform.py::test_show_platform_fan"
-Code below will skip test if we have active issue in: ((GitHub or Jira or Redmine) and current platform is "msn4600")
+Code below will skip test if we have active issue in: ((GitHub or Jira or Redmine) and current platform is "msn4600" or Branch is 202012)
 
 ````
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
@@ -31,6 +31,8 @@ platform_tests/cli/test_show_platform.py::test_show_platform_fan:
     - http://redmine.bbb.com/1234
     Platform:
       - msn4600
+  - Branch:
+    - 202012
 ````
 
 ##### How to add additional issues/tickets system support(Jira, Redmine, etc.)
