@@ -97,8 +97,8 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
             # Get the interfaces pertaining to that asic
             interface_list = get_port_map(dut, asic_index)
             interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-            target_interfaces = [intf for intf in interfaces_per_asic if intf in transceivers]
-            check_transceiver_basic(dut, asic_index, target_interfaces, xcvr_skip_list)
+            transceiver_interfaces = [intf for intf in interfaces_per_asic if intf in transceivers]
+            check_transceiver_basic(dut, asic_index, transceiver_interfaces, xcvr_skip_list)
 
         logging.info("Check pmon daemon status")
         assert check_pmon_daemon_status(dut), "Not all pmon daemons running."

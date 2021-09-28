@@ -50,7 +50,8 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
         mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
-    check_intf_presence_command = 'show interface transceiver presence {}'
+    check_intf_presence_command = 'show interface transceiver presence'
+    check_presence_output = dut.command(check_intf_presence_command)["stdout_lines"]
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
@@ -71,7 +72,6 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
             check_presence_output = dut.command(check_intf_presence_command.format(intf))
             presence_list = check_presence_output["stdout_lines"][2].split()
             assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)
-            assert 'Present' in presence_list, "Status is not expected, presence status: %s" % str(presence_list)
 
     logging.info("Check interface status using the interface_facts module")
     intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
@@ -89,11 +89,11 @@ def check_all_interface_information(dut, interfaces, xcvr_skip_list):
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
         interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-        target_interfaces = [intf for intf in interfaces_per_asic if intf in transceivers]
-        if not all_transceivers_detected(dut, asic_index, target_interfaces, xcvr_skip_list):
+        transceiver_interfaces = [intf for intf in interfaces_per_asic if intf in transceivers]
+        if not all_transceivers_detected(dut, asic_index, transceiver_interfaces, xcvr_skip_list):
             logging.info("Not all transceivers are detected")
             return False
-        if not check_interface_status(dut, asic_index, target_interfaces, xcvr_skip_list):
+        if not check_interface_status(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
             logging.info("Not all interfaces are up")
             return False
 
