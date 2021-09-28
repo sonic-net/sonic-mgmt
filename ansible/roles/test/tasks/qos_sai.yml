@@ -33,7 +33,21 @@
         defined_asic_list: ['td2', 'th', 'th2', 'spc1', 'spc2', 'spc3']
         speed_cablelen: "{{ lossless_buffer_profile }}"
 
-    - set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
+    - name: gather sonic release if not available
+      sonic_release:
+      when: sonic_release is not defined
+
+    - fail:
+        msg: "Unable to get sonic release and qos db format information"
+      when: sonic_qos_db_fv_reference_with_table is not defined
+
+    - name: Set speed_cablelen with new db format
+      set_fact: speed_cablelen="{{speed_cablelen | regex_replace('pg_lossless_(.*)_profile', '\\1')}}"
+      when: sonic_qos_db_fv_reference_with_table|bool == false
+    
+    - name: Set speed_cablelen with old db format
+      set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
+      when: sonic_qos_db_fv_reference_with_table|bool == true
 
     - name: Get asic type
       set_fact: asic_type="{{ item }}"
