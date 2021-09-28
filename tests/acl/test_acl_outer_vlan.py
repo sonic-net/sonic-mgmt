@@ -450,7 +450,7 @@ class AclVlanOuterTest_Base(object):
         duthost.template(src=os.path.join(TEMPLATES_DIR, ACL_ADD_RULES_FILE), dest=dest_path)
         logger.info("Creating ACL rule matching vlan {} action {}".format(vlan_id, action))
         duthost.shell("config load -y {}".format(dest_path))
-        time.sleep(10)
+
         pytest_assert(wait_until(60, 2, check_rule_counters, duthost), "Acl rule counters are not ready")
 
     def _remove_acl_rules(self, duthost, stage, ip_ver):
@@ -458,7 +458,7 @@ class AclVlanOuterTest_Base(object):
         duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
         remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
         duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, table_name))
-        time.sleep(10)
+        time.sleep(5)
 
     @abstractmethod
     def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
@@ -621,6 +621,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
     Verify ACL rule matching outer vlan id in egress
     """
     def _setup_arp_responder(self, ptfhost, vlan_setup_info):
+        ip_list = []
         arp_responder_cfg = {}
         vlan_setup, bind_ports = vlan_setup_info
         for new_vlan in TEST_VLAN_LIST:
@@ -633,6 +634,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
                     if eth not in arp_responder_cfg:
                         arp_responder_cfg[eth] = []
                     arp_responder_cfg[eth].append(ip)
+                    ip_list.append(ip)
 
         CFG_FILE = '/tmp/acl_outer_vlan_test.json'
         with open(CFG_FILE, 'w') as file:
@@ -651,6 +653,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
         logger.info("Start arp_responder")
         ptfhost.command('supervisorctl start arp_responder')
+        return ip_list
 
     def _teardown_arp_responder(self, ptfhost):
         logger.info("Stopping arp_responder")
@@ -665,7 +668,12 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
                     "IPV6 EGRESS test not supported")
 
         self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[1])
-        self._setup_arp_responder(ptfhost, vlan_setup_info)
+        ip_list = self._setup_arp_responder(ptfhost, vlan_setup_info)
+        # Populate ARP table on DUT
+        cmds = []
+        for ip in ip_list:
+            cmds.append("ping -c 1 {}".format(ip))
+        duthost.shell_cmds(cmds=cmds, module_ignore_errors=True)
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
         if ip_version == IPV4:
