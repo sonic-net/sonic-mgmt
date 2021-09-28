@@ -19,7 +19,8 @@ In `pytest_collection_modifyitems`, it checks each collected test item (test cas
 The conditions file must be a yaml file. First level of key should be test case name. Parametrized test case name is supported.
 Second level of should be mark name that can be added for the test case. Any mark name is supported. For example, we can specify marks like `skip` or `xfail`.
 Third level supports two type of keys:
-* `reason`: Its value should be a string. It's for specifying reason of adding this mark.
+* `reason`: Optional string text. It's for specifying reason of adding this mark.
+* `strict`: Optional bool. It is only valid for `xfail` mark. For other marks, it will just be ignored.
 * `conditions`: Its value can be a string or list of strings. The condition string should can be evaluated using python's `eval()` function. Issue URL is supported in the condition string. The plugin will query the issue website to get state of the issue. Then in the condition string, issue URLs will be replaced with either `True` or `False` based on its state. When getting issue state failed, it will always be considered as active. And the URL will be replaced as `True`. If this field is a list of condition strings, all the condition evaluation result is combined using `AND` logical operation.
 
 Example conditions:
@@ -42,7 +43,13 @@ folder2/test_file2.py::TestMarkers::test_case1:
     reason: "test file2/case1 xfail"
     conditions:
       - https://github.com/Azure/sonic-mgmt/issues/1235 and topo_name == 't1-lag'
+      -              # Empty condition will be ignored. Equivalent to True.
 folder2/test_file2.py::TestMarkers::test_case2:
+  xfail:
+    reason: "test file2/case2 strict xfail"
+    strict:
+    conditions:      # Empty conditions will be evaluated to True. It means no condition.
+folder2/test_file2.py::TestMarkers::test_case3:
   any_mark_is_supported:
     reason: "Example for adding any mark to tests"
     conditions: "build_number == 36262"

@@ -188,6 +188,8 @@ def evaluate_condition(condition, basic_facts):
     Returns:
         bool: True or False based on condition string evaluation result.
     """
+    if condition is None or condition.strip() == '':
+        return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
     condition_str = update_issue_status(condition)
     try:
@@ -218,6 +220,8 @@ def evaluate_conditions(conditions, basic_facts):
         # Personally, I think it makes more sense to apply 'AND' logical operation to a list of conditions.
         return all([evaluate_condition(c, basic_facts) for c in conditions])
     else:
+        if conditions is None or conditions.strip() == '':
+            return True
         return evaluate_condition(conditions, basic_facts)
 
 
@@ -269,7 +273,7 @@ def pytest_collection_modifyitems(session, config, items):
             logger.debug('Found match "{}" for test case "{}"'.format(longest_match, item.nodeid))
 
             for mark_name, mark_details in conditions[longest_match].items():
-                reason = mark_details.get('reason', '')
+
                 add_mark = False
                 mark_conditions = mark_details.get('conditions', None)
                 if not mark_conditions:
@@ -279,6 +283,13 @@ def pytest_collection_modifyitems(session, config, items):
                     add_mark = evaluate_conditions(mark_conditions, basic_facts)
 
                 if add_mark:
-                    mark = getattr(pytest.mark, mark_name)(reason=reason)
+                    reason = mark_details.get('reason', '')
+
+                    if mark_name == 'xfail':
+                        strict = mark_details.get('strict', False)
+                        mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
+                    else:
+                        mark = getattr(pytest.mark, mark_name)(reason=reason)
+
                     logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
                     item.add_marker(mark)
