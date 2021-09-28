@@ -158,6 +158,37 @@ def load_test_parameters(duthost):
             ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
             ingress_profile_list.append('[BUFFER_PROFILE_TABLE:ingress_lossy_zero_profile]')
 
+        # 'admin-down' section contains references to buffer profiles
+        # We need to convert the format of the references according to whether table name should be in the reference
+        if not check_qos_db_fv_reference_with_table(duthost):
+            expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
+            if expected_pgs:
+                new_pgs = {}
+                for pg, profile in expected_pgs.items():
+                    new_pgs[pg] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                TESTPARAM_ADMIN_DOWN['BUFFER_PG_TABLE'] = new_pgs
+
+            expected_queues = TESTPARAM_ADMIN_DOWN.get('BUFFER_QUEUE_TABLE')
+            if expected_queues:
+                new_queues = {}
+                for queue, profile in expected_queues.items():
+                    new_queues[queue] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = new_queues
+
+            expected_ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
+            if expected_ingress_profile_list:
+                new_list = []
+                for profile in expected_ingress_profile_list:
+                    new_list.append(profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', ''))
+                TESTPARAM_ADMIN_DOWN['BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE'] = new_list
+
+            expected_egress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE')
+            if expected_egress_profile_list:
+                new_list = []
+                for profile in expected_egress_profile_list:
+                    new_list.append(profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', ''))
+                TESTPARAM_ADMIN_DOWN['BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE'] = new_list
+
 
 def configure_shared_headroom_pool(duthost, enable):
     """Enable or disable the shared headroom pool according to the argument
@@ -220,6 +251,9 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
             DEFAULT_OVER_SUBSCRIBE_RATIO = 2
             logging.info("Shared headroom pool enabled according to test option")
             need_to_disable_shared_headroom_pool_after_test = True
+    else:
+        load_lossless_headroom_data(duthost)
+        logging.info("Lossless headroom data {}".format(DEFAULT_LOSSLESS_HEADROOM_DATA))
 
     yield
 
@@ -1491,7 +1525,10 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             for object_in_configdb in objects_in_configdb:
                 profile_in_configdb = duthost.shell('redis-cli -n 4 hget "{}" {}'.format(object_in_configdb, profile_field_name))['stdout']
                 # Convert config db reference to appl db reference
-                expected_profile_in_appldb = _convert_ref_from_configdb_to_appldb(profile_in_configdb)
+                if is_qos_db_reference_with_table:
+                    expected_profile_in_appldb = _convert_ref_from_configdb_to_appldb(profile_in_configdb)
+                else:
+                    expected_profile_in_appldb = profile_in_configdb
                 # Convert queue id
                 object_in_app_db = _convert_ref_from_configdb_to_appldb(object_in_configdb)
                 profile_in_appl_db = duthost.shell('redis-cli hget "{}" {}'.format(object_in_app_db, profile_field_name))['stdout']
@@ -1543,6 +1580,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         pytest.skip('Shutdown port test skipped due to no headroom override parameters defined')
 
     duthost = duthosts[rand_one_dut_hostname]
+    is_qos_db_reference_with_table = check_qos_db_fv_reference_with_table(duthost)
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     if check_qos_db_fv_reference_with_table(duthost) == True:
@@ -2203,6 +2241,34 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     queue_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
 
+    buffer_items_to_check_dict = {"up": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
+                                        ],
+                                  "down": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+                                        ]
+    }
+
+    if check_qos_db_fv_reference_with_table(duthost):
+        lossless_profile = '[BUFFER_PROFILE_TABLE:pg_lossless_{}_{}_profile]'
+        is_qos_db_reference_with_table = True
+    else:
+        for key, buffer_items_to_check in buffer_items_to_check_dict.items():
+            new_buffer_items_to_check = []
+            for item in buffer_items_to_check:
+                table, ids, profiles = item
+                new_buffer_items_to_check.append((table, ids, profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')))
+            buffer_items_to_check_dict[key] = new_buffer_items_to_check
+        lossless_profile = 'pg_lossless_{}_{}_profile'
+        is_qos_db_reference_with_table = False
+
+    # Append a dummy item into the list
+    buffer_items_to_check.append(None)
+
     configdb_ports = [x.split('|')[1] for x in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
     profiles_checked = {}
     lossless_pool_oid = None
@@ -2211,25 +2277,18 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         logging.info("Checking port buffer information: {}".format(port))
         port_config = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port))['stdout'].split())
 
+        # The last item in the check list various according to port's admin state.
+        # We need to append it according to the port each time. Pop the last item first
+        buffer_items_to_check.pop()
         if port_config.get('admin_status') == 'up':
             admin_up_ports.add(port)
             cable_length = cable_length_map[port]
             speed = port_config['speed']
-            lossless_profile = '[BUFFER_PROFILE_TABLE:pg_lossless_{}_{}_profile]'.format(speed, cable_length)
-
-            buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', lossless_profile),
-                                     ('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
-                                     ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
-                                     ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
-                                     ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
-                                     ]
+            buffer_items_to_check = buffer_items_to_check_dict["up"]
+            buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', lossless_profile.format(speed, cable_length)))
         else:
-            buffer_items_to_check = [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
-                                     ('BUFFER_PG_TABLE', '3-4', None),
-                                     ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
-                                     ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                     ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
-                                     ]
+            buffer_items_to_check = buffer_items_to_check_dict["down"]
+            buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', None))
 
         for table, ids, expected_profile in buffer_items_to_check:
             logging.info("Checking buffer item {}:{}:{}".format(table, port, ids))
@@ -2238,8 +2297,13 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
             if not expected_profile:
                 continue
 
+            if is_qos_db_reference_with_table:
+                expected_profile_key = expected_profile[1:-1]
+            else:
+                expected_profile_key = "BUFFER_PROFILE_TABLE:{}".format(expected_profile)
+
             if expected_profile not in profiles_checked:
-                profile_info = _compose_dict_from_cli(duthost.shell('redis-cli hgetall "{}"'.format(expected_profile[1:-1]))['stdout'].split())
+                profile_info = _compose_dict_from_cli(duthost.shell('redis-cli hgetall "{}"'.format(expected_profile_key))['stdout'].split())
                 is_ingress_lossless = expected_profile[:12] == 'pg_lossless_'
                 if is_ingress_lossless and not BUFFER_MODEL_DYNAMIC:
                     std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)

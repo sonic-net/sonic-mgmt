@@ -14,7 +14,12 @@ zero_profiles_to_normal_profiles = {
     '[BUFFER_PROFILE|ingress_lossless_zero_profile]': '[BUFFER_PROFILE|ingress_lossless_profile]',
     '[BUFFER_PROFILE|ingress_lossy_zero_profile]': '[BUFFER_PROFILE|ingress_lossy_profile]',
     '[BUFFER_PROFILE|egress_lossless_zero_profile]': '[BUFFER_PROFILE|egress_lossless_profile]',
-    '[BUFFER_PROFILE|egress_lossy_zero_profile]': '[BUFFER_PROFILE|egress_lossy_profile]'
+    '[BUFFER_PROFILE|egress_lossy_zero_profile]': '[BUFFER_PROFILE|egress_lossy_profile]',
+    'ingress_lossy_pg_zero_profile': 'ingress_lossy_profile',
+    'ingress_lossless_zero_profile': 'ingress_lossless_profile',
+    'ingress_lossy_zero_profile': 'ingress_lossy_profile',
+    'egress_lossless_zero_profile': 'egress_lossless_profile',
+    'egress_lossy_zero_profile': 'egress_lossy_profile'
     }
 logger = Logger()
 
