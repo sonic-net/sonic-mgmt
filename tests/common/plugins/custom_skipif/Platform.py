@@ -1,7 +1,7 @@
 import logging
-import subprocess
+import re
 
-from CustomSkipIf import CustomSkipIf, CUSTOM_TEST_SKIP_PLATFORM_TYPE
+from CustomSkipIf import CustomSkipIf, run_cmd_on_dut, CUSTOM_TEST_SKIP_PLATFORM_TYPE
 
 logger = logging.getLogger()
 
@@ -35,18 +35,10 @@ def get_platform_type(pytest_item_obj):
     platform_type = pytest_item_obj.session.config.cache.get(CUSTOM_TEST_SKIP_PLATFORM_TYPE, None)
     if not platform_type:
         logger.debug('Getting platform from DUT')
-        host = pytest_item_obj.session.config.option.ansible_host_pattern
-        inventory = pytest_item_obj.session.config.option.ansible_inventory
-        inv = get_inventory_argument(inventory)
-        show_platform_cmd = 'ansible {} {} -a "show platform summary"'.format(host, inv)
-
         try:
-            show_platform_summary_raw_output = subprocess.check_output(show_platform_cmd, shell=True)
-            for line in show_platform_summary_raw_output.splitlines():
-                if 'Platform:' in line:
-                    platform_type = line.split()[1:][0]  # get platform, example: x86_64-mlnx_msn2700-r0
-                    pytest_item_obj.session.config.cache.set(CUSTOM_TEST_SKIP_PLATFORM_TYPE, platform_type)
-                    break
+            show_platform_summary_raw_output = run_cmd_on_dut(pytest_item_obj, 'show platform summary')
+            platform_type = get_platform_from_platform_summary(show_platform_summary_raw_output)
+            pytest_item_obj.session.config.cache.set(CUSTOM_TEST_SKIP_PLATFORM_TYPE, platform_type)
         except Exception as err:
             logger.error('Unable to get platform type. Custom skip by platform impossible. Error: {}'.format(err))
     else:
@@ -56,15 +48,11 @@ def get_platform_type(pytest_item_obj):
     return platform_type
 
 
-def get_inventory_argument(inventory):
-    """Get Ansible inventory arguments"""
-    inv = ''
-
-    if type(inventory) is list:
-        for inv_item in inventory:
-            inv += ' -i {}'.format(inv_item)
-    else:
-        for inv_item in inventory.split(','):
-            inv += ' -i {}'.format(inv_item)
-
-    return inv
+def get_platform_from_platform_summary(platform_output):
+    """
+    Get platform from 'show platform summary' output
+    :param platform_output: 'show platform summary' command output
+    :return: string with platform name, example: 'x86_64-mlnx_msn3420-r0'
+    """
+    platform = re.search(r'Platform:\s(.*)', platform_output, re.IGNORECASE).group(1)
+    return platform
