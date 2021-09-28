@@ -58,15 +58,19 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
                                 if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
-                                    skip = True
+                                    if len(oports) == 0:
+                                        skip = True
                                 else:
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                    skip = False
                         else:
                             if ports.has_key(ifname):
                                 if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
-                                    skip = True
+                                    if len(oports) == 0:
+                                        skip = True
                                 else:
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                                    skip = False
                             else:
                                 logger.info("Route point to non front panel port {}:{}".format(k, v))
                                 skip = True
@@ -185,7 +189,7 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
 
 
 @pytest.fixture(scope='module')
-def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo):
+def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
     """Get FIB info from database and store to text files on PTF host.
 
     For T2 topology, generate a single file to /root/fib_info_all_duts.txt to PTF host.
@@ -203,10 +207,16 @@ def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_
         list: List of FIB info file names on PTF host.
     """
     duts_config_facts = duts_running_config_facts
+    testname = request.node.name
     files = []
     if tbinfo['topo']['type'] != "t2":
         for dut_index, duthost in enumerate(duthosts):
             fib_info = get_fib_info(duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname])
+            if 'test_decap' in testname and 'backend' in tbinfo['topo']['name']:
+                # if it is a storage backend topo and the testcase is test_decap
+                # add default routes with empty nexthops as the prefix matching failover
+                fib_info[u'0.0.0.0/0'] = []
+                fib_info[u'::/0'] = []
             filename = '/root/fib_info_dut{}.txt'.format(dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)

@@ -8,10 +8,17 @@
 - debug: 
     msg="Get {{target_port_name}} port {{target_buffer_profile_type}} MAX buffer size"
 
+- name: gather sonic release if not available
+  sonic_release:
+  when: sonic_release is not defined
+
+- fail:
+    msg: "Unable to get sonic release and qos db format information"
+  when: sonic_qos_db_fv_reference_with_table is not defined
+
 - name: Get {{target_buffer_profile_type}} buffer profile table for {{target_port_name}} port
   shell: redis-cli -n 4 KEYS "{{target_table}}|{{target_port_name}}|{{target_pg}}"
   register: buffer_profile_table
-
 
 - fail:
     msg: "Unable to get {{target_buffer_profile_type}} buffer profile table for {{target_port_name}}"
@@ -28,28 +35,48 @@
 
 - name: Parse buffer profile name
   set_fact:
+    buffer_profile="{{buffer_profile.stdout}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == false
+
+- name: Parse buffer profile name
+  set_fact:
     buffer_profile="{{buffer_profile.stdout|replace('[','')|replace(']','')}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == true
 
+- name: set buffer_profile table key with new db format
+  set_fact:
+    buffer_profile_key="BUFFER_PROFILE|{{buffer_profile}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == false
 
+- name: set buffer_profile table key with old db format
+  set_fact:
+    buffer_profile_key="{{buffer_profile}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == true
+    
 - name: Get {{target_buffer_profile_type}} buffer headroom size for {{target_port_name}} port
-  shell: redis-cli -n 4 HGET "{{buffer_profile}}" size
+  shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" size
   register: buffer_headroom
 
 - fail:
     msg: "Unable to get headroom size for {{target_port_name}}"
   when: buffer_headroom.stdout == ""
 
-
 - name: Get {{target_buffer_profile_type}} buffer pool profile for {{target_port_name}} port
-  shell: redis-cli -n 4 HGET "{{buffer_profile}}" pool
+  shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" pool
   register: buffer_pool_id
 
 - name: Parse {{target_buffer_profile_type}} buffer pool profile name
   set_fact:
+    buffer_pool_id="{{buffer_pool_id.stdout}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == false
+
+- name: Parse {{target_buffer_profile_type}} buffer pool profile name
+  set_fact:
     buffer_pool_id="{{buffer_pool_id.stdout|replace('[','')|replace(']','')}}"
+  when: sonic_qos_db_fv_reference_with_table|bool == true
 
 - name: Get {{target_buffer_profile_type}} buffer alpha ID for {{target_port_name}} port
-  shell: redis-cli -n 4 HGET "{{buffer_profile}}" dynamic_th
+  shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" dynamic_th
   register: buffer_alpha_raw
 
 # static threshold
@@ -60,7 +87,7 @@
         "{{target_buffer_profile_type}} buffer uses static threshold"
 
   - name: Get {{target_buffer_profile_type}} buffer alpha ID for {{target_port_name}} port
-    shell: redis-cli -n 4 HGET "{{buffer_profile}}" static_th
+    shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" static_th
     register: buffer_static_th
 
   - fail:
@@ -77,8 +104,18 @@
     set_fact:
       buffer_alpha="{{2|pow(buffer_alpha_raw.stdout|int)}}"
 
+  - name: Set buffer pool key with new db format
+    set_fact:
+      buffer_pool_id_key="BUFFER_POOL|{{buffer_pool_id}}"
+    when: sonic_qos_db_fv_reference_with_table|bool == false
+ 
+  - name: Set buffer pool key with old db format
+    set_fact:
+      buffer_pool_id_key="{{buffer_pool_id}}"
+    when: sonic_qos_db_fv_reference_with_table|bool == true
+
   - name: Get {{target_buffer_profile_type}} buffer pool size for {{target_port_name}} port
-    shell: redis-cli -n 4 HGET "{{buffer_pool_id}}" size
+    shell: redis-cli -n 4 HGET "{{buffer_pool_id_key}}" size
     register: buffer_pool_size
 
   - fail:
@@ -93,9 +130,9 @@
 
 # ingress lossless specific
 - name: Get XON for {{target_port_name}} port
-  shell: redis-cli -n 4 HGET "{{buffer_profile}}" xon
+  shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" xon
   register: buffer_xon
-  when: buffer_profile != "" and "pg_lossless" in buffer_profile
+  when: buffer_profile != "" and "pg_lossless" in buffer_profile 
 
 - fail:
     msg: "Unable to get XON for {{target_port_name}}"
@@ -104,7 +141,7 @@
 
 # ingress lossless specific
 - name: Get XOFF for {{target_port_name}} port
-  shell: redis-cli -n 4 HGET "{{buffer_profile}}" xoff
+  shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" xoff
   register: buffer_xoff
   when: buffer_profile != "" and 'pg_lossless' in buffer_profile
 
@@ -116,8 +153,15 @@
 # Get buffer pool ROID
 # This is perhaps the only useful section in this yaml play
 - block:
-    - set_fact:
+    - name: Set buffer_pool_name with new db format
+      set_fact:
+        buffer_pool_name="{{buffer_pool_id}}"
+      when: sonic_qos_db_fv_reference_with_table|bool == false
+  
+    - name: Set buffer_pool_name with old db format
+      set_fact:
         buffer_pool_name="{{buffer_pool_id|replace('BUFFER_POOL|','')}}"
+      when: sonic_qos_db_fv_reference_with_table|bool == true
 
     - name: Get {{buffer_pool_name}} VOID
       shell: redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP "{{buffer_pool_name}}"
