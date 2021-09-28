@@ -10,42 +10,66 @@ import strip
 import configlet
 
 
-def do_run():
+def do_run(is_mlnx):
     init_global_data()
 
     strip.main(init_data["files_dir"])
-    configlet.main(init_data["files_dir"])
+    configlet.main(init_data["files_dir"], is_mlnx)
 
     log_info("Managed files: {}".format(json.dumps(managed_files, indent=4)))
 
 
 def main():
-    global managed_files, init_data
+    # Test code to help run in switch to look at generated files.
+    # Used only when running in switch
+    # This helps create all files, minigraph.xml w/o T0 and configlet
+    #
+    import socket
+
+    global managed_files, init_data, do_print
+
+    set_print()
+
+    if not os.path.exists("/etc/sonic/sonic_version.yml"):
+        print("run in SONiC switch only")
+        return -1
+    
+    ct_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = "{}/test".format(ct_dir)
 
     parser=argparse.ArgumentParser(description="configlet create params")
-    parser.add_argument("-s", "--switch", help="Name of the switch",
-            default=init_data["switch_name"])
-    parser.add_argument("-d", "--filesdir", default=init_data["files_dir"],
-            help="Dir with minigraph & config_db.json")
-    parser.add_argument("-v", "--version", default=init_data["version"],
-            help="OSVersion. sample: 20191130.76")
-
+    parser.add_argument("-d", "--dir", help="dir to use for created files",
+            default=base_dir)
     args = parser.parse_args()
 
-    init_data["version"] = args.version
-    init_data["files_dir"] = args.filesdir
-    init_data["data_dir"] = "/"
-    init_data["switch_name"] = args.switch
+    base_dir = args.dir
+    data_dir    = "{}/AddRack".format(base_dir)
+    files_dir   = "{}/files".format(data_dir)
+    orig_db_dir = "{}/orig".format(data_dir)
+    clet_db_dir = "{}/clet".format(data_dir)
 
-    if not init_data["version"]:
-        if os.path.exists("/etc/sonic/sonic_version.yml"):
-            with open("/etc/sonic/sonic_version.yml", "r") as s:
-                d = yaml.safe_load(s)
-                init_data["version"] = d["build_version"]
-    if not init_data["version"]:
-        report_error("Unable to get OS version")
+    os.system("rm -rf {}".format(base_dir))
+    for i in [ base_dir, data_dir, orig_db_dir, clet_db_dir, files_dir ]:
+        log_debug("create dir {}".format(i))
+        os.mkdir(i)
 
-    do_run()
+    sonic_dir = "{}/{}/etc/sonic".format(data_dir, socket.gethostname().lower())
+    os.system("mkdir -p {}".format(sonic_dir))
+
+    for i in [ "minigraph.xml", "config_db.json" ]:
+        os.system("cp /etc/sonic/{} {}".format(i, sonic_dir))
+
+
+    init_data["files_dir"] = files_dir
+    init_data["data_dir"] = data_dir
+    init_data["switch_name"] = socket.gethostname().lower()
+    d = {}
+    with open("/etc/sonic/sonic_version.yml", "r") as s:
+        d = yaml.safe_load(s)
+    init_data["version"] = d["build_version"]
+    is_mlnx = (d["asic_type"].lower() == "mellanox")
+
+    do_run(is_mlnx)
 
 
 if __name__ == "__main__":
