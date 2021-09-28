@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 14 * * *"
+  - cron: "0 14 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -32,7 +32,7 @@ parameters:
     type: string
     default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
-  
+
   # Test timeout
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
