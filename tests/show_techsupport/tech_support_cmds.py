@@ -117,7 +117,7 @@ docker_cmds = [
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
-    "docker exec -it lldp{} lldpcli show statistics",
+    "docker exec lldp{} lldpcli show statistics",
     "docker logs bgp{}",
     "docker logs swss{}",
 ]
