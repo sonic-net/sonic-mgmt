@@ -58,14 +58,59 @@ folder3:
     reason: "Skip all the test scripts under subfolder 'folder3'"
 ```
 
+## Longest match rule
+
+This plugin process each expanded (for parametrized test cases) test cases one by one. For each test case, the marks specified in the longest match entry in the conditions file will take precedence.
+
+Then we can easily apply a set of marks for specific test case in a script file and another set of marks for rest of the test cases in the same script file.
+
+Assume we have conditions like below:
+```
+feature_a/test_file_1.py:
+  skip:
+    reason: "all testcases in test_file_1.py should be skipped for 201911 image"
+    conditions:
+      - "release in ['201911']"
+feature_a/test_file_1.py::testcase_3:
+  xfail:
+    reason: "testcase_i are suppose to fail because an issue"
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/1234
+```
+
+And assume we have below test script:
+
+feature_a/test_file_1.py:
+```
+def testcase_1
+
+def testcase_2
+
+def testcase_3
+```
+In this example, `testcase_1` and `testcase_2` will have nodeid like `feature_a/test_file_1.py::testcase_1` and `feature_a/test_file_1.py::testcase_2`. They will match entry `feature_a/test_file_1.py`. So, the `skip` mark will be added to `testcase_1` and `testcase_2` when `release in ['201911']`.
+For `testcase_3`, its nodeid will be `feature_a/test_file_1.py::testcase_3`. Then it will only match `feature_a/test_file_1.py::testcase_3`. The `xfail` mark will be added to `testcase_3` when the Github issue is still open. Entry `feature_a/test_file_1.py` also matches its nodeid. But, because it is not the longest match, it will simply be ignored.
+
+In a summary, under such scenario, the `skip` mark will be conditionally added to `testcase_1` and `testcase_2`. The `xfail` mark will be conditionally added to `testcase_3`.
+
+If a test case is parameterized, we can even specify different mark for different parameter value combinations for the same test case.
+
 ## New pytest options
 A new pytest command line option is added for specifying location of the conditions file. If the option is not supplied, default conditions file located at `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` will be used.
 ```
     parser.addoption(
         '--mark-conditions-file',
+        action='store',
         dest='mark_conditions_file',
         default='',
-        help="Enable DUT hardware resources monitoring")
+        help="Location of your own mark conditions file. If it is not specified, the default file will be used.")
+
+    parser.addoption(
+        '--ignore-conditional-mark',
+        action='store_true',
+        dest='ignore_conditional_mark',
+        default=False,
+        help="Ignore the conditional mark plugin. No conditional mark will be added.")
 ```
 
 ## Possible extensions
