@@ -3,16 +3,21 @@
 - [Overview](#overview)
   - [Scope](#scope)
   - [Testbed](#testbed)
-- [Setup configuration](#Setup-configuration)
-- [Test Cases](#Test-cases)
-  - [test_egress_vlan_outer_forward](#Test-case-test_egress_vlan_outer_forward)
-  - [test_ingress_vlan_outer_forward](#Test-case-test_ingress_vlan_outer_forward)
-  - [test_ingress_vlan_outer_drop](#Test-case-test_ingress_vlan_outer_drop)
-  - [test_egress_vlan_outer_drop](#Test-case-test_egress_vlan_outer_drop)
+- [Setup configuration](#setup-configuration)
+- [Test Cases](#test-cases)
+  - [test_tagged_forwarded](#test-case-group-1)
+  - [test_tagged_dropped](#test-case-group-2)
+  - [test_untagged_forwarded](#test-case-group-1)
+  - [test_untagged_dropped](#test-case-group-2)
+  - [test_combined_tagged_forwarded](#test-case-group-1)
+  - [test_combined_tagged_dropped](#test-case-group-2)
+  - [test_combined_untagged_forwarded](#test-case-group-1)
+  - [test_combined_untagged_dropped](#test-case-group-2)
+- [TODO](#todo)
 
 ## Overview
 
-The purpose is to test the functionality of ACL feature on the SONiC switch DUT. The tests expecting that all necessary configuration for ACL are pre-configured on SONiC switch before test runs.
+The purpose is to test the functionality of ACL feature on the SONiC switch DUT.
 
 ## Scope
 
@@ -31,7 +36,22 @@ No setup pre-configuration is required, test will configure and return testbed t
 
 On setup, tests will create 2 Vlans and add members to it on DUT.
 Before test run ports that will become Vlan members should be removed from Vlan1000.
-During test run 2 ACL tables of different types 'L3' and 'L3V6' will be created, with bindind to a single Port/PortChannel.
+Example of created vlan
+
+    +-----------+-----------------+-------------+----------------+-----------------------+-------------+
+    |   VLAN ID | IP Address      | Ports       | Port Tagging   | DHCP Helper Address   | Proxy ARP   |
+    +===========+=================+=============+================+=======================+=============+
+    |       100 | 192.100.0.1/24  | Ethernet24  | tagged         |                       | disabled    |
+    |           | fc02:100::1/96  | Ethernet32  | untagged       |                       |             |
+    +-----------+-----------------+-------------+----------------+-----------------------+-------------+
+    |       200 | fc02:200::1/96  | Ethernet28  | untagged       |                       | disabled    |
+    |           | 192.200.0.1/24  | Ethernet32  | tagged         |                       |             |
+    +-----------+-----------------+-------------+----------------+-----------------------+-------------+
+- Ethernet24 belongs to Vlan100, tagged mode
+- Ethernet28 belongs to Vlan200, untagged mode
+- Ethernet32 belongs to both Vlan100 (untagged) and Vlan200 (tagged) 
+
+During test run 2 ACL tables of different types 'L3' and 'L3V6' will be created and binded to all the above 3 interfaces.
 
 Example of Acl rules that will be created:
 
@@ -39,85 +59,58 @@ acltb_test_rules_outer_vlan.j2
 ```
 {
     "ACL_RULE": {
-        "{{ table_egress }}|rule_1": {
+        "{{ table_name }}|rule_1": {
             "priority": "1003",
-            "VLAN_ID": "100",
-            "PACKET_ACTION": "FORWARD"
-        },
-        "{{ table_egress }}|rule_2": {
-            "priority": "1002",
-            "VLAN_ID": "100",
-            "PACKET_ACTION": "DROP"
-        },
-        "{{ table_ingress }}|rule_1": {
-            "priority": "1001",
-            "VLAN_ID": "200",
-            "PACKET_ACTION": "FORWARD"
-        },
-        "{{ table_ingress }}|rule_2": {
-            "priority": "1000",
-            "VLAN_ID": "200",
-            "PACKET_ACTION": "DROP"
+            "VLAN_ID": "{{ vlan_id }}",
+            "PACKET_ACTION": "{{ action }}"
         }
     }
 }
 ```
-
+The Acl rule will be created before test running, and removed after test running.
 ## Test cases
 
-## Test case test_egress_vlan_outer_forward
+## Test case group 1
+- test_tagged_forwarded
+- test_untagged_forwarded
+- test_combined_tagged_forwarded
+- test_combined_untagged_forwarded
 
 ### Test objective
 
-Validate that packet is swithed if egress ACL rule with action forward is matched with Outer Vlan ID.
+Validate that packet is switched if ACL rule with action ```FORWARD``` is matched with Outer Vlan ID. The test cases will cover tagged, untagged and combined(tagged in one vlan and untagged in another vlan) mode.
 
 ### Test steps
-
-- Create UDP packet with single Vlan ID.
-- Send UDP packet from PTF to DUT.
-- Verify that PTF received UDP packet.
+#### Ingress
+- Create QinQ TCP packet with target vlan ID.
+- Send packet from PTF to one of the interface in vlan.
+- Verify that packet is switched to the other interface in vlan.
 - Verify that ACL counter for particular rule was incremented.
-
-## Test case test_ingress_vlan_outer_forward
+#### Egress
+- Create TCP packet with dst_ip in vlan.
+- Send packet from PTF to one of the PortChannels on DUT.
+- Verify that packet is switched to the target interface in vlan.
+- Verify that ACL counter for particular rule was incremented.
+## Test case group 2
+- test_tagged_dropped
+- test_untagged_dropped
+- test_combined_tagged_dropped
+- test_combined_untagged_dropped
 
 ### Test objective
 
-Validate that packet is swithed if ingress ACL rule with action forward is matched with Outer Vlan ID.
+Validate that packet is dropped if ACL rule with action ```DROP``` is matched with Outer Vlan ID. The test cases will cover tagged, untagged and combined(tagged in one vlan and untagged in another vlan) mode.
 
 ### Test steps
 
-- Create QinQ packet or TCP packet with single Vlan ID in case of ipv6 traffic.
-- Send QinQ packet from PTF to DUT.
-- Verify that PTF received QinQ packet.
+#### Ingress
+- Create QinQ TCP packet with target vlan ID.
+- Send packet from PTF to one of the interface in vlan.
+- Verify that packet is not switched to the other interface in vlan.
+- Verify that ACL counter for particular rule was incremented.
+#### Egress
+- Create TCP packet with dst_ip in vlan.
+- Send packet from PTF to one of the PortChannels on DUT.
+- Verify that packet is not switched to the target interface in vlan.
 - Verify that ACL counter for particular rule was incremented.
 
-## Test case test_ingress_vlan_outer_drop
-
-### Test objective
-
-Validate that packet aren't switched if ingress ACL rule with action drop is matched with Outer_Vlan ID.
-
-### Test steps
-
-- Remove ingress ACL rule with action forward for vlan 200.
-- Create QinQ packet or TCP packet with single Vlan ID in case of ipv6 traffic.
-- Send QinQ packet from PTF to DUT.
-- Verify that QinQ packet wasn't switched to PTF.
-- Verify that ACL counter for particular rule was incremented.
-
-## Test case test_egress_vlan_outer_drop
-
-### Test objective
-
-Validate that packet aren't switched if egress ACL rule with action drop is matched with Outer Vlan ID.
-
-### Test set up
-- Delete previosly created Acl forward rule.
-
-### Test steps
-
-- Remove egress ACL rule with action forward for vlan 100.
-- Create UDP packet with single Vlan ID.
-- Send UDP packet from PTF to DUT.
-- Verify that UDP packet wasn't switched to PTF.
-- Verify that ACL counter for particular rule was incremented.
