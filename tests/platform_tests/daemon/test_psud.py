@@ -141,7 +141,8 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts, rand_one
     pytest_assert(not data['data'], "DB data is not cleared on daemon stop")
 
     duthost.start_pmon_daemon(daemon_name)
-    time.sleep(10)
+
+    wait_until(50, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -186,16 +187,15 @@ def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts, rand_one
     @summary: This test case is to check the psud killed unexpectedly (automatically restarted) status
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    skip_release(duthost, ["201811", "201911"])
+
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(daemon_status != expected_running_status,
-                          "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
-
-    time.sleep(10)
+    wait_until(120, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
