@@ -287,6 +287,21 @@ sonic_mlnx_4600C:
   hosts:
     str2-msn4600c-acs-01:
       ansible_host: 10.3.146.51
+      model: MSN4600-CS2FO
+      serial: MT2021X01037
+      base_mac: 1C:34:DA:1D:13:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2FO"
+        "0x23": "MT2021X01037"
+        "0x24": "1C:34:DA:1D:13:00"
+        "0x25": "05/28/2020 07:26:14"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2019.11-5.2.0020-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x41E7E224"
 
 sonic_mlnx_3800_50:
   vars:
