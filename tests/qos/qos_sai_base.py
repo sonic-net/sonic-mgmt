@@ -145,7 +145,7 @@ class QosSaiBase(QosBase):
         else:
             db = "4"
             keystr = "BUFFER_POOL|"
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
             pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
         else:
             pool = keystr + bufferProfile["pool"].encode("utf-8")
@@ -171,7 +171,7 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
             if self.isBufferInApplDb(dut_asic):
                 bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
                     None, "[]").replace("BUFFER_POOL_TABLE:",''
@@ -220,7 +220,7 @@ class QosSaiBase(QosBase):
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
             bufkeystr = "BUFFER_POOL|"
 
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
             bufferProfileName = dut_asic.run_redis_cmd(
                 argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
             )[0].encode("utf-8").translate(None, "[]")
@@ -289,7 +289,7 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
             wredProfileName = dut_asic.run_redis_cmd(
                 argv = [
                     "redis-cli", "-n", "4", "HGET",
@@ -345,7 +345,7 @@ class QosSaiBase(QosBase):
             Returns:
                 SchedulerParam (dict): Map of scheduler parameters
         """
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
             schedProfile = dut_asic.run_redis_cmd(
                 argv = [
                     "redis-cli", "-n", "4", "HGET",
