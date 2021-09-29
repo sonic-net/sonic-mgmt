@@ -1,0 +1,28 @@
+# Examples
+folder1/test_file1.py::test_case1:
+  skip:
+    reason: "skip file1/case1"
+    conditions:
+      - "release in ['master'] or asic_type=='vs'"
+      - https://github.com/Azure/sonic-mgmt/issues/1234
+      - https://github.com/Azure/sonic-mgmt/issues/1235
+folder1/test_file1.py::test_case2[2+4-6]:
+  skip:
+    reason: "test file1/case2[2+4-6] skip"
+folder1/test_file1.py:
+  fallback_mark:
+    reason: "For rest of the test cases in folder1/test_file1.py, add this fallback_mark unconditionally"
+folder2/test_file2.py::TestMarkers::test_case1:
+  xfail:
+    reason: "test file2/case1 xfail"
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/1235 and topo_name == 't1-lag'
+folder2/test_file2.py::TestMarkers::test_case2:
+  any_mark_is_supported:
+    reason: "Example for adding any mark to tests"
+    conditions: "build_number == 36262"
+folder3:
+  skip:
+    reason: "Skip all the test scripts under subfolder 'folder3'"
+
+# Add your own conditions below
