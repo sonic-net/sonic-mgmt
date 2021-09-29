@@ -3,9 +3,7 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.mask import Mask
-from collections import defaultdict
 
-import json
 import itertools
 import logging
 
@@ -52,7 +50,6 @@ def vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts):
     # when running on t0 we can use the portchannel members
     if config_portchannels:
         for po in config_portchannels.keys()[:2]:
-            port = config_portchannels[po]['members'][0]
             vlan_ports_list.append({
                 'dev' : po,
                 'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
