@@ -46,6 +46,5 @@
       state: stopped
     become: yes
     ignore_errors: yes
-    when: record_file_content.rc != 0
 
   when: mux_simulator_action == "stop"
