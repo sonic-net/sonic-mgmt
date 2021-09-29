@@ -241,6 +241,8 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
+        # Ignore case of keys in syseeprom_info
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
