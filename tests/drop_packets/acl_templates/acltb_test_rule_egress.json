@@ -1,0 +1,29 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "OUTDATAACL": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "192.168.144.0/24"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
