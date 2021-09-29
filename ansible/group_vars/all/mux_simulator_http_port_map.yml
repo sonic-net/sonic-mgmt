@@ -19,7 +19,7 @@ mux_simulator_http_port:
 
     # On server1
     dualtor-testbed-1: 8080
-    dualtor-testbed-1: 8082
+    dualtor-testbed-2: 8082
 
     # On server2
     dualtor-testbed-3: 8080
