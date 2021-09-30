@@ -68,7 +68,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
-    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3"]
+    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3","cisco-8000"]
 
     @pytest.fixture(params=["tor", "spine"])
     def dest_port_type(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, tbinfo, request):
@@ -421,6 +421,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
                 pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms".format(vendor,asic))
+
+        if vendor in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
+            pytest.skip("Skipping test since mirror policing is not supported on {0} platforms".format(asic))
 
         default_tarffic_port_type = "tor" if dest_port_type == "spine" else "spine"
         default_traffic_tx_port = setup_info[default_tarffic_port_type]["dest_port"][0]
