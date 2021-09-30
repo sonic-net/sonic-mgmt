@@ -96,10 +96,10 @@ def work(dut_mgmt_ip, commands, baselines):
 
         pytest_assert(duration < 3*baselines[command_ind], "Command {} took more than 3 times as long as baseline".format(commands[command_ind]))
 
-        # The commands are executed asyncronously. Reading from stdout will ensure that a command 
+        # The commands are executed asyncronously. Reading from stdout will ensure that a command
         # is not sent again on the same ssh connection before this one is done.
         stdout.readlines()
-        command_ind += 1 if not command_ind else -1 
+        command_ind += 1 if not command_ind else -1
 
     # Ran in case ACL is still loaded
     ssh.exec_command(REMOVE_ACL)
@@ -114,7 +114,7 @@ def run_post_test_system_check(init_mem, init_cpu, duthost):
         pytest_assert(max_mem-post_mem > 0.1, "Memory increased by more than 20 points during test and did not reduce from raised value\n\
                                               Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
         logging.warning("Memory usage did not reduce to original value after test. Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
-    
+
     if post_cpu-init_cpu >= 0.2:
         pytest_assert(max_cpu-post_cpu > 0.1, "CPU usage increased by more than 20 points during test and did not reduce from raised value\n\
                                               Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
@@ -131,9 +131,7 @@ def get_baseline_time(ssh, command):
     logging.info("Baseline time for command {} : {} seconds".format(command, tot_time/5))
     return tot_time/5
 
-# This test is not stable, skip it for now.
-# known issue: https://github.com/paramiko/paramiko/issues/1508
-@pytest.mark.skip(reason="This test failed intermittent due to known issue of paramiko, skip for now")
+
 def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     """This test creates several SSH connections that all run different commands. CPU/Memory are tracked throughout"""
     global done, max_mem, max_cpu
@@ -153,13 +151,13 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         (SHUTDOWN_INTERFACE, STARTUP_INTERFACE),
         (CONFIGURE_ACL, REMOVE_ACL),
         (ADD_ROUTE, REMOVE_ROUTE),
-        (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL)            
+        (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL)
     ]
 
     logging.info("Collecting baseline times for commands")
     ssh = start_SSH_connection(dut_mgmt_ip)
     baseline_times = [tuple((get_baseline_time(ssh, com) for com in pair)) for pair in command_pairs]
-    
+
     logging.info("Starting system monitoring thread.")
     # Starts thread that will be monitoring cpu and memory usage
     monitor_thread = threading.Thread(target=monitor_system, args=(duthost,))
@@ -218,6 +216,6 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
 
     done = True
     monitor_thread.join()
-    
+
     logging.info("Running post-test system check")
     run_post_test_system_check(init_mem, init_cpu, duthost)
