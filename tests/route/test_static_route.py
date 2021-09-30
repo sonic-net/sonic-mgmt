@@ -233,9 +233,6 @@ def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggl
                           nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
 
 
-# This test case may fail due to a known issue https://github.com/Azure/sonic-buildimage/issues/4930. 
-# Temporarily disabling the test case due to the this issue.
-@pytest.mark.skip(reason="Test case may fail due to a known issue")
 def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
