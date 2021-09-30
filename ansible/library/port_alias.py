@@ -236,7 +236,7 @@ def main():
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
         switchids = None
-        if 'switchids' in m_args and m_args['switchids'] != None:
+        if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
