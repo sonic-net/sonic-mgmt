@@ -151,6 +151,34 @@ def detect_lossless_traffic_pattern_keys(duthost):
     LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = True
 
 
+def load_lossless_headroom_data(duthost):
+    """Load test parameters from the json file. Called only once when the module is initialized
+
+    Args:
+        duthost: the DUT host object
+    """
+    global DEFAULT_LOSSLESS_HEADROOM_DATA
+    if not DEFAULT_LOSSLESS_HEADROOM_DATA:
+        dut_hwsku = duthost.facts["hwsku"]
+        dut_platform = duthost.facts["platform"]
+        skudir = "/usr/share/sonic/device/{}/{}/".format(dut_platform, dut_hwsku)
+        lines = duthost.shell('cat {}/pg_profile_lookup.ini'.format(skudir))["stdout"]
+        DEFAULT_LOSSLESS_HEADROOM_DATA = {}
+        for line in lines.split('\n'):
+            if line[0] == '#':
+                continue
+            tokens = line.split()
+            speed = tokens[0]
+            cable_length = tokens[1]
+            size = tokens[2]
+            xon = tokens[3]
+            xoff = tokens[4]
+            if not DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed):
+                DEFAULT_LOSSLESS_HEADROOM_DATA[speed] = {}
+            DEFAULT_LOSSLESS_HEADROOM_DATA[speed][cable_length] = {'size': size, 'xon': xon, 'xoff': xoff}
+        DEFAULT_LOSSLESS_HEADROOM_DATA = DEFAULT_LOSSLESS_HEADROOM_DATA
+
+
 def load_test_parameters(duthost):
     """Load test parameters from the json file. Called only once when the module is initialized
 
@@ -211,10 +239,12 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         detect_shared_headroom_pool_mode(duthost)
         detect_asic_table_keys(duthost)
         detect_lossless_traffic_pattern_keys(duthost)
+        load_lossless_headroom_data(duthost)
         load_test_parameters(duthost)
 
         logging.info("Cable length: default {}".format(DEFAULT_CABLE_LENGTH_LIST))
         logging.info("Ingress pool number {}".format(DEFAULT_INGRESS_POOL_NUMBER))
+        logging.info("Lossless headroom data {}".format(DEFAULT_LOSSLESS_HEADROOM_DATA))
 
         if enable_shared_headroom_pool and not DEFAULT_SHARED_HEADROOM_POOL_ENABLED:
             configure_shared_headroom_pool(duthost, True)
@@ -523,7 +553,8 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
 
     The following items are tested:
      - Whether the headroom information, like xoff, is correct.
-       This is tested by comparing with the returned value from function calculate_headroom_data
+       For version 202106 and before, this is tested by comparing with standard profile in pg_profile_lookup table
+       For version after 202106, this is tested by comparing with the returned value from function calculate_headroom_data
      - Whether the profile information in APPL_DB matches that in ASIC_DB
 
     Args:
@@ -539,14 +570,38 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     m = re.search(LOSSLESS_PROFILE_PATTERN, profile_name)
     if m:
         # This means it's a dynamic profile
-        ret, head_room_data = calculate_headroom_data(duthost, port_to_test)
-        if ret:
-            # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
-            pytest_assert(int(profile_appldb['xon']) == head_room_data['xon'] and int(profile_appldb['xoff']) == head_room_data['xoff']
-                          and (int(profile_appldb['size']) == head_room_data['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
-                          "Generated profile {} doesn't match the std profile {}".format(profile_appldb, head_room_data))
+        if check_qos_db_fv_reference_with_table(duthost) == True:
+            # SONiC version is 202106 and before, compare with standard profile in pg_profile_lookup table
+            speed = m.group(1)
+            cable_length = m.group(2)
+            std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
+            if std_profiles_for_speed:
+                std_profile = std_profiles_for_speed.get(cable_length)
+                if std_profile:
+                    # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                    pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff']
+                                  and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                                  "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
+                else:
+                    for std_cable_len, std_profile in std_profiles_for_speed.items():
+                        if int(std_cable_len[:-1]) > int(cable_length[:-1]):
+                            pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
+                                          "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
+                        else:
+                            pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
+                                          "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
+            else:
+                logging.info("Skip headroom checking because headroom information is not provided for speed {}".format(speed))
         else:
-            logging.info("Skip headroom checking because headroom information is not provided for speed {}".format(speed))
+            # SONiC version is after 202106, compare with the returned value from function calculate_headroom_data
+            ret, head_room_data = calculate_headroom_data(duthost, port_to_test)
+            if ret:
+                # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                pytest_assert(int(profile_appldb['xon']) == head_room_data['xon'] and int(profile_appldb['xoff']) == head_room_data['xoff']
+                              and (int(profile_appldb['size']) == head_room_data['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                              "Generated profile {} doesn't match the std profile {}".format(profile_appldb, head_room_data))
+            else:
+                logging.info("Skip headroom checking because headroom information is not able to be calculated for speed {}".format(speed))
 
     profiles_in_asicdb = set(duthost.shell('redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
     diff = profiles_in_asicdb - initial_profiles
