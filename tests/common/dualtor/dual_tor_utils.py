@@ -126,6 +126,10 @@ def get_t1_ptf_ports_for_backend_topo(mg_facts):
     """
     In backend topology, there isn't any port channel between T0 and T1,
     we use sub interface instead.
+    Args:
+        mg_facts (dict): mg_facts
+    Returns:
+        list: ptf t1 ports, e.g. ['eth10', 'eth11']
     """
     ptf_portmap = mg_facts['minigraph_ptf_indices']
 
