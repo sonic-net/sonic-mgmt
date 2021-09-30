@@ -5,7 +5,6 @@ import pytest
 import yaml
 import re
 
-import ptf.packet as packet
 import ptf.testutils as testutils
 
 from collections import defaultdict
@@ -28,9 +27,6 @@ NAMESPACE_PREFIX = "sudo ip netns exec {} "
 NAMESPACE_SUFFIX = "-n {} "
 GET_L2_COUNTERS = "portstat -j "
 GET_L3_COUNTERS = "intfstat -j "
-ACL_COUNTERS_UPDATE_INTERVAL = 10
-LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
-LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 LOG_EXPECT_PORT_ADMIN_DOWN_RE = ".*Configure {} admin status to down.*"
 LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
@@ -92,48 +88,8 @@ def parse_combined_counters(duthosts, rand_one_dut_hostname):
                     break
 
 
-@pytest.fixture
-def acl_setup(duthosts, loganalyzer):
-    """ Create acl rule defined in config file. Delete rule after test case finished """
-    for duthost in duthosts:
-        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-        if 'DATAACL' not in acl_facts.keys():
-            pytest.skip("Skipping test since DATAACL table is not supported on this platform")
-
-        base_dir = os.path.dirname(os.path.realpath(__file__))
-        template_dir = os.path.join(base_dir, 'acl_templates')
-        acl_rules_template = "acltb_test_rule.json"
-        del_acl_rules_template = "acl_rule_del.json"
-        dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
-
-        duthost.command("mkdir -p {}".format(dut_tmp_dir))
-        dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
-        dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
-
-        logger.info("Generating config for ACL rule, ACL table - DATAACL")
-        duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path)
-        logger.info("Generating clear config for ACL rule, ACL table - DATAACL")
-        duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
-
-        logger.info("Applying {}".format(dut_conf_file_path))
-
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-        with loganalyzer[duthost.hostname]:
-            duthost.command("config acl update full {}".format(dut_conf_file_path))
-
-    yield
-
-    for duthost in duthosts:
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        with loganalyzer[duthost.hostname]:
-            logger.info("Applying {}".format(dut_clear_conf_file_path))
-            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
-            logger.info("Removing {}".format(dut_tmp_dir))
-            duthost.command("rm -rf {}".format(dut_tmp_dir))
-            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
-
-
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None, skip_counter_check=False):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None,
+                      skip_counter_check=False, drop_information=None):
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -177,7 +133,8 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
         acl_drops = 0
         for duthost in duthosts:
-            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]["RULE_1"]["packets_count"]
+            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][
+                drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
         if acl_drops != PKT_NUMBER:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}".format(
                 tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER
@@ -254,7 +211,8 @@ def check_if_skip():
 
 @pytest.fixture(scope='module')
 def do_test(duthosts):
-    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None, comparable_pkt=None, skip_counter_check=False):
+    def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,
+                         comparable_pkt=None, skip_counter_check=False, drop_information=None):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -266,7 +224,8 @@ def do_test(duthosts):
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
-        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports, skip_counter_check=skip_counter_check)
+        base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
+                          skip_counter_check=skip_counter_check, drop_information=drop_information)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -308,39 +267,6 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname
         )
 
         do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
-
-
-def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, acl_setup, ports_info):
-    """
-    @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL and ACL drop counter incremented
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-    if 'DATAACL' not in acl_facts.keys():
-        pytest.skip("Skipping test since DATAACL table is not supported on this platform")
-
-    if tx_dut_ports[ports_info["dut_iface"]] not in acl_facts["DATAACL"]["ports"]:
-        pytest.skip("RX DUT port absent in 'DATAACL' table")
-
-    ip_src = "20.0.0.5"
-
-    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
-
-    pkt = testutils.simple_tcp_packet(
-        eth_dst=ports_info["dst_mac"], # DUT port
-        eth_src=ports_info["src_mac"], # PTF port
-        ip_src=ip_src,
-        ip_dst=pkt_fields["ipv4_dst"],
-        tcp_sport=pkt_fields["tcp_sport"],
-        tcp_dport=pkt_fields["tcp_dport"]
-        )
-    asic_index = ports_info["asic_index"]
-    base_verification("ACL", pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports)
-
-    # Verify packets were not egresed the DUT
-    exp_pkt = expected_packet_mask(pkt)
-    exp_pkt.set_do_not_care_scapy(packet.IP, 'ip_src')
-    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["neighbor_sniff_ports"])
 
 
 def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
