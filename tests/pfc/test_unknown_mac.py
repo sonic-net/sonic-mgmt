@@ -164,8 +164,6 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
     # Wait 5 seconds for secondary ARP before proceeding to clear FDB
     time.sleep(5)
 
-    yield
-
     logger.info("Clean up all ips on the PTF")
     ptfhost.script("./scripts/remove_ip.sh")
 
