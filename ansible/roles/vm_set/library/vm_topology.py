@@ -260,6 +260,9 @@ class VMTopology(object):
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(vm_bridges)))
 
         self._is_multi_duts = True if len(self.duts_name) > 1 else False
+        # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
+        self._is_cable = True if len(self.duts_name) > 1 and 'VMs' not in self.topo else False
+
         if 'host_interfaces' in self.topo:
             self.host_interfaces = self.topo['host_interfaces']
         else:
@@ -772,7 +775,7 @@ class VMTopology(object):
         for dual-tor topo, create ovs port and add to ptf docker.
         """
         for i, intf in enumerate(self.host_interfaces):
-            if self._is_multi_duts:
+            if self._is_multi_duts and not self._is_cable:
                 if isinstance(intf, list):
                     # create veth link and inject one end into the ptf docker
                     # If host interface index is explicitly specified by "@x" (len(intf[0]==3), use host interface
@@ -791,6 +794,26 @@ class VMTopology(object):
                 else:
                     host_ifindex = intf[2] if len(intf) == 3 else i
                     fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][str(intf[1])]
+                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
+                    self.add_dut_if_to_docker(ptf_if, fp_port)
+            elif self._is_multi_duts and self._is_cable:
+                # Since there could be multiple ToR's in cable topology, some Ports
+                # can be connected to muxcable and some to a DAC cable. But it could
+                # be possible that not all ports have cables connected. So for whichever
+                # port link is connected and has a vlan associated, inject them to container
+                # with the enumeration in topo file
+                # essentially mux ports will map to one port and DAC ports will map to different
+                # ports in a dualtor setup. Here implicit is taken that
+                # interface index is explicitly specified by "@x" format
+                host_ifindex = intf[0][2]
+                if self.duts_fp_ports[self.duts_name[intf[0][0]]].get(str(intf[0][1])) is not None:
+                    fp_port = self.duts_fp_ports[self.duts_name[intf[0][0]]][str(intf[0][1])]
+                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
+                    self.add_dut_if_to_docker(ptf_if, fp_port)
+
+                host_ifindex = intf[1][2]
+                if self.duts_fp_ports[self.duts_name[intf[1][0]]].get(str(intf[1][1])) is not None:
+                    fp_port = self.duts_fp_ports[self.duts_name[intf[1][0]]][str(intf[1][1])]
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_dut_if_to_docker(ptf_if, fp_port)
             else:
