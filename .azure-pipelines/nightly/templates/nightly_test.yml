@@ -161,7 +161,7 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                set -x
+                set -ex
 
                 if [[ -z "$IMAGE_URL" ]]; then
                     echo "Skipping image upgrading ..."
@@ -231,7 +231,7 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                set -x
+                set -ex
 
                 if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
                     CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"

@@ -171,14 +171,14 @@ class HashTest(BaseTest):
         # ip_proto 2 is IGMP, should not be forwarded by router
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_ports = [2, 253, 254]
+        skip_protos = [2, 253, 254]
         if ipv6:
             # Skip ip_proto 0 for IPv6
-            skip_ports.append(0)
+            skip_protos.append(0)
 
         while True:
             ip_proto = random.randint(0, 255)
-            if ip_proto not in skip_ports:
+            if ip_proto not in skip_protos:
                 return ip_proto
 
     def check_ipv4_route(self, hash_key, src_port, dst_port_list):

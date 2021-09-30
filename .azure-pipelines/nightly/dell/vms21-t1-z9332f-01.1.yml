@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 4 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -71,7 +71,7 @@ parameters:
     type: string
     default: '-S "sub_port_interfaces"'
     displayName: Testbed specific
-    
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:

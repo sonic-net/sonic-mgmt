@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 6 2-30/2 * *"
+  - cron: "0 6 2-30/2 * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -39,6 +39,10 @@ parameters:
     default: '-I "platform_tests"'
     displayName: Testbed specific
 
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1380    # minutes, totally 23 hours
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -46,3 +50,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}

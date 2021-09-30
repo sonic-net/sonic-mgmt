@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 4 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -63,9 +63,9 @@ parameters:
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded \
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded \
               platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json \
-              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json"           
+              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json"
     displayName: "Skip Scripts"
-  
+
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
