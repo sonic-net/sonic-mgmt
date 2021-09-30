@@ -1,0 +1,39 @@
+drop_packets/test_drop_counters.py::test_loopback_filter:
+  # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
+  # Default SONiC behavior is to forward the traffic, so loop-back filter does not triggers for IP packets.
+  # All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
+  # To enable loop-back filter drops - need to disable that attribute when create RIF.
+  # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
+  skip:
+    reason: "SONiC can't enable loop-back filter feature"
+
+platform_tests/test_sequential_restart.py::test_restart_syncd:
+  skip:
+    reason: "Restarting syncd is not supported yet"
+
+platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
+  skip:
+    reason: "Command not yet merged into sonic-utilites"
+
+qos/test_pfc_pause.py::test_pfc_pause_lossless:
+  # For this test, we use the fanout connected to the DUT to send PFC pause frames.
+  # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
+  # of the test. The inter packet interval between PFC frames to completely block a queue vary based on link speed and
+  # we have seen flakiness in our test runs. Since this test is already covered under the 'ixia' folder where we use a
+  # traffic generator to generate pause frames, skipping this here.
+  skip:
+    reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
+
+route/test_static_route.py::test_static_route_ecmp_ipv6:
+  # This test case may fail due to a known issue https://github.com/Azure/sonic-buildimage/issues/4930.
+  # Temporarily disabling the test case due to the this issue.
+  skip:
+    reason: "Test case may fail due to a known issue"
+    conditions: https://github.com/Azure/sonic-buildimage/issues/4930
+
+ssh/test_ssh_stress.py::test_ssh_stress:
+  # This test is not stable, skip it for now.
+  # known issue: https://github.com/paramiko/paramiko/issues/1508
+  skip:
+    reason: "This test failed intermittent due to known issue of paramiko, skip for now"
+    conditions: https://github.com/paramiko/paramiko/issues/1508

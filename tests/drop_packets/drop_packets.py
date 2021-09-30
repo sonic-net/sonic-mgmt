@@ -689,12 +689,6 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-# Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
-# Default SONiC behaviour is to forward the traffic, so loop-back filter does not triggers for IP packets.
-# All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
-# To enable loop-back filter drops - need to disable that attribute when create RIF.
-# To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
-@pytest.mark.skip(reason="SONiC can't enable loop-back filter feature")
 def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet drops by loopback-filter. Loop-back filter means that route to the host
@@ -732,7 +726,7 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
-    
+
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
