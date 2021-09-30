@@ -532,7 +532,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
+        if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 

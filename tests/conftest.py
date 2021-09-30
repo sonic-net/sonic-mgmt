@@ -165,6 +165,15 @@ def pytest_addoption(parser):
         "--metadata_process", action="store_true", default=True, help="Upgrade using metadata procedure"
     )
 
+    #####################################
+    # SONiC Upgrade test with tcam hole #
+    #####################################
+
+    parser.addoption(
+        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
