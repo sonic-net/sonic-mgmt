@@ -145,8 +145,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_i
 def tearDown(duthost, ptfhost):
 
     logger.info("VLAN test ending ...")
-    logger.info("Stop arp_responder")
-    ptfhost.command('supervisorctl stop arp_responder')
 
     config_reload(duthost)
 
