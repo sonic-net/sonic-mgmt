@@ -139,10 +139,10 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_i
         yield
     # --------------------- Teardown -----------------------
     finally:
-        tearDown(duthost, ptfhost)
+        tearDown(duthost)
 
 
-def tearDown(duthost, ptfhost):
+def tearDown(duthost):
 
     logger.info("VLAN test ending ...")
 
