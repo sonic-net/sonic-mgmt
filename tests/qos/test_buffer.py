@@ -1988,14 +1988,11 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
 
     over_subscribe_ratio = 0
     peer_response_time = 0
-    port_mtu = 9100
+    port_mtu = 0
     gearbox_delay = 0
     is_8lane = False
     shp_enabled = False
 
-    appl_db = "0"
-    config_db = "4"
-    state_db = "6"
     head_room_data = {}
 
     # Init pause_quanta_per_speed_dict
@@ -2027,7 +2024,6 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         return False, None
 
     # Determine gearbox_delay with platform name, so far only MSN3800 has gear_box installed
-    dut_platform = duthost.facts["platform"]
     if duthost.facts["platform"] not in ["x86_64-mlnx_msn3800-r0"]:
         gearbox_delay = 0
     else:
