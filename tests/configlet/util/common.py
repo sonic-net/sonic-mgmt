@@ -23,6 +23,7 @@ running_in_switch = False
 
 #
 # App-DB/"LLDP_ENTRY_TABLE" is very dynamic -- not a candidate for comparison
+# link-local IPv6 addresses starts with "fe80:" are skipped from comparison
 #
 scan_dbs = {
         "config-db": {
@@ -34,7 +35,12 @@ scan_dbs = {
         "app-db": {
             "db_no": 0,
             "keys_to_compare": set(),
-            "keys_to_skip_comp": {"LLDP_ENTRY_TABLE", "NEIGH_TABLE:eth0", "NEIGH_TABLE_DEL_SET"},
+            "keys_to_skip_comp": {
+                "LLDP_ENTRY_TABLE",
+                "NEIGH_TABLE:eth0",
+                "NEIGH_TABLE_DEL_SET",
+                "ROUTE_TABLE:fe80:",
+                "ROUTE_TABLE:FE80:"},
             "keys_skip_val_comp": set()
             },
         "state-db": {
@@ -161,6 +167,7 @@ def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):
 
     db_write = {}
     for k in db_read:
+        # Transient keys start with "_"; Hence skipped
         if ((not k.startswith("_")) and (not match_key(k, keys_skip_cmp))):
             db_write[k] = {} if match_key(k, keys_skip_val) else db_read[k]
 
@@ -206,6 +213,7 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     mismatch_cnt = 0
     orig_data = {}
     clet_data = {}
+    msg = ""
 
     fname = "{}.json".format(db_name)
     with open(os.path.join(orig_db_dir, fname), "r") as s:
@@ -225,6 +233,8 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     for k in diff:
         log_error("{}: Missing key: {}".format(fname, k))
         mismatch_cnt += 1
+        if not msg:
+            msg = "Missing key: {}".format(k)
 
     diff = clet_keys - orig_keys
     for k in diff:
@@ -233,35 +243,48 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     for k in orig_keys.intersection(clet_keys):
         if orig_data[k] != clet_data[k]:
             if orig_data[k]["type"] != clet_data[k]["type"]:
-                log_error("{}: mismatch key:{} type:{}".format(
-                    fname, orig_data[k]["type"], clet_data[k]["type"]))
+                log_error("{}: mismatch key:{} type:{} != {}".format(
+                    fname, k, orig_data[k]["type"], clet_data[k]["type"]))
                 mismatch_cnt += 1
+                if not msg:
+                    msg = "mismatch key:{} type:{} != {}".format(
+                            k, orig_data[k]["type"], clet_data[k]["type"])
+
 
             if not cmp_value(orig_data[k]["value"], clet_data[k]["value"]):
                 log_error("{}: mismatch key:{} {} != {}".format(
                     fname, k, orig_data[k]["value"], clet_data[k]["value"]))
                 mismatch_cnt += 1
+                if not msg:
+                    msg = "mismatch key:{} value:{} != {}".format(
+                            k, orig_data[k]["value"], clet_data[k]["value"])
 
     if not mismatch_cnt:
         log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
     else:
         log_info("{} compare failed orig={} clet={} mismatch_cnt={}".format(
             db_name, orig_db_dir, clet_db_dir, mismatch_cnt))
-    return mismatch_cnt
+    if msg:
+        msg = "{}: {}".format(db_name, msg)
+    return mismatch_cnt, msg
 
 
 def compare_dumps(orig_db_dir, clet_db_dir):
     mismatch_cnt = 0
+    ret_msg = ""
     for db_name in scan_dbs:
-        mismatch_cnt += cmp_dump(db_name, orig_db_dir, clet_db_dir)
-    return mismatch_cnt
+        cnt, msg = cmp_dump(db_name, orig_db_dir, clet_db_dir)
+        mismatch_cnt += cnt
+        if not ret_msg:
+            ret_msg = msg
+    return mismatch_cnt, ret_msg
     
 
 def main():
     set_print()
     print("Calling compare dumps")
-    ret = compare_dumps("logs/AddRack/orig", "logs/AddRack/clet")
-    print("ret = {}".format(ret))
+    ret, msg = compare_dumps("logs/AddRack/orig", "logs/AddRack/clet")
+    print("ret = {} msg={}".format(ret, msg))
 
 if __name__ == "__main__":
     main()

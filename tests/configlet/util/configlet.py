@@ -27,6 +27,27 @@ def get_pfc_time():
     return ret
 
 
+def get_vlan_sub_interface():
+    global tor_data, sonic_local_ports
+
+    ret = []
+
+    port = list(sonic_local_ports)[0] + ".10"
+    port_ip = port + "|" + tor_data["ip"]["local"] + "/31"
+    port_ip6 = port + "|" + tor_data["ipv6"]["local"] + "/126"
+
+    ret.append({
+        "VLAN_SUB_INTERFACE": {
+            port: {
+                "admin_status": "up"
+            },
+            port_ip: {},
+            port_ip6: {} }
+        })
+    log_debug("clet: get_vlan_sub_interface: {}".format(str(ret)))
+    return ret
+
+
 def get_port_channel():
     global tor_data
 
@@ -146,7 +167,7 @@ def get_device_info():
     return ret
 
 
-def get_port_related_data(is_mlnx):
+def get_port_related_data(is_mlnx, is_storage_backend):
     ret = []
     cable = {}
     queue = {}
@@ -217,9 +238,13 @@ def get_port_related_data(is_mlnx):
                 "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
                 "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
                 "pfc_enable": "3,4",
-                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
-                "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]"
+                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]"
                 }
+
+        if is_storage_backend:
+            qos[local_port]["dot1p_to_tc_map"] = "[DOT1P_TO_TC_MAP|AZURE]"
+        else:
+            qos[local_port]["dscp_to_tc_map"]  = "[DSCP_TO_TC_MAP|AZURE]"
 
         if is_mlnx:
             qos[local_port]["pfc_to_pg_map"] = "[PFC_PRIORITY_TO_PRIORITY_GROUP_MAP|AZURE]"
@@ -276,18 +301,21 @@ def write_out(lst, tmpdir):
     managed_files["configlet"] = fpath
 
 
-def main(tmpdir, is_mlnx):
+def main(tmpdir, is_mlnx, is_storage_backend):
     global sonic_local_ports
     ret = []
 
     _, sonic_local_ports = strip.get_local_ports()
 
     ret += update_port()
-    ret += add_interface()
-    ret += get_port_channel()
+    if not is_storage_backend:
+        ret += add_interface()
+        ret += get_port_channel()
+    else:
+        ret += get_vlan_sub_interface()
     ret += get_acl()
     ret += get_device_info()
-    ret += get_port_related_data(is_mlnx)
+    ret += get_port_related_data(is_mlnx, is_storage_backend)
     ret += get_bgp_neighbor()
 
     write_out(ret, tmpdir)

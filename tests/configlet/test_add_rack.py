@@ -192,7 +192,7 @@ def chk_bgp_session(duthost, ip, msg):
             "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
 
 
-def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
+def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -210,7 +210,8 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     download_sonic_files(duthost, files_dir)
 
     # Create minigraph w/o a T0 & configlet, apply & take dump
-    files_create.do_run(duthost.facts["asic_type"] == "mellanox")
+    files_create.do_run(is_mlnx = duthost.facts["asic_type"] == "mellanox",
+            is_storage_backend = 'backend' in tbinfo['topo']['name'])
 
     # Ensure BGP session is up before we apply stripped minigraph
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
@@ -219,8 +220,8 @@ def test_add_rack(configure_dut, duthosts, rand_one_dut_hostname):
     apply_clet(duthost, rand_one_dut_hostname)
     take_DB_dumps(duthost, duthost_name, clet_db_dir, data_dir)
 
-    ret = compare_dumps(orig_db_dir, clet_db_dir)
-    assert not ret, "Failed to compare dumps"
+    ret, msg = compare_dumps(orig_db_dir, clet_db_dir)
+    assert not ret, "Failed to compare: " + msg
 
     # Ensure BGP session is up
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
