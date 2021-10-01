@@ -220,6 +220,12 @@ class ParseTestbedTopoinfo():
                 vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(topo_definition, po_map, dut_num, 'VMs')
 
+        if 'cable' in topo_name:
+            dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
+            vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
+            vm_topo_config['dut_asn'] = dut_asn
+
+
         for asic in asic_definition:
             po_map_asic = [None] * 16   # maximum 16 port channel interfaces
             asic_topo_config[asic] = dict()
