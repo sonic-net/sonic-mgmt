@@ -354,7 +354,7 @@ def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbin
 
 
 @pytest.fixture()
-def print_logs(duthosts, rand_one_dut_hostname):
+def capture_interface_counters(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     logging.info("Run commands to print logs")
 
