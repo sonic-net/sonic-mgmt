@@ -90,7 +90,7 @@ def load_dut_basic_facts(session):
 
         dut_name = tbinfo['duts'][0]
         inv_name = tbinfo['inv_name']
-        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_name, dut_name)
+        ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
