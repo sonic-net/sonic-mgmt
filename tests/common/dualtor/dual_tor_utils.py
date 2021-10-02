@@ -133,19 +133,16 @@ def get_t1_ptf_ports_for_backend_topo(mg_facts):
     """
     ptf_portmap = mg_facts['minigraph_ptf_indices']
 
-    intfs = list()
-    ports = list()
+    ports = set()
     for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
         sub_intf_name = vlan_sub_interface['attachto']
-        if sub_intf_name in intfs:
-            continue
         vlan_id = vlan_sub_interface['vlan']
         intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
 
         ptf_port_index = ptf_portmap[intf_name]
-        ports.append("eth{}".format(ptf_port_index))
+        ports.add("eth{}".format(ptf_port_index))
 
-    return ports
+    return list(ports)
 
 
 def get_t1_ptf_pc_ports(dut, tbinfo):
