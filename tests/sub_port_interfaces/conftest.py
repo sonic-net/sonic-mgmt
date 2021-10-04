@@ -12,6 +12,7 @@ from tests.common.utilities import wait_until
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
+from sub_ports_helpers import TUNNEL_TEMPLATE
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_member_from_vlan
 from sub_ports_helpers import get_port
@@ -229,8 +230,9 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
                                   sub_ports[next_hop_sub_port]['neighbor_port'],
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
 
-            add_static_route(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
-            add_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+            if 'tunneling' not in request.node.name:
+                add_static_route(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
+                add_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
@@ -245,8 +247,11 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
         for next_hop_sub_port in next_hop_sub_ports:
             sub_port, name_of_namespace = next_hop_sub_port
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
-            remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
-            remove_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+
+            if 'tunneling' not in request.node.name:
+                remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
+                remove_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+
             remove_namespace(ptfhost, name_of_namespace)
 
 
@@ -380,6 +385,42 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
 
     if 'svi' in request.param:
         remove_vlan(duthost, vlan_id)
+
+
+@pytest.fixture()
+def apply_tunnel_table_to_dut(duthost, apply_route_config):
+    """
+    Apply tunnel configuration on the DUT and remove after tests
+
+    Args:
+        duthost: DUT host object
+        apply_route_config: Fixture for applying route configuration on the PTF
+    """
+    tunnel_addr_list = []
+
+    new_sub_ports = apply_route_config['new_sub_ports']
+    sub_ports = apply_route_config['sub_ports']
+
+    for src_port in new_sub_ports:
+        tunnel_ip = sub_ports[src_port]['ip'].split('/')[0]
+        tunnel_addr_list.append(tunnel_ip)
+
+    tunnel_vars = {
+        'tunnel_addr_list': tunnel_addr_list
+    }
+
+    tunnel_config_path = os.path.join(DUT_TMP_DIR, TUNNEL_TEMPLATE)
+    config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, TUNNEL_TEMPLATE)).read())
+
+    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+    duthost.copy(content=config_template.render(tunnel_vars), dest=tunnel_config_path)
+    duthost.command('sonic-cfggen -j {} --write-to-db'.format(tunnel_config_path))
+
+    yield
+
+    # Teardown
+    for index in range(1, len(tunnel_addr_list)+1):
+        duthost.command('docker exec -i database redis-cli -n 4 -c DEL "TUNNEL|MuxTunnel{}"'.format(index))
 
 
 @pytest.fixture
