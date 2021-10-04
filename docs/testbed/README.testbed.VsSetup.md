@@ -371,3 +371,11 @@ If neighbor devices are SONiC
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
+
+## Restore/Remove the testing environment
+If you want to clear your testing environment, you can log into your mgmt docker that you created at step three in section [README.testbed.VsSetup.md#prepare-testbed-host](README.testbed.VsSetup.md#prepare-testbed-host).
+
+Then run command:
+```
+./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt
+```
