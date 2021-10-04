@@ -131,12 +131,14 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
         if len(nexthops) == 0:
             logger.info("Failed to find route to DHCP server '{0}'".format(dhcp_server))
             return False
-        else:
-            for route in nexthops:
-                route_dst_ip = route[0]
-                if route_dst_ip == ipaddress.ip_address(default_gw_ip):
-                    logger.info("Found route to DHCP server via default GW(MGMT interface)")
-                    return False
+        if len(nexthops) == 1:
+            # if only 1 route to dst available - check that it's not default route via MGMT iface
+            route_index_in_list = 0
+            ip_dst_index = 0
+            route_dst_ip = nexthops[route_index_in_list][ip_dst_index]
+            if route_dst_ip == ipaddress.ip_address(default_gw_ip):
+                logger.info("Found route to DHCP server via default GW(MGMT interface)")
+                return False
     return True
         
 
