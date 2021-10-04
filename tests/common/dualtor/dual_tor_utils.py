@@ -16,13 +16,14 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf
 import ipaddress
 
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common import constants
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
@@ -121,6 +122,29 @@ def map_hostname_to_tor_side(tbinfo, hostname):
         return None
 
 
+def get_t1_ptf_ports_for_backend_topo(mg_facts):
+    """
+    In backend topology, there isn't any port channel between T0 and T1,
+    we use sub interface instead.
+    Args:
+        mg_facts (dict): mg_facts
+    Returns:
+        list: ptf t1 ports, e.g. ['eth10', 'eth11']
+    """
+    ptf_portmap = mg_facts['minigraph_ptf_indices']
+
+    ports = set()
+    for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
+        sub_intf_name = vlan_sub_interface['attachto']
+        vlan_id = vlan_sub_interface['vlan']
+        intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
+
+        ptf_port_index = ptf_portmap[intf_name]
+        ports.add("eth{}".format(ptf_port_index))
+
+    return list(ports)
+
+
 def get_t1_ptf_pc_ports(dut, tbinfo):
     """Gets the PTF portchannel ports connected to the T1 switchs."""
     config_facts = dut.get_running_config_facts()
@@ -141,8 +165,13 @@ def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
     '''
-    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
+    if is_backend_topology:
+        return get_t1_ptf_ports_for_backend_topo(mg_facts)
+
+    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
     # Always choose the first portchannel
     portchannel = sorted(pc_ports.keys())[0]
     ptf_portchannel_intfs = pc_ports[portchannel]
