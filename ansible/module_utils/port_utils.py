@@ -173,6 +173,15 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "32x100Gb":
+        for i in range(0, 32):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "36x100Gb":
+        for i in range(0, 36):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "64x100Gb":
+        for i in range(0, 64):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "msft_multi_asic_vs":
         if asic_id is not None and asic_id in namespace_list['front_ns']:
             asic_offset = int(asic_id) * 16
