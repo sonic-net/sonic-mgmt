@@ -110,6 +110,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
         dhcp_relay_data['uplink_mac'] = res['stdout']
+        dhcp_relay_data['default_gw_ip'] = mg_facts['minigraph_mgmt_interface']['gwaddr']
 
         dhcp_relay_data_list.append(dhcp_relay_data)
 
@@ -119,15 +120,23 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
     """Validate there is route on DUT to each DHCP server
     """
+    default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
         dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        if len(rtInfo["nexthops"]) == 0:
+        nexthops = rtInfo["nexthops"]
+        if len(nexthops) == 0:
             logger.info("Failed to find route to DHCP server '{0}'".format(dhcp_server))
             return False
+        else:
+            for route in nexthops:
+                route_dst_ip = route[0]
+                if route_dst_ip == ipaddress.ip_address(default_gw_ip):
+                    logger.info("Found route to DHCP server via default GW(MGMT interface)")
+                    return False
     return True
         
 
