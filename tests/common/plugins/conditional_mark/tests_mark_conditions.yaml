@@ -29,6 +29,17 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
 
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+  xfail:
+    reason: "Test flaky"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_master_led:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+      - "branch in ['internal-202012']"
+
 platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
   xfail:
     reason: "Image issue on Arista platforms"
@@ -38,6 +49,13 @@ platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   xfail:
     reason: "Test flaky"
+
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+      - "branch in ['internal-202012']"
 
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
