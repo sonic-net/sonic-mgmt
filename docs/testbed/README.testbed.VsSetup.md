@@ -260,6 +260,38 @@ Once the topology has been created, we need to give the DUT an initial configura
 ```
 ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
 ```
+Verify the DUT is created successfully
+In your host run
+```
+~$ virsh list
+ Id   Name      State
+-------------------------
+ 3    vlab-01   running
+ ```
+ Then you can try to login to your dut through the command and get logged in as shown below.
+ For more infomation about how to get the DUT IP address, please refer to doc 
+ [testbed.Example#access-the-dut](README.testbed.Example.Config.md#access-the-dut)
+ ```
+~$ ssh admin@10.250.0.101
+admin@10.250.0.101's password: 
+Linux vlab-01 4.19.0-12-2-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
+You are on
+  ____   ___  _   _ _  ____
+ / ___| / _ \| \ | (_)/ ___|
+ \___ \| | | |  \| | | |
+  ___) | |_| | |\  | | |___
+ |____/ \___/|_| \_|_|\____|
+
+-- Software for Open Networking in the Cloud --
+
+Unauthorized access and/or use are prohibited.
+All access and/or use are subject to monitoring.
+
+Help:    http://azure.github.io/SONiC/
+
+Last login: Thu Jul 29 03:55:53 2021 from 10.250.0.1
+admin@vlab-01:~$ exit
+```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 ```
