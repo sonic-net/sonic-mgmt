@@ -16,6 +16,7 @@
   - [test_vlan_config_impact](#Test-case-test_vlan_config_impact)
   - [test_routing_between_sub_ports](#Test-case-test_routing_between_sub_ports)
   - [test_routing_between_sub_ports_and_port](#Test-case-test_routing_between_sub_ports_and_port)
+  - [test_tunneling_between_sub_ports](#Test-case-test_tunneling_between_sub_ports)
 
 ## Revision
 
@@ -25,6 +26,7 @@
 | 0.2 |  02/23/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 | 0.3 |  03/18/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 | 0.4 |  06/09/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
+| 0.5 |  07/12/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 
 
 ## Overview
@@ -420,5 +422,81 @@ Example the customized testbed with applied T0 topo for test_routing_between_sub
 
 ### Test teardown
 
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+## Test case test_tunneling_between_sub_ports
+
+### Test objective
+
+Validates that encap-decap tunnel works over sub-port.
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+- apply_route_config fixture(scope="function"): add sub-ports to namespace on the PTF
+- apply_tunnel_table_to_dut fixture(scope="function"): apply tunnel configuration on the DUT and remove after tests
+
+Example the customized testbed with applied T0 topo for test_tunneling_between_sub_ports test case:
+##### Tunneling between sub-ports on the same port
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|══════════╗                      |
+  ║   |   _______║    DUT   _________   |
+  ║   |  [Ethernet4]       [Ethernet8]  |
+  ║   |__[_.10_.20_]_______[_.10_.20_]__|
+  ║      [  |    █ ]       [  |   |  ]
+  ║      [  |    █ ]       [  |   |  ]
+  ║ ┌────[──|─┐  █ ]  ┌────[──|─┐ |  ]
+  ║ │  __[__|_│__█_]__│____[__|_│_|__]__
+  ╚═│═|══[>.10│.20 ]  │    [.10 │.20 ]  |
+    │ |  [__eth1___]  │    [__eth2___]  |
+    │ |       │       │         │       |
+    │ |netns4 │       │  netns8 │       |
+    └─|───────┘       └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+##### Tunneling between sub-ports on different ports
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]______
+  ╔═══|════════════════════════════╗    |
+  ║   |   _________   DUT   _______║_   |
+  ║   |  [Ethernet4]       [Ethernet8]  |
+  ║   |__[_.10_.20_]_______[_.10_.20_]__|
+  ║      [  |   |  ]       [  |    █ ]
+  ║      [  |   |  ]       [  |    █ ]
+  ║ ┌────[──|─┐ |  ]  ┌────[──|─┐  █ ]
+  ║ │  __[__|_│_| _]__│____[__|_│__█_]__
+  ╚═│═|══[>.10│.20 ]  │    [.10 │.20 ]  |
+    │ |  [__eth1___]  │    [__eth2___]  |
+    │ |       │       │         │       |
+    │ |netns4 │       │  netns8 │       |
+    └─|───────┘       └─────────┘       |
+      |                                 |
+      |              PTF                |
+      |_________________________________|
+
+```
+### Test steps
+- Setup configuration of sub-ports on the DUT.
+- Setup configuration of sub-ports on the PTF.
+- Add one of the sub-ports to namespace on the PTF.
+- Setup tunnel configuration on sub-ports of the DUT.
+- Create encapsulated packet.
+- Send encapsulated packet from sub-port to sub-port in namespace on the PTF.
+- Verify that sub-port in namespace gets decapsulated packet on the PTF.
+- Remove namespaces from PTF.
+- Remove tunnel configuration from PTF.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+
+### Test teardown
 - reload_dut_config function: reload DUT configuration
 - reload_ptf_config function: remove all sub-ports configuration

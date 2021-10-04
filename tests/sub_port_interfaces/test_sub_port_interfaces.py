@@ -321,3 +321,39 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63,
                                             pktlen=pktlen)
+
+
+    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut, apply_route_config):
+        """
+        Validates that packets are routed between sub-ports.
+
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Add one of the sub-ports to namespace on the PTF.
+            4.) Setup tunnel configuration on sub-ports of the DUT.
+            5.) Create encapsulated packet.
+            6.) Send encapsulated packet from sub-port to sub-port in namespace on the PTF.
+            7.) Verify that sub-port in namespace gets decapsulated packet on the PTF.
+            8.) Remove namespaces from PTF.
+            9.) Remove tunnel configuration from PTF.
+            10.) Clear configuration of sub-ports on the DUT.
+            11.) Clear configuration of sub-ports on the PTF.
+
+        Pass Criteria: PTF port gets decapsulated packet from port in namespace on the PTF.
+        """
+        new_sub_ports = apply_route_config['new_sub_ports']
+        sub_ports = apply_route_config['sub_ports']
+
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
+            for sub_port, _ in next_hop_sub_ports:
+                generate_and_verify_traffic(duthost=duthost,
+                                            ptfadapter=ptfadapter,
+                                            src_port=sub_ports[src_port]['neighbor_port'],
+                                            ip_src=sub_ports[src_port]['neighbor_ip'],
+                                            dst_port=sub_ports[sub_port]['neighbor_port'],
+                                            ip_dst=sub_ports[sub_port]['neighbor_ip'],
+                                            ip_tunnel=sub_ports[src_port]['ip'],
+                                            pkt_action='fwd',
+                                            type_of_traffic=['decap',],
+                                            ttl=63)
