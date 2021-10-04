@@ -169,3 +169,18 @@
   dut:
     - vlab-01
   comment: Test ptf ANVL SONIC VM
+
+- conf-name: vms26-t2-8800-1
+  group-name: vms26-1
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: vms26-1
+  ptf_ip: 10.64.246.230/23
+  ptf_ipv6:
+  server: server_26
+  vm_base: VM2600
+  dut:
+    - lab-8800-lc0-1
+    - lab-8800-lc1-1
+    - lab-8800-sup-1
+  comment: Chasiss Testbed

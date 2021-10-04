@@ -1,7 +1,7 @@
-  <CpgDec>
+   <CpgDec>
+{% if card_type is not defined or card_type != 'supervisor' %}
     <IsisRouters xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     <PeeringSessions>
-{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
 {% if vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] %}
@@ -51,26 +51,26 @@
 {% endif %}
 {% endif %}
 {% endfor %}
-{% for asic in asic_topo_config %}
-{% for neigh_asic in  asic_topo_config[asic]['neigh_asic'] %}
-{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
+{% for asic,asic_config in asic_topo_config[slot_num|default('slot0')].items() %}
+{% for neigh_asic in  asic_config['neigh_asic'] %}
+{% if asic_config['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ asic }}</StartRouter>
-        <StartPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}</StartPeer>
+        <StartPeer>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}</StartPeer>
         <EndRouter>{{ neigh_asic }}</EndRouter>
-        <EndPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</EndPeer>
+        <EndPeer>{{ asic_config['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>0</HoldTime>
         <KeepAliveTime>0</KeepAliveTime>
       </BGPSession>
 {% endif %}
-{% if asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv6'][0] %}
+{% if asic_config['neigh_asic'][neigh_asic]['peer_ipv6'][0] %}
       <BGPSession>
         <StartRouter>{{ asic }}</StartRouter>
-        <StartPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}</StartPeer>
+        <StartPeer>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}</StartPeer>
         <EndRouter>{{ neigh_asic }}</EndRouter>
-        <EndPeer>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv6'][0] }}</EndPeer>
+        <EndPeer>{{ asic_config['neigh_asic'][neigh_asic]['peer_ipv6'][0] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>0</HoldTime>
         <KeepAliveTime>0</KeepAliveTime>
@@ -78,22 +78,21 @@
 {% endif %}
 {% endfor %} 
 {% endfor %}
-{% endif %}
-{% if switch_type is defined and switch_type == 'voq' %}
-{% set voq_peers = dict() %}
+{% if switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% set chassis_ibgp_peers = dict() %}
 {% for asic_id in range(num_asics) %}
 {% if num_asics == 1 %}
-{% set start_rtr = inventory_hostname %}
+{%  set start_rtr = inventory_hostname %}
 {% else %}
 {% set start_rtr = "ASIC" + asic_id|string %}
 {% endif %}
-{% for a_linecard in all_inbands %}
-{% for idx in range(all_inbands[a_linecard]|length) %}
-{% if voq_inband_ip[asic_id] != all_inbands[a_linecard][idx] %}
+{% for a_linecard in all_loopback4096 %}
+{% for idx in range(all_loopback4096[a_linecard]|length) %}
+{% if loopback4096_ip[asic_id] != all_loopback4096[a_linecard][idx] %}
       <BGPSession>
         <StartRouter>{{ start_rtr }}</StartRouter>
-        <StartPeer>{{ voq_inband_ip[asic_id].split('/')[0] }}</StartPeer>
-{% if all_inbands[a_linecard]|length == 1 %}
+        <StartPeer>{{ loopback4096_ip[asic_id].split('/')[0] }}</StartPeer>
+{% if all_loopback4096[a_linecard]|length == 1 %}
 {% set end_rtr = a_linecard %}
 {% else %}
 {% if a_linecard == inventory_hostname %}
@@ -102,13 +101,13 @@
 {% set end_rtr = a_linecard + "-ASIC" + idx|string %}
 {% endif %}
 {% endif %}
-{% set _ = voq_peers.update({ all_inbands[a_linecard][idx].split('/')[0] : end_rtr }) %}
+{% set _ = chassis_ibgp_peers.update({ all_loopback4096[a_linecard][idx].split('/')[0] : end_rtr }) %}
         <EndRouter>{{ end_rtr }}</EndRouter>
-        <EndPeer>{{ all_inbands[a_linecard][idx].split('/')[0] }}</EndPeer>
+        <EndPeer>{{ all_loopback4096[a_linecard][idx].split('/')[0] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>0</HoldTime>
         <KeepAliveTime>0</KeepAliveTime>
-        <VoQChassisInternal>true</VoQChassisInternal>
+        <ChassisInternal>{{ switch_type }}</ChassisInternal>
       </BGPSession>
 {% endif %}
 {% endfor %}
@@ -132,10 +131,10 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
-{% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
-{% for a_voq_peer in voq_peers %}
+{% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% for a_chassis_ibgp_peer in chassis_ibgp_peers %}
           <BGPPeer>
-            <Address>{{ a_voq_peer }}</Address>
+            <Address>{{ a_chassis_ibgp_peer }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -175,7 +174,7 @@
 {% endif %}
 {% endfor %}
 {% endif %}
-{% for asic in asic_topo_config %}
+{% for asic,asic_config in asic_topo_config[slot_num|default('slot0')].items() %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ asic }}</a:Hostname>
@@ -190,10 +189,10 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
-{% for neigh_asic in asic_topo_config %}
-{% if neigh_asic in asic_topo_config[asic]['neigh_asic'] and asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
+{% for neigh_asic in  asic_config['neigh_asic'] %}
+{% if neigh_asic in asic_config['neigh_asic'] and asic_config['neigh_asic'][neigh_asic]['peer_ipv4'][0] %}
           <BGPPeer>
-            <Address>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</Address>
+            <Address>{{ asic_config['neigh_asic'][neigh_asic]['peer_ipv4'][0] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -204,13 +203,13 @@
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% endfor %}
-{% if switch_type is defined and switch_type == 'voq' %}
-{% for a_linecard in all_inbands %}
+{% if switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% for a_linecard in all_loopback4096 %}
 {% if a_linecard != inventory_hostname %}
-{% for idx in range(all_inbands[a_linecard]|length) %}
+{% for idx in range(all_loopback4096[a_linecard]|length) %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
-        <a:Hostname>{{ voq_peers[all_inbands[a_linecard][idx].split('/')[0]] }}</a:Hostname>
+        <a:Hostname>{{ chassis_ibgp_peers[all_loopback4096[a_linecard][idx].split('/')[0]] }}</a:Hostname>
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% endfor %}
@@ -233,11 +232,11 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
-{% for a_linecard in all_inbands %}
-{% for idx in range(all_inbands[a_linecard]|length) %}
-{% if voq_inband_ip[asic_id] != all_inbands[a_linecard][idx] %}
+{% for a_linecard in all_loopback4096 %}
+{% for idx in range(all_loopback4096[a_linecard]|length) %}
+{% if loopback4096_ip[asic_id] != all_loopback4096[a_linecard][idx] %}
           <BGPPeer>
-            <Address>{{ all_inbands[a_linecard][idx] }}</Address>
+            <Address>{{ all_loopback4096[a_linecard][idx] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
@@ -251,5 +250,5 @@
 {% endif %}
 {% endif %}
     </Routers>
+{% endif %}
   </CpgDec>
-
