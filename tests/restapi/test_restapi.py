@@ -25,8 +25,8 @@ This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN membe
 '''
 def test_data_path(construct_url, vlan_members):
     # Create Default VxLan Tunnel
-    params = '{"ip_addr": "10.3.152.32"}'
-    logger.info("Creating Default VxLan Tunnel with ip_addr: 10.3.152.32")
+    params = '{"ip_addr": "10.1.0.32"}'
+    logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
     r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
     pytest_assert(r.status_code == 204)
 
@@ -100,22 +100,46 @@ def test_data_path(construct_url, vlan_members):
     # Add routes
     params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
                 {"cmd": "add", "ip_prefix": "101.0.20.5/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": "1c:34:da:72:b0:8a"}, \
-                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}]'
+                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.30.0/24", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}]'
     logger.info("Adding routes with vnid: 7036001 to VNET vnet-guid-2")
     r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 204)
 
     # Verify routes
+    # Add some delay before query
+    time.sleep(5)
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
                 {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32", "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.20.4/32", "vnid": 7036001}]
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
     for route in expected:
         pytest_assert(route in r.json())
     logger.info("Routes with vnid: 7036001 to VNET vnet-guid-2 have been added successfully")
+
+    # Add routes
+    params = '[{"cmd": "add", "ip_prefix": "100.0.50.4/24", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.70.0/16", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}]'
+    logger.info("Adding routes with incorrect CIDR addresses with vnid: 7036001 to VNET vnet-guid-2")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
+    pytest_assert(r.status_code == 207)
+
+    # Verify routes have not been added
+    # Add some delay before query
+    time.sleep(5)
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036001},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036001}]
+    for route in expected:
+        pytest_assert(route not in r.json())
+    logger.info("Routes with incorrect CIDR addresses with vnid: 7036001 to VNET vnet-guid-2 have not been added successfully")
 
 
     #
@@ -184,7 +208,8 @@ def test_data_path(construct_url, vlan_members):
     # Add routes
     params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}, \
                 {"cmd": "add", "ip_prefix": "101.0.20.5/32", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": "1c:34:da:72:b0:8a"}, \
-                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}]'
+                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.30.0/24", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}]'
     logger.info("Adding routes with vnid: 7036002 to VNET vnet-guid-3")
     r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-3', params)
     pytest_assert(r.status_code == 204)
@@ -196,10 +221,31 @@ def test_data_path(construct_url, vlan_members):
     logger.info(r.json())
     expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036002},
                 {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32", "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036002},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.20.4/32", "vnid": 7036002}]
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.20.4/32", "vnid": 7036002},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036002}]
     for route in expected:
         pytest_assert(route in r.json())
     logger.info("Routes with vnid: 3000 to VNET vnet-guid-3 have been added successfully")
+
+    # Add routes
+    params = '[{"cmd": "add", "ip_prefix": "100.0.50.4/24", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.70.0/16", "nexthop": "100.3.152.52", "vnid": 7036002, "mac_address": null}]'
+    logger.info("Adding routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-3', params)
+    pytest_assert(r.status_code == 207)
+
+    # Verify routes have not been added
+    # Add some delay before query
+    time.sleep(5)
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-3', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036002},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036002}]
+    for route in expected:
+        pytest_assert(route not in r.json())
+    logger.info("Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
 '''

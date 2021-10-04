@@ -5,7 +5,7 @@ import random
 import time
 import json
 import ptf
-from scapy.all import Ether, IP
+from scapy.all import Ether, IP, TCP
 import scapy.all as scapyall
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -16,13 +16,14 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf
 import ipaddress
 
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common import constants
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
@@ -121,6 +122,29 @@ def map_hostname_to_tor_side(tbinfo, hostname):
         return None
 
 
+def get_t1_ptf_ports_for_backend_topo(mg_facts):
+    """
+    In backend topology, there isn't any port channel between T0 and T1,
+    we use sub interface instead.
+    Args:
+        mg_facts (dict): mg_facts
+    Returns:
+        list: ptf t1 ports, e.g. ['eth10', 'eth11']
+    """
+    ptf_portmap = mg_facts['minigraph_ptf_indices']
+
+    ports = set()
+    for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
+        sub_intf_name = vlan_sub_interface['attachto']
+        vlan_id = vlan_sub_interface['vlan']
+        intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
+
+        ptf_port_index = ptf_portmap[intf_name]
+        ports.add("eth{}".format(ptf_port_index))
+
+    return list(ports)
+
+
 def get_t1_ptf_pc_ports(dut, tbinfo):
     """Gets the PTF portchannel ports connected to the T1 switchs."""
     config_facts = dut.get_running_config_facts()
@@ -141,8 +165,13 @@ def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
     '''
-    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
+    if is_backend_topology:
+        return get_t1_ptf_ports_for_backend_topo(mg_facts)
+
+    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
     # Always choose the first portchannel
     portchannel = sorted(pc_ports.keys())[0]
     ptf_portchannel_intfs = pc_ports[portchannel]
@@ -650,7 +679,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
     dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
-    pkt = testutils.simple_tcp_packet(pktlen=128,
+    send_pkt = testutils.simple_tcp_packet(pktlen=128,
                         eth_dst=dst_mac,
                         eth_src=src_mac,
                         dl_vlan_enable=False,
@@ -661,30 +690,31 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
                         tcp_sport=sport,
                         tcp_dport=dport,
                         ip_ttl=64)
-    exp_pkt = mask.Mask(pkt)
+    exp_pkt = mask.Mask(send_pkt)
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ihl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "len")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "id")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "flags")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "frag")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "proto")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
 
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "sport")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "seq")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "ack")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "reserved")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "dataofs")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "window")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "chksum")
-    exp_pkt.set_do_not_care_scapy(scapyall.TCP, "urgptr")
+    inner_packet = send_pkt[IP]
+    inner_packet.ttl = inner_packet.ttl - 1
+    exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+        eth_dst=dst_mac,
+        eth_src=src_mac,
+        ip_src="10.1.0.32",
+        ip_dst="10.1.0.33",
+        inner_frame=inner_packet
+    )
+    send_pkt.ttl = 64
+    exp_tunnel_pkt[TCP] = inner_packet[TCP]
+    exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
+    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
 
-    return pkt, exp_pkt
+    return send_pkt, exp_pkt, exp_tunnel_pkt
 
 
 def random_ip(begin, end):
@@ -695,7 +725,7 @@ def random_ip(begin, end):
     return str(ipaddress.ip_address(begin) + random.randint(0, length))
 
 
-def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_number=0, timeout=None, count=1):
+def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, ports=[], device_number=0, timeout=None, count=1):
     """
     Receive all packets on all specified ports and count how many expected packets were received.
     """
@@ -713,8 +743,9 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, ports=[], device_num
 
         result = testutils.dp_poll(ptfadapter, device_number=device_number, timeout=timeout)
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
-            if (result.port in ports and
-                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+            if ((result.port in ports) and
+                (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
+                ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
                 port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
                 packet_count += 1
                 if packet_count == count:
@@ -735,8 +766,11 @@ def check_nexthops_balance(rand_selected_dut,
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
-    for members in get_t1_ptf_pc_ports(rand_selected_dut, tbinfo).values():
-        for member in members:
+    expected_uplink_portchannels = list()
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    for pc, intfs in portchannel_ports.items():
+        expected_uplink_portchannels.append(pc)
+        for member in intfs:
             expected_uplink_ports.append(int(member.strip("eth")))
     logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
     logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
@@ -744,22 +778,24 @@ def check_nexthops_balance(rand_selected_dut,
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
     for _ in range(10000):
-        send_packet, exp_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
+        send_packet, exp_pkt, exp_tunnel_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter,
                                             exp_packet=exp_pkt,
+                                            exp_tunnel_pkt=exp_tunnel_pkt,
                                             ports=all_allowed_ports,
-                                            timeout=0.01,
+                                            timeout=0.1,
                                             count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
 
     logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    expect_packet_num = 10000 // nexthops_count
     for downlink_int in expected_downlink_ports:
-        expect_packet_num = 10000 // len(expected_downlink_ports)
+        # ECMP validation:
         pkt_num_lo = expect_packet_num * (1.0 - 0.25)
         pkt_num_hi = expect_packet_num * (1.0 + 0.25)
         count = port_packet_count.get(downlink_int, 0)
@@ -770,11 +806,26 @@ def check_nexthops_balance(rand_selected_dut,
 
     if len(downlink_ints) < nexthops_count:
         # Some nexthop is now connected to standby mux, and the packets will be sent towards portchanel ints
-        # Verify that the packets are also sent to uplinks (in case of standby MUX)
-        for uplink_int in expected_uplink_ports:
-            count = port_packet_count.get(uplink_int, 0)
-            logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
-            pt_assert(count > 0, "Packets not sent on uplink ports {}".format(uplink_int))
+        # Hierarchical ECMP validation (in case of standby MUXs):
+        # Step 1: Calculate total uplink share.
+        total_uplink_share = expect_packet_num * (nexthops_count - len(expected_downlink_ports))
+        # Step 2: Divide uplink share among all portchannels
+        expect_packet_num = total_uplink_share // len(expected_uplink_portchannels)
+        pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+        pkt_num_hi = expect_packet_num * (1.0 + 0.25)
+        # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
+        for pc, intfs in portchannel_ports.items():
+            count = 0
+            # Collect the packets count within a single portchannel
+            for member in intfs:
+                uplink_int = int(member.strip("eth"))
+                count = count + port_packet_count.get(uplink_int, 0)
+            logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
+            if count < pkt_num_lo or count > pkt_num_hi:
+                balance = False
+                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
+                    pc))
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
@@ -794,8 +845,12 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     vlan_name = list(vlan_table.keys())[0]
     vlan_mac = host.get_dut_iface_mac(vlan_name)
     router_mac = host.facts['router_mac']
+    mg_facts = host.get_extended_minigraph_facts(tbinfo)
+    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
+    eth_src = ptfadapter.dataplane.get_mac(0, tx_port)
     # Generate packets from server to a random IP address, which goes default routes
-    pkt = testutils.simple_ip_packet(eth_dst=vlan_mac,
+    pkt = testutils.simple_ip_packet(eth_src=eth_src,
+                                    eth_dst=vlan_mac,
                                     ip_src=server_ip,
                                     ip_dst=random_ip)
     # Generate packet forwarded to portchannels
@@ -824,8 +879,6 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
         rx_ports += v
     rx_ports = [int(x.strip('eth')) for x in rx_ports]
 
-    mg_facts = host.get_extended_minigraph_facts(tbinfo)
-    tx_port = mg_facts['minigraph_ptf_indices'][itfs]
     logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()

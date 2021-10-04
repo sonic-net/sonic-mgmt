@@ -4,30 +4,25 @@ import logging
 import constants
 
 from tests.common.utilities import wait
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.config_reload import config_force_option_supported
+from tests.common.reboot import reboot
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
 
 logger = logging.getLogger(__name__)
 
 
-def reboot_dut(dut, localhost, cmd, wait_time):
-    logger.info("Reboot dut using cmd='%s'" % cmd)
-    reboot_task, reboot_res = dut.command(cmd, module_async=True)
+def reboot_dut(dut, localhost, cmd):
+    logging.info('Reboot DUT to recover')
 
-    logger.info("Wait for DUT to go down")
-    try:
-        localhost.wait_for(host=dut.mgmt_ip, port=22, state="stopped", delay=10, timeout=300)
-    except RunAnsibleModuleFail as e:
-        logger.error("DUT did not go down, exception: " + repr(e))
-        if reboot_task.is_alive():
-            logger.error("Rebooting is not completed")
-            reboot_task.terminate()
-        logger.error("reboot result %s" % str(reboot_res.get()))
-        assert False, "Failed to reboot the DUT"
+    if 'warm' in cmd:
+        reboot_type = REBOOT_TYPE_WARM
+    elif 'fast' in cmd:
+        reboot_type = REBOOT_TYPE_FAST
+    else:
+        reboot_type = REBOOT_TYPE_COLD
 
-    localhost.wait_for(host=dut.mgmt_ip, port=22, state="started", delay=10, timeout=300)
-    wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
+    reboot(dut, localhost, reboot_type=reboot_type)
 
 
 def __recover_interfaces(dut, fanouthosts, result, wait_time):
@@ -68,7 +63,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
                 action = __recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = __recover_services(dut, result)
-            elif result['check_item'] in [ 'processes', 'bgp', 'mux_simulator' ]:
+            elif result['check_item'] in [ 'processes', 'bgp' ]:
                 action = 'config_reload'
             else:
                 action = 'reboot'
@@ -86,7 +81,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
         method    = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reboot"]:
-            reboot_dut(dut, localhost, method["cmd"], wait_time)
+            reboot_dut(dut, localhost, method["cmd"])
         else:
             __recover_with_command(dut, method['cmd'], wait_time)
 
@@ -100,6 +95,27 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
     if method["adaptive"]:
         adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time)
     elif method["reboot"]:
-        reboot_dut(dut, localhost, method["cmd"], wait_time)
+        reboot_dut(dut, localhost, method["cmd"])
     else:
         __recover_with_command(dut, method['cmd'], wait_time)
+
+
+def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
+    logger.info("Restoring neighbor VMs for {}".format(duthost))
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = mg_facts['minigraph_neighbors']
+    if vm_neighbors:
+        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+        for lag_name in lag_facts['names']:
+            nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+            peer_device   = vm_neighbors[nbr_intf]['name']
+            nbr_host = nbrhosts[peer_device]['host']
+            intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
+            # restore interfaces and portchannels
+            for intf in intf_list:
+                nbr_host.no_shutdown(intf)
+            asn = nbrhosts[peer_device]['conf']['bgp']['asn']
+            # start BGPd
+            nbr_host.start_bgpd()
+            # restore BGP session
+            nbr_host.no_shutdown_bgp(asn)

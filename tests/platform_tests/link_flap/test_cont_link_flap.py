@@ -53,12 +53,13 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        start_time_ipv4_route_counts = duthost.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
-        logging.info("IPv4 routes at start: %s", start_time_ipv4_route_counts)
-
-        # Record ipv6 route counts at start
-        start_time_ipv6_route_counts = duthost.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
-        logging.info("IPv6 routes at start %s", start_time_ipv6_route_counts)
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        totalsv4 = sumv4.get('Totals', {})
+        totalsv6 = sumv6.get('Totals', {})
+        start_time_ipv4_route_counts = totalsv4.get('routes', 0)
+        start_time_ipv6_route_counts = totalsv6.get('routes', 0)
+        logging.info("IPv4 routes: start {}, summary {}".format(start_time_ipv4_route_counts, sumv4))
+        logging.info("IPv6 routes: start {}, summary {}".format(start_time_ipv6_route_counts, sumv6))
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
@@ -81,13 +82,10 @@ class TestContLinkFlap(object):
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
-        # Make Sure all ipv4 routes are relearned with jitter of ~5
-        logging.info("IPv4 routes at start: %s", start_time_ipv4_route_counts)
-        pytest_assert(wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv4_route_counts, True), "Ipv4 routes are not equal after link flap")
-
-        # Make Sure all ipv6 routes are relearned with jitter of ~5
-        logging.info("IPv6 routes at start: %s", start_time_ipv6_route_counts)
-        pytest_assert(wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv6_route_counts), "Ipv6 routes are not equal after link flap")
+        # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
+        if not wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
+            endv4, endv6 = duthost.get_ip_route_summary()
+            pytest.fail("IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4, sumv6, endv4, endv6))
 
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]

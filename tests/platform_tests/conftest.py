@@ -9,11 +9,13 @@ from datetime import datetime
 
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.advanced_reboot_args import add_advanced_reboot_args
 from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from .args.normal_reboot_args import add_normal_reboot_args
-from .args.api_sfp_args import add_api_sfp_args
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -125,20 +127,48 @@ def get_report_summary(analyze_result, reboot_type):
     }
     return result_summary
 
+def get_kexec_time(duthost, messages, result):
+    reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
+    reboot_time = "N/A"
+    logging.info("FINDING REBOOT PATTERN")
+    for message in messages:
+        # Get timestamp of reboot - Rebooting string
+        if re.search(reboot_pattern, message):
+            logging.info("FOUND REBOOT PATTERN for {}".format(duthost.hostname))
+            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
+            continue
+    result["reboot_time"] = {
+        "timestamp": {"Start": reboot_time},
+    }
 
-def analyze_syslog(duthost, messages, result, offset_from_kexec):
+def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
+    derived_patterns = OTHER_PATTERNS.get("COMMON")
+    service_patterns = dict()
+    # get platform specific regexes
+    if is_broadcom_device(duthost):
+        derived_patterns.update(OTHER_PATTERNS.get("BRCM"))
+    elif is_mellanox_device(duthost):
+        derived_patterns.update(OTHER_PATTERNS.get("MLNX"))
+    # get image specific regexes
+    if "20191130" in duthost.os_version:
+        derived_patterns.update(OTHER_PATTERNS.get("201911"))
+        service_patterns.update(SERVICE_PATTERNS.get("201911"))
+    else:
+        derived_patterns.update(OTHER_PATTERNS.get("LATEST"))
+        service_patterns.update(SERVICE_PATTERNS.get("LATEST"))
+
     if not messages:
         logging.error("Expected messages not found in syslog")
         return None
-
-    reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
 
     def service_time_check(message, status):
         time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
         time = time.strftime(FMT)
         service_name = message.split(status + " ")[1].split()[0]
         service_name = service_name.upper()
+        if service_name == "ROUTER":
+            service_name = "RADV"
         service_dict = service_restart_times.get(service_name, {"timestamp": {}})
         timestamps = service_dict.get("timestamp")
         if status in timestamps:
@@ -148,21 +178,17 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
 
     reboot_time = "N/A"
     for message in messages:
-        # Get timestamp of reboot - Rebooting string
-        if re.search(reboot_pattern, message):
-            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
-            continue
         # Get stopping to started timestamps for services (swss, bgp, etc)
-        for status, pattern in SERVICE_PATTERNS.items():
+        for status, pattern in service_patterns.items():
             if re.search(pattern, message):
                 service_time_check(message, status)
                 break
         # Get timestamps of all other entities
-        for state, pattern in OTHER_PATTERNS.items():
+        for state, pattern in derived_patterns.items():
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
                 state_name = state.split("|")[0].strip()
-                if state_name + "|End" not in OTHER_PATTERNS.keys():
+                if state_name + "|End" not in derived_patterns.keys():
                     state_times = get_state_times(timestamp, state, offset_from_kexec)
                     offset_from_kexec.update(state_times)
                 else:
@@ -185,14 +211,15 @@ def analyze_syslog(duthost, messages, result, offset_from_kexec):
             timings["time_span"] = (datetime.strptime(timestamps["Started"], FMT) -\
                 datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
-            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
-                datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            if "last_occurence" in timings:
+                timings["time_span"] = (datetime.strptime(timings["last_occurence"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            else:
+                timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
+                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
-    result["reboot_time"] = {
-        "timestamp": {"Start": reboot_time},
-    }
     return result
 
 
@@ -257,7 +284,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             pytest.skip('Testcase not supported for kvm')
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
-                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec'})
+                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
     marker = loganalyzer.init()
     loganalyzer.load_common_config()
 
@@ -279,7 +306,10 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     for key, messages in result["expect_messages"].items():
         if "syslog" in key:
-            analyze_syslog(duthost, messages, analyze_result, offset_from_kexec)
+            get_kexec_time(duthost, messages, analyze_result)
+            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+        elif "bgpd.log" in key:
+            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
         elif "sairedis.rec" in key:
             analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 
@@ -310,11 +340,23 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         json.dump(result_summary, fp, indent=4)
 
 
+@pytest.fixture()
+def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+    """
+    This fixture is invoked at the test teardown for advanced-reboot SAD cases.
+    If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
+    a bad state. This fixture will restore state of neighbor interfaces, portchannels
+    and BGP sessions that were shutdown during the test.
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    neighbor_vm_restore(duthost, nbrhosts, tbinfo)
+
+
 def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
     add_normal_reboot_args(parser)
-    add_api_sfp_args(parser)
 
 
 def pytest_generate_tests(metafunc):

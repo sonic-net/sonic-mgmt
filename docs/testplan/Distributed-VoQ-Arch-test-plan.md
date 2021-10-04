@@ -378,40 +378,7 @@ will allow the tests to validate the various table deletes before the entries ar
 
 ### Test cases
 
-#### Test Case 1. Neighbor established from a remote card.
-
-##### Test Objective
-Verify local neighbor behavior is correct when ARP/NDP request is triggered by a packet from a remote line card.
-
-##### Test Steps
-* Send ping to from linecard 1 to a VM attached to linecard 2.  This will establish a local neighbor on linecard 2 and a remote neighbor on linecard 1.
-
-* On linecard 2:
-    * Verify ASIC DB entries on local linecard.
-        * MAC address matches MAC of neighbor VM.
-        * Router interface OID matches back to the correct interface and port the neighbor was learned on.        
-    * Verify on local linecard CLI, show arp/ndp, ip neigh commands.
-        * MAC address matches MAC of neighbor VM.
-    * Verify neighbor table in linecard appDB.
-        * MAC address matches MAC of neighbor VM.
-
-* On supervisor card:
-    * Verify SYSTEM_NEIGH table in Chassis AppDB (redis-dump -h <ip> -p 6380 -d 12 on supervisor).
-        * Verify encap index and MAC address match between ASICDB the Chassis AppDB
-
-* On linecard 1:
-    * Verify ASIC DB entries as a remote neighbor.
-        * Verify impose index=True in ASIC DB. 
-        * Verify MAC address in ASIC DB is the remote neighbor mac.
-        * Verify encap index for ASIC DB entry matches Chassis App DB.
-        * Verify router interface OID matches the interface the neighbor was learned on.
-    * Verify on linecard CLI, show arp/ndp, ip neigh commands.
-        * For inband port, MAC should be inband port mac in kernel table and LC appDb.
-        * For inband vlan mode, MAC will be remote ASIC mac in kernel table and LC appdb.
-    * Verify neighbor table in linecard appdb.
-    * Verify static route in kernel with /32 for entry.
-
-#### Test Case 2. Clear ARP, single address.
+#### Test Case 1. Clear ARP, single address.
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly deleted when a single neighbor adjacency is cleared.
 ##### Test Steps
@@ -428,7 +395,7 @@ Verify tables, databases, and kernel routes are correctly deleted when a single 
 * Repeat with IPv4, IPv6, dual-stack.
 
 
-#### Test Case 3. Clear ARP table via sonic command.
+#### Test Case 2. Clear ARP table via sonic command.
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly deleted when the entire neighbor table is cleared.
 ##### Test Steps
@@ -446,41 +413,24 @@ Verify tables, databases, and kernel routes are correctly deleted when the entir
 * Repeat with IPv4, IPv6, dual-stack.
 
 
-#### Test Case 4. Front panel port link flap
+#### Test Case 3. Front panel port link flap
 ##### Test Objective
-Verify tables, databases, and kernel routes are correctly deleted when the front panel port flaps.
+Verify tables, databases, and kernel routes are unaffected when the front panel port flaps and restores.
 ##### Test Steps
 * Admin down interface on fanout to cause LOS on DUT.
 * On local linecard:
-    * Verify ARP/NDP entries are removed from CLI for neighbors on down port.
-    * Verify table entries in ASIC, AppDb are removed for addresses on down port.
+    * Verify local interface is down, verify ARP is still present in local database.
 * On Supervisor card:
-    * Verify Chassis App DB entry are removed for only the cleared address.  Entries for addresses on other line cards
-    should still be present.
+    * Verify Chassis App DB entry are still present.
 * On remote linecards:
-    * Verify table entries in ASICDB, APPDB, and host ARP table are removed for cleared addresses.
-    * Verify kernel routes for cleared address are deleted.
+    * Verify table entries in ASICDB, APPDB, and host ARP table are present for affected addresses.
+    * Verify kernel routes are present for affected addresses.
 * Admin interface up, verify recreation after restarting traffic.
+* Verify ARP entries on linecards and supervisors are still correct.
 * Repeat with IPv4, IPv6, dual-stack.
 
 
-#### Test Case 5. Gratuitous ARP - Previously Known IP
-##### Test Objective
-Verify tables, databases, and kernel routes are correctly updated when receiving a unsolicited ARP packet for a previously known IP address..
-##### Test Steps
-* Clear ARP table on a line card.
-* Send unsolicited ARP packet into linecard for an IP that was known on that card and is now stale.
-* On local linecard:
-    * Verify table entries in local ASIC, APP, host arp table are recreated.
-* On supervisor card:
-    * Verify Chassis App DB entry is correct for the relearned address.  
-* On remote linecards:
-    * Verify table entries in remote hosts/ASICs in ASICDB, APPDB, and host ARP table are recreated.
-    * Verify kernel routes in remote hosts are still present.
-* Verify that packets can be sent from local and remote linecards to learned address.
-* Repeat with IPv4, IPv6, dual-stack.
-
-#### Test Case 6. Gratuitous ARP - Known IP - Mac change
+#### Test Case 4. Gratuitous ARP - Known IP - Mac change
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly updated when a unsolicited ARP packet changes the MAC address of learned neighbor.
 ##### Test Steps
@@ -497,7 +447,7 @@ Verify tables, databases, and kernel routes are correctly updated when a unsolic
 * Verify that packets can be sent from local and remote linecards to learned address.
 * Repeat with IPv4, IPv6, dual-stack.
 
-#### Test Case 7. ARP Request/Reply - Mac change
+#### Test Case 5. ARP Request/Reply - Mac change
 ##### Test Objective
 Verify tables, databases, and kernel routes are correctly updated when the MAC address of a neighbor changes and is updated via request/reply exchange.
 ##### Test Steps
@@ -514,7 +464,7 @@ Verify tables, databases, and kernel routes are correctly updated when the MAC a
 * Verify that packets can be sent from local and remote linecards to the learned address.
 * Repeat with IPv4, IPv6, dual-stack.
 
-#### Test Case 8. Disruptive Events
+#### Test Case 6. Disruptive Events
 ##### Test Objective
 Verify port, router interface, and neighbor recovery after disruptive events.
 ##### Test Steps
@@ -570,6 +520,9 @@ Please reference the [T2 topology](https://github.com/Azure/sonic-mgmt/pull/2638
 
 VMs attached to line card 1 and line card 2 will be used for this test.
 DUT Port A&B are on line card 1, D is on line card 2.
+
+The HIDE_INTERNAL route policy will prevent inband and interface address from being advertised to EBGP peers. Looback addresses will be used to test traffic flows across cards and VMs.
+
 ```
                       ---------- DUT ----------    
                       |--- LC1 ---|--- LC2 ---|
@@ -637,7 +590,6 @@ Verify the kernel route table is correct based on the topology.
 * Verify routes for local inband interfaces are directly connected.
 * Verify BGP established between line cards.
 * Verify routes of remote linecard inband interfaces are connected via local linecard inband interface.
-* Verify IP interface addresses on remote network ports have a next hop of their inband IP. On linecard 1, route 10.0.0.64/31 next hop is 133.133.133.5. 
 * Verify all learned prefixes from neighbors have their neighbors as next hop.
 * Repeat for IPv4 only, IPv6 only, dual-stack.
 
@@ -647,9 +599,6 @@ Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to
 ##### Test Steps
 * On linecard 1, send ping from:
     * DUT IP interface A to DUT IP Interface B. (10.0.0.0 to 10.0.0.2) 
-    * DUT IP interface A to DUT IP Interface D. (10.0.0.0 to 10.0.0.64)
-* On linecard 2, send ping from:
-    * DUT IP interface D to DUT IP Interface A.
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
@@ -660,13 +609,8 @@ Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to
 ##### Test Steps
 * On linecard 1, send ping from:
     * DUT IP Interface on port A to directly connected neighbor address. (10.0.0.0 to 10.0.0.1)
-    * DUT IP Interface A to neighbor address on port B. (10.0.0.0 to 10.0.0.3)
-    * DUT IP Interface A to neighbor address on port D. (10.0.0.0 to 10.0.0.65)
-* On linecard 2, send ping from:
-    * DUT IP interface D to neighbor address on port A. (10.0.0.64 to 10.0.0.1)
 * On Router 01T3, send ping from:
     * Router IP interface to DUT address on port A. (10.0.0.1 to 10.0.0.0)
-    * Router IP interface to DUT address on port D. (10.0.0.1 to 10.0.0.64)
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
@@ -677,13 +621,8 @@ Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to
 ##### Test Steps
 * On linecard 1, send ping from:
     * DUT IP Interface A to routed loopback address from router 01T3. (10.0.0.0 to 100.1.0.1)
-    * DUT IP Interface A to routed loopback address from router 02T3. (10.0.0.0 to 100.1.0.2)
-    * DUT IP Interface A to routed loopback address from router 01T1. (10.0.0.0 to 100.1.0.33)
-* On linecard 2, send ping from:
-    * DUT IP interface D to routed loopback address from router 01T3. (200.0.0.1 to 100.1.0.1)
 * On Router 01T3, send ping from:
     * Router loopback interface to DUT address on port A. (100.1.0.1 to 10.0.0.0)
-    * Router loopback interface to DUT address on port D. (100.1.0.1 to 10.0.0.64)
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
@@ -694,21 +633,7 @@ Verify IP connectivity over inband interfaces.
 ##### Test Steps
 * On linecard 1 send ping from:
     * Inband interface F0 to inband interface F1 (133.133.133.1 to 133.133.133.5)
-    * Inband interface F0 to interface D (133.133.133.1 to 10.0.0.64)
     * Inband interface F0 to neighbor on port A (133.133.133.1 to 10.0.0.1)
-    * Inband interface F0 to neighbor on port D (133.133.133.1 to 10.0.0.65)
-    * Inband interface F0 to routed loopback from router 01T3 (133.133.133.1 to 100.1.0.1)
-    * Inband interface F0 to routed loopback from router 01T1 (133.133.133.1 to 100.1.0.33)
-* On linecard 2, send ping from:
-    * Inband interface F1 to inband interface F0 (133.133.133.5 to 133.133.133.1)
-    * Inband interface F1 to interface D (133.133.133.5 to 10.0.0.64)
-    * Inband interface F1 to neighbor on port A (133.133.133.5 to 10.0.0.1)
-    * Inband interface F1 to neighbor on port D (133.133.133.5 to 10.0.0.65)
-    * Inband interface F1 to routed loopback from router 01T3 (133.133.133.5 to 100.1.0.1)
-    * Inband interface F1 to routed loopback from router 01T1 (133.133.133.5 to 100.1.0.33)
-* On Router 01T3, send ping from:
-    * Router loopback interface to DUT inband address on linecard 1. (100.1.0.1 to 133.133.133.1)
-    * Router loopback interface to DUT inband address on linecard 2. (100.1.0.1 to 133.133.133.5)
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6

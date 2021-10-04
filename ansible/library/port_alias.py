@@ -9,9 +9,9 @@ from itertools import groupby
 from collections import defaultdict
 
 try:
-    from sonic_py_common import multi_asic  
+    from sonic_py_common import multi_asic
 except ImportError:
-    print("Failed to import multi_asic")     
+    print("Failed to import multi_asic")
 
 DOCUMENTATION = '''
 module: port_alias.py
@@ -23,7 +23,7 @@ Description:
         The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
-        When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with 
+        When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with
         external interfaces.
     Input:
         hwsku num_asic
@@ -220,7 +220,7 @@ def main():
         aliasmap = {}
         portspeed = {}
         sysports = []
-        # ASIC interface names of front panel interfaces 
+        # ASIC interface names of front panel interfaces
         front_panel_asic_ifnames = []
         # { asic_name: [ asic interfaces] }
         asic_if_names = {}
@@ -238,17 +238,23 @@ def main():
         start_switchid = 0
         if  'start_switchid' in m_args and m_args['start_switchid'] != None:
            start_switchid = int(m_args['start_switchid'])
-        # When this script is invoked on sonic-mgmt docker, num_asic 
+        # When this script is invoked on sonic-mgmt docker, num_asic
         # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
         else:
             # When this script is run on the device, num_asic parameter
             # is not passed.
-            try: 
+            try:
                 num_asic = multi_asic.get_num_asics()
-            except Exception, e:
+            except Exception as e:
                 num_asic = 1
+        # Modify KVM platform string based on num_asic
+        global KVM_PLATFORM
+        if num_asic == 4:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_4_asic-r0"
+        if num_asic == 6:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_6_asic-r0"
 
         switchid = 0
         include_internal = False
@@ -286,10 +292,10 @@ def main():
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
-    except (IOError, OSError), e:
+    except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)
-    except Exception, e:
+    except Exception as e:
         fail_msg = "failed to find the correct port config for "+m_args['hwsku'] + str(e)
         module.fail_json(msg=fail_msg)
 

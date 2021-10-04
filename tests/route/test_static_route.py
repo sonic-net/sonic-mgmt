@@ -5,18 +5,20 @@ import time
 import natsort
 import random
 import re
+from collections import defaultdict
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_intf_by_sub_intf
 from tests.common import config_reload
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 from pkg_resources import parse_version
+from tests.common import constants
 
 
 pytestmark = [
@@ -37,20 +39,43 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
-def add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
-    for idx in range(len(nexthop_addrs)):
-        if ipv6:
-            ptfhost.shell("ip -6 addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
-        else:
-            ptfhost.shell("ip addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
+def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False):
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
+            ptfhost.shell("ip -6 addr add {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_interfaces[idx]), module_ignore_errors=True)
+    else:
+        vlan_host_map = defaultdict(dict)
+        for idx in range(len(nexthop_addrs)):
+            mac = ptfadapter.dataplane.get_mac(0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))).replace(":", "")
+            vlan_host_map[nexthop_interfaces[idx]][nexthop_addrs[idx]] = mac
+
+        arp_responder_conf = {}
+        for port in vlan_host_map:
+            arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+
+        with open("/tmp/from_t1.json", "w") as ar_config:
+            json.dump(arp_responder_conf, ar_config)
+        ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
+        ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+        ptfhost.shell('supervisorctl reread && supervisorctl update')
+        ptfhost.shell('supervisorctl restart arp_responder')
 
 
 def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
-    for idx in range(len(nexthop_addrs)):
-        if ipv6:
+    if ipv6:
+        for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
-        else:
-            ptfhost.shell("ip addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
+    else:
+        ptfhost.shell('supervisorctl stop arp_responder')
+
+
+def clear_arp_ndp(duthost, ipv6=False):
+    if ipv6:
+        duthost.shell("sonic-clear ndp")
+    else:
+        duthost.shell("sonic-clear arp")
 
 
 def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ipv6=False):
@@ -101,7 +126,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
         SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD)["stdout"].split("\n")
+    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     bgp_neighbors = []
 
@@ -118,9 +143,12 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
             assert prefix in adv_routes
 
 
-def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False, config_reload_test=False):
+def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
+    # Clean up arp or ndp
+    clear_arp_ndp(duthost, ipv6=ipv6)
+
     # Add ipaddresses in ptf
-    add_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
+    add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=ipv6)
 
     try:
         # Add static route
@@ -137,7 +165,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
-            config_reload(duthost)
+            config_reload(duthost, wait=350)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
@@ -156,56 +184,69 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         if config_reload_test:
             duthost.shell('config save -y')
 
+        # Clean up arp or ndp
+        clear_arp_ndp(duthost, ipv6=ipv6)
+
 
 def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
     prefix_len = vlan_intf['prefixlen']
 
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     if is_dualtor(tbinfo):
         server_ips = mux_cable_server_ip(duthost)
         vlan_intfs = natsort.natsorted(server_ips.keys())
         nexthop_devs = [mg_facts["minigraph_ptf_indices"][_] for _ in vlan_intfs]
         server_ip_key = "server_ipv6" if ipv6 else "server_ipv4"
         nexthop_addrs = [server_ips[_][server_ip_key].split("/")[0] for _ in vlan_intfs]
+        nexthop_interfaces = nexthop_devs
     else:
         vlan_subnet = ipaddress.ip_network(vlan_intf['subnet'])
-        vlan_ports = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]['members']
+        vlan = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]
+        vlan_ports = vlan['members']
+        vlan_id = vlan['vlanid']
         vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports]
         nexthop_devs = vlan_ptf_ports
+        # backend topology use ethx.x(e.g. eth30.1000) during servers and T0 in ptf
+        # in other topology use ethx(e.g. eth30)
+        if is_backend_topology:
+            nexthop_interfaces = [str(dev) + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id) for dev in nexthop_devs]
+        else:
+            nexthop_interfaces = nexthop_devs
         nexthop_addrs = [str(vlan_subnet[i + 2]) for i in range(len(nexthop_devs))]
     count = min(count, len(nexthop_devs))
     indices = random.sample(list(range(len(nexthop_devs))), k=count)
-    return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices]
+    return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices], [nexthop_interfaces[_] for _ in indices]
 
 
 def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo)
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces)
 
 
 def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, count=3)
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, config_reload_test=True)
 
 
 def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, ipv6=True)
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=True)
 
 
 def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
-    prefix_len, nexthop_addrs, nexthop_devs = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, ipv6=True, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=True, config_reload_test=True)

@@ -26,6 +26,7 @@ class ActionModule(ActionBase):
         _root     = boolean(self._task.args.get('root', 'no'))
         _reboot   = boolean(self._task.args.get('reboot', 'no'))
         _timeout  = self._task.args.get('timeout', None)
+        _os_name  = self._task.args.get('os_name', '')
 
         if (type(_login) == unicode):
             _login = ast.literal_eval(_login)
@@ -58,7 +59,8 @@ class ActionModule(ActionBase):
                                       su=_su,
                                       root=_root,
                                       reboot=_reboot,
-                                      timeout=_timeout)
+                                      timeout=_timeout,
+                                      os_name=_os_name)
 
         return result
 

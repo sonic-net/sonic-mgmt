@@ -100,6 +100,8 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
     for itfs_name in up_interfaces:
         if not itfs_name.startswith("PortChannel") and interfaces[itfs_name]['vlan'].startswith("PortChannel"):
             continue
+        if interfaces[itfs_name]['vlan'] == 'trunk':
+            continue
         if ip_version == 4:
             intf_neigh = {
                 'interface' : itfs_name,
@@ -125,6 +127,9 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
         idx_neigh += 1
         if idx_neigh == num_neigh:
             break
+
+    if not intf_neighs:
+        raise Exception('DUT does not have interfaces available for test')
 
     return intf_neighs, str_intf_nexthop
 
@@ -160,7 +165,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
     start_num_route = count_routes(duthost)
 
     # Calculate timeout as a function of the number of routes
-    route_timeout = max(len(prefixes) / 500, 1) # Allow at least 1 second even when there is a limited number of routes
+    route_timeout = max(len(prefixes) / 250, 1) # Allow at least 1 second even when there is a limited number of routes
 
     # Calculate expected number of route and record start time
     if op == 'SET':

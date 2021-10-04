@@ -8,12 +8,15 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.ixia.files.helper import skip_warm_reboot
 from files.pfcwd_basic_helper import run_pfcwd_basic_test
 from files.helper import skip_pfcwd_test
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [ pytest.mark.topology('tgen') ]
+
+DEPENDENT_SERVICES = ['teamd', 'snmp', 'dhcp_relay', 'radv']
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(ixia_api,
@@ -158,6 +161,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
@@ -221,6 +225,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = ixia_testbed_config
 
@@ -286,7 +291,9 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
     lossless_prio = int(lossless_prio)
 
     logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-    duthost.command("systemctl reset-failed {}".format(restart_service))
+    services_to_reset = DEPENDENT_SERVICES + [restart_service]
+    for service in services_to_reset:
+        duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
@@ -347,7 +354,9 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
     testbed_config, port_config_list = ixia_testbed_config
 
     logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-    duthost.command("systemctl reset-failed {}".format(restart_service))
+    services_to_reset = DEPENDENT_SERVICES + [restart_service]
+    for service in services_to_reset:
+        duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),

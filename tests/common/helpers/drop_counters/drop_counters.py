@@ -86,12 +86,22 @@ def ensure_no_l2_drops(duthost, asic_index, packets_count):
         pytest.fail("L2 'RX_DRP' was incremented for the following interfaces:\n{}".format(unexpected_drops))
 
 
-def verify_drop_counters(duthost, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
+def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
     """ Verify drop counter incremented on specific interface """
-    get_drops = lambda: int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", ""))
-    check_drops_on_dut = lambda: packets_count == get_drops()
-    if not wait_until(5, 1, check_drops_on_dut):
-        fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-            column_key, dut_iface, column_key, get_drops(), packets_count
-        )
-        pytest.fail(fail_msg)
+    def get_drops_across_all_duthosts():
+        drop_list = [] 
+        for duthost in duthosts:
+            drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", "")))
+        return drop_list
+    check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()
+    if not wait_until(25, 1, check_drops_on_dut):
+        # The actual Drop count should always be equal or 1 or 2 packets more than what is expected due to some other drop may occur
+        # over the interface being examined. When that happens if looking onlyu for exact count it will be a false positive failure.
+        # So do one more check to allow up to 2 packets more dropped than what was expected as an allowed case.
+        actual_drop = get_drops_across_all_duthosts()
+        if ((packets_count+2) in actual_drop) or ((packets_count+1) in actual_drop):
+            logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(actual_drop, packets_count, dut_iface))
+        else:
+            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
+                column_key, dut_iface, column_key, actual_drop, packets_count)
+            pytest.fail(fail_msg)

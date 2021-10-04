@@ -53,7 +53,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     logging.info("Restart the %s service on asic %s" %(service, enum_frontend_asic_index))
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
-    service_name = asichost.get_docker_name(service)
+    service_name = asichost.get_service_name(service)
     dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():
@@ -105,7 +105,7 @@ def test_restart_swss(duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
 
     restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces, xcvr_skip_list)
 
-@pytest.mark.skip(reason="Restarting syncd is not supported yet")
+
 def test_restart_syncd(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to restart the syncd service and check platform status
