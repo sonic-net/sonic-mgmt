@@ -139,7 +139,7 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
-    when: "'dualtor' in topo"
+    when: "'dualtor' in topo or 'cable' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -153,7 +153,7 @@
   - name: gather testbed VM informations
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
-    when: "VM_topo | bool"
+    when: "(VM_topo | bool) and ('cable' not in topo)"
 
   - name: find all vlan configurations for T0 topology
     vlan_config:
@@ -179,11 +179,13 @@
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
 
   - name: find all interface names
     set_fact:
@@ -191,6 +193,7 @@
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
+    when: "'cable' not in topo"
 
   # create map of VM to asic interface names
   - name: find all interface asic names
