@@ -21,8 +21,9 @@ def test_fwutil_show(duthost):
 
     show_fw_comp_set = set(versions["chassis"][chassis]["component"].keys())
     platform_comp_set = set(platform_comp["chassis"][chassis]["component"].keys())
+    comp = show_fw_comp_set == platform_comp_set
 
-    assert show_fw_comp_set == platform_comp_set
+    assert comp
 
 def test_fwutil_install_file(duthost, localhost, pdu_controller, fw_pkg, random_component):
     """Tests manually installing firmware to a component from a file."""

@@ -15,7 +15,7 @@ POWER_CYCLE = "power off"
 FAST_REBOOT = "fast"
 
 DEVICES_PATH="usr/share/sonic/device"
-TIMEOUT=3600
+TIMEOUT=600
 REBOOT_TYPES = {
     COLD_REBOOT: "reboot",
     WARM_REBOOT: "warm-reboot",
@@ -114,11 +114,14 @@ def show_firmware(duthost):
 
     return output_data
 
-def get_install_paths(duthost, fw, versions, chassis):
+def get_install_paths(duthost, fw, versions, chassis, target_component):
     component = fw["chassis"].get(chassis, {})["component"]
     ver = versions["chassis"].get(chassis, {})["component"]
     
     paths = {}
+
+    if target_component is not None:
+        component = {target_component: component[target_component]}
 
     for comp, revs in component.items():
         if comp in ver:
@@ -193,7 +196,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     init_versions = show_firmware(duthost)
     logger.info("Initial Versions: {}".format(init_versions))
     chassis = init_versions["chassis"].keys()[0] # Only one chassis
-    paths = get_install_paths(duthost, fw, init_versions, chassis)
+    paths = get_install_paths(duthost, fw, init_versions, chassis, component)
     current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
     generate_config(duthost, paths, init_versions)
@@ -243,18 +246,20 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     final_versions = show_firmware(duthost)
     assert validate_versions(init_versions, final_versions, paths, chassis, boot_type)
 
-    duthost.copy(src=os.path.join("firmware", "platform_components_backup.json"), 
-            dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"], "platform_components.json"))
-    logger.info("Restoring backup platform_components.json to {}".format(
-        os.path.join(DEVICES_PATH, duthost.facts["platform"])))
+    if next_image is None:
+        duthost.copy(src=os.path.join("firmware", "platform_components_backup.json"), 
+                dest=os.path.join("/", DEVICES_PATH, duthost.facts["platform"], "platform_components.json"))
+        logger.info("Restoring backup platform_components.json to {}".format(
+            os.path.join(DEVICES_PATH, duthost.facts["platform"])))
 
-    update_needed = copy(fw)
+    update_needed = deepcopy(fw)
+    update_needed["chassis"][chassis]["component"] = {}
     for comp in paths.keys():
-        if fw["chassis"][chassis]["component"][comp][0]["version"] == final_versions[comp] or paths[comp]["upgrade_only"]:
-            del update_needed["chassis"][chassis]["component"][comp]
+        if fw["chassis"][chassis]["component"][comp][0]["version"] != final_versions["chassis"][chassis]["component"][comp] and not paths[comp].get("upgrade_only", False):
+            update_needed["chassis"][chassis]["component"][comp] = fw["chassis"][chassis]["component"][comp]
     if len(update_needed["chassis"][chassis]["component"].keys()) > 0:
         logger.info("Latest firmware not installed after test. Installing....")
-        call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot, basepath)
+        call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot, os.path.join("/", DEVICES_PATH, duthost.facts['platform']))
 
     return True
 
