@@ -14,6 +14,8 @@ pytestmark = [
 @pytest.mark.parametrize("mtu", [1514,9114])
 def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, mtu, gather_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.facts["asic_type"] in ["cisco-8000"] and mtu == 9114:
+        mtu = 9100
 
     topo_type = tbinfo['topo']['type']
     if topo_type not in ('t1', 't2'):
