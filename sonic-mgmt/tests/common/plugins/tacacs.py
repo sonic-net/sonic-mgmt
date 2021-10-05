@@ -70,7 +70,7 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config aaa authentication failthrough default")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
@@ -82,7 +82,7 @@ def test_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_d
     cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
