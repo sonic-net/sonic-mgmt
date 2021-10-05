@@ -208,11 +208,14 @@ def test_data_path(construct_url, vlan_members):
 This test creates a VNET. It adds routes to the VNET and deletes them
 '''
 def test_create_vrf(construct_url):
-    # Create Default VxLan Tunnel
-    params = '{"ip_addr": "10.1.0.32"}'
-    logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
-    r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
-    pytest_assert(r.status_code == 204)
+    # Check if default VXLAN tunnel is created
+    r = restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan')
+    if r.status_code == 404:
+        # Create Default VxLan Tunnel if it is not already created
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
 
     # Create VNET
     params = '{"vnid": 7039114}'
@@ -274,11 +277,14 @@ def test_create_vrf(construct_url):
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
 def test_create_interface(construct_url, vlan_members):
-    # Create Default VxLan Tunnel
-    params = '{"ip_addr": "10.1.0.32"}'
-    logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
-    r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
-    pytest_assert(r.status_code == 204)
+    # Check if default VXLAN tunnel is created
+    r = restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan')
+    if r.status_code == 404:
+        # Create Default VxLan Tunnel if it is not already created
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
 
     # Create VNET
     params = '{"vnid": 7039115}'
