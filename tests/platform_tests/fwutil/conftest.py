@@ -5,7 +5,6 @@ import logging
 
 from random import randrange
 
-from tests.common.utilities import wait_until
 from fwutil_common import show_firmware
 
 logger = logging.getLogger(__name__)
@@ -50,7 +49,6 @@ def random_component(duthost, fw_pkg):
     if len(components) == 0:
         pytest.skip("No suitable components found in config file for platform {}.".format(duthost.facts['platform']))
 
-    #return "CPLD2"
     return components[randrange(len(components))] 
 
 @pytest.fixture(scope='function')
@@ -109,7 +107,7 @@ def next_image(duthost, fw_pkg):
         )
         duthost.command(cmd)
     except Exception as e:
-        duthost.command("sonic-installer remove {}".format(target))
+        duthost.command("sonic-installer remove {} -y".format("SONiC-OS-{}".format(target)))
         pytest.fail("Failed to setup next-image.")
 
     yield overlay_mountpoint
