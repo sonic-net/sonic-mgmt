@@ -214,6 +214,9 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     all_outlets = pdu_ctrl.get_outlet_status()
+    # If PDU supports returning output_watts, making sure that all outlets has power.
+    no_power = [item for item in all_outlets if int(item.get('output_watts', '1')) == 0]
+    pytest_assert(not no_power, "Not all outlets have power output: {}".format(no_power))
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -229,13 +232,23 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
 
     poweroff_reboot_kwargs = {"dut": duthost}
 
-    for power_on_seq in power_on_seq_list:
-        poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-        poweroff_reboot_kwargs["all_outlets"] = all_outlets
-        poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-        poweroff_reboot_kwargs["delay_time"] = power_off_delay
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                         _power_off_reboot_helper, poweroff_reboot_kwargs)
+    try:
+        for power_on_seq in power_on_seq_list:
+            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+            poweroff_reboot_kwargs["all_outlets"] = all_outlets
+            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+            poweroff_reboot_kwargs["delay_time"] = power_off_delay
+            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                             _power_off_reboot_helper, poweroff_reboot_kwargs)
+    except Exception as e:
+        logging.debug("Restore power after test failure")
+        for outlet in all_outlets:
+            logging.debug("turning on {}".format(outlet))
+            pdu_ctrl.turn_on_outlet(outlet)
+        # Sleep 120 for dut to boot up
+        time.sleep(120)
+        wait_critical_processes(duthost)
+        raise e
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
