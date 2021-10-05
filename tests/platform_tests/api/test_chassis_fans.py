@@ -190,8 +190,11 @@ class TestChassisFans(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
-        target_speed = random.randint(1, 100)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if duthost.facts["asic_type"] in ["cisco-8000"]:
+            target_speed = random.randint(40, 60)
+        else:
+            target_speed = random.randint(1, 100)
 
         for i in range(self.num_fans):
             speed = fan.get_speed(platform_api_conn, i)
