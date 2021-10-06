@@ -1,9 +1,17 @@
 import json
 import logging
-
+import re
 from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
+
+MAX_OPENFLOW_RULE_ID = 65535
+DEVICE_PORT_VLANS = 'device_port_vlans'
+TRUNK = 'Trunk'
+MODE = "mode"
+FAILED = 'failed'
+INVOCATION = 'invocation'
+STDOUT = 'stdout'
 
 
 class OnyxHost(AnsibleHostBase):
@@ -80,7 +88,7 @@ class OnyxHost(AnsibleHostBase):
         """
         show_int_result = self.host.onyx_command(
             commands=['show interfaces {} | include "Supported speeds"'.format(interface_name)])[self.hostname]
-        
+
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get supported speed for {} - {}'.format(interface_name, show_int_result['msg']))
             return None
@@ -89,7 +97,7 @@ class OnyxHost(AnsibleHostBase):
         logger.debug('Get supported speeds for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Supported speeds:1G 10G 25G 50G"
         speeds = out.split(':')[-1].split()
         return [x[:-1] + '000' for x in speeds]
@@ -125,12 +133,12 @@ class OnyxHost(AnsibleHostBase):
             interface_name (str): Interface name
 
         Returns:
-            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            boolean: True if auto negotiation mode is enabled else False. Return None if
             the auto negotiation mode is unknown or unsupported.
         """
         show_int_result = self.host.onyx_command(
             commands=['show interfaces {} | include "Auto-negotiation"'.format(interface_name)])[self.hostname]
-        
+
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get auto neg mode for port {} - {}'.format(interface_name, show_int_result['msg']))
             return None
@@ -139,7 +147,7 @@ class OnyxHost(AnsibleHostBase):
         logger.debug('Get auto negotiation mode for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Auto-negotiation:Enabled"
         return 'Enabled' in out
 
@@ -196,13 +204,81 @@ class OnyxHost(AnsibleHostBase):
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get speed for port {} - {}'.format(interface_name, show_int_result['msg']))
             return False
-        
+
         out = show_int_result['stdout'][0].strip()
         logger.debug('Get speed for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Actual speed:50G"
         speed = out.split(':')[-1].strip()
         pos = speed.find('G')
         return speed[:pos] + '000'
+
+    def prepare_drop_counter_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        """Set configuration for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Args:
+            fanout_graph_facts (dict): fixture fanout_graph_facts
+            match_mac (str): mac address to match in openflow rule
+            set_mac (str): mac address to which match mac should be changed
+            eth_field (str): place in which replace match mac to set_mac, usually 'eth_src'
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        trunk_port = self._get_trunk_port_to_server(fanout_graph_facts)
+        openflow_port_id = self._get_openflow_port_id(trunk_port)
+        cmd = 'openflow add-flows {rule_id} table=0,priority=10,dl_src={match_mac},' \
+              'in_port={openflow_port_id},actions=set_field:{set_mac}->{eth_field}'
+        out = self.host.onyx_config(lines=[cmd.format(
+            rule_id=MAX_OPENFLOW_RULE_ID, match_mac=match_mac,
+            openflow_port_id=openflow_port_id, set_mac=set_mac, eth_field=eth_field)])
+        if FAILED in out and out[FAILED]:
+            logger.error('Failed to set openflow rule - {}'.format(out['msg']))
+            return False
+        logger.debug('Setting openflow rule succed from onyx: {}'.format(out))
+        return True
+
+    def _get_trunk_port_to_server(self, fanout_graph_facts):
+        fanout_trunk_port = None
+        for iface, iface_info in fanout_graph_facts[self.hostname][DEVICE_PORT_VLANS].items():
+            if iface_info[MODE] == TRUNK:
+                fanout_trunk_port = iface.split('/')[-1]
+                break
+        return fanout_trunk_port
+
+    def _get_openflow_port_id(self, port):
+        out = self.host.onyx_command(
+            commands=['show openflow'])[self.hostname]
+        if FAILED in out and out[FAILED]:
+            logger.error('Failed to get openflow table- {}'.format(out['msg']))
+        show_openflow = out[STDOUT][0]
+        return self._get_openflow_port_id_from_show_openflow(show_openflow, port)
+
+    def _get_openflow_port_id_from_show_openflow(self, show_openflow, port):
+        regexp = 'Eth1/{}\s*OF-(\d+)'.format(port)
+        match = re.search(regexp, show_openflow)
+        if match:
+            return match.group(1)
+        else:
+            raise Exception('Can not find openflow port id for port {}. Show openflow output: {}'.format(
+                port, show_openflow))
+
+    def restore_drop_counter_config(self):
+        """Delete configuraion for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        cmd = 'openflow del-flows {}'.format(MAX_OPENFLOW_RULE_ID)
+        out = self.host.onyx_config(lines=[cmd])
+        if FAILED in out and out[FAILED]:
+            logger.error('Failed to remove openflow rule - {}'.format(out['msg']))
+            return False
+        logger.debug('Removing openflow rule succed from onyx: {}'.format(out))
+        return True

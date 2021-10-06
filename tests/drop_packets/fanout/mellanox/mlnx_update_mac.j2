@@ -1,5 +1,0 @@
-config t
-
-protocol openflow
-openflow add-flows {{ rule_id }} table=0,priority=10,dl_src={{ match_mac }},in_port={{ trunk_port }},actions=set_field:{{ set_mac }}->{{ eth_field }}
-exit
