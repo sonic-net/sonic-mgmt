@@ -110,6 +110,7 @@ def _post(server_url, data):
         logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         resp = requests.post(server_url, json=data, headers=headers)
+        logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
         logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))  # lgtm [py/clear-text-logging-sensitive-data]
