@@ -189,10 +189,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         reboot_res = pool.apply_async(execute_reboot_helper)
 
     logger.info('waiting for ssh to drop on {}'.format(hostname))
-    check_ssh_drop(duthost, localhost, delay=delay, timeout=timeout, wait_for_ssh=True)
+    check_ssh_drop(duthost, localhost, delay=delay, timeout=timeout)
 
     logger.info('waiting for ssh to start on {}'.format(hostname))
-    check_ssh_startup(duthost, localhost, delay=delay, timeout=timeout, wait_for_ssh=True)
+    check_ssh_startup(duthost, localhost, delay=delay, timeout=timeout)
 
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
