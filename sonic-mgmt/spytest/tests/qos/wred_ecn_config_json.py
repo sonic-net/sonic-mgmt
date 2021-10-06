@@ -40,7 +40,7 @@ def init_vars(vars, apply_wred=False):
             },
             "QUEUE": {
                 "{},{},{}|3-4".format(vars.D1T1P1, vars.D1T1P2, vars.D1T1P3): {
-                    "wred_profile": "[WRED_PROFILE|WRED]"
+                    "wred_profile": "WRED"
                 }
             }
         }

@@ -10,7 +10,9 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.utilities import check_qos_db_fv_reference_with_table
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +139,16 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with computed buffer threshold
         """
-        db = "0" if self.isBufferInApplDb(dut_asic) else "4"
-        pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+        if self.isBufferInApplDb(dut_asic):
+            db = "0"
+            keystr = "BUFFER_POOL_TABLE:"
+        else:
+            db = "4"
+            keystr = "BUFFER_POOL|"
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
+            pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+        else:
+            pool = keystr + bufferProfile["pool"].encode("utf-8")
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv = ["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -161,14 +171,17 @@ class QosSaiBase(QosBase):
             Returns:
                 Updates bufferProfile with VOID/ROID obtained from Redis db
         """
-        if self.isBufferInApplDb(dut_asic):
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL_TABLE:",''
-            )
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
+            if self.isBufferInApplDb(dut_asic):
+                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                    None, "[]").replace("BUFFER_POOL_TABLE:",''
+                )
+            else:
+                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                    None, "[]").replace("BUFFER_POOL|",''
+                )
         else:
-            bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                None, "[]").replace("BUFFER_POOL|",''
-            )
+            bufferPoolName = bufferProfile["pool"].encode("utf-8")
 
         bufferPoolVoid = dut_asic.run_redis_cmd(
             argv = [
@@ -201,12 +214,19 @@ class QosSaiBase(QosBase):
         if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
+            bufkeystr = "BUFFER_POOL_TABLE:"
         else:
             db = "4"
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
-        bufferProfileName = dut_asic.run_redis_cmd(
-            argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
-        )[0].encode("utf-8").translate(None, "[]")
+            bufkeystr = "BUFFER_POOL|"
+
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
+            bufferProfileName = dut_asic.run_redis_cmd(
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -269,13 +289,22 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
-        wredProfileName = dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGET",
-                "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                "wred_profile"
-            ]
-        )[0].encode("utf-8").translate(None, "[]")
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
+            wredProfileName = dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                    "wred_profile"
+                ]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                    "wred_profile"
+                ]
+            )[0].encode("utf-8")
 
         result = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -316,12 +345,20 @@ class QosSaiBase(QosBase):
             Returns:
                 SchedulerParam (dict): Map of scheduler parameters
         """
-        schedProfile = dut_asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", "4", "HGET",
-                "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-            ]
-        )[0].encode("utf-8").translate(None, "[]")
+        if check_qos_db_fv_reference_with_table(dut_asic) == True:
+            schedProfile = dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                ]
+            )[0].encode("utf-8").translate(None, "[]")
+        else:
+            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                argv = [
+                    "redis-cli", "-n", "4", "HGET",
+                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                ]
+            )[0].encode("utf-8")
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
@@ -629,7 +666,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
         swapSyncd, enable_container_autorestart, disable_container_autorestart,
-        tbinfo, upper_tor_host, lower_tor_host
+        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports
     ):
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -643,6 +680,7 @@ class QosSaiBase(QosBase):
         """
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = upper_tor_host
+            duthost_lower = lower_tor_host
         else:
             duthost = duthosts[rand_one_dut_hostname]
 
@@ -677,25 +715,51 @@ class QosSaiBase(QosBase):
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
+        if 'dualtor' in tbinfo['topo']['name']:
+            disable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
         """ Stop mux container for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-            duthost.shell('sudo systemctl stop mux')
-            logger.info("Stop mux container for dual ToR testbed")
+            file = "/usr/local/bin/write_standby.py"
+            backup_file = "/usr/local/bin/write_standby.py.bkup"
+            toggle_all_simulator_ports(UPPER_TOR)
+
+            try:
+                duthost.shell("ls %s" % file)
+                duthost.shell("sudo cp {} {}".format(file,backup_file))
+                duthost.shell("sudo rm {}".format(file))
+                duthost.shell("sudo touch {}".format(file))
+            except:
+                pytest.skip('file {} not found'.format(file))
+
+            duthost_lower.shell('sudo config feature state mux disabled')
+            duthost.shell('sudo config feature state mux disabled')
 
         yield
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
+        if 'dualtor' in tbinfo['topo']['name']:
+            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-            duthost.shell('sudo systemctl start mux')
-            logger.info("Start mux container for dual ToR testbed")
+           try:
+               duthost.shell("ls %s" % backup_file)
+               duthost.shell("sudo cp {} {}".format(backup_file,file))
+               duthost.shell("sudo rm {}".format(backup_file))
+           except:
+               pytest.skip('file {} not found'.format(backup_file))
+
+           duthost.shell('sudo config feature state mux enabled')
+           duthost_lower.shell('sudo config feature state mux enabled')
+           logger.info("Start mux container for dual ToR testbed")
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):

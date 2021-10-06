@@ -16,13 +16,14 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf
 import ipaddress
 
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common import constants
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
@@ -121,6 +122,29 @@ def map_hostname_to_tor_side(tbinfo, hostname):
         return None
 
 
+def get_t1_ptf_ports_for_backend_topo(mg_facts):
+    """
+    In backend topology, there isn't any port channel between T0 and T1,
+    we use sub interface instead.
+    Args:
+        mg_facts (dict): mg_facts
+    Returns:
+        list: ptf t1 ports, e.g. ['eth10', 'eth11']
+    """
+    ptf_portmap = mg_facts['minigraph_ptf_indices']
+
+    ports = set()
+    for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
+        sub_intf_name = vlan_sub_interface['attachto']
+        vlan_id = vlan_sub_interface['vlan']
+        intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
+
+        ptf_port_index = ptf_portmap[intf_name]
+        ports.add("eth{}".format(ptf_port_index))
+
+    return list(ports)
+
+
 def get_t1_ptf_pc_ports(dut, tbinfo):
     """Gets the PTF portchannel ports connected to the T1 switchs."""
     config_facts = dut.get_running_config_facts()
@@ -141,8 +165,13 @@ def get_t1_ptf_ports(dut, tbinfo):
     '''
     Gets the PTF ports connected to a given DUT for the first T1
     '''
-    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
+    if is_backend_topology:
+        return get_t1_ptf_ports_for_backend_topo(mg_facts)
+
+    pc_ports = get_t1_ptf_pc_ports(dut, tbinfo)
     # Always choose the first portchannel
     portchannel = sorted(pc_ports.keys())[0]
     ptf_portchannel_intfs = pc_ports[portchannel]
@@ -737,8 +766,11 @@ def check_nexthops_balance(rand_selected_dut,
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
-    for members in get_t1_ptf_pc_ports(rand_selected_dut, tbinfo).values():
-        for member in members:
+    expected_uplink_portchannels = list()
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    for pc, intfs in portchannel_ports.items():
+        expected_uplink_portchannels.append(pc)
+        for member in intfs:
             expected_uplink_ports.append(int(member.strip("eth")))
     logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
     logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
@@ -777,17 +809,23 @@ def check_nexthops_balance(rand_selected_dut,
         # Hierarchical ECMP validation (in case of standby MUXs):
         # Step 1: Calculate total uplink share.
         total_uplink_share = expect_packet_num * (nexthops_count - len(expected_downlink_ports))
-        # Step 2: Divide uplink share among all uplinks
-        expect_packet_num = total_uplink_share // len(expected_uplink_ports)
+        # Step 2: Divide uplink share among all portchannels
+        expect_packet_num = total_uplink_share // len(expected_uplink_portchannels)
+        pkt_num_lo = expect_packet_num * (1.0 - 0.25)
+        pkt_num_hi = expect_packet_num * (1.0 + 0.25)
         # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
-        for uplink_int in expected_uplink_ports:
-            pkt_num_lo = expect_packet_num * (1.0 - 0.25)
-            pkt_num_hi = expect_packet_num * (1.0 + 0.25)
-            count = port_packet_count.get(uplink_int, 0)
-            logging.info("Packets received on uplink port {}: {}".format(uplink_int, count))
+        for pc, intfs in portchannel_ports.items():
+            count = 0
+            # Collect the packets count within a single portchannel
+            for member in intfs:
+                uplink_int = int(member.strip("eth"))
+                count = count + port_packet_count.get(uplink_int, 0)
+            logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
-                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on uplink port {}".format(uplink_int))
+                pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
+                    pc))
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):

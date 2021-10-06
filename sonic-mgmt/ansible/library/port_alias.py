@@ -104,8 +104,8 @@ class SonicPortAliasMap():
         port_coreid_index = -1
         port_core_portid_index = -1
         num_voq_index = -1
-        # default to Asic0 as minigraph.py parsing code has that assumption.
-        asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
+        # default to ASIC0 as minigraph.py parsing code has that assumption.
+        asic_name = "ASIC0" if asic_id is None else "ASIC" + str(asic_id)
 
         filename = self.get_portconfig_path(asic_id)
         if filename is None:
@@ -209,7 +209,7 @@ def main():
             include_internal=dict(required=False, type='bool', default=False),
             card_type=dict(type='str', required=False),
             hostname=dict(type='str', required=False),
-            switchids=dict(type='list', required=False)
+            start_switchid=dict(type='int', required=False)
         ),
         supports_check_mode=True
     )
@@ -235,10 +235,10 @@ def main():
                                            'sysports': sysports})
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
-        switchids = None
-        if 'switchids' in m_args and m_args['switchids'] != None:
-           switchids = m_args['switchids']
-        # When this script is invoked on sonic-mgmt docker, num_asic 
+        start_switchid = 0
+        if  'start_switchid' in m_args and m_args['start_switchid'] != None:
+           start_switchid = int(m_args['start_switchid'])
+        # When this script is invoked on sonic-mgmt docker, num_asic
         # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
@@ -249,6 +249,12 @@ def main():
                 num_asic = multi_asic.get_num_asics()
             except Exception as e:
                 num_asic = 1
+        # Modify KVM platform string based on num_asic
+        global KVM_PLATFORM
+        if num_asic == 4:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_4_asic-r0"
+        if num_asic == 6:
+            KVM_PLATFORM = "x86_64-kvm_x86_64_6_asic-r0"
 
         switchid = 0
         include_internal = False
@@ -258,8 +264,8 @@ def main():
         if 'hostname' in m_args:
             hostname = m_args['hostname']
         for asic_id in range(num_asic):
-            if switchids and asic_id is not None:
-                switchid = switchids[asic_id]
+            if asic_id is not None:
+                switchid = start_switchid + asic_id
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,

@@ -2,6 +2,7 @@ from urllib import request, error
 import json
 import os
 import re
+import uuid
 from sonic_py_common import logger, device_info
 from portconfig import get_port_config
 from natsort import natsorted
@@ -147,7 +148,7 @@ def _url(physical_port, action=None):
     """
     host_intf_index = _physical_port_to_host_port(physical_port)
     url = BASE_URL + "/mux/{}/{}".format(VM_SET, host_intf_index)
-    
+
     if action:
         url += "/{}".format(action)
 
@@ -165,7 +166,9 @@ def _post(physical_port, data):
     """
     data = json.dumps(data).encode(encoding='utf-8')
     header = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-    req = request.Request(url=_url(physical_port), data=data, headers=header)
+    url = '{}?reqId={}'.format(_url(physical_port), uuid.uuid4())
+    req = request.Request(url=url, data=data, headers=header)
+    helper_logger.log_info('POST {} with {}'.format(url, data))
     try:
         _ = request.urlopen(req)
     except error.HTTPError as e:

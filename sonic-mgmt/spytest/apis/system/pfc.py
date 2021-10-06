@@ -635,12 +635,12 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             buffer_pool = {"BUFFER_POOL": {"egress_lossless_pool": {"mode": "static", "size": "12766208", "type": "egress"},
                                            "egress_lossy_pool": {"mode": "dynamic", "size": "7326924", "type": "egress"},
                                            "ingress_lossless_pool": {"mode": "dynamic", "size": "12766208", "type": "ingress", "xoff": "4625920"}}}
-            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "1518"},
-                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "0"},
-                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
+            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "egress_lossless_pool", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "egress_lossless_pool", "size": "1518"},
+                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "ingress_lossless_pool", "size": "0"},
+                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
             cable_length_config = {"CABLE_LENGTH": {"AZURE": {native_ports_map_dict[port]: "300m" for port in ports_dict.keys()}}}
             update_retval([buffer_pool, buffer_profile, cable_length_config])
         if apply_buffer_config:
@@ -648,7 +648,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             egress_profile_mapping = {'lossy_profile' : 'egress_lossy_profile', 'lossless_profile' : 'egress_lossless_profile'}
             buffer_pg = dict()
             buffer_queue = dict()
-            get_profile = lambda profile: {"profile": "[BUFFER_PROFILE|{}]".format(profile)}
+            get_profile = lambda profile: {"profile": "{}".format(profile)}
             for port, queue_info in ports_dict.items():
                 native_port = native_ports_map_dict[port]
                 for queue_type, queues in queue_info.items():
@@ -664,12 +664,12 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             buffer_pool = {"BUFFER_POOL": {"egress_lossless_pool": {"mode": "static", "size": "12766208", "type": "egress"},
                                        "egress_lossy_pool": {"mode": "dynamic", "size": "7326924", "type": "egress"},
                                        "ingress_lossless_pool": {"mode": "dynamic", "size": "12766208", "type": "ingress", "xoff": "4625920"}}}
-            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "1518"},
-                                                 "ingress_lossy_profile": {"dynamic_th": "3","pool": "[BUFFER_POOL|ingress_lossless_pool]","size": "0"},
-                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "-3","pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
+            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "egress_lossless_pool", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "egress_lossless_pool", "size": "1518"},
+                                                 "ingress_lossy_profile": {"dynamic_th": "3","pool": "ingress_lossless_pool","size": "0"},
+                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "-3","pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
             cable_length_config = {"CABLE_LENGTH": {"AZURE": {native_ports_map_dict[port]: "300m" for port in ports_dict.keys()}}}
             update_retval([buffer_pool, buffer_profile, cable_length_config])
         if apply_buffer_config:
@@ -677,7 +677,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             egress_profile_mapping = {'lossy_profile' : 'egress_lossy_profile', 'lossless_profile' : 'egress_lossless_profile'}
             buffer_pg = dict()
             buffer_queue = dict()
-            get_profile = lambda profile: {"profile": "[BUFFER_PROFILE|{}]".format(profile)}
+            get_profile = lambda profile: {"profile": "{}".format(profile)}
             for port, queue_info in ports_dict.items():
                 native_port = native_ports_map_dict[port]
                 for queue_type, queues in queue_info.items():
@@ -692,14 +692,14 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
         if core_buffer_config:
             buffer_pool = {"BUFFER_POOL": {"egress_lossy_pool": {"mode": "dynamic", "size": "67108864", "type": "egress"},
                                            "ingress_lossless_pool": {"mode": "dynamic", "size": "59001152", "type": "ingress", "xoff": "7428992"}}}
-            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossy_pool]", "size": "0"},
-                                                 "egress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossy_pool]", "size": "0"},
-                                                 "ingress_lossy_profile": {"pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "0", "static_th": "67108864"},
-                                                 "pg_lossless_10000_40m_profile": {"dynamic_th": "-2", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
-                                                 "pg_lossless_50000_40m_profile": {"dynamic_th": "-2", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
-                                                 "pg_lossless_100000_40m_profile": {"dynamic_th": "-2", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
-                                                 "pg_lossless_200000_40m_profile": {"dynamic_th": "-2", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
-                                                 "pg_lossless_400000_40m_profile": {"dynamic_th": "-2", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "1270","xoff": "190500", "xon": "0", "xon_offset": "2540"}}}
+            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"dynamic_th": "3", "pool": "egress_lossy_pool", "size": "0"},
+                                                 "egress_lossy_profile": {"dynamic_th": "3", "pool": "egress_lossy_pool", "size": "0"},
+                                                 "ingress_lossy_profile": {"pool": "ingress_lossless_pool", "size": "0", "static_th": "67108864"},
+                                                 "pg_lossless_10000_40m_profile": {"dynamic_th": "-2", "pool": "ingress_lossless_pool", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
+                                                 "pg_lossless_50000_40m_profile": {"dynamic_th": "-2", "pool": "ingress_lossless_pool", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
+                                                 "pg_lossless_100000_40m_profile": {"dynamic_th": "-2", "pool": "ingress_lossless_pool", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
+                                                 "pg_lossless_200000_40m_profile": {"dynamic_th": "-2", "pool": "ingress_lossless_pool", "size": "1270", "xoff": "190500", "xon": "0", "xon_offset": "2540"},
+                                                 "pg_lossless_400000_40m_profile": {"dynamic_th": "-2", "pool": "ingress_lossless_pool", "size": "1270","xoff": "190500", "xon": "0", "xon_offset": "2540"}}}
             cable_length_config = {"CABLE_LENGTH": {"AZURE": {native_ports_map_dict[port]: "40m" for port in ports_dict.keys()}}}
             update_retval([buffer_pool, buffer_profile, cable_length_config])
         if apply_buffer_config:
@@ -707,7 +707,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             egress_profile_mapping = {'lossy_profile' : 'egress_lossy_profile', 'lossless_profile' : 'egress_lossless_profile'}
             buffer_pg = dict()
             buffer_queue = dict()
-            get_profile = lambda profile: {"profile": "[BUFFER_PROFILE|{}]".format(profile)}
+            get_profile = lambda profile: {"profile": "{}".format(profile)}
             for port, queue_info in ports_dict.items():
                 native_port = native_ports_map_dict[port]
                 for queue_type, queues in queue_info.items():
@@ -723,11 +723,11 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             buffer_pool = {"BUFFER_POOL": {"egress_lossless_pool": {"mode": "static", "size": "12766208", "type": "egress"},
                                            "egress_lossy_pool": {"mode": "dynamic", "size": "7326924", "type": "egress"},
                                            "ingress_lossless_pool": {"mode": "dynamic", "size": "12766208", "type": "ingress"}}}
-            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "1518"},
-                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "0"},
-                                                 "pg_lossless_1000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
-                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
+            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "egress_lossless_pool", "size": "0", "static_th": "12766208"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "egress_lossless_pool", "size": "1518"},
+                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "ingress_lossless_pool", "size": "0"},
+                                                 "pg_lossless_1000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"},
+                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "-3", "pool": "ingress_lossless_pool", "size": "56368", "xoff": "55120", "xon": "18432", "xon_offset": "2496"}}}
             cable_length_config = {"CABLE_LENGTH": {"AZURE": {native_ports_map_dict[port]: "300m" for port in ports_dict.keys()}}}
             update_retval([buffer_pool, buffer_profile, cable_length_config])
         if apply_buffer_config:
@@ -735,7 +735,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             egress_profile_mapping = {'lossy_profile' : 'egress_lossy_profile', 'lossless_profile' : 'egress_lossless_profile'}
             buffer_pg = dict()
             buffer_queue = dict()
-            get_profile = lambda profile: {"profile": "[BUFFER_PROFILE|{}]".format(profile)}
+            get_profile = lambda profile: {"profile": "{}".format(profile)}
             for port, queue_info in ports_dict.items():
                 native_port = native_ports_map_dict[port]
                 for queue_type, queues in queue_info.items():
@@ -751,14 +751,14 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             buffer_pool = {"BUFFER_POOL": {"egress_lossless_pool": {"mode": "static", "size": "33004032", "type": "egress"},
                                            "egress_lossy_pool": {"mode": "dynamic", "size": "12766208", "type": "egress"},
                                            "ingress_lossless_pool": {"mode": "dynamic", "size": "12766208", "type": "ingress", "xoff": "196608"}}}
-            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "0", "static_th": "33004032"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|egress_lossless_pool]", "size": "1518"},
-                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "0"},
-                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "1", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
-                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "1", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
-                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "1", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
-                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "1", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"}}}
+            buffer_profile = {"BUFFER_PROFILE": {"egress_lossless_profile": {"pool": "egress_lossless_pool", "size": "0", "static_th": "33004032"},                                     "egress_lossy_profile": {"dynamic_th": "3", "pool": "egress_lossless_pool", "size": "1518"},
+                                                 "ingress_lossy_profile": {"dynamic_th": "3", "pool": "ingress_lossless_pool", "size": "0"},
+                                                 "pg_lossless_10000_300m_profile": {"dynamic_th": "1", "pool": "ingress_lossless_pool", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
+                                                 "pg_lossless_25000_300m_profile": {"dynamic_th": "1", "pool": "ingress_lossless_pool", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
+                                                 "pg_lossless_40000_300m_profile": {"dynamic_th": "1", "pool": "ingress_lossless_pool", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"},
+                                                 "pg_lossless_100000_300m_profile": {"dynamic_th": "1", "pool": "ingress_lossless_pool", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"}}}
             if hwsku.lower() in ['quanta-ix8a-bwde-56x', 'accton-as4630-54pe']:
-                buffer_profile['BUFFER_PROFILE'].update(pg_lossless_1000_300m_profile={"dynamic_th": "1", "pool": "[BUFFER_POOL|ingress_lossless_pool]", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"})
+                buffer_profile['BUFFER_PROFILE'].update(pg_lossless_1000_300m_profile={"dynamic_th": "1", "pool": "ingress_lossless_pool", "size": "9427", "xoff": "50176", "xon": "0", "xon_offset": "3584"})
             cable_length_config = {"CABLE_LENGTH": {"AZURE": {native_ports_map_dict[port]: "300m" for port in ports_dict.keys()}}}
             update_retval([buffer_pool, buffer_profile, cable_length_config])
         if apply_buffer_config:
@@ -768,7 +768,7 @@ def config_pfc_buffer_prameters(dut, hwsku, ports_dict, **kwargs):
             egress_profile_mapping = {'lossy_profile' : 'egress_lossy_profile', 'lossless_profile' : 'egress_lossless_profile'}
             buffer_pg = dict()
             buffer_queue = dict()
-            get_profile = lambda profile: {"profile": "[BUFFER_PROFILE|{}]".format(profile)}
+            get_profile = lambda profile: {"profile": "{}".format(profile)}
             for port, queue_info in ports_dict.items():
                 native_port = native_ports_map_dict[port]
                 for queue_type, queues in queue_info.items():

@@ -13,6 +13,7 @@ import logging
 import pytest
 import random
 import time
+import contextlib
 
 from ptf import mask
 from ptf import testutils
@@ -33,6 +34,13 @@ pytestmark = [
     pytest.mark.topology("t0")
 ]
 
+@contextlib.contextmanager
+def stop_garp(ptfhost):
+    """Temporarily stop garp service."""
+    ptfhost.shell("supervisorctl stop garp_service")
+    time.sleep(3)
+    yield
+    ptfhost.shell("supervisorctl start garp_service")
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_common_setup_teardown(
@@ -219,7 +227,7 @@ def verify_ecn_on_received_packet(
     """
     Verify ECN value on the received packet w.r.t expected packet
     """
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
+    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
     rec_pkt = Ether(rec_pkt)
     logging.info("received packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
@@ -232,7 +240,7 @@ def verify_ecn_on_received_packet(
         logging.info("the expected ECN: {0:02b} matching with received ECN: {0:02b}".format(exp_ecn, rec_ecn))
 
 def test_dscp_to_queue_during_decap_on_active(
-    setup_dualtor_tor_active,
+    ptfhost, setup_dualtor_tor_active,
     build_encapsulated_ip_packet, request,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor, 
@@ -253,26 +261,27 @@ def test_dscp_to_queue_during_decap_on_active(
     duthost.shell('sonic-clear queuecounters')
     logging.info("Clearing queue counters before starting traffic")
 
-    ptfadapter.dataplane.flush()
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-    logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+    with stop_garp(ptfhost):
+        ptfadapter.dataplane.flush()
+        ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+        logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
 
-    exp_tos = encapsulated_packet[IP].payload[IP].tos
-    exp_dscp = exp_tos >> 2
-    exp_queue = derive_queue_id_from_dscp(exp_dscp)
+        exp_tos = encapsulated_packet[IP].payload[IP].tos
+        exp_dscp = exp_tos >> 2
+        exp_queue = derive_queue_id_from_dscp(exp_dscp)
 
-    _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index])
-    rec_pkt = Ether(rec_pkt)
-    logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
+        _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
+        rec_pkt = Ether(rec_pkt)
+        logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
-    time.sleep(10)
-    rec_queue = get_queue_id_of_received_packet(duthosts, rand_one_dut_hostname, rand_selected_interface)
+        time.sleep(10)
+        rec_queue = get_queue_id_of_received_packet(duthosts, rand_one_dut_hostname, rand_selected_interface)
 
-    if rec_queue == None or rec_queue != exp_queue:
-        pytest.fail("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
-    else:
-        logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+        if rec_queue == None or rec_queue != exp_queue:
+            pytest.fail("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
+        else:
+            logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
 
 @pytest.fixture(scope='module')
 def write_standby(rand_selected_dut):
@@ -320,7 +329,7 @@ def test_dscp_to_queue_during_encap_on_standby(
        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
 
 def test_ecn_during_decap_on_active(
-    setup_dualtor_tor_active,
+    ptfhost, setup_dualtor_tor_active,
     build_encapsulated_ip_packet, request,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
@@ -335,15 +344,15 @@ def test_ecn_during_decap_on_active(
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
 
-    ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
-    time.sleep(10)
 
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     exp_ecn = exp_tos & 3
-    verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
+    with stop_garp(ptfhost):
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+        verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
 def test_ecn_during_encap_on_standby(
     setup_dualtor_tor_standby,

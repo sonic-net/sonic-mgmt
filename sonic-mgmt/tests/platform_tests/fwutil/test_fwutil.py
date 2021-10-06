@@ -10,7 +10,7 @@ DEVICES_PATH="/usr/share/sonic/device"
 def test_fwutil_show(duthost):
     """Tests that fwutil show has all components defined for platform"""
     platform_comp = {}
-    duthost.fetch(dest=os.path.join("firmware", "platform_components_backup.json"), 
+    duthost.fetch(dest=os.path.join("firmware", "platform_components_backup.json"),
             src=os.path.join(DEVICES_PATH, duthost.facts["platform"], "platform_components.json"),
             flat=True)
     with open(os.path.join("firmware", "platform_components_backup.json")) as f:
@@ -26,11 +26,11 @@ def test_fwutil_show(duthost):
 
 def test_fwutil_install_file(duthost, localhost, pdu_controller, fw_pkg, random_component):
     """Tests manually installing firmware to a component from a file."""
-    assert call_fwutil(duthost, 
-            localhost, 
-            pdu_controller, 
-            fw_pkg, 
-            component=random_component, 
+    assert call_fwutil(duthost,
+            localhost,
+            pdu_controller,
+            fw_pkg,
+            component=random_component,
             basepath=os.path.join(DEVICES_PATH, duthost.facts['platform']))
 
 def test_fwutil_install_url(duthost, localhost, pdu_controller, fw_pkg, random_component, host_firmware):
@@ -38,8 +38,8 @@ def test_fwutil_install_url(duthost, localhost, pdu_controller, fw_pkg, random_c
     assert call_fwutil(duthost,
             localhost,
             pdu_controller,
-            fw_pkg, 
-            component=random_component, 
+            fw_pkg,
+            component=random_component,
             basepath=host_firmware)
 
 def test_fwutil_install_bad_name(duthost, fw_pkg):
@@ -61,16 +61,16 @@ def test_fwutil_update_current(duthost, localhost, pdu_controller, fw_pkg, rando
     assert call_fwutil(duthost,
             localhost,
             pdu_controller,
-            fw_pkg, 
+            fw_pkg,
             component=random_component)
 
 def test_fwutil_update_next(duthost, localhost, pdu_controller, fw_pkg, random_component, next_image):
     """Tests updating firmware from the "next" image using fwutil update"""
-    assert call_fwutil(duthost, 
+    assert call_fwutil(duthost,
             localhost,
             pdu_controller,
-            fw_pkg, 
-            component=random_component, 
+            fw_pkg,
+            component=random_component,
             next_image=next_image)
 
 def test_fwutil_update_bad_config(duthost, fw_pkg, random_component):
@@ -78,7 +78,7 @@ def test_fwutil_update_bad_config(duthost, fw_pkg, random_component):
     versions = show_firmware(duthost)
     chassis = versions["chassis"].keys()[0] # Only one chassis
 
-    # Test fwutil update with config file without chassis section 
+    # Test fwutil update with config file without chassis section
     with open("platform_components.json", "w") as f:
         json.dump({}, f, indent=4)
     upload_platform(duthost, {})
@@ -106,13 +106,13 @@ def test_fwutil_update_bad_config(duthost, fw_pkg, random_component):
     found_bad_component = find_pattern(out_bad_version['stdout_lines'], pattern_bad_component)
     assert found_bad_component
 
-@pytest.mark.skip(reason="Command not yet merged into sonic-utilites")
+
 @pytest.mark.parametrize("reboot_type", ["none", "warm", "fast", "cold", "power off"])
 def test_fwutil_auto(duthost, localhost, pdu_controller, fw_pkg, reboot_type):
     """Tests fwutil update all command ability to properly select firmware for install based on boot type."""
-    assert call_fwutil(duthost, 
+    assert call_fwutil(duthost,
             localhost,
             pdu_controller,
-            fw_pkg, 
+            fw_pkg,
             reboot=reboot_type)
 
