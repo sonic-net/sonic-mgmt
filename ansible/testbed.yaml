@@ -1189,6 +1189,36 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms28-t0-4600c-03
+  group-name: vms28-3
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms28-3
+  ptf_ip: 10.64.246.240/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2828
+  dut:
+    - str2-msn4600c-acs-03
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms28-t0-4600c-04
+  group-name: vms28-4
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms28-4
+  ptf_ip: 10.64.246.241/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2832
+  dut:
+    - str2-msn4600c-acs-04
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: vms21-dual-t0-7260
   group-name: vms21-6
   topo: dualtor-120
