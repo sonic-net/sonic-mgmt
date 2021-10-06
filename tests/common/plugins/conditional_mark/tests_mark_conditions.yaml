@@ -12,13 +12,7 @@ dhcp_relay/test_dhcpv6_relay.py:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
 
-drop_packets/test_drop_counters.py::test_acl_egress_drop[port_channel_members]:
-  skip:
-    reason: "Not supported on Boradcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-
-drop_packets/test_drop_counters.py::test_acl_egress_drop[rif_members]:
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
     reason: "Not supported on Boradcom platforms"
     conditions:
@@ -32,6 +26,89 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
   skip:
     reason: "SONiC can't enable loop-back filter feature"
+
+drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv4]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv6]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on_active:
+  xfail:
+    reason: "Image issue on Boradcom platforms"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dualtor/test_tor_ecn.py::test_ecn_during_decap_on_active:
+  xfail:
+    reason: "Test flaky"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
@@ -64,6 +141,14 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
       - "branch in ['internal-202012']"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  xfail:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
 
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
