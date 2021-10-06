@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
+    default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
+    default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
   - name: TESTBED_SPECIFIC
