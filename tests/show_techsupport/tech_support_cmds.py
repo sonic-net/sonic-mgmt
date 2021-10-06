@@ -117,6 +117,16 @@ docker_cmds = [
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
+    "docker exec lldp{} lldpcli show statistics",
+    "docker logs bgp{}",
+    "docker logs swss{}",
+]
+
+docker_cmds_201911 = [
+    "docker exec -it syncd{} saidump",
+    "docker stats --no-stream",
+    "docker ps -a",
+    "docker top pmon",
     "docker exec -it lldp{} lldpcli show statistics",
     "docker logs bgp{}",
     "docker logs swss{}",
