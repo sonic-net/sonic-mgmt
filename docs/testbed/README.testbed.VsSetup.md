@@ -57,7 +57,9 @@ $ docker images
 REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
 ceosimage                                              4.25.5.1M-1   fa0df4b01467   9 seconds ago   1.62GB
 ```
-*For time being, the image might be updated, the actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), please download the corresponding version of image and import it to your local docker repository.*
+**Note**: *For time being, the image might be updated, the actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), please download the corresponding version of image and import it to your local docker repository.*
+
+**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
 1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
 
