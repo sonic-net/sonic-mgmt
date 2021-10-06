@@ -12,6 +12,7 @@ from tests.common.utilities import wait_until
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
+from sub_ports_helpers import TUNNEL_TEMPLATE
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_member_from_vlan
 from sub_ports_helpers import get_port
@@ -87,24 +88,24 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     """
     sub_ports_config = {}
     max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
-    vlan_ranges_dut = range(10, 50, 10)
-    vlan_ranges_ptf = range(10, 50, 10)
+    vlan_ranges_dut = range(20, 60, 10)
+    vlan_ranges_ptf = range(20, 60, 10)
 
     if 'invalid' in request.node.name:
-        vlan_ranges_ptf = range(11, 31, 10)
+        vlan_ranges_ptf = range(21, 41, 10)
 
     if 'max_numbers' in request.node.name:
-        vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
-        vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
+        vlan_ranges_dut = range(11, max_numbers_of_sub_ports + 11)
+        vlan_ranges_ptf = range(11, max_numbers_of_sub_ports + 11)
 
         # Linux has the limitation of 15 characters on an interface name,
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
         # For example: 'PortChannel1.99'
         if 'port_in_lag' in request.param:
-            max_numbers_of_sub_ports = max_numbers_of_sub_ports if max_numbers_of_sub_ports <= 99 else 99
-            vlan_ranges_dut = range(1, max_numbers_of_sub_ports + 1)
-            vlan_ranges_ptf = range(1, max_numbers_of_sub_ports + 1)
+            vlan_range_end = min(100, max_numbers_of_sub_ports + 11)
+            vlan_ranges_dut = range(11, vlan_range_end)
+            vlan_ranges_ptf = range(11, vlan_range_end)
 
     interface_num = 2
     ip_subnet = u'172.16.0.0/16'
@@ -229,8 +230,9 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
                                   sub_ports[next_hop_sub_port]['neighbor_port'],
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
 
-            add_static_route(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
-            add_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+            if 'tunneling' not in request.node.name:
+                add_static_route(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
+                add_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
@@ -245,8 +247,11 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
         for next_hop_sub_port in next_hop_sub_ports:
             sub_port, name_of_namespace = next_hop_sub_port
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
-            remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
-            remove_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+
+            if 'tunneling' not in request.node.name:
+                remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
+                remove_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+
             remove_namespace(ptfhost, name_of_namespace)
 
 
@@ -271,13 +276,15 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
 
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
-    ptf_ports = define_sub_ports_configuration['ptf_ports']
     port_type = define_sub_ports_configuration['port_type']
     subnet = define_sub_ports_configuration['subnet']
 
-    # Get additional port for configuration of SVI port
+    # Get additional port for configuration of SVI port or L3 RIF
     if 'svi' in request.param:
-        dut_ports, ptf_ports = get_port(duthost, ptfhost, 1, port_type, dut_ports.values())
+        interface_num = 1
+    else:
+        interface_num = 2
+    dut_ports, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, dut_ports.values(), exclude_sub_interface_ports=True)
 
     # Get additional IP addresses for configuration of RIF on the DUT and PTF
     subnet = ipaddress.ip_network(str(subnet.broadcast_address + 1) + u'/24')
@@ -299,6 +306,8 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             # Configure additional sub-port for connection between SVI port of the DUT and PTF
             create_sub_port_on_ptf(ptfhost, ptf_port, ptf_port_ip)
         else:
+            # should remove port from Vlan1000 first to configure L3 RIF
+            remove_member_from_vlan(duthost, '1000', dut_port)
             # Configure L3 RIF on the DUT
             add_ip_to_dut_port(duthost, dut_port, dut_port_ip)
             # Configure L3 RIF on the PTF
@@ -350,7 +359,6 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             remove_static_route(ptfhost, dst_port_network, next_hop_sub_ports['neighbor_ip'])
             remove_namespace(ptfhost, name_of_namespace)
 
-
         if 'svi' in request.param:
             # Remove SVI port from the DUT
             remove_member_from_vlan(duthost, vlan_id, next_hop_sub_ports['dut_port'])
@@ -369,8 +377,50 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             # Remove L3 RIF from the PTF
             remove_ip_from_ptf_port(ptfhost, src_port, next_hop_sub_ports['ip'])
 
+            if 'port_in_lag' in port_type:
+                bond_port = src_port
+                cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                remove_lag_port(duthost, cfg_facts, next_hop_sub_ports['dut_port'])
+                remove_bond_port(ptfhost, bond_port, ptf_ports[bond_port])
+
     if 'svi' in request.param:
         remove_vlan(duthost, vlan_id)
+
+
+@pytest.fixture()
+def apply_tunnel_table_to_dut(duthost, apply_route_config):
+    """
+    Apply tunnel configuration on the DUT and remove after tests
+
+    Args:
+        duthost: DUT host object
+        apply_route_config: Fixture for applying route configuration on the PTF
+    """
+    tunnel_addr_list = []
+
+    new_sub_ports = apply_route_config['new_sub_ports']
+    sub_ports = apply_route_config['sub_ports']
+
+    for src_port in new_sub_ports:
+        tunnel_ip = sub_ports[src_port]['ip'].split('/')[0]
+        tunnel_addr_list.append(tunnel_ip)
+
+    tunnel_vars = {
+        'tunnel_addr_list': tunnel_addr_list
+    }
+
+    tunnel_config_path = os.path.join(DUT_TMP_DIR, TUNNEL_TEMPLATE)
+    config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, TUNNEL_TEMPLATE)).read())
+
+    duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
+    duthost.copy(content=config_template.render(tunnel_vars), dest=tunnel_config_path)
+    duthost.command('sonic-cfggen -j {} --write-to-db'.format(tunnel_config_path))
+
+    yield
+
+    # Teardown
+    for index in range(1, len(tunnel_addr_list)+1):
+        duthost.command('docker exec -i database redis-cli -n 4 -c DEL "TUNNEL|MuxTunnel{}"'.format(index))
 
 
 @pytest.fixture

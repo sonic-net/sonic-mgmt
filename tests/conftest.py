@@ -58,7 +58,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
-                  'tests.common.plugins.allure_server')
+                  'tests.common.plugins.allure_server',
+                  'tests.common.plugins.conditional_mark')
 
 
 def pytest_addoption(parser):
@@ -491,7 +492,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
 @pytest.fixture(scope="session")
 def vmhost(ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
-    inv_files = request.config.option.ansible_inventory
+    inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
     return VMHost(ansible_adhoc, vmhost.name)
 

@@ -70,6 +70,10 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
 
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
+
 def collect_data(duthost):
     keys = duthost.shell('sonic-db-cli STATE_DB KEYS "EEPROM_INFO|*"')['stdout_lines']
 
@@ -157,18 +161,14 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, ra
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    skip_release(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(daemon_status != expected_running_status and pre_daemon_pid != daemon_pid,
-                         "{} status for SIG_TERM should not be {} with pid:{}!".format(daemon_name, daemon_status, daemon_pid))
-
-    time.sleep(10)
+    wait_until(50, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,

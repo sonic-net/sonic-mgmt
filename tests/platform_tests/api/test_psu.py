@@ -9,6 +9,8 @@ from tests.common.helpers.platform_api import chassis, psu
 from tests.common.utilities import skip_version
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.utilities import skip_release_for_platform
+
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -156,10 +158,10 @@ class TestPsuApi(PlatformApiTestBase):
         self.assert_expectations()
 
 
-    def test_power(self, duthost, localhost, platform_api_conn):
+    def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU power test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
@@ -205,7 +207,7 @@ class TestPsuApi(PlatformApiTestBase):
     def test_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU temperature test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)

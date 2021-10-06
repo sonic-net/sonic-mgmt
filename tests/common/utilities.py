@@ -484,9 +484,12 @@ def compose_dict_from_cli(fields_list):
     return dict(zip(fields_list[0::2], fields_list[1::2]))
 
 
-def get_intf_by_sub_intf(sub_intf, vlan_id):
+def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     """
-    Deduce interface from sub interface by striping vlan id
+    Deduce interface from sub interface by striping vlan id,
+    if vlan id is not passed, will automatically strip vlan id by finding '.',
+     if '.' found: strip the right or it,
+     if '.' not found, return original sub_intf.
     Args:
         sub_intf (str): sub interface name, e.g. Ethernet100.10
         vlan_id (str): vlan id, e.g. 10
@@ -494,10 +497,27 @@ def get_intf_by_sub_intf(sub_intf, vlan_id):
     Returns:
         str: interface name, e.g. Ethernet100
     """
+    if type(sub_intf) != str:
+        sub_intf = str(sub_intf)
+
     if not vlan_id:
+        idx_of_sub_int_indicator = sub_intf.find(constants.VLAN_SUB_INTERFACE_SEPARATOR)
+        if idx_of_sub_int_indicator > -1:
+            return sub_intf[:idx_of_sub_int_indicator]
         return sub_intf
 
     vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
     if sub_intf.endswith(vlan_suffix):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
+
+def check_qos_db_fv_reference_with_table(duthost):
+    """
+    @summary: Check qos db field value refrence with table name or not.
+    @param duthost: The DUT
+    """
+    release_list = ["201811", "201911", "202012", "202106"]
+    if any(release == duthost.sonic_release for release in release_list):
+        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
+        return True
+    return False
