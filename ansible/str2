@@ -82,6 +82,10 @@ all:
           ansible_host: 10.64.246.238
         vms28-2:
           ansible_host: 10.64.246.239
+        vms28-3:
+          ansible_host: 10.64.246.240
+        vms28-4:
+          ansible_host: 10.64.246.241
 
     pdu:
       hosts:
@@ -250,6 +254,12 @@ fanout:
       ansible_host: 10.3.147.81
     str2-7260cx3-acs-fan-28:
       ansible_host: 10.3.147.82
+    str2-7260cx3-acs-fan-29:
+      ansible_host: 10.3.147.55
+    str2-7260cx3-acs-fan-31:
+      ansible_host: 10.3.147.53
+    str2-7260cx3-acs-fan-32:
+      ansible_host: 10.3.147.54
 
 sonic:
   vars:
@@ -315,6 +325,42 @@ sonic_mlnx_4600C:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x41E7E224"
+
+    str2-msn4600c-acs-03:
+      ansible_host: 10.3.147.59
+      model: MSN4600-CS2RO
+      serial: MT2115X26253
+      base_mac: 1C:34:DA:1D:13:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2RO"
+        "0x23": "MT2115X26253"
+        "0x24": "1C:34:DA:BB:8A:00"
+        "0x25": "04/21/2021 22:26:26"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2019.11-5.2.0020-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xBA60AC7E"
+
+    str2-msn4600c-acs-04:
+      ansible_host: 10.3.147.63
+      model: MSN4600-CS2RO
+      serial: MT2115X26247
+      base_mac: 1C:34:DA:BB:84:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2RO"
+        "0x23": "MT2115X26247"
+        "0x24": "1C:34:DA:BB:84:00"
+        "0x25": "04/22/2021 01:00:42"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2019.11-5.2.0020-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xDFCD013E"
 
 sonic_mlnx_3800_50:
   vars:
