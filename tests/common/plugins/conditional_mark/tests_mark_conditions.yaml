@@ -192,7 +192,7 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/Azure/sonic-buildimage/issues/4930
 
-show_techsupport/test_techsupport.py:
+show_techsupport/test_techsupport.py::test_techsupport[:
   xfail:
     reason: "Generic internal image issue"
     strict: True
