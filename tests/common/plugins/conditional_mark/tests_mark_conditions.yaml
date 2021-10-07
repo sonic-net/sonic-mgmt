@@ -1,10 +1,3 @@
-qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping
-  xfail:
-    reason: "Image issue on Broadcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['t0-backend', 't1-backend']"
-
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
   xfail:
     reason: "Image issue on Broadcom platforms"
@@ -173,6 +166,13 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # traffic generator to generate pause frames, skipping this here.
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
+  xfail:
+    reason: "Image issue on Broadcom platforms"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['t0-backend', 't1-backend']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
   xfail:
