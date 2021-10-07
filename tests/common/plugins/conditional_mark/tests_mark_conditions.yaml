@@ -1,6 +1,6 @@
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
   xfail:
-    reason: "Image issue on Boradcom platforms"
+    reason: "Image issue on Broadcom platforms"
     conditions:
       - "asic_type in ['broadcom']"
 
@@ -14,7 +14,7 @@ dhcp_relay/test_dhcpv6_relay.py:
 
 drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
-    reason: "Not supported on Boradcom platforms"
+    reason: "Not supported on Broadcom platforms"
     conditions:
       - "asic_type in ['broadcom']"
 
@@ -129,7 +129,7 @@ platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
   xfail:
     reason: "Image issue on Arista platforms"
     conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
+      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   xfail:
@@ -139,7 +139,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
   xfail:
     reason: "Image issue on Arista platforms"
     conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
+      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s']"
       - "branch in ['internal-202012']"
 
 platform_tests/test_reboot.py::test_warm_reboot:
