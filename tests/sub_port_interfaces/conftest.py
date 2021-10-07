@@ -445,7 +445,7 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
-    if not check_sub_port(duthost, sub_ports.keys(), True):
+    if check_sub_port(duthost, sub_ports.keys()):
         for sub_port, sub_port_info in sub_ports.items():
             remove_sub_port(duthost, sub_port, sub_port_info['ip'])
 
