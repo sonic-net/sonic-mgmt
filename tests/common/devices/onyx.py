@@ -1,17 +1,9 @@
 import json
 import logging
-import re
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.drop_counters.fanout_onyx_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
-
-MAX_OPENFLOW_RULE_ID = 65535
-DEVICE_PORT_VLANS = 'device_port_vlans'
-TRUNK = 'Trunk'
-MODE = "mode"
-FAILED = 'failed'
-INVOCATION = 'invocation'
-STDOUT = 'stdout'
 
 
 class OnyxHost(AnsibleHostBase):
@@ -229,43 +221,8 @@ class OnyxHost(AnsibleHostBase):
             boolean: True if success. Usually, the method return False only if the operation
             is not supported or failed.
         """
-        trunk_port = self._get_trunk_port_to_server(fanout_graph_facts)
-        openflow_port_id = self._get_openflow_port_id(trunk_port)
-        cmd = 'openflow add-flows {rule_id} table=0,priority=10,dl_src={match_mac},' \
-              'in_port={openflow_port_id},actions=set_field:{set_mac}->{eth_field}'
-        out = self.host.onyx_config(lines=[cmd.format(
-            rule_id=MAX_OPENFLOW_RULE_ID, match_mac=match_mac,
-            openflow_port_id=openflow_port_id, set_mac=set_mac, eth_field=eth_field)])
-        if FAILED in out and out[FAILED]:
-            logger.error('Failed to set openflow rule - {}'.format(out['msg']))
-            return False
-        logger.debug('Setting openflow rule succed from onyx: {}'.format(out))
-        return True
-
-    def _get_trunk_port_to_server(self, fanout_graph_facts):
-        fanout_trunk_port = None
-        for iface, iface_info in fanout_graph_facts[self.hostname][DEVICE_PORT_VLANS].items():
-            if iface_info[MODE] == TRUNK:
-                fanout_trunk_port = iface.split('/')[-1]
-                break
-        return fanout_trunk_port
-
-    def _get_openflow_port_id(self, port):
-        out = self.host.onyx_command(
-            commands=['show openflow'])[self.hostname]
-        if FAILED in out and out[FAILED]:
-            logger.error('Failed to get openflow table- {}'.format(out['msg']))
-        show_openflow = out[STDOUT][0]
-        return self._get_openflow_port_id_from_show_openflow(show_openflow, port)
-
-    def _get_openflow_port_id_from_show_openflow(self, show_openflow, port):
-        regexp = 'Eth1/{}\s*OF-(\d+)'.format(port)
-        match = re.search(regexp, show_openflow)
-        if match:
-            return match.group(1)
-        else:
-            raise Exception('Can not find openflow port id for port {}. Show openflow output: {}'.format(
-                port, show_openflow))
+        fanout_helper = FanoutOnyxDropCounter(self)
+        return fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
 
     def restore_drop_counter_config(self):
         """Delete configuraion for drop_packets tests if fanout has onyx OS
@@ -275,10 +232,5 @@ class OnyxHost(AnsibleHostBase):
             boolean: True if success. Usually, the method return False only if the operation
             is not supported or failed.
         """
-        cmd = 'openflow del-flows {}'.format(MAX_OPENFLOW_RULE_ID)
-        out = self.host.onyx_config(lines=[cmd])
-        if FAILED in out and out[FAILED]:
-            logger.error('Failed to remove openflow rule - {}'.format(out['msg']))
-            return False
-        logger.debug('Removing openflow rule succed from onyx: {}'.format(out))
-        return True
+        fanout_helper = FanoutOnyxDropCounter(self)
+        return fanout_helper.restore_drop_counter_config()
