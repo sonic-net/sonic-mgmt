@@ -423,7 +423,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms".format(vendor,asic))
 
         if vendor in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
-            pytest.skip("Skipping test since mirror policing is not supported on {0} platforms".format(asic))
+            pytest.skip("Skipping test since mirror with policer is not supported on {0} platforms".format(asic))
 
         default_tarffic_port_type = "tor" if dest_port_type == "spine" else "spine"
         default_traffic_tx_port = setup_info[default_tarffic_port_type]["dest_port"][0]
