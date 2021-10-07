@@ -86,6 +86,8 @@ all:
           ansible_host: 10.64.246.240
         vms28-4:
           ansible_host: 10.64.246.241
+        vms28-5:
+          ansible_host: 10.64.246.242
 
     pdu:
       hosts:
@@ -276,6 +278,7 @@ sonic:
     sonic_dx010_100:
     sonic_nexus_3164:
     sonic_mlnx_4600C:
+    sonic_arista32_100:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_sup:
@@ -653,6 +656,14 @@ sonic_dx010_100:
         "0x2F": "LB"
         "0xFE": "0x75C90801"
       pdu_host: pdu-116,pdu-115
+
+sonic_arista32_100:
+  vars:
+    iface_speed: 100000
+  hosts:
+    str2-a7280cr3-3:
+      ansible_host: 10.3.147.56
+      hwsku: Arista-7280CR3-C40      
 
 sonic_arista64_100:
   vars:
