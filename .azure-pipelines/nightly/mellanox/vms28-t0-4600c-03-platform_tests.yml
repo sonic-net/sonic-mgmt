@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms7-t0-4600c-2
+    default: vms28-t0-4600c-03
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -38,10 +38,15 @@ parameters:
     type: number
     default: 1920    # minutes, totally 32 hours
 
-  # Split platform_tests into another testbed
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests"'
+    displayName: Testbed specific
+  
   - name: SKIP_SCRIPTS
     type: string
-    default: "vrf/test_vrf.py vrf/test_vrf_attr.py platform_tests"
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
     displayName: "Skip Scripts"
 
 stages:
