@@ -99,14 +99,21 @@ def collect_dut_info(dut):
     asic_services = defaultdict(list)
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
-        # and one backend ASIC
+        # and one backend ASIC which is available
+        # in sonic chassis:
+        # the supervisor will only have fabric or backend asics
+        # the linecards will only have frontend asics
         if dut.sonichost.is_multi_asic:
-            fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asics)
-            asic_services[service] = [
-                dut.get_docker_name(service, asic_index=fe),
-                dut.get_docker_name(service, asic_index=be)
-            ]
+            if front_end_asics:
+                fe = random.choice(front_end_asics)
+                asic_services[service].append(
+                    dut.get_docker_name(service, asic_index=fe)
+                )
+            if back_end_asics:
+                be = random.choice(back_end_asics)
+                asic_services[service].append(
+                    dut.get_docker_name(service, asic_index=be)
+                )
 
     dut_info = {
         "intf_status": status,

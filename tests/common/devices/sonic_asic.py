@@ -69,7 +69,7 @@ class SonicAsic(object):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
             sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
-            if sub_role is not None and sub_role.lower() == 'backend':
+            if sub_role is not None and (sub_role.lower() == 'backend' or sub_role.lower == 'fabric'):
                 return True
         return False
 
