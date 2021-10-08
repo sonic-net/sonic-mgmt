@@ -99,8 +99,8 @@ def collect_dut_info(dut):
     asic_services = defaultdict(list)
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
-        # and one backend ASIC which is available
-        # in sonic chassis:
+        # or  one backend ASIC whichever is available
+        # in sonic chassis - 
         # the supervisor will only have fabric or backend asics
         # the linecards will only have frontend asics
         if dut.sonichost.is_multi_asic:
