@@ -216,6 +216,8 @@ class TestChassisApi(PlatformApiTestBase):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+        # Convert all keys of syseeprom_info_dict into lower case
+        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
