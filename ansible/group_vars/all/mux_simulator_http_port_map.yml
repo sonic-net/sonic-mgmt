@@ -1,0 +1,28 @@
+---
+
+# This file contains the mapping from dualtor testbed name to mux-simulator server TCP port
+# A same test server could serve multiple dualtor testbeds. Each dualtor testbed need to have its own
+# instance of mux-simulator server. Different mux-simulator server instances need to listen on different
+# TCP ports. This file maintains the mapping between dualtor testbeds and TCP port of its mux-simulator server.
+
+# This information will be used during deployment of a topology. Mux-simulator server will be started for
+# testbeds on TCP port specified here.
+
+# This information will be used by tests too. Test scripts need to know the TCP port to construct URL for accessing
+# the HTTP API of mux-simulator server.
+
+mux_simulator_http_port:
+    # Format requirement:
+    #   <testbed_name>: <port>
+
+    ### Examples:
+
+    # On server1
+    dualtor-testbed-1: 8080
+    dualtor-testbed-2: 8082
+
+    # On server2
+    dualtor-testbed-3: 8080
+    dualtor-testbed-4: 8082
+
+    #### Add your own port assignment after here ###

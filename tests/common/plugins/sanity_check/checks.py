@@ -135,12 +135,10 @@ def check_interfaces(duthosts):
         check_result = {"failed": True, "check_item": "interfaces", "host": dut.hostname}
         for asic in dut.asics:
             ip_interfaces = []
-            phy_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
                                           source="persistent", verbose=False)['ansible_facts']
-            if "PORT" in cfg_facts:
-                phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
-                                  "admin_status" in v and v["admin_status"] == "up"]
+            phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
+                              "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
             if "VLAN_INTERFACE" in cfg_facts:
@@ -190,6 +188,18 @@ def check_bgp(duthosts):
         def _check_bgp_status_helper():
             asic_check_results = []
             bgp_facts = dut.bgp_facts(asic_index='all')
+
+            # Conditions to fail BGP check
+            #   1. No BGP neighbor.
+            #   2. Any BGP neighbor down.
+            #   3. Failed to get BGP status (In theory, this should be protected by previous check, but adding this check
+            #      here will make BGP check more robust, and it is necessary since many operations highly depends on
+            #      the BGP status)
+
+            if len(bgp_facts) == 0:
+                logger.info("Failed to get BGP status on host %s ..." % dut.hostname)
+                asic_check_results.append(True)
+
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
