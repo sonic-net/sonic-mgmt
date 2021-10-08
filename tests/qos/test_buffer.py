@@ -2244,12 +2244,14 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     buffer_items_to_check_dict = {"up": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
+                                         ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         (None, None, None)
                                         ],
                                   "down": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                           ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+                                           ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
+                                           (None, None, None)
                                         ]
     }
 
@@ -2259,15 +2261,12 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     else:
         for key, buffer_items_to_check in buffer_items_to_check_dict.items():
             new_buffer_items_to_check = []
-            for item in buffer_items_to_check:
+            for item in buffer_items_to_check_dict:
                 table, ids, profiles = item
                 new_buffer_items_to_check.append((table, ids, profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')))
             buffer_items_to_check_dict[key] = new_buffer_items_to_check
         lossless_profile = 'pg_lossless_{}_{}_profile'
         is_qos_db_reference_with_table = False
-
-    # Append a dummy item into the list
-    buffer_items_to_check.append(None)
 
     configdb_ports = [x.split('|')[1] for x in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
     profiles_checked = {}
@@ -2279,23 +2278,22 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
-        buffer_items_to_check.pop()
         if port_config.get('admin_status') == 'up':
             admin_up_ports.add(port)
             cable_length = cable_length_map[port]
             speed = port_config['speed']
             buffer_items_to_check = buffer_items_to_check_dict["up"]
-            buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', lossless_profile.format(speed, cable_length)))
+            buffer_items_to_check[-1] = ('BUFFER_PG_TABLE', '3-4', lossless_profile.format(speed, cable_length))
         else:
             buffer_items_to_check = buffer_items_to_check_dict["down"]
-            buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', None))
 
         for table, ids, expected_profile in buffer_items_to_check:
             logging.info("Checking buffer item {}:{}:{}".format(table, port, ids))
-            buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(duthost, table, ids, port, expected_profile)
 
             if not expected_profile:
                 continue
+
+            buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(duthost, table, ids, port, expected_profile)
 
             if is_qos_db_reference_with_table:
                 expected_profile_key = expected_profile[1:-1]
