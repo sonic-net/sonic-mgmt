@@ -601,9 +601,47 @@ sonic_arista_QX:
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
+      model: DCS-7050QX-32S
+      serial: JPE20255843
+      base_mac: d4:af:f7:0f:95:0c
+      syseeprom_info:
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910E0"
+        "0x23": "JPE20255843"
+        "0x24": "d4:af:f7:0f:95:0c"
+        "0x25": "2020/07/06 00:04:49"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.1-13522936"
+        "0x2F": "JPE20255843"
+        "0xFE": 3735928559
     str2-7050qx-32s-acs-03:
       ansible_host: 10.3.146.167
       hwsku: Arista-7050-QX-32S
+      model: DCS-7050QX-32S
+      serial: JPE20224213
+      base_mac: c0:d6:82:ef:0f:0f
+      syseeprom_info:
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910E0"
+        "0x23": "JPE20224213"
+        "0x24": "c0:d6:82:ef:0f:0f"
+        "0x25": "2020/08/06 00:31:28"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.1-13522936"
+        "0x2F": "JPE20224213"
+        "0xFE": 3735928559
 
 sonic_dx010_100:
   vars:
