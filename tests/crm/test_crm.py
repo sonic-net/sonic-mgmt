@@ -23,7 +23,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CRM_POLLING_INTERVAL = 1
-CRM_UPDATE_TIME = 4
+CRM_UPDATE_TIME = 10
 SONIC_RES_UPDATE_TIME = 50
 
 THR_VERIFY_CMDS = OrderedDict([

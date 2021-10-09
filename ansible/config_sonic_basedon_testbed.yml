@@ -67,8 +67,7 @@
 
     - name: set vm
       set_fact:
-        vm_base: "{{ testbed_facts['vm_base'] }}"
-      when: "testbed_facts['vm_base'] != ''"
+        vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
@@ -140,7 +139,7 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
-    when: "'dualtor' in topo"
+    when: "'dualtor' in topo or 'cable' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -148,13 +147,13 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo or 'docker-keysight-api-server' in ptf_image %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM informations
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
-    when: "VM_topo | bool"
+    when: "(VM_topo | bool) and ('cable' not in topo)"
 
   - name: find all vlan configurations for T0 topology
     vlan_config:
@@ -180,11 +179,13 @@
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
 
   - name: find all interface names
     set_fact:
@@ -192,6 +193,7 @@
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
+    when: "'cable' not in topo"
 
   # create map of VM to asic interface names
   - name: find all interface asic names

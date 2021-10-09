@@ -567,11 +567,12 @@ class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         # dot1p 4 -> pg 4
         # dot1p 5 -> pg 0
         # dot1p 6 -> pg 0
-        # dot1p 7 -> pg 0
+        # dot1p 7 -> pg 7
         pg_dot1p_map = {
-            0 : [0, 1, 2, 5, 6, 7],
+            0 : [0, 1, 2, 5, 6],
             3 : [3],
-            4 : [4]
+            4 : [4],
+            7 : [7]
         }
         print >> sys.stderr, pg_dot1p_map
 

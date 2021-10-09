@@ -39,6 +39,7 @@ EXAMPLES = '''
 ### Here are the assumption/expectation of files to gather VM informations, if the file location or name changes, please modify it here
 TOPO_PATH = 'vars/'
 VM_INV_FILE = 'veos'
+TGEN_MGMT_NETWORK = '10.65.32.0/24'
 
 
 class TestbedVMFacts():
@@ -51,7 +52,10 @@ class TestbedVMFacts():
         CLET_SUFFIX = "-clet"
         toponame = re.sub(CLET_SUFFIX + "$", "", toponame)
         self.topofile = TOPO_PATH+'topo_'+toponame +'.yml'
-        self.start_index = int(re.findall('VM(\d+)', vmbase)[0])
+        if vmbase != '':
+            self.start_index = int(re.findall('VM(\d+)', vmbase)[0])
+        else:
+            self.start_index = 0
         self.vmhosts = {}
         self.vmfile = vmfile
         self.inv_mgr = InventoryManager(loader=DataLoader(), sources=self.vmfile)
@@ -85,9 +89,12 @@ def main():
     try:
         vmsall = TestbedVMFacts(m_args['topo'], m_args['base_vm'], m_args['vm_file'])
         neighbor_eos = vmsall.get_neighbor_eos()
-        for eos in neighbor_eos:
+        tgen_mgmt_ips = list(ipaddress.IPNetwork(unicode(TGEN_MGMT_NETWORK)))
+        for index, eos in enumerate(neighbor_eos):
             vmname = 'VM'+format(neighbor_eos[eos], '04d')
-            if vmname in vmsall.inv_mgr.hosts:
+            if 'tgen' in topo_type:
+                vmsall.vmhosts[eos] = str(tgen_mgmt_ips[index])
+            elif vmname in vmsall.inv_mgr.hosts:
                 vmsall.vmhosts[eos] = vmsall.inv_mgr.get_host(vmname).get_vars()['ansible_host']
             else:
                 err_msg = "cannot find the vm " + vmname + " in VM inventory file, please make sure you have enough VMs for the topology you are using"

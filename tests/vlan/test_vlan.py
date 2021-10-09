@@ -3,14 +3,11 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.mask import Mask
-from collections import defaultdict
 
-import json
 import itertools
 import logging
 import ipaddress
 
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
@@ -246,19 +243,6 @@ def startup_portchannels(duthost, portchannel_interfaces):
     duthost.shell_cmds(cmds=cmds)
 
 
-def add_test_routes(duthost, vlan_ports_list):
-    cmds = []
-    logger.info("Configure route for remote IP")
-    for item in vlan_ports_list:
-        for i in item['permit_vlanid']:
-            cmds.append('ip route add {} via {}'.format(
-                item['permit_vlanid'][i]['remote_ip'],
-                item['permit_vlanid'][i]['peer_ip']
-                ))
-
-    duthost.shell_cmds(cmds=cmds)
-
-
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_intfs_dict, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
@@ -268,57 +252,21 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_i
 
         shutdown_portchannels(duthost, portchannel_interfaces)
 
-        setUpArpResponder(vlan_ports_list, ptfhost)
-
-        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict)
+        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list)
 
         startup_portchannels(duthost, portchannel_interfaces)
-        add_test_routes(duthost, vlan_ports_list)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
     finally:
-        tearDown(duthost, ptfhost)
+        tearDown(duthost)
 
 
-def tearDown(duthost, ptfhost):
+def tearDown(duthost):
 
     logger.info("VLAN test ending ...")
-    logger.info("Stop arp_responder")
-    ptfhost.command('supervisorctl stop arp_responder')
 
     config_reload(duthost)
-
-
-def setUpArpResponder(vlan_ports_list, ptfhost):
-    logger.info("Copy arp_responder to ptfhost")
-    d = defaultdict(list)
-    for vlan_port in vlan_ports_list:
-        for permit_vlanid in vlan_port["permit_vlanid"].keys():
-            if int(permit_vlanid) == vlan_port["pvid"]:
-                iface = "eth{}".format(vlan_port["port_index"][0])
-            else:
-                iface = "eth{}".format(vlan_port["port_index"][0])
-                # iface = "eth{}.{}".format(vlan_port["port_index"][0], permit_vlanid)
-            d[iface].append(vlan_port["permit_vlanid"][permit_vlanid]["peer_ip"])
-
-    with open('/tmp/from_t1.json', 'w') as file:
-        json.dump(d, file)
-    ptfhost.copy(src='/tmp/from_t1.json', dest='/tmp/from_t1.json')
-
-    extra_vars = {
-            'arp_responder_args': ''
-    }
-
-    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
-    ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
-
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-
-    logger.info("Start arp_responder")
-    ptfhost.command('supervisorctl start arp_responder')
 
 
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
@@ -389,7 +337,7 @@ def verify_icmp_packets(ptfadapter, vlan_ports_list, vlan_port, vlan_id):
                 untagged_dst_pc_ports.append(port["port_index"])
             else:
                 untagged_dst_ports += port["port_index"]
-        elif vlan_id in map(int, port["permit_vlanid"].keys()):
+        elif vlan_id in map(int, port["permit_vlanid"]):
             if len(port["port_index"]) > 1:
                 tagged_dst_pc_ports.append(port["port_index"])
             else:
@@ -455,7 +403,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_
     logger.info("Test case #2 starting ...")
 
     for vlan_port in vlan_ports_list:
-        for permit_vlanid in map(int, vlan_port["permit_vlanid"].keys()):
+        for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             pkt = build_icmp_packet(permit_vlanid)
             logger.info("Send tagged({}) packet from {} ...".format(permit_vlanid, vlan_port["port_index"][0]))
             logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
@@ -637,7 +585,6 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, vlan_ports_list, v
         pytest.skip("Unsupported platform")
 
     for tagged_test_vlan in vlan_intfs_dict:
-
         ports_for_test = []
         for vlan_port in vlan_ports_list:
             if vlan_port['pvid'] != tagged_test_vlan and tagged_test_vlan in vlan_port['permit_vlanid']:

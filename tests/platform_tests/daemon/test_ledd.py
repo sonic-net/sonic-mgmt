@@ -18,7 +18,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, skip_release
 
 logger = logging.getLogger(__name__)
 
@@ -119,14 +119,19 @@ def test_pmon_ledd_term_and_start_status(check_daemon_status, duthosts, rand_one
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    if "201811" in duthost.os_version or "201911" in duthost.os_version:
-        pytest.skip("Skip: SIG_TERM behaves differnetly in {} on {}".format(daemon_name, duthost.os_version))
+    skip_release(duthost, ["201811", "201911"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
+    # Insert 2 seconds delay between termination of the LEDD process by SIG_TERM and status verification, 
+    # to avoid misleading check result which caused by latency of termination process.
+    time.sleep(2)
+
+    # TODO: To arm the wait_until API with a delay parameter, by which to delay specified time 
+    # before invoking the check function.  
     wait_until(120, 10, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
