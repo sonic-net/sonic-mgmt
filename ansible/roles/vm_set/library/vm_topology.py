@@ -1208,8 +1208,6 @@ def main():
     if cmd == 'bind_keysight_api_server_ip':
         vm_names = []
 
-    config_logging()
-
     try:
 
         topo = module.params['topo']
