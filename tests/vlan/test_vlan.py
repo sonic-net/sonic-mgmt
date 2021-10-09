@@ -112,8 +112,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
     if config_portchannels:
         portchannel_cnt = 0
         for po in config_portchannels:
-            port = config_portchannels[po]['members'][0]
-            port_id = config_port_indices.keys().index(port)
             vlan_port = {
                 'dev' : po,
                 'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
@@ -126,7 +124,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                         continue
                     if vlan['tagging_mode'] == 'untagged':
                         vlan_port['pvid'] = vlan['vlanid']
-                    ip_prefix = '.'.join(vlan['ip'].split('.')[:3])
                     vlan_port['permit_vlanid'].append(vlan['vlanid'])
             if tbinfo['topo']['name'] != 't0-56-po2vlan':
                 # Add 2 portchannels for test
@@ -134,7 +131,7 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                     continue
                 portchannel_cnt += 1
                 vlan_port['pvid'] = pvid_cycle.next()
-                vlan_port['permit_vlanid'] = [ k for k, v in vlan_intfs_dict.items() if v['orig'] == False ]
+                vlan_port['permit_vlanid'] = vlan_id_list[:]
             if 'pvid' in vlan_port:
                 vlan_ports_list.append(vlan_port)
 
@@ -149,7 +146,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
             'port_index' : [config_port_indices[port]],
             'permit_vlanid' : []
         }
-        port_id = config_port_indices.keys().index(port)
         if tbinfo['topo']['name'] == 't0-56-po2vlan' and port in config_ports_vlan:
             vlan_port['pvid'] = 0
             for vlan in config_ports_vlan[port]:
@@ -159,12 +155,11 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                     continue
                 if vlan['tagging_mode'] == 'untagged':
                     vlan_port['pvid'] = vlan['vlanid']
-                ip_prefix = '.'.join(vlan['ip'].split('.')[:3])
                 vlan_port['permit_vlanid'].append(vlan['vlanid'])
         # Add 4 ports for test
         if tbinfo['topo']['name'] != 't0-56-po2vlan' and i < 4:
             vlan_port['pvid'] = pvid_cycle.next()
-            vlan_port['permit_vlanid'] = [ k for k, v in vlan_intfs_dict.items() if v['orig'] == False ]
+            vlan_port['permit_vlanid'] = vlan_id_list[:]
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
 
