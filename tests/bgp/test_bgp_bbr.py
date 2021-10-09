@@ -265,6 +265,8 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         tor1_asn = setup['tor1_asn']
 
         vm_route = nbrhosts[node]['host'].get_route(route.prefix)
+        if not isinstance(vm_route, dict):
+            logging.warn("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
         vm_route['failed'] = False
         vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
         if accepted:
