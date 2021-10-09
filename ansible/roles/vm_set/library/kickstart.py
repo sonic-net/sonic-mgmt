@@ -50,7 +50,7 @@ class SerialSession(object):
         return
 
     def pair(self, action, wait_for, timeout):
-        logging.debug('output: %s' % action)
+        logging.debug('output: %s' % action)  # lgtm [py/clear-text-logging-sensitive-data]
         logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(encode("%s\n" % action))
         if wait_for is not None:
@@ -78,7 +78,7 @@ class SerialSession(object):
                 logging.debug('## Inputing password')
                 self.pair(password, [r'>'], 10)
             except EMatchNotFound:
-                logging.debug('The original password "%s" is not working' % password)
+                logging.debug('The original password "%s" is not working' % password) # lgtm [py/clear-text-logging-sensitive-data]
                 raise EWrongDefaultPassword
 
         return
@@ -141,7 +141,6 @@ def session(new_params):
         ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    curtime = datetime.datetime.now().isoformat()
     ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['password'])
     ss.enable()

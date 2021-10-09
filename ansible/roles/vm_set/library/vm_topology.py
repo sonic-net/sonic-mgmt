@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-import datetime
-import logging
 import hashlib
 import json
 import re

@@ -33,7 +33,7 @@ class SerialSession(object):
         return
 
     def pair(self, action, wait_for, timeout=60):
-        logging.debug('output: %s' % action)
+        logging.debug('output: %s' % action)  # lgtm [py/clear-text-logging-sensitive-data]
         logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
@@ -99,7 +99,6 @@ def session(new_params):
     if int(new_params['num_asic']) > 1:	
         seq.pop(0)
 
-    curtime = datetime.datetime.now().isoformat()
     ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['passwords'])
     ss.configure(seq)
