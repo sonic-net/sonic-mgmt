@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import datetime
 from telnetlib import Telnet
 import logging
 from ansible.module_utils.debug_utils import config_module_logging
@@ -33,7 +32,7 @@ class SerialSession(object):
         return
 
     def pair(self, action, wait_for, timeout=60):
-        logging.debug('output: %s' % action)  # lgtm [py/clear-text-logging-sensitive-data]
+        logging.debug('output: %s' % action)    #lgtm [py/clear-text-logging-sensitive-data]
         logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
