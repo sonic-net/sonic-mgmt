@@ -71,6 +71,7 @@ def vlan_intfs_dict(cfg_facts, tbinfo):
                 vlan_cnt += 1
             if vlan_cnt >= 2:
                 break
+        assert vlan_cnt == 2
     return vlan_intfs_dict
 
 
@@ -113,11 +114,10 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
         for po in config_portchannels:
             port = config_portchannels[po]['members'][0]
             port_id = config_port_indices.keys().index(port)
-            ip0 = (port_id + 2) & 0xFF
             vlan_port = {
                 'dev' : po,
                 'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
-                'permit_vlanid' : {}
+                'permit_vlanid' : []
             }
             if tbinfo['topo']['name'] == 't0-56-po2vlan' and po in config_ports_vlan:
                 vlan_port['pvid'] = 0
@@ -127,20 +127,14 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                     if vlan['tagging_mode'] == 'untagged':
                         vlan_port['pvid'] = vlan['vlanid']
                     ip_prefix = '.'.join(vlan['ip'].split('.')[:3])
-                    vlan_port['permit_vlanid'][vlan['vlanid']] = {
-                            'peer_ip' : '{}.{}'.format(ip_prefix, ip0),
-                            'remote_ip' : '{}.1.1.{}'.format(vlan['vlanid']&0xFF, ip0)
-                        }
+                    vlan_port['permit_vlanid'].append(vlan['vlanid'])
             if tbinfo['topo']['name'] != 't0-56-po2vlan':
                 # Add 2 portchannels for test
                 if portchannel_cnt >= 2:
                     continue
                 portchannel_cnt += 1
                 vlan_port['pvid'] = pvid_cycle.next()
-                vlan_port['permit_vlanid'] = { k : {
-                    'peer_ip' : '{}.{}'.format('.'.join(v['ip'].split('.')[:3]), ip0),
-                    'remote_ip' : '{}.1.1.{}'.format(k&0xFF, ip0)
-                    } for k, v in vlan_intfs_dict.items() if v['orig'] == False }
+                vlan_port['permit_vlanid'] = [ k for k, v in vlan_intfs_dict.items() if v['orig'] == False ]
             if 'pvid' in vlan_port:
                 vlan_ports_list.append(vlan_port)
 
@@ -153,10 +147,9 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
         vlan_port = {
             'dev' : port,
             'port_index' : [config_port_indices[port]],
-            'permit_vlanid' : {}
+            'permit_vlanid' : []
         }
         port_id = config_port_indices.keys().index(port)
-        ip0 = (port_id + 2) & 0xFF
         if tbinfo['topo']['name'] == 't0-56-po2vlan' and port in config_ports_vlan:
             vlan_port['pvid'] = 0
             for vlan in config_ports_vlan[port]:
@@ -167,20 +160,11 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                 if vlan['tagging_mode'] == 'untagged':
                     vlan_port['pvid'] = vlan['vlanid']
                 ip_prefix = '.'.join(vlan['ip'].split('.')[:3])
-                vlan_port['permit_vlanid'][vlan['vlanid']] = {
-                        'peer_ip' : '{}.{}'.format(ip_prefix, ip0),
-                        'remote_ip' : '{}.1.1.{}'.format(vlan['vlanid']&0xFF, ip0)
-                    }
+                vlan_port['permit_vlanid'].append(vlan['vlanid'])
         # Add 4 ports for test
         if tbinfo['topo']['name'] != 't0-56-po2vlan' and i < 4:
             vlan_port['pvid'] = pvid_cycle.next()
-            for k, v in vlan_intfs_dict.items():
-                if v['orig'] == True:
-                    continue
-                vlan_port['permit_vlanid'][k] = {
-                        'peer_ip' : '{}.{}'.format('.'.join(v['ip'].split('.')[:3]), ip0),
-                        'remote_ip' : '{}.1.1.{}'.format(k&0xFF, ip0)
-                    }
+            vlan_port['permit_vlanid'] = [ k for k, v in vlan_intfs_dict.items() if v['orig'] == False ]
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
 
@@ -222,7 +206,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict):
 
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
-        for permit_vlanid in vlan_port['permit_vlanid'].keys():
+        for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig'] == True:
                 continue
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
@@ -252,7 +236,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, vlan_ports_list, vlan_i
 
         shutdown_portchannels(duthost, portchannel_interfaces)
 
-        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_list)
+        create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict)
 
         startup_portchannels(duthost, portchannel_interfaces)
     # --------------------- Testing -----------------------
