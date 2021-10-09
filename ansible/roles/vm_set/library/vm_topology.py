@@ -9,9 +9,10 @@ import subprocess
 import shlex
 import time
 import traceback
-
+import logging
 import docker
 
+from ansible.module_utils.debug_utils import config_module_logging
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
@@ -136,11 +137,7 @@ SUB_INTERFACE_SEPARATOR = '.'
 SUB_INTERFACE_VLAN_ID = '10'
 
 
-def config_logging():
-    curtime = datetime.datetime.now().isoformat()
-    logging.basicConfig(filename=CMD_DEBUG_FNAME % curtime,
-                        format='%(asctime)s %(levelname)s %(name)s#%(lineno)d: %(message)s',
-                        level=logging.DEBUG)
+config_module_logging('vm_topology')
 
 
 def adaptive_name(template, host, index):
