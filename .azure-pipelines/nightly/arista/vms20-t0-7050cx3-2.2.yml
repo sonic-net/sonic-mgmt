@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms20-t0-7050cx3-1
+    default: vms20-t0-7050cx3-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -35,7 +35,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces platform_tests"'
+    default: '-I "platform_tests"'
     displayName: Testbed specific
 
 stages:
