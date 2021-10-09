@@ -1176,15 +1176,9 @@ def generate_random_code(digit=6):
         digit (int): digit of code, e.g. 6
 
     Returns:
-        str: random code, e.g. JP11M5
+        str: random code, e.g. k9A27L
     """
-    code = []
-    for i in range(digit):
-        if i == random.randint(1, 5):
-            code.append(str(random.randint(1, 5)))
-        else:
-            code.append(chr(random.randint(65, 90)))
-    return ''.join(code)
+    return ''.join(random.sample("abcdefghijklmnABCDEFGHIJKLMN0123456789", digit))
 
 
 def check_params(module, params, mode):
