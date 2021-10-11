@@ -1,0 +1,13 @@
+steps:
+- script: |
+    # set -x        
+    cd sonic-metadata/scripts/tests
+    shellcheck ../preload_firmware ../cleanup_firmware ../bgp_neighbor ../update_firmware ../postupgrade_actions
+  displayName: Bash linter test
+
+- script: |
+    # set -x
+    cd sonic-metadata/scripts
+    pylint *.py  postupgrade_actions
+  displayName: Python linter test
+  condition: always()
