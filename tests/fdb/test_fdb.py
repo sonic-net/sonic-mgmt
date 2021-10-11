@@ -162,33 +162,36 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
         for member in vlan_table[vlan]:
             if 'port_index' not in member or 'tagging_mode' not in member:
                 continue
+            if not member['port_index']:
+                continue
+            port_index = member['port_index'][0]
             vlan_id = int(vlan.replace('Vlan', ''))
             if member['tagging_mode'] == 'untagged':
                 vlan_id = 0
-            mac = ptfadapter.dataplane.get_mac(0, member['port_index'][0])
+            mac = ptfadapter.dataplane.get_mac(0, port_index)
             # send a packet to switch to populate layer 2 table with MAC of PTF interface
-            send_eth(ptfadapter, member['port_index'][0], mac, router_mac, vlan_id)
+            send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
 
             # put in learned MAC
-            fdb[member['port_index'][0]] = { mac }
+            fdb[port_index] = { mac }
 
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
             # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, member['port_index'][0], i)
+            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
                           for i in range(DUMMY_MAC_COUNT)]
 
             for dummy_mac in dummy_macs:
                 if pkt_type == "ethernet":
-                    send_eth(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
+                    send_eth(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
                 elif pkt_type == "arp_request":
-                    send_arp_request(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
+                    send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
                 elif pkt_type == "arp_reply":
-                    send_arp_reply(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
+                    send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
                 else:
                     pytest.fail("Unknown option '{}'".format(pkt_type))
 
             # put in set learned dummy MACs
-            fdb[member['port_index'][0]].update(dummy_macs)
+            fdb[port_index].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
@@ -267,39 +270,33 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     for name, vlan in conf_facts['VLAN'].items():
         vlan_table[name] = []
-        ifnames = conf_facts['VLAN_MEMBER'][name].keys()
 
-        for ifname in ifnames:
+        for ifname in conf_facts['VLAN_MEMBER'][name].keys():
+            if 'tagging_mode' not in conf_facts['VLAN_MEMBER'][name][ifname]:
+                continue
             tagging_mode = conf_facts['VLAN_MEMBER'][name][ifname]['tagging_mode']
-            if ifname in conf_facts['port_index_map']:
-                if conf_facts['port_index_map'][ifname] not in available_ports_idx:
-                    continue
-                vlan_port = {'port_index':[conf_facts['port_index_map'][ifname]], 'tagging_mode':tagging_mode}
-                vlan_table[name].append(vlan_port)
-            elif ifname in config_portchannels:
-                port_index = []
+            port_index = []
+            if ifname in config_portchannels:
                 for member in config_portchannels[ifname]['members']:
-                    if member in conf_facts['port_index_map']:
-                        if conf_facts['port_index_map'][member] in available_ports_idx:
-                            port_index.append(conf_facts['port_index_map'][member])
-                if port_index:
-                    vlan_table[name].append({'port_index':port_index, 'tagging_mode':tagging_mode})
+                    if conf_facts['port_index_map'][member] in available_ports_idx:
+                        port_index.append(conf_facts['port_index_map'][member])
+            elif conf_facts['port_index_map'][ifname] in available_ports_idx:
+                    port_index.append(conf_facts['port_index_map'][ifname])
+            if port_index:
+                vlan_table[name].append({'port_index':port_index, 'tagging_mode':tagging_mode})
 
     vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type)
     for vlan in vlan_table:
+        vlan_id = int(vlan.replace('Vlan', ''))
         for src, dst in itertools.combinations(vlan_table[vlan], 2):
             if 'port_index' not in src or 'tagging_mode' not in src:
                 continue
             if 'port_index' not in dst or 'tagging_mode' not in dst:
                 continue
-            src_vlan = 0
-            if src['tagging_mode'] == 'tagged':
-                src_vlan = int(vlan.replace('Vlan', ''))
-            dst_vlan = 0
-            if dst['tagging_mode'] == 'tagged':
-                dst_vlan = int(vlan.replace('Vlan', ''))
+            src_vlan = vlan_id if src['tagging_mode'] == 'tagged' else 0
+            dst_vlan = vlan_id if dst['tagging_mode'] == 'tagged' else 0
             src_ports = src['port_index']
             dst_ports = dst['port_index']
             for src_mac, dst_mac in itertools.product(fdb[src_ports[0]], fdb[dst_ports[0]]):
