@@ -1,6 +1,8 @@
 
 import pytest
 import ptf.testutils as testutils
+import ptf.packet as scapy
+from ptf.mask import Mask
 
 import time
 import itertools
@@ -15,7 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 't0-56-po2vlan'),
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
@@ -29,37 +31,57 @@ PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
 
-def send_eth(ptfadapter, source_port, source_mac, dest_mac):
+def simple_eth_packet(
+    pktlen=60,
+    eth_dst="00:01:02:03:04:05",
+    eth_src="00:06:07:08:09:0a",
+    vlan_vid=0,
+    vlan_pcp=0
+):
+    pkt = scapy.Ether(dst=eth_dst, src=eth_src)
+    if vlan_vid or vlan_pcp:
+        pktlen += 4
+        pkt /= scapy.Dot1Q(vlan=vlan_vid, prio=vlan_pcp)
+        pkt[scapy.Dot1Q : 1].type = DEFAULT_FDB_ETHERNET_TYPE
+    else:
+        pkt.type = DEFAULT_FDB_ETHERNET_TYPE
+    pkt = pkt / ("0" * (pktlen - len(pkt)))
+
+    return pkt
+
+def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
     send ethernet packet
     :param ptfadapter: PTF adapter object
     :param source_port: source port
     :param source_mac: source MAC
     :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
     :return:
     """
-    pkt = testutils.simple_eth_packet(
+    pkt = simple_eth_packet(
         eth_dst=dest_mac,
         eth_src=source_mac,
-        eth_type=DEFAULT_FDB_ETHERNET_TYPE
+        vlan_vid=vlan_id
     )
-    logger.debug('send packet source port id {} smac: {} dmac: {}'.format(source_port, source_mac, dest_mac))
+    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_arp_request(ptfadapter, source_port, source_mac, dest_mac):
+def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
     send arp request packet
     :param ptfadapter: PTF adapter object
     :param source_port: source port
     :param source_mac: source MAC
     :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
     :return:
     """
     pkt = testutils.simple_arp_packet(pktlen=60,
                 eth_dst=dest_mac,
                 eth_src=source_mac,
-                vlan_vid=0,
+                vlan_vid=vlan_id,
                 vlan_pcp=0,
                 arp_op=1,
                 ip_snd='10.10.1.3',
@@ -67,32 +89,35 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac):
                 hw_snd=source_mac,
                 hw_tgt='ff:ff:ff:ff:ff:ff',
                 )
-    logger.debug('send ARP request packet source port id {} smac: {} dmac: {}'.format(source_port, source_mac, dest_mac))
+    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac):
+def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
     send arp reply packet
     :param ptfadapter: PTF adapter object
     :param source_port: source port
     :param source_mac: source MAC
     :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
     :return:
     """
     pkt = testutils.simple_arp_packet(eth_dst=dest_mac,
                 eth_src=source_mac,
+                vlan_vid=vlan_id,
+                vlan_pcp=0,
                 arp_op=2,
                 ip_snd='10.10.1.2',
                 ip_tgt='10.10.1.3',
                 hw_tgt=dest_mac,
                 hw_snd=source_mac,
                 )
-    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {}'.format(source_port, source_mac, dest_mac))
+    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_recv_eth(ptfadapter, source_port, source_mac, dest_port, dest_mac):
+def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
     """
     send ethernet packet and verify it on dest_port
     :param ptfadapter: PTF adapter object
@@ -100,17 +125,26 @@ def send_recv_eth(ptfadapter, source_port, source_mac, dest_port, dest_mac):
     :param source_mac: source MAC
     :param dest_port: destination port to receive packet on
     :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
     :return:
     """
-    pkt = testutils.simple_eth_packet(
+    pkt = simple_eth_packet(
         eth_dst=dest_mac,
         eth_src=source_mac,
-        eth_type=DEFAULT_FDB_ETHERNET_TYPE
+        vlan_vid=src_vlan
     )
-    logger.debug('send packet src port {} smac: {} dmac: {} verifying on dst port {}'.format(
-        source_port, source_mac, dest_mac, dest_port))
-    testutils.send(ptfadapter, source_port, pkt)
-    testutils.verify_packet_any_port(ptfadapter, pkt, [dest_port], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+    exp_pkt = simple_eth_packet(
+        eth_dst=dest_mac,
+        eth_src=source_mac,
+        vlan_vid=dst_vlan
+    )
+    if dst_vlan:
+        exp_pkt = Mask(exp_pkt)
+        exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
+    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
+        source_ports, source_mac, dest_mac, src_vlan, dest_ports))
+    testutils.send(ptfadapter, source_ports[0], pkt)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
@@ -126,30 +160,35 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
 
     for vlan in vlan_table:
         for member in vlan_table[vlan]:
-            mac = ptfadapter.dataplane.get_mac(0, member)
+            if 'port_index' not in member or 'tagging_mode' not in member:
+                continue
+            vlan_id = int(vlan.replace('Vlan', ''))
+            if member['tagging_mode'] == 'untagged':
+                vlan_id = 0
+            mac = ptfadapter.dataplane.get_mac(0, member['port_index'][0])
             # send a packet to switch to populate layer 2 table with MAC of PTF interface
-            send_eth(ptfadapter, member, mac, router_mac)
+            send_eth(ptfadapter, member['port_index'][0], mac, router_mac, vlan_id)
 
             # put in learned MAC
-            fdb[member] = { mac }
+            fdb[member['port_index'][0]] = { mac }
 
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
             # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, member, i)
+            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, member['port_index'][0], i)
                           for i in range(DUMMY_MAC_COUNT)]
 
             for dummy_mac in dummy_macs:
                 if pkt_type == "ethernet":
-                    send_eth(ptfadapter, member, dummy_mac, router_mac)
+                    send_eth(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
                 elif pkt_type == "arp_request":
-                    send_arp_request(ptfadapter, member, dummy_mac, router_mac)
+                    send_arp_request(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
                 elif pkt_type == "arp_reply":
-                    send_arp_reply(ptfadapter, member, dummy_mac, router_mac)
+                    send_arp_reply(ptfadapter, member['port_index'][0], dummy_mac, router_mac, vlan_id)
                 else:
                     pytest.fail("Unknown option '{}'".format(pkt_type))
 
             # put in set learned dummy MACs
-            fdb[member].update(dummy_macs)
+            fdb[member['port_index'][0]].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
@@ -224,20 +263,47 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             available_ports_idx.append(idx)
 
     vlan_table = {}
+    config_portchannels = conf_facts.get('PORTCHANNEL', {})
 
     for name, vlan in conf_facts['VLAN'].items():
         vlan_table[name] = []
         ifnames = conf_facts['VLAN_MEMBER'][name].keys()
-        vlan_table[name] = [ conf_facts['port_index_map'][ifname] for ifname in ifnames
-        if conf_facts['port_index_map'][ifname] in available_ports_idx ]
 
-    vlan_member_count = sum([ len(members) for name, members in vlan_table.items() ])
+        for ifname in ifnames:
+            tagging_mode = conf_facts['VLAN_MEMBER'][name][ifname]['tagging_mode']
+            if ifname in conf_facts['port_index_map']:
+                if conf_facts['port_index_map'][ifname] not in available_ports_idx:
+                    continue
+                vlan_port = {'port_index':[conf_facts['port_index_map'][ifname]], 'tagging_mode':tagging_mode}
+                vlan_table[name].append(vlan_port)
+            elif ifname in config_portchannels:
+                port_index = []
+                for member in config_portchannels[ifname]['members']:
+                    if member in conf_facts['port_index_map']:
+                        if conf_facts['port_index_map'][member] in available_ports_idx:
+                            port_index.append(conf_facts['port_index_map'][member])
+                if port_index:
+                    vlan_table[name].append({'port_index':port_index, 'tagging_mode':tagging_mode})
+
+    vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type)
     for vlan in vlan_table:
         for src, dst in itertools.combinations(vlan_table[vlan], 2):
-            for src_mac, dst_mac in itertools.product(fdb[src], fdb[dst]):
-                send_recv_eth(ptfadapter, src, src_mac, dst, dst_mac)
+            if 'port_index' not in src or 'tagging_mode' not in src:
+                continue
+            if 'port_index' not in dst or 'tagging_mode' not in dst:
+                continue
+            src_vlan = 0
+            if src['tagging_mode'] == 'tagged':
+                src_vlan = int(vlan.replace('Vlan', ''))
+            dst_vlan = 0
+            if dst['tagging_mode'] == 'tagged':
+                dst_vlan = int(vlan.replace('Vlan', ''))
+            src_ports = src['port_index']
+            dst_ports = dst['port_index']
+            for src_mac, dst_mac in itertools.product(fdb[src_ports[0]], fdb[dst_ports[0]]):
+                send_recv_eth(ptfadapter, src_ports, src_mac, dst_ports, dst_mac, src_vlan, dst_vlan)
 
     # Should we have fdb_facts ansible module for this test?
     res = duthost.command('show mac')
