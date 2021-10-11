@@ -9,6 +9,7 @@ import subprocess
 import shlex
 import time
 import traceback
+import random
 
 import docker
 
@@ -390,16 +391,9 @@ class VMTopology(object):
             self.pid = api_server_pid
         if VMTopology.intf_not_exists(MGMT_PORT_NAME, self.pid):
             if api_server_pid is None:
-                tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
-                self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
+                self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, MGMT_PORT_NAME)
             else:
-                tmp_mgmt_if = hashlib.md5(('apiserver').encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
-                self.add_br_if_to_docker(mgmt_bridge, 'apiserver', tmp_mgmt_if)
-
-            VMTopology.iface_down(tmp_mgmt_if, self.pid)
-            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_mgmt_if, MGMT_PORT_NAME))
-
-        VMTopology.iface_up(MGMT_PORT_NAME, self.pid)
+                self.add_br_if_to_docker(mgmt_bridge, 'apiserver', MGMT_PORT_NAME)
         self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6, api_server_pid=api_server_pid)
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
@@ -408,9 +402,12 @@ class VMTopology(object):
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
-        logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker' % (ext_if, bridge, int_if))
+        # add random suffix to int_if to support multiple tasks run concurrently
+        random_suffix = generate_random_code(6)
+        tmp_int_if = int_if + random_suffix
+        logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, int_if))
+            VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
 
         _, if_to_br = VMTopology.brctl_show(bridge)
         if ext_if not in if_to_br:
@@ -418,8 +415,9 @@ class VMTopology(object):
 
         VMTopology.iface_up(ext_if)
 
-        if VMTopology.intf_exists(int_if) and VMTopology.intf_not_exists(int_if, self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, int_if))
+        if VMTopology.intf_exists(tmp_int_if) and VMTopology.intf_not_exists(tmp_int_if, self.pid):
+            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, tmp_int_if))
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_int_if, int_if))
 
         VMTopology.iface_up(int_if, self.pid)
 
@@ -1169,6 +1167,18 @@ def check_topo(topo, is_multi_duts=False):
         vms_exists = True
 
     return hostif_exists, vms_exists
+
+
+def generate_random_code(digit=6):
+    """
+    Generate random code
+    Args:
+        digit (int): digit of code, e.g. 6
+
+    Returns:
+        str: random code, e.g. k9A27L
+    """
+    return ''.join(random.sample("abcdefghijklmnABCDEFGHIJKLMN0123456789", digit))
 
 
 def check_params(module, params, mode):
