@@ -216,6 +216,8 @@ class TestChassisApi(PlatformApiTestBase):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+        # Convert all keys of syseeprom_info_dict into lower case
+        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
@@ -241,6 +243,8 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
+        # Ignore case of keys in syseeprom_info
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
