@@ -532,7 +532,7 @@ class ReloadTest(BaseTest):
 
         self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
-        if self.reboot_type not in ['fast-reboot', 'warm-reboot', 'warm-reboot -f']:
+        if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
 
@@ -773,19 +773,24 @@ class ReloadTest(BaseTest):
         self.send_interval = self.time_to_listen / self.packets_to_send
         self.packets_list = []
         from_t1_iter = itertools.cycle(self.from_t1)
-
+        sent_count_vlan_to_t1 = 0
+        sent_count_t1_to_vlan = 0
         for i in xrange(self.packets_to_send):
             payload = '0' * 60 + str(i)
             if (i % 5) == 0 :   # From vlan to T1.
                 packet = scapyall.Ether(self.from_vlan_packet)
                 packet.load = payload
                 from_port = self.from_server_src_port
+                sent_count_vlan_to_t1 += 1
             else:   # From T1 to vlan.
                 src_port, packet = next(from_t1_iter)
                 packet = scapyall.Ether(packet)
                 packet.load = payload
                 from_port = src_port
+                sent_count_t1_to_vlan += 1
             self.packets_list.append((from_port, str(packet)))
+        self.log("Sent prep count vlan to t1: {}".format(sent_count_vlan_to_t1))
+        self.log("Sent prep count t1 to vlan: {}".format(sent_count_t1_to_vlan))
 
     def put_nowait(self, queue, data):
         try:
@@ -1304,6 +1309,7 @@ class ReloadTest(BaseTest):
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
         with self.dataplane_io_lock:
+            sent_packet_count = 0
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load on PTF socket (sniffer thread is using a different one)
             #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
@@ -1317,7 +1323,9 @@ class ReloadTest(BaseTest):
                     testutils.send_packet(self, entry[0], entry[1].decode("base64"))
                 else:
                     testutils.send_packet(self, *entry)
+                sent_packet_count += 1
             self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
+            self.log("Total sent packets by sender: {}".format(sent_packet_count))
             # Remove filter
             self.apply_filter_all_ports('')
 
@@ -1447,17 +1455,27 @@ class ReloadTest(BaseTest):
             prev_payload, prev_time = 0, 0
             sent_payload = 0
             received_counter = 0    # Counts packets from dut.
+            sent_counter = 0
+            received_t1_to_vlan = 0
+            received_vlan_to_t1 = 0
+            missed_vlan_to_t1 = 0
+            missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
                 if packet[scapyall.Ether].dst == self.dut_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
+                    sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac:
                     # This is a received packet.
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload))
+                    if (received_payload % 5) == 0 :   # From vlan to T1.
+                        received_vlan_to_t1 += 1
+                    else:
+                        received_t1_to_vlan += 1
                     received_counter += 1
                 if not (received_payload and received_time):
                     # This is the first valid received packet.
@@ -1471,11 +1489,24 @@ class ReloadTest(BaseTest):
                     # Add disrupt to the dict:
                     self.lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
                     self.log("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
+                    for lost_index in range(prev_payload + 1, received_payload):
+                        if (lost_index % 5) == 0 :   # lost received for packet sent from vlan to T1.
+                            missed_vlan_to_t1 += 1
+                        else:
+                            missed_t1_to_vlan += 1
+                    self.log("")
                     if not self.disruption_start:
                         self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
                     self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
                 prev_payload = received_payload
                 prev_time = received_time
+            self.log("**************** Packet received summary: ********************")
+            self.log("*********** Sent packets captured - {}".format(sent_counter))
+            self.log("*********** received packets captured - t1-to-vlan - {}".format(received_t1_to_vlan))
+            self.log("*********** received packets captured - vlan-to-t1 - {}".format(received_vlan_to_t1))
+            self.log("*********** Missed received packets - t1-to-vlan - {}".format(missed_t1_to_vlan))
+            self.log("*********** Missed received packets - vlan-to-t1 - {}".format(missed_vlan_to_t1))
+            self.log("**************************************************************")
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
         self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
         self.fails['dut'].clear()
