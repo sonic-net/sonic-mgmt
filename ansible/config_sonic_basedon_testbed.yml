@@ -116,6 +116,12 @@
     when: hostvars[item]['loopback4096_ip'] is defined
     loop: "{{ ansible_play_batch }}"
 
+  - name: set all Loopback4096 ipv6 information for iBGP chassis
+    set_fact:
+      all_loopback4096_ipv6: "{{ all_loopback4096_ipv6 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ipv6']}) }}"
+    when: hostvars[item]['loopback4096_ipv6'] is defined
+    loop: "{{ ansible_play_batch }}"
+
   - name: set all slot information for chassis
     set_fact:
       all_slots: "{{ all_slots | default( {} ) | combine( { item : hostvars[item]['slot_num']}) }}"

@@ -89,9 +89,6 @@
 {% for a_linecard in all_loopback4096 %}
 {% for idx in range(all_loopback4096[a_linecard]|length) %}
 {% if loopback4096_ip[asic_id] != all_loopback4096[a_linecard][idx] %}
-      <BGPSession>
-        <StartRouter>{{ start_rtr }}</StartRouter>
-        <StartPeer>{{ loopback4096_ip[asic_id].split('/')[0] }}</StartPeer>
 {% if all_loopback4096[a_linecard]|length == 1 %}
 {% set end_rtr = a_linecard %}
 {% else %}
@@ -102,8 +99,21 @@
 {% endif %}
 {% endif %}
 {% set _ = chassis_ibgp_peers.update({ all_loopback4096[a_linecard][idx].split('/')[0] : end_rtr }) %}
+      <BGPSession>
+        <StartRouter>{{ start_rtr }}</StartRouter>
+        <StartPeer>{{ loopback4096_ip[asic_id].split('/')[0] }}</StartPeer>
         <EndRouter>{{ end_rtr }}</EndRouter>
         <EndPeer>{{ all_loopback4096[a_linecard][idx].split('/')[0] }}</EndPeer>
+        <Multihop>1</Multihop>
+        <HoldTime>0</HoldTime>
+        <KeepAliveTime>0</KeepAliveTime>
+        <ChassisInternal>{{ switch_type }}</ChassisInternal>
+      </BGPSession>
+      <BGPSession>
+        <StartRouter>{{ start_rtr }}</StartRouter>
+        <StartPeer>{{ loopback4096_ipv6[asic_id].split('/')[0] }}</StartPeer>
+        <EndRouter>{{ end_rtr }}</EndRouter>
+        <EndPeer>{{ all_loopback4096_ipv6[a_linecard][idx].split('/')[0] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>0</HoldTime>
         <KeepAliveTime>0</KeepAliveTime>

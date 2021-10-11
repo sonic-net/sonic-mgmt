@@ -1,5 +1,6 @@
+{# Note max of 10 Backend Portchannel from one asic #}
 {% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
-{{ ((40 + asic_idx + (10*neigh_asic_idx))|string) }}
+{{ ((40 + 10 * asic_idx + neigh_asic_idx)|string) }}
 {%- endmacro -%}
 {% if num_asics > 1 %}
 {% for asic,asic_config in asic_topo_config[slot_num|default('slot0')].items() %}
@@ -184,21 +185,32 @@
 {% for idx in range(all_loopback4096[a_linecard]|length) %}
 {% set remote_asic_name = "ASIC" + idx|string %}
 {% if a_linecard != inventory_hostname or idx != asic_index %}
+{%- set nexthop_intfs = [] -%}
+{%- set nexthop_v6_intfs = [] -%}
+{% for asic,asic_config in asic_topo_config[all_slots[a_linecard]].items() %}
+{% if (a_linecard != inventory_hostname and asic == remote_asic_name) or (a_linecard == inventory_hostname and asic != asic_name) %}
+{% for neigh_asic in  asic_config['neigh_asic'] %}
+{% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
+{% set _ = nexthop_v6_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) %}
+{% endfor %}
+{% endif %}
+{% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
          <AttachTo>{{ all_loopback4096[a_linecard][idx] }}</AttachTo>
          <Type>StaticRoute</Type>
          <Address>
-{%- set nexthop_intfs = [] -%}
-{% for asic,asic_config in asic_topo_config[all_slots[a_linecard]].items() %}
-{% if (a_linecard != inventory_hostname and asic == remote_asic_name) or (a_linecard == inventory_hostname and asic != asic_name) %}
-{% for neigh_asic in  asic_config['neigh_asic'] %}
-{% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
-{% endfor %}
-{% endif %}
-{% endfor %}
 {{- nexthop_intfs|join(',') -}}
+         </Address>
+      </IPNextHop>
+      <IPNextHop>
+         <ElementType>IPNextHop</ElementType>
+         <Name i:nil="true"/>
+         <AttachTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AttachTo>
+         <Type>StaticRoute</Type>
+         <Address>
+{{- nexthop_v6_intfs|join(',') -}}
          </Address>
       </IPNextHop> 
 {% endif %}
