@@ -156,6 +156,7 @@ class ReloadTest(BaseTest):
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
+        self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
@@ -1309,6 +1310,19 @@ class ReloadTest(BaseTest):
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
         with self.dataplane_io_lock:
+            # Clear the counters before starting the IO traffic
+            # this is done so that drops can be accurately calculated
+            # after reboot test is finished
+            clear_counter_cmds = [ "sonic-clear counters",
+            "sonic-clear queuecounters",
+            "sonic-clear dropcounters",
+            "sonic-clear rifcounters",
+            "sonic-clear pfccounters"
+            ]
+            if 'broadcom' in self.test_params['asic_type']:
+                clear_counter_cmds.append("bcmcmd 'clear counters'")
+            for cmd in clear_counter_cmds:
+                self.dut_connection.execCommand(cmd)
             sent_packet_count = 0
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load on PTF socket (sniffer thread is using a different one)

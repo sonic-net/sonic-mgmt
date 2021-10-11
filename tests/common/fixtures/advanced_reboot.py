@@ -509,7 +509,8 @@ class AdvancedReboot:
             "setup_fdb_before_test" : True,
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
-            "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff
+            "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
+            "asic_type": self.duthost.facts["asic_type"]
         }
 
         if not isinstance(rebootOper, SadOperation):
