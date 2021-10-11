@@ -353,6 +353,54 @@ def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbin
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
+@pytest.fixture()
+def capture_interface_counters(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    logging.info("Run commands to print logs")
+
+    show_counter_cmds = [
+        "show interfaces counters",
+        "show interfaces counters rif",
+        "show queue counters",
+        "show pfc counters"
+    ]
+    clear_counter_cmds = [
+        "sonic-clear counters",
+        "sonic-clear queuecounters",
+        "sonic-clear dropcounters",
+        "sonic-clear rifcounters",
+        "sonic-clear pfccounters"
+    ]
+    if duthost.facts["asic_type"] == "broadcom":
+        bcm_show_cmds = [
+            "bcmcmd 'show counters'",
+            "bcmcmd 'cstat all'"
+        ]
+        bcm_clear_cmds = [
+            "bcmcmd 'clear counters'"
+        ]
+        show_counter_cmds = show_counter_cmds + bcm_show_cmds
+        clear_counter_cmds = clear_counter_cmds + bcm_clear_cmds
+    duthost.shell_cmds(cmds=clear_counter_cmds, module_ignore_errors=True, verbose=False)
+    results = duthost.shell_cmds(cmds=show_counter_cmds, module_ignore_errors=True, verbose=False)['results']
+    outputs = []
+    for res in results:
+        res.pop('stdout')
+        res.pop('stderr')
+        outputs.append(res)
+    logging.info("Counters before reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+
+    yield
+
+    results = duthost.shell_cmds(cmds=show_counter_cmds, module_ignore_errors=True, verbose=False)['results']
+    outputs = []
+    for res in results:
+        res.pop('stdout')
+        res.pop('stderr')
+        outputs.append(res)
+    logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+
+
 def pytest_addoption(parser):
     add_advanced_reboot_args(parser)
     add_cont_warm_reboot_args(parser)
