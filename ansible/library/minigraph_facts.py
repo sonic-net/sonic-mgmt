@@ -325,9 +325,9 @@ def parse_dpg(dpg, hname):
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
             intfalias = ipintf.find(str(QName(ns, "AttachTo"))).text
-            if port_alias_to_name_map.has_key(intfalias):
+            if intfalias in port_alias_to_name_map:
                 intfname = port_alias_to_name_map[intfalias]
-            elif port_alias_asic_map.has_key(intfalias):
+            elif intfalias in port_alias_asic_map:
                 intfname = port_alias_asic_map[intfalias]
             else:
                 intfname = intfalias
