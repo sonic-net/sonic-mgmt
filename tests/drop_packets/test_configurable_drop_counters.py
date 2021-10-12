@@ -23,6 +23,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.utilities import is_ipv4_address
+
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -74,7 +76,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
-                        send_dropped_traffic, drop_reason):
+                        send_dropped_traffic, drop_reason, add_default_route_to_dut):
     """
     Verifies counters that check for link local dst IP.
 
@@ -102,7 +104,7 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
 
 @pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
 def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
-                        send_dropped_traffic, drop_reason):
+                        send_dropped_traffic, drop_reason, add_default_route_to_dut):
     """
     Verifies counters that check for link local src IP.
 
@@ -126,6 +128,40 @@ def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
     finally:
         duthost.command("sonic-clear fdb all")
         duthost.command("sonic-clear arp")
+
+
+@pytest.fixture
+def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
+    """
+    Add a default route to the device for storage backend testbed.
+    This is to ensure the packet sent in test_sip_link_local and test_dip_link_local
+    are routable on the device.
+    """
+    if "backend" in tbinfo["topo"]["name"]:
+        logging.info("Add default route on the DUT.")
+        try:
+            for duthost in duthosts:
+                cfg_facts = duts_running_config_facts[duthost.hostname]
+                for asic_index, asic_cfg_facts in enumerate(cfg_facts):
+                    asic = duthost.asic_instance(asic_index)
+                    bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
+                    ipv4_cmd_parts = ["ip route add default"]
+                    for neighbor in bgp_neighbors.keys():
+                        if is_ipv4_address(neighbor):
+                            ipv4_cmd_parts.append("nexthop via %s" % neighbor)
+                    ipv4_cmd_parts.sort()
+                    ipv4_cmd = " ".join(ipv4_cmd_parts)
+                    asic.shell(ipv4_cmd)
+            yield
+        finally:
+            logging.info("Remove default route on the DUT.")
+            for duthost in duthosts:
+                for asic in duthost.asics:
+                    if asic.is_it_backend():
+                        continue
+                    asic.shell("ip route del default", module_ignore_errors=True)
+    else:
+        yield
 
 
 @pytest.fixture(scope="module")
@@ -358,4 +394,3 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
 
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
     time.sleep(1)
-
