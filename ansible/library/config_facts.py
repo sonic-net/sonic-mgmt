@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import json
+import traceback
 from collections import defaultdict
 from natsort import natsorted
 from ansible.module_utils.port_utils import get_port_indices_for_asic
