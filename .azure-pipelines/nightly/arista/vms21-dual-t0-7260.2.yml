@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 15 * * 1,2,3,4"
+  - cron: "0 10 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms17-t0-7260-2
+    default: vms21-dual-t0-7260
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -27,13 +27,24 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
 
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
-  # Testbed specific, to skip and/or include directories
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "arp/test_wr_arp.py \
+              platform_tests/test_advanced_reboot.py \
+              platform_tests/test_cont_warm_reboot.py"
+    displayName: "Skip Scripts"
+
   - name: TESTBED_SPECIFIC
     type: string
     default: '-I "platform_tests"'
@@ -45,4 +56,6 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
