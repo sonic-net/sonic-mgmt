@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't0-56-po2vlan')
 ]
 
 logger = logging.getLogger(__name__)
@@ -125,6 +125,7 @@ class TestFdbMacExpire:
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
             "minigraph_port_indices": mgFacts["minigraph_ptf_indices"],
+            "minigraph_portchannels": mgFacts["minigraph_portchannels"],
             "minigraph_vlans": mgFacts["minigraph_vlans"],
         })
 
