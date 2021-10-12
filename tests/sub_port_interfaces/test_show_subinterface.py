@@ -54,6 +54,12 @@ def test_subinterface_status(duthost, subintf_expected_config):
             return True
         return False
 
+    def _verify_subintf_removal(subintf_config):
+        """Verify subintf existence after removal."""
+        show_sub_status = {_["sub port interface"]: _ for _ in duthost.show_and_parse("show subinterfaces status")
+                           if _["sub port interface"] in subintf_config}
+        return len(show_sub_status) == 0
+
     def _remove_subintf(subintf_config):
         """Remove the created subintf from VLAN_SUB_INTERFACE table."""
         for subintf in subintf_config:
@@ -92,14 +98,12 @@ def test_subinterface_status(duthost, subintf_expected_config):
 
     # deletion verification
     _remove_subintf(subintf_expected_config)
-    show_sub_status = {_["sub port interface"]: _ for _ in duthost.show_and_parse("show subinterfaces status")
-                       if _["sub port interface"] in subintf_expected_config}
+    if not wait_until(20, 5, _verify_subintf_removal, subintf_expected_config):
+        pytest.fail("Failed to remove subinterfaces")
+
     show_ip_interfaces = {_["interface"]: _ for _ in duthost.show_and_parse("show ip interface")
                           if _["interface"] in subintf_expected_config}
 
     for subintf in subintf_expected_config:
-        # verify show subinterface status after removal
-        pytest_assert(subintf not in show_sub_status, "subinterface %s still exists after removal" % subintf)
-
         # verify show ip interface status after removal
         pytest_assert(subintf not in show_ip_interfaces, "subinterface %s still have IP address assigned" % subintf)
