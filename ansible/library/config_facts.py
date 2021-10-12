@@ -164,7 +164,8 @@ def main():
         results = get_facts(config, namespace)
         module.exit_json(ansible_facts=results)
     except Exception as e:
-        module.fail_json(msg=e.message)
+        tb = traceback.format_exc()
+        module.fail_json(msg=str(e) + "\n" + tb)
 
 
 from ansible.module_utils.basic import AnsibleModule
