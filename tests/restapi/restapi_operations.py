@@ -20,6 +20,12 @@ class Restapi:
     def request(self, method, url, params=None):
         session = requests.Session()
         session.headers.update({'Content-type': 'application/json'})
+        # Disable proxies explicitly
+        proxies = {
+                    "http": "",
+                    "https": ""
+                    }
+        session.proxies.update(proxies)
         if method == GET:
             req = requests.Request(GET, url)
         elif method == POST:
