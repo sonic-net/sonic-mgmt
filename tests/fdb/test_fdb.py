@@ -8,6 +8,7 @@ import time
 import itertools
 import logging
 import pprint
+import re
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
@@ -139,6 +140,9 @@ def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, sr
         vlan_vid=dst_vlan
     )
     if dst_vlan:
+        # expect to receive tagged packet:
+        # sonic device might modify the 802.1p field,
+        # need to use Mask to ignore the priority field.
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
     logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
@@ -162,12 +166,13 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
         for member in vlan_table[vlan]:
             if 'port_index' not in member or 'tagging_mode' not in member:
                 continue
+            # member['port_index'] is a list,
+            # front panel port only has one member, and portchannel might have 0, 1 and 2 member ports,
+            # portchannel might have no member ports or all member ports are down, so skip empty list
             if not member['port_index']:
                 continue
             port_index = member['port_index'][0]
-            vlan_id = int(vlan.replace('Vlan', ''))
-            if member['tagging_mode'] == 'untagged':
-                vlan_id = 0
+            vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
             mac = ptfadapter.dataplane.get_mac(0, port_index)
             # send a packet to switch to populate layer 2 table with MAC of PTF interface
             send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
@@ -224,6 +229,14 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
         pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
+def validate_mac(mac):
+    if mac.find(':') != -1:
+        pattern = re.compile(r"^([0-9a-fA-F]{2,2}:){5,5}[0-9a-fA-F]{2,2}$")
+        if pattern.match(mac):
+            return True
+    return False
+
+
 @pytest.fixture
 def record_mux_status(request, rand_selected_dut, tbinfo):
     """
@@ -266,10 +279,12 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             available_ports_idx.append(idx)
 
     vlan_table = {}
+    portchannels_table = defaultdict(list)
     config_portchannels = conf_facts.get('PORTCHANNEL', {})
 
     for name, vlan in conf_facts['VLAN'].items():
-        vlan_table[name] = []
+        vlan_id = int(vlan['vlanid'])
+        vlan_table[vlan_id] = []
 
         for ifname in conf_facts['VLAN_MEMBER'][name].keys():
             if 'tagging_mode' not in conf_facts['VLAN_MEMBER'][name][ifname]:
@@ -280,23 +295,24 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
                 for member in config_portchannels[ifname]['members']:
                     if conf_facts['port_index_map'][member] in available_ports_idx:
                         port_index.append(conf_facts['port_index_map'][member])
+                if port_index:
+                    portchannels_table[ifname].append(vlan_id)
             elif conf_facts['port_index_map'][ifname] in available_ports_idx:
                     port_index.append(conf_facts['port_index_map'][ifname])
             if port_index:
-                vlan_table[name].append({'port_index':port_index, 'tagging_mode':tagging_mode})
+                vlan_table[vlan_id].append({'port_index':port_index, 'tagging_mode':tagging_mode})
 
     vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type)
     for vlan in vlan_table:
-        vlan_id = int(vlan.replace('Vlan', ''))
         for src, dst in itertools.combinations(vlan_table[vlan], 2):
             if 'port_index' not in src or 'tagging_mode' not in src:
                 continue
             if 'port_index' not in dst or 'tagging_mode' not in dst:
                 continue
-            src_vlan = vlan_id if src['tagging_mode'] == 'tagged' else 0
-            dst_vlan = vlan_id if dst['tagging_mode'] == 'tagged' else 0
+            src_vlan = vlan if src['tagging_mode'] == 'tagged' else 0
+            dst_vlan = vlan if dst['tagging_mode'] == 'tagged' else 0
             src_ports = src['port_index']
             dst_ports = dst['port_index']
             for src_mac, dst_mac in itertools.product(fdb[src_ports[0]], fdb[dst_ports[0]]):
@@ -309,6 +325,17 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     dummy_mac_count = 0
     total_mac_count = 0
     for l in res['stdout_lines']:
+        # No. Vlan MacAddress Port Type
+        items = l.split()
+        if len(items) == 5:
+            vlan_id = items[1]
+            mac = items[2]
+            ifname = items[3]
+            fdb_type = items[4]
+            if ifname in portchannels_table:
+                assert int(vlan_id) in portchannels_table[ifname]
+                assert validate_mac(mac) == True
+                assert fdb_type in ['Dynamic', 'Static']
         if DUMMY_MAC_PREFIX in l.lower():
             dummy_mac_count += 1
         if "dynamic" in l.lower():
