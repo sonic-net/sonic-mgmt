@@ -167,7 +167,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
             if 'port_index' not in member or 'tagging_mode' not in member:
                 continue
             # member['port_index'] is a list,
-            # front panel port only has one member, and portchannel might have 0, 1 and 2 member ports,
+            # front panel port only has one member, and portchannel might have 0, 1 and multiple member ports,
             # portchannel might have no member ports or all member ports are down, so skip empty list
             if not member['port_index']:
                 continue
@@ -279,7 +279,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             available_ports_idx.append(idx)
 
     vlan_table = {}
-    portchannels_table = defaultdict(list)
+    interface_table = defaultdict(set)
     config_portchannels = conf_facts.get('PORTCHANNEL', {})
 
     for name, vlan in conf_facts['VLAN'].items():
@@ -296,9 +296,10 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
                     if conf_facts['port_index_map'][member] in available_ports_idx:
                         port_index.append(conf_facts['port_index_map'][member])
                 if port_index:
-                    portchannels_table[ifname].append(vlan_id)
+                    interface_table[ifname].add(vlan_id)
             elif conf_facts['port_index_map'][ifname] in available_ports_idx:
                     port_index.append(conf_facts['port_index_map'][ifname])
+                    interface_table[ifname].add(vlan_id)
             if port_index:
                 vlan_table[vlan_id].append({'port_index':port_index, 'tagging_mode':tagging_mode})
 
@@ -327,15 +328,19 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     for l in res['stdout_lines']:
         # No. Vlan MacAddress Port Type
         items = l.split()
-        if len(items) == 5:
-            vlan_id = items[1]
-            mac = items[2]
-            ifname = items[3]
-            fdb_type = items[4]
-            if ifname in portchannels_table:
-                assert int(vlan_id) in portchannels_table[ifname]
-                assert validate_mac(mac) == True
-                assert fdb_type in ['Dynamic', 'Static']
+        if len(items) != 5:
+            continue
+        # First item must be number
+        if not items[0].isdigit():
+            continue
+        vlan_id = int(items[1])
+        mac = items[2]
+        ifname = items[3]
+        fdb_type = items[4]
+        assert ifname in interface_table
+        assert vlan_id in interface_table[ifname]
+        assert validate_mac(mac) == True
+        assert fdb_type in ['Dynamic', 'Static']
         if DUMMY_MAC_PREFIX in l.lower():
             dummy_mac_count += 1
         if "dynamic" in l.lower():
