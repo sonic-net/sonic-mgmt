@@ -27,6 +27,11 @@ from ptf.mask import Mask
 import ptf.testutils as testutils
 from ptf.testutils import *
 
+import lpm
+
+IPV4_SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
+IPV6_SRC_IP_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
+
 PERSIST_MAP = '/tmp/fg_ecmp_persist_map.json'
 
 class FgEcmpTest(BaseTest):
@@ -99,7 +104,8 @@ class FgEcmpTest(BaseTest):
         self.router_mac = graph['dut_mac']
         self.num_flows = graph['num_flows']
         self.inner_hashing = graph['inner_hashing']
-
+        self.src_ipv4_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[1])))
+        self.src_ipv6_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[1])))
         self.log(self.net_ports)
         self.log(self.serv_ports)
         self.log(self.exp_port_set_one)
@@ -134,15 +140,6 @@ class FgEcmpTest(BaseTest):
     def fg_ecmp(self):
         ipv4 = isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')),
                 ipaddress.IPv4Address)
-
-        if self.inner_hashing:
-            base_ip = ipaddress.ip_address(u'8.0.0.0')
-        else:
-            if isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')), ipaddress.IPv4Address):
-                base_ip = ipaddress.ip_address(u'8.0.0.0')
-            else:
-                base_ip = ipaddress.ip_address(u'20D0:A800:0:00::')
-
         # initialize all parameters
         if self.inner_hashing:
             dst_ip = '5.5.5.5'
@@ -168,7 +165,10 @@ class FgEcmpTest(BaseTest):
             # and generate a flow to port map
             self.log("Creating flow to port map ...")
             for i in range(0, self.num_flows):
-                src_ip = str(base_ip + i)
+                if ipv4:
+                    src_ip = self.src_ipv4_interval.get_random_ip()
+                else:
+                    src_ip = self.src_ipv6_interval.get_random_ip()
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
