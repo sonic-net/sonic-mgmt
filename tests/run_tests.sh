@@ -146,6 +146,11 @@ function setup_test_options()
     done
     TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
 
+    if [[ -z $TEST_CASES ]]; then
+        echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
+        show_help_and_exit 1
+    fi
+
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
                       --testbed ${TESTBED_NAME} \
