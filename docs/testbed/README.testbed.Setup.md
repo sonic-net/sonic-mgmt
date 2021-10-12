@@ -67,7 +67,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
-   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz).
+   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz). 
 
 2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry.
 
