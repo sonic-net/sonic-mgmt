@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_201911)
+    default: " "
     displayName: "Image URL"
 
   # Test Parameters
