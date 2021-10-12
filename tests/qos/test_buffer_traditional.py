@@ -10,6 +10,7 @@ pytestmark = [
 ]
 
 global DEFAULT_LOSSLESS_PROFILES
+global RECLAIM_BUFFER_ON_ADMIN_DOWN
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_module(duthosts, rand_one_dut_hostname):
@@ -19,9 +20,13 @@ def setup_module(duthosts, rand_one_dut_hostname):
         duthosts: The duthosts object
         rand_one_dut_hostname:
     """
+    global RECLAIM_BUFFER_ON_ADMIN_DOWN
+
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] != "mellanox":
-        pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        RECLAIM_BUFFER_ON_ADMIN_DOWN = True
+    else:
+        RECLAIM_BUFFER_ON_ADMIN_DOWN = False
 
     if "201911" not in duthost.os_version:
         pytest.skip("Buffer test runs on 201911 branch only, skip")
@@ -189,11 +194,12 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
     for port in configdb_ports:
         port_config = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port))['stdout'].split())
 
+        cable_length = cable_length_map[port]
+        speed = port_config['speed']
+        expected_profile = '[BUFFER_PROFILE|pg_lossless_{}_{}_profile]'.format(speed, cable_length)
+
         if port_config.get('admin_status') == 'up':
             admin_up_ports.add(port)
-            cable_length = cable_length_map[port]
-            speed = port_config['speed']
-            expected_profile = '[BUFFER_PROFILE|pg_lossless_{}_{}_profile]'.format(speed, cable_length)
 
             logging.info("Checking admin-up port {} buffer information: profile {}".format(port, expected_profile))
 
@@ -229,7 +235,9 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         else:
             # Port admin down. Make sure no lossless PG configured.
             logging.info("Checking admin-down port buffer information: {}".format(port))
-            _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, None)
+            if RECLAIM_BUFFER_ON_ADMIN_DOWN:
+                expected_profile = None
+            _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, expected_profile)
 
     port_to_shutdown = admin_up_ports.pop()
     expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port_to_shutdown))['stdout']
@@ -237,7 +245,11 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         # Shutdown the port and check whether the lossless PG has been removed
         logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
         duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-        wait_until(60, 5, _check_port_buffer_info_and_return, duthost, port_to_shutdown, None)
+        if RECLAIM_BUFFER_ON_ADMIN_DOWN:
+            expected_profile_admin_down = None
+        else:
+            expected_profile_admin_down = expected_profile
+        wait_until(60, 5, _check_port_buffer_info_and_return, duthost, port_to_shutdown, expected_profile_admin_down)
 
         # Startup the port and check whether the lossless PG has been reconfigured
         logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
