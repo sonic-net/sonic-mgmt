@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import datetime
 from telnetlib import Telnet
+import logging
+from ansible.module_utils.debug_utils import config_module_logging
 
 def encode(arg):
     if (sys.version_info.major == 3 and sys.version_info.minor >= 5):
@@ -9,35 +10,7 @@ def encode(arg):
     else:
         return arg
 
-
-class MyDebug(object):
-    def __init__(self, filename, enabled=True):
-        if enabled:
-            self.fp = open(filename, 'w')
-        else:
-            self.fp = None
-
-        return
-
-    def cleanup(self):
-        if self.fp:
-            self.fp.close()
-            self.fp = None
-
-        return
-
-    def __del__(self):
-        self.cleanup()
-
-        return
-
-    def debug(self, msg):
-        if self.fp:
-            self.fp.write('%s\n' % msg)
-            self.fp.flush()
-
-        return
-
+config_module_logging('kickstart')
 
 class EMatchNotFound(Exception):
     pass
@@ -56,10 +29,9 @@ class ENotInEnabled(Exception):
 
 
 class SerialSession(object):
-    def __init__(self, port, debug):
+    def __init__(self, port):
         self.enabled = False
-        self.d = debug
-        self.d.debug('Starting')
+        logging.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
         self.tn.write(encode('\r\n'))
 
@@ -74,17 +46,15 @@ class SerialSession(object):
         if self.tn:
             self.tn.close()
             self.tn = None
-            self.d.cleanup()
-
         return
 
     def pair(self, action, wait_for, timeout):
-        self.d.debug('output: %s' % action)
-        self.d.debug('match: %s' % ",".join(wait_for))
+        logging.debug('output: %s' % action)    #lgtm [py/clear-text-logging-sensitive-data]
+        logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(encode("%s\n" % action))
         if wait_for is not None:
             index, match, text = self.tn.expect([encode(i) for i in wait_for], timeout)
-            self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
+            logging.debug('Result of matching: %d %s %s' % (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
         else:
@@ -94,20 +64,20 @@ class SerialSession(object):
 
     def login(self, user, password):
         try:
-            self.d.debug('## Getting the login prompt')
+            logging.debug('## Getting the login prompt')
             self.pair('\r', [r'login:'], 240)
         except EMatchNotFound:
-            self.d.debug('No login prompt is found')
+            logging.debug('No login prompt is found')
             raise ELoginPromptNotFound
 
-        self.d.debug('## Getting the password prompt')
+        logging.debug('## Getting the password prompt')
         index_password = self.pair(user, [r'assword:', r'>'], 20)
         if index_password == 0:
             try:
-                self.d.debug('## Inputing password')
+                logging.debug('## Inputing password')
                 self.pair(password, [r'>'], 10)
             except EMatchNotFound:
-                self.d.debug('The original password "%s" is not working' % password)
+                logging.debug('The original password "%s" is not working' % password)   #lgtm [py/clear-text-logging-sensitive-data]
                 raise EWrongDefaultPassword
 
         return
@@ -170,9 +140,7 @@ def session(new_params):
         ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    curtime = datetime.datetime.now().isoformat()
-    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
-    ss = SerialSession(new_params['telnet_port'], debug)
+    ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['password'])
     ss.enable()
     ss.wait_for_warmup()

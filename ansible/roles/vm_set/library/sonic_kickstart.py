@@ -1,36 +1,10 @@
 #!/usr/bin/python
 
-import datetime
 from telnetlib import Telnet
+import logging
+from ansible.module_utils.debug_utils import config_module_logging
 
-
-class MyDebug(object):
-    def __init__(self, filename, enabled=True):
-        if enabled:
-            self.fp = open(filename, 'w')
-        else:
-            self.fp = None
-
-        return
-
-    def cleanup(self):
-        if self.fp:
-            self.fp.close()
-            self.fp = None
-
-        return
-
-    def __del__(self):
-        self.cleanup()
-
-        return
-
-    def debug(self, msg):
-        if self.fp:
-            self.fp.write('%s\n' % msg)
-            self.fp.flush()
-
-        return
+config_module_logging('sonic_kickstart')
 
 
 class EMatchNotFound(Exception):
@@ -38,9 +12,8 @@ class EMatchNotFound(Exception):
 
 
 class SerialSession(object):
-    def __init__(self, port, debug):
-        self.d = debug
-        self.d.debug('Starting')
+    def __init__(self, port):
+        logging.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
         self.tn.write(b"\r\n")
 
@@ -55,17 +28,16 @@ class SerialSession(object):
         if self.tn:
             self.tn.close()
             self.tn = None
-            self.d.cleanup()
 
         return
 
     def pair(self, action, wait_for, timeout=60):
-        self.d.debug('output: %s' % action)
-        self.d.debug('match: %s' % ",".join(wait_for))
+        logging.debug('output: %s' % action)    #lgtm [py/clear-text-logging-sensitive-data]
+        logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
             index, match, text = self.tn.expect([ x.encode('ascii') for x in wait_for ], timeout)
-            self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
+            logging.debug('Result of matching: %d %s %s' % (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
         else:
@@ -126,9 +98,7 @@ def session(new_params):
     if int(new_params['num_asic']) > 1:	
         seq.pop(0)
 
-    curtime = datetime.datetime.now().isoformat()
-    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
-    ss = SerialSession(new_params['telnet_port'], debug)
+    ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['passwords'])
     ss.configure(seq)
     ss.logout()
