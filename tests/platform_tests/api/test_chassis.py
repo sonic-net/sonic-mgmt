@@ -400,7 +400,7 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_sfps is not an integer")
 
-        list_sfps = list(set(physical_port_indices))
+        list_sfps = physical_port_indices
 
         logging.info("Physical port indices = {}".format(list_sfps))
 
@@ -417,7 +417,7 @@ class TestChassisApi(PlatformApiTestBase):
         for i in range(len(list_sfps)):
             index = list_sfps[i]
             sfp = chassis.get_sfp(platform_api_conn, index)
-            self.expect(sfp and sfp == sfp_list[i], "SFP number {} object is incorrect index {}".format(i, index))
+            self.expect(sfp and sfp in sfp_list, "SFP object for PORT{} NOT found".format(index))
         self.assert_expectations()
 
     def test_status_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
