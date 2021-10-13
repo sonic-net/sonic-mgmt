@@ -60,7 +60,7 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
         inner_ttl = random.choice(range(3, 65))
 
         inner_packet = testutils.simple_tcp_packet(ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT, ip_ttl=inner_ttl,
-                                                   ip_tos=inner_dscp)[packet.IP]
+                                                   ip_dscp=inner_dscp)[packet.IP]
 
         return testutils.simple_ipv4ip_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src='1.1.1.1', ip_dst=ip_tunnel, ip_dscp=inner_dscp, ip_ttl=64,
                                               vlan_vid=vlan_vid, dl_vlan_enable=dl_vlan_enable, inner_frame=inner_packet)
