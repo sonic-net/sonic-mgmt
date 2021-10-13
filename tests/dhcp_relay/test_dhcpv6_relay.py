@@ -110,7 +110,7 @@ def test_dhcp_relay_default(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_r
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911"])
+    skip_release(duthost, ["201811", "201911", "202106"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -136,7 +136,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
        then test whether the DHCP relay agent relays packets properly.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911"])
+    skip_release(duthost, ["201811", "201911", "202106"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -177,7 +177,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
        relays packets properly.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911"])
+    skip_release(duthost, ["201811", "201911", "202106"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
