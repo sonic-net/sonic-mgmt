@@ -25,6 +25,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
+from tests.common import constants
 
 
 pytestmark = [
@@ -336,17 +337,20 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
 
 
 @pytest.fixture
-def arp_responder(ptfhost, testbed_params):
+def arp_responder(ptfhost, testbed_params, tbinfo):
     """Set up the ARP responder utility in the PTF container."""
     vlan_network = testbed_params["vlan_interface"]["subnet"]
+    is_storage_backend = "backend" in tbinfo["topo"]["name"]
 
     logging.info("Generating simulated servers under VLAN network %s", vlan_network)
-    arp_responder_conf = {}
     vlan_host_map = _generate_vlan_servers(vlan_network, testbed_params["vlan_ports"])
 
     logging.info("Generating ARP responder topology")
-    for port in vlan_host_map:
-        arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+    if is_storage_backend:
+        vlan_id = testbed_params["vlan_interface"]["attachto"].lstrip("Vlan")
+        arp_responder_conf = {"eth%s%s%s" % (k, constants.VLAN_SUB_INTERFACE_SEPARATOR, vlan_id): v for k, v in vlan_host_map.items()}
+    else:
+        arp_responder_conf = {"eth%s" % k: v for k, v in vlan_host_map.items()}
 
     logging.info("Copying ARP responder topology to PTF")
     with open("/tmp/from_t1.json", "w") as ar_config:
