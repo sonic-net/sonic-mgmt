@@ -1413,6 +1413,8 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    raw_lanes_str =  duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
+    list_of_lanes = raw_lanes_str.split(',')
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     if check_qos_db_fv_reference_with_table(duthost) == True:
         original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
@@ -1424,7 +1426,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     new_cable_len = '15m'
 
-    lossy_pg_size = TESTPARAM_LOSSY_PG.get(original_speed)
+    lossy_pg_size = TESTPARAM_LOSSY_PG.get(str(len(list_of_lanes)))
     if not lossy_pg_size:
         lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
         if not lossy_pg_size:
