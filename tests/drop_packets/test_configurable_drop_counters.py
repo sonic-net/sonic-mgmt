@@ -12,11 +12,12 @@ import logging
 import random
 import time
 import json
+import tempfile
 from collections import defaultdict
 
 import pytest
 import ptf.testutils as testutils
-from netaddr import IPNetwork
+from netaddr import IPNetwork, EUI
 
 import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
@@ -38,6 +39,50 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
 MOCK_DEST_IP = "2.2.2.2"
 LINK_LOCAL_IP = "169.254.0.1"
+
+
+def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
+    """ Generate FDB config file to apply it using 'swssconfig' tool.
+    Generated config file template:
+    [
+        {
+            "FDB_TABLE:[vlan_id]:XX-XX-XX-XX-XX-XX": {
+                "port": "Ethernet0",
+                "type": "static"
+            },
+            "OP": "SET"
+        }
+    ]
+    """
+    dut_fdb_config = "/tmp/fdb.json"
+    fdb_config_json = []
+    entry_key_template = "FDB_TABLE:{vid}:{mac}"
+
+    fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address):
+        {"port": iface, "type": type},
+        "OP": op
+    }
+    fdb_config_json.append(fdb_entry_json)
+
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
+        logging.info("Generating FDB config")
+        json.dump(fdb_config_json, fp)
+        fp.flush()
+
+        # Copy FDB JSON config to switch
+        duthost.template(src=fp.name, dest=dut_fdb_config, force=True)
+
+    # Copy FDB JSON config to SWSS container
+    cmd = "docker cp {} swss:/".format(dut_fdb_config)
+    duthost.command(cmd)
+
+    # Set FDB entry
+    cmd = "docker exec -i swss swssconfig /fdb.json"
+    duthost.command(cmd)
+
+    cmd = "docker exec -i swss rm -f /fdb.json"
+    duthost.command(cmd)
+
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
@@ -66,12 +111,20 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
     pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, mock_server["server_dst_addr"])
 
     try:
+        # Add a static fdb entry
+        apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
+                            mock_server['server_dst_intf'], mock_server['server_dst_mac'],
+                            "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
         duthost.command("sonic-clear fdb all")
         duthost.command("sonic-clear arp")
+        # Delete the static fdb entry
+        apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
+                            mock_server['server_dst_intf'], mock_server['server_dst_mac'],
+                            "DEL", "static")
 
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
@@ -330,6 +383,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
     duthost = duthosts[rand_one_dut_hostname]
     server_dst_port = random.choice(arp_responder.keys())
     server_dst_addr = random.choice(arp_responder[server_dst_port].keys())
+    server_dst_mac = str(EUI(arp_responder[server_dst_port].get(server_dst_addr)))
     server_dst_intf = testbed_params["physical_port_map"][server_dst_port]
     logging.info("Creating mock server with IP %s; dut port = %s, dut intf = %s",
                  server_dst_addr, server_dst_port, server_dst_intf)
@@ -346,6 +400,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
     return {"server_dst_port": server_dst_port,
             "server_dst_addr": server_dst_addr,
+            "server_dst_mac": server_dst_mac,
             "server_dst_intf": server_dst_intf,
             "fanout_neighbor": fanout_neighbor,
             "fanout_intf": fanout_intf}
