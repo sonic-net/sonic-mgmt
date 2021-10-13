@@ -12,7 +12,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     """check jit user. netuser -> netadmin -> netuser"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
