@@ -228,3 +228,10 @@ syslog/test_syslog.py:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
+
+syslog/test_syslog.py:
+  skip:
+    reason: "Testcase enhancements needed for backend topo"
+    conditions:
+      - "topo_name in ['t0-backend', 't1-backend']"
+      - https://github.com/Azure/sonic-mgmt/issues/4469
