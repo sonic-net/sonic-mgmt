@@ -16,7 +16,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0-56-po2vlan')
+    pytest.mark.topology('t0', 't0-56-po2vlan')
 ]
 
 DUMMY_MAC_PREFIX = "02:11:22:33"
@@ -59,7 +59,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
                 mode = vlan_members[k][port]['tagging_mode']
                 config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
 
-    # when running on t0 we can use the portchannel members
     if config_portchannels:
         portchannel_cnt = 0
         for po in config_portchannels:
@@ -94,8 +93,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
             vlan_port['pvid'] = 0
             for vlan in config_ports_vlan[port]:
                 if 'vlanid' not in vlan or 'ip' not in vlan or 'tagging_mode' not in vlan:
-                    continue
-                if '201911' not in duthost.os_version and vlan['tagging_mode'] == 'untagged':
                     continue
                 if vlan['tagging_mode'] == 'untagged':
                     vlan_port['pvid'] = vlan['vlanid']
@@ -204,14 +201,15 @@ def verify_arp_packets(ptfadapter, vlan_ports_list, vlan_port, vlan_id, untagged
 @pytest.mark.bsl
 def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor):
     """
-    Send tagged arp packets from each port.
+    Send tagged GARP packets from each port.
     Verify packets egress without tag from ports whose PVID same with ingress port.
     Verify packets egress with tag from ports who include VLAN ID but PVID different from ingress port.
     verify show arp command on DUT.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
-        # Send packets to switch to populate the arp table with dummy MACs for each port
+        # Send GARP packets to switch to populate the arp table with dummy MACs for each port
         # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
         dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i+1)
                       for i in range(DUMMY_ARP_COUNT)]
@@ -220,7 +218,6 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             logger.info('Test ARP: interface %s, VLAN %u' % (vlan_port["dev"], permit_vlanid))
             # Perform ARP clean up
-            duthost = duthosts[rand_one_dut_hostname]
             arp_cleanup(duthost)
             for i in range(DUMMY_ARP_COUNT):
                 pkt = build_arp_packet(permit_vlanid, dummy_macs[i], dummy_ips[i])
@@ -233,6 +230,7 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 verify_arp_packets(ptfadapter, vlan_ports_list, vlan_port, permit_vlanid, exp_untagged_pkt, exp_tagged_pkt)
 
             res = duthost.command('show arp')
+            assert res['rc'] == 0
             logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
             for l in res['stdout_lines']:
