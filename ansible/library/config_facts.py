@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import json
+import traceback
 from collections import defaultdict
 from natsort import natsorted
 from ansible.module_utils.port_utils import get_port_indices_for_asic
@@ -164,7 +165,8 @@ def main():
         results = get_facts(config, namespace)
         module.exit_json(ansible_facts=results)
     except Exception as e:
-        module.fail_json(msg=e.message)
+        tb = traceback.format_exc()
+        module.fail_json(msg=str(e) + "\n" + tb)
 
 
 from ansible.module_utils.basic import AnsibleModule
