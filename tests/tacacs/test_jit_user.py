@@ -1,6 +1,6 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.tacacs import setup_tacacs_server
+from tacacs import setup_tacacs_server
 from .test_ro_user import ssh_remote_run
 from .utils import check_output
 
