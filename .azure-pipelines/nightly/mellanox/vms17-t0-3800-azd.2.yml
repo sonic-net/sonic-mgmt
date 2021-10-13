@@ -21,10 +21,10 @@ parameters:
     default: vms17-t0-3800-azd
     displayName: "Testbed Name"
 
-  # Upgrade parameters
+    # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_201911)
+    default: " "
     displayName: "Image URL"
 
   # Test Parameters
