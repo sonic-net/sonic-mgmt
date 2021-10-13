@@ -173,7 +173,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
-            config_reload(duthost)
+            config_reload(duthost, wait=350)
+            #FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
+            # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
