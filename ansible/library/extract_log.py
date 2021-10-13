@@ -288,7 +288,7 @@ def main():
         extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])
     except:
         tb = traceback.format_exc()
-        module.fail_json(msg=e.message + "\n" + tb)
+        module.fail_json(msg=tb)
     module.exit_json()
 
 

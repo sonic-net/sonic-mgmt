@@ -831,7 +831,7 @@ def main():
     except Exception as e:
         tb = traceback.format_exc()
         # all attempts to find a minigraph failed.
-        module.fail_json(msg=e.message + "\n" + tb)
+        module.fail_json(msg=str(e) + "\n" + tb)
 
 
 def print_parse_xml(hostname):
