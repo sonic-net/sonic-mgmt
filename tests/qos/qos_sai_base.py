@@ -753,6 +753,7 @@ class QosSaiBase(QosBase):
            try:
                duthost.shell("ls %s" % backup_file)
                duthost.shell("sudo cp {} {}".format(backup_file,file))
+               duthost.shell("sudo chmod +x {}".format(file))
                duthost.shell("sudo rm {}".format(backup_file))
            except:
                pytest.skip('file {} not found'.format(backup_file))
