@@ -302,19 +302,6 @@ def rand_one_dut_hostname(request):
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
-@pytest.fixture(scope="module")
-def rand_one_dut_frontend_hostname(request):
-    """
-    This fixture returns a random linecard dut hostname.
-    """
-    all_dut_hostnames = generate_params_dut_hostname(request)
-    inv_files = get_inventory_files(request)
-    dut_hostnames = [hostname for hostname in all_dut_hostnames if is_frontend_node(inv_files, hostname) == True]
-    assert len(dut_hostnames) != 0, "No Frontend/Linecard host found"
-    if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
-    logger.info("Randomly select frontend dut {} for testing".format(dut_hostnames[0]))
-    return dut_hostnames[0]
 
 @pytest.fixture(scope="module")
 def rand_selected_dut(duthosts, rand_one_dut_hostname):

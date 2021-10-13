@@ -63,14 +63,14 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthosts, rand_one_dut_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
-        duthost = duthosts[rand_one_dut_frontend_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -82,14 +82,14 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthosts, rand_one_dut_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
-        duthost = duthosts[rand_one_dut_frontend_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -97,8 +97,8 @@ class TestCOPP(object):
                      dut_type)
 
 @pytest.fixture(scope="class")
-def dut_type(duthosts, rand_one_dut_frontend_hostname):
-    duthost = duthosts[rand_one_dut_frontend_hostname]
+def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
     dut_type = None
 
@@ -112,7 +112,7 @@ def dut_type(duthosts, rand_one_dut_frontend_hostname):
 @pytest.fixture(scope="class")
 def copp_testbed(
     duthosts,
-    rand_one_dut_frontend_hostname,
+    enum_rand_one_per_hwsku_frontend_hostname,
     creds,
     ptfhost,
     tbinfo,
@@ -121,7 +121,7 @@ def copp_testbed(
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
-    duthost = duthosts[rand_one_dut_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
@@ -136,7 +136,7 @@ def copp_testbed(
         _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_frontend_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -153,7 +153,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_frontend_hostname, logan
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
-        loganalyzer[rand_one_dut_frontend_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
