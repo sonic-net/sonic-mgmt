@@ -247,5 +247,10 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 vlan_id = int(items[3])
                 assert ip in dummy_ips
                 assert mac in dummy_macs
-                assert ifname == vlan_port["dev"]
+                # 'show arp' command gets iface from FDB table,
+                # if 'show arp' command was earlier than FDB table update, ifname would be '-'
+                if ifname == '-':
+                    logger.info('Ignore unknown iface...')
+                else:
+                    assert ifname == vlan_port["dev"]
                 assert vlan_id == permit_vlanid
