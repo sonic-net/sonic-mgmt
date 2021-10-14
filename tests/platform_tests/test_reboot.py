@@ -209,6 +209,9 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
+    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
+        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(duthost.facts["asic_type"]))
     pdu_ctrl = pdu_controller
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
