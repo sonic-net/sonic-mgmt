@@ -172,7 +172,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
                 config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
 
     if config_portchannels:
-        portchannel_cnt = 0
         for po in config_portchannels:
             vlan_port = {
                 'dev' : po,
