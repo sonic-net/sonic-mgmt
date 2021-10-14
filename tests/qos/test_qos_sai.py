@@ -115,8 +115,13 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
@@ -184,10 +189,16 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "pkts_num_hysteresis" in qosConfig[xonProfile].keys():
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
+
         if "pkts_num_margin" in qosConfig[xonProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
@@ -255,6 +266,9 @@ class TestQosSai(QosSaiBase):
         if margin:
             testParams["margin"] = margin
 
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
             testParams=testParams
@@ -318,6 +332,10 @@ class TestQosSai(QosSaiBase):
             "max_headroom": sharedHeadroomPoolSize,
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
             testParams=testParams
@@ -434,11 +452,17 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "packet_size" in qosConfig["lossy_queue_1"].keys():
             testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
             testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
+
         if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.LossyQueueTest",
             testParams=testParams
@@ -474,6 +498,7 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku":dutTestParams['hwsku']
         })
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
             testParams=testParams
@@ -656,6 +681,9 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
 
@@ -769,8 +797,13 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "packet_size" in qosConfig[queueProfile].keys():
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest",
             testParams=testParams
