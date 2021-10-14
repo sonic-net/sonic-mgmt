@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 10 * * 0-5"
+  - cron: "0 3 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -13,22 +13,35 @@ schedules:
 
 variables:
   - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
 
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-8102-01
+    default: vms20-t0-7050cx3-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
+
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests"'
+    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
-
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

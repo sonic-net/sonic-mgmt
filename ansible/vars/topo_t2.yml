@@ -10,11 +10,6 @@ topology:
         - 0.0@0
         - 0.1@1
       vm_offset: 0
-    ARISTA03T3:
-      vlans:
-        - 0.2@2
-        - 0.3@3
-      vm_offset: 1
     ARISTA05T3:
       vlans:
         - 0.4@4
@@ -49,10 +44,6 @@ topology:
       vlans:
         - 0.16@16
       vm_offset: 8
-    ARISTA18T3:
-      vlans:
-        - 0.17@17
-      vm_offset: 9
     ARISTA19T3:
       vlans:
         - 0.18@18
@@ -105,20 +96,11 @@ topology:
       vlans:
         - 0.30@30
       vm_offset: 22
-    ARISTA32T3:
-      vlans:
-        - 0.31@31
-      vm_offset: 23
     ARISTA01T1:
       vlans:
         - 1.0@32
         - 1.1@33
       vm_offset: 24
-    ARISTA03T1:
-      vlans:
-        - 1.2@34
-        - 1.3@35
-      vm_offset: 25
     ARISTA05T1:
       vlans:
         - 1.4@36
@@ -169,10 +151,6 @@ topology:
       vlans:
         - 1.20@52
       vm_offset: 36
-    ARISTA22T1:
-      vlans:
-        - 1.21@53
-      vm_offset: 37
     ARISTA23T1:
       vlans:
         - 1.22@54
@@ -213,16 +191,6 @@ topology:
       vlans:
         - 1.31@63
       vm_offset: 47
-    ARISTA33T1:
-      vlans:
-        - 2.0@64
-        - 2.1@65
-      vm_offset: 48
-    ARISTA35T1:
-      vlans:
-        - 2.2@66
-        - 2.3@67
-      vm_offset: 49
     ARISTA37T1:
       vlans:
         - 2.4@68

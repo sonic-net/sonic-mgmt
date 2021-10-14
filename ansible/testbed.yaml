@@ -1037,6 +1037,21 @@
   auto_recover: 'False'
   comment: nejo
 
+- conf-name: vms20-t0-7050cx3-ixia-1
+  group-name: vms20-ixia-5
+  topo: tgen-t0-3
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-5
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - msr-7050cx3-dut-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: nejo
+
 - conf-name: vms21-t0-2700
   group-name: vms21-1
   topo: t0
@@ -1174,6 +1189,51 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms28-t0-4600c-03
+  group-name: vms28-3
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms28-3
+  ptf_ip: 10.64.246.240/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2828
+  dut:
+    - str2-msn4600c-acs-03
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms28-t0-4600c-04
+  group-name: vms28-4
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms28-4
+  ptf_ip: 10.64.246.241/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2832
+  dut:
+    - str2-msn4600c-acs-04
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms28-t0-7280-3
+  group-name: vms28-5
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms28-5
+  ptf_ip: 10.64.246.242/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2836
+  dut:
+    - str2-a7280cr3-3
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: vms21-dual-t0-7260
   group-name: vms21-6
   topo: dualtor-120
@@ -1201,6 +1261,25 @@
   vm_base: VM2192
   dut:
     - str2-dx010-acs-7
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: vms26-t2-7800-1
+  group-name: vms26-1
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: vms26-1
+  ptf_ip: 10.64.246.230/23
+  ptf_ipv6:
+  server: server_26
+  vm_base: VM2600
+  dut:
+    - str2-7804-lc3-1
+    - str2-7804-lc6-1
+    - str2-7804-lc7-1
+    - str2-7804-sup-1
+
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia

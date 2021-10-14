@@ -95,6 +95,32 @@ In a summary, under such scenario, the `skip` mark will be conditionally added t
 
 If a test case is parameterized, we can even specify different mark for different parameter value combinations for the same test case.
 
+## Example variables can be used in condition string:
+
+Example variables can be used in condition string:
+```
+    {
+      "commit_id": "db529af20",
+      "build_date": "Mon Sep 13 17:41:03 UTC 2021",
+      "sonic_utilities": 1.2,
+      "kernel_version": "4.19.0-12-2-amd64",
+      "debian_version": "10.10",
+      "built_by": "AzDevOps@sonic-build-workers-000OU4",
+      "libswsscommon": "1.0.0",
+      "build_version": "master.36262-db529af20",
+      "branch": "master",
+      "release": "master",
+      "topo_type": "t0",
+      "topo_name": "t0"
+      "platform": "x86_64-kvm_x86_64-r0",
+      "hwsku": "Force10-S6000",
+      "build_number": 36262,
+      "asic_type": "vs",
+      "num_asic": 1,
+      "is_multi_asic": False,
+    }
+```
+
 ## New pytest options
 A new pytest command line option is added for specifying location of the conditions file. If the option is not supplied, default conditions file located at `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` will be used.
 ```

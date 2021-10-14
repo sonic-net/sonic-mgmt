@@ -240,8 +240,8 @@ stages:
                 fi
                 cd ansible
 
-                ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
-                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
               INVENTORY_NAME: $(INVENTORY_NAME)
@@ -282,7 +282,7 @@ stages:
                 cd tests
 
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
-                ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
                     -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \

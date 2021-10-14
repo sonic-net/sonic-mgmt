@@ -1,0 +1,235 @@
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
+  xfail:
+    reason: "Image issue on Broadcom platforms"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dhcp_relay/test_dhcpv6_relay.py:
+  xfail:
+    reason: "Generic internal image feature missing"
+    strict: True
+    conditions:
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.33'"
+
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
+  skip:
+    reason: "Not supported on Broadcom platforms"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+drop_packets/test_drop_counters.py::test_loopback_filter:
+  # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
+  # Default SONiC behavior is to forward the traffic, so loop-back filter does not triggers for IP packets.
+  # All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
+  # To enable loop-back filter drops - need to disable that attribute when create RIF.
+  # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
+  skip:
+    reason: "SONiC can't enable loop-back filter feature"
+
+drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr[vlan_members]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv4]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv6]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
+  skip:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on_active:
+  xfail:
+    reason: "Image issue on Boradcom platforms"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dualtor/test_tor_ecn.py::test_ecn_during_decap_on_active:
+  xfail:
+    reason: "Test flaky"
+
+pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
+  xfail:
+    reason: "Test flaky"
+
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+  xfail:
+    reason: "Test flaky"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_master_led:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7260cx3_64']"
+      - "branch in ['internal-202012']"
+
+platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s', 'x86_64-arista_7260cx3_64']"
+
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  xfail:
+    reason: "Test flaky"
+
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s']"
+      - "branch in ['internal-202012']"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  xfail:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56']"
+
+platform_tests/test_sequential_restart.py::test_restart_syncd:
+  skip:
+    reason: "Restarting syncd is not supported yet"
+
+platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
+  skip:
+    reason: "Command not yet merged into sonic-utilites"
+
+qos/test_pfc_pause.py::test_pfc_pause_lossless:
+  # For this test, we use the fanout connected to the DUT to send PFC pause frames.
+  # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
+  # of the test. The inter packet interval between PFC frames to completely block a queue vary based on link speed and
+  # we have seen flakiness in our test runs. Since this test is already covered under the 'ixia' folder where we use a
+  # traffic generator to generate pause frames, skipping this here.
+  skip:
+    reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
+  xfail:
+    reason: "Image issue on Broadcom platforms"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['t0-backend', 't1-backend']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+route/test_static_route.py::test_static_route_ecmp_ipv6:
+  # This test case may fail due to a known issue https://github.com/Azure/sonic-buildimage/issues/4930.
+  # Temporarily disabling the test case due to the this issue.
+  skip:
+    reason: "Test case may fail due to a known issue"
+    conditions: https://github.com/Azure/sonic-buildimage/issues/4930
+
+show_techsupport/test_techsupport.py::test_techsupport[:
+  xfail:
+    reason: "Generic internal image issue"
+    strict: True
+    conditions:
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.33'"
+
+ssh/test_ssh_stress.py::test_ssh_stress:
+  # This test is not stable, skip it for now.
+  # known issue: https://github.com/paramiko/paramiko/issues/1508
+  skip:
+    reason: "This test failed intermittent due to known issue of paramiko, skip for now"
+    conditions: https://github.com/paramiko/paramiko/issues/1508
+
+syslog/test_syslog.py:
+  xfail:
+    reason: "Generic internal image issue"
+    conditions:
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.33'"
+  skip:
+    reason: "Testcase enhancements needed for backend topo"
+    conditions:
+      - "topo_name in ['t0-backend', 't1-backend']"
+      - https://github.com/Azure/sonic-mgmt/issues/4469

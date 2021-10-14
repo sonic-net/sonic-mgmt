@@ -23,8 +23,8 @@ pytestmark = [
 
 ### Tetcases to verify normal reboot procedure ###
 @pytest.mark.usefixtures('get_advanced_reboot')
-def test_fast_reboot(request, get_advanced_reboot, verify_dut_health, 
-    advanceboot_loganalyzer):
+def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Fast reboot test case is run using advacned reboot test fixture
 
@@ -38,7 +38,7 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 

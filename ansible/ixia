@@ -26,6 +26,7 @@ sonic:
     sonic_mlnx32_100:
     sonic_arista32_100:
     sonic_arista32_40_10:
+    sonic_arista32_7050cx3:
 
 sonic_dell64_40:
   hosts:
@@ -59,8 +60,17 @@ sonic_arista32_40_10:
     hwsku: Arista-7050-QX-32S
     iface_speed: 40000
 
+sonic_arista32_7050cx3:
+  hosts:
+    msr-7050cx3-dut-1:
+      ansible_host: 10.3.147.42
+  vars:
+    hwsku: Arista-7050CX3-32S-C32
+    iface_speed: 100000
+
 ixia_chassis:
   hosts:
     msr-ixia-1:
     msr-ixia-2:
+    msr-ixia-3:
       ansible_host: 10.3.145.24

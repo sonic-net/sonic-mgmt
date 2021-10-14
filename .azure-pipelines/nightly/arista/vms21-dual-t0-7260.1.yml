@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 10 * * 0-5"
+  - cron: "0 10 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -47,7 +47,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces"'
+    default: '-S "span sub_port_interfaces platform_tests"'
     displayName: Testbed specific
 
 stages:

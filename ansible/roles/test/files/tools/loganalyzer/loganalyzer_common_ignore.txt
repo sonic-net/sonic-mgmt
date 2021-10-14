@@ -12,3 +12,5 @@ r, ".* ERR monit.*'restapi\|restapi' status failed.*'\/usr\/sbin\/go-server-serv
 r, ".* ERR monit.*'acms\|dSMS_endpoint_modifier' status failed.*'python \/usr\/bin\/dSMS_endpoint_modifier.py' is not running.*"
 r, ".* ERR acms#ACMS.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
+r, ".* ERR ntpd.*bind.*AF_INET6.*"
+r, ".* ERR ntpd.*unable to create socket on.*"

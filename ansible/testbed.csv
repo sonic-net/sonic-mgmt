@@ -70,6 +70,7 @@ vms20-t1-ixia-1,vms20-ixia-1,tgen-t1-3-lag,docker-keysight-api-server,vms20-ixia
 vms20-t1-ixia-2,vms20-ixia-2,tgen-t1-3-lag,docker-keysight-api-server,vms20-ixia-2,10.64.246.150/23,,server_20,,msr-a7060-dut-1,ixia,False,nejo
 vms20-t0-ixia-1,vms20-ixia-3,tgen-t0-3,docker-keysight-api-server,vms20-ixia-3,10.64.246.150/23,,server_20,,msr-s6100-dut-1,ixia,False,nejo
 vms20-t0-ixia-2,vms20-ixia-4,tgen-t0-35-3,docker-keysight-api-server,vms20-ixia-4,10.64.246.150/23,,server_20,,msr-7050qx-dut-1,ixia,False,nejo
+vms20-t0-7050cx3-ixia-1,vms20-ixia-5,tgen-t0-3,docker-keysight-api-server,vms20-ixia-5,10.64.246.150/23,,server_20,,msr-7050cx3-dut-1,ixia,False,nejo
 vms21-t0-2700,vms21-1,t0,docker-ptf,vms21-1,10.64.246.145/23,,server_21,VM2100,str2-msn2700-spy-1,str2,True,v-saidia
 vms21-t1-2700-2,vms21-2,t1-lag,docker-ptf,vms21-2,10.64.246.146/23,,server_21,VM2104,str2-msn2700-spy-2,str2,True,v-saidia
 vms21-dual-t0-7050-3,vms21-3,dualtor-56,docker-ptf,vms21-3,10.64.246.147/23,,server_21,VM2128,[str2-7050cx3-acs-10;str2-7050cx3-acs-11],str2,True,v-saidia
