@@ -232,3 +232,7 @@ Our fanout switches deploy using the Arista switch's eosadmin shell login. If yo
 - To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/.password```
 
 **NOTE:** The last step in `testbed-cli.sh` is trying to re-deploy the Vlan range in the root fanout switch to match the VLAN range specified in the topology. In other words, it's trying to change the "allowed" Vlan for the Arista switch ports. If you have a different type of switch, this may or may not work. Please review the steps and update accordingly if necessary. If you comment out the last step, you may manually swap Vlan ranges in the root fanout to make the testbed topology switch work.
+
+## Deploy Minigraph
+
+Please follow the "Device Minigraph Generation and Deployment" section of the [Device Minigraph Generation and Deployment](README.testbed.Minigraph.md) to finish minigrah deployment.
