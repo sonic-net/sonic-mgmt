@@ -65,6 +65,21 @@ class TestThermalApi(PlatformApiTestBase):
                        "Unable to get thermal name list containing thermal '{}' from platform.json file".format(value)):
             self.expect(value in expected_values, "Thermal name '{}' is not included in {}".format(value,
                                                                                                    expected_values))
+
+    def get_thermal_facts(self, duthost, thermal_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            thermals = duthost.facts.get("chassis").get("thermals")
+            if thermals:
+                value = thermals[thermal_idx]
+                for key in keys:
+                    value = value.get(key)
+                    if value is None:
+                        return def_value
+
+                return value
+
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -203,10 +218,17 @@ class TestThermalApi(PlatformApiTestBase):
 
     def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
+            threshold_controllable = self.get_thermal_facts(duthost, i, True, "controllable")
+            if not threshold_controllable:
+                logger.info("test_set_low_threshold: Skipping thermal {} (threshold not controllable)".format(i))
+                thermals_skipped += 1
+                continue
+
             low_temperature = 20
             result = thermal.set_low_threshold(platform_api_conn, i, low_temperature)
             if self.expect(result is not None, "Failed to perform set_low_threshold"):
@@ -218,14 +240,24 @@ class TestThermalApi(PlatformApiTestBase):
                     self.expect(temperature == 20,
                                 "Thermal {} low threshold {} is not matching the set value {}".format(i, temperature, low_temperature))
 
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' threshold is not controllable")
+
         self.assert_expectations()
 
     def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
+            threshold_controllable = self.get_thermal_facts(duthost, i, True, "controllable")
+            if not threshold_controllable:
+                logger.info("test_set_high_threshold: Skipping thermal {} (threshold not controllable)".format(i))
+                thermals_skipped += 1
+                continue
+
             high_temperature = 80
             result = thermal.set_high_threshold(platform_api_conn, i, high_temperature)
             if self.expect(result is not None, "Failed to perform set_high_threshold"):
@@ -236,4 +268,8 @@ class TestThermalApi(PlatformApiTestBase):
                 if self.expect(isinstance(temperature, float), "Thermal {} high threshold appears incorrect".format(i)):
                     self.expect(temperature == 80,
                                 "Thermal {} high threshold {} is not matching the set value {}".format(i, temperature, high_temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' threshold is not controllable")
+
         self.assert_expectations()
