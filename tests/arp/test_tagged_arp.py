@@ -20,7 +20,7 @@ pytestmark = [
 ]
 
 DUMMY_MAC_PREFIX = "02:11:22:33"
-DUMMY_IP_PREFIX = "192.168"
+DUMMY_IP_PREFIX = "188.123"
 DUMMY_ARP_COUNT = 10
 
 @pytest.fixture(scope="module")
@@ -233,6 +233,7 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
             assert res['rc'] == 0
             logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
+            arp_cnt = 0
             for l in res['stdout_lines']:
                 # Address MacAddress Iface Vlan
                 items = l.split()
@@ -241,6 +242,7 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 # Vlan must be number
                 if not items[3].isdigit():
                     continue
+                arp_cnt += 1
                 ip = items[0]
                 mac = items[1]
                 ifname = items[2]
@@ -254,3 +256,4 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 else:
                     assert ifname == vlan_port["dev"]
                 assert vlan_id == permit_vlanid
+            assert arp_cnt == DUMMY_ARP_COUNT
