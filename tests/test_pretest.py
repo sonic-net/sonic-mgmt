@@ -105,8 +105,8 @@ def collect_dut_info(dut):
             if len(front_end_asics):
                 fe = random.choice(front_end_asics)
                 asic_services[service].append(dut.get_docker_name(service, asic_index=fe))
-            if len(back_end_asic):
-                be = random.choice(back_end_asic)
+            if len(back_end_asics):
+                be = random.choice(back_end_asics)
                 asic_services[service].append(dut.get_docker_name(service, asic_index=be))
 
     dut_info = {
