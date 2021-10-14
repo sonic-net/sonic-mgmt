@@ -13,22 +13,27 @@
     - [Test case # 1 - Validating maximum remote VTEPs (VXLAN destination tunnels) supported on switch - 512](#test-case--1---validating-maximum-remote-vteps-vxlan-destination-tunnels-supported-on-switch---512)
       - [Test objective](#test-objective)
       - [Test steps](#test-steps)
+      - [Test results](#test-results)
   - [Test cases](#test-cases-1)
     - [Test case # 2 – Validating total L2 VNI supported per switch - 4K.](#test-case--2--validating-total-l2-vni-supported-per-switch---4k)
       - [Test objective](#test-objective-1)
       - [Test steps](#test-steps-1)
+      - [Test results](#test-results-1)
   - [Test cases](#test-cases-2)
     - [Test case # 3 – Validating total L2 VNI supported per tunnel - 4K.](#test-case--3--validating-total-l2-vni-supported-per-tunnel---4k)
       - [Test objective](#test-objective-2)
       - [Test steps](#test-steps-2)
+      - [Test results](#test-results-2)
   - [Test cases](#test-cases-3)
     - [Test case # 4 – Validating total EVPN participating VRF per switch - 512.](#test-case--4--validating-total-evpn-participating-vrf-per-switch---512)
       - [Test objective](#test-objective-3)
       - [Test steps](#test-steps-3)
+      - [Test results](#test-results-3)
   - [Test cases](#test-cases-4)
     - [Test case # 5 – Host mac mobility from one VTEP to other.](#test-case--5--host-mac-mobility-from-one-vtep-to-other)
       - [Test objective](#test-objective-4)
       - [Test steps](#test-steps-4)
+      - [Test results](#test-results-4)
 
 ## Overview
 The purpose of these tests is to perform the scalability tests on BGP EVPN VxLAN and verify the performance of the SONiC system, closely resembling production environment.
@@ -59,8 +64,7 @@ IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will b
 * Total Remote VTEPs (VXLAN destination tunnels) - 512.
 * Total L2 VNI per switch - 4K. 
 * Total VNI per tunnel - 4K.
-* Total EVPN participating VRF per switch - 512.
-* Host mobility from one VTEP to another. 
+* Total EVPN participating VRF per switch - 512. 
   
 ## Test cases
 ### Test case # 1 - Validating maximum remote VTEPs (VXLAN destination tunnels) supported on switch - 512
@@ -106,6 +110,7 @@ Verify that switch supports 512 remote VTEPs.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 
 #### Test results
@@ -130,6 +135,7 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate
 
 #### Test results
@@ -154,6 +160,7 @@ Verify that swich supports upto 512 VRF instances.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 
 
@@ -175,4 +182,7 @@ Verify that swich supports host mobility and learns the informtion through new V
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
+
+#### Test results
