@@ -69,6 +69,20 @@ class TestFanDrawerApi(PlatformApiTestBase):
             self.expect(value == expected_value,
                         "'{}' value is incorrect. Got '{}', expected '{}' for fan drawer {}".format(key, value, expected_value, fan_drawer_idx))
 
+    def get_fan_drawer_facts(self, duthost, fan_drawer_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            fan_drawers = duthost.facts.get("chassis").get("fan_drawers")
+            if fan_drawers:
+                value = fan_drawers[fan_drawer_idx]
+                for key in keys:
+                    value = value.get(key)
+                    if value is None:
+                        return def_value
+
+                return value
+
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -185,21 +199,46 @@ class TestFanDrawerApi(PlatformApiTestBase):
             2: "off"
         }
 
+        fan_drawers_skipped = 0
         for i in range(self.num_fan_drawers):
-            for index, led_type in enumerate(LED_COLOR_TYPES):
-                led_type_result = False
-                for color in led_type:
-                    result = fan_drawer.set_status_led(platform_api_conn, i, color)
-                    if self.expect(result is not None, "Failed to perform set_status_led"):
-                        led_type_result = result or led_type_result
-                    if ((result is None) or (not result)):
-                        continue
-                    color_actual = fan_drawer.get_status_led(platform_api_conn, i)
-                    if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                        if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})".format(
-                                color, color_actual, i))
-                self.expect(led_type_result is True, "Failed to set status_led for fan_drawer {} to {}".format(i, LED_COLOR_TYPES_DICT[index]))
+            led_controllable = self.get_fan_drawer_facts(duthost, i, True, "status_led", "controllable")
+            led_supported_colors = self.get_fan_drawer_facts(duthost, i, None, "status_led", "colors")
+
+            if led_controllable:
+                led_type_skipped = 0
+                for index, led_type in enumerate(LED_COLOR_TYPES):
+                    if led_supported_colors:
+                        led_type = set(led_type) & set(led_supported_colors)
+                        if not led_type:
+                            logger.warning("test_status_led: Skipping fandrawer {} set status_led to {} (No supported colors)".format(i, LED_COLOR_TYPES_DICT[index]))
+                            led_type_skipped += 1
+                            continue
+
+                    led_type_result = False
+                    for color in led_type:
+                        result = fan_drawer.set_status_led(platform_api_conn, i, color)
+                        if self.expect(result is not None, "Failed to perform set_status_led"):
+                            led_type_result = result or led_type_result
+                        if ((result is None) or (not result)):
+                            continue
+                        color_actual = fan_drawer.get_status_led(platform_api_conn, i)
+                        if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                            if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                                self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})".format(
+                                    color, color_actual, i))
+                    self.expect(led_type_result is True, "Failed to set status_led for fan_drawer {} to {}".format(i, LED_COLOR_TYPES_DICT[index]))
+
+                if led_type_skipped == len(LED_COLOR_TYPES):
+                    logger.info("test_status_led: Skipping fandrawer {} (no supported colors for all types)".format(i))
+                    fan_drawers_skipped += 1
+
+            else:
+                logger.info("test_status_led: Skipping fandrawer {} (LED is not controllable)".format(i))
+                fan_drawers_skipped += 1
+
+        if fan_drawers_skipped == self.num_fan_drawers:
+            pytest.skip("skipped as all fandrawers' LED is not controllable/no supported colors")
+
         self.assert_expectations()
 
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):

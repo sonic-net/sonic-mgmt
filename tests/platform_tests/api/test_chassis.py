@@ -451,19 +451,42 @@ class TestChassisApi(PlatformApiTestBase):
             2: "off"
         }
 
-        for index, led_type in enumerate(LED_COLOR_TYPES):
-            led_type_result = False
-            for color in led_type:
-                result = chassis.set_status_led(platform_api_conn, color)
-                if self.expect(result is not None, "Failed to perform set_status_led"):
-                    led_type_result = result or led_type_result
-                if ((result is None) or (not result)):
-                    continue
-                color_actual = chassis.get_status_led(platform_api_conn)
-                if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
-            self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+        led_controllable = True
+        led_supported_colors = []
+        if duthost.facts.get("chassis"):
+            status_led = duthost.facts.get("chassis").get("status_led")
+            if status_led:
+                led_controllable = status_led.get("controllable", True)
+                led_supported_colors = status_led.get("colors")
+
+        if led_controllable:
+            led_type_skipped = 0
+            for index, led_type in enumerate(LED_COLOR_TYPES):
+                if led_supported_colors:
+                    led_type = set(led_type) & set(led_supported_colors)
+                    if not led_type:
+                        logger.warning("test_status_led: Skipping set status_led to {} (No supported colors)".format(LED_COLOR_TYPES_DICT[index]))
+                        led_type_skipped += 1
+                        continue
+
+                led_type_result = False
+                for color in led_type:
+                    result = chassis.set_status_led(platform_api_conn, color)
+                    if self.expect(result is not None, "Failed to perform set_status_led"):
+                        led_type_result = result or led_type_result
+                    if ((result is None) or (not result)):
+                        continue
+                    color_actual = chassis.get_status_led(platform_api_conn)
+                    if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                        if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+                self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+
+            if led_type_skipped == len(LED_COLOR_TYPES):
+                pytest.skip("skipped as no supported colors for all types")
+
+        else:
+            pytest.skip("skipped as chassis's status led is not controllable")
 
         self.assert_expectations()
 
