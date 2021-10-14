@@ -1,5 +1,5 @@
 import pytest
-from tacacs import setup_tacacs_client, setup_tacacs_server, cleanup_tacacs
+from .utils import setup_tacacs_client, setup_tacacs_server, cleanup_tacacs
 
 @pytest.fixture(scope="module")
 def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
