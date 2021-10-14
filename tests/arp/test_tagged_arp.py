@@ -10,8 +10,8 @@ import ipaddress
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
@@ -27,80 +27,6 @@ DUMMY_ARP_COUNT = 10
 def cfg_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-
-
-@pytest.fixture(scope="module")
-def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, cfg_facts):
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    vlan_ports_list = []
-    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
-    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
-    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
-    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
-    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-    config_ports_vlan = defaultdict(list)
-    vlan_members = cfg_facts.get('VLAN_MEMBER', {})
-    # key is dev name, value is list for configured VLAN member.
-    for k, v in cfg_facts['VLAN'].items():
-        vlanid = v['vlanid']
-        for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            # address could be IPV6 and IPV4, only need IPV4 here
-            if addr.find(':') == -1:
-                ip = addr
-                break
-        else:
-            continue
-        for port in v['members']:
-            if k in vlan_members and port in vlan_members[k]:
-                if 'tagging_mode' not in vlan_members[k][port]:
-                    continue
-                mode = vlan_members[k][port]['tagging_mode']
-                config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
-
-    if config_portchannels:
-        portchannel_cnt = 0
-        for po in config_portchannels:
-            vlan_port = {
-                'dev' : po,
-                'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
-                'permit_vlanid' : []
-            }
-            if po in config_ports_vlan:
-                vlan_port['pvid'] = 0
-                for vlan in config_ports_vlan[po]:
-                    if 'vlanid' not in vlan or 'ip' not in vlan or 'tagging_mode' not in vlan:
-                        continue
-                    if vlan['tagging_mode'] == 'untagged':
-                        vlan_port['pvid'] = vlan['vlanid']
-                    vlan_port['permit_vlanid'].append(vlan['vlanid'])
-            if 'pvid' in vlan_port:
-                vlan_ports_list.append(vlan_port)
-
-    ports = [port for port in config_ports
-        if config_port_indices[port] in ptf_ports_available_in_topo
-        and config_ports[port].get('admin_status', 'down') == 'up'
-        and port not in config_port_channel_member_ports]
-
-    for i, port in enumerate(ports):
-        vlan_port = {
-            'dev' : port,
-            'port_index' : [config_port_indices[port]],
-            'permit_vlanid' : []
-        }
-        if port in config_ports_vlan:
-            vlan_port['pvid'] = 0
-            for vlan in config_ports_vlan[port]:
-                if 'vlanid' not in vlan or 'ip' not in vlan or 'tagging_mode' not in vlan:
-                    continue
-                if vlan['tagging_mode'] == 'untagged':
-                    vlan_port['pvid'] = vlan['vlanid']
-                vlan_port['permit_vlanid'].append(vlan['vlanid'])
-        if 'pvid' in vlan_port:
-            vlan_ports_list.append(vlan_port)
-
-    return vlan_ports_list
 
 
 def enable_arp(duthost, cfg_facts, enable):
@@ -211,9 +137,10 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
         port_index = vlan_port["port_index"][0]
         # Send GARP packets to switch to populate the arp table with dummy MACs for each port
         # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-        dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i+1)
+        # ARP table will be cleaned up before each iteration, so there won't be any conflict MAC and IP
+        dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index&0xFF, i+1)
                       for i in range(DUMMY_ARP_COUNT)]
-        dummy_ips = ['{}.{:d}.{:d}'.format(DUMMY_IP_PREFIX, port_index, i+1)
+        dummy_ips = ['{}.{:d}.{:d}'.format(DUMMY_IP_PREFIX, port_index&0xFF, i+1)
                       for i in range(DUMMY_ARP_COUNT)]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             logger.info('Test ARP: interface %s, VLAN %u' % (vlan_port["dev"], permit_vlanid))
