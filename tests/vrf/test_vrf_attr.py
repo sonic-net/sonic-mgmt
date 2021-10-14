@@ -11,7 +11,9 @@ from test_vrf import vlan_mac      # lgtm[py/unused-import]
 from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # lgtm[py/unused-import]
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # lgtm[py/unused-import]
+
 
 pytestmark = [
     pytest.mark.topology('t0')
