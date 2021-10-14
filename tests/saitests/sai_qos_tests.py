@@ -1541,6 +1541,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts.append(recv_pkt)
             except AttributeError:
                 continue
+            except IndexError:
+                # Ignore captured non-IP packet
+                continue
 
         queue_pkt_counters = [0] * (prio_list[-1] + 1)
         queue_num_of_pkts  = [0] * (prio_list[-1] + 1)
