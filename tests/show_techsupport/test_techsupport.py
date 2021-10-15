@@ -369,10 +369,22 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
                 "broadcom_cmd_misc": 
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
-                "copy_config_cmds": 
-                    add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds_no_qos, num),
+                }
+            )
+        else:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds, num),
+                }
+            )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
         if 'armhf-' in duthost.facts["platform"]:
