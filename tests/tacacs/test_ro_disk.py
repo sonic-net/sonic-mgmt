@@ -2,7 +2,6 @@ import pytest
 import crypt
 import json
 import logging
-import time
 from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
