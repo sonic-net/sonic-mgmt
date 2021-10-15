@@ -118,6 +118,27 @@ dualtor/test_tor_ecn.py::test_ecn_during_decap_on_active:
   xfail:
     reason: "Test flaky"
 
+iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
