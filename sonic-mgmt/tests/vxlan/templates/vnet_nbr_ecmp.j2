@@ -1,0 +1,9 @@
+{
+    "NEIGH": {
+{%- for nbr in vnet_nbr_list %}
+        "{{ nbr.ifname }}|{{ nbr.ip }}": {
+            "family": "{{ nbr.family }}"
+        }{{ "," if not loop.last else "" }}
+{%- endfor %}
+    }
+}
