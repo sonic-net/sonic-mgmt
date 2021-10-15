@@ -1,3 +1,11 @@
+cacl/test_cacl_application.py::test_cacl_application:
+  xfail:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
   xfail:
     reason: "Image issue on Broadcom platforms"
@@ -9,8 +17,8 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Generic internal image feature missing"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
@@ -33,7 +41,7 @@ drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
   skip:
@@ -41,7 +49,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
   skip:
@@ -49,7 +57,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr[vlan_members]:
   skip:
@@ -57,7 +65,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr[vlan_members]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv4]:
   skip:
@@ -65,7 +73,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-i
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-ipv6]:
   skip:
@@ -73,7 +81,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-i
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
   skip:
@@ -81,7 +89,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
   skip:
@@ -89,7 +97,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
   skip:
@@ -97,7 +105,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
   skip:
@@ -105,12 +113,18 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on_active:
   xfail:
     reason: "Image issue on Boradcom platforms"
     strict: True
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
+  xfail:
+    reason: "Image issue on Boradcom platforms, but not consistently failing"
     conditions:
       - "asic_type in ['broadcom']"
 
@@ -177,7 +191,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
