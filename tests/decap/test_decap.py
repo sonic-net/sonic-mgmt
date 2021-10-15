@@ -44,7 +44,8 @@ def remove_default_decap_cfg(duthosts):
             cmds = [
                 'docker exec {} cp /etc/swss/config.d/ipinip.json /default_ipinip.json'.format(swss),
                 'docker exec {} sed -i -e \'s/"OP": *"SET"/"OP": "DEL"/g\' /default_ipinip.json'.format(swss),
-                'docker exec {} swssconfig /default_ipinip.json'.format(swss)
+                'docker exec {} swssconfig /default_ipinip.json'.format(swss),
+                'docker exec {} rm /default_ipinip.json'.format(swss)
             ]
             duthost.shell_cmds(cmds=cmds)
 
@@ -136,9 +137,11 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
             swss = 'swss{}'.format(asic_id if asic_id is not None else '')
             cmds = [
                 'docker cp /tmp/decap_conf_{}.json {}:/decap_conf_{}.json'.format(op, swss, op),
-                'docker exec {} swssconfig /decap_conf_{}.json'.format(swss, op)
+                'docker exec {} swssconfig /decap_conf_{}.json'.format(swss, op),
+                'docker exec {} rm /decap_conf_{}.json'.format(swss, op)
             ]
             duthost.shell_cmds(cmds=cmds)
+        duthost.shell('rm /tmp/decap_conf_{}.json'.format(op))
 
 
 @pytest.fixture
