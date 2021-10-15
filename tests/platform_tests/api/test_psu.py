@@ -65,6 +65,20 @@ class TestPsuApi(PlatformApiTestBase):
             self.expect(value == expected_value,
                       "'{}' value is incorrect. Got '{}', expected '{}' for PSU {}".format(key, value, expected_value, psu_idx))
 
+    def get_psu_facts(self, duthost, psu_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            psus = duthost.facts.get("chassis").get("psus")
+            if psus:
+                value = psus[psu_idx]
+                for key in keys:
+                    value = value.get(key)
+                    if value is None:
+                        return def_value
+
+                return value
+
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -257,31 +271,56 @@ class TestPsuApi(PlatformApiTestBase):
             0: "fault",
             1: "normal",
             2: "off"
-        }   
+        }
 
+        psus_skipped = 0
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
             if name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
+                psus_skipped += 1
             else:
-                for index, led_type in enumerate(LED_COLOR_TYPES):
-                    led_type_result = False
-                    for color in led_type:
-                        result = psu.set_status_led(platform_api_conn, psu_id, color)
-                        if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
-                            led_type_result = result or led_type_result
-                        if ((result is None) or (not result)):
-                            continue
-                        color_actual = psu.get_status_led(platform_api_conn, psu_id)
-                        if self.expect(color_actual is not None,
-                                       "Failed to retrieve status_led of PSU {}".format(psu_id)):
-                            if self.expect(isinstance(color_actual, STRING_TYPE),
-                                           "PSU {} status LED color appears incorrect".format(psu_id)):
-                                self.expect(color == color_actual,
-                                            "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(
-                                                color, color_actual, psu_id))
-                    self.expect(led_type_result is True,
-                                "Failed to set status_led of PSU {} to {}".format(psu_id, LED_COLOR_TYPES_DICT[index]))
+                led_controllable = self.get_psu_facts(duthost, psu_id, True, "status_led", "controllable")
+                led_supported_colors = self.get_psu_facts(duthost, psu_id, None, "status_led", "colors")
+
+                if led_controllable:
+                    led_type_skipped = 0
+                    for index, led_type in enumerate(LED_COLOR_TYPES):
+                        if led_supported_colors:
+                            led_type = set(led_type) & set(led_supported_colors)
+                            if not led_type:
+                                logger.warning("test_status_led: Skipping PSU {} set status_led to {} (No supported colors)".format(psu_id, LED_COLOR_TYPES_DICT[index]))
+                                led_type_skipped += 1
+                                continue
+
+                        led_type_result = False
+                        for color in led_type:
+                            result = psu.set_status_led(platform_api_conn, psu_id, color)
+                            if self.expect(result is not None, "Failed to perform set_status_led of PSU {}".format(psu_id)):
+                                led_type_result = result or led_type_result
+                            if ((result is None) or (not result)):
+                                continue
+                            color_actual = psu.get_status_led(platform_api_conn, psu_id)
+                            if self.expect(color_actual is not None,
+                                           "Failed to retrieve status_led of PSU {}".format(psu_id)):
+                                if self.expect(isinstance(color_actual, STRING_TYPE),
+                                               "PSU {} status LED color appears incorrect".format(psu_id)):
+                                    self.expect(color == color_actual,
+                                                "Status LED color incorrect (expected: {}, actual: {}) from PSU {}".format(
+                                                    color, color_actual, psu_id))
+                        self.expect(led_type_result is True,
+                                    "Failed to set status_led of PSU {} to {}".format(psu_id, LED_COLOR_TYPES_DICT[index]))
+
+                    if led_type_skipped == len(LED_COLOR_TYPES):
+                        logger.info("test_status_led: Skipping PSU {} (no supported colors for all types)".format(psu_id))
+                        psus_skipped += 1
+
+                else:
+                    logger.info("test_status_led: Skipping PSU {} (LED is not controllable)".format(psu_id))
+                    psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSUs' LED is not controllable/no supported colors/in skip list")
 
         self.assert_expectations()
 
