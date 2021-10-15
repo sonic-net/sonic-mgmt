@@ -7,6 +7,15 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
+drop_packets/test_wjh.py::test_loopback_filter:
+  # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
+  # Default SONiC behavior is to forward the traffic, so loop-back filter does not triggers for IP packets.
+  # All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
+  # To enable loop-back filter drops - need to disable that attribute when create RIF.
+  # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
+  skip:
+    reason: "SONiC can't enable loop-back filter feature"
+
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
