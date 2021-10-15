@@ -710,6 +710,21 @@ sonic_arista64_100:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: JPE20271584
+      base_mac: d4:af:f7:1e:a7:f4
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "JPE20271584"
+        "0x24": "d4:af:f7:1e:a7:f4"
+        "0x25": "2020/07/24 18:40:03"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPE20271584"
     str2-7260cx3-acs-10:
       ansible_host: 10.3.146.129
       hwsku: Arista-7260CX3-D108C8
