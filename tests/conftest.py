@@ -46,7 +46,6 @@ cache = FactsCache()
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
