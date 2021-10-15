@@ -322,7 +322,7 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1(mg_facts, peer_count):
+    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
@@ -410,8 +410,8 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] == "t0":
         setup_func = _setup_interfaces_t0
-    elif tbinfo["topo"]["type"] == "t1":
-        setup_func = _setup_interfaces_t1
+    elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
+        setup_func = _setup_interfaces_t1_or_t2
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 
