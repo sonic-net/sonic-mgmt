@@ -718,21 +718,31 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             margin = 2
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         try:
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0 
 
             # send packets short of triggering pfc
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
+            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                # send packets short of triggering pfc
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
+            else:
+                # send packets short of triggering pfc
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out) 
@@ -933,6 +943,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
         )
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
@@ -944,15 +958,21 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0 
 
-            send_packet(
-                self, src_port_id, pkt, 
-                pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
-            )
+            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                send_packet(
+                    self, src_port_id, pkt, 
+                    pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
+                )
+            else:
+                send_packet(
+                    self, src_port_id, pkt, 
+                    pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
+                )
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_port_leak_out) 
@@ -961,21 +981,30 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_2_id]
             )
-            send_packet(
-                self, src_port_id, pkt2, 
-                pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
-            )
+            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                send_packet(
+                    self, src_port_id, pkt2, 
+                    pkts_num_egr_mem + pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
+                )
+            else:
+                send_packet(
+                    self, src_port_id, pkt2, 
+                    pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
+                )
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 send_packet(self, src_port_id, pkt2, actual_port_leak_out) 
 
             # send 1 packet to dst port 3, triggering PFC
             xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id]
             )
-            send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
+            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                send_packet(self, src_port_id, pkt3, pkts_num_egr_mem + pkts_num_leak_out + 1)
+            else:
+                send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 send_packet(self, src_port_id, pkt3, actual_port_leak_out) 
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -1153,6 +1182,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_bases = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.src_port_ids]
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         # Pause egress of dut xmit port
         sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id])
 
@@ -1165,7 +1198,12 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         ip_src=self.src_port_ips[sidx],
                         ip_dst=self.dst_port_ip,
                         ip_ttl=64)
-            send_packet(self, self.src_port_ids[sidx], pkt, self.pkts_num_leak_out)
+
+            hwsku = self.test_params['hwsku']
+            if (hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32'):
+                send_packet(self, self.src_port_ids[sidx], pkt, pkts_num_egr_mem + self.pkts_num_leak_out)
+            else:
+                send_packet(self, self.src_port_ids[sidx], pkt, self.pkts_num_leak_out)
 
             # send packets to all pgs to fill the service pool
             # and trigger PFC on all pgs
@@ -1186,6 +1224,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc
                 else:
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
 
             print >> sys.stderr, "Service pool almost filled"
@@ -1656,19 +1695,28 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             margin = 2
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         try:
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = 0 
 
            # send packets short of triggering egress drop
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+               # send packets short of triggering egress drop
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+            else:
+               # send packets short of triggering egress drop
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out) 
@@ -1766,10 +1814,17 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        margin = 2
+        if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            margin = 10
+        else:
+            margin = 2
 
         # Get a snapshot of counter values
         xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
@@ -1778,18 +1833,21 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = pkts_num_leak_out - margin 
 
             # send packets to fill pg min but not trek into shared pool
             # so if pg min is zero, it directly treks into shared pool by 1
             # this is the case for lossy traffic
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min)
+            else:
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 if actual_pkts_num_leak_out > pkts_num_leak_out:
@@ -2016,6 +2074,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # shared test, so the margin here actually means extra capacity margin
         margin = 8
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
@@ -2024,19 +2086,22 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or  hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = pkts_num_leak_out - margin 
 
             # send packets to fill queue min but not trek into shared pool
             # so if queue min is zero, it will directly trek into shared pool by 1
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min)
+            else:
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or  hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 if actual_pkts_num_leak_out > pkts_num_leak_out:

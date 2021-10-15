@@ -53,6 +53,14 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
                                                 physical_port_index_map.keys() \
                                                 if intf not in xcvr_skip_list[duthost.hostname]])
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
+
+    # Fetch SFP names from platform.json
+    sfp_fact_names = []
+    sfp_fact_list = duthost.facts.get("chassis").get("sfps")
+    for sfp in sfp_fact_list:
+        sfp_fact_names.append(sfp.get('name'))
+    sfp_setup["sfp_fact_names"] = sfp_fact_names
+
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
 
@@ -137,20 +145,6 @@ class TestSfpApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, sfp_idx, duthost):
-        expected_value = None
-        sfp_id = self.sfp_setup["sfp_port_indices"].index(sfp_idx)
-        if duthost.facts.get("chassis"):
-            expected_sfps = duthost.facts.get("chassis").get("sfps")
-            if expected_sfps:
-                expected_value = expected_sfps[sfp_id].get(key)
-
-        if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
-            self.expect(value == expected_value,
-                        "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value,
-                                                                                             sfp_idx))
-
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
@@ -188,11 +182,13 @@ class TestSfpApi(PlatformApiTestBase):
     #
 
     def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        expected_sfp_names = self.sfp_setup["sfp_fact_names"]
         for i in self.sfp_setup["sfp_test_port_indices"]:
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i, duthosts[enum_rand_one_per_hwsku_hostname])
+                self.expect(name in expected_sfp_names,
+                        "Transceiver name '{}' for PORT{} NOT found in platform.json".format(name, i))
         self.assert_expectations()
 
     def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
