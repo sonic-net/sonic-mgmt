@@ -4,6 +4,7 @@ from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import wait_until
+from tests.common.plugins.sanity_check import print_logs
 import threading
 import logging
 from natsort import natsorted
@@ -165,10 +166,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
 
 
 def cleanup(ptfadapter, duthosts_list):
-    for duthost in duthosts_list:
-        facts = duthost.bgp_facts()
-        logger.info("{} BGP status".format(duthost))
-        logger.info(json.dumps(facts['ansible_facts'], indent=4))
+    print_logs(duthosts_list)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
