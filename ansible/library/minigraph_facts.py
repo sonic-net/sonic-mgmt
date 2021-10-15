@@ -325,9 +325,9 @@ def parse_dpg(dpg, hname):
         intfs = []
         for ipintf in ipintfs.findall(str(QName(ns, "IPInterface"))):
             intfalias = ipintf.find(str(QName(ns, "AttachTo"))).text
-            if port_alias_to_name_map.has_key(intfalias):
+            if intfalias in port_alias_to_name_map:
                 intfname = port_alias_to_name_map[intfalias]
-            elif port_alias_asic_map.has_key(intfalias):
+            elif intfalias in port_alias_asic_map:
                 intfname = port_alias_asic_map[intfalias]
             else:
                 intfname = intfalias
@@ -831,7 +831,7 @@ def main():
     except Exception as e:
         tb = traceback.format_exc()
         # all attempts to find a minigraph failed.
-        module.fail_json(msg=e.message + "\n" + tb)
+        module.fail_json(msg=str(e) + "\n" + tb)
 
 
 def print_parse_xml(hostname):

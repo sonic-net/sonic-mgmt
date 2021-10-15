@@ -115,6 +115,11 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     testutils.send(ptfadapter, ptf_t1_intf_index, pkt)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
+def wait_all_bgp_up(duthost):
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        pytest.fail("not all bgp sessions are up after config reload")
 
 def check_route_redistribution(duthost, prefix, ipv6, removed=False):
     if ipv6:
@@ -135,13 +140,16 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
         if matched:
             bgp_neighbors.append(str(matched.group(0)))
 
-    for neighbor in bgp_neighbors:
-        adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
-        if removed:
-            assert prefix not in adv_routes
-        else:
-            assert prefix in adv_routes
+    def _check_routes():
+        for neighbor in bgp_neighbors:
+            adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
+            if removed and prefix in adv_routes:
+                return False
+            if not removed and prefix not in adv_routes:
+                return False
+        return True
 
+    assert(wait_until(60, 15, _check_routes))
 
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp
@@ -166,6 +174,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         if config_reload_test:
             duthost.shell('config save -y')
             config_reload(duthost, wait=350)
+            #FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
+            # on some devices (like 4600) after config reload, so we need below patch
+            wait_all_bgp_up(duthost)
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 

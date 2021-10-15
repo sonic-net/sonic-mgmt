@@ -50,7 +50,10 @@ def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslo
         logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_b))
 
     logger.info("Start tcpdump")
-    tcpdump_task, tcpdump_result = duthost.shell("sudo timeout 20 tcpdump -i any -s0 -A -w {} \"udp and port 514\"".format(DUT_PCAP_FILEPATH), module_async=True)
+    # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+    # defaults to writing in that format when listening on any interface. Therefore,
+    # have it use LINUX_SLL (Linux cooked) instead.
+    tcpdump_task, tcpdump_result = duthost.shell("sudo timeout 20 tcpdump -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\"".format(DUT_PCAP_FILEPATH), module_async=True)
     # wait for starting tcpdump
     time.sleep(5)
 

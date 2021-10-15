@@ -154,4 +154,7 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     VLAN_INDEX = 0
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
-    return vlan_interfaces
+    if vlan_interfaces is not None:
+        return vlan_interfaces
+    else:
+        return []

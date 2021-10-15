@@ -178,6 +178,11 @@ copy_config_cmds = [
     "cp .{}/sai.profile",
 ]
 
+copy_config_cmds_no_qos = [
+    "cp .{}/port_config.ini",
+    "cp .{}/sai.profile",
+]
+
 broadcom_cmd_bcmcmd = [
     'bcmcmd{} -t5 version',
     'bcmcmd{} -t5 soc',
