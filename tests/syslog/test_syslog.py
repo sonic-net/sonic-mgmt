@@ -15,7 +15,7 @@ pytestmark = [
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
 
-# If any dummy IP type doesn't have a matching default route, skip test this time
+# If any dummy IP type doesn't have a matching default route, skip test for this parametrize
 def check_dummy_addr_and_default_route(dummy_ip_a, dummy_ip_b, has_v4_default_route, has_v6_default_route):
     skip_v4 = False
     skip_v6 = False
@@ -33,7 +33,6 @@ def check_dummy_addr_and_default_route(dummy_ip_a, dummy_ip_b, has_v4_default_ro
     if skip_v4 | skip_v6:
         proto = "IPv4" if skip_v4 else "IPv6"
         pytest.skip("DUT has no matching default route for dummy syslog ips: ({}, {}), has no {} default route".format(dummy_ip_a, dummy_ip_b, proto))
-
 
 # Check pcap file for the destination IPs
 def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
@@ -60,9 +59,11 @@ def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
         missed_ip.append(dummy_ip_a)
     if not is_ok_b:
         missed_ip.append(dummy_ip_b)
-    logger.info("Pcap file doesn't contain dummy syslog ips: ({})".format(", ".join(missed_ip)))
+    logger.error("Pcap file doesn't contain dummy syslog ips: ({})".format(", ".join(missed_ip)))
     return False
 
+# Before real test, check default route on DUT:
+#     If DUT has no IPv4 and IPv6 default route, skip syslog test. If DUT has at least one type default route, tell test_syslog function to do further check
 @pytest.fixture(scope="module")
 def check_default_route(rand_selected_dut):
     duthost = rand_selected_dut
