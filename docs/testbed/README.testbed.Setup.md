@@ -67,6 +67,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
+   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz). 
 
 2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry.
 
@@ -82,7 +83,7 @@ Managing the testbed and running tests requires various dependencies to be insta
     make target/docker-sonic-mgmt.gz
     ```
 
-    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
+    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master/docker-sonic-mgmt.gz&definitionId=194&artifactName=docker-sonic-mgmt&buildId=42201&target=target%2Fdocker-sonic-mgmt.gz).
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
@@ -231,3 +232,7 @@ Our fanout switches deploy using the Arista switch's eosadmin shell login. If yo
 - To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/.password```
 
 **NOTE:** The last step in `testbed-cli.sh` is trying to re-deploy the Vlan range in the root fanout switch to match the VLAN range specified in the topology. In other words, it's trying to change the "allowed" Vlan for the Arista switch ports. If you have a different type of switch, this may or may not work. Please review the steps and update accordingly if necessary. If you comment out the last step, you may manually swap Vlan ranges in the root fanout to make the testbed topology switch work.
+
+## Deploy Minigraph
+
+Please follow the "Device Minigraph Generation and Deployment" section of the [Device Minigraph Generation and Deployment](README.testbed.Minigraph.md) to finish minigrah deployment.
