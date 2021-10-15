@@ -271,7 +271,7 @@ def main():
         if 'hostname' in m_args:
             hostname = m_args['hostname']
         for asic_id in range(num_asic):
-            if asic_id is not None and asic_id < len(switchids) and switchids[asic_id]:
+            if switchids and asic_id is not None:
                 switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None
