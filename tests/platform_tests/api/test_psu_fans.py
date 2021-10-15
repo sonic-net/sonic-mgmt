@@ -75,6 +75,22 @@ class TestPsuFans(PlatformApiTestBase):
                           "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within psu {}".format(key, value, expected_value, fan_idx, psu_idx))
 
 
+    def get_fan_facts(self, duthost, psu_idx, fan_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            psus = duthost.facts.get("chassis").get("psus")
+            if psus:
+                fans = psus[psu_idx].get("fans")
+                if fans:
+                    value = fans[fan_idx]
+                    for key in keys:
+                        value = value.get(key)
+                        if value is None:
+                            return def_value
+
+                    return value
+
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -205,18 +221,38 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
+
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
-
                 speed_target_val = 25
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_fans_target_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                speed_minimum = self.get_fan_facts(duthost, j, i, 25, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
+                    speed_target_val = random.randint(speed_minimum, speed_maximum)
+
                 speed_set = psu_fan.set_speed(platform_api_conn, j, i, speed_target_val)
                 target_speed = psu_fan.get_target_speed(platform_api_conn, j, i)
                 if self.expect(target_speed is not None, "Unable to retrieve psu {} fan {} target speed".format(j, i)):
                     if self.expect(isinstance(target_speed, int), "psu {} fan {} target speed appears incorrect".format(j,i)):
                         self.expect(target_speed == speed_target_val, "psu {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}".format(
                             j, i, speed_target_val, target_speed))
+
+            if fans_skipped == num_fans:
+                psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' speed is not controllable")
 
         self.assert_expectations()
 
@@ -235,12 +271,26 @@ class TestPsuFans(PlatformApiTestBase):
 
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
-        for j in range(self.num_psus):
-            num_fans = psu.get_num_fans(platform_api_conn, j)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
 
+        for j in range(self.num_psus):
             target_speed = random.randint(1, 100)
+            num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_set_fans_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                speed_minimum = self.get_fan_facts(duthost, j, i, 1, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > target_speed or speed_maximum < target_speed:
+                    target_speed = random.randint(speed_minimum, speed_maximum)
+
                 speed = psu_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
 
@@ -251,6 +301,12 @@ class TestPsuFans(PlatformApiTestBase):
                 self.expect(abs(act_speed - target_speed) <= speed_tol,
                             "psu {} fan {} speed change from {} to {} is not within tolerance, actual speed {}".format(j, i, speed, target_speed, act_speed))
 
+            if fans_skipped == num_fans:
+                psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' speed is not controllable")
+
         self.assert_expectations()
 
     def test_set_fans_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
@@ -260,13 +316,21 @@ class TestPsuFans(PlatformApiTestBase):
             "amber",
             "green",
         ]
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
 
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
+                led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
+                if not led_controllable:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
 
+                LED_COLOR_LIST = self.get_fan_facts(duthost, j, i, LED_COLOR_LIST, "status_led", "colors")
                 for color in LED_COLOR_LIST:
 
                     result = psu_fan.set_status_led(platform_api_conn, j, i, color)
@@ -279,5 +343,11 @@ class TestPsuFans(PlatformApiTestBase):
                         if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
                             self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
                                 color, color_actual, i))
+
+            if fans_skipped == num_fans:
+                psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' LED is not controllable")
 
         self.assert_expectations()

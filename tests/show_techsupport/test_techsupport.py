@@ -357,7 +357,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg("  -n  {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds, num),
+        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
@@ -369,10 +369,22 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
                 "broadcom_cmd_misc": 
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
-                "copy_config_cmds": 
-                    add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds_no_qos, num),
+                }
+            )
+        else:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds, num),
+                }
+            )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
         if 'armhf-' in duthost.facts["platform"]:

@@ -146,7 +146,7 @@ class AnsibleLogAnalyzer:
               17516 /usr/sbin/rsyslogd -n
         '''
         pid = None
-        out = subprocess.check_output("systemctl status rsyslog", shell=True)
+        out = str(subprocess.check_output("systemctl status rsyslog", shell=True))
         for l in out.split('\n'):
             m = re.search(re_rsyslog_pid, l)
             if m:

@@ -79,7 +79,8 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
         for i in range(1, 65):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32":
+    elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32" \
+        or hwsku == "Arista-7050CX3-32S-C32":
         for i in range(1, 33):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
     elif hwsku == "Mellanox-SN2700-D40C8S8":
@@ -163,14 +164,23 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "Seastone-DX010":
         for i in range(1, 33):
             port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-E1031-T48S4":
+    elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215"]:
         for i in range(1, 53):
             port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
-    elif hwsku == "et6448m" or hwsku == "Nokia-7215":
+    elif hwsku == "et6448m":
         for i in range(0, 52):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "newport":
         for i in range(0, 256, 8):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "32x100Gb":
+        for i in range(0, 32):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "36x100Gb":
+        for i in range(0, 36):
+            port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "64x100Gb":
+        for i in range(0, 64):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "msft_multi_asic_vs":
         if asic_id is not None and asic_id in namespace_list['front_ns']:

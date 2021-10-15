@@ -46,7 +46,6 @@ cache = FactsCache()
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
@@ -58,7 +57,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
-                  'tests.common.plugins.allure_server')
+                  'tests.common.plugins.allure_server',
+                  'tests.common.plugins.conditional_mark')
 
 
 def pytest_addoption(parser):

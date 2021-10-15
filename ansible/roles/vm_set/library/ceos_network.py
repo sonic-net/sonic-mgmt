@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import datetime
 import json
 import logging
 import subprocess
@@ -9,6 +8,7 @@ import traceback
 
 import docker
 
+from ansible.module_utils.debug_utils import config_module_logging
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
@@ -52,13 +52,7 @@ BP_TAP_TEMPLATE = '%s-back'
 MGMT_TAP_TEMPLATE = '%s-m'
 INT_TAP_TEMPLATE = 'eth%d'
 
-
-def config_logging():
-    curtime = datetime.datetime.now().isoformat()
-    logging.basicConfig(
-        filename=CMD_DEBUG_FNAME % curtime,
-        format='%(asctime)s %(levelname)s #%(lineno)d: %(message)s',
-        level=logging.DEBUG)
+config_module_logging('ceos_network')
 
 
 class CeosNetwork(object):
@@ -363,8 +357,6 @@ def main():
     mgmt_bridge = module.params['mgmt_bridge']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
-
-    config_logging()
 
     try:
         cnet = CeosNetwork(name, vm_name, mgmt_bridge, fp_mtu, max_fp_num)
