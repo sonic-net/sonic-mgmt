@@ -22,55 +22,55 @@ from tests.common.utilities import wait
 logger = logging.getLogger(__name__)
 
 PTFRUNNER_QLEN = 1000
-FIB_INFO_DEST = "/root/fib_info.txt"
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def ttl_dscp_params(duthost, supported_ttl_dscp_params):
     if "uniform" in supported_ttl_dscp_params.values() and ("201811" in duthost.os_version or "201911" in duthost.os_version):
         pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
-    
+
     return supported_ttl_dscp_params
 
 
-@pytest.fixture(scope="module")
-def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts, ttl_dscp_params):
+def remove_default_decap_cfg(duthosts):
+    for duthost in duthosts:
+        logger.info('Remove default decap cfg on {}'.format(duthost.hostname))
+        for asic_id in duthost.get_frontend_asic_ids():
+            swss = 'swss{}'.format(asic_id if asic_id is not None else '')
+            cmds = [
+                'docker exec {} cp /etc/swss/config.d/ipinip.json /default_ipinip.json'.format(swss),
+                'docker exec {} sed -i -e \'s/"OP": *"SET"/"OP": "DEL"/g\' /default_ipinip.json'.format(swss),
+                'docker exec {} swssconfig /default_ipinip.json'.format(swss),
+                'docker exec {} rm /default_ipinip.json'.format(swss)
+            ]
+            duthost.shell_cmds(cmds=cmds)
 
-    is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
-    ecn_mode = "copy_from_outer"
-    dscp_mode = ttl_dscp_params['dscp']
-    ttl_mode = ttl_dscp_params['ttl']
+def restore_default_decap_cfg(duthosts):
+    for duthost in duthosts:
+        logger.info('Restore default decap cfg on {}'.format(duthost.hostname))
+        for asic_id in duthost.get_frontend_asic_ids():
+            swss = 'swss{}'.format(asic_id if asic_id is not None else '')
+            cmd = 'docker exec {} swssconfig /etc/swss/config.d/ipinip.json'.format(swss)
+            duthost.shell(cmd)
 
-    # The hostvars dict has definitions defined in ansible/group_vars/sonic/variables
-    hostvars = duthosts[0].host.options["variable_manager"]._hostvars[duthosts[0].hostname]
-    sonic_hwsku = duthosts[0].sonichost.facts["hwsku"]
-    mellanox_hwskus = hostvars.get("mellanox_hwskus", [])
 
-    if sonic_hwsku in mellanox_hwskus:
-        dscp_mode = "uniform"
-        ecn_mode = "standard"
-
-    setup_info = {
+@pytest.fixture(scope='module')
+def ip_ver(request):
+    return {
         "outer_ipv4": to_bool(request.config.getoption("outer_ipv4")),
         "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
         "inner_ipv4": to_bool(request.config.getoption("inner_ipv4")),
         "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
-        "dscp_mode": dscp_mode,
-        "ecn_mode": ecn_mode,
-        "ttl_mode": ttl_mode,
-        "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
-        "ignore_ttl": True if is_multi_asic else False,
-        "max_internal_hops": 3 if is_multi_asic else 0,
     }
 
-    # config decap
-    decap_conf_template = Template(open("../ansible/roles/test/templates/decap_conf.j2").read())
 
+@pytest.fixture(scope='module')
+def loopback_ips(duthosts, duts_running_config_facts):
     lo_ips = []
     lo_ipv6s = []
     for duthost in duthosts:
@@ -86,42 +86,79 @@ def setup_teardown(request, duthosts, fib_info_files, duts_running_config_facts,
                 lo_ipv6 = str(ip)
         lo_ips.append(lo_ip)
         lo_ipv6s.append(lo_ipv6)
+    return {'lo_ips': lo_ips, 'lo_ipv6s': lo_ipv6s}
 
-        decap_conf_vars = {
-            "lo_ip": lo_ip,
-            "lo_ipv6": lo_ipv6,
-            "op": "SET"
-        }
-        decap_conf_vars.update(setup_info)
 
-        duthost.copy(content=decap_conf_template.render(
-            **decap_conf_vars), dest="/tmp/decap_conf.json")
+@pytest.fixture(scope='module')
+def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files):
 
-        decap_conf_vars["op"] = "DEL"
-        duthost.copy(content=decap_conf_template.render(
-            **decap_conf_vars), dest="/tmp/decap_conf_del.json")
+    is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
-        for asic_id in duthost.get_frontend_asic_ids():
-            duthost.shell("docker cp /tmp/decap_conf.json swss{}:/decap_conf.json"
-                        .format(asic_id if asic_id is not None else ""))
-            duthost.shell('docker exec swss{} sh -c "swssconfig /decap_conf.json"'
-                        .format(asic_id if asic_id is not None else ""))
+    setup_info = {
+        "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
+        "ignore_ttl": True if is_multi_asic else False,
+        "max_internal_hops": 3 if is_multi_asic else 0,
+        'router_macs': [duthost.facts['router_mac'] for duthost in duthosts]
+    }
 
-    setup_info['lo_ips'] = lo_ips
-    setup_info['lo_ipv6s'] = lo_ipv6s
-    setup_info['router_macs'] = [duthost.facts['router_mac'] for duthost in duthosts]
-
+    setup_info.update(ip_ver)
+    setup_info.update(loopback_ips)
     logger.info(json.dumps(setup_info, indent=2))
+
+    # Remove default tunnel
+    remove_default_decap_cfg(duthosts)
 
     yield setup_info
 
-    # Remove decap configuration
-    for duthost in duthosts:
+    # Restore default tunnel
+    restore_default_decap_cfg(duthosts)
+
+
+def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, op):
+
+    decap_conf_template = Template(open("../ansible/roles/test/templates/decap_conf.j2").read())
+
+    # apply test decap configuration (SET or DEL)
+    for idx, duthost in enumerate(duthosts):
+        decap_conf_vars = {
+            'lo_ip': loopback_ips['lo_ips'][idx],
+            'lo_ipv6': loopback_ips['lo_ipv6s'][idx],
+            'ttl_mode': ttl_mode,
+            'dscp_mode': dscp_mode,
+            'ecn_mode': ecn_mode,
+            'op': op,
+        }
+        decap_conf_vars.update(ip_ver)
+        duthost.copy(
+            content=decap_conf_template.render(**decap_conf_vars),
+            dest='/tmp/decap_conf_{}.json'.format(op))
+
         for asic_id in duthost.get_frontend_asic_ids():
-            duthost.shell("docker cp /tmp/decap_conf_del.json swss{}:/decap_conf_del.json"
-                        .format(asic_id if asic_id is not None else ""))
-            duthost.shell('docker exec swss{} sh -c "swssconfig /decap_conf_del.json"'
-                        .format(asic_id if asic_id is not None else ""))
+            swss = 'swss{}'.format(asic_id if asic_id is not None else '')
+            cmds = [
+                'docker cp /tmp/decap_conf_{}.json {}:/decap_conf_{}.json'.format(op, swss, op),
+                'docker exec {} swssconfig /decap_conf_{}.json'.format(swss, op),
+                'docker exec {} rm /decap_conf_{}.json'.format(swss, op)
+            ]
+            duthost.shell_cmds(cmds=cmds)
+        duthost.shell('rm /tmp/decap_conf_{}.json'.format(op))
+
+
+@pytest.fixture
+def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
+    ecn_mode = "copy_from_outer"
+    ttl_mode = ttl_dscp_params['ttl']
+    dscp_mode = ttl_dscp_params['dscp']
+    if duthosts[0].facts['asic_type'] in ['mellanox']:
+        ecn_mode = 'standard'
+
+    # Add test decap configuration
+    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+
+    yield ttl_mode, dscp_mode
+
+    # Remove test decap configuration
+    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
 
 
 def set_mux_side(tbinfo, mux_server_url, side):
@@ -137,9 +174,11 @@ def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
 
 
-def test_decap(tbinfo, duthosts, mux_server_url, setup_teardown, ptfhost, set_mux_random, ttl_dscp_params):
+def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_server_url, set_mux_random):
 
     setup_info = setup_teardown
+
+    ttl_mode, dscp_mode = decap_config
 
     if 'dualtor' in tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -156,8 +195,8 @@ def test_decap(tbinfo, duthosts, mux_server_url, setup_teardown, ptfhost, set_mu
                         "lo_ips": setup_info["lo_ips"],
                         "lo_ipv6s": setup_info["lo_ipv6s"],
                         "router_macs": setup_info["router_macs"],
-                        "dscp_mode": setup_info["dscp_mode"],
-                        "ttl_mode": setup_info["ttl_mode"],
+                        "ttl_mode": ttl_mode,
+                        "dscp_mode": dscp_mode,
                         "ignore_ttl": setup_info["ignore_ttl"],
                         "max_internal_hops": setup_info["max_internal_hops"],
                         "fib_info_files": setup_info["fib_info_files"],
