@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0-5"
+  - cron: "0 4 2-30/2 * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,37 +18,37 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms17-dual-t0-7050-1
+    default: vms24-t0-3800-azd
     displayName: "Testbed Name"
 
-  # Upgrade parameters
+    # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: " "
     displayName: "Image URL"
-
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: " "
     displayName: "py_saithrift URL"
+
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests"'
+    displayName: Testbed specific
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "arp/test_wr_arp.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py"
-    displayName: "Skip Scripts"
+    default: "platform_tests/test_reboot.py::test_fast_reboot, \
+              platform_tests/test_advanced_reboot.py::test_fast_reboot, \
+              platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"
 
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "span sub_port_interfaces"'
-    displayName: Testbed specific
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1380    # minutes, totally 23 hours
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -56,6 +56,6 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}

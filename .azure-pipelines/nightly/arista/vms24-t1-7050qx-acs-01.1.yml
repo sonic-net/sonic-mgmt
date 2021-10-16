@@ -1,10 +1,15 @@
-# Manually triggered pipeline used by Kavin Kamaraj
 name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
 
-# No scheduler configured. This pipeline can only be manually triggered.
+schedules:
+  - cron: "0 1 * * 0-5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
@@ -13,25 +18,26 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms17-t0-3800-azd
+    default: vms24-t1-7050qx-acs-01
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: " "
+    default: $(IMAGE_BRCM_ABOOT_201911)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: " "
+    default: $(SAITHRIFT_BRCM_201911)
     displayName: "py_saithrift URL"
 
-  - name: SKIP_SCRIPTS
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
     type: string
-    default: "mvrf/test_mgmtvrf.py vrf/test_vrf.py vrf/test_vrf_attr.py system_health/test_system_health.py platform_tests/link_flap/test_cont_link_flap.py platform_tests/test_advanced_reboot.py"
-    displayName: "Skip Scripts"
+    default: '-S "sub_port_interfaces"'
+    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -39,4 +45,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

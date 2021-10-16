@@ -127,7 +127,7 @@
   ptf: vms2-6
   ptf_ip: 10.64.246.79/23
   ptf_ipv6:
-  server: server_2      
+  server: server_2
   vm_base: VM0244
   dut:
     - str-7260cx3-acs-7
@@ -675,128 +675,6 @@
   auto_recover: 'True'
   comment: Jenkins
 
-- conf-name: vms17-t1-n3164-3
-  group-name: vms17-2
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms17-2
-  ptf_ip: 10.64.246.106/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1704
-  dut:
-    - str2-n3164-acs-3
-  inv_name: str2
-  auto_recover: 'True'
-  comment: abdosi
-
-- conf-name: vms17-t0-3800-azd
-  group-name: vms17-3
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms17-3
-  ptf_ip: 10.64.246.107/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1728
-  dut:
-    - str2-sn3800-azd
-  inv_name: str2
-  auto_recover: 'True'
-  comment: annarsia
-
-- conf-name: vms17-t0-3800-azd-2
-  group-name: v17-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: v17-4
-  ptf_ip: 10.64.246.110/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1732
-  dut:
-    - str2-sn3800-azd-2
-  inv_name: str2
-  auto_recover: 'True'
-  comment: annarsia
-
-- conf-name: vms17-t1-7050qx-acs-01
-  group-name: vms17-5
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: vms17-5
-  ptf_ip: 10.64.246.137/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1736
-  dut:
-    - str2-7050qx-32s-acs-01
-  inv_name: str2
-  auto_recover: 'True'
-  comment: gechiang
-
-- conf-name: vms17-t1-n3164-acs-1
-  group-name: vms17-6
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms17-6
-  ptf_ip: 10.64.246.138/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1760
-  dut:
-    - str2-n3164-acs-1
-  inv_name: str2
-  auto_recover: 'True'
-  comment: Judy
-
-- conf-name: vms17-dual-t0-7050-1
-  group-name: vms17-7
-  topo: dualtor
-  ptf_image_name: docker-ptf
-  ptf: vms17-7
-  ptf_ip: 10.64.246.139/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1784
-  dut:
-    - str2-7050cx3-acs-06
-    - str2-7050cx3-acs-07
-  inv_name: str2
-  auto_recover: 'True'
-  comment: hellogemini
-
-- conf-name: vms17-dual-t0-7050-2
-  group-name: vms17-8
-  topo: dualtor-56
-  ptf_image_name: docker-ptf
-  ptf: vms17-8
-  ptf_ip: 10.64.246.140/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1788
-  dut:
-    - str2-7050cx3-acs-08
-    - str2-7050cx3-acs-09
-  inv_name: str2
-  auto_recover: 'True'
-  comment: hellogemini
-
-- conf-name: vms17-t0-7260-2
-  group-name: vms17-9
-  topo: t0-116
-  ptf_image_name: docker-ptf
-  ptf: vms17-9
-  ptf_ip: 10.64.246.142/23
-  ptf_ipv6:
-  server: server_17
-  vm_base: VM1792
-  dut:
-    - str2-7260cx3-acs-9
-  inv_name: str2
-  auto_recover: 'True'
-  comment: yingxie
-
 - conf-name: vms18-t1-msn4600c-acs-1
   group-name: vms18-1
   topo: t1-64-lag
@@ -1264,6 +1142,128 @@
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
+
+- conf-name: vms24-t1-n3164-3
+  group-name: vms24-2
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms24-2
+  ptf_ip: 10.64.246.106/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2404
+  dut:
+    - str2-n3164-acs-3
+  inv_name: str2
+  auto_recover: 'True'
+  comment: abdosi
+
+- conf-name: vms24-t0-3800-azd
+  group-name: vms24-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms24-3
+  ptf_ip: 10.64.246.107/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2428
+  dut:
+    - str2-sn3800-azd
+  inv_name: str2
+  auto_recover: 'True'
+  comment: annarsia
+
+- conf-name: vms24-t0-3800-azd-2
+  group-name: vms24-4
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms24-4
+  ptf_ip: 10.64.246.110/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2432
+  dut:
+    - str2-sn3800-azd-2
+  inv_name: str2
+  auto_recover: 'True'
+  comment: annarsia
+
+- conf-name: vms24-t1-7050qx-acs-01
+  group-name: vms24-5
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: vms24-5
+  ptf_ip: 10.64.246.137/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2436
+  dut:
+    - str2-7050qx-32s-acs-01
+  inv_name: str2
+  auto_recover: 'True'
+  comment: gechiang
+
+- conf-name: vms24-t1-n3164-acs-1
+  group-name: vms24-6
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms24-6
+  ptf_ip: 10.64.246.138/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2460
+  dut:
+    - str2-n3164-acs-1
+  inv_name: str2
+  auto_recover: 'True'
+  comment: Judy
+
+- conf-name: vms24-dual-t0-7050-1
+  group-name: vms24-7
+  topo: dualtor
+  ptf_image_name: docker-ptf
+  ptf: vms24-7
+  ptf_ip: 10.64.246.139/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2484
+  dut:
+    - str2-7050cx3-acs-06
+    - str2-7050cx3-acs-07
+  inv_name: str2
+  auto_recover: 'True'
+  comment: hellogemini
+
+- conf-name: vms24-dual-t0-7050-2
+  group-name: vms24-8
+  topo: dualtor-56
+  ptf_image_name: docker-ptf
+  ptf: vms24-8
+  ptf_ip: 10.64.246.140/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2488
+  dut:
+    - str2-7050cx3-acs-08
+    - str2-7050cx3-acs-09
+  inv_name: str2
+  auto_recover: 'True'
+  comment: hellogemini
+
+- conf-name: vms24-t0-7260-2
+  group-name: vms24-9
+  topo: t0-116
+  ptf_image_name: docker-ptf
+  ptf: vms24-9
+  ptf_ip: 10.64.246.142/23
+  ptf_ipv6:
+  server: server_24
+  vm_base: VM2492
+  dut:
+    - str2-7260cx3-acs-9
+  inv_name: str2
+  auto_recover: 'True'
+  comment: yingxie
 
 - conf-name: vms26-t2-7800-1
   group-name: vms26-1
