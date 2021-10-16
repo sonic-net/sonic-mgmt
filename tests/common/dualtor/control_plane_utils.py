@@ -63,7 +63,9 @@ class DBChecker:
         command = "redis-dump -d {db} -k \"{key_pattern}\"".format(
             db=db, key_pattern=key_pattern)
         lines = self.duthost.shell(command)["stdout_lines"]
-        return json.loads(lines[0])
+        db_dump = json.loads(lines[0])
+        logger.debug(json.dumps(db_dump, indent=4))
+        return db_dump
 
     def verify_db(self, db):
         pytest_assert(
