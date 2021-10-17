@@ -6,12 +6,6 @@ cacl/test_cacl_application.py::test_cacl_application:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
-decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
-  xfail:
-    reason: "Image issue on Broadcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-
 dhcp_relay/test_dhcpv6_relay.py:
   xfail:
     reason: "Generic internal image feature missing"
