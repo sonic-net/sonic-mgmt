@@ -8,22 +8,7 @@ pr: none
 parameters:
   - name: SERVER
     type: string
-    values:
-      - server_1
-      - server_2
-      - server_3
-      - server_6
-      - server_7
-      - server_11
-      - server_12
-      - server_13
-      - server_16
-      - server_17
-      - server_18
-      - server_19
-      - server_20
-      - server_21
-    displayName: "Server name"
+    displayName: "Server name, defined in VM_FILE, eg: server_1"
 
   - name: VM_FILE
     type: string
@@ -83,7 +68,7 @@ stages:
                 cd ansible
 
                 rm -fr /tmp/recover_server*  # Cleanup old logs
-                python recover_server.py --testbed-servers ${{ parameters.SERVER }}  --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
+                python recover_server.py --testbed-servers ${{ parameters.SERVER }} --vm-file ${{ parameters.VM_FILE }} --vm-type ${{ parameters.VM_TYPE }} ${arg_dry_run} ${arg_skip_cleanup}
 
           - task: CopyFiles@2
             displayName: Collect log files
