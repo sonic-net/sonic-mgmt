@@ -312,8 +312,9 @@ def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
     for vrf, ns in vlan_peer_vrf2ns_map.iteritems():
         ptfhost.shell("ip netns del {}".format(ns))
 
-def gen_vrf_fib_file(vrf, tbinfo, ptfhost, dst_intfs, \
-                     render_file, limited_podset_number=10, limited_tor_number=10):
+def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None, \
+                     limited_podset_number=10, limited_tor_number=10):
+    dst_intfs = dst_intfs if dst_intfs else get_default_vrf_fib_dst_intfs(vrf, tbinfo)
     extra_vars = {
         'testbed_type': tbinfo['topo']['name'],
         'props': g_vars['props'],
@@ -326,6 +327,23 @@ def gen_vrf_fib_file(vrf, tbinfo, ptfhost, dst_intfs, \
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     ptfhost.template(src="vrf/vrf_fib.j2", dest=render_file)
+
+def get_default_vrf_fib_dst_intfs(vrf, tbinfo):
+    '''
+    Get default vrf fib destination interfaces(PortChannels) according to the given vrf.
+    The test configuration is dynamic and can work with 4 and 8 PCs as the number of VMs.
+    The first half of PCs are related to Vrf1 and the second to Vrf2.
+    '''
+    dst_intfs = []
+    vms_num = len(tbinfo['topo']['properties']['topology']['VMs'])
+    if vrf == 'Vrf1':
+        dst_intfs_range = list(range(1, int(vms_num / 2) + 1))
+    else:
+        dst_intfs_range = list(range(int(vms_num / 2) + 1, vms_num + 1))
+    for intfs_num in dst_intfs_range:
+        dst_intfs.append('PortChannel000{}'.format(intfs_num))
+
+    return dst_intfs
 
 def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     extra_vars = {
@@ -584,11 +602,9 @@ class TestVrfFib():
     @pytest.fixture(scope="class", autouse=True)
     def setup_fib_test(self, ptfhost, tbinfo):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
     def test_show_bgp_summary(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -630,11 +646,9 @@ class TestVrfIsolation():
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_isolation(self, ptfhost, tbinfo):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
         gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
@@ -693,7 +707,7 @@ class TestVrfAclRedirect():
             pytest.skip("Switch does not support ACL REDIRECT_ACTION")
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts):
+    def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
 
@@ -715,16 +729,16 @@ class TestVrfAclRedirect():
         pc2_v4_neigh_ips = [ (pc2_if_name, str(ip.ip+1)) for ip in pc2_if_ips['ipv4'] ]
         pc2_v6_neigh_ips = [ (pc2_if_name, str(ip.ip+1)) for ip in pc2_if_ips['ipv6'] ]
 
-        pc4_if_name = 'PortChannel0004'
-        pc4_if_ips = get_intf_ips(pc4_if_name, cfg_facts)
-        pc4_v4_neigh_ips = [ (pc4_if_name, str(ip.ip+1)) for ip in pc4_if_ips['ipv4'] ]
-        pc4_v6_neigh_ips = [ (pc4_if_name, str(ip.ip+1)) for ip in pc4_if_ips['ipv6'] ]
+        pc_vrf2_if_name = 'PortChannel000{}'.format(len(tbinfo['topo']['properties']['topology']['VMs']))
+        pc_vrf2_if_ips = get_intf_ips(pc_vrf2_if_name, cfg_facts)
+        pc_vrf2_v4_neigh_ips = [ (pc_vrf2_if_name, str(ip.ip+1)) for ip in pc_vrf2_if_ips['ipv4'] ]
+        pc_vrf2_v6_neigh_ips = [ (pc_vrf2_if_name, str(ip.ip+1)) for ip in pc_vrf2_if_ips['ipv6'] ]
 
-        redirect_dst_ips = pc2_v4_neigh_ips + pc4_v4_neigh_ips
-        redirect_dst_ipv6s = pc2_v6_neigh_ips + pc4_v6_neigh_ips
+        redirect_dst_ips = pc2_v4_neigh_ips + pc_vrf2_v4_neigh_ips
+        redirect_dst_ipv6s = pc2_v6_neigh_ips + pc_vrf2_v6_neigh_ips
         redirect_dst_ports = []
         redirect_dst_ports.append(vrf_intf_ports['Vrf1'][pc2_if_name])
-        redirect_dst_ports.append(vrf_intf_ports['Vrf2'][pc4_if_name])
+        redirect_dst_ports.append(vrf_intf_ports['Vrf2'][pc_vrf2_if_name])
 
         self.c_vars['src_ports'] = src_ports
         self.c_vars['dst_ports'] = dst_ports
@@ -982,7 +996,6 @@ class TestVrfWarmReboot():
     def setup_vrf_warm_reboot(self, ptfhost, tbinfo):
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/vrf1_fib.txt',
                          limited_podset_number=50,
                          limited_tor_number=16)
@@ -1428,7 +1441,6 @@ class TestVrfUnbindIntf():
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
     def test_vrf1_fib_after_rebind(self, ptfhost, tbinfo, partial_ptf_runner):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/rebindvrf_vrf1_fib.txt')
 
         partial_ptf_runner(
@@ -1455,11 +1467,9 @@ class TestVrfDeletion():
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file="/tmp/vrf1_fib.txt")
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file="/tmp/vrf2_fib.txt")
 
         gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
