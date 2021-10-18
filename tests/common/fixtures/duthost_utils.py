@@ -138,7 +138,25 @@ def disable_fdb_aging(duthost):
 
 
 @pytest.fixture(scope="module")
-def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
+def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
+    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
+    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
+    ports = [port for port in config_ports
+        if config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports]
+    return ports
+
+
+@pytest.fixture(scope="module")
+def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
     Get configured VLAN ports
     """
@@ -149,9 +167,6 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
-    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
-    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     config_ports_vlan = defaultdict(list)
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     # key is dev name, value is list for configured VLAN member.
@@ -189,12 +204,7 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
             if 'pvid' in vlan_port:
                 vlan_ports_list.append(vlan_port)
 
-    ports = [port for port in config_ports
-        if config_port_indices[port] in ptf_ports_available_in_topo
-        and config_ports[port].get('admin_status', 'down') == 'up'
-        and port not in config_port_channel_member_ports]
-
-    for i, port in enumerate(ports):
+    for i, port in enumerate(ports_list):
         vlan_port = {
             'dev' : port,
             'port_index' : [config_port_indices[port]],

@@ -12,7 +12,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import vlan_ports_list
+from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def vlan_intfs_dict(cfg_facts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, vlan_ports_list, vlan_intfs_dict):
+def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_ports_list, vlan_intfs_dict):
     if tbinfo['topo']['name'] == 't0-56-po2vlan':
         return vlan_ports_list
 
@@ -85,9 +85,6 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, vlan_ports_list, 
     config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
-    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
-    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
 
     # For t0 topo, will add port to new VLAN, use 'orig' field to identify new VLAN.
     vlan_id_list = [k for k, v in vlan_intfs_dict.items() if v['orig'] == False]
@@ -109,12 +106,7 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, vlan_ports_list, 
             if 'pvid' in vlan_port:
                 work_vlan_ports_list.append(vlan_port)
 
-    ports = [port for port in config_ports
-        if config_port_indices[port] in ptf_ports_available_in_topo
-        and config_ports[port].get('admin_status', 'down') == 'up'
-        and port not in config_port_channel_member_ports]
-
-    for i, port in enumerate(ports):
+    for i, port in enumerate(ports_list):
         vlan_port = {
             'dev' : port,
             'port_index' : [config_port_indices[port]],

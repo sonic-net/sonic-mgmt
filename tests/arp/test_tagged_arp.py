@@ -11,7 +11,7 @@ import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import vlan_ports_list
+from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
