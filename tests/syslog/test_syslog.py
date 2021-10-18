@@ -133,4 +133,3 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
         logger.debug("DUT's syslog server IPs:\n%s" % syslog_config)
 
         pytest.fail("Dummy syslog server IP not seen in the pcap file")
-        
