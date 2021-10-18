@@ -39,6 +39,11 @@ parameters:
     type: string
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
+  
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--skip-absent-sfp=True"
+    displayName: "Extra pytest params"
 
   - name: SKIP_SCRIPTS
     type: string
