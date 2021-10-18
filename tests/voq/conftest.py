@@ -67,7 +67,8 @@ def nbr_macs(nbrhosts):
     logger.debug("Get MACS for all neighbor hosts.")
     results = parallel_run(_get_nbr_macs, [nbrhosts], {}, nbrhosts.keys(), timeout=120)
 
-    for res in results:
+    # result is DictProxy. Iterate it by using keys().
+    for res in results.keys():
         logger.info("parallel_results %s = %s", res, results[res])
 
     return results

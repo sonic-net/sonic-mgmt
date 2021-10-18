@@ -549,6 +549,12 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " switch_type not found")
 
+                        try: #get slot_num                                                                                                                                                                                           slot_num = dev.get("slot_num")                                           
+                            if slot_num is not None:                                                 
+                               entry += "\tslot_num=" + str( slot_num )                              
+                        except AttributeError:
+                            print("\t\t" + host + " slot_num not found")
+
                         try: #get os
                             os = dev.get("os")
                             if os is not None:
