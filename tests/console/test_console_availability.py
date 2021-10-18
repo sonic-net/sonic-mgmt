@@ -5,7 +5,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology("any"),
+    pytest.mark.device_type("vs")
 ]
 
 @pytest.mark.parametrize("target_line", ["1", "2", "3", "4"])
