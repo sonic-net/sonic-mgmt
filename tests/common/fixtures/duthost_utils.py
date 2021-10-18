@@ -97,6 +97,7 @@ def disable_route_checker_module(duthosts, rand_one_dut_hostname):
     for func in _disable_route_checker(duthost):
         yield func
 
+
 @pytest.fixture(scope='module')
 def disable_fdb_aging(duthost):
     """
@@ -134,3 +135,90 @@ def disable_fdb_aging(duthost):
     ]
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
+
+
+@pytest.fixture(scope="module")
+def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
+    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
+    config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
+    ports = [port for port in config_ports
+        if config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports]
+    return ports
+
+
+@pytest.fixture(scope="module")
+def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
+    """
+    Get configured VLAN ports
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    vlan_ports_list = []
+    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    config_ports_vlan = defaultdict(list)
+    vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+    # key is dev name, value is list for configured VLAN member.
+    for k, v in cfg_facts['VLAN'].items():
+        vlanid = v['vlanid']
+        for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
+            # address could be IPV6 and IPV4, only need IPV4 here
+            if addr.find(':') == -1:
+                ip = addr
+                break
+        else:
+            continue
+        for port in v['members']:
+            if k in vlan_members and port in vlan_members[k]:
+                if 'tagging_mode' not in vlan_members[k][port]:
+                    continue
+                mode = vlan_members[k][port]['tagging_mode']
+                config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
+
+    if config_portchannels:
+        for po in config_portchannels:
+            vlan_port = {
+                'dev' : po,
+                'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
+                'permit_vlanid' : []
+            }
+            if po in config_ports_vlan:
+                vlan_port['pvid'] = 0
+                for vlan in config_ports_vlan[po]:
+                    if 'vlanid' not in vlan or 'ip' not in vlan or 'tagging_mode' not in vlan:
+                        continue
+                    if vlan['tagging_mode'] == 'untagged':
+                        vlan_port['pvid'] = vlan['vlanid']
+                    vlan_port['permit_vlanid'].append(vlan['vlanid'])
+            if 'pvid' in vlan_port:
+                vlan_ports_list.append(vlan_port)
+
+    for i, port in enumerate(ports_list):
+        vlan_port = {
+            'dev' : port,
+            'port_index' : [config_port_indices[port]],
+            'permit_vlanid' : []
+        }
+        if port in config_ports_vlan:
+            vlan_port['pvid'] = 0
+            for vlan in config_ports_vlan[port]:
+                if 'vlanid' not in vlan or 'ip' not in vlan or 'tagging_mode' not in vlan:
+                    continue
+                if vlan['tagging_mode'] == 'untagged':
+                    vlan_port['pvid'] = vlan['vlanid']
+                vlan_port['permit_vlanid'].append(vlan['vlanid'])
+        if 'pvid' in vlan_port:
+            vlan_ports_list.append(vlan_port)
+
+    return vlan_ports_list
