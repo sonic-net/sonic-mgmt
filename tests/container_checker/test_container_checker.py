@@ -222,7 +222,9 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
 
     skip_containers = disabled_containers[:]
     skip_containers.append("gbsyncd")
-    skip_containers.append("database")
+    skip_containers.append("database")  
+    skip_containers.append("database-chassis")
+
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
