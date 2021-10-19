@@ -50,7 +50,7 @@ class SonicProcess(Process):
         return self._exception
 
 
-def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=5):
+def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20):
     """Run target function on nodes in parallel
 
     Args:
