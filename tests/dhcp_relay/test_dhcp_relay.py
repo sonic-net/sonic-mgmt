@@ -11,6 +11,8 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import config_reload
+from tests.common.platform.processes_utils import wait_critical_processes
 
 
 pytestmark = [
@@ -24,6 +26,37 @@ SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(autouse=True, scope="module")
+def debug_dhcp_relay_issue_clean_start(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    logger.info("=== DEBUG: reload config on {}".format(duthost.hostname))
+    config_reload(duthost)
+    wait_critical_processes(duthost)
+    yield
+
+def log_debug_information(duthost, phase):
+    info = duthost.shell("show ip bgp summary")["stdout"].encode("utf-8")
+    logger.info("=== bgp summary {}: {}".format(phase, info))
+    info = duthost.shell("docker ps")["stdout"].encode("utf-8")
+    logger.info("=== docker info {}: {}".format(phase, info))
+    info = duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"].encode("utf-8")
+    logger.info("=== copp config {}: {}".format(phase, info))
+    info = duthost.shell("show interface counter")["stdout"].encode("utf-8")
+    logger.info("=== intf counters {}: {}".format(phase, info))
+    info = duthost.shell("docker stats --no-stream --no-trunc")["stdout"].encode("utf-8")
+    logger.info("=== docker stats {}: {}".format(phase, info))
+    info = duthost.shell("docker top dhcp_relay -ef")["stdout"].encode("utf-8")
+    logger.info("=== docker stats {}: {}".format(phase, info))
+
+@pytest.fixture(autouse=True, scope="function")
+def debug_dhcp_relay_issue(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    log_debug_information(duthost, "before-test")
+    yield
+    log_debug_information(duthost, "after-test-1")
+    time.sleep(30)
+    log_debug_information(duthost, "after-test-2")
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
