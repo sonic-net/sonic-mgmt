@@ -2,7 +2,6 @@ import pytest
 import crypt
 import json
 import logging
-import time
 from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
@@ -11,6 +10,7 @@ from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
@@ -93,16 +93,6 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
         
         assert ret, "Failed to ssh as rw user"
-
-        # Force a log rotate to get logs so far recorded.
-        # The read-only state and follow up reboot could wipe off current logs
-        #
-        logging.info("test_ro_disk: Flushing & log rotating to save logs so far")
-        duthost.shell("logger -p local0.notice 'test_ro_disk: Initiating log rotate'")
-        duthost.shell("pkill -HUP rsyslogd")    # To flush logs from daemon to file
-        time.sleep(30)                          # Give a pause before rotate
-        duthost.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
-        time.sleep(30)                          # Pause before making disk RO
 
         # Set disk in RO state
         simulate_ro(duthost)

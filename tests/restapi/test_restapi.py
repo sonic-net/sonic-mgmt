@@ -66,6 +66,8 @@ def test_data_path(construct_url, vlan_members):
     pytest_assert(r.json() == json.loads(expected))
     logger.info("VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2 has been successfully created")
 
+    if len(vlan_members) < 1:
+        pytest.skip("No VLAN interface available")
     vlan_intf = vlan_members[0]
     logger.info("VLAN Interface: "+vlan_intf)
 
