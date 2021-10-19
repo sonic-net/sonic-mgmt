@@ -12,6 +12,8 @@ all:
             sonic_a7260:
             sonic_multi_asic:
             sonic_multi_asic_2:
+            sonic_msft_sup:
+            sonic_msft_lc_100G:
         fanout:
           hosts:
             str-7260-10:
@@ -148,3 +150,39 @@ sonic_multi_asic_2:
     vlab-08:
       ansible_host: 10.250.0.112
       ansible_hostv6: fec0::ffff:afa:c
+
+sonic_msft_sup:
+  vars:
+    HwSku:  msft-RP-O
+    slot_num: slot0
+    card_type: supervisor
+  hosts:
+    lab-msft-sup-1:
+      ansible_host: 2.2.2.2
+      hwsku: msft-RP-O
+      num_asics: 2
+
+sonic_msft_lc_100G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    lab-msft-lc0-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      ansible_host: 2.2.2.3
+    lab-msft-lc1-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
+      ansible_host: 2.2.2.4
+    lab-msft-lc2-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot3
+      loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 2.2.2.5

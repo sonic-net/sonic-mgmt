@@ -78,20 +78,22 @@ class SonicPortAliasMap():
                     return value
         return None
 
-    def get_portconfig_path(self, asic_id=None):
+    def get_portconfig_path(self, slotid=None, asic_id=None):
         platform = self.get_platform_type()
         if platform is None:
             return None
-        if asic_id is None:
+        if asic_id is None or asic_id == '':
             portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
-        else:
+        elif slotid is None or slotid == '':
             portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
+        else:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(slotid), str(asic_id), PORTMAP_FILE)
         if os.path.exists(portconfig):
             return portconfig
         return None
 
     def get_portmap(self, asic_id=None, include_internal=False,
-                    hostname=None, switchid=None):
+                    hostname=None, switchid=None, slotid=None):
         aliases = []
         portmap = {}
         aliasmap = {}
@@ -107,7 +109,7 @@ class SonicPortAliasMap():
         # default to Asic0 as minigraph.py parsing code has that assumption.
         asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
 
-        filename = self.get_portconfig_path(asic_id)
+        filename = self.get_portconfig_path(slotid, asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(filename) as f:
@@ -209,7 +211,8 @@ def main():
             include_internal=dict(required=False, type='bool', default=False),
             card_type=dict(type='str', required=False),
             hostname=dict(type='str', required=False),
-            switchids=dict(type='list', required=False)
+            switchids=dict(type='list', required=False),
+            slotid=dict(type='str', required=False)
         ),
         supports_check_mode=True
     )
@@ -236,8 +239,12 @@ def main():
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
         switchids = None
+        slotid = None
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
+        
+        if 'slotid' in m_args and m_args['slotid'] != None:
+           slotid = m_args['slotid']
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
         if m_args['num_asic'] is not None:
@@ -269,7 +276,7 @@ def main():
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,
-             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid)
+             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:

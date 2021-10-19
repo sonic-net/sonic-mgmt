@@ -19,7 +19,7 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
-      {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
+      {% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
       {% if loopback4096_ip is defined %}
         <a:LoopbackIPInterface>
           <Name>HostIP1</Name>
@@ -266,6 +266,5 @@
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
 {% include 'minigraph_dpg_asic.j2' %}
-{% include 'minigraph_dpg_voq_asic.j2' %}
   </DpgDec>
 
