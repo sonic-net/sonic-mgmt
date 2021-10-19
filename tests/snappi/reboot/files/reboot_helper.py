@@ -2,8 +2,12 @@ from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
+from wait_group import WaitGroup
+from threading import Lock, Thread
 import json
 import ipaddr
+import time
+import re
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -11,15 +15,20 @@ TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
 
+bgp_down_start_timer = 0
+bgp_up_time = 0
+loopback_down_start_timer = 0
+loopback_up_time = 0
+
 
 def run_reboot_test(cvg_api,
                     duthost,
                     localhost,
                     tgen_ports,
-                    reboot_type,):
+                    reboot_type,
+                    ):
     """
     Run Local link failover test
-
     Args:
         cvg_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
@@ -46,11 +55,11 @@ def run_reboot_test(cvg_api,
 def duthost_bgp_config(duthost, tgen_ports):
     """
     Configures BGP on the DUT with N-1 ecmp
-
     Args:
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
     """
+    start = time.time()
     global temp_tg_port
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
@@ -60,10 +69,11 @@ def duthost_bgp_config(duthost, tgen_ports):
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
+                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
         logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
-    vlan_config=(
+    vlan_config = (
         'sudo config vlan add 1000\n'
         'sudo config vlan member add -u 1000 %s\n'
         'sudo config vlan member add -u 1000 %s\n'
@@ -79,7 +89,8 @@ def duthost_bgp_config(duthost, tgen_ports):
         "sudo config interface ip add PortChannel1 %s/%s\n"
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
-    portchannel_config %= (tgen_ports[1]['peer_port'], tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix'], tgen_ports[1]['peer_ipv6'], 64)
+    portchannel_config %= (tgen_ports[1]['peer_port'], tgen_ports[1]['peer_ip'],
+                           tgen_ports[1]['prefix'], tgen_ports[1]['peer_ipv6'], 64)
     logger.info('Configuring %s to PortChannel1' % (tgen_ports[1]['peer_port']))
     logger.info('Portchannel1 (IPv4,IPv6)  : ({},{})'.format(tgen_ports[1]['peer_ip'], tgen_ports[1]['peer_ipv6']))
     duthost.shell(portchannel_config)
@@ -89,7 +100,12 @@ def duthost_bgp_config(duthost, tgen_ports):
     logger.info('Configuring 1.1.1.1/32 on the loopback interface')
     duthost.shell(loopback)
     logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = {tgen_ports[1]['ipv6']: {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[1]['peer_ipv6'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"},tgen_ports[1]['ip']: {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[1]['peer_ip'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}}
+    bgp_neighbors = {tgen_ports[1]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
+                                             "local_addr": tgen_ports[1]['peer_ipv6'], "nhopself": "0",
+                                             "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"},
+                     tgen_ports[1]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
+                                           "local_addr": tgen_ports[1]['peer_ip'], "nhopself": "0",
+                                           "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"}}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
     for neighbor, neighbor_info in bgp_neighbors.items():
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
@@ -103,6 +119,8 @@ def duthost_bgp_config(duthost, tgen_ports):
     logger.info('Reloading config to apply BGP config')
     duthost.shell("sudo config reload -y \n")
     wait(TIMEOUT+60, "For Config to reload \n")
+    end = time.time()
+    logger.info('duthost_bpg_config() took {}s to complete'.format(end-start))
 
 
 def get_flow_stats(cvg_api, name):
@@ -148,7 +166,6 @@ def get_ip_addresses(ip, count,type='ipv4'):
 def __tgen_bgp_config(cvg_api,):
     """
     Creating  BGP config on TGEN
-
     Args:
         cvg_api (pytest fixture): snappi API
     """
@@ -268,14 +285,44 @@ def __tgen_bgp_config(cvg_api,):
     createTrafficItem("IPv4_1-T1", ipv4_1_names, [route_range1.name])
     createTrafficItem("IPv6_2-T1", ipv6_2_names, [route_range2.name])
     createTrafficItem("T1-IPv4_1", [route_range1.name], ipv4_1_names)
+    createTrafficItem("T1-IPv6_2", [route_range2.name],ipv6_2_names)
     return conv_config
+
+
+def wait_for_bgp_downtime(cvg_api, duthost, wait_group):
+    """
+    Ping the Loopback interface, while the reboot command is initialized wait for BGP to become inactive.
+    Once inactive capture timestamp to start a timer.
+    """
+    global loopback_down_start_timer
+    global bgp_down_start_timer
+
+    while True:
+        # Ping the Loopback interface
+        req = cvg_api.ping_request()
+        p1 = req.endpoints.ipv4()[-1]
+        p1.src_name = 'IPv4 3'
+        p1.dst_ip = "1.1.1.1"
+        responses = cvg_api.send_ping(req).responses
+        try:
+            bgp_facts = duthost.bgp_facts()['ansible_facts']
+            for _, item in bgp_facts['bgp_neighbors'].items():
+                if str(item['state']) not in 'active':
+                    bgp_down_start_timer = time.time()
+                    loopback_down_start_timer = time.time()
+                    break
+        except:
+            loopback_down_start_timer = time.time()
+            break
+    wait_group.done()
 
 
 def get_convergence_for_reboot_test(duthost,
                                     localhost,
                                     cvg_api,
                                     bgp_config,
-                                    reboot_type):
+                                    reboot_type,
+                                    ):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -296,6 +343,7 @@ def get_convergence_for_reboot_test(duthost,
     wait(TIMEOUT-10, "For Traffic To start")
 
     def check_bgp_state():
+        global bgp_up_time
         req = cvg_api.convergence_request()
         req.bgpv4.peer_names = []
         bgpv4_metrics = cvg_api.get_results(req).bgpv4_metrics
@@ -312,46 +360,37 @@ def get_convergence_for_reboot_test(duthost,
     p1.src_name = 'IPv4 3'
     p1.dst_ip = "1.1.1.1"
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    try:
-        reboot(duthost, localhost, reboot_type=reboot_type)
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(300, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
-    except Exception as e:
-        logger.info(e)
-    finally:
-        check_bgp_state()
-        responses = cvg_api.send_ping(req).responses
-        assert responses[-1].result == "success","Ping from IPv4 3 --> Loopback1 Failed"
-        logger.info('Ping from IPv4 3 --> {} : {} after {} seconds after {}'.format(p1.dst_ip, responses[-1].result, 180, reboot_type))
-        request = cvg_api.convergence_request()
-
-        for i in cs.transmit.flow_names:
+    #reboot(duthost, localhost, reboot_type=reboot_type)
+    wait_group = WaitGroup()
+    wait_group.add(1)
+    t1 = Thread(target=wait_for_bgp_downtime, args=([cvg_api, duthost, wait_group])).start()
+    t2 = Thread(target=reboot, args=([duthost, localhost, reboot_type])).start()
+    wait_group.wait()
+    loopback_timer_start = time.time()
+    logger.info("Wait until the system is stable")
+    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    check_bgp_state()
+    bgp_up_time = time.time() - bgp_down_start_timer
+    responses = cvg_api.send_ping(req).responses
+    assert responses[-1].result == "success"
+    global loopback_up_time
+    loopback_up_time = time.time() - loopback_timer_start
+    #logger.info('Ping from IPv4 3 --> {} : {} after {} seconds after {}'.format(p1.dst_ip, responses[-1].result, 180, reboot_type))
+    request = cvg_api.convergence_request()
+    request.convergence.flow_names = flow_names
+    convergence_metrics = cvg_api.get_results(request).flow_convergence
+    for i, metrics in cs.transmit.flow_names, convergence_metrics:
+        if reboot_type == "warm":
             request.metrics.flow_names = [i]
             flow = cvg_api.get_results(request).flow_metric
-            assert int(flow[0].frames_tx_rate) != 0, "No Frames sent for traffic item: {}".format(i)
-            assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, "Loss observed for Traffic Item: {}".format(i)
-            logger.info("No Loss Observed in Traffic Item {}".format(i))
-
-        request.convergence.flow_names = flow_names
-        convergence_metrics = cvg_api.get_results(request).flow_convergence
-        for metrics in convergence_metrics:
-            dp.append(metrics.data_plane_convergence_us/1000)
-            logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, metrics.data_plane_convergence_us/1000))
-
-        for j, i in enumerate(flow_names):
-            table.append([reboot_type, i, dp[j]])
-        columns = ['Reboot Type', 'Traffic Item Name', 'Data Plane Convergence Time (ms)']
-        logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT+30, "For Cleanup to complete \n")
-    logger.info('Reboot Test Completed')
+            if flow[0].frames_tx_rate != flow[0].frames_tx_rate:
+                logger.info("Some Loss Observed in Traffic Item {}".format(i))
+                dp.append(metrics.data_plane_convergence_us/1000)
+                logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, metrics.data_plane_convergence_us/1000))
+            else:
+                dp.append(0)
+                logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, 0))
+        else:
+            request.metrics.flow_names = [i]
+            flow = cvg_api.get_results(request).flow_metric
+            assert int(fl
