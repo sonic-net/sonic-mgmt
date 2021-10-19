@@ -106,6 +106,7 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - group: CISCO_KUSTO_CLUSTER_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -367,3 +368,34 @@ stages:
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
               TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
               TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+
+          - ${{ if in(parameters.TESTBED_NAME, 'vms21-t0-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
+            - task: Bash@3
+              displayName: Upload test results to Cisco Kusto Cluster
+              inputs:
+                targetType: 'inline'
+                script: |
+                  set -x
+
+                  if [[ ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }} == True ]]; then
+                      echo "SKIP_TEST_RESULTS_UPLOADING=True, skip uploading test results to Kusto"
+                      exit 0
+                  fi
+
+                  echo "Activate python3 virtual environment"
+                  source /var/AzDevOps/env-python3/bin/activate
+
+                  cd test_reporting
+
+                  # temporary workaround to allow reboot timing data upload
+                  # After recent test change, the file names get DUT name in them
+                  # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
+                  report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
+
+                  python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
+              condition: always()
+              env:
+                TEST_REPORT_INGEST_KUSTO_CLUSTER: $(CISCO_TEST_REPORT_INGEST_KUSTO_CLUSTER)
+                TEST_REPORT_AAD_TENANT_ID: $(CISCO_TEST_REPORT_AAD_TENANT_ID)
+                TEST_REPORT_AAD_CLIENT_ID: $(CISCO_TEST_REPORT_AAD_CLIENT_ID)
+                TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_TEST_REPORT_AAD_CLIENT_KEY)

@@ -24,7 +24,8 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_PUBLIC)
+    # default: $(IMAGE_BRCM_PUBLIC)
+    default: "http://100.127.20.23/installer/sonic/sarcot/bullseye-upgrade-images/sonic-broadcom.bin"
     displayName: "Image URL"
 
   - name: ALWAYS_POWER_CYCLE_DUTS
@@ -40,7 +41,8 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
+    # default: $(SAITHRIFT_BRCM_PUBLIC)
+    default: " "
     displayName: "py_saithrift URL"
 
 stages:

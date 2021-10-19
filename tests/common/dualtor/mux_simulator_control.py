@@ -10,9 +10,25 @@ from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
-__all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
-           'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
-           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor', 'toggle_all_simulator_ports', 'get_mux_status', 'reset_simulator_port']
+__all__ = [
+    'mux_server_info',
+    'restart_mux_simulator',
+    'mux_server_url',
+    'url',
+    'get_mux_status',
+    'check_simulator_read_side',
+    'set_output',
+    'set_drop',
+    'recover_all_directions',
+    'reset_simulator_port',
+    'toggle_all_simulator_ports_to_upper_tor',
+    'toggle_all_simulator_ports_to_lower_tor',
+    'toggle_all_simulator_ports_to_another_side',
+    'toggle_all_simulator_ports_to_random_side',
+    'toggle_simulator_port_to_upper_tor',
+    'toggle_simulator_port_to_lower_tor',
+    'toggle_all_simulator_ports',
+    ]
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +36,15 @@ TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
 
 @pytest.fixture(scope='session')
-def mux_server_url(request, tbinfo):
-    """
-    A session level fixture to retrieve the address of mux simulator address
+def mux_server_info(request, tbinfo):
+    """Fixture for getting ip, port  and vmset_name of mux simulator server
+
     Args:
-        request: A fixture from Ansible
-        tbinfo: A session level fixture
+        request (obj): Pytest request object
+        tbinfo (dict): Testbed info
+
     Returns:
-        str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
+        tuple: Tuple with items: ip, port, vmset_name. For non-dualtor testbed, returns None, None, None
     """
     if 'dualtor' in tbinfo['topo']['name']:
         server = tbinfo['server']
@@ -37,8 +54,44 @@ def mux_server_url(request, tbinfo):
         ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
         _port_map = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')
         port = _port_map[tbinfo['conf-name']]
+        return ip, port, vmset_name
+    return None, None, None
+
+
+@pytest.fixture(scope='session', autouse=True)
+def restart_mux_simulator(mux_server_info, vmhost):
+    """Session level fixture restart mux simulator server
+
+    For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
+    healthy state before testing.
+
+    This is a session level and auto used fixture.
+
+    Args:
+        mux_server_info (tuple): ip, port and vmset_name of mux simulator server
+        vmhost (obj): The test server object.
+    """
+    ip, port, vmset_name = mux_server_info
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)  # Wait for the mux simulator to initialize
+
+
+@pytest.fixture(scope='session')
+def mux_server_url(mux_server_info):
+    """
+    A session level fixture to retrieve the address of mux simulator address
+
+    Args:
+        mux_server_info: A session scope fixture returns ip, port and vmset_name of mux simulator server
+    Returns:
+        str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
+    """
+    ip, port, vmset_name = mux_server_info
+    if ip is not None and port is not None and vmset_name is not None:
         return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
     return ""
+
 
 @pytest.fixture(scope='module')
 def url(mux_server_url, duthost, tbinfo):

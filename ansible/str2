@@ -14,22 +14,6 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
-        v17-1:
-          ansible_host: 10.64.246.105
-        vms17-2:
-          ansible_host: 10.64.246.106
-        vms17-3:
-          ansible_host: 10.64.246.107
-        vms17-5:
-          ansible_host: 10.64.246.137
-        vms17-6:
-          ansible_host: 10.64.246.138
-        vms17-7:
-          ansible_host: 10.64.246.139
-        vms17-8:
-          ansible_host: 10.64.246.140
-        vms17-9:
-          ansible_host: 10.64.246.142  
         vms18-1:
           ansible_host: 10.64.246.141
         vms18-2:
@@ -75,7 +59,21 @@ all:
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
-          ansible_host: 10.64.246.159
+          ansible_host: 10.64.246.106
+        vms24-3:
+          ansible_host: 10.64.246.107
+        vms24-4:
+          ansible_host: 10.64.246.110
+        vms24-5:
+          ansible_host: 10.64.246.137
+        vms24-6:
+          ansible_host: 10.64.246.138
+        vms24-7:
+          ansible_host: 10.64.246.139
+        vms24-8:
+          ansible_host: 10.64.246.140
+        vms24-9:
+          ansible_host: 10.64.246.142
         vms26-1:
           ansible_host: 10.64.246.230
         vms28-1:
@@ -391,7 +389,7 @@ sonic_nexus_3164:
       ansible_hostv6: 2a01:111:e210:3000::12
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
- 
+
 sonic_arista:
   vars:
     iface_speed: 100000
@@ -701,7 +699,7 @@ sonic_arista32_100:
   hosts:
     str2-a7280cr3-3:
       ansible_host: 10.3.147.56
-      hwsku: Arista-7280CR3-C40      
+      hwsku: Arista-7280CR3-C40
 
 sonic_arista64_100:
   vars:
@@ -710,6 +708,21 @@ sonic_arista64_100:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
       hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: JPE20271584
+      base_mac: d4:af:f7:1e:a7:f4
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "JPE20271584"
+        "0x24": "d4:af:f7:1e:a7:f4"
+        "0x25": "2020/07/24 18:40:03"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPE20271584"
     str2-7260cx3-acs-10:
       ansible_host: 10.3.146.129
       hwsku: Arista-7260CX3-D108C8
