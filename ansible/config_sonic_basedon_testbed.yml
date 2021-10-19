@@ -93,6 +93,7 @@
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
+      slotid: "{{ slot_num | default(None) }}"
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
@@ -101,6 +102,7 @@
       num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
       asics_host_basepfx: "{{ asics_host_ip | default(None) }}"
       asics_host_basepfx6: "{{ asics_host_ipv6 | default(None) }}"
+    delegate_to: localhost
 
   - name: set all VoQ system ports information
     set_fact:
@@ -108,10 +110,34 @@
     when: hostvars[item]['sysports'] is defined
     loop: "{{ ansible_play_batch }}"
 
-  - name: set all VoQ information for iBGP
+  - name: set all v4 Inband Ip information for iBGP chassis voq
     set_fact:
       all_inbands: "{{ all_inbands | default( {} ) | combine( { item : hostvars[item]['voq_inband_ip']}) }}"
     when: hostvars[item]['voq_inband_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all v6 Inband Ip information for iBGP chassis voq
+    set_fact:
+      all_inbands_ipv6: "{{ all_inbands_ipv6 | default( {} ) | combine( { item : hostvars[item]['voq_inband_ipv6']}) }}"
+    when: hostvars[item]['voq_inband_ipv6'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all Loopback4096 information for iBGP chassis 
+    set_fact:
+      all_loopback4096: "{{ all_loopback4096 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ip']}) }}"
+    when: hostvars[item]['loopback4096_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all Loopback4096 ipv6 information for iBGP chassis
+    set_fact:
+      all_loopback4096_ipv6: "{{ all_loopback4096_ipv6 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ipv6']}) }}"
+    when: hostvars[item]['loopback4096_ipv6'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all slot information for chassis
+    set_fact:
+      all_slots: "{{ all_slots | default( {} ) | combine( { item : hostvars[item]['slot_num']}) }}"
+    when: hostvars[item]['slot_num'] is defined
     loop: "{{ ansible_play_batch }}"
 
   - name: find all enabled host_interfaces

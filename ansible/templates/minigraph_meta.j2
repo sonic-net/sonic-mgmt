@@ -91,12 +91,14 @@
             <a:Value>{{ erspan_dest_str }}</a:Value>
          </a:DeviceProperty>
 {% endif %}
-{% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
+{% if switch_type is defined %}
           <a:DeviceProperty>
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
           <a:DeviceProperty>
             <a:Name>SwitchId</a:Name>
             <a:Reference i:nil="true"/>
@@ -144,38 +146,27 @@
       </a:DeviceMetadata>
 {% endfor %}
 {% endif %}
-{% for asic in asic_topo_config %}
+{% if (asic_topo_config and slot_num is defined and slot_num in asic_topo_config) or (asic_topo_config and slot_num is not defined) %}
+{% for asic,asic_config in asic_topo_config[slot_num|default('slot0')].items() %}
       <a:DeviceMetadata>
         <a:Name>{{ asic }}</a:Name>
         <a:Properties>
           <a:DeviceProperty>
             <a:Name>SubRole</a:Name>
             <a:Reference i:nil="true"/>
-            <a:Value>{{ asic_topo_config[asic]['asic_type'] }}</a:Value>
+            <a:Value>{{ asic_config['asic_type'] }}</a:Value>
           </a:DeviceProperty>
-        </a:Properties>
-{% if switch_type is defined and switch_type == 'voq' %}
+{% if switch_type is defined %}
           <a:DeviceProperty>
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>SwitchId</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>{{ start_switchid + idx }}</a:Value>
-{% set idx = idx + 1 %}
-          </a:DeviceProperty>         
 {% endif %}
-{% if max_cores is defined %}
-          <a:DeviceProperty>
-            <a:Name>MaxCores</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>{{ max_cores }}</a:Value>
-         </a:DeviceProperty>
-{% endif %}
+        </a:Properties>
       </a:DeviceMetadata>
 {% endfor %}
+{% endif %}
 {% for asic in fabric_info %}
       <a:DeviceMetadata>
         <a:Name>{{ asic['asicname'] }}</a:Name>
