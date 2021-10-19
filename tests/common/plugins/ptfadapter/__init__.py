@@ -198,7 +198,7 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
                 host.shell('docker rm -f ptf || true')
                 host.shell('docker run -dt --network=host --rm --name ptf -v /tmp/ptf_nn_agent.conf:/etc/supervisor/conf.d/ptf_nn_agent.conf docker-ptf')
 
-                if "RUNNING" in host.shell(' docker exec -it ptf supervisorctl status ptf_nn_agent'):
+                if "RUNNING" in host.shell(' docker exec -it ptf supervisorctl status ptf_nn_agent')["stdout_lines"][0]:
                     return ptf_nn_port
             return None
 
