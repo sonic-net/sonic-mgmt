@@ -9,8 +9,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-global DEFAULT_LOSSLESS_PROFILES
-global RECLAIM_BUFFER_ON_ADMIN_DOWN
+DEFAULT_LOSSLESS_PROFILES = None
+RECLAIM_BUFFER_ON_ADMIN_DOWN = None
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_module(duthosts, rand_one_dut_hostname):
