@@ -3,7 +3,6 @@ import pytest
 import os
 import time
 
-from tests.common.helpers.assertions import pytest_assert
 from scapy.all import rdpcap
 
 logger = logging.getLogger(__name__)
