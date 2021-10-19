@@ -1,7 +1,7 @@
 simulation:
     slurm_flags:
         partition: bigmem_intel
-        hours: 120
+        hours: 72
 
 devices:
 
