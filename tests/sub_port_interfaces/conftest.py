@@ -67,7 +67,7 @@ def port_type(request):
 
 
 @pytest.fixture
-def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type):
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
     """
     Define configuration of sub-ports for TC run
 
@@ -119,7 +119,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     prefix = 30
     network = ipaddress.ip_network(ip_subnet)
 
-    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
+    # for normal t0, get_port tries to retrieve test ports from vlan members
+    # let's enforce same behavior for t0-backend
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, exclude_sub_interface_ports=True)
+    else:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
 
     subnets = [i for i, _ in zip(network.subnets(new_prefix=22), config_port_indices)]
 
