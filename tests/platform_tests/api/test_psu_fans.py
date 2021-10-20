@@ -251,7 +251,7 @@ class TestPsuFans(PlatformApiTestBase):
             if fans_skipped == num_fans:
                 psus_skipped += 1
 
-        if psus_skipped == self.num_psus:
+        if num_fans != 0 and psus_skipped == self.num_psus:
             pytest.skip("skipped as all PSU fans' speed is not controllable")
 
         self.assert_expectations()
@@ -304,7 +304,7 @@ class TestPsuFans(PlatformApiTestBase):
             if fans_skipped == num_fans:
                 psus_skipped += 1
 
-        if psus_skipped == self.num_psus:
+        if num_fans != 0 and psus_skipped == self.num_psus:
             pytest.skip("skipped as all PSU fans' speed is not controllable")
 
         self.assert_expectations()
@@ -347,7 +347,7 @@ class TestPsuFans(PlatformApiTestBase):
             if fans_skipped == num_fans:
                 psus_skipped += 1
 
-        if psus_skipped == self.num_psus:
+        if num_fans != 0 and psus_skipped == self.num_psus:
             pytest.skip("skipped as all PSU fans' LED is not controllable")
 
         self.assert_expectations()
