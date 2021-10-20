@@ -89,7 +89,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         (condition.__name__, timeout, interval, delay))
 
     if delay > 0:
-        logger.debug("Delay for %s seconds first")
+        logger.debug("Delay for %s seconds first" % delay)
         time.sleep(delay)
 
     start_time = time.time()
