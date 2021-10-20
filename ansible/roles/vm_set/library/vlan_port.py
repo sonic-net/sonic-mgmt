@@ -47,6 +47,7 @@ class VlanPort(object):
     def create_vlan_port(self, port, vlan_id):
         vlan_port = "%s.%d" % (port, vlan_id)
         if vlan_port not in self.host_ifaces:
+            VlanPort.cmd('vconfig rem %s' % vlan_port, True)
             VlanPort.cmd('vconfig add %s %d' % (port, vlan_id))
 
         VlanPort.iface_up(vlan_port)
@@ -101,7 +102,7 @@ class VlanPort(object):
             return VlanPort.cmd('nsenter -t %s -n ip link set %s %s' % (pid, iface_name, state))
 
     @staticmethod
-    def cmd(cmdline):
+    def cmd(cmdline, ignore_error=False):
         with open(CMD_DEBUG_FNAME, 'a') as fp:
             pprint("CMD: %s" % cmdline, fp)
         cmd = cmdline.split(' ')
@@ -109,11 +110,14 @@ class VlanPort(object):
         stdout, stderr = process.communicate()
         ret_code = process.returncode
 
-        if ret_code != 0:
+        if ret_code != 0 and not ignore_error:
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
         with open(CMD_DEBUG_FNAME, 'a') as fp:
-            pprint("OUTPUT: %s" % stdout, fp)
+            if ret_code == 0:
+                pprint("OUTPUT: %s" % stdout, fp)
+            else:
+                pprint("ERR: %s" % stderr, fp)
 
         return stdout.decode('utf-8')
 
