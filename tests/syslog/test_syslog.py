@@ -50,6 +50,8 @@ def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslo
         logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_b))
 
     logger.info("Start tcpdump")
+    # Make sure that the DUT_PCAP_FILEPATH dose not exist
+    duthost.shell("sudo rm -f {}".format(DUT_PCAP_FILEPATH))
     # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
     # defaults to writing in that format when listening on any interface. Therefore,
     # have it use LINUX_SLL (Linux cooked) instead.
