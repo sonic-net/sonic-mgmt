@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pytest
+import random
 import time
 from pkg_resources import parse_version
 from tests.common.utilities import wait_until
@@ -67,23 +68,12 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
-        cmd = "monit summary -B"
-        logger.info('Getting output for command {}'.format(cmd))
-        output = duthost.shell(cmd)
-        content = output['stdout'].strip()
-        lines = content.splitlines()
-        status_begin = lines[1].find('Status')
-        type_begin = lines[1].find('Type')
+        processes_status = duthost.all_critical_process_status()
         expect_error_dict = {}
-        logger.info('Getting service status')
-        for line in lines[2:]:
-            service_name = line[0:status_begin].strip()
-            status = line[status_begin:type_begin].strip()
-            service_type = line[type_begin:].strip()
-            assert service_type in SERVICE_EXPECT_STATUS_DICT, 'Unknown service type {}'.format(service_type)
-            expect_status = SERVICE_EXPECT_STATUS_DICT[service_type]
-            if expect_status != status:
-                expect_error_dict[service_name] = '{} is not {}'.format(service_name, expect_status)
+        for container_name, processes in processes_status.items():
+            if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
+                for process_name in processes["exited_critical_process"]:
+                    expect_error_dict[process_name] = '{}:{} is not running'.format(container_name, process_name)
 
         logger.info('Waiting {} seconds for healthd to work'.format(DEFAULT_INTERVAL))
         time.sleep(DEFAULT_INTERVAL)
@@ -96,6 +86,33 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
         summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
         expect_summary = SUMMARY_OK if not expect_error_dict else SUMMARY_NOT_OK
         assert summary == expect_summary, 'Expect summary {}, got {}'.format(expect_summary, summary)
+
+
+@pytest.mark.disable_loganalyzer
+def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    wait_system_health_boot_up(duthost)
+    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
+        processes_status = duthost.all_critical_process_status()
+        containers = list(processes_status.keys())
+        logging.info('Runnig containers: {}'.format(containers))
+        random.shuffle(containers)
+        for container in containers:
+            if container == 'syncd' or container == 'database':
+                continue
+
+            running_critical_process = processes_status[container]['running_critical_process']
+            if not running_critical_process:
+                continue
+
+            critical_process = random.sample(running_critical_process, 1)[0]
+            with ProcessExitContext(duthost, container, critical_process):
+                time.sleep(DEFAULT_INTERVAL)
+                value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, '{}:{}'.format(container, critical_process))
+                assert value == "'{}' is not running".format(critical_process), 'Got value {}'.format(value)
+                summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
+                assert summary == SUMMARY_NOT_OK
+            break
 
 
 @pytest.mark.disable_loganalyzer
@@ -348,3 +365,18 @@ class ConfigFileContext:
         :return:
         """
         self.dut.command('mv -f {} {}'.format(self.backup_config, self.origin_config))
+
+
+class ProcessExitContext:
+    def __init__(self, dut, container_name, process_name):
+        self.dut = dut
+        self.container_name = container_name
+        self.process_name = process_name
+
+    def __enter__(self):
+        logging.info('Stopping {}:{}'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -it {} bash -c "supervisorctl stop {}"'.format(self.container_name, self.process_name))
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        logging.info('Starting {}:{}'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -it {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
