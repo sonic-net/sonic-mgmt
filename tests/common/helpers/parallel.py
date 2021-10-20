@@ -84,7 +84,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
         running_processes = [worker for worker in workers if worker.is_alive()]
         if len(running_processes) > 0:
             logger.info(
-                'Found processes still running: {}. Try to kill them.'.format(
+                'Found processes still running: {}. Try to kill them.'.format( #lgtm [py/clear-text-logging-sensitive-data]
                     str(running_processes)
                 )
             )
@@ -95,7 +95,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
                 except OSError:
                     pass
 
-            assert (
+            pt_assert(
                 False,
                 """Processes running target "{}" could not be terminated.
                 Tried killing them. But please check""".format(target.__name__)
@@ -108,7 +108,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
     tasks_done = 0
     total_tasks = len(nodes)
     tasks_running = 0
-    total_timeout = timeout * (len(nodes)/concurrent_tasks) if timeout else None
+    total_timeout = timeout * int(len(nodes)/concurrent_tasks) if timeout else None
 
     while tasks_done < total_tasks:
 
@@ -188,7 +188,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
                         process_name, p_exitcode, p_exception, p_traceback
                     )
                 )
-            assert(
+            pt_assert(
                 False,
                 'Processes "{}" had failures. Please check the logs'.format(
                     failed_processes.keys()
