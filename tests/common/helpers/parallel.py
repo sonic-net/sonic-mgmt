@@ -109,6 +109,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
     total_tasks = len(nodes)
     tasks_running = 0
     total_timeout = timeout * int(len(nodes)/concurrent_tasks) if timeout else None
+    failed_processes = {}
 
     while tasks_done < total_tasks:
 
@@ -153,7 +154,6 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
             tasks_done += len(gone)
 
         # check if we have any processes that failed - have exitcode non-zero
-        failed_processes = {}
         for worker in gone:
             if worker.exitcode != 0:
                 failed_processes[worker.name] = {}
