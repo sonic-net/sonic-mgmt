@@ -41,13 +41,13 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     """
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
-    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, verify_features_state, duthost):
+    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
         logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
         reboot(duthost, localhost)
         # Some services are not ready immeidately after reboot
         wait_critical_processes(duthost)
 
-    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS,
+    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0,
                              verify_features_state, duthost), "Not all service states are valid!")
     logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
