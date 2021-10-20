@@ -309,8 +309,8 @@ class TestSubPorts(object):
         sub_ports_to_remove = set(sub_ports.keys())
         for sub_port, next_hop_sub_ports in new_sub_ports.items():
             sub_ports_to_remove.remove(sub_port)
-            for sub_port, _ in next_hop_sub_ports:
-                sub_ports_to_remove.remove(sub_port)
+            for next_hop_sub_port, _ in next_hop_sub_ports:
+                sub_ports_to_remove.remove(next_hop_sub_port)
 
         # remove those to-be-removed sub ports
         for sub_port in sub_ports_to_remove:
