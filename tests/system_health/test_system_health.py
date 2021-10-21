@@ -5,6 +5,7 @@ import pytest
 import random
 import time
 from pkg_resources import parse_version
+from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
@@ -64,6 +65,12 @@ def check_image_version(duthost):
     yield
 
 
+@pytest.fixture(autouse=True, scope='module')
+def config_reload_after_tests(duthost):
+    yield
+    config_reload(duthost)
+
+
 def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
@@ -94,13 +101,10 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
-        containers = list(processes_status.keys())
-        logging.info('Runnig containers: {}'.format(containers))
+        containers = [x for x in list(processes_status.keys()) if x != "syncd" and x !="database"]
+        logging.info('Test containers: {}'.format(containers))
         random.shuffle(containers)
         for container in containers:
-            if container == 'syncd' or container == 'database':
-                continue
-
             running_critical_process = processes_status[container]['running_critical_process']
             if not running_critical_process:
                 continue
@@ -156,7 +160,7 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname, device_mocke
             time.sleep(THERMAL_CHECK_INTERVAL)
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
             assert not value or fan_expect_value not in value, 'Mock fan valid speed, expect {}, but it still report invalid speed'
-            
+
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
             assert not value or asic_expect_value not in value, 'Mock ASIC normal temperature, but it is still overheated'
 
@@ -175,7 +179,7 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname, device_mocke
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
             assert value and value == fan_expect_value, 'Mock fan absence, expect {}, but got {}'.format(fan_expect_value,
                                                                                                          value)
-            
+
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert value and psu_expect_value == value, 'Mock PSU no power, expect {}, but got {}'.format(psu_expect_value,
                                                                                                           value)
@@ -190,7 +194,7 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname, device_mocke
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
             assert not value or value != fan_expect_value, 'Mock fan presence, but it still report absence'
 
-            
+
             time.sleep(PSU_CHECK_INTERVAL)
             value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert not value or psu_expect_value != value, 'Mock PSU power good, but it is still out of power'
