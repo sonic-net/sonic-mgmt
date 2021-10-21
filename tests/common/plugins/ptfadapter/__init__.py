@@ -6,12 +6,14 @@ from ptfadapter import PtfTestAdapter
 import ptf.testutils
 
 from tests.common import constants
+import random
 
 
-DEFAULT_PTF_NN_PORT = 10900
+DEFAULT_PTF_NN_PORT_RANGE = [10900, 11000]
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
 ETHERNET_PFX = "Ethernet"
+MAX_RETRY_TIME = 3
 
 
 def pytest_addoption(parser):
@@ -118,26 +120,36 @@ def ptfadapter(ptfhost, tbinfo, request):
     ifaces = get_ifaces(res['stdout'])
     ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode)
 
-    # generate supervisor configuration for ptf_nn_agent
-    ptfhost.host.options['variable_manager'].extra_vars.update({
-        'device_num': DEFAULT_DEVICE_NUM,
-        'ptf_nn_port': DEFAULT_PTF_NN_PORT,
-        'ifaces_map': ifaces_map,
-    })
+    def start_ptf_nn_agent():
+        for i in range(MAX_RETRY_TIME):
+            ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
-    current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            # generate supervisor configuration for ptf_nn_agent
+            ptfhost.host.options['variable_manager'].extra_vars.update({
+                'device_num': DEFAULT_DEVICE_NUM,
+                'ptf_nn_port': ptf_nn_port,
+                'ifaces_map': ifaces_map,
+            })
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            ptfhost.template(src=os.path.join(current_file_dir, 'templates/ptf_nn_agent.conf.ptf.j2'),
+                             dest='/etc/supervisor/conf.d/ptf_nn_agent.conf')
 
-    ptfhost.template(src=os.path.join(current_file_dir, 'templates/ptf_nn_agent.conf.ptf.j2'),
-                     dest='/etc/supervisor/conf.d/ptf_nn_agent.conf')
+            # reread configuration and update supervisor
+            ptfhost.command('supervisorctl reread')
+            ptfhost.command('supervisorctl update')
 
-    # reread configuration and update supervisor
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
+            # Force a restart of ptf_nn_agent to ensure that it is in good status.
+            ptfhost.command('supervisorctl restart ptf_nn_agent')
 
-    # Force a restart of ptf_nn_agent to ensure that it is in good status.
-    ptfhost.command('supervisorctl restart ptf_nn_agent')
+            # check whether ptf_nn_agent starts successfully
+            if "RUNNING" in ptfhost.command('supervisorctl status ptf_nn_agent', module_ignore_errors=True)["stdout_lines"][0]:
+                return ptf_nn_port
+        return None
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], DEFAULT_PTF_NN_PORT, 0, ifaces_map.keys(), ptfhost) as adapter:
+    ptf_nn_agent_port = start_ptf_nn_agent()
+    assert ptf_nn_agent_port is not None
+
+    with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, ifaces_map.keys(), ptfhost) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__
@@ -171,16 +183,31 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
         res = host.command('cat /proc/net/dev')
         ifaces = get_ifaces(res['stdout'])
         ifaces_map = {int(ifname.replace(ETHERNET_PFX, '')): ifname for ifname in ifaces if ifname.startswith(ETHERNET_PFX)}
-        host.host.options['variable_manager'].extra_vars.update({
-                'device_num': nbr_device_numbers[name],
-                'ptf_nn_port': DEFAULT_PTF_NN_PORT,
-                'ifaces_map': ifaces_map,
-            })
-        host.template(src=os.path.join(current_file_dir, 'templates/ptf_nn_agent.conf.ptf.j2'),
-                    dest='/tmp/ptf_nn_agent.conf')
-        host.shell('docker rm -f ptf || true')
-        host.shell('docker run -dt --network=host --rm --name ptf -v /tmp/ptf_nn_agent.conf:/etc/supervisor/conf.d/ptf_nn_agent.conf docker-ptf')
-        ptf_nn_sock_addr = 'tcp://{}:{}'.format(host.facts["mgmt_interface"][0], DEFAULT_PTF_NN_PORT)
+
+        def start_ptf_nn_agent():
+            for i in range(MAX_RETRY_TIME):
+                ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
+
+                host.host.options['variable_manager'].extra_vars.update({
+                        'device_num': nbr_device_numbers[name],
+                        'ptf_nn_port': ptf_nn_port,
+                        'ifaces_map': ifaces_map,
+                    })
+                host.template(src=os.path.join(current_file_dir, 'templates/ptf_nn_agent.conf.ptf.j2'),
+                            dest='/tmp/ptf_nn_agent.conf')
+                host.shell('docker rm -f ptf || true')
+                host.shell('docker run -dt --network=host --rm --name ptf -v /tmp/ptf_nn_agent.conf:/etc/supervisor/conf.d/ptf_nn_agent.conf docker-ptf')
+
+                #Maybe the threads in this docker are not ready and may return None
+                if "RUNNING" in host.shell('docker exec ptf supervisorctl status ptf_nn_agent')["stdout_lines"][0]:
+                    return ptf_nn_port
+            return None
+
+        ptf_nn_agent_port = start_ptf_nn_agent()
+        assert ptf_nn_agent_port is not None
+
+        ptf_nn_sock_addr = 'tcp://{}:{}'.format(host.facts["mgmt_interface"][0], ptf_nn_agent_port)
         device_sockets.append((nbr_device_numbers[name], ifaces_map, ptf_nn_sock_addr))
+
     ptfadapter.reinit({"device_sockets": device_sockets})
     return ptfadapter
