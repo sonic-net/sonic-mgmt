@@ -74,7 +74,12 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         # We choose the physical interface where our DHCP client resides to be index of first interface in the VLAN
         client_iface = {}
-        client_iface['name'] = vlan_info_dict['members'][0]
+        for port in vlan_info_dict['members']:
+            if port in mg_facts['minigraph_port_name_to_alias_map']:
+                break
+        else:
+            continue
+        client_iface['name'] = port
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
@@ -186,6 +191,15 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
         if testing_mode == DUAL_TOR_MODE:
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
+    elif tbinfo['topo']['name'] == 't0-56-vlan2po':
+        if testing_mode == SINGLE_TOR_MODE:
+            if subtype_exist:
+                assert False, "Wrong DHCP setup on t0-56-vlan2po testbeds"
+
+            yield testing_mode, duthost, 'single_testbed'
+
+        if testing_mode == DUAL_TOR_MODE:
+            pytest.skip("skip DUAL_TOR_MODE tests on t0-56-vlan2po testbeds")
     else:
         if testing_mode == SINGLE_TOR_MODE:
             pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
