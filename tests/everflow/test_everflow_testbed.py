@@ -474,7 +474,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                tolerance="10")
         finally:
             # Clean up ACL rules and routes
-            self.remove_acl_rule_config(duthost, table_name, config_method)
+            BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
             self.remove_acl_table_config(duthost, table_name, config_method)
             if bind_interface_namespace:
                 self.remove_acl_table_config(duthost, table_name, config_method, bind_interface_namespace)
