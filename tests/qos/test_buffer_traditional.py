@@ -87,12 +87,16 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
     1. For all ports in the config_db,
        - Check whether there is no lossless buffer PG configured on an admin-down port
+         - on all paltforms, there is no lossless PG configured on inactive ports which are admin-down
+           which is guaranteed by buffer template
        - Check whether the lossless PG aligns with the port's speed and cable length
        - If name to oid maps exist for port and PG, check whether the information in ASIC_DB aligns with that in CONFIG_DB
        - If a lossless profile hasn't been checked, check whether lossless profile in CONFIG_DB aligns with
          - pg_profile_lookup.ini according to speed and cable length
          - information in ASIC_DB
-    2. Shutdown a port and check whether the lossless buffer PG has been removed
+    2. Shutdown a port and check whether the lossless buffer PGs
+       - has been removed on Mellanox platforms
+       - will not be changed on other platforms
     3. Startup the port and check whether the lossless PG has been readded.
     """
     def _check_condition(condition, message, use_assert):
@@ -238,13 +242,17 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                               "PG {}|3-4 has different OID of profile from other PGs sharing the same profile {}".format(port, expected_profile))
         else:
             # Port admin down. Make sure no lossless PG configured.
+            # After deployment, there should not be lossless PG configured on any platforms
+            # This is guaranteed by buffers_config.j2: no lossless PG will be configured on inactive ports
             logging.info("Checking admin-down port buffer information: {}".format(port))
             _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, None)
 
     port_to_shutdown = admin_up_ports.pop()
     expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port_to_shutdown))['stdout']
     try:
-        # Shutdown the port and check whether the lossless PG has been removed
+        # Shutdown the port and check whether the lossless PGs
+        # - have been removed on Mellanox platforms
+        # - will not be affected on other platforms
         logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
         duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
         if RECLAIM_BUFFER_ON_ADMIN_DOWN:
