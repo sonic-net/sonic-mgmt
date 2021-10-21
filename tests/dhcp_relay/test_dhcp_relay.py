@@ -191,7 +191,7 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
         if testing_mode == DUAL_TOR_MODE:
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
-    elif tbinfo['topo']['name'] == 't0-56-vlan2po':
+    elif tbinfo['topo']['name'] == 't0-56-po2vlan':
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist:
                 assert False, "Wrong DHCP setup on t0-56-vlan2po testbeds"
