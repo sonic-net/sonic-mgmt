@@ -24,10 +24,10 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
     """Check DUT memory usage and process cpu usage are within threshold."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
-    monit_results = duthost.monit_process(iterations=12)['monit_results']
+    monit_results = duthost.monit_process(iterations=24)['monit_results']
 
     memory_threshold, cpu_threshold = setup_thresholds
-    persist_threshold = 4
+    persist_threshold = 8
     outstanding_mem_polls = {}
     outstanding_procs = {}
     outstanding_procs_counter = Counter()
@@ -46,7 +46,7 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
 
     persist_outstanding_procs = []
     for pid, freq in outstanding_procs_counter.most_common():
-        if freq < persist_threshold:
+        if freq <= persist_threshold:
             break
         persist_outstanding_procs.append(pid)
 
