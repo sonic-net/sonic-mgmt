@@ -397,9 +397,8 @@ class VMTopology(object):
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
-        # add random suffix to int_if to support multiple tasks run concurrently
-        random_suffix = generate_random_code(6)
-        tmp_int_if = int_if + random_suffix
+        # add ptf fingerprint suffix to int_if to support multiple tasks run concurrently
+        tmp_int_if = int_if + self.generate_ptf_fingerprint(6)
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
@@ -843,6 +842,17 @@ class VMTopology(object):
                     vlan_id = self.vlan_ids[str(intf)]
                     self.remove_dut_vlan_subif_from_docker(ptf_if, vlan_separator, vlan_id)
 
+    def generate_ptf_fingerprint(self, digit=6):
+        """
+            Generate ptf fingerprint
+            Args:
+                digit (int): digit of fingerprint, e.g. 6
+
+            Returns:
+                str: fingerprint, e.g. a9d24d
+            """
+        return hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:digit]
+
     @staticmethod
     def _intf_cmd(intf, pid=None):
         if pid:
@@ -1162,18 +1172,6 @@ def check_topo(topo, is_multi_duts=False):
         vms_exists = True
 
     return hostif_exists, vms_exists
-
-
-def generate_random_code(digit=6):
-    """
-    Generate random code
-    Args:
-        digit (int): digit of code, e.g. 6
-
-    Returns:
-        str: random code, e.g. k9A27L
-    """
-    return ''.join(random.sample("abcdefghijklmnABCDEFGHIJKLMN0123456789", digit))
 
 
 def check_params(module, params, mode):
