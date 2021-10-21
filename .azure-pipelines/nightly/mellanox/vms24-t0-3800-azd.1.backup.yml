@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "dualtor ecmp platform_tests"'
+    default: '-S "ecmp platform_tests"'
     displayName: Testbed specific
 
 stages:
