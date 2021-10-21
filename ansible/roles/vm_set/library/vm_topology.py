@@ -8,7 +8,6 @@ import shlex
 import time
 import traceback
 import logging
-import random
 import docker
 
 from ansible.module_utils.debug_utils import config_module_logging
@@ -398,7 +397,7 @@ class VMTopology(object):
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add ptf fingerprint suffix to int_if to support multiple tasks run concurrently
-        tmp_int_if = int_if + self.generate_ptf_fingerprint(6)
+        tmp_int_if = int_if + VMTopology._generate_fingerprint(PTF_NAME_TEMPLATE % self.vm_set_name, 6)
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
@@ -842,16 +841,18 @@ class VMTopology(object):
                     vlan_id = self.vlan_ids[str(intf)]
                     self.remove_dut_vlan_subif_from_docker(ptf_if, vlan_separator, vlan_id)
 
-    def generate_ptf_fingerprint(self, digit=6):
+    @staticmethod
+    def _generate_fingerprint(name, digit=6):
         """
-            Generate ptf fingerprint
+            Generate fingerprint
             Args:
+                name (str): name
                 digit (int): digit of fingerprint, e.g. 6
 
             Returns:
                 str: fingerprint, e.g. a9d24d
             """
-        return hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:digit]
+        return hashlib.md5(name.encode("utf-8")).hexdigest()[0:digit]
 
     @staticmethod
     def _intf_cmd(intf, pid=None):
