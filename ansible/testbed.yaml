@@ -181,7 +181,7 @@
   comment: Renuka
 
 - conf-name: vms3-t1-dx010-1
-  group-name: vms3-6
+  group-name: vms3-5
   topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: vms3-5
