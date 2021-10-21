@@ -50,7 +50,9 @@ class SonicProcess(Process):
         return self._exception
 
 
-def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20):
+def parallel_run(
+    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=20
+):
     """Run target function on nodes in parallel
 
     Args:
@@ -72,7 +74,7 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
         dict: An instance of multiprocessing.Manager().dict(). It is a proxy to the shared dict that is used by all the
             spawned processes.
     """
-
+    nodes = [node for node in nodes_list]
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
@@ -112,7 +114,6 @@ def parallel_run(target, args, kwargs, nodes, timeout=None, concurrent_tasks=20)
     failed_processes = {}
 
     while tasks_done < total_tasks:
-
         # If execution time of processes exceeds timeout, need to force
         # terminate them all.
         if total_timeout is not None:
