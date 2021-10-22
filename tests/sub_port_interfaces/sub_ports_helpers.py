@@ -300,7 +300,7 @@ def shutdown_port(duthost, interface):
         interface: Interface of DUT
     """
     duthost.shutdown(interface)
-    pytest_assert(wait_until(3, 1, __check_interface_state, duthost, interface, 'down'),
+    pytest_assert(wait_until(3, 1, 0, __check_interface_state, duthost, interface, 'down'),
                   "DUT's port {} didn't go down as expected".format(interface))
 
 
@@ -313,7 +313,7 @@ def startup_port(duthost, interface):
         interface: Interface of DUT
     """
     duthost.no_shutdown(interface)
-    pytest_assert(wait_until(3, 1, __check_interface_state, duthost, interface),
+    pytest_assert(wait_until(3, 1, 0, __check_interface_state, duthost, interface),
                   "DUT's port {} didn't go up as expected".format(interface))
 
 
@@ -347,7 +347,7 @@ def setup_vlan(duthost, vlan_id):
     """
     duthost.shell('config vlan add %s' % vlan_id)
 
-    pytest_assert(wait_until(3, 1, __check_vlan, duthost, vlan_id),
+    pytest_assert(wait_until(3, 1, 0, __check_vlan, duthost, vlan_id),
                   "VLAN RIF Vlan{} didn't create as expected".format(vlan_id))
 
 
@@ -404,7 +404,7 @@ def remove_vlan(duthost, vlan_id):
     """
     duthost.shell('config vlan del {}'.format(vlan_id))
 
-    pytest_assert(wait_until(3, 1, __check_vlan, duthost, vlan_id, True),
+    pytest_assert(wait_until(3, 1, 0, __check_vlan, duthost, vlan_id, True),
                   "VLAN RIF Vlan{} didn't remove as expected".format(vlan_id))
 
 
@@ -419,7 +419,7 @@ def remove_member_from_vlan(duthost, vlan_id, vlan_member):
     """
     if __check_vlan_member(duthost, vlan_id, vlan_member):
         duthost.shell('config vlan member del {} {}'.format(vlan_id, vlan_member))
-        pytest_assert(wait_until(3, 1, __check_vlan_member, duthost, vlan_id, vlan_member, True),
+        pytest_assert(wait_until(3, 1, 0, __check_vlan_member, duthost, vlan_id, vlan_member, True),
                       "VLAN RIF Vlan{} have {} member".format(vlan_id, vlan_member))
 
 
@@ -830,7 +830,7 @@ def add_member_to_vlan(duthost, vlan_id, vlan_member):
     """
     if not __check_vlan_member(duthost, vlan_id, vlan_member):
         duthost.shell('config vlan member add {} {}'.format(vlan_id, vlan_member))
-        pytest_assert(wait_until(3, 1, __check_vlan_member, duthost, vlan_id, vlan_member),
+        pytest_assert(wait_until(3, 1, 0, __check_vlan_member, duthost, vlan_id, vlan_member),
                       "VLAN RIF Vlan{} doesn't have {} member".format(vlan_id, vlan_member))
 
 

@@ -59,6 +59,6 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     logging.info("Disable swss/teamd Feature")
     duthost.asic_instance(enum_asic_index).stop_service("swss")
     # Check if Linux Kernel Portchannel Interface teamdev are clean up
-    if not wait_until(10, 1, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
+    if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
         fail_msg = "PortChannel interface still exists in kernel"
         pytest.fail(fail_msg)

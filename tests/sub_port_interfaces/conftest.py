@@ -176,7 +176,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
-    py_assert(wait_until(3, 1, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
+    py_assert(wait_until(3, 1, 0, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
               "Some sub-ports were not created")
 
     yield sub_ports_vars

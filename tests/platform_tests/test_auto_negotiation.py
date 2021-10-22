@@ -231,6 +231,7 @@ def test_auto_negotiation_advertised_speeds_all():
         logger.info('Wait until all ports are up')
         wait_result = wait_until(ALL_PORT_WAIT_TIME, 
                                  PORT_STATUS_CHECK_INTERVAL, 
+                                 0, 
                                  check_ports_up, 
                                  duthost, 
                                  [item[1] for item in candidates.values()])
@@ -290,6 +291,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_dut_portname_module_fix
         logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
         wait_result = wait_until(SINGLE_PORT_WAIT_TIME, 
                                 PORT_STATUS_CHECK_INTERVAL, 
+                                0, 
                                 check_ports_up, 
                                 duthost, 
                                 [dut_port], 
@@ -337,6 +339,7 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_dut_portname_module_
         logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
         wait_result = wait_until(SINGLE_PORT_WAIT_TIME, 
                                 PORT_STATUS_CHECK_INTERVAL, 
+                                0, 
                                 check_ports_up, 
                                 duthost, 
                                 [dut_port], 
@@ -382,6 +385,7 @@ def test_force_speed(enum_dut_portname_module_fixture):
         logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
         wait_result = wait_until(SINGLE_PORT_WAIT_TIME, 
                                 PORT_STATUS_CHECK_INTERVAL, 
+                                0, 
                                 check_ports_up, 
                                 duthost, 
                                 [dut_port],

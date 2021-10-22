@@ -30,7 +30,7 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts,
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
-        assert wait_until(300, 20, config_system_checks_passed, duthost)
+        assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
 
     logging.info("Reload configuration")
     duthost.shell("sudo config reload -y &>/dev/null", executable="/bin/bash")
@@ -39,7 +39,7 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts,
     wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
+    assert wait_until(300, 20, 0, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check transceiver status")
@@ -74,7 +74,7 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")
     # config reload command shouldn't work immediately after system reboot
     assert "Retry later" in out['stdout']
-    assert wait_until(300, 20, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
 
     # After the system checks succeed the config reload command should not throw error
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")
@@ -84,7 +84,7 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     logging.info("Checking config reload after system is up")
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")
     assert "Retry later" in out['stdout']
-    assert wait_until(300, 20, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
 
     logging.info("Stopping swss docker and checking config reload")
     duthost.shell("sudo service swss stop")
@@ -98,4 +98,4 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
     assert "Retry later" not in out['stdout']
 
-    assert wait_until(300, 20, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)

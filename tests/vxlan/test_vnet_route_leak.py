@@ -73,7 +73,7 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
         logger.info("Restarting BGP and waiting for BGP sessions")
         duthost.shell(RESTART_BGP_CMD)
 
-        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost):
+        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost):
             logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
             config_reload(duthost)
     else:
@@ -189,7 +189,7 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     logger.info("Restarting BGP")
     duthost.shell(RESTART_BGP_CMD)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))
@@ -198,7 +198,7 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     duthost.shell(CONFIG_SAVE_CMD)
     config_reload(duthost)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))

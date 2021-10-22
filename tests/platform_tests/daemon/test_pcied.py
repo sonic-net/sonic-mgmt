@@ -98,7 +98,7 @@ def wait_data(duthost):
         shared_scope.data_after_restart = collect_data(duthost)
         return bool(shared_scope.data_after_restart['devices'])
     pcied_pooling_interval = 60
-    wait_until(pcied_pooling_interval, 6, _collect_data)
+    wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
 
 @pytest.fixture(scope='module')

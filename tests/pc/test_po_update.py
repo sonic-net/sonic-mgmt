@@ -76,7 +76,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         time.sleep(30)
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
-        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 1))
+        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1))
 
         # Step 3: Create tmp portchannel
         asichost.config_portchannel(tmp_portchannel, "add")
@@ -96,7 +96,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         time.sleep(30)
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
-        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
+        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0))
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
@@ -115,4 +115,4 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         if remove_portchannel_members:
             for member in portchannel_members:
                 asichost.config_portchannel_member(portchannel, member, "add")
-        pytest_assert(wait_until(120, 10, asichost.check_bgp_statistic, 'ipv4_idle', 0))
+        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0))

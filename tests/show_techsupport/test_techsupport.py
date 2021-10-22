@@ -287,7 +287,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
 
     for i in range(loop_range):
         logger.debug("Running show techsupport ... ")
-        wait_until(300, 20, execute_command, duthost, str(since))
+        wait_until(300, 20, 0, execute_command, duthost, str(since))
         tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
         stdout = duthost.command("rm -rf {}".format(tar_file))
         logger.debug("Sleeping for {} seconds".format(loop_delay))

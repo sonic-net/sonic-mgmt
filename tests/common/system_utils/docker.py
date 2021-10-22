@@ -188,7 +188,7 @@ def _perform_swap_syncd_shutdown_check(duthost):
 
         return True
 
-    shutdown_check = wait_until(30, 3, ready_for_swap)
+    shutdown_check = wait_until(30, 3, 0, ready_for_swap)
     pytest_assert(shutdown_check, "Docker and/or BGP failed to shut down in 30s")
 
 
@@ -196,7 +196,7 @@ def _perform_syncd_liveness_check(duthost):
     def check_liveness():
         return duthost.is_service_running("syncd")
 
-    liveness_check = wait_until(30, 1, check_liveness)
+    liveness_check = wait_until(30, 1, 0, check_liveness)
     pytest_assert(liveness_check, "syncd crashed after swap_syncd")
 
 

@@ -118,7 +118,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
 def wait_all_bgp_up(duthost):
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after config reload")
 
 def check_route_redistribution(duthost, prefix, ipv6, removed=False):
@@ -149,7 +149,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
                 return False
         return True
 
-    assert(wait_until(60, 15, _check_routes))
+    assert(wait_until(60, 15, 0, _check_routes))
 
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp

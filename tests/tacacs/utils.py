@@ -60,7 +60,7 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
 
     # FIXME: This is a short term mitigation, we need to figure out why the tacacs+ server does not start
     # reliably all of a sudden.
-    wait_until(5, 1, start_tacacs_server, ptfhost)
+    wait_until(5, 1, 0, start_tacacs_server, ptfhost)
     check_all_services_status(ptfhost)
 
 

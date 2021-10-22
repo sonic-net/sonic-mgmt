@@ -450,7 +450,7 @@ class TestReboot():
         verify_show_sflow(duthost,status='up',polling_int=80)
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'],polling_int=80)
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost,intf)
@@ -475,7 +475,7 @@ class TestReboot():
               active_collectors="[]" )
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost,status='down')
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost,intf)
@@ -493,7 +493,7 @@ class TestReboot():
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         duthost.command('sudo config save -y')
         reboot(duthost, localhost,reboot_type='fast')
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost,intf)
@@ -511,7 +511,7 @@ class TestReboot():
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         duthost.command('sudo config save -y')
         reboot(duthost, localhost,reboot_type='warm')
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost,intf)

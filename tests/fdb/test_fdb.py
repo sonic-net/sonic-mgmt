@@ -226,7 +226,7 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
         return
     else:
         duthost.command('sonic-clear fdb all')
-        pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
+        pytest_assert(wait_until(20, 2, 0, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
 def validate_mac(mac):
