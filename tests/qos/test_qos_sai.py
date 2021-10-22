@@ -930,7 +930,7 @@ class TestQosSaiMasic(QosSaiBaseMasic):
             # ensure the test destination IP has a path to backend ASIC
             pytest_assert(
                 wait_until(
-                    30, 1, self.check_v4route_backend_nhop, duthost,
+                    30, 1, 0, self.check_v4route_backend_nhop, duthost,
                     test_params["src_asic"], test_params["dst_port_ip"]
                 ),
                 "Route {} doesn't have backend ASIC nexthop on ASIC {}".format(

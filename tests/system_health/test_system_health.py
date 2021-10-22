@@ -281,7 +281,7 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname, device
 
 def wait_system_health_boot_up(duthost):
     boot_timeout = get_system_health_config(duthost, 'boot_timeout', DEFAULT_BOOT_TIMEOUT)
-    assert wait_until(boot_timeout, 10, redis_table_exists, duthost, STATE_DB, HEALTH_TABLE_NAME), \
+    assert wait_until(boot_timeout, 10, 0, redis_table_exists, duthost, STATE_DB, HEALTH_TABLE_NAME), \
         'System health service is not working'
 
 

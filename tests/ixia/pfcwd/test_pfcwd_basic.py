@@ -169,7 +169,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(ixia_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     run_pfcwd_basic_test(api=ixia_api,
@@ -232,7 +232,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(ixia_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     run_pfcwd_basic_test(api=ixia_api,
@@ -296,7 +296,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(ixia_api,
         duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     run_pfcwd_basic_test(api=ixia_api,
@@ -359,7 +359,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(ixia_api,
         duthost.command("systemctl reset-failed {}".format(service))
     duthost.command("systemctl restart {}".format(restart_service))
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     run_pfcwd_basic_test(api=ixia_api,

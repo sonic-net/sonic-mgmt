@@ -187,7 +187,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
         # Check the number of routes in ASIC_DB
         return count_routes(duthost) == expected_num_routes
 
-    if not wait_until(route_timeout, 0.5, _check_num_routes, expected_num_routes):
+    if not wait_until(route_timeout, 0.5, 0, _check_num_routes, expected_num_routes):
         pytest.fail('failed to add routes within time limit')
 
     # Record time when all routes show up in ASIC_DB

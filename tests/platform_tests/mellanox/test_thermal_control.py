@@ -47,6 +47,7 @@ def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
     mocker.mock_min_table(temperature, trust_state)
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                       THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      0,
                       check_cooling_level_larger_than_minimum, 
                       duthost,
                       expect_minimum_cooling_level), \
@@ -59,6 +60,7 @@ def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
     mocker.mock_min_table(temperature, not trust_state)
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                       THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      0,
                       check_cooling_level_larger_than_minimum, 
                       duthost,
                       expect_minimum_cooling_level), \
@@ -82,6 +84,7 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     single_fan_mocker.mock_absence()
     assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
                       THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
+                      0, 
                       check_psu_fan_speed, 
                       duthost, 
                       psu_num, 
@@ -92,6 +95,7 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     single_fan_mocker.mock_presence()
     wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
                              THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
+                             0, 
                              check_psu_fan_speed, 
                              duthost, 
                              psu_num, 

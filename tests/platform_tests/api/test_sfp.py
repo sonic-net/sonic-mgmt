@@ -509,7 +509,7 @@ class TestSfpApi(PlatformApiTestBase):
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state".format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 

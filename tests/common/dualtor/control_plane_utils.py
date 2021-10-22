@@ -69,7 +69,7 @@ class DBChecker:
 
     def verify_db(self, db):
         pytest_assert(
-            wait_until(30, 10, self.get_mismatched_ports, db),
+            wait_until(30, 10, 0, self.get_mismatched_ports, db),
             "Database states don't match expected state {state},"
             "incorrect {db_name} values {db_states}"
             .format(state=self.state, db_name=DB_NAME_MAP[db],

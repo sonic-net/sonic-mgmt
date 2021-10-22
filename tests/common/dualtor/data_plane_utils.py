@@ -153,7 +153,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         action()
     # do not time-wait the test, if early stop is not requested (when stop_after=None)
     if stop_after is not None:
-        wait_until(timeout=stop_after, interval=0.5, condition=\
+        wait_until(timeout=stop_after, interval=0.5, delay=0, condition=\
             lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
             logger.info("Sender/Sniffer threads are still running. Sending signal "\

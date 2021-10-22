@@ -63,7 +63,7 @@ class TestContLinkFlap(object):
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
-        pytest_assert(wait_until(100, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                   "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
 
@@ -83,7 +83,7 @@ class TestContLinkFlap(object):
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
-        if not wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
+        if not wait_until(60, 1, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
             endv4, endv6 = duthost.get_ip_route_summary()
             pytest.fail("IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4, sumv6, endv4, endv6))
 
@@ -112,6 +112,6 @@ class TestContLinkFlap(object):
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-        pytest_assert(wait_until(45, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                   "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))

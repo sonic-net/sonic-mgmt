@@ -331,7 +331,7 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                          recv_count, dst_port, PACKET_COUNT)
             return recv_count == PACKET_COUNT
 
-        pytest_assert(wait_until(10, 2, _check_drops), "Expected {} drops".format(PACKET_COUNT))
+        pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
     return _runner
 

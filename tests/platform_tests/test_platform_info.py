@@ -366,6 +366,7 @@ def test_thermal_control_psu_absence(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info('Wait and check all FAN speed turn to 60%...')
         wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 0,
                                  fan_mocker.check_all_fan_speed,
                                  60)
 
@@ -390,6 +391,7 @@ def test_thermal_control_psu_absence(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info('Wait and check all FAN speed turn to 65%...')
         pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 0,
                                  fan_mocker.check_all_fan_speed,
                                  65), 'FAN speed not change to 65% according to policy')
 
@@ -416,6 +418,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     logging.info('Wait and check all FAN speed turn to 100%...')
     pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                              THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                             0,
                              mocker.check_all_fan_speed,
                              100), 'FAN speed not turn to 100% after PSU off')
 
@@ -439,7 +442,7 @@ def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, 
         logging.info('Mock FAN status data...')
         fan_mocker.mock_data()  # make data random
         restart_thermal_control_daemon(duthost)
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, 0, fan_mocker.check_all_fan_speed,
                    60)
         check_thermal_algorithm_status(duthost, mocker_factory, False)
 

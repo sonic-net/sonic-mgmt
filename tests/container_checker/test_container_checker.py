@@ -152,7 +152,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
       for 3 minutes. It will return False after timeout
     """
     logger.info("Post-checking status of critical processes and BGP sessions...")
-    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
                       post_test_check, duthost, up_bgp_neighbors)
 
 
@@ -172,6 +172,7 @@ def stop_container(duthost, container_name):
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' on DuT '{}' was stopped".format(container_name, duthost.hostname))

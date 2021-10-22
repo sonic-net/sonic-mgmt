@@ -1047,11 +1047,11 @@ class TestVrfWarmReboot():
                "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(300, 20, duthost.critical_services_fully_started), \
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
                "All critical services should fully started!{}".format(duthost.critical_services)
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
-        assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
+        assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
     def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
@@ -1090,10 +1090,10 @@ class TestVrfWarmReboot():
         assert len(tbd_comp_list) == 0, "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
-        assert wait_until(300, 20, check_interface_status, duthost, up_ports), "Not all interfaces are up"
+        assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "Not all interfaces are up"
 
 
 class TestVrfCapacity():
@@ -1331,7 +1331,7 @@ class TestVrfUnbindIntf():
         # -------- Teardown ----------
         if self.c_vars['rebind_intf']:
             self.rebind_intf(duthost)
-            wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
+            wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts)
 
     def rebind_intf(self, duthost):
         duthost.shell("config interface vrf bind PortChannel0001 Vrf1")
@@ -1346,7 +1346,7 @@ class TestVrfUnbindIntf():
         self.c_vars['rebind_intf'] = False  # Mark to skip rebind interface during teardown
 
         # check bgp session state after rebind
-        assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
+        assert wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after Portchannel0001 rebind to Vrf"
 
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
@@ -1484,7 +1484,7 @@ class TestVrfDeletion():
         # -------- Teardown ----------
         if self.c_vars['restore_vrf']:
             self.restore_vrf(duthost)
-            wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
+            wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts)
 
     @pytest.fixture(scope='class')
     def setup_vrf_restore(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1493,7 +1493,7 @@ class TestVrfDeletion():
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
 
         # check bgp session state after restore
-        assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
+        assert wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after restore Vrf1"
 
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):

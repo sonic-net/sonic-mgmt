@@ -44,6 +44,6 @@ def wait_critical_processes(dut):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical processes are healthy")
-    pytest_assert(wait_until(300, 20, _all_critical_processes_healthy, dut),
+    pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")
 

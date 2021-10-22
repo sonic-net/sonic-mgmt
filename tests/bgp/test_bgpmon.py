@@ -151,7 +151,7 @@ def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
                       "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(180, 5, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
+        pytest_assert(wait_until(180, 5, 0, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
