@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
+REBOOT_CASE_TIMEOUT = 1800
 
 class AdvancedReboot:
     '''
@@ -422,22 +423,26 @@ class AdvancedReboot:
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
+        result = True
+        final_result = True
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
                 self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
+            except Exception:
+                result = False
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
             if not result:
-                return result
+                final_result = False
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-        return result
+        return final_result
 
     def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
         '''
@@ -531,17 +536,24 @@ class AdvancedReboot:
         self.__updateAndRestartArpResponder(rebootOper)
 
         logger.info('Run advanced-reboot ReloadTest on the PTF host')
-        result = ptf_runner(
-            self.ptfhost,
-            "ptftests",
-            "advanced-reboot.ReloadTest",
-            qlen=PTFRUNNER_QLEN,
-            platform_dir="ptftests",
-            platform="remote",
-            params=params,
-            log_file=u'/tmp/advanced-reboot.ReloadTest.log',
-            module_ignore_errors=self.moduleIgnoreErrors
-        )
+        try:
+            result = ptf_runner(
+                self.ptfhost,
+                "ptftests",
+                "advanced-reboot.ReloadTest",
+                qlen=PTFRUNNER_QLEN,
+                platform_dir="ptftests",
+                platform="remote",
+                params=params,
+                log_file=u'/tmp/advanced-reboot.ReloadTest.log',
+                module_ignore_errors=self.moduleIgnoreErrors,
+                timeout=REBOOT_CASE_TIMEOUT
+            )
+        except Exception as err:
+            logger.error("Timed out after {}s of executing advance reboot case: {}.".format(
+                REBOOT_CASE_TIMEOUT, str(rebootOper)) + ". Error message: {}".format(err.message))
+            raise Exception
+
         return result
 
     def __restorePrevImage(self):
