@@ -101,12 +101,13 @@ def collect_dut_info(dut):
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
         if dut.sonichost.is_multi_asic:
-            fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asics)
-            asic_services[service] = [
-                dut.get_docker_name(service, asic_index=fe),
-                dut.get_docker_name(service, asic_index=be)
-            ]
+            asic_services[service] = []
+            if len(front_end_asics):
+                fe = random.choice(front_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=fe))
+            if len(back_end_asics):
+                be = random.choice(back_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=be))
 
     dut_info = {
         "intf_status": status,
