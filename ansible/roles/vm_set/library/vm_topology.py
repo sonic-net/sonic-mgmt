@@ -396,8 +396,8 @@ class VMTopology(object):
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
-        # add ptf fingerprint suffix to int_if to support multiple tasks run concurrently
-        tmp_int_if = int_if + VMTopology._generate_fingerprint(PTF_NAME_TEMPLATE % self.vm_set_name, 6)
+        # add unique suffix to int_if to support multiple tasks run concurrently
+        tmp_int_if = int_if + VMTopology._generate_fingerprint(ext_if, 6)
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
