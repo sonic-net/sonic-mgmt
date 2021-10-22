@@ -125,6 +125,8 @@ PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
 RETRIES = 10
+# name of interface must be less than or equal to 15 bytes.
+MAX_INTF_LEN = 15
 
 VS_CHASSIS_INBAND_BRIDGE_NAME = "br-T2Inband"
 VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
@@ -397,7 +399,7 @@ class VMTopology(object):
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
-        tmp_int_if = int_if + VMTopology._generate_fingerprint(ext_if, 6)
+        tmp_int_if = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
             VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
