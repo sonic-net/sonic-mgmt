@@ -72,7 +72,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         downlink_vlan_iface['dhcp_server_addrs'] = mg_facts['dhcp_servers']
 
-        # We choose the physical interface where our DHCP client resides to be index of first interface in the VLAN
+        # We choose the physical interface where our DHCP client resides to be index of first interface with alias (ignore PortChannel) in the VLAN
         client_iface = {}
         for port in vlan_info_dict['members']:
             if port in mg_facts['minigraph_port_name_to_alias_map']:
