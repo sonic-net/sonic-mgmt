@@ -151,7 +151,7 @@ class ReloadTest(BaseTest):
         self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
         self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required=False)
-        self.check_param('sniff_time_incr', 60, required=False)
+        self.check_param('sniff_time_incr', 300, required=False)
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
@@ -1372,7 +1372,7 @@ class ReloadTest(BaseTest):
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
         scapy_sniffer = threading.Thread(target=self.scapy_sniff,
-            kwargs={'wait': 600, 'sniff_filter': sniff_filter})
+            kwargs={'wait': wait, 'sniff_filter': sniff_filter})
         scapy_sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
