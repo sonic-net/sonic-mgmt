@@ -334,6 +334,7 @@ class ReloadTest(BaseTest):
 
     def generate_vlan_servers(self):
         vlan_host_map = defaultdict(dict)
+        self.vlan_host_ping_map = defaultdict(dict)
         self.nr_vl_pkts = 0     # Number of packets from upper layer
         for vlan, prefix in self.vlan_ip_range.items():
             if not self.ports_per_vlan[vlan]:
@@ -348,6 +349,13 @@ class ReloadTest(BaseTest):
 
                 vlan_host_map[port][addr] = mac
 
+            for counter, i in enumerate(
+                xrange(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
+                port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
+                addr = self.host_ip(prefix, i)
+                self.vlan_host_ping_map[port][addr] = mac
+
             self.nr_vl_pkts += n_hosts
 
         return vlan_host_map
@@ -355,7 +363,9 @@ class ReloadTest(BaseTest):
     def generate_arp_responder_conf(self, vlan_host_map):
         arp_responder_conf = {}
         for port in vlan_host_map:
-            arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
+            arp_responder_conf['eth{}'.format(port)] = {}
+            arp_responder_conf['eth{}'.format(port)].update(vlan_host_map[port])
+            arp_responder_conf['eth{}'.format(port)].update(self.vlan_host_ping_map[port])
 
         return arp_responder_conf
 
@@ -717,9 +727,9 @@ class ReloadTest(BaseTest):
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
-        for src_port in self.vlan_host_map:
-            src_addr = random.choice(self.vlan_host_map[src_port].keys())
-            src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
+        for src_port in self.vlan_host_ping_map:
+            src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
+            src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
                                         eth_dst=self.dut_mac,
                                         ip_src=src_addr,
