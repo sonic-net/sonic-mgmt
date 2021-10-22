@@ -12,6 +12,11 @@ parameters:
     type: string
     displayName: "Testbed Name"
 
+  - name: SAI_BRANCH
+    type: string
+    default: v1.7
+    displayName: "SAI Branch Name"
+
   - name: SAI_TEST_CONTAINER
     type: string
     default: saiserver
@@ -19,11 +24,6 @@ parameters:
     values: 
     - saiserver
     - syncd
-  
-  - name: SAI_PTF_DOCKER
-    type: string
-    displayName: "SAI PTF DOCKER"
-    default: docker-ptf
   
   # WorkFlow parameters
   - name: LOCK_TESTBED
@@ -78,6 +78,7 @@ stages:
   - template: ../templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       SAI_TEST_CONTAINER: ${{ parameters.SAI_TEST_CONTAINER }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
       UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}

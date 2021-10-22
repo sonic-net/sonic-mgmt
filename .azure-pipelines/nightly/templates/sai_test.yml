@@ -5,11 +5,7 @@ parameters:
   - name: SAI_BRANCH
     type: string
     default: v1.7
-
-  - name: SAI_PTF_DOCKER
-    type: string
-    displayName: "SAI PTF DOCKER"
-    default: docker-ptf
+    displayName: "SAI Branch Name"
 
   - name: SAI_TEST_CONTAINER
     type: string
@@ -231,26 +227,9 @@ stages:
                 sleep 30
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
-          - task: Bash@3
-            displayName: Generate SAI testbed file
-            condition: always()
-            inputs:
-              targetType: 'inline'
-              script: |
-                set -x
-
-                python ./tests/sai_qualify/common/testbed_sai.py -f ./ansible/$TESTBED_FILE -n $TESTBED_NAME -p $SAI_PTF_DOCKER
-                
-                mv testbed_sai.yaml ./ansible/
-
-                cat ./ansible/testbed_sai.yaml
-            env:
-              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-              TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
-              SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
-      
           - task: Bash@3
             displayName: Add SAI Testbed Topo
             condition: ${{ parameters.CHANGE_TOPO }}
@@ -265,6 +244,7 @@ stages:
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
