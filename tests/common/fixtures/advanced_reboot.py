@@ -540,7 +540,8 @@ class AdvancedReboot:
             platform="remote",
             params=params,
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
-            module_ignore_errors=self.moduleIgnoreErrors
+            module_ignore_errors=self.moduleIgnoreErrors,
+            timeout=1800
         )
         return result
 
