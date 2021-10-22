@@ -19,6 +19,7 @@ pytestmark = [
     pytest.mark.topology('t0', 't0-56-po2vlan')
 ]
 
+PTF_PORT_MAPPING_MODE = "use_orig_interface"
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_IP_PREFIX = "188.123"
 DUMMY_ARP_COUNT = 10
