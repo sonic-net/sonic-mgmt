@@ -160,7 +160,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         # wait till DUT enters NSF state
         for test_bgp_neighbor in test_bgp_neighbors:
             pytest_assert(
-                wait_until(60, 5, duthost.check_bgp_session_nsf, test_bgp_neighbor),
+                wait_until(60, 5, 0, duthost.check_bgp_session_nsf, test_bgp_neighbor),
                 "neighbor {} does not enter NSF state".format(test_bgp_neighbor)
             )
 
@@ -187,7 +187,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
         # wait for exabgp sessions to establish
         pytest_assert(
-            wait_until(300, 10, test_neighbor_host.check_bgp_session_state, exabgp_ips, exabgp_sessions),
+            wait_until(300, 10, 0, test_neighbor_host.check_bgp_session_state, exabgp_ips, exabgp_sessions),
             "exabgp sessions {} are not coming back".format(exabgp_sessions)
         )
 
@@ -199,13 +199,13 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
     # confirm BGP session are up
     pytest_assert(
-        wait_until(300, 10, duthost.check_bgp_session_state, test_bgp_neighbors),
+        wait_until(300, 10, 0, duthost.check_bgp_session_state, test_bgp_neighbors),
         "graceful restarted bgp sessions {} are not coming back".format(test_bgp_neighbors)
     )
 
     # confirm routes from the neighbor are restored
     pytest_assert(
-        wait_until(300, 10, _verify_prefix_counters_from_neighbor_after_graceful_restart, duthost, test_bgp_neighbors),
+        wait_until(300, 10, 0, _verify_prefix_counters_from_neighbor_after_graceful_restart, duthost, test_bgp_neighbors),
         "after graceful restart, Rib is not restored"
     )
 

@@ -244,7 +244,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} down'.format(iface))
 
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
+        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
@@ -252,7 +252,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
             duthost.shell('ifconfig {} up'.format(iface))
             
         # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
                       "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
@@ -295,7 +295,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} down'.format(iface))
 
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
+        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Restart DHCP relay service on DUT
@@ -310,7 +310,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
                       "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
