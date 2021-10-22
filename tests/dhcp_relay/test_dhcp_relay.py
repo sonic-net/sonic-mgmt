@@ -72,9 +72,14 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         downlink_vlan_iface['dhcp_server_addrs'] = mg_facts['dhcp_servers']
 
-        # We choose the physical interface where our DHCP client resides to be index of first interface in the VLAN
+        # We choose the physical interface where our DHCP client resides to be index of first interface with alias (ignore PortChannel) in the VLAN
         client_iface = {}
-        client_iface['name'] = vlan_info_dict['members'][0]
+        for port in vlan_info_dict['members']:
+            if port in mg_facts['minigraph_port_name_to_alias_map']:
+                break
+        else:
+            continue
+        client_iface['name'] = port
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
@@ -170,7 +175,25 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     subtype_exist, subtype_value = get_subtype_from_configdb(duthost)
 
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' in tbinfo['topo']['name']:
+        if testing_mode == SINGLE_TOR_MODE:
+            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
+
+        if testing_mode == DUAL_TOR_MODE:
+            if not subtype_exist or subtype_value != 'DualToR':
+                assert False, "Wrong DHCP setup on Dual ToR testbeds"
+
+            yield testing_mode, duthost, 'dual_testbed'
+    elif tbinfo['topo']['name'] == 't0-56-po2vlan':
+        if testing_mode == SINGLE_TOR_MODE:
+            if subtype_exist and subtype_value == 'DualToR':
+                assert False, "Wrong DHCP setup on t0-56-vlan2po testbeds"
+
+            yield testing_mode, duthost, 'single_testbed'
+
+        if testing_mode == DUAL_TOR_MODE:
+            pytest.skip("skip DUAL_TOR_MODE tests on t0-56-vlan2po testbeds")
+    else:
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist:
                 duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
@@ -186,15 +209,6 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
         if testing_mode == DUAL_TOR_MODE:
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
-    else:
-        if testing_mode == SINGLE_TOR_MODE:
-            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
-
-        if testing_mode == DUAL_TOR_MODE:
-            if not subtype_exist or subtype_value != 'DualToR':
-                assert False, "Wrong DHCP setup on Dual ToR testbeds"
-
-            yield testing_mode, duthost, 'dual_testbed'
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor):
