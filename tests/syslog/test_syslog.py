@@ -1,7 +1,9 @@
 import logging
 import pytest
+import os
+import time
 
-from tests.common.helpers.assertions import pytest_assert
+from scapy.all import rdpcap
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +13,25 @@ pytestmark = [
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
+
+# If any dummy IP type doesn't have a matching default route, skip test for this parametrize
+def check_dummy_addr_and_default_route(dummy_ip_a, dummy_ip_b, has_v4_default_route, has_v6_default_route):
+    skip_v4 = False
+    skip_v6 = False
+
+    if dummy_ip_a is not None and ":" not in dummy_ip_a and not has_v4_default_route:
+        skip_v4 = True
+    if dummy_ip_a is not None and ":" in dummy_ip_a and not has_v6_default_route:
+        skip_v6 = True
+
+    if dummy_ip_b is not None and ":" not in dummy_ip_b and not has_v4_default_route:
+        skip_v4 = True
+    if dummy_ip_b is not None and ":" in dummy_ip_b and not has_v6_default_route:
+        skip_v6 = True
+
+    if skip_v4 | skip_v6:
+        proto = "IPv4" if skip_v4 else "IPv6"
+        pytest.skip("DUT has no matching default route for dummy syslog ips: ({}, {}), has no {} default route".format(dummy_ip_a, dummy_ip_b, proto))
 
 # Check pcap file for the destination IPs
 def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
@@ -32,13 +53,41 @@ def _check_pcap(dummy_ip_a, dummy_ip_b, filepath):
         if is_ok_a and is_ok_b:
             return True
 
+    missed_ip = []
+    if not is_ok_a:
+        missed_ip.append(dummy_ip_a)
+    if not is_ok_b:
+        missed_ip.append(dummy_ip_b)
+    logger.error("Pcap file doesn't contain dummy syslog ips: ({})".format(", ".join(missed_ip)))
     return False
 
-@pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b", [("10.0.80.166", None), ("fd82:b34f:cc99::100", None), ("10.0.80.165", "10.0.80.166"), ("fd82:b34f:cc99::100", "10.0.80.166"), ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+# Before real test, check default route on DUT:
+#     If DUT has no IPv4 and IPv6 default route, skip syslog test. If DUT has at least one type default route, tell test_syslog function to do further check
+@pytest.fixture(scope="module")
+def check_default_route(rand_selected_dut):
+    duthost = rand_selected_dut
+    ret = {'IPv4': False, 'IPv6': False}
+
+    logger.info("Checking DUT default route")
+    result = duthost.shell("ip route show default | grep via", module_ignore_errors=True)['rc']
+    if result == 0:
+        ret['IPv4'] = True
+    result = duthost.shell("ip -6 route show default | grep via", module_ignore_errors=True)['rc']
+    if result == 0:
+        ret['IPv6'] = True
+
+    if not ret['IPv4'] and not ret['IPv6']:
+        pytest.skip("DUT has no default route, skiped")
+
+    yield ret
+
+@pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b", [("7.0.80.166", None), ("fd82:b34f:cc99::100", None), ("7.0.80.165", "7.0.80.166"), ("fd82:b34f:cc99::100", "7.0.80.166"), ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
+def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route):
+    duthost = rand_selected_dut
     logger.info("Starting syslog tests")
     test_message = "Basic Test Message"
+
+    check_dummy_addr_and_default_route(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route['IPv4'], check_default_route['IPv6'])
 
     logger.info("Configuring the DUT")
     # Add dummy rsyslog destination for testing
@@ -74,5 +123,12 @@ def test_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname, dummy_syslo
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
 
-    pytest_assert(_check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath),
-                  "Dummy syslog server IP not seen in the pcap file")
+    if not _check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath):
+        default_route_v4 = duthost.shell("ip route show default")['stdout']
+        logger.debug("DUT's IPv4 default route:\n%s" % default_route_v4)
+        default_route_v6 = duthost.shell("ip -6 route show default")['stdout']
+        logger.debug("DUT's IPv6 default route:\n%s" % default_route_v6)
+        syslog_config = duthost.shell("grep 'remote syslog server' -A 7 /etc/rsyslog.conf")['stdout']
+        logger.debug("DUT's syslog server IPs:\n%s" % syslog_config)
+
+        pytest.fail("Dummy syslog server IP not seen in the pcap file")
