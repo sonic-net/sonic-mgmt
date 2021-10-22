@@ -170,17 +170,19 @@ class TestPfcwdAllTimer(object):
                                                                          config_detect_time))
         pytest_assert(self.all_detect_time[9] < config_detect_time, err_msg)
 
-        logger.info("Verify that real detection time is not less than configured")
-        err_msg = ("Real detection time is less than configured: Real detect time: {} "
-                   "Expected: {} (wd_detect_time)".format(self.all_detect_time[9],
-                                                          self.timers['pfc_wd_detect_time']))
-        pytest_assert(self.all_detect_time[9] > self.timers['pfc_wd_detect_time'], err_msg)
+        if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_detect_time']:
+            logger.info("Verify that real detection time is not less than configured")
+            err_msg = ("Real detection time is less than configured: Real detect time: {} "
+                       "Expected: {} (wd_detect_time)".format(self.all_detect_time[9],
+                                                              self.timers['pfc_wd_detect_time']))
+            pytest_assert(self.all_detect_time[9] > self.timers['pfc_wd_detect_time'], err_msg)
 
-        logger.info("Verify that real restoration time is not less than configured")
-        err_msg = ("Real restoration time is less than configured: Real restore time: {} "
-                   "Expected: {} (wd_restore_time)".format(self.all_restore_time[9],
-                                                           self.timers['pfc_wd_restore_time']))
-        pytest_assert(self.all_restore_time[9] > self.timers['pfc_wd_restore_time'], err_msg)
+        if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_restore_time']:
+            logger.info("Verify that real restoration time is not less than configured")
+            err_msg = ("Real restoration time is less than configured: Real restore time: {} "
+                       "Expected: {} (wd_restore_time)".format(self.all_restore_time[9],
+                                                               self.timers['pfc_wd_restore_time']))
+            pytest_assert(self.all_restore_time[9] > self.timers['pfc_wd_restore_time'], err_msg)
 
         logger.info("Verify that real restoration time is less than configured")
         config_restore_time = self.timers['pfc_wd_restore_time'] + self.timers['pfc_wd_poll_time']
