@@ -5,7 +5,7 @@ pr: none
 
 # run on internal or private image
 schedules:
-  - cron: "0 18 * * FRI"
+  - cron: "0 1 * * SAT"
     displayName: Nightly Scheduler
     branches:
       include:
