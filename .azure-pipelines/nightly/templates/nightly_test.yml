@@ -106,7 +106,6 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
-          - group: CISCO_KUSTO_CLUSTER_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -385,6 +384,13 @@ stages:
                   echo "Activate python3 virtual environment"
                   source /var/AzDevOps/env-python3/bin/activate
 
+                  # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
+                  # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
+                  # of task. The workaround is to explicitly override the environment variables in bash here:
+                  TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
+                  TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
+                  TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
+
                   cd test_reporting
 
                   # temporary workaround to allow reboot timing data upload
@@ -395,7 +401,4 @@ stages:
                   python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
               condition: always()
               env:
-                TEST_REPORT_INGEST_KUSTO_CLUSTER: $(CISCO_TEST_REPORT_INGEST_KUSTO_CLUSTER)
-                TEST_REPORT_AAD_TENANT_ID: $(CISCO_TEST_REPORT_AAD_TENANT_ID)
-                TEST_REPORT_AAD_CLIENT_ID: $(CISCO_TEST_REPORT_AAD_CLIENT_ID)
-                TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_TEST_REPORT_AAD_CLIENT_KEY)
+                TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_AAD_CLIENT_KEY)
