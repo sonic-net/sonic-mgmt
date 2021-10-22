@@ -28,11 +28,11 @@ In this article, you will get known how to get a saiserver docker and get a buil
 
 3. Start a local build
    ```
+   #NOSTRETCH=y : Current image is buster
+   #KEEP_SLAVE_ON=yes: Keeps slave container up and active after building process concludes.
+
    make configure PLATFORM=broadcom
    NOSTRETCH=y KEEP_SLAVE_ON=yes make target/docker-saiserver-brcm.gz
-   
-   NOSTRETCH=y : Current image is buster
-   KEEP_SALVE_ON=yes: Keeps slave container up and active after building process concludes.
    ```
 
 
