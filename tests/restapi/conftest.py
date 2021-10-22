@@ -91,6 +91,20 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost.copy(src='restapiserver.crt', dest='/etc/sonic/credentials/testrestapiserver.crt')
     duthost.copy(src='restapiserver.key', dest='/etc/sonic/credentials/testrestapiserver.key')
 
+    apply_cert_config(duthost)
+    urllib3.disable_warnings()
+
+    yield
+    config_reload(duthost)
+    # Delete all created certs
+    local_command = "rm \
+                        restapiCA.* \
+                        restapiserver.* \
+                        restapiclient.*"
+    localhost.shell(local_command)
+
+
+def apply_cert_config(duthost):
     # Set client certificate subject name in config DB
     dut_command = "redis-cli -n 4 hset \
                     'RESTAPI|certs' \
@@ -122,16 +136,6 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost.shell(dut_command)
     time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
 
-    urllib3.disable_warnings()
-
-    yield
-    config_reload(duthost)
-    # Delete all created certs
-    local_command = "rm \
-                        restapiCA.* \
-                        restapiserver.* \
-                        restapiclient.*"
-    localhost.shell(local_command)
 
 @pytest.fixture
 def construct_url(duthosts, rand_one_dut_hostname):

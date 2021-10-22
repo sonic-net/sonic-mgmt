@@ -1,10 +1,11 @@
 import pytest
 import time
 import logging
-import requests
 import json
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import config_reload
+from conftest import apply_cert_config
 from restapi_operations import Restapi
 
 
@@ -19,6 +20,37 @@ CLIENT_CERT = 'restapiclient.crt'
 CLIENT_KEY = 'restapiclient.key'
 
 restapi = Restapi(CLIENT_CERT, CLIENT_KEY)
+
+'''
+This test checks for reset status and sets it
+'''
+def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname):
+    logger.info("Checking for RESTAPI reset status")
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "true")
+
+    logger.info("Setting RESTAPI reset status")
+    params = '{"reset_status":"false"}'
+    r = restapi.post_reset_status(construct_url, params)
+    pytest_assert(r.status_code == 200)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "false")
+
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost)
+    apply_cert_config(duthost)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "true")
+
 
 '''
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
