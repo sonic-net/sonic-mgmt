@@ -5,6 +5,7 @@ import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
+from tests.common.reboot import reboot
 from conftest import apply_cert_config
 from restapi_operations import Restapi
 
@@ -24,14 +25,15 @@ restapi = Restapi(CLIENT_CERT, CLIENT_KEY)
 '''
 This test checks for reset status and sets it
 '''
-def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname):
+def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    # Set reset status
     logger.info("Checking for RESTAPI reset status")
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
     response = r.json()
     pytest_assert(response['reset_status'] == "true")
-
     logger.info("Setting RESTAPI reset status")
     params = '{"reset_status":"false"}'
     r = restapi.post_reset_status(construct_url, params)
@@ -42,7 +44,8 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname):
     response = r.json()
     pytest_assert(response['reset_status'] == "false")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    # Check reset status post config reload
+    logger.info("Checking for RESTAPI reset status after config reload")
     config_reload(duthost)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
@@ -50,6 +53,60 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname):
     logger.info(r.json())
     response = r.json()
     pytest_assert(response['reset_status'] == "true")
+
+    # Check reset status post fast reboot
+    logger.info("Checking for RESTAPI reset status after fast reboot")
+    params = '{"reset_status":"false"}'
+    r = restapi.post_reset_status(construct_url, params)
+    pytest_assert(r.status_code == 200)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "false")
+    reboot(duthost, localhost, 'fast')
+    apply_cert_config(duthost)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "true")
+   
+    # Check reset status post cold reboot
+    logger.info("Checking for RESTAPI reset status after cold reboot")
+    params = '{"reset_status":"false"}'
+    r = restapi.post_reset_status(construct_url, params)
+    pytest_assert(r.status_code == 200)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "false")
+    reboot(duthost, localhost, 'cold')
+    apply_cert_config(duthost)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "true")
+
+    # Check reset status post warm reboot
+    logger.info("Checking for RESTAPI reset status after warm reboot")
+    params = '{"reset_status":"false"}'
+    r = restapi.post_reset_status(construct_url, params)
+    pytest_assert(r.status_code == 200)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "false")
+    reboot(duthost, localhost, 'warm')
+    apply_cert_config(duthost)
+    r = restapi.get_reset_status(construct_url)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    response = r.json()
+    pytest_assert(response['reset_status'] == "false")
 
 
 '''
