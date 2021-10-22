@@ -204,7 +204,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiHeadroomPoolSize(
-        self, duthosts, rand_one_dut_hostname, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
     ):
         """
@@ -227,7 +227,6 @@ class TestQosSai(QosSaiBase):
         if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS and dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("Headroom pool size not supported")
 
-        duthost = duthosts[rand_one_dut_hostname]
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
@@ -270,14 +269,10 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        try:
-            duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-            self.runPtfTest(
-                ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
-                testParams=testParams
-            )
-        finally:
-            duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
+            testParams=testParams
+        )
 
     def testQosSaiHeadroomPoolWatermark(
         self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams,
@@ -340,14 +335,11 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
-        try:
-            duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-            self.runPtfTest(
-                ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
-                testParams=testParams
-            )
-        finally:
-            duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
+            testParams=testParams
+        )
 
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
