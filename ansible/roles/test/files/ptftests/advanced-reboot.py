@@ -931,10 +931,14 @@ class ReloadTest(BaseTest):
         self.examine_flow()
         self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
 
-        self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-        self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-        self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
-            (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+        if self.lost_packets:
+            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+            self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
+            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
+                (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+        else:
+            self.no_routing_start = self.reboot_start
+            self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
         self.send_and_sniff()
@@ -1170,6 +1174,7 @@ class ReloadTest(BaseTest):
             self.wait_dut_to_warm_up()
             self.fails['dut'].clear()
 
+            self.clear_dut_counters()
             self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
             thr = threading.Thread(target=self.reboot_dut)
             thr.setDaemon(True)
@@ -1320,19 +1325,6 @@ class ReloadTest(BaseTest):
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
         with self.dataplane_io_lock:
-            # Clear the counters before starting the IO traffic
-            # this is done so that drops can be accurately calculated
-            # after reboot test is finished
-            clear_counter_cmds = [ "sonic-clear counters",
-            "sonic-clear queuecounters",
-            "sonic-clear dropcounters",
-            "sonic-clear rifcounters",
-            "sonic-clear pfccounters"
-            ]
-            if 'broadcom' in self.test_params['asic_type']:
-                clear_counter_cmds.append("bcmcmd 'clear counters'")
-            for cmd in clear_counter_cmds:
-                self.dut_connection.execCommand(cmd)
             sent_packet_count = 0
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load on PTF socket (sniffer thread is using a different one)
@@ -1654,6 +1646,21 @@ class ReloadTest(BaseTest):
            raise Exception("{} flapped while waiting for the warm up".format(fail))
 
         # Everything is good
+
+    def clear_dut_counters(self):
+        # Clear the counters after the WARM UP is complete
+        # this is done so that drops can be accurately calculated
+        # after reboot test is finished
+        clear_counter_cmds = [ "sonic-clear counters",
+        "sonic-clear queuecounters",
+        "sonic-clear dropcounters",
+        "sonic-clear rifcounters",
+        "sonic-clear pfccounters"
+        ]
+        if 'broadcom' in self.test_params['asic_type']:
+            clear_counter_cmds.append("bcmcmd 'clear counters'")
+        for cmd in clear_counter_cmds:
+            self.dut_connection.execCommand(cmd)
 
     def check_alive(self):
         # This function checks that DUT routes the packets in the both directions.
