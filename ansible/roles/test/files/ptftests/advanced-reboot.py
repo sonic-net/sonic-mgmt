@@ -1387,7 +1387,7 @@ class ReloadTest(BaseTest):
             wait (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
-        capture_pcap = "/tmp/capture.pcap"
+        capture_pcap = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
         capture_log = "/tmp/capture.log"
         self.ptf_sniffer = "/root/ptftests/advanced_reboot_sniffer.py"
         sniffer_command = ["python", self.ptf_sniffer, "-f", "'{}'".format(sniff_filter), "-p",\
