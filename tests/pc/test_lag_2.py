@@ -112,7 +112,7 @@ class LagTest:
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' \
                     % (namespace_prefix, lag_name, po_intf)
-                    wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
+                    wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
@@ -136,7 +136,7 @@ class LagTest:
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"'\
                               % (namespace_prefix, lag_name, po_intf)
-                    wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
+                    wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
     def run_single_lag_lacp_rate_test(self, lag_name, lag_facts):
         logger.info("Start checking single lag lacp rate for: %s" % lag_name)
@@ -216,7 +216,7 @@ class LagTest:
         try:
             # Shut down neighbor interface
             vm_host.shutdown(neighbor_intf)
-            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, False)
+            wait_until(wait_timeout, delay, 0, self.__check_intf_state, vm_host, neighbor_intf, False)
 
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
@@ -242,7 +242,7 @@ class LagTest:
         finally:
             # Bring up neighbor interface
             vm_host.no_shutdown(neighbor_intf)
-            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
+            wait_until(wait_timeout, delay, 0, self.__check_intf_state, vm_host, neighbor_intf, True)
 
 @pytest.fixture(autouse=True, scope='module')
 def skip_if_no_lags(duthosts):

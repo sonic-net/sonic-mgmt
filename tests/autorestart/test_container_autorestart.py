@@ -218,6 +218,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     duthost.shell("sudo systemctl start {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
@@ -240,6 +241,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' was stopped".format(container_name))
@@ -247,6 +249,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is restarted...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
         if is_hiting_start_limit(duthost, container_name):
@@ -275,6 +278,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Waiting to ensure container '{}' does not stop...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(not stopped, "Container '{}' was stopped unexpectedly".format(container_name))
     logger.info("Container '{}' did not stop".format(container_name))
@@ -333,7 +337,7 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS,
+    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
                       post_test_check, duthost, up_bgp_neighbors)
 
 

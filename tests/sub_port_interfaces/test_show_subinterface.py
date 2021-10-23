@@ -69,7 +69,7 @@ def test_subinterface_status(duthost, subintf_expected_config):
 
     # creation verification
     success_show_sub_status = []
-    if not wait_until(20, 5, _verify_subintf_creation, subintf_expected_config, success_show_sub_status):
+    if not wait_until(20, 5, 0, _verify_subintf_creation, subintf_expected_config, success_show_sub_status):
         pytest.fail("Failed to create subinterfaces")
 
     show_sub_status = success_show_sub_status[0]
@@ -98,7 +98,7 @@ def test_subinterface_status(duthost, subintf_expected_config):
 
     # deletion verification
     _remove_subintf(subintf_expected_config)
-    if not wait_until(20, 5, _verify_subintf_removal, subintf_expected_config):
+    if not wait_until(20, 5, 0, _verify_subintf_removal, subintf_expected_config):
         pytest.fail("Failed to remove subinterfaces")
 
     show_ip_interfaces = {_["interface"]: _ for _ in duthost.show_and_parse("show ip interface")
