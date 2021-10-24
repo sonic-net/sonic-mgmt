@@ -4,8 +4,8 @@ import json
 import logging
 from pkg_resources import parse_version
 
+from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
 
@@ -15,6 +15,22 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is 20201231.38 or older image version.
+
+    Args:
+        duthost: Hostname of DUT.
+
+        Returns:
+            None.
+    """
+    pytest_require(
+            ("20201231" in duthost.os_version and
+                parse_version(duthost.os_version) > parse_version("20201231.38")),
+            "Test is not supported for 20201231.38 and older image versions!")
+
 
 
 def check_disk_ro(duthost):
@@ -40,6 +56,24 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     finally:
         logger.debug("ssh rc={}".format(rc))
     return rc == 0
+
+
+def print_res(res):
+    logger.debug("{}: rc={}".format(res['cmd'], res['rc']))
+    logger.debug("stdout: {}".format(res.get('stdout', "").encode('utf-8').strip()))
+    logger.debug("stderr: {}".format(res.get('stderr', "").encode('utf-8').strip()))
+
+
+def collect_data(localhost, dutip, rw_user, rw_pass):
+    cmds = [
+        "sudo find /run/mount -ls",
+        "sudo ls -lrt /home",
+        "cat /etc/passwd",
+        "systemctl status monit"
+        ]
+
+    for cmd in cmds:
+        print_res(ssh_remote_run(localhost, dutip, rw_user, rw_pass, cmd))
 
 
 def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
@@ -68,7 +102,6 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release(duthost, ["201911", "201811"])
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
@@ -88,6 +121,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
             # If any failure, it implies user not valid, which is good enough.
             logger.info("del user {} done".format(ro_user))
 
+    ret = -1
     try:
         # Ensure rw user can get in, as we need this to be able to reboot
         ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
@@ -101,8 +135,14 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
 
         assert wait_until(600, 20, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
+        ret = 0
 
     finally:
+        logger.debug("Collect data before reboot")
+
+        if ret:
+            collect_data(localhost, dutip, rw_user, rw_pass)
+
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
