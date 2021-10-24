@@ -13,6 +13,7 @@ import random
 import time
 import json
 import tempfile
+import re
 from collections import defaultdict
 
 import pytest
@@ -81,10 +82,31 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     # Set FDB entry
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
+    time.sleep(3)
 
     cmd = "docker exec -i swss rm -f /fdb.json"
     duthost.command(cmd)
+    time.sleep(5)
 
+def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
+    """
+    Check if the ARP and FDB entry is present
+    """
+    logging.info("Verify if the ARP and FDB entry is present for {}".format(dst_ip))
+    result = duthost.command("show arp {}".format(dst_ip))
+    pytest_assert("Total number of entries 1" in result['stdout'],
+                  "ARP entry for {} missing in ASIC".format(dst_ip))
+    result = duthost.shell("ip neigh show {}".format(dst_ip))
+    pytest_assert(result['stdout_lines'], "{} not in arp table".format(dst_ip))
+    match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(dst_ip),
+                     result['stdout_lines'][0])
+    pytest_assert(match,
+                  "Regex failed while retrieving arp entry for {}".format(dst_ip))
+    pytest_assert(match.group(1).replace(":", "-") == dst_mac,
+                  "ARP entry's lladdr is changed from {} to {}".format(dst_mac, match.group(1).replace(":", "-")))
+
+    fdb_count = int(duthost.shell("show mac | grep {} | grep {} | wc -l".format(match.group(1), dst_intf))["stdout"])
+    pytest_assert(fdb_count == 1, "FDB entry doesn't exist for {}, fdb_count is {}".format(dst_mac, fdb_count))
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
@@ -116,6 +138,8 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                             mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                             "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
+        time.sleep(3)
+        verifyFdbArp(duthost, mock_server['server_dst_addr'], mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
@@ -400,6 +424,8 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
     logging.info("Populating FDB and ARP entry for mock server under VLAN")
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
+
+    time.sleep(5)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
