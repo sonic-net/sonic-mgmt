@@ -138,9 +138,8 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         ret = 0
 
     finally:
-        logger.debug("Collect data before reboot")
-
         if ret:
+            logger.debug("Collect data before reboot")
             collect_data(localhost, dutip, rw_user, rw_pass)
 
         logger.debug("START: reboot {} to restore disk RW state".
