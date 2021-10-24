@@ -4,7 +4,6 @@ import logging
 import contextlib
 import time
 import tempfile
-import pdb
 
 from ptf import testutils
 from scapy.all import *
