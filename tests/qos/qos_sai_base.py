@@ -1323,7 +1323,7 @@ class QosSaiBaseMasic(QosBase):
                 # wait for port status to change
                 pytest_assert(
                     wait_until(
-                        10, 1, is_intf_status, frontend_asic, intf,
+                        10, 1, 0, is_intf_status, frontend_asic, intf,
                         oper_state
                     ),
                     "Failed to update port status {} {}".format(

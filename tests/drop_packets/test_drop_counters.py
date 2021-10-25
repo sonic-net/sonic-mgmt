@@ -199,7 +199,9 @@ def mtu_config(duthosts, rand_one_dut_hostname):
             cls.asic_index = asic_index
             cls.iface = iface
             check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu  # lgtm[py/loop-variable-capture]
-            pytest_assert(wait_until(5, 1, check_mtu), "MTU on interface {} not updated".format(iface))
+            pytest_assert(wait_until(
+                5, 1, 0, check_mtu), "MTU on interface {} not updated".format(iface)
+            )
 
         @classmethod
         def restore_mtu(cls):

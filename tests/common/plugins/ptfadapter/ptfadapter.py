@@ -59,7 +59,7 @@ class PtfTestAdapter(BaseTest):
         sock = nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)
         sock.connect(socket_addr)
         try:
-            return wait_until(1, 0.2, lambda:sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
+            return wait_until(1, 0.2, 0, lambda:sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
         finally:
             sock.close()
 

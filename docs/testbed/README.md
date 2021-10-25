@@ -16,3 +16,4 @@
 - [FAQ](README.testbed.FAQ.md)
 - [Internal](README.testbed.Internal.md)
 - [Kubernetes Setup](README.testbed.k8s.Setup.md)
+- [SAI Test Setup](./sai_quality/README.md)
