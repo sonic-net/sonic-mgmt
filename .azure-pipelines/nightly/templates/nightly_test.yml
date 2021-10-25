@@ -145,16 +145,12 @@ stages:
                 print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
                 print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
-          - task: PythonScript@0
-            displayName: Lock Testbed
-            inputs:
-              scriptSource: 'filePath'
-              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-              arguments: lock
+          - script: |
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock
             env:
-                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            displayName: Lock Testbed
 
           - task: Bash@3
             displayName: "Upgrade Image"
@@ -308,16 +304,12 @@ stages:
               testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
             condition: always()
 
-          - task: PythonScript@0
-            displayName: Release Testbed
-            inputs:
-              scriptSource: 'filePath'
-              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-              arguments: release
+          - script: |
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
             env:
-                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            displayName: Release Testbed
             condition: always()
 
           - task: CopyFiles@2
