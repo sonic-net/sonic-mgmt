@@ -2,11 +2,13 @@ import pytest
 import logging
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.topology('any'),
 ]
+
+LOG_EXPECT_PO_CLEANUP_RE = "INFO kernel:.*{}:.*removed"
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -45,10 +47,6 @@ def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
         pytest.skip("Skip test due to there is no portchannel exists in current topology.")
-    yield 
-    # Do config reload to restore everything back
-    logging.info("Reloading config..")
-    config_reload(duthost)
 
 def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
@@ -62,3 +60,21 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
         fail_msg = "PortChannel interface still exists in kernel"
         pytest.fail(fail_msg)
+
+def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    """
+    test port channel are cleaned up correctly after config reload
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+    port_channel_intfs = lag_facts['names'].keys()
+
+    # Add start marker to the DUT syslog
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
+    loganalyzer.expect_regex = []
+    for pc in port_channel_intfs:
+        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
+
+    logging.info("Reloading config..")
+    with loganalyzer:
+        config_reload(duthost)
