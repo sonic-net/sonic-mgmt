@@ -181,7 +181,7 @@
   comment: Renuka
 
 - conf-name: vms3-t1-dx010-1
-  group-name: vms3-6
+  group-name: vms3-5
   topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: vms3-5
@@ -1361,3 +1361,19 @@
   inv_name: str2
   auto_recover: 'False'
   comment: hellospytest
+
+- conf-name: vms-chassis-packet-dut
+  group-name: vms-dummy-dut
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: ptf-unknown
+  ptf_ip: 1.1.1.1/23
+  ptf_ipv6:
+  server: dummy_1
+  vm_base: DUMMY0001
+  dut:
+    - lab-msft-lc0-1
+    - lab-msft-lc1-1
+    - lab-msft-lc2-1
+    - lab-msft-sup-1
+  comment: Chasiss Testbed

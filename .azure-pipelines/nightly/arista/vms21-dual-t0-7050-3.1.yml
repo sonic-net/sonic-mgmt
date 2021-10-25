@@ -47,7 +47,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces"'
+    default: '-S "span sub_port_interfaces dualtor_io platform_tests"'
     displayName: Testbed specific
 
 stages:

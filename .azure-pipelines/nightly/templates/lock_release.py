@@ -1,8 +1,10 @@
 from __future__ import print_function
+import argparse
 import os
 import requests
 import sys
 
+DEFAULT_LOCK_HOURS = 36
 
 def get_token(client_id, client_secret):
     token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
@@ -23,26 +25,23 @@ def get_token(client_id, client_secret):
     return None
 
 
-def lock_release(testbed, action, token, proxies):
+def lock_release(testbed, action, token, proxies, hours, user, reason, force, absolute):
     try:
         url = 'https://tbshare.azurewebsites.net/api/{}'.format(action)
         headers = {
             'Authorization': 'Bearer ' + token
         }
-        build_name = os.environ.get('BUILD_DEFINITIONNAME')
-        build_id = os.environ.get('BUILD_BUILDID')
-        user = '{}_{}'.format(build_name, build_id)
         params = {
             'name': testbed,
             'user': user,
-            'force': 'yes'
+            'force': force
         }
         if action == 'lock':
             # Extra params required only for lock
             params.update({
-                'hours': '36',
-                'lock_reason': 'NightlyTest',
-                'absolute': 'yes'
+                'hours': hours,
+                'lock_reason': reason,
+                'absolute': absolute
             })
 
         result = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10).json()
@@ -61,23 +60,71 @@ def lock_release(testbed, action, token, proxies):
 
 if __name__ == '__main__':
 
-    usage = 'usage: python lock_release.py [lock|release]'
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Lock/release a testbed")
 
-    if len(sys.argv) < 2:
-        print(usage)
-        sys.exit(1)
+    parser.add_argument('-a', '--action',
+        type=str,
+        dest='action',
+        choices=['lock', 'release'],
+        required=True,
+        help='Action lock or release.')
 
-    action = sys.argv[1]
-    if action not in ['lock', 'release']:
-        print(usage)
-        sys.exit(1)
+    parser.add_argument('-t', '--testbed',
+        type=str,
+        dest='testbed',
+        required=True,
+        help='Testbed name')
 
-    testbed = os.environ.get('TESTBED_NAME')
+    parser.add_argument('-u', '--user',
+        type=str,
+        dest='user',
+        required=False,
+        default='',
+        help='Lock user')
+
+    parser.add_argument('-o', '--hours',
+        type=int,
+        dest='hours',
+        required=False,
+        default=DEFAULT_LOCK_HOURS,
+        help='Lock hours')
+
+    parser.add_argument('-r', '--lock-reason',
+        type=str,
+        dest='reason',
+        required=False,
+        default='NightlyTest',
+        help='Lock reason')
+
+    parser.add_argument('-f', '--force',
+        type=str,
+        dest='force',
+        required=False,
+        default="yes",
+        help='Force lock. Valid values: true, yes, t, y, false, no, f, n. Case insentitive')
+
+    parser.add_argument('-b', '--absolute',
+        type=str,
+        dest='absolute',
+        required=False,
+        default="yes",
+        help='Absolute lock. Valid values: true, yes, t, y, false, no, f, n. Case insentitive')
+
+    args = parser.parse_args()
+
+    if args.user == '':
+        build_name = os.environ.get('BUILD_DEFINITIONNAME')
+        build_id = os.environ.get('BUILD_BUILDID')
+        user = '{}_{}'.format(build_name, build_id)
+        args.user = user
+
     client_id = os.environ.get('TBSHARE_AAD_CLIENT_ID')
     client_secret = os.environ.get('TBSHARE_AAD_CLIENT_SECRET')
 
-    if not testbed or not client_id or not client_secret:
-        print('Need environment variables: TESTBED_NAME, TBSHARE_AAD_CLIENT_ID, TBSHARE_AAD_CLIENT_SECRET')
+    if not client_id or not client_secret:
+        print('Need environment variables: TBSHARE_AAD_CLIENT_ID, TBSHARE_AAD_CLIENT_SECRET')
         sys.exit(1)
 
     proxies = {
@@ -89,4 +136,4 @@ if __name__ == '__main__':
     if not token:
         sys.exit(1)
 
-    sys.exit(lock_release(testbed, action, token, proxies))
+    sys.exit(lock_release(args.testbed, args.action, token, proxies, args.hours, args.user, args.reason, args.force, args.absolute))
