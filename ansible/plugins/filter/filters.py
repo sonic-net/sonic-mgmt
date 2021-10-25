@@ -10,7 +10,8 @@ class FilterModule(object):
             'filter_vm_targets': filter_vm_targets,
             'extract_hostname': extract_hostname,
             'first_n_elements': first_n_elements,
-            'expand_properties': expand_properties
+            'expand_properties': expand_properties,
+            'find_version_str': find_version_str
         }
 
 
@@ -192,3 +193,15 @@ def expand_properties(value, configuration_properties):
             if p in configuration_properties:
                 vm_properties[vm].update(configuration_properties[p])
     return vm_properties
+
+
+def find_version_str(show_version_lines):
+    """Find SONiC version string out of show version stdout lines."""
+    for line in show_version_lines:
+        if not line:
+            continue
+        line = line.strip()
+        if "SONiC Software Version" in line:
+            value = line.split(":")[1].strip().lower().lstrip("sonic.")
+            return value
+    raise errors.AnsibleFilterError("Failed to get SONiC version from show version output")
