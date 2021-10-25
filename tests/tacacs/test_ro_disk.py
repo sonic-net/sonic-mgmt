@@ -26,9 +26,7 @@ def check_image_version(duthost):
         Returns:
             None.
     """
-    pytest_require(
-            ("20201231" in duthost.os_version and
-                parse_version(duthost.os_version) > parse_version("20201231.38")),
+    pytest_require(parse_version(duthost.os_version) > parse_version("20201231.38")),
             "Test is not supported for 20201231.38 and older image versions!")
 
 
