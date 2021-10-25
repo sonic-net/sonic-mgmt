@@ -1,5 +1,8 @@
 import pytest
 import logging
+import itertools
+import collections
+
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
@@ -167,7 +170,7 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
     config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    config_ports_vlan = defaultdict(list)
+    config_ports_vlan = collections.defaultdict(list)
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     # key is dev name, value is list for configured VLAN member.
     for k, v in cfg_facts['VLAN'].items():
