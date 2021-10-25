@@ -1,6 +1,5 @@
 import logging
 import re
-import random
 import pytest
 import yaml
 
