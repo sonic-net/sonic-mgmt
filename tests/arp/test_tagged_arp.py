@@ -26,7 +26,7 @@ DUMMY_IP_PREFIX = "188.123"
 DUMMY_ARP_COUNT = 10
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def skip_dualtor(tbinfo):
     """Skip running `test_tagged_arp` over dualtor."""
     pytest_require("dualtor" not in tbinfo["topo"]["name"], "Skip 'test_tagged_arp' over dualtor.")
