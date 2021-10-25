@@ -62,7 +62,7 @@ parameters:
   
   - name: TESTBED_LOCK_HOUR
     type: string
-    default: "3"
+    default: "6"
 
   # Upgrade parameters
   - name: IMAGE_URL
