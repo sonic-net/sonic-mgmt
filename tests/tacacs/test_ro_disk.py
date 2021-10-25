@@ -1,6 +1,5 @@
 import pytest
 import crypt
-import json
 import logging
 from pkg_resources import parse_version
 
@@ -26,7 +25,7 @@ def check_image_version(duthost):
         Returns:
             None.
     """
-    pytest_require(parse_version(duthost.os_version) > parse_version("20201231.38")),
+    pytest_require(parse_version(duthost.os_version) > parse_version("20201231.38"),
             "Test is not supported for 20201231.38 and older image versions!")
 
 
