@@ -171,7 +171,6 @@ class TestPsuApi(PlatformApiTestBase):
                     self.expect(fan and fan == fan_list[i], "Fan {} of PSU {} is incorrect".format(i, psu_id))
         self.assert_expectations()
 
-
     def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU power test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -185,16 +184,25 @@ class TestPsuApi(PlatformApiTestBase):
                 voltage = psu.get_voltage(platform_api_conn, psu_id)
                 if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
                     self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
-                current = psu.get_current(platform_api_conn, psu_id)
-                if self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id)):
-                    self.expect(isinstance(current, float), "PSU {} current appears incorrect".format(psu_id))
-                power = psu.get_power(platform_api_conn, psu_id)
-                if self.expect(power is not None, "Failed to retrieve power of PSU {}".format(psu_id)):
-                    self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
-                max_supp_power = psu.get_maximum_supplied_power(platform_api_conn, psu_id)
-                if self.expect(max_supp_power is not None,
-                               "Failed to retrieve maximum supplied power power of PSU {}".format(psu_id)):
-                    self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
+                current = None
+                current_supported = self.get_psu_facts(duthost, psu_id, True, "current")
+                if current_supported:
+                    current = psu.get_current(platform_api_conn, psu_id)
+                    if self.expect(current is not None, "Failed to retrieve current of PSU {}".format(psu_id)):
+                        self.expect(isinstance(current, float), "PSU {} current appears incorrect".format(psu_id))
+                power = None
+                power_supported = self.get_psu_facts(duthost, psu_id, True, "power")
+                if power_supported:
+                    power = psu.get_power(platform_api_conn, psu_id)
+                    if self.expect(power is not None, "Failed to retrieve power of PSU {}".format(psu_id)):
+                        self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
+                max_supp_power = None
+                max_power_supported = self.get_psu_facts(duthost, psu_id, True, "max_power")
+                if max_power_supported:
+                    max_supp_power = psu.get_maximum_supplied_power(platform_api_conn, psu_id)
+                    if self.expect(max_supp_power is not None,
+                                   "Failed to retrieve maximum supplied power power of PSU {}".format(psu_id)):
+                        self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
 
                 if current is not None and voltage is not None and power is not None:
                     self.expect(abs(power - (voltage*current)) < power*0.1, "PSU {} reading does not make sense \
@@ -204,12 +212,18 @@ class TestPsuApi(PlatformApiTestBase):
                 if self.expect(powergood_status is not None, "Failed to retrieve operational status of PSU {}".format(psu_id)):
                     self.expect(powergood_status is True, "PSU {} is not operational".format(psu_id))
 
-                high_threshold = psu.get_voltage_high_threshold(platform_api_conn, psu_id)
-                if self.expect(high_threshold is not None, "Failed to retrieve the high voltage threshold of PSU {}".format(psu_id)):
-                    self.expect(isinstance(high_threshold, float), "PSU {} voltage high threshold appears incorrect".format(psu_id))
-                low_threshold = psu.get_voltage_low_threshold(platform_api_conn, psu_id)
-                if self.expect(low_threshold is not None, "Failed to retrieve the low voltage threshold of PSU {}".format(psu_id)):
-                    self.expect(isinstance(low_threshold, float), "PSU {} voltage low threshold appears incorrect".format(psu_id))
+                high_threshold = None
+                voltage_high_threshold_supported = self.get_psu_facts(duthost, psu_id, True, "voltage_high_threshold")
+                if voltage_high_threshold_supported:
+                    high_threshold = psu.get_voltage_high_threshold(platform_api_conn, psu_id)
+                    if self.expect(high_threshold is not None, "Failed to retrieve the high voltage threshold of PSU {}".format(psu_id)):
+                        self.expect(isinstance(high_threshold, float), "PSU {} voltage high threshold appears incorrect".format(psu_id))
+                low_threshold = None
+                voltage_low_threshold_supported = self.get_psu_facts(duthost, psu_id, True, "voltage_low_threshold")
+                if voltage_low_threshold_supported:
+                    low_threshold = psu.get_voltage_low_threshold(platform_api_conn, psu_id)
+                    if self.expect(low_threshold is not None, "Failed to retrieve the low voltage threshold of PSU {}".format(psu_id)):
+                        self.expect(isinstance(low_threshold, float), "PSU {} voltage low threshold appears incorrect".format(psu_id))
                 if high_threshold is not None and low_threshold is not None:
                     self.expect(voltage < high_threshold and voltage > low_threshold,
                                 "Voltage {} of PSU {} is not in between {} and {}".format(voltage, psu_id,
@@ -217,17 +231,23 @@ class TestPsuApi(PlatformApiTestBase):
                                                                                           high_threshold))
         self.assert_expectations()
 
-
     def test_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU temperature test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+        psus_skipped = 0
 
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
             if name in self.psu_skip_list:
                logger.info("skipping check for {}".format(name))
             else:
+                temperature_supported = self.get_psu_facts(duthost, psu_id, True, "temperature")
+                if not temperature_supported:
+                    logger.info("test_set_fans_speed: Skipping chassis fan {} (speed not controllable)".format(psu_id))
+                    psus_skipped += 1
+                    continue
+
                 temperature = psu.get_temperature(platform_api_conn, psu_id)
                 if self.expect(temperature is not None, "Failed to retrieve temperature of PSU {}".format(psu_id)):
                     self.expect(isinstance(temperature, float), "PSU {} temperature appears incorrect".format(psu_id))
@@ -240,8 +260,11 @@ class TestPsuApi(PlatformApiTestBase):
                         self.expect(temperature < temp_threshold,
                                     "Temperature {} of PSU {} is over the threshold {}".format(temperature, psu_id,
                                                                                                temp_threshold))
-        self.assert_expectations()
 
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all chassis psus' temperature sensor is not supported")
+
+        self.assert_expectations()
 
     def test_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU status led test '''

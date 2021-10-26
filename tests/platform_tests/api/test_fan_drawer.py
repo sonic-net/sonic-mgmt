@@ -242,10 +242,22 @@ class TestFanDrawerApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        max_power_skipped = 0
+
         for i in range(self.num_fan_drawers):
+            max_power_supported = self.get_fan_drawer_facts(duthost, i, True, "max_consumed_power")
+            if not max_power_supported:
+                logger.info("test_get_maximum_consumed_power: Skipping drawer {} (max power not supported)".format(i))
+                max_power_skipped += 1
+                continue
+
             fan_drawer_max_con_power = fan_drawer.get_maximum_consumed_power(platform_api_conn, i)
             if self.expect(fan_drawer_max_con_power is not None, "Unable to retrieve module {} slot id".format(i)):
                 self.expect(isinstance(fan_drawer_max_con_power, float),
                             "Module {} max consumed power format appears incorrect ".format(i))
+
+        if max_power_skipped == self.num_fan_drawers:
+            pytest.skip("skipped as all chassis fan drawers' max consumed power is not supported")
 
         self.assert_expectations()

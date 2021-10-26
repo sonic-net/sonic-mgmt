@@ -460,7 +460,7 @@ class TestSfpApi(PlatformApiTestBase):
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
@@ -516,7 +516,7 @@ class TestSfpApi(PlatformApiTestBase):
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
