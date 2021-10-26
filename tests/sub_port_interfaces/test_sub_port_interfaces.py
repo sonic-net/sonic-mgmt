@@ -13,6 +13,7 @@ from sub_ports_helpers import startup_port
 from sub_ports_helpers import setup_vlan
 from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
+from sub_ports_helpers import remove_sub_port
 
 
 pytestmark = [
@@ -260,6 +261,60 @@ class TestSubPorts(object):
         new_sub_ports = apply_route_config['new_sub_ports']
         sub_ports = apply_route_config['sub_ports']
         type_of_traffic = type_of_traffic.split('-')
+
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
+            for sub_port, _ in next_hop_sub_ports:
+                generate_and_verify_traffic(duthost=duthost,
+                                            ptfadapter=ptfadapter,
+                                            src_port=sub_ports[src_port]['neighbor_port'],
+                                            ip_src=sub_ports[src_port]['neighbor_ip'],
+                                            dst_port=sub_ports[sub_port]['neighbor_port'],
+                                            ip_dst=sub_ports[sub_port]['neighbor_ip'],
+                                            pkt_action='fwd',
+                                            type_of_traffic=type_of_traffic,
+                                            ttl=63)
+
+    @pytest.mark.parametrize("type_of_traffic, port_type", [["TCP-UDP-ICMP", "PORT"]])
+    def test_routing_between_sub_ports_unaffected_by_sub_ports_removal(self, type_of_traffic, duthost, ptfadapter, apply_route_config):
+        """
+        Validates that the routing of packets between sub-ports are not affected by the removal of other sub ports.
+
+        Test steps:
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Add one of the sub-ports to namespace on the PTF.
+            4.) Setup static routes between sub-port and sub-port in namespace on the PTF
+            5.) Create packet (TCP, UDP or ICMP).
+            6.) Remove some other sub ports
+            7.) Send packet from sub-port to sub-port in namespace on the PTF.
+            8.) Verify that sub-port gets received packet on the PTF.
+            9.) Remove static routes from PTF
+            10.) Remove namespaces from PTF
+            11.) Clear configuration of sub-ports on the DUT.
+            12.) Clear configuration of sub-ports on the PTF.
+
+        Note:
+            Test verifies two cases of routing between sub-ports:
+                1.) Routing between sub-ports on the same port
+                2.) Routing between sub-ports on the different ports
+
+        Pass Criteria: PTF port gets packets from port in namespace on the PTF.
+        """
+        new_sub_ports = apply_route_config['new_sub_ports']
+        sub_ports = apply_route_config['sub_ports']
+        type_of_traffic = type_of_traffic.split('-')
+
+        # find to-be-removed sub ports
+        sub_ports_to_remove = set(sub_ports.keys())
+        for sub_port, next_hop_sub_ports in new_sub_ports.items():
+            sub_ports_to_remove.remove(sub_port)
+            for next_hop_sub_port, _ in next_hop_sub_ports:
+                sub_ports_to_remove.remove(next_hop_sub_port)
+
+        # remove those to-be-removed sub ports
+        for sub_port in sub_ports_to_remove:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]["ip"])
 
         for src_port, next_hop_sub_ports in new_sub_ports.items():
             for sub_port, _ in next_hop_sub_ports:
