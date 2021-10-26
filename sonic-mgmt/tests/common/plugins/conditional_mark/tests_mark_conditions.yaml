@@ -19,19 +19,19 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
     conditions:
       - "asic_type=='cisco-8000'"
 
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 platform, fans do not have their own leds."
     conditions:
       - "asic_type=='cisco-8000'"
 
-platform_tests/api/test_psu.py::TestPsuApi::test_led
+platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
     reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type=='cisco-8000'"
 
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
     conditions:
