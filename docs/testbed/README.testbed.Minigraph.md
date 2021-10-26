@@ -33,6 +33,6 @@ The tool works as follows:
 
 - Load the minigraph on DUT.
 
-- Save the configuration in config db.
+- Save the configuration in config db. 
 
 For more details, please refer the comments in [`config_sonic_basedon_testbed.yml`](/ansible/config_sonic_basedon_testbed.yml).
