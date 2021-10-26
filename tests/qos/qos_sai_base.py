@@ -958,6 +958,14 @@ class QosSaiBase(QosBase):
             )
 
     @pytest.fixture(scope='class', autouse=True)
+    def dut_disable_ipv6(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
+        duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+
+        yield
+        duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+
+    @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
         self, request, duthosts, enum_frontend_asic_index,
         rand_one_dut_hostname
