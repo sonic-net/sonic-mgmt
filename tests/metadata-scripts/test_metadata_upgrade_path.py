@@ -38,6 +38,13 @@ def upgrade_path_lists(request):
     return upgrade_type, from_list, to_list, restore_to_image
 
 
+@pytest.fixture
+def skip_cancelled_case(request, upgrade_type_params):
+    if "test_cancelled_upgrade_path" in request.node.name\
+        and upgrade_type_params not in ["warm", "fast"]:
+        pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
+
+
 def sonic_update_firmware(duthost, image_url, upgrade_type):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
@@ -104,7 +111,7 @@ def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_im
 
 
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, ptf_params, setup, tbinfo, request, add_fail_step_to_reboot, verify_dut_health):
+        upgrade_path_lists, skip_cancelled_case, ptf_params, setup, tbinfo, request, add_fail_step_to_reboot, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
@@ -134,6 +141,6 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             networking_uptime = duthost.get_networking_uptime().seconds
             timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-            pytest_assert(wait_until(timeout, 5, check_reboot_cause, duthost, upgrade_type),
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                 "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
             check_services(duthost)
