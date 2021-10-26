@@ -449,10 +449,10 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
-    if check_sub_port(duthost, sub_ports.keys()):
-        for sub_port, sub_port_info in sub_ports.items():
-            remove_sub_port(duthost, sub_port, sub_port_info['ip'])
+    existing_sub_ports = cfg_facts.get("VLAN_SUB_INTERFACE", {})
+    for sub_port in sub_ports:
+        if sub_port in existing_sub_ports:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]['ip'])
 
     py_assert(check_sub_port(duthost, sub_ports.keys(), True), "Some sub-port were not deleted")
 
