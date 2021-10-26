@@ -135,7 +135,8 @@ test_t0() {
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
-    process_monitoring/test_critical_process_monitoring.py"
+    process_monitoring/test_critical_process_monitoring.py \
+    system_health/test_system_status.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
