@@ -79,6 +79,34 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='drop')
 
+    @pytest.mark.parametrize("port_type", ["port"])
+    def test_untagged_packet_not_routed(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+        """
+        Validates that untagged packet aren't routed.
+
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Create untagged ICMP packet.
+            4.) Send untagged ICMP request packet from PTF to DUT.
+            5.) Verify that DUT doesn't sends ICMP reply packet to PTF.
+            6.) Clear configuration of sub-ports on the DUT.
+            7.) Clear configuration of sub-ports on the DUT.
+
+        Pass Criteria: PTF doesn't gets ICMP reply packet from DUT.
+        """
+        sub_ports = apply_config_on_the_dut["sub_ports"]
+
+        for sub_port, config in sub_ports.items():
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=config["neighbor_port"],
+                                        dst_port=sub_port,
+                                        ip_src=config["neighbor_ip"],
+                                        ip_dst=config["ip"],
+                                        pkt_action="drop",
+                                        untagged_icmp_request=True
+                                        )
 
     def test_admin_status_down_disables_forwarding(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
