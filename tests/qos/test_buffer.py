@@ -630,7 +630,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     return profile_oid, pool_oid
 
 
-def make_expected_profile_name(speed, cable_length, other_factors=None):
+def make_expected_profile_name(speed, cable_length, **kwargs):
     """Make the name of an expected profile according to parameters
 
     Args:
@@ -643,10 +643,15 @@ def make_expected_profile_name(speed, cable_length, other_factors=None):
         The name of the profile
     """
     expected_profile = 'pg_lossless_{}_{}_'.format(speed, cable_length)
+    other_factors = kwargs.get('other_factors')
     if other_factors:
         expected_profile += '_'.join(other_factors) + '_'
     if ASIC_TYPE == 'mellanox':
-        if NUMBER_OF_LANES == 8 and speed != '400000':
+        number_of_lanes = kwargs.get('number_of_lanes')
+        if number_of_lanes is not None:
+            if number_of_lanes == 8 and speed != '400000':
+                expected_profile += '8lane_'
+        elif NUMBER_OF_LANES == 8 and speed != '400000':
             expected_profile += '8lane_'
     expected_profile += 'profile'
     return expected_profile
@@ -819,7 +824,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
         # Check whether profile is correct in PG table
         if mtu_to_test != DEFAULT_MTU:
-            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test, ['mtu{}'.format(mtu_to_test)])
+            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test, other_factors=['mtu{}'.format(mtu_to_test)])
             check_profile_removed = True
         else:
             expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test)
@@ -1404,7 +1409,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         # Update it to non-default dynamic_th
         logging.info('[Testcase: headroom override => dynamically calculated headroom with non-default dynamic_th]')
         duthost.shell(set_command + 'non-default-dynamic_th')
-        expected_nondef_profile = make_expected_profile_name(original_speed, '15m', ['th2'])
+        expected_nondef_profile = make_expected_profile_name(original_speed, '15m', other_factors=['th2'])
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
         # A new profile should be created in ASIC DB
         profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid)
@@ -1633,7 +1638,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
          False),
         ('Add a PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless add {} 3-4 {}'.format(port_to_test, non_default_dynamic_th_profile),
-         make_expected_profile_name(original_speed, original_cable_len, ['th{}'.format(dynamic_th_value)]),
+         make_expected_profile_name(original_speed, original_cable_len, other_factors=['th{}'.format(dynamic_th_value)]),
          False),
         ('Remove the PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
@@ -2256,16 +2261,18 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     }
 
     if check_qos_db_fv_reference_with_table(duthost):
-        lossless_profile = '[BUFFER_PROFILE_TABLE:pg_lossless_{}_{}_profile]'
+        profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
         is_qos_db_reference_with_table = True
     else:
         for key, buffer_items_to_check in buffer_items_to_check_dict.items():
             new_buffer_items_to_check = []
-            for item in buffer_items_to_check_dict:
+            for item in buffer_items_to_check:
                 table, ids, profiles = item
-                new_buffer_items_to_check.append((table, ids, profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')))
+                if profiles:
+                    profiles = profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                new_buffer_items_to_check.append((table, ids, profiles))
             buffer_items_to_check_dict[key] = new_buffer_items_to_check
-        lossless_profile = 'pg_lossless_{}_{}_profile'
+        profile_wrapper = '{}'
         is_qos_db_reference_with_table = False
 
     configdb_ports = [x.split('|')[1] for x in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
@@ -2283,7 +2290,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
             cable_length = cable_length_map[port]
             speed = port_config['speed']
             buffer_items_to_check = buffer_items_to_check_dict["up"]
-            buffer_items_to_check[-1] = ('BUFFER_PG_TABLE', '3-4', lossless_profile.format(speed, cable_length))
+            expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
+            buffer_items_to_check[-1] = ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))
         else:
             buffer_items_to_check = buffer_items_to_check_dict["down"]
 
