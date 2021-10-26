@@ -1112,6 +1112,22 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms28-dual-t0-7260
+  group-name: vms28-6
+  topo: dualtor-120
+  ptf_image_name: docker-ptf
+  ptf: vms28-6
+  ptf_ip: 10.64.246.243/23
+  ptf_ipv6:
+  server: server_28
+  vm_base: VM2840
+  dut:
+    - str2-7260cx3-acs-12
+    - str2-7260cx3-acs-13
+  inv_name: str2
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: vms21-dual-t0-7260
   group-name: vms21-6
   topo: dualtor-120
