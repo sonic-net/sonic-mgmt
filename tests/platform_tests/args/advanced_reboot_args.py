@@ -56,7 +56,7 @@ def add_advanced_reboot_args(parser):
         "--sniff_time_incr",
         action="store",
         type=int,
-        default=60,
+        default=300,
         help="Sniff time increment",
     )
 
