@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 from tests.common import config_reload
 import urllib3
 from urlparse import urlunparse
@@ -8,7 +7,8 @@ from urlparse import urlunparse
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 
-RESTAPI_SERVER_START_WAIT_TIME = 15
+from helper import apply_cert_config
+
 RESTAPI_CONTAINER_NAME = 'restapi'
 
 @pytest.fixture(scope="module", autouse=True)
@@ -91,37 +91,7 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost.copy(src='restapiserver.crt', dest='/etc/sonic/credentials/testrestapiserver.crt')
     duthost.copy(src='restapiserver.key', dest='/etc/sonic/credentials/testrestapiserver.key')
 
-    # Set client certificate subject name in config DB
-    dut_command = "redis-cli -n 4 hset \
-                    'RESTAPI|certs' \
-                    'client_crt_cname' \
-                    'test.client.restapi.sonic'"
-    duthost.shell(dut_command)
-
-    # Set CA cert path in config DB
-    dut_command = "redis-cli -n 4 hset \
-                    'RESTAPI|certs' \
-                    'ca_crt' \
-                    '/etc/sonic/credentials/restapiCA.pem'"
-    duthost.shell(dut_command)
-
-    # Set server certificate path in config DB
-    dut_command = "redis-cli -n 4 hset \
-                    'RESTAPI|certs' \
-                    'server_crt' \
-                    '/etc/sonic/credentials/testrestapiserver.crt'"
-    duthost.shell(dut_command)
-    dut_command = "redis-cli -n 4 hset \
-                    'RESTAPI|certs' \
-                    'server_key' \
-                    '/etc/sonic/credentials/testrestapiserver.key'"
-    duthost.shell(dut_command)
-
-    # Restart RESTAPI server with the updated config
-    dut_command = "sudo systemctl restart restapi"
-    duthost.shell(dut_command)
-    time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
-
+    apply_cert_config(duthost)
     urllib3.disable_warnings()
 
     yield
@@ -132,6 +102,7 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
                         restapiserver.* \
                         restapiclient.*"
     localhost.shell(local_command)
+
 
 @pytest.fixture
 def construct_url(duthosts, rand_one_dut_hostname):
