@@ -241,14 +241,14 @@ stages:
               script: |
                 set -x
 
-                python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s
-                
-                mv testbed_sai.yaml ./ansible/
-
+                python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
+              
                 cat ./ansible/testbed_sai.yaml
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo

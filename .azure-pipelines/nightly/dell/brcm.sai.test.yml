@@ -86,3 +86,4 @@ stages:
       RUN_TEST: ${{ parameters.RUN_TEST }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}

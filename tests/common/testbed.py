@@ -25,6 +25,7 @@ class TestbedInfo(object):
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
+    TOPOLOGY_FILEPATH = "../../ansible/vars/"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -121,6 +122,45 @@ class TestbedInfo(object):
                 tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
                 self.testbed_topo[tb["conf-name"]] = tb
 
+    def _generate_sai_testbed(self, args):
+        testbed_data = []
+        tb_name = args.sai_testbed_name
+        sai_topo = ""
+        sai_ptf_image = "docker-ptf"
+
+        ports_count = len(self.testbed_topo[tb_name]["topo"]
+                          ["properties"]["topology"]["host_interfaces"])
+
+        if ports_count < 64:
+            sai_topo = "ptf32"
+        else:
+            sai_topo = "ptf64"
+
+        if args.sai_test_ptf:
+            sai_ptf_image = args.sai_test_ptf
+
+        tb_dict_fields = [
+            tb_name,
+            self.testbed_topo[tb_name]["group-name"],
+            sai_topo,
+            sai_ptf_image,
+            self.testbed_topo[tb_name]["ptf"],
+            self.testbed_topo[tb_name]["ptf_ip"],
+            self.testbed_topo[tb_name]["ptf_ipv6"],
+            self.testbed_topo[tb_name]["server"],
+            self.testbed_topo[tb_name]["vm_base"] or None,
+            self.testbed_topo[tb_name]["duts"],
+            self.testbed_topo[tb_name]["inv_name"],
+            self.testbed_topo[tb_name]["auto_recover"],
+            "SAI Testing"
+        ]
+        testbed_mapping = zip(
+            self.TESTBED_FIELDS_RECOMMENDED, tb_dict_fields)
+        testbed = OrderedDict(testbed_mapping)
+        testbed_data.append(testbed)
+
+        return testbed_data
+
     def dump_testbeds_to_yaml(self, args):
 
         def none_representer(dumper, _):
@@ -157,40 +197,8 @@ class TestbedInfo(object):
                     yaml.Dumper.write_line_break(self)
 
         testbed_data = []
-        if args.sai:
-            tb_name = args.sai_testbed_name
-            sai_topo = ""
-            sai_ptf_image = ""
-            # need to deal with t0-35 case on bf moving forward
-            if self.testbed_topo[tb_name]["topo"] not in ["ptf32", "ptf64"]:
-                sai_topo = "ptf32"
-            else:
-                sai_topo = self.testbed_topo[tb_name]["topo"]
-
-            if args.sai_test_ptf:
-                sai_ptf_image = args.sai_test_ptf
-            else:
-                sai_ptf_image = "docker-ptf"
-
-            tb_dict_fields = [
-                tb_name,
-                self.testbed_topo[tb_name]["group-name"],
-                sai_topo,
-                sai_ptf_image,
-                self.testbed_topo[tb_name]["ptf"],
-                self.testbed_topo[tb_name]["ptf_ip"],
-                self.testbed_topo[tb_name]["ptf_ipv6"],
-                self.testbed_topo[tb_name]["server"],
-                self.testbed_topo[tb_name]["vm_base"] or None,
-                self.testbed_topo[tb_name]["duts"],
-                self.testbed_topo[tb_name]["inv_name"],
-                self.testbed_topo[tb_name]["auto_recover"],
-                "SAI Testing"
-            ]
-            testbed_mapping = zip(
-                self.TESTBED_FIELDS_RECOMMENDED, tb_dict_fields)
-            testbed = OrderedDict(testbed_mapping)
-            testbed_data.append(testbed)
+        if len(args.sai) > 0:
+            testbed_data = self._generate_sai_testbed(args)
         else:
             for tb_name, tb_dict in self.testbed_topo.items():
                 ptf_ip, ptf_ipv6 = None, None
@@ -241,8 +249,8 @@ class TestbedInfo(object):
         IncIndentDumper.add_representer(OrderedDict, ordereddict_representer)
 
         testbed_file_name = ""
-        if args.sai:
-            testbed_file_name = "testbed_sai.yaml"
+        if len(args.sai) > 0:
+            testbed_file_name = args.sai
         else:
             testbed_file_name = self.testbed_yamlfile
 
@@ -359,7 +367,7 @@ class TestbedInfo(object):
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
             topo_dir = os.path.join(os.path.dirname(
-                __file__), "../../ansible/vars/")
+                __file__), self.TOPOLOGY_FILEPATH)
             topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
             with open(topo_file, 'r') as fh:
                 tb['topo']['properties'] = yaml.safe_load(fh)
@@ -388,7 +396,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-n", "--testbed", dest="sai_testbed_name", help="sai testbed name")
     parser.add_argument(
-        "-s", "--sai", dest="sai", help="generate sai testbed file", action="store_true", default=False)
+        "-s", "--sai", dest="sai", help="generate sai testbed file", default="")
     parser.add_argument(
         "-p", "--ptf", dest="sai_test_ptf", help="sai test ptf image")
     parser.add_argument(
@@ -401,5 +409,5 @@ if __name__ == "__main__":
     if args.print_data:
         print(json.dumps(tbinfo.testbed_topo, indent=4))
 
-    if args.sai:
+    if len(args.sai) > 0:
         tbinfo.dump_testbeds_to_yaml(args)
