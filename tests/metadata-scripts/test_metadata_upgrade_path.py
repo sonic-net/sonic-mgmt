@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_COLD
+from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
 from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version, get_reboot_command, check_reboot_cause, check_services
 from tests.upgrade_path.upgrade_helpers import ptf_params, setup  # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -45,6 +45,15 @@ def skip_cancelled_case(request, upgrade_type_params):
         pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
 
 
+def pytest_generate_tests(metafunc):
+  upgrade_types = metafunc.config.getoption("upgrade_type")
+  upgrade_types = upgrade_types.split(",")
+
+  if "upgrade_type_params" in metafunc.fixturenames:
+      params = upgrade_types
+      metafunc.parametrize("upgrade_type_params", params, scope="module")
+
+
 def sonic_update_firmware(duthost, image_url, upgrade_type):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
@@ -62,7 +71,11 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
     out = duthost.command("sonic_installer binary_version {}".format(image_path))
 
     logger.info("Step 3 Install image")
-    UPDATE_MLNX_CPLD_FW = 1 if upgrade_type == REBOOT_TYPE_COLD else 0
+    if (upgrade_type == REBOOT_TYPE_COLD or upgrade_type == REBOOT_TYPE_SOFT):
+        UPDATE_MLNX_CPLD_FW = 1
+    else:
+        UPDATE_MLNX_CPLD_FW = 0
+
     duthost.command("chmod +x /tmp/anpscripts/update_firmware")
     duthost.command("/usr/bin/sudo /tmp/anpscripts/update_firmware {} UPDATE_MLNX_CPLD_FW={}".format(
         image_name, UPDATE_MLNX_CPLD_FW))
@@ -95,7 +108,8 @@ def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_im
         # add fail step to reboot script
         modify_reboot_script(upgrade_type)
 
-    if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):
+    if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command") or\
+        test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_SOFT).get("command"):
         # advance-reboot test (on ptf) does not support cold reboot yet
         reboot(duthost, localhost)
     else:

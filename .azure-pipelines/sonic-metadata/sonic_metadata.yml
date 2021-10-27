@@ -22,19 +22,22 @@ variables:
 parameters:
 - name: TESTBED_NAME
   type: string
-  default: vms7-t0-s6100
+  default: vms7-t0-s6100-4
   displayName: "Testbed Name"
 
 - name: UPGRADE_TYPE
   type: string
   displayName: "Type of upgrade"
-  default: warm
+  default: warm,fast,cold
   values:
   - warm
   - fast
   - cold
-  - warm fast
-  - warm fast cold
+  - soft
+  - warm,fast
+  - warm,fast,cold
+  - warm,fast,soft,cold
+
 - name: FROM_IMAGE_LIST
   type: string
   displayName: "All base image numbers (space separated)"
@@ -195,7 +198,7 @@ stages:
     - task: PublishTestResults@2
       displayName: Publish test results
       inputs:
-        testResultsFiles: './sonic-mgmt-int/tests/logs/**/*.xml'
+        testResultsFiles: '**/tests/logs/**/*.xml'
         testRunTitle: ${{ parameters.TESTBED_NAME}}.upgrade_path
       condition: always()
 
@@ -207,3 +210,4 @@ stages:
           TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
       displayName: Release Testbed
       condition: always()
+  

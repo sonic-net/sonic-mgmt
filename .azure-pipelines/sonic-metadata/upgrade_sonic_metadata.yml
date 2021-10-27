@@ -55,28 +55,32 @@ steps:
       echo =================== Upgrading from $from_image =====================
       for to_image in $TO_IMAGE_LIST; do
         echo ======== Upgrading to $to_image ========
-        for type in $UPGRADE_TYPE; do
-          echo ==== TYPE $type ====
-          from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
-          to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
-          echo From URL is $from_url
-          echo To URL is $to_url
+        echo ==== TYPE $type ====
+        from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
+        to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
+        if [[ $from_image == *"latest"* ]]; then
+          from_url=${{ parameters.FROM_IMAGE_URL }}
+        fi
+        if [[ $to_image == *"latest"* ]]; then
+          to_url=${{ parameters.TO_IMAGE_URL }}
+        fi
+        echo From URL is $from_url
+        echo To URL is $to_url
 
-          EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$type --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --metadata_process"
+        EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --metadata_process"
 
-          ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-            -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
-            -m individual \
-            -l INFO \
-            -e "$EXTRA_PARAMS" \
-            -u \
-            -c "metadata-scripts/test_metadata_upgrade_path.py"
+        ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+          -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
+          -m individual \
+          -l INFO \
+          -e "$EXTRA_PARAMS" \
+          -u \
+          -c "metadata-scripts/test_metadata_upgrade_path.py"
 
-          if [ $? -ne 0 ]; then
-              TEST_PASS="FAIL"
-          fi
-          sleep 60
-        done
+        if [ $? -ne 0 ]; then
+            TEST_PASS="FAIL"
+        fi
+        sleep 60
       done
     done
     if [ "$TEST_PASS" = FAIL ]; then
