@@ -61,6 +61,7 @@
 {% for intf in asic_config['neigh_asic'][neigh_asic]['intfs'][0] | sort %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
         <ChassisInternal>true</ChassisInternal>
         <EndDevice>{{ neigh_asic }}</EndDevice>
         <EndPort>{{ intf }}</EndPort>
@@ -77,6 +78,7 @@
 {% if inventory_hostname not in device_conn or port_alias[loop.index - 1] in device_conn[inventory_hostname] %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
+        <Bandwidth>40000</Bandwidth>
         <ChassisInternal>true</ChassisInternal>
         <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
         <EndPort>{{ asic_intf }}</EndPort>
