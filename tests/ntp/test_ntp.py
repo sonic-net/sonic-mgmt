@@ -62,7 +62,7 @@ def setup_long_jump(duthosts, rand_one_dut_hostname, creds):
     yield
 
     # set DUT's time back after long jump test
-    dut_end_time = int(time.time()) - int(start_time) + dut_start_time
+    dut_end_time = int(time.time()) - int(start_time) + start_time_dut
     duthost.command("date -s '@{}'".format(dut_end_time))
 
 def check_ntp_status(host):
