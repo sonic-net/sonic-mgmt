@@ -1,25 +1,26 @@
 {
     "VXLAN_TUNNEL": {
-{%- if ipv6_vxlan_test == true %}
-        "tunnel_v6": {
-            "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
-        },
-{%- endif %}
         "tunnel_v4": {
             "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
+        },
+        "tunnel_v6": {
+            "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
         }
     },
 
     "VNET": {
 {%- set vnet = "Vnet1" %}
         "{{ vnet  }}": {
-{%- if (ipv6_vxlan_test == false) or ((loop.index0%num_vnet_batch) < vnet_v6_base) %}
             "vxlan_tunnel": "tunnel_v4",
-{%- else %}
-            "vxlan_tunnel": "tunnel_v6",
-{%- endif %}
             "scope": "default",
-            "vni": "{{ vnet | replace("Vnet", "") |int + 10000}}",
+            "vni": "10000",
+            "peer_list": ""
+        },
+{%- set vnet = "Vnet2" %}
+        "{{ vnet  }}": {
+            "vxlan_tunnel": "tunnel_v6",
+            "scope": "default",
+            "vni": "10000",
             "peer_list": ""
         }
     },
@@ -34,11 +35,12 @@
 
     "VLAN_INTERFACE": {
 {%- for vlan_intf in vlan_intf_list %}
+{%- set outloop = loop %}
 {%- for vnet_intf in vnet_intf_list %}
 {%- if vnet_intf.ifname == vlan_intf.ifname %}
         "Vlan{{ vlan_intf.vlan_id }}": {
             "vnet_name": "{{ vnet_intf.vnet }}"
-        }{{ "," if not loop.last else "" }}
+        }{{ "," if not outloop.last else "" }}
 {%- endif %}
 {%- endfor %}
 {%- endfor %}

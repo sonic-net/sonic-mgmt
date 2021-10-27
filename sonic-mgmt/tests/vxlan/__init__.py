@@ -40,24 +40,25 @@ def vnet_test_params(request):
 
     Returns:
         A dictionary holding each parameter with the parameter name as the key
-            * ipv6_vxlan_test - whether to include ipv6 functionality in testing
             * cleanup - whether to remove test data/configs after test is finished
             * apply_new_config - whether to apply new configurations that were pushed to the DUT
     """
 
     params = {}
-    params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
     params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
-    params[IPV6_IN_IPV4] = request.config.option.ipv6_in_ipv4
     # ECMP
     params[TOTAL_NUMBER_OF_ENDPOINTS] = request.config.option.total_number_of_endpoints
     params[ECMP_NHS_PER_DESTINATION] = request.config.option.ecmp_nhs_per_destination
     params[TOTAL_NUMBER_OF_NEXTHOPS] = request.config.option.total_number_of_nexthops
     params['number_of_destinations'] = int(params[TOTAL_NUMBER_OF_NEXTHOPS] / params[ECMP_NHS_PER_DESTINATION])
+    params[IPV4_IN_IPV4] = request.config.option.ipv4_in_ipv4
+    params[IPV6_IN_IPV4] = request.config.option.ipv6_in_ipv4
+    params[IPV4_IN_IPV6] = request.config.option.ipv4_in_ipv6
+    params[IPV6_IN_IPV6] = request.config.option.ipv6_in_ipv6
     return params
 
 @pytest.fixture(scope="module")

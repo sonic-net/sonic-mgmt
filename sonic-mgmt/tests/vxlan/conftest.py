@@ -1,3 +1,15 @@
+import argparse 
+def str2bool(v):
+    # See: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse/15008806#15008806
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def pytest_addoption(parser):
     """
     Adds pytest options that are used by VxLAN tests
@@ -8,7 +20,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=8,
+        default=1,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -41,13 +53,23 @@ def pytest_addoption(parser):
         "--ipv4_in_ipv4",
         action="store",
         default=True,
+        type=str2bool,
         help="Test IPv4 in IPv4"
+    )
+
+    vxlan_group.addoption(
+        "--ipv6_vxlan_test",
+        action="store",
+        default=True,
+        type=str2bool,
+        help="Test IPV6 encap"
     )
 
     vxlan_group.addoption(
         "--ipv6_in_ipv4",
         action="store",
         default=True,
+        type=str2bool,
         help="Test IPV6 in IPv4"
     )
 
@@ -55,12 +77,14 @@ def pytest_addoption(parser):
         "--ipv4_in_ipv6",
         action="store",
         default=True,
+        type=str2bool,
         help="Test IPv4 in IPv6"
     )
 
     vxlan_group.addoption(
         "--ipv6_in_ipv6",
         action="store",
+        type=str2bool,
         default=True,
         help="Test IPV6 in IPv6"
     )
@@ -91,14 +115,6 @@ def pytest_addoption(parser):
         default=65535,
         type=int,
         help="Highest expected src port for VXLAN UPD packet"
-    )
-
-    vxlan_group.addoption(
-        "--ipv6_in_ipv4",
-        action="store",
-        type=bool,
-        default=True,
-        help="Test IPv6 inside IPv4(V6inV4)",
     )
 
     # ECMP options
