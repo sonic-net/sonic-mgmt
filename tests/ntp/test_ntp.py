@@ -51,18 +51,18 @@ def setup_long_jump(duthosts, rand_one_dut_hostname, creds):
     duthost = duthosts[rand_one_dut_hostname]
 
     # get time before set time
-    start_time_dut = int(duthost.command("date +%s")['stdout'])
+    dut_start_time = int(duthost.command("date +%s")['stdout'])
     start_time = time.time()
 
     # set time on DUT
     duthost.service(name='ntp', state='stopped')
-    duthost.command("date -s '@{}'".format(start_time_dut - TIME_FORWARD))
+    duthost.command("date -s '@{}'".format(dut_start_time - TIME_FORWARD))
     duthost.service(name='ntp', state='restarted')
 
     yield
 
     # set DUT's time back after long jump test
-    dut_end_time = int(time.time()) - int(start_time) + start_time_dut
+    dut_end_time = int(time.time()) - int(start_time) + dut_start_time
     duthost.command("date -s '@{}'".format(dut_end_time))
 
 def check_ntp_status(host):
