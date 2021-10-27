@@ -287,7 +287,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
 
     for i in range(loop_range):
         logger.debug("Running show techsupport ... ")
-        wait_until(300, 20, execute_command, duthost, str(since))
+        wait_until(300, 20, 0, execute_command, duthost, str(since))
         tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
         stdout = duthost.command("rm -rf {}".format(tar_file))
         logger.debug("Sleeping for {} seconds".format(loop_delay))
@@ -369,10 +369,22 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
                 "broadcom_cmd_misc": 
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
-                "copy_config_cmds": 
-                    add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds_no_qos, num),
+                }
+            )
+        else:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds, num),
+                }
+            )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
         if 'armhf-' in duthost.facts["platform"]:

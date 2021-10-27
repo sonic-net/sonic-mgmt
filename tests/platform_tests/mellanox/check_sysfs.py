@@ -67,7 +67,7 @@ def check_sysfs(dut):
 
     if not _is_fan_speed_in_range(sysfs_facts):
         sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
-        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
+        assert wait_until(30, 5, 0, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0

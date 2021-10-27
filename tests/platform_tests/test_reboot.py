@@ -75,14 +75,14 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
 
     if reboot_type is not None:
         logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause, dut, reboot_type), \
             "got reboot-cause failed after rebooted by %s" % reboot_type
 
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info("Skip check reboot-cause history for version before 202012")
         else:
             logger.info("Check reboot-cause history")
-            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause_history, dut,
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
                               REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
@@ -92,7 +92,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("skipping interfaces related check for supervisor")
     else:
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
-        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces,
+        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
             MAX_WAIT_TIME_FOR_INTERFACES)
@@ -209,6 +209,9 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
+    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
+        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(duthost.facts["asic_type"]))
     pdu_ctrl = pdu_controller
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)

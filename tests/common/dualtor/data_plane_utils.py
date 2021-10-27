@@ -4,6 +4,7 @@ from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import wait_until
+from tests.common.plugins.sanity_check import print_logs
 import threading
 import logging
 from natsort import natsorted
@@ -152,7 +153,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         action()
     # do not time-wait the test, if early stop is not requested (when stop_after=None)
     if stop_after is not None:
-        wait_until(timeout=stop_after, interval=0.5, condition=\
+        wait_until(timeout=stop_after, interval=0.5, delay=0, condition=\
             lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
             logger.info("Sender/Sniffer threads are still running. Sending signal "\
@@ -165,10 +166,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
 
 
 def cleanup(ptfadapter, duthosts_list):
-    for duthost in duthosts_list:
-        facts = duthost.bgp_facts()
-        logger.info("{} BGP status".format(duthost))
-        logger.info(json.dumps(facts['ansible_facts'], indent=4))
+    print_logs(duthosts_list)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:

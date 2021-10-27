@@ -2,7 +2,6 @@ import pytest
 import crypt
 import json
 import logging
-import time
 from pkg_resources import parse_version
 
 from tests.common.utilities import wait_until
@@ -11,6 +10,7 @@ from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
@@ -29,7 +29,7 @@ def check_disk_ro(duthost):
 def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
-    assert wait_until(30, 2, check_disk_ro, duthost), "disk not in ro state"
+    assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -64,7 +64,7 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
-def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -94,29 +94,19 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         
         assert ret, "Failed to ssh as rw user"
 
-        # Force a log rotate to get logs so far recorded.
-        # The read-only state and follow up reboot could wipe off current logs
-        #
-        logging.info("test_ro_disk: Flushing & log rotating to save logs so far")
-        duthost.shell("logger -p local0.notice 'test_ro_disk: Initiating log rotate'")
-        duthost.shell("pkill -HUP rsyslogd")    # To flush logs from daemon to file
-        time.sleep(30)                          # Give a pause before rotate
-        duthost.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
-        time.sleep(30)                          # Pause before making disk RO
-
         # Set disk in RO state
         simulate_ro(duthost)
 
         logger.debug("user={}".format(ro_user))
 
-        assert wait_until(600, 20, chk_ssh_remote_run, localhost, dutip,
+        assert wait_until(600, 20, 0, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
 
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
-        assert wait_until(600, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(600, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
 
