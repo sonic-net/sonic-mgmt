@@ -71,7 +71,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
         logger.info("Waiting on switch to come up....")
         localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
         logger.info("Waiting on critical systems to come online...")
-        wait_until(300, 30, duthost.critical_services_fully_started)
+        wait_until(300, 30, 0, duthost.critical_services_fully_started)
         time.sleep(60)
 
         # Reboot back into original image if neccesary
@@ -84,7 +84,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
             time.sleep(100)
             logger.info("Waiting on switch to come up....")
             localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
-            wait_until(300, 30, duthost.critical_services_fully_started)
+            wait_until(300, 30, 0, duthost.critical_services_fully_started)
             time.sleep(60)
 
 def show_firmware(duthost):

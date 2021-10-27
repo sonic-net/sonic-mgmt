@@ -238,7 +238,7 @@ def check_bgp(duthosts):
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime, 1)
         interval = 20
-        wait_until(timeout, interval, _check_bgp_status_helper)
+        wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
             for a_result in check_result.keys():
                 if a_result != 'failed':

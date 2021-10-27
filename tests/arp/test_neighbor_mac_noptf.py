@@ -71,7 +71,7 @@ class TestNeighborMacNoPtf:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if not duthost.get_facts().get("modular_chassis"):
             duthost.command("sudo config bgp shutdown all")
-            if not wait_until(120, 2.0, self._check_no_bgp_routes, duthost):
+            if not wait_until(120, 2.0, 0, self._check_no_bgp_routes, duthost):
                 pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded 120 seconds.')
 
         yield
@@ -115,7 +115,7 @@ class TestNeighborMacNoPtf:
                         testRoutedInterface[asichost.asic_index] = intf
             return testRoutedInterface
 
-        if not wait_until(120, 2, find_routed_interface):
+        if not wait_until(120, 2, 0, find_routed_interface):
             pytest.fail('Failed to find routed interface in 120 s')
 
         yield testRoutedInterface

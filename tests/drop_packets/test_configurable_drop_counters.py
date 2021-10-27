@@ -13,6 +13,7 @@ import random
 import time
 import json
 import tempfile
+import re
 from collections import defaultdict
 
 import pytest
@@ -26,6 +27,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
+from tests.common import config_reload
 
 
 pytestmark = [
@@ -80,14 +82,35 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     # Set FDB entry
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
+    time.sleep(3)
 
     cmd = "docker exec -i swss rm -f /fdb.json"
     duthost.command(cmd)
+    time.sleep(5)
 
+def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
+    """
+    Check if the ARP and FDB entry is present
+    """
+    logging.info("Verify if the ARP and FDB entry is present for {}".format(dst_ip))
+    result = duthost.command("show arp {}".format(dst_ip))
+    pytest_assert("Total number of entries 1" in result['stdout'],
+                  "ARP entry for {} missing in ASIC".format(dst_ip))
+    result = duthost.shell("ip neigh show {}".format(dst_ip))
+    pytest_assert(result['stdout_lines'], "{} not in arp table".format(dst_ip))
+    match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(dst_ip),
+                     result['stdout_lines'][0])
+    pytest_assert(match,
+                  "Regex failed while retrieving arp entry for {}".format(dst_ip))
+    pytest_assert(match.group(1).replace(":", "-") == dst_mac,
+                  "ARP entry's lladdr is changed from {} to {}".format(dst_mac, match.group(1).replace(":", "-")))
+
+    fdb_count = int(duthost.shell("show mac | grep {} | grep {} | wc -l".format(match.group(1), dst_intf))["stdout"])
+    pytest_assert(fdb_count == 1, "FDB entry doesn't exist for {}, fdb_count is {}".format(dst_mac, fdb_count))
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
-                            send_dropped_traffic, drop_reason):
+                            send_dropped_traffic, drop_reason, generate_dropped_packet, tbinfo):
     """
     Verifies counters that check for a neighbor link being down.
 
@@ -104,12 +127,10 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
     rx_port = random.choice([port
                              for port in testbed_params["physical_port_map"].keys()
                              if port != mock_server["server_dst_port"]])
-    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
-    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+    logging.info("Selected port %s to send traffic", rx_port)
 
-    src_mac = "DE:AD:BE:EF:12:34"
     src_ip = MOCK_DEST_IP
-    pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, mock_server["server_dst_addr"])
+    pkt = generate_dropped_packet(rx_port, src_ip, mock_server["server_dst_addr"])
 
     try:
         # Add a static fdb entry
@@ -117,6 +138,8 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                             mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                             "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
+        time.sleep(3)
+        verifyFdbArp(duthost, mock_server['server_dst_addr'], mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
@@ -126,11 +149,15 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
                             mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                             "DEL", "static")
+        # FIXME: Add config reload on t0-backend as a workaround to keep DUT healthy because the following
+        # drop packet testcases will suffer from the brcm_sai_get_port_stats errors flooded in syslog
+        if "backend" in tbinfo["topo"]["name"]:
+            config_reload(duthost)
 
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
-                        send_dropped_traffic, drop_reason, add_default_route_to_dut):
+                        send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
     """
     Verifies counters that check for link local dst IP.
 
@@ -141,13 +168,10 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
     counter_type = setup_counters([drop_reason])
 
     rx_port = random.choice(testbed_params["physical_port_map"].keys())
-    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
-    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+    logging.info("Selected port %s to send traffic", rx_port)
 
-    src_mac = "DE:AD:BE:EF:12:34"
     src_ip = "10.10.10.10"
-
-    pkt = _get_simple_ip_packet(src_mac, rx_mac, src_ip, LINK_LOCAL_IP)
+    pkt = generate_dropped_packet(rx_port, src_ip, LINK_LOCAL_IP)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -158,7 +182,7 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
 
 @pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
 def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
-                        send_dropped_traffic, drop_reason, add_default_route_to_dut):
+                        send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
     """
     Verifies counters that check for link local src IP.
 
@@ -169,13 +193,10 @@ def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
     counter_type = setup_counters([drop_reason])
 
     rx_port = random.choice(testbed_params["physical_port_map"].keys())
-    rx_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
-    logging.info("Selected port %s, mac = %s to send traffic", rx_port, rx_mac)
+    logging.info("Selected port %s to send traffic", rx_port)
 
-    src_mac = "DE:AD:BE:EF:12:34"
     dst_ip = "10.10.10.10"
-
-    pkt = _get_simple_ip_packet(src_mac, rx_mac, LINK_LOCAL_IP, dst_ip)
+    pkt = generate_dropped_packet(rx_port, LINK_LOCAL_IP, dst_ip)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -240,9 +261,12 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
                   for ifname
                   in mgFacts["minigraph_vlans"].values()[VLAN_INDEX]["members"]]
 
+    vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
+    vlan_interface["type"] = mgFacts["minigraph_vlans"].values()[VLAN_INDEX].get("type", "untagged").lower()
+
     return {"physical_port_map": physical_port_map,
             "vlan_ports": vlan_ports,
-            "vlan_interface": mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX]}
+            "vlan_interface": vlan_interface}
 
 
 @pytest.fixture(scope="module")
@@ -331,7 +355,7 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                          recv_count, dst_port, PACKET_COUNT)
             return recv_count == PACKET_COUNT
 
-        pytest_assert(wait_until(5, 1, _check_drops), "Expected {} drops".format(PACKET_COUNT))
+        pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
     return _runner
 
@@ -400,6 +424,8 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
     logging.info("Populating FDB and ARP entry for mock server under VLAN")
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
+
+    time.sleep(5)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -408,6 +434,35 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
             "server_dst_intf": server_dst_intf,
             "fanout_neighbor": fanout_neighbor,
             "fanout_intf": fanout_intf}
+
+
+@pytest.fixture
+def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params):
+
+    def _get_simple_ip_packet(rx_port, src_ip, dst_ip):
+        dst_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+        src_mac = "DE:AD:BE:EF:12:34"
+        # send tagged packet for t0-backend whose vlan mode is tagged
+        enable_vlan = rx_port in testbed_params["vlan_ports"] and testbed_params["vlan_interface"]["type"] == "tagged"
+        packet_params = dict(
+            eth_src=src_mac,
+            eth_dst=dst_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip
+        )
+        if enable_vlan:
+            packet_params["dl_vlan_enable"] = enable_vlan
+            packet_params["vlan_vid"] = int(testbed_params["vlan_interface"]["attachto"].lstrip("Vlan"))
+        pkt = testutils.simple_ip_packet(**packet_params)
+
+        logging.info("Generated simple IP packet (SMAC=%s, DMAC=%s, SIP=%s, DIP=%s)",
+                    src_mac, dst_mac, src_ip, dst_ip)
+
+        return pkt
+
+    duthost = duthosts[rand_one_dut_hostname]
+
+    return _get_simple_ip_packet
 
 
 def _generate_vlan_servers(vlan_network, vlan_ports):
@@ -428,20 +483,6 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
         vlan_host_map[port][str(addr)] = mac
 
     return vlan_host_map
-
-
-def _get_simple_ip_packet(src_mac, dst_mac, src_ip, dst_ip):
-    pkt = testutils.simple_ip_packet(
-        eth_src=src_mac,
-        eth_dst=dst_mac,
-        ip_src=src_ip,
-        ip_dst=dst_ip
-    )
-
-    logging.info("Generated simple IP packet (SMAC=%s, DMAC=%s, SIP=%s, DIP=%s)",
-                 src_mac, dst_mac, src_ip, dst_ip)
-
-    return pkt
 
 
 def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
