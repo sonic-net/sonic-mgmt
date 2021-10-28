@@ -317,8 +317,7 @@ class TestbedInfo(object):
                 # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
                 # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
                 for port in str(_ports).split(','):
-                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(
-                        port)
+                    dut_index, dut_port_index, ptf_port_index = self._parse_dut_port_index(port)
                     map[dut_index][dut_port_index] = int(ptf_port_index)
 
         if 'VMs' in topology:
