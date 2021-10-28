@@ -6,13 +6,12 @@ from ptf.mask import Mask
 
 import itertools
 import logging
-import ipaddress
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
+from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list, utils_create_test_vlans, utils_vlan_intfs_dict_orig, utils_vlan_intfs_dict_add
 
 logger = logging.getLogger(__name__)
 
@@ -29,26 +28,9 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-
-def compare_network(src_ipprefix, dst_ipprefix):
-    src_network = ipaddress.IPv4Interface(src_ipprefix).network
-    dst_network = ipaddress.IPv4Interface(dst_ipprefix).network
-    return src_network.overlaps(dst_network)
-
-
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(cfg_facts, tbinfo):
-    vlan_intfs_dict = {}
-    for k, v in cfg_facts['VLAN'].items():
-        vlanid = v['vlanid']
-        for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            if addr.find(':') == -1:
-                ip = addr
-                break
-        else:
-            continue
-        logger.info("Original VLAN {}, ip {}".format(vlanid, ip))
-        vlan_intfs_dict[int(vlanid)] = {'ip': ip, 'orig': True}
+def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):
+    vlan_intfs_dict = utils_vlan_intfs_dict_orig
     # For t0 topo, will add 2 VLANs for test.
     # Need to make sure vlan id is unique, and avoid vlan ip network overlapping.
     # For example, ip prefix is 192.168.0.1/21 for VLAN 1000,
@@ -56,29 +38,14 @@ def vlan_intfs_dict(cfg_facts, tbinfo):
     # 192.168.0.1/24, 192.168.1.1/24, 192.168.2.1/24, 192.168.3.1/24,
     # 192.168.4.1/24, 192.168.5.1/24, 192.168.6.1/24, 192.168.7.1/24
     if tbinfo['topo']['name'] != 't0-56-po2vlan':
-        vlan_cnt = 0
-        for i in xrange(0, 255):
-            vid = 100 + i
-            if vid in vlan_intfs_dict:
-                continue
-            ip = u'192.168.{}.1/24'.format(i)
-            for v in vlan_intfs_dict.values():
-                if compare_network(ip, v['ip']):
-                    break
-            else:
-                logger.info("Add VLAN {}, ip {}".format(vid, ip))
-                vlan_intfs_dict[vid] = {'ip': ip, 'orig': False}
-                vlan_cnt += 1
-            if vlan_cnt >= 2:
-                break
-        assert vlan_cnt == 2
+        vlan_intfs_dict = utils_vlan_intfs_dict_add(vlan_intfs_dict, 2)
     return vlan_intfs_dict
 
 
 @pytest.fixture(scope="module")
-def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_ports_list, vlan_intfs_dict):
+def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils_vlan_ports_list, vlan_intfs_dict):
     if tbinfo['topo']['name'] == 't0-56-po2vlan':
-        return vlan_ports_list
+        return utils_vlan_ports_list
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     work_vlan_ports_list = []
@@ -151,40 +118,7 @@ def shutdown_portchannels(duthost, portchannel_interfaces):
 
 
 def create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict):
-    cmds = []
-    logger.info("Add vlans, assign IPs")
-    for k, v in vlan_intfs_dict.items():
-        if v['orig'] == True:
-            continue
-        cmds.append('config vlan add {}'.format(k))
-        cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
-
-    # Delete untagged vlans from interfaces to avoid error message
-    # when adding untagged vlan to interface that already have one
-    if '201911' not in duthost.os_version:
-        logger.info("Delete untagged vlans from interfaces")
-        for vlan_port in work_vlan_ports_list:
-            vlan_members = cfg_facts.get('VLAN_MEMBER', {})
-            vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
-            try:
-                if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
-                    cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
-            except KeyError:
-                continue
-
-    logger.info("Add members to Vlans")
-    for vlan_port in work_vlan_ports_list:
-        for permit_vlanid in vlan_port['permit_vlanid']:
-            if vlan_intfs_dict[int(permit_vlanid)]['orig'] == True:
-                continue
-            cmds.append('config vlan member add {tagged} {id} {port}'.format(
-                tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
-                id=permit_vlanid,
-                port=vlan_port['dev']
-            ))
-
-    duthost.shell_cmds(cmds=cmds)
-
+    utils_create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=True)
 
 def startup_portchannels(duthost, portchannel_interfaces):
     cmds  =[]
