@@ -245,7 +245,7 @@ class TestbedInfo(object):
         IncIndentDumper.add_representer(OrderedDict, ordereddict_representer)
 
         testbed_file_name = ""
-        if len(args.sai) > 0:
+        if args and len(args.sai) > 0:
             testbed_file_name = args.sai
         else:
             testbed_file_name = self.testbed_yamlfile
