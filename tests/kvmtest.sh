@@ -111,7 +111,6 @@ test_t0() {
     ntp/test_ntp.py \
     pc/test_po_cleanup.py \
     pc/test_po_update.py \
-    pc/test_lag_2.py \
     route/test_default_route.py \
     route/test_static_route.py \
     arp/test_neighbor_mac.py \
