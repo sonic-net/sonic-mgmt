@@ -83,7 +83,7 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
         # Regular reboot command would not work, as it would try to 
         # collect show tech, which will fail in RO state.
         #
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "nohup sudo /sbin/reboot &>/dev/null & exit")
         try:
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             break
