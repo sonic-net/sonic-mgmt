@@ -465,7 +465,7 @@ class Arista(object):
         help_cmd = "show ip bgp ?" if v4 else "show ipv6 bgp ?"
         ip_bgp_help = self.do_cmd(help_cmd)
         for line in ip_bgp_help.split('\n'):
-            if re.match('neighbors *BGP Neighbor informations', line.strip()):
+            if re.match('neighbors *BGP Neighbor information', line.strip()):
                 # if help regex contains:
                 # "neighbors          BGP Neighbor information"
                 suffix = 'neighbors'
