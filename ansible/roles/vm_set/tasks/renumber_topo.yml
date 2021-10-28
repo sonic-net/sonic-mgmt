@@ -20,9 +20,25 @@
     vars:
       ptf_portchannel_action: stop
 
+  - name: Get infos of ptf container
+    docker_container_info:
+      name: ptf_{{ vm_set_name }}
+    register: ptf_docker_info
+
+  - name: Flush ptf network info log
+    shell: |
+      date > /tmp/ptf_network_{{ vm_set_name }}.log
+
+  - name: Collect ptf network info before deleting
+    shell: |
+      echo "before deleting" >> /tmp/ptf_network_{{ vm_set_name }}.log
+      ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
+      echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
+
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
+      force_kill: yes
       state: absent
     become: yes
 
@@ -33,6 +49,12 @@
       password: "{{ docker_registry_password }}"
     become: yes
     when: docker_registry_username is defined and docker_registry_password is defined
+
+  - name: Collect ptf network info before recreating
+    shell: |
+      echo "Before recreating" >> /tmp/ptf_network_{{ vm_set_name }}.log
+      ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
+      echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
 
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
