@@ -26,7 +26,7 @@
 	    }
 	},
 	"lossy_pg": {
-	    "400000": "37888",
+	    "8": "37888",
 	    "default": "19456"
 	},
 	"shared-headroom-pool": {
