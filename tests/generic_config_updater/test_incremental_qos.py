@@ -111,7 +111,6 @@ def test_set_nonexistent_headroom_pool(duthost):
     ]  
 
     duthost.copy(content=json.dumps(add_headroom_pool_json, indent=4), dest=DUT_ADD_HEADROOM_JSON_FILE)
-
     ensure_patch_application(DUT_ADD_HEADROOM_JSON_FILE)
 
 
@@ -129,7 +128,6 @@ def test_replace_existing_headroom_pool(duthost):
     ]
 
     duthost.copy(content=json.dumps(set_headroom_pool_json, indent=4), dest=DUT_REPLACE_HEADROOM_JSON_FILE)
-
     ensure_patch_application(DUT_REPLACE_HEADROOM_JSON_FILE)
 
 
@@ -146,7 +144,6 @@ def test_del_existing_headroom_pool(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_headroom_pool_json, indent=4), dest=DUT_DEL_HEADROOM_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_HEADROOM_JSON_FILE)
 
 
@@ -161,7 +158,6 @@ def test_del_nonexistent_headroom_pool(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_headroom_pool_json, indent=4), dest=DUT_DEL_HEADROOM_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_HEADROOM_JSON_FILE)
 
 
@@ -179,7 +175,6 @@ def test_set_nonexistent_pool_size_ingress(duthost):
     ]
 
     duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
@@ -195,7 +190,6 @@ def test_replace_existing_pool_size_ingress(duthost):
     ]
 
     duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
@@ -212,7 +206,6 @@ def test_del_existing_pool_size_ingress(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
@@ -227,7 +220,6 @@ def test_del_nonexistent_pool_size_ingress(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
@@ -243,7 +235,6 @@ def test_set_nonexistent_pool_size_egress(duthost):
     ]
 
     duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
@@ -260,7 +251,6 @@ def test_replace_existing_pool_size_egress(duthost):
     ]
 
     duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
@@ -275,7 +265,6 @@ def test_del_nonexistent_pool_size_egress(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
@@ -290,7 +279,6 @@ def test_del_existing_pool_size_egress(duthost):
     ]
 
     duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
