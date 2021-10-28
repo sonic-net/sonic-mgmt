@@ -926,7 +926,6 @@ def main():
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
             if current_oid == v.sysTotalMemery:
                 results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalFreeMemery:
