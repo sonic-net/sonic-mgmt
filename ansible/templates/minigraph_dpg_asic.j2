@@ -267,7 +267,7 @@
 {%- for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
-{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(2) %}
+{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}
