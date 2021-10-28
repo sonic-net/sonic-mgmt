@@ -1,4 +1,9 @@
 import pipes
+import traceback
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
@@ -38,8 +43,17 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
-    result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
-    if module_ignore_errors:
-        if result["rc"] != 0:
-            return result
+    try:
+        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
+        if module_ignore_errors:
+            if result["rc"] != 0:
+                return result
+    except Exception:
+        traceback_msg = traceback.format_exc()
+        if "raise Timeout.TimeoutError" in traceback_msg:
+            logger.error("Timed out after {}s of executing {} case: {}. Error message: {}"\
+                .format(timeout, str(testname), traceback_msg))
+        else:
+            logger.error(traceback_msg)
+        raise Exception
     return True
