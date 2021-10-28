@@ -1,6 +1,5 @@
 import logging
 import re
-import random
 import pytest
 import yaml
 
@@ -392,9 +391,8 @@ class TestPsuApi(PlatformApiTestBase):
 
         if self.num_psus == 0:
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
-        else:
-            psu_id = random.randint(0, self.num_psus)
 
+        for psu_id in range(self.num_psus):
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
                 for color in led_type:
