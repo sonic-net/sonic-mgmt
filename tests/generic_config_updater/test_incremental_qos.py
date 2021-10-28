@@ -95,7 +95,7 @@ def ensure_patch_application(duthost, patch_path):
 
 DUT_ADD_HEADROOM_JSON_FILE='/tmp/add_headroom_pool.json'
 INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_ADD_HEADROOM_JSON_FILE)
-def test_set_nonexistent_headroom_pool(duthost):
+def test_set_nonexistent_headroom_pool(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "xoff", "")
     
     add_headroom_pool_json = [
@@ -112,7 +112,7 @@ def test_set_nonexistent_headroom_pool(duthost):
 
 DUT_REPLACE_HEADROOM_JSON_FILE='/tmp/replace_headroom_pool.json'
 INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_REPLACE_HEADROOM_JSON_FILE)
-def test_replace_existing_headroom_pool(duthost):
+def test_replace_existing_headroom_pool(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "xoff", "567")
 
     set_headroom_pool_json = [
@@ -129,7 +129,7 @@ def test_replace_existing_headroom_pool(duthost):
 
 DUT_DEL_HEADROOM_JSON_FILE='/tmp/del_headroom_pool.json'
 INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_DEL_HEADROOM_JSON_FILE)
-def test_del_existing_headroom_pool(duthost):
+def test_del_existing_headroom_pool(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "xoff", "567")
 
     del_headroom_pool_json = [
@@ -143,7 +143,7 @@ def test_del_existing_headroom_pool(duthost):
     ensure_patch_application(DUT_DEL_HEADROOM_JSON_FILE)
 
 
-def test_del_nonexistent_headroom_pool(duthost):
+def test_del_nonexistent_headroom_pool(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "xoff")
 
     del_headroom_pool_json = [
@@ -159,7 +159,7 @@ def test_del_nonexistent_headroom_pool(duthost):
 
 DUT_ADD_POOL_JSON_FILE='/tmp/add_pool.json'
 INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_ADD_POOL_JSON_FILE)
-def test_set_nonexistent_pool_size_ingress(duthost):
+def test_set_nonexistent_pool_size_ingress(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "size", "")
 
     set_pool_size_json = [
@@ -174,7 +174,7 @@ def test_set_nonexistent_pool_size_ingress(duthost):
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
-def test_replace_existing_pool_size_ingress(duthost):
+def test_replace_existing_pool_size_ingress(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "size", "567")
 
     set_pool_size_json = [
@@ -191,7 +191,7 @@ def test_replace_existing_pool_size_ingress(duthost):
 
 DUT_DEL_POOL_JSON_FILE='/tmp/del_pool.json'
 INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_DEL_POOL_JSON_FILE)
-def test_del_existing_pool_size_ingress(duthost):
+def test_del_existing_pool_size_ingress(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "size", "567")
 
     del_pool_size_json = [
@@ -205,7 +205,7 @@ def test_del_existing_pool_size_ingress(duthost):
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
-def test_del_nonexistent_pool_size_ingress(duthost):
+def test_del_nonexistent_pool_size_ingress(duthost, ensure_dut_readiness):
     prepare_configdb_field("ingress_lossless_pool", "size", "")
 
     del_pool_size_json = [
@@ -219,7 +219,7 @@ def test_del_nonexistent_pool_size_ingress(duthost):
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
-def test_set_nonexistent_pool_size_egress(duthost):
+def test_set_nonexistent_pool_size_egress(duthost, ensure_dut_readiness):
     prepare_configdb_field("egress_lossy_pool", "size", "")
 
     set_pool_size_json = [
@@ -234,7 +234,7 @@ def test_set_nonexistent_pool_size_egress(duthost):
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
-def test_replace_existing_pool_size_egress(duthost):
+def test_replace_existing_pool_size_egress(duthost, ensure_dut_readiness):
     prepare_configdb_field("egress_lossy_pool", "size", "567")
 
     set_pool_size_json = [
@@ -249,7 +249,7 @@ def test_replace_existing_pool_size_egress(duthost):
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
-def test_del_nonexistent_pool_size_egress(duthost):
+def test_del_nonexistent_pool_size_egress(duthost, ensure_dut_readiness):
     prepare_configdb_field("egress_lossy_pool", "size", "")
 
     del_pool_size_json = [
@@ -263,7 +263,7 @@ def test_del_nonexistent_pool_size_egress(duthost):
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
 
 
-def test_del_existing_pool_size_egress(duthost):
+def test_del_existing_pool_size_egress(duthost, ensure_dut_readiness):
     prepare_configdb_field("egress_lossy_pool", "size", "567")
 
     del_pool_size_json = [
