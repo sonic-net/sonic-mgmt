@@ -94,8 +94,11 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-
-        if out['failed'] == True:
+            
+        # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed'] 
+        # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
+        # error.
+        if out['failed'] == True or out['changed'] == False:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
