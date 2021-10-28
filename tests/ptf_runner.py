@@ -50,6 +50,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                 return result
     except Exception:
         traceback_msg = traceback.format_exc()
-        logger.error(traceback_msg)
+        logger.error("Exception caught while executing case: {}. Error message: {}"\
+            .format(testname, traceback_msg))
         raise Exception
     return True

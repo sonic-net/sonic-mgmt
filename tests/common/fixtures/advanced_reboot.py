@@ -433,14 +433,12 @@ class AdvancedReboot:
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
             except Exception:
-                result = False
+                failed_list.append(rebootOper)
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-            if not result:
-                failed_list.append(rebootOper)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         pytest_assert(len(failed_list) == 0,\
