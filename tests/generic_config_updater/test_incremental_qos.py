@@ -1,6 +1,5 @@
 import logging
 import json
-import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -10,9 +9,7 @@ pytestmark = [
     pytest.mark.asic("mellanox")
 ]
 
-
 logger = logging.getLogger(__name__)
-
 
 BACKUP_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json /etc/sonic/config_db.json.incremental_qos_orig"
 RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.incremental_qos_orig /etc/sonic/config_db.json"
@@ -42,7 +39,6 @@ def ensure_dut_readiness(duthost):
     Args:
         duthost: DUT host object
     """
-    
     logger.info("Backing up config_db.json")
     duthost.shell(BACKUP_CONFIG_DB_CMD)
     verifyOrchagentRunningOrAssert(duthost)
@@ -238,7 +234,6 @@ def test_set_nonexistent_pool_size_egress(duthost):
     ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
 
 
-
 def test_replace_existing_pool_size_egress(duthost):
     prepare_configdb_field("egress_lossy_pool", "size", "567")
 
@@ -280,6 +275,3 @@ def test_del_existing_pool_size_egress(duthost):
 
     duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
     ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
-
-
-
