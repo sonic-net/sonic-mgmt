@@ -157,7 +157,7 @@ class TestbedInfo(object):
 
         return testbed_data
 
-    def dump_testbeds_to_yaml(self, args):
+    def dump_testbeds_to_yaml(self, args=""):
 
         def none_representer(dumper, _):
             return dumper.represent_scalar("tag:yaml.org,2002:null", "")
@@ -193,7 +193,7 @@ class TestbedInfo(object):
                     yaml.Dumper.write_line_break(self)
 
         testbed_data = []
-        if len(args.sai) > 0:
+        if args and len(args.sai) > 0:
             testbed_data = self._generate_sai_testbed(args)
         else:
             for tb_name, tb_dict in self.testbed_topo.items():
