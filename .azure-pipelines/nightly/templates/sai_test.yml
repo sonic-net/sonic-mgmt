@@ -5,6 +5,7 @@ parameters:
   - name: SAI_BRANCH
     type: string
     default: v1.7
+    displayName: "SAI Branch Name"
   
   - name: SAI_PTF_DOCKER
     type: string
