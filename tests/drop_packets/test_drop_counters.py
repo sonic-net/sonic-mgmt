@@ -161,42 +161,60 @@ def get_intf_mtu(duthost, intf, asic_index):
 
 
 @pytest.fixture
-def mtu_config(duthosts):
+def mtu_config(duthosts, rand_one_dut_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
     class MTUConfig(object):
         iface = None
         mtu = None
         default_mtu = 9100
+        key = None
+        asic_index = None
 
         @classmethod
         def set_mtu(cls, mtu, iface, asic_index):
-            for duthost in duthosts:
-                namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
-                cls.mtu = duthost.command("sonic-db-cli -n '{}' CONFIG_DB hget \"PORTCHANNEL|{}\" mtu".format(namespace, iface))["stdout"]
-                if not cls.mtu:
-                    cls.mtu = cls.default_mtu
-                if "PortChannel" in iface:
-                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
-                elif "Ethernet" in iface:
-                    duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, iface, mtu))["stdout"]
-                else:
-                    raise Exception("Unsupported interface parameter - {}".format(iface))
-                cls.iface = iface
-                check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu  # lgtm[py/loop-variable-capture]
-                pytest_assert(wait_until(5, 1, 0, check_mtu), "MTU on interface {} not updated".format(iface))
-                cls.asic_index = asic_index
+            duthost = duthosts[rand_one_dut_hostname]
+            namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
+            if "PortChannel" in iface:
+                cls.key = "PORTCHANNEL"
+            elif "Ethernet" in iface:
+                cls.key = "PORT"
+            else:
+                raise Exception("Unsupported interface parameter - {}".format(iface))
+
+            cls.mtu = duthost.command(
+                "sonic-db-cli -n '{}' CONFIG_DB hget \"{}|{}\" mtu".format(
+                    namespace, cls.key, iface
+                )
+            )["stdout"]
+
+            if not cls.mtu:
+                cls.mtu = cls.default_mtu
+
+            duthost.command(
+                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                    namespace, cls.key, iface, mtu
+                )
+            )["stdout"]
+
+            cls.asic_index = asic_index
+            cls.iface = iface
+            check_mtu = lambda: get_intf_mtu(duthost, iface, asic_index) == mtu  # lgtm[py/loop-variable-capture]
+            pytest_assert(
+                wait_until(5, 1, 0, check_mtu),
+                "MTU on interface {} not updated".format(iface)
+            )
 
         @classmethod
         def restore_mtu(cls):
-            for duthost in duthosts:
-                if cls.iface:
-                    namespace = duthost.get_namespace_from_asic_id(cls.asic_index) if duthost.is_multi_asic else ''
-                    if "PortChannel" in cls.iface:
-                        duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORTCHANNEL|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
-                    elif "Ethernet" in cls.iface:
-                        duthost.command("sonic-db-cli -n '{}' CONFIG_DB hset \"PORT|{}\" mtu {}".format(namespace, cls.iface, cls.mtu))["stdout"]
-                    else:
-                        raise Exception("Trying to restore MTU on unsupported interface - {}".format(cls.iface))
+            duthost = duthosts[rand_one_dut_hostname]
+            namespace = duthost.get_namespace_from_asic_id(
+                cls.asic_index
+            ) if duthost.is_multi_asic else ''
+            duthost.command(
+                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                    namespace, cls.key, cls.iface, cls.mtu
+                )
+            )["stdout"]
 
     yield MTUConfig
 
