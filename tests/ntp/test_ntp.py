@@ -58,8 +58,6 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, creds):
 @pytest.fixture
 def setup_long_jump_config(duthosts, rand_one_dut_hostname, creds):
     """set long jump config and set DUT's time forward"""
-    def _config_long_jump(enable=False):
-        return config_long_jump(enable=enable)
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -72,7 +70,7 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname, creds):
     duthost.command("date -s '@{}'".format(start_time_dut - TIME_FORWARD))
 
     # set long jump config with variable
-    yield config_long_jump
+    yield
 
     # set DUT's time back after long jump test
     duthost.service(name='ntp', state='stopped')
@@ -87,22 +85,20 @@ def check_ntp_status(host):
        return False
     return True
 
-def test_ntp_long_jump_enable(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
+def test_ntp_long_jump_enabled(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.service(name='ntp', state='stopped')
-    setup_long_jump_config(duthost, enable=True)
+    config_long_jump(duthost, enable=True)
     duthost.service(name='ntp', state='restarted')
 
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP long jump enable failed")
 
 @pytest.mark.xfail
-def test_ntp_long_jump_disable(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
+def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost.service(name='ntp', state='stopped')
-    setup_long_jump_config(duthost, enable=False)
+    config_long_jump(duthost, enable=False)
     duthost.service(name='ntp', state='restarted')
 
     if wait_until(720, 10, 0, check_ntp_status, duthost):
