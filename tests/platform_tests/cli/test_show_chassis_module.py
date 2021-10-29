@@ -9,7 +9,7 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-CMD_SHOW_CHASSIS_MODULE = "show chassis-module"
+CMD_SHOW_CHASSIS_MODULE = "show chassis modules"
 
 
 def parse_chassis_module(output, expected_headers):
