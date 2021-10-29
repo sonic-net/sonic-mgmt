@@ -27,7 +27,7 @@ devices:
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.29.93.10/sonic-images/dt_drop_16.0/sonic-cisco-8000.bin
-    linecard_types: [matilda64]
+    linecard_types: [matilda32]
     vxr_sim_config:
         shelf:
             ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-1.7.1-13798/npl
@@ -87,17 +87,16 @@ connections:
         - docker_ptf.eth5
         - sonic_dut.Ethernet5
         - veos4.Ethernet1
-      ptf_injected9:
+      ptf_injected8:
         ports:
         - docker_ptf.eth6
         - sonic_dut.Ethernet6
         - veos5.Ethernet1
-      ptf_injected10:
+      ptf_injected9:
         ports:
         - docker_ptf.eth7
         - sonic_dut.Ethernet7
         - veos6.Ethernet1
-
       backplane:
         ports:
         - veos[1..6].Ethernet9
