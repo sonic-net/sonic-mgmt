@@ -50,7 +50,7 @@ class SonicProcess(Process):
 
 
 def parallel_run(
-    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=20
+    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24
 ):
     """Run target function on nodes in parallel
 
