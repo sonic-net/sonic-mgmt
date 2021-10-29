@@ -23,7 +23,7 @@ def config_long_jump(duthost, enable=False):
         logger.info("disable ntp long jump")
         regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
 
-    duthost.command("sed -i \"%s\" /etc/default/ntp" % regex)
+    duthost.command("sed -i %s /etc/default/ntp" % regex)
 
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
