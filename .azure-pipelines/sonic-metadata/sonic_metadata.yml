@@ -35,6 +35,16 @@ parameters:
   - cold
   - warm fast
   - warm fast cold
+
+parameters:
+- name: METADATA_UPGRADE_PATH
+  default: true
+  type: boolean
+
+- name: TEST_TCAM_HOLE
+  default: false
+  type: boolean
+
 - name: FROM_IMAGE_LIST
   type: string
   displayName: "All base image numbers (space separated)"
@@ -186,6 +196,8 @@ stages:
         FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
         TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
         TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+        METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
+        TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
 
     - publish: ./sonic-mgmt-int/tests/logs
       displayName: "Archive test logs"

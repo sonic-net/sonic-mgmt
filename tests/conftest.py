@@ -162,7 +162,7 @@ def pytest_addoption(parser):
     ###############################
 
     parser.addoption(
-        "--metadata_process", action="store_true", default=True, help="Upgrade using metadata procedure"
+        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
     )
 
     #####################################

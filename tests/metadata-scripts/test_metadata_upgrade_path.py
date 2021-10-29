@@ -9,7 +9,7 @@ from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version, get_reboot_command, check_reboot_cause, check_services
-from tests.upgrade_path.upgrade_helpers import ptf_params, setup  # lgtm[py/unused-import]
+from tests.upgrade_path.upgrade_helpers import ptf_params, setup, create_hole_in_tcam, setup_ferret  # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
@@ -71,7 +71,8 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
 
 
 def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_image,
-        tbinfo, metadata_process, upgrade_type, modify_reboot_script=None, allow_fail=False):
+        tbinfo, metadata_process, upgrade_type, create_hole=False, create_hole_in_tcam=None,
+        modify_reboot_script=None, allow_fail=False):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
     # Install base image
     logger.info("Installing {}".format(from_image))
@@ -80,6 +81,11 @@ def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_im
     logger.info("Cold reboot the DUT to make the base image as current")
     reboot(duthost, localhost)
     check_sonic_version(duthost, target_version)
+
+    # Create a hole in tcam
+    if create_hole:
+        create_hole_in_tcam(duthost, localhost, metadata_process)
+
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
     if metadata_process:
@@ -90,6 +96,12 @@ def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_im
     test_params['target_version'] = target_version
     test_params['reboot_type'] = get_reboot_command(duthost, upgrade_type)
     prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
+
+    if create_hole:
+        setup_ferret(duthost, ptfhost, tbinfo)
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        test_params['reboot_type'] = "warm-reboot -c {}".format(ptf_ip)
+
     log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script
@@ -109,6 +121,9 @@ def run_upgrade_test(duthost, localhost, ptfhost,  ptf_params, from_image, to_im
                 log_file=log_file,
                 module_ignore_errors=allow_fail)
 
+    if create_hole:
+        ptfhost.shell('supervisorctl stop ferret')
+
 
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
         upgrade_path_lists, skip_cancelled_case, ptf_params, setup, tbinfo, request, add_fail_step_to_reboot, verify_dut_health):
@@ -127,17 +142,19 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 
 
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, ptf_params, setup, tbinfo, request):
+        upgrade_path_lists, ptf_params, setup, tbinfo, request, create_hole_in_tcam):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
+    create_hole = request.config.getoption('tcam_hole')
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
     for from_image in from_list:
         for to_image in to_list:
             run_upgrade_test(duthost, localhost, ptfhost, ptf_params,
-                from_image, to_image, tbinfo, metadata_process, upgrade_type)
+                from_image, to_image, tbinfo, metadata_process, upgrade_type,
+                create_hole=create_hole, create_hole_in_tcam=create_hole_in_tcam)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             networking_uptime = duthost.get_networking_uptime().seconds
             timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
