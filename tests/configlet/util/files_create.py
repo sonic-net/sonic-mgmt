@@ -10,11 +10,11 @@ import strip
 import configlet
 
 
-def do_run(is_mlnx):
+def do_run(is_mlnx, is_storage_backend):
     init_global_data()
 
     strip.main(init_data["files_dir"])
-    configlet.main(init_data["files_dir"], is_mlnx)
+    configlet.main(init_data["files_dir"], is_mlnx, is_storage_backend)
 
     log_info("Managed files: {}".format(json.dumps(managed_files, indent=4)))
 
@@ -69,7 +69,7 @@ def main():
     init_data["version"] = d["build_version"]
     is_mlnx = (d["asic_type"].lower() == "mellanox")
 
-    do_run(is_mlnx)
+    do_run(is_mlnx, False)
 
 
 if __name__ == "__main__":

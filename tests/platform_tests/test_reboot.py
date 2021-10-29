@@ -75,14 +75,14 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
 
     if reboot_type is not None:
         logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause, dut, reboot_type), \
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause, dut, reboot_type), \
             "got reboot-cause failed after rebooted by %s" % reboot_type
 
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info("Skip check reboot-cause history for version before 202012")
         else:
             logger.info("Check reboot-cause history")
-            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, check_reboot_cause_history, dut,
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
                               REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
@@ -92,7 +92,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("skipping interfaces related check for supervisor")
     else:
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
-        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, check_all_interface_information, dut, interfaces,
+        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
             MAX_WAIT_TIME_FOR_INTERFACES)
@@ -209,11 +209,17 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
+    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
+        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(duthost.facts["asic_type"]))
     pdu_ctrl = pdu_controller
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
     all_outlets = pdu_ctrl.get_outlet_status()
+    # If PDU supports returning output_watts, making sure that all outlets has power.
+    no_power = [item for item in all_outlets if int(item.get('output_watts', '1')) == 0]
+    pytest_assert(not no_power, "Not all outlets have power output: {}".format(no_power))
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -229,13 +235,23 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
 
     poweroff_reboot_kwargs = {"dut": duthost}
 
-    for power_on_seq in power_on_seq_list:
-        poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-        poweroff_reboot_kwargs["all_outlets"] = all_outlets
-        poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-        poweroff_reboot_kwargs["delay_time"] = power_off_delay
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                         _power_off_reboot_helper, poweroff_reboot_kwargs)
+    try:
+        for power_on_seq in power_on_seq_list:
+            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+            poweroff_reboot_kwargs["all_outlets"] = all_outlets
+            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
+            poweroff_reboot_kwargs["delay_time"] = power_off_delay
+            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                             _power_off_reboot_helper, poweroff_reboot_kwargs)
+    except Exception as e:
+        logging.debug("Restore power after test failure")
+        for outlet in all_outlets:
+            logging.debug("turning on {}".format(outlet))
+            pdu_ctrl.turn_on_outlet(outlet)
+        # Sleep 120 for dut to boot up
+        time.sleep(120)
+        wait_critical_processes(duthost)
+        raise e
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
@@ -260,6 +276,5 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
     ls_ending_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
-    pytest_assert(ls_ending_out.difference(ls_starting_out).size() == 0 and
-            ls_starting_out.difference(ls_ending_out).size() == 0,
+    pytest_assert(ls_ending_out == ls_starting_out,
             "Console devices have changed: expected console devices: {}, got: {}".format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))

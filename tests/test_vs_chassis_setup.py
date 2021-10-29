@@ -5,6 +5,7 @@ import os
 from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import check_qos_db_fv_reference_with_table
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,10 @@ def setup(duthosts, tbinfo, localhost):
         # scp the config_db's for each card
         logger.info("")
         BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-        src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
+        if check_qos_db_fv_reference_with_table(duthost) == True:
+            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
+        else:
+            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_qos_new_dbfmt_config_db.json".format(duthost.hostname))
         dst_cfg_path = os.path.join(os.sep, "tmp", "config_db.json")
         logger.info("Copying {} to /etc/sonic/config_db.json on {}".format(src_cfg_path, duthost.hostname))
         duthost.copy(src=src_cfg_path, dest=dst_cfg_path)

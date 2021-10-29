@@ -18,8 +18,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
-from tests.common.utilities import compose_dict_from_cli
-from tests.common.utilities import wait_until, skip_release
+from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ def wait_data(duthost):
         shared_scope.data_after_restart = collect_data(duthost)
         return bool(shared_scope.data_after_restart['devices'])
     pcied_pooling_interval = 60
-    wait_until(pcied_pooling_interval, 6, _collect_data)
+    wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
 
 @pytest.fixture(scope='module')

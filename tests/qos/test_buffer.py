@@ -13,6 +13,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import check_qos_db_fv_reference_with_table
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -409,7 +410,7 @@ def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, in
     else:
         delay = 1
 
-    return wait_until(timeout, delay, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
+    return wait_until(timeout, delay, 0, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
 
 
 def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
@@ -424,10 +425,14 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
         Whether the expected profile has been found within given time
     """
     def _check_pg_profile(duthost, pg, expected_profile):
-        profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
-        return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
+        if check_qos_db_fv_reference_with_table(duthost) == True:
+            profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
+            return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
+        else:
+            profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout']
+            return (profile == expected_profile)
 
-    if wait_until(10, 2, _check_pg_profile, duthost, pg, expected_profile):
+    if wait_until(10, 2, 0, _check_pg_profile, duthost, pg, expected_profile):
         return True
     else:
         if fail_test:
@@ -447,7 +452,7 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
         pfc_enable = duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
         return (expected_pfc_enable_map == pfc_enable)
 
-    pytest_assert(wait_until(10, 2, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
+    pytest_assert(wait_until(10, 2, 0, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
                   "Port {} pfc enable check failed expected: {} got: {}".format(
                       port,
                       expected_pfc_enable_map,
@@ -706,7 +711,11 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        profile = "BUFFER_PROFILE_TABLE:" + duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
     detect_default_mtu(duthost, port_to_test)
 
     original_pg_size = int(duthost.shell('redis-cli hget "{}" size'.format(profile))['stdout'])
@@ -967,7 +976,12 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+        original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
+
     original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
@@ -1084,7 +1098,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         # Return True only if all lossless profiles pass the check
         return True
 
-    pytest_assert(wait_until(20, 2, _check_buffer_profiles_for_shp, duthost, shp_enabled))
+    pytest_assert(wait_until(20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
 def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
@@ -1399,14 +1413,20 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    raw_lanes_str =  duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
+    list_of_lanes = raw_lanes_str.split(',')
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+        original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
     original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
 
     new_cable_len = '15m'
 
-    lossy_pg_size = TESTPARAM_LOSSY_PG.get(original_speed)
+    lossy_pg_size = TESTPARAM_LOSSY_PG.get(str(len(list_of_lanes)))
     if not lossy_pg_size:
         lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
         if not lossy_pg_size:

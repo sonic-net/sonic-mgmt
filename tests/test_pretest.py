@@ -41,13 +41,13 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     """
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
-    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, verify_features_state, duthost):
+    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
         logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
         reboot(duthost, localhost)
         # Some services are not ready immeidately after reboot
         wait_critical_processes(duthost)
 
-    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS,
+    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0,
                              verify_features_state, duthost), "Not all service states are valid!")
     logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
@@ -101,12 +101,13 @@ def collect_dut_info(dut):
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
         if dut.sonichost.is_multi_asic:
-            fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asics)
-            asic_services[service] = [
-                dut.get_docker_name(service, asic_index=fe),
-                dut.get_docker_name(service, asic_index=be)
-            ]
+            asic_services[service] = []
+            if len(front_end_asics):
+                fe = random.choice(front_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=fe))
+            if len(back_end_asics):
+                be = random.choice(back_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=be))
 
     dut_info = {
         "intf_status": status,
