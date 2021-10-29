@@ -8,7 +8,8 @@ import ipaddress
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list
 from tests.common.helpers.assertions import pytest_require
 
 
@@ -81,6 +82,7 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
     return pkt
 
 
+<<<<<<< HEAD
 @pytest.mark.bsl
 def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_hostname):
     """
@@ -91,7 +93,7 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
     """
     duthost = duthosts[rand_one_dut_hostname]
     router_mac = duthost.facts['router_mac']
-    for vlan_port in vlan_ports_list:
+    for vlan_port in utils_vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         # Send GARP packets to switch to populate the arp table with dummy MACs for each port
         # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
@@ -140,4 +142,5 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 assert arp_cnt == DUMMY_ARP_COUNT
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
+
 
