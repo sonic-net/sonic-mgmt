@@ -36,7 +36,6 @@ parameters:
   - warm fast
   - warm fast cold
 
-parameters:
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
