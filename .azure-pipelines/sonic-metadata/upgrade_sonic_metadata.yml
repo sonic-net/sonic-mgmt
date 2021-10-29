@@ -12,6 +12,12 @@ parameters:
   type: string
 - name: TO_IMAGE_URL
   type: string
+- name: METADATA_UPGRADE_PATH
+  default: true
+  type: boolean
+- name: TEST_TCAM_HOLE
+  default: false
+  type: boolean
 
 steps:
 - script: |
@@ -47,6 +53,13 @@ steps:
     TO_IMAGE_URL=`get_image_url ${{ parameters.TO_IMAGE_URL }} $IMAGE_TYPE`
     cd tests
 
+    if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
+        metadata_process_option=--metadata_process
+    fi
+    if [[ ${{ parameters.TEST_TCAM_HOLE }} == True ]]; then
+        tcam_hole_option=--tcam_hole
+    fi
+
     FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
     TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
     UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
@@ -62,7 +75,7 @@ steps:
           echo From URL is $from_url
           echo To URL is $to_url
 
-          EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$type --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --metadata_process"
+          EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$type --skip_sanity --base_image_list=$from_url --target_image_list=$to_url $metadata_process_option $tcam_hole_option"
 
           ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
             -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
