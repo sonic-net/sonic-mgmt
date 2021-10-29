@@ -162,11 +162,7 @@ def check_portchannels_down(duthost, portchannel_interfaces, pc_num=PORTCHANNELS
         get_res = duthost.shell("redis-cli -n 1 hget {} SAI_ROUTER_INTERFACE_ATTR_PORT_ID".format(line))
         if 'oid' not in get_res['stdout']:
             continue
-        if get_res['stdout'] not in oid_list:
-            continue
-        key = 'ASIC_STATE:SAI_OBJECT_TYPE_LAG:' + get_res['stdout']
-        lag_res = duthost.shell("redis-cli -n 1 hgetall {}".format(key))
-        if lag_res['stdout']:
+        if get_res['stdout'] in oid_list:
             return False
     return True
 
