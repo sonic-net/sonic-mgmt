@@ -12,7 +12,7 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan')
+    pytest.mark.topology('t0')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -65,7 +65,10 @@ def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_
     Send tagged packets from each port.
     Verify SNMP FDB entry
     """
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     send_cnt = 0
+    send_portchannels_cnt = 0
     for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
@@ -75,13 +78,17 @@ def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_
             logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
             testutils.send(ptfadapter, port_index, pkt)
             send_cnt += 1
+            if vlan_port['dev'] in config_portchannels:
+                send_portchannels_cnt += 1
     # Flush dataplane
     ptfadapter.dataplane.flush()
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
     assert 'snmp_fdb' in snmp_facts
+    assert 'snmp_interfaces' in snmp_facts
     dummy_mac_cnt = 0
+    recv_portchannels_cnt = 0
     for key in snmp_facts['snmp_fdb']:
         # key is string: vlan.mac
         items = key.split('.')
@@ -90,4 +97,10 @@ def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_
         logger.info("FDB entry: {}".format(items))
         if DUMMY_MAC_PREFIX in items[1]:
             dummy_mac_cnt += 1
+            idx = str(snmp_facts['snmp_fdb'][key])
+            assert idx in snmp_facts['snmp_interfaces']
+            assert 'name' in snmp_facts['snmp_interfaces'][idx]
+            if snmp_facts['snmp_interfaces'][idx]['name'] in config_portchannels:
+                recv_portchannels_cnt += 1
     assert send_cnt == dummy_mac_cnt, "Dummy MAC count does not match"
+    assert send_portchannels_cnt == recv_portchannels_cnt, "Portchannels count does not match"
