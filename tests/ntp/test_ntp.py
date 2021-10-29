@@ -26,7 +26,7 @@ def config_long_jump(duthost, enable=False):
     duthost.command("sed -i \"%s\" /etc/default/ntp" % regex)
 
 @pytest.fixture(scope="module")
-def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, creds):
+def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     """setup ntp client and server"""
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -56,7 +56,7 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, creds):
         duthost.command("config ntp add %s" % ntp_server)
 
 @pytest.fixture
-def setup_long_jump_config(duthosts, rand_one_dut_hostname, creds):
+def setup_long_jump_config(duthosts, rand_one_dut_hostname):
     """set long jump config and set DUT's time forward"""
 
     duthost = duthosts[rand_one_dut_hostname]
