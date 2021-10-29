@@ -13,7 +13,6 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
-
 class SonicProcess(Process):
     """
     Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
@@ -94,7 +93,10 @@ def parallel_run(
                 results[p.name] = [{'failed': True}]
                 try:
                     os.kill(p.pid, signal.SIGKILL)
-                except OSError:
+                except OSError as err:
+                    logger.debug("Unable to kill {}:{}, error:{}".format(
+                        p.pid, p.name, err
+                    ))
                     pass
 
             pt_assert(
@@ -110,7 +112,7 @@ def parallel_run(
     tasks_done = 0
     total_tasks = len(nodes)
     tasks_running = 0
-    total_timeout = timeout * int(len(nodes)/concurrent_tasks) if timeout else None
+    total_timeout = timeout * (int(len(nodes)/concurrent_tasks) + 1) if timeout else None
     failed_processes = {}
 
     while tasks_done < total_tasks:
@@ -140,6 +142,7 @@ def parallel_run(
             workers.append(worker)
 
         gone, alive = wait_procs(workers, timeout=timeout, callback=on_terminate)
+        workers = alive
 
         logger.debug("task completed {}, running {}".format(
             len(gone), len(alive)
@@ -150,6 +153,7 @@ def parallel_run(
             tasks_running -= len(workers)
             tasks_done += len(workers)
             force_terminate(workers)
+            del workers[:]
         else:
             tasks_running -= len(gone)
             tasks_done += len(gone)
