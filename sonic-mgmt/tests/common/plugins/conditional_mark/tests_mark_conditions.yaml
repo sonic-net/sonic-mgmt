@@ -19,6 +19,12 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
     conditions:
       - "asic_type=='cisco-8000'"
 
+sub_port_interfaces/test_sub_port_interfaces.py::test_tunneling_between_sub_ports:
+  skip:
+    reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
