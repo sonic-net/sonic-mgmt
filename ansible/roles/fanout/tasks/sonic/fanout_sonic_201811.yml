@@ -1,3 +1,6 @@
+- name: find interface name mapping
+  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
+
 - name: build fanout vlan config
   fail: msg="SONiC fanout switch with HwSku {{ device_info[inventory_hostname]['HwSku'] }} not supported"
   when: device_info[inventory_hostname]["HwSku"] != "Arista-7060CX-32S-C32"

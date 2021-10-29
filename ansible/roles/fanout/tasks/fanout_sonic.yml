@@ -3,23 +3,21 @@
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
 
-- name: find interface name mapping
-  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
+- name: retrieve SONiC version
+  shell: cat /etc/sonic/sonic_version.yml
+  register: sonic_version_content
 
-- name: show fanout SONiC version
-  shell: "show version"
-  register: show_version_output
-
-- name: get fanout SONiC version
+- name: format SONiC version content
   set_fact:
-    fanout_sonic_version: "{{ show_version_output['stdout_lines'] | find_version_str }}"
+    fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
+  with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
 - name: deploy SONiC fanout with image version 201811
   include_tasks:
     sonic/fanout_sonic_201811.yml
-  when: "{{ '20181130' in fanout_sonic_version }}"
+  when: "{{ '20181130' in fanout_sonic_version['build_version'] }}"
 
 - name: deploy SONiC fanout with image version 202012
   include_tasks:
     sonic/fanout_sonic_202012.yml
-  when: "{{ '20201231' in fanout_sonic_version }}"
+  when: "{{ '20201231' in fanout_sonic_version['build_version'] }}"
