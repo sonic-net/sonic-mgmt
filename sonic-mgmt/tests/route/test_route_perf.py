@@ -213,7 +213,7 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
 def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Number of routes for test
-    set_num_routes = request.config.getoption("--num_routes")
+    set_num_routes = request.config.getoption("--num_of_routes")
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 8
