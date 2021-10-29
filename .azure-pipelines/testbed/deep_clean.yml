@@ -1,0 +1,314 @@
+# This job is for deep cleaning test servers in the weekend when nobody is using testbeds.
+# It will try to recover all testbeds on test server after clean is done.
+# This pipeline tries to lock all testbeds on test server before working on deep clean and recover. By default, the
+# locking is best effort without force=yes. So, when any of the testbed on a server is locked, deep cleaning on the
+# server will be skipped. This makes deep clean a low priority task which always gives way to other users and
+# nightly tests.
+
+name: DeepClean_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "10 15 * * 6"
+    displayName: DeepClean Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+
+  - name: DRY_RUN
+    type: boolean
+    default: false
+    displayName: "Dry run"
+
+  - name: FORCE_LOCK
+    type: boolean
+    default: false
+    displayName: "Force lock"
+
+  - name: SERVER_TESTBED_INFO
+    displayName: "Server testbed info"
+    type: object
+    default:
+      server_1:
+        vm_type: ceos
+        testbeds:
+          - vms1-8
+          - vms1-t0-2700-1
+          - vms1-t0-3132
+          - vms1-t1-2700
+          - vms1-t1-lag-3132
+      server_2:
+        vm_type: ceos
+        testbeds:
+          - vms2-2-t0-2700
+          - vms2-4-t0-2700
+          - vms2-5-t0-7050-1
+          - vms2-t1-7260-7
+      server_3:
+        vm_type: ceos
+        testbeds:
+          - vms3-4
+          - vms3-t0-s6100
+          - vms3-t1-7280
+          - vms3-t1-dx010-1
+      server_6:
+        vm_type: veos
+        testbeds:
+          - vms6-1
+          - vms6-t0-7060
+          - vms6-t0-7648
+          - vms6-t0-z91
+          - vms6-t1-7060
+      server_7:
+        vm_type: ceos
+        testbeds:
+          - vms7-t0-4600c-2
+          - vms7-t0-7260-1
+          - vms7-t0-7260-2
+          - vms7-t0-dx010-4
+          - vms7-t0-dx010-5
+          - vms7-t0-s6100
+          - vms7-t0-s6100-4
+          - vms7-t1-s6100
+      server_11:
+        vm_type: ceos
+        testbeds:
+          - vms11-2-t0
+          - vms11-3-t1
+          - vms11-t0-on-4
+          - vms11-t0-s6000
+          - vms11-t0-s6000-6
+      server_12:
+        vm_type: veos
+        testbeds:
+          - vms12-3-t0-e1031
+          - vms12-9-t0-e1031
+          - vms12-t0-1
+          - vms12-t0-2
+          - vms12-t0-3800
+          - vms12-t0-s5232-1
+          - vms12-t0-s6000
+          - vms12-t0-s6000-1
+          - vms12-t1-lag-1
+      server_13:
+        vm_type: veos
+        testbeds:
+          - vms13-4-t0
+          - vms13-5-t1-lag
+          - vms13-t0-a7170
+          - vms13-t1-n3164-2
+      server_18:
+        vm_type: ceos
+        testbeds:
+          - vms18-t0-7050qx-acs-02
+          - vms18-t0-7215-acs-1
+          - vms18-t1-7050qx-acs-03
+          - vms18-t1-msn4600c-acs-1
+      server_20:
+        vm_type: ceos
+        testbeds:
+          - vms20-t0-7050cx3-1
+          - vms20-t0-7050cx3-2
+          - vms20-t0-7050cx3-ixia-1
+          - vms20-t0-7060
+          - vms20-t0-7170-azd
+          - vms20-t0-ixia-1
+          - vms20-t0-ixia-2
+          - vms20-t0-sn3800-2
+          - vms20-t1-7050cx3-3
+          - vms20-t1-dx010-6
+      server_21:
+        vm_type: ceos
+        testbeds:
+          - vms21-dual-t0-7050-3
+          - vms21-dual-t0-7260
+          - vms21-t0-2700
+          - vms21-t0-7215-acs-3
+          - vms21-t0-8102-01
+          - vms21-t0-dx010-7
+          - vms21-t0-z9332f-02
+          - vms21-t1-2700-2
+          - vms21-t1-z9332f-01
+      server_24:
+        vm_type: ceos
+        testbeds:
+          - vms24-dual-t0-7050-1
+          - vms24-dual-t0-7050-2
+          - vms24-t0-3800-azd
+          - vms24-t0-3800-azd-2
+          - vms24-t0-7260-2
+          - vms24-t1-7050qx-acs-01
+          - vms24-t1-n3164-3
+          - vms24-t1-n3164-acs-1
+      server_26:
+        vm_type: ceos
+        testbeds:
+          - vms26-t2-7800-1
+      server_28:
+        vm_type: ceos
+        testbeds:
+          - vms28-dual-t0-8102
+          - vms28-t0-4600c-03
+          - vms28-t0-4600c-04
+          - vms28-t0-7280-3
+          - vms28-t1-8102-02
+
+jobs:
+- ${{ each SERVER in parameters.SERVER_TESTBED_INFO }}:
+  - job: Deep_Clean_${{ SERVER.key }}
+    pool: nightly
+    timeoutInMinutes: 300
+    variables:
+      - group: TBSHARE_SECRETS
+      - name: skipComponentGovernanceDetection
+        value: true
+      - name: VM_TYPE
+        value: ${{ SERVER.value.vm_type }}
+      - name: SERVER_NAME
+        value: ${{ SERVER.key }}
+
+    steps:
+
+      # Get secrets
+      - template: ../nightly/templates/get_secrets.yml
+
+      # Cleanup result files
+      - script: |
+          set -x
+          rm ansible/lockTestbedFailed
+          touch ansible/lockTestbedFailed
+
+          rm ansible/recoverResults
+          touch ansible/recoverResults
+        displayName: Cleanup result files
+
+      # Loop through each testbed to lock it
+      - ${{ each TESTBED_NAME in SERVER.value.testbeds }}:
+        - script: |
+            set -x
+
+            # Deep clean is disruptive, do not force lock to allow people keep their testbeds in weekend
+            python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a lock -o 6 -r 'Deep clean' -f ${{ parameters.FORCE_LOCK }} -b yes
+            RC=$?
+            if [[ $RC != 0 ]]; then
+              echo ${{ TESTBED_NAME }} >> ansible/lockTestbedFailed
+            fi
+          displayName: Lock Testbed ${{ TESTBED_NAME }}
+          env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+
+      # Run cleanup
+      - script: |
+          set -x
+
+          cd ansible
+
+          # If lock any testbed on server failed, abort rest of the tasks
+          lockTestbedFailed=$(cat lockTestbedFailed | wc -l)
+          if [[ $lockTestbedFailed -gt 0 ]]; then
+            echo
+            echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            echo -e "Failed to lock testbeds:\n$(cat lockTestbedFailed)"
+            echo "Failed to lock all testbeds on server, unable to cleanup server, aborting..."
+            echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            echo
+            echo 1 > cleanupServerResult
+            exit 1
+          fi
+
+          CMD="./testbed-cli.sh cleanup-vmhost $(SERVER_NAME) password.txt"
+          if [[ "${{ parameters.DRY_RUN}}" == True ]]; then
+            echo "DRY RUN: $CMD"
+            RC=0
+          else
+            echo ================ cleanup $(SERVER_NAME) ================
+            $CMD
+            RC=$?
+          fi
+
+          echo $RC > cleanupServerResult
+        displayName: Cleanup $(SERVER_NAME)
+
+      # Loop through each testbed to re-deploy it
+      - ${{ each TESTBED_NAME in SERVER.value.testbeds }}:
+        - script: |
+            set -ex
+
+            cd ansible
+
+            # If cleanup failed, abort rest of the tasks
+            cleanupServerResult=$(cat cleanupServerResult)
+            if [[ $cleanupServerResult != 0 ]]; then
+              echo
+              echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              echo "Cleanup server failed, aborting..."
+              echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              echo
+              exit 1
+            fi
+
+            echo ================ Recover ${{ TESTBED_NAME }} =============== >> recoverResults
+
+            echo ========== start-topo-vms for ${{ TESTBED_NAME }} ==========
+            if [[ "$(VM_TYPE)" != "ceos" ]]; then
+              echo "VM type is not ceos, need to start VMs"
+
+              CMD="./testbed-cli.sh -k $(VM_TYPE) start-topo-vms ${{ TESTBED_NAME }} password.txt"
+              if [[ "${{ parameters.DRY_RUN}}" == True ]]; then
+                echo "DRY RUN: $CMD" >> recoverResults
+              else
+                $CMD
+                RC=$?
+                echo -e "${{ TESTBED_NAME }} start-topo-vms result:\t $RC" >> recoverResults
+              fi
+            else
+              echo "VM type is ceos, no need to start VMs"
+            fi
+
+            echo ========== add-topo for ${{ TESTBED_NAME }} ==========
+            CMD="./testbed-cli.sh -k $(VM_TYPE) add-topo ${{ TESTBED_NAME }} password.txt"
+            if [[ "${{ parameters.DRY_RUN}}" == True ]]; then
+              echo "DRY RUN: $CMD" >> recoverResults
+            else
+              $CMD
+              RC=$?
+              echo -e "${{ TESTBED_NAME }} add-topo result:\t $RC" >> recoverResults
+            fi
+
+            echo ========== deploy-mg for ${{ parameters.TESTBED_NAME }} ==========
+            INVENTORY_NAME=$(python -c "import yaml; print(filter(lambda x: x['conf-name']=='${{ TESTBED_NAME }}', yaml.safe_load(open('testbed.yaml')))[0]['inv_name'])")
+            CMD="./testbed-cli.sh -k $(VM_TYPE) deploy-mg ${{ TESTBED_NAME }} $INVENTORY_NAME password.txt"
+            if [[ "${{ parameters.DRY_RUN}}" == True ]]; then
+              echo "DRY RUN: $CMD" >> recoverResults
+            else
+              $CMD
+              RC=$?
+              echo -e "${{ TESTBED_NAME }} deploy-mg result:\t $RC" >> recoverResults
+            fi
+          displayName: Recover testbed ${{ TESTBED_NAME }}
+          condition: succeededOrFailed()
+
+      - script: |
+            echo
+            echo ============================================================================
+            echo -e "Summary of recovering testbeds:\n$(cat ansible/recoverResults)"
+            echo ============================================================================
+            echo
+        displayName: "Recover summary"
+
+      # Loop through each testbed to release it
+      - ${{ each TESTBED_NAME in SERVER.value.testbeds }}:
+        - script: |
+            set -x
+            python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a release -f ${{ parameters.FORCE_LOCK }}
+          displayName: Release Testbed ${{ TESTBED_NAME }}
+          env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          condition: always()

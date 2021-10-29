@@ -103,14 +103,14 @@ if __name__ == '__main__':
         dest='force',
         required=False,
         default="yes",
-        help='Force lock. Valid values: true, yes, t, y, false, no, f, n. Case insentitive')
+        help='Force lock. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
 
     parser.add_argument('-b', '--absolute',
         type=str,
         dest='absolute',
         required=False,
         default="yes",
-        help='Absolute lock. Valid values: true, yes, t, y, false, no, f, n. Case insentitive')
+        help='Absolute lock. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
 
     args = parser.parse_args()
 
