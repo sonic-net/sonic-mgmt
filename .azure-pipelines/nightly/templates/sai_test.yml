@@ -6,6 +6,11 @@ parameters:
     type: string
     default: v1.7
     displayName: "SAI Branch Name"
+  
+  - name: SAI_PTF_DOCKER
+    type: string
+    displayName: "SAI PTF DOCKER"
+    default: docker-ptf
 
   - name: SAI_TEST_CONTAINER
     type: string
@@ -59,6 +64,10 @@ parameters:
   - name: PY_SAITHRIFT_URL
     type: string
     default: ""
+  
+  - name: TESTBED_LOCK_HOUR
+    type: string
+    default: "6"
 
   # Upgrade parameters
   - name: IMAGE_URL
@@ -162,18 +171,14 @@ stages:
               TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
               BUILD_ID: $(Build.BuildId)
 
-          - task: PythonScript@0
-            displayName: Lock Testbed            
-            condition: ${{ parameters.LOCK_TESTBED }}
-            inputs:
-              scriptSource: 'filePath'
-              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-              arguments: lock
+          - script: |
+                python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no -b no
             env:
-                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-          
+            condition: ${{ parameters.LOCK_TESTBED }}
+            displayName: Lock Testbed
+
           - task: Bash@3
             condition: ${{ parameters.UPDATE_IMAGE }}
             displayName: "Upgrade Image"
@@ -227,8 +232,24 @@ stages:
                 sleep 30
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-              INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+
+          - task: Bash@3
+            displayName: Generate SAI testbed file
+            condition: always()
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
+              
+                cat ./ansible/testbed_sai.yaml
+            env:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
+              SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
+              SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
@@ -244,7 +265,6 @@ stages:
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
-              INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
@@ -460,20 +480,14 @@ stages:
               INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
-
-          - task: PythonScript@0
-            displayName: Release Testbed
-            inputs:
-              scriptSource: 'filePath'
-              scriptPath: ./.azure-pipelines/nightly/templates/lock_release.py
-              arguments: release
+          - script: |
+                python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
             env:
-                TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-            condition: and(always(), ${{ parameters.LOCK_TESTBED }} )
+            condition:  and(always(), ${{ parameters.LOCK_TESTBED }} )
+            displayName: Release Testbed
           
-
           - task: Bash@3
             displayName: Upload Test Results
             condition: ${{ parameters.RUN_TEST }}

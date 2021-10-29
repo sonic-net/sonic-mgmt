@@ -86,6 +86,8 @@ all:
           ansible_host: 10.64.246.241
         vms28-5:
           ansible_host: 10.64.246.242
+        vms28-6:
+          ansible_host: 10.64.246.243
 
     pdu:
       hosts:
@@ -260,6 +262,10 @@ fanout:
       ansible_host: 10.3.147.53
     str2-7260cx3-acs-fan-32:
       ansible_host: 10.3.147.54
+    str2-7260cx3-acs-fan-33:
+      ansible_host: 10.3.147.166
+    str2-7260cx3-acs-fan-34:
+      ansible_host: 10.3.147.168
 
 sonic:
   vars:
@@ -375,6 +381,8 @@ sonic_nexus_3164:
   vars:
     hwsku: Nexus-3164
     iface_speed: 40000
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
   hosts:
     str2-n3164-acs-4:
       ansible_host: 10.3.146.124
@@ -759,6 +767,42 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPE18390220"
+    str2-7260cx3-acs-12:
+      ansible_host: 10.3.147.165
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: JPE20222159
+      base_mac: d4:af:f7:1d:59:d0
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "JPE20222159"
+        "0x24": "d4:af:f7:1d:59:d0"
+        "0x25": "2020/07/28 10:34:05"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPE20222159"
+    str2-7260cx3-acs-13:
+      ansible_host: 10.3.147.167
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: JPE20291738
+      base_mac: d4:af:f7:1f:ac:f8
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "JPE20291738"
+        "0x24": "d4:af:f7:1f:ac:f8"
+        "0x25": "2020/08/03 10:19:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPE20291738"
     str2-7170-azd:
       ansible_host: 10.3.146.76
       hwsku: Arista-7170-64C
