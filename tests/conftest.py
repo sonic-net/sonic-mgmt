@@ -174,7 +174,6 @@ def pytest_addoption(parser):
     )
 
 
-
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def upgrade_path_lists(request):
+def upgrade_path_lists(request, upgrade_type_params):
     upgrade_type = request.config.getoption('upgrade_type')
     from_list = request.config.getoption('base_image_list')
     to_list = request.config.getoption('target_image_list')
@@ -43,6 +43,15 @@ def skip_cancelled_case(request, upgrade_type_params):
     if "test_cancelled_upgrade_path" in request.node.name\
         and upgrade_type_params not in ["warm", "fast"]:
         pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
+
+
+def pytest_generate_tests(metafunc):
+  upgrade_types = metafunc.config.getoption("upgrade_type")
+  upgrade_types = upgrade_types.split(",")
+
+  if "upgrade_type_params" in metafunc.fixturenames:
+      params = upgrade_types
+      metafunc.parametrize("upgrade_type_params", params, scope="module")
 
 
 def sonic_update_firmware(duthost, image_url, upgrade_type):

@@ -206,7 +206,7 @@ stages:
     - task: PublishTestResults@2
       displayName: Publish test results
       inputs:
-        testResultsFiles: './sonic-mgmt-int/tests/logs/**/*.xml'
+        testResultsFiles: '**/tests/logs/**/*.xml'
         testRunTitle: ${{ parameters.TESTBED_NAME}}.upgrade_path
       condition: always()
 
