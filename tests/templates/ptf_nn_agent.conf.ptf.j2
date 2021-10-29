@@ -1,5 +1,6 @@
 [program:ptf_nn_agent]
-command=/usr/bin/python /opt/ptf_nn_agent.py --device-socket 0@tcp://127.0.0.1:10900 -i 0-{{ nn_target_port }}@eth{{ nn_target_port }}
+command=/usr/bin/python /opt/ptf_nn_agent.py --device-socket 0@tcp://127.0.0.1:10900 -i 0-{{ nn_target_port }}@eth{{ nn_target_port }}{% if nn_target_vlanid %}.{{nn_target_vlanid}}{% else %}{% endif %}
+
 process_name=ptf_nn_agent
 stdout_logfile=/tmp/ptf_nn_agent.out.log
 stderr_logfile=/tmp/ptf_nn_agent.err.log
