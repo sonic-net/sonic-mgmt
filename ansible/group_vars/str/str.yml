@@ -6,7 +6,7 @@
 ntp_servers: ['10.20.8.129', '10.20.8.130']
 
 # syslog variables
-syslog_servers: ['10.3.145.8', '100.127.20.21']
+syslog_servers: ['10.64.246.95']
 
 # dns variables
 dns_servers: ['10.3.145.98', '10.3.145.99', '10.65.5.5']
