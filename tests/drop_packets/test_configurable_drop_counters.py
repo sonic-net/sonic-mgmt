@@ -24,6 +24,7 @@ import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
@@ -109,7 +110,7 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
     pytest_assert(fdb_count == 1, "FDB entry doesn't exist for {}, fdb_count is {}".format(dst_mac, fdb_count))
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
+def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor, mock_server,
                             send_dropped_traffic, drop_reason, generate_dropped_packet, tbinfo):
     """
     Verifies counters that check for a neighbor link being down.
