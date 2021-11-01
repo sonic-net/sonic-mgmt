@@ -1,8 +1,7 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.tacacs import setup_tacacs_server
 from .test_ro_user import ssh_remote_run
-from .utils import check_output
+from .utils import check_output, setup_tacacs_server
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -12,7 +11,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     """check jit user. netuser -> netadmin -> netuser"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

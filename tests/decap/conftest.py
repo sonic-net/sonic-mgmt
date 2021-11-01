@@ -18,4 +18,3 @@ def pytest_generate_tests(metafunc):
   if "supported_ttl_dscp_params" in metafunc.fixturenames:
       params = build_ttl_dscp_params({'ttl': ttl, 'dscp': dscp})
       metafunc.parametrize("supported_ttl_dscp_params", params, ids=lambda p: "ttl=%s, dscp=%s" % (p['ttl'], p['dscp']), scope="module")
-

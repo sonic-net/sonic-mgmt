@@ -43,22 +43,23 @@ We currently support EOS-based or SONiC VMs to simulate neighboring devices in t
 2. Copy below image files to `~/veos-vm/images` on your testbed host:
    - `Aboot-veos-serial-8.0.0.iso`
    - `vEOS-lab-4.20.15M.vmdk`
-
 ### Option 2: cEOS (container-based) image (experimental)
 #### Option 2.1: Download and import cEOS image manually
 1. Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download)
 2. Import the cEOS image (it will take several minutes to import, so please be patient!)
 
 ```
-docker import cEOS64-lab-4.23.2F.tar.xz ceosimage:4.23.2F
+docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M-1
 ```
 After imported successfully, you can check it by 'docker images'
 ```
 $ docker images
-REPOSITORY                                     TAG                 IMAGE ID            CREATED             SIZE
-ceosimage                                      4.23.2F             d53c28e38448        2 hours ago         1.82GB
+REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
+ceosimage                                              4.25.5.1M-1   fa0df4b01467   9 seconds ago   1.62GB
 ```
+**Note**: *For time being, the image might be updated, the actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), please download the corresponding version of image and import it to your local docker repository.*
 
+**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
 1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
 
@@ -259,6 +260,38 @@ Once the topology has been created, we need to give the DUT an initial configura
 ```
 ./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
 ```
+Verify the DUT is created successfully
+In your host run
+```
+~$ virsh list
+ Id   Name      State
+-------------------------
+ 3    vlab-01   running
+ ```
+ Then you can try to login to your dut through the command and get logged in as shown below.
+ For more infomation about how to get the DUT IP address, please refer to doc 
+ [testbed.Example#access-the-dut](README.testbed.Example.Config.md#access-the-dut)
+ ```
+~$ ssh admin@10.250.0.101
+admin@10.250.0.101's password: 
+Linux vlab-01 4.19.0-12-2-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
+You are on
+  ____   ___  _   _ _  ____
+ / ___| / _ \| \ | (_)/ ___|
+ \___ \| | | |  \| | | |
+  ___) | |_| | |\  | | |___
+ |____/ \___/|_| \_|_|\____|
+
+-- Software for Open Networking in the Cloud --
+
+Unauthorized access and/or use are prohibited.
+All access and/or use are subject to monitoring.
+
+Help:    http://azure.github.io/SONiC/
+
+Last login: Thu Jul 29 03:55:53 2021 from 10.250.0.1
+admin@vlab-01:~$ exit
+```
 
 2. Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
 ```
@@ -338,3 +371,11 @@ If neighbor devices are SONiC
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
+
+## Restore/Remove the testing environment
+If you want to clear your testing environment, you can log into your mgmt docker that you created at step three in section [README.testbed.VsSetup.md#prepare-testbed-host](README.testbed.VsSetup.md#prepare-testbed-host).
+
+Then run command:
+```
+./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt
+```

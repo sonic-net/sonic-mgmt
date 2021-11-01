@@ -73,19 +73,25 @@ def wait(seconds, msg=""):
     time.sleep(seconds)
 
 
-def wait_until(timeout, interval, condition, *args, **kwargs):
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Wait until the specified condition is True or timeout.
     @param timeout: Maximum time to wait
     @param interval: Poll interval
+    @param delay: Delay time
     @param condition: A function that returns False or True
     @param *args: Extra args required by the 'condition' function.
     @param **kwargs: Extra args required by the 'condition' function.
     @return: If the condition function returns True before timeout, return True. If the condition function raises an
         exception, log the error and keep waiting and polling.
     """
-    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s" % \
-        (condition.__name__, timeout, interval))
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
+        (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        time.sleep(delay)
+
     start_time = time.time()
     elapsed_time = 0
     while elapsed_time < timeout:
@@ -484,9 +490,12 @@ def compose_dict_from_cli(fields_list):
     return dict(zip(fields_list[0::2], fields_list[1::2]))
 
 
-def get_intf_by_sub_intf(sub_intf, vlan_id):
+def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     """
-    Deduce interface from sub interface by striping vlan id
+    Deduce interface from sub interface by striping vlan id,
+    if vlan id is not passed, will automatically strip vlan id by finding '.',
+     if '.' found: strip the right or it,
+     if '.' not found, return original sub_intf.
     Args:
         sub_intf (str): sub interface name, e.g. Ethernet100.10
         vlan_id (str): vlan id, e.g. 10
@@ -494,7 +503,13 @@ def get_intf_by_sub_intf(sub_intf, vlan_id):
     Returns:
         str: interface name, e.g. Ethernet100
     """
+    if type(sub_intf) != str:
+        sub_intf = str(sub_intf)
+
     if not vlan_id:
+        idx_of_sub_int_indicator = sub_intf.find(constants.VLAN_SUB_INTERFACE_SEPARATOR)
+        if idx_of_sub_int_indicator > -1:
+            return sub_intf[:idx_of_sub_int_indicator]
         return sub_intf
 
     vlan_suffix = constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id

@@ -983,7 +983,7 @@ class TestFPLinkFlap(LinkFlap):
                 self.linkflap_up(fanout, fanport, ports['portA']['dut'], lport)
 
         # need bgp to establish
-        wait_until(200, 20, bgp_established, ports['portA']['dut'], ports['portA']['asic'])
+        wait_until(200, 20, 0, bgp_established, ports['portA']['dut'], ports['portA']['asic'])
 
         # Validate from port A and neighbor A that everything is good after port is up.
         logger.info("=" * 80)

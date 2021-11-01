@@ -63,11 +63,13 @@ class DBChecker:
         command = "redis-dump -d {db} -k \"{key_pattern}\"".format(
             db=db, key_pattern=key_pattern)
         lines = self.duthost.shell(command)["stdout_lines"]
-        return json.loads(lines[0])
+        db_dump = json.loads(lines[0])
+        logger.debug(json.dumps(db_dump, indent=4))
+        return db_dump
 
     def verify_db(self, db):
         pytest_assert(
-            wait_until(30, 10, self.get_mismatched_ports, db),
+            wait_until(30, 10, 0, self.get_mismatched_ports, db),
             "Database states don't match expected state {state},"
             "incorrect {db_name} values {db_states}"
             .format(state=self.state, db_name=DB_NAME_MAP[db],

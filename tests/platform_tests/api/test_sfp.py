@@ -53,6 +53,14 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
                                                 physical_port_index_map.keys() \
                                                 if intf not in xcvr_skip_list[duthost.hostname]])
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
+
+    # Fetch SFP names from platform.json
+    sfp_fact_names = []
+    sfp_fact_list = duthost.facts.get("chassis").get("sfps")
+    for sfp in sfp_fact_list:
+        sfp_fact_names.append(sfp.get('name'))
+    sfp_setup["sfp_fact_names"] = sfp_fact_names
+
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
 
@@ -137,24 +145,10 @@ class TestSfpApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, sfp_idx, duthost):
-        expected_value = None
-        sfp_id = self.sfp_setup["sfp_port_indices"].index(sfp_idx)
-        if duthost.facts.get("chassis"):
-            expected_sfps = duthost.facts.get("chassis").get("sfps")
-            if expected_sfps:
-                expected_value = expected_sfps[sfp_id].get(key)
-
-        if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for SFP {}".format(key, sfp_idx)):
-            self.expect(value == expected_value,
-                        "'{}' value is incorrect. Got '{}', expected '{}' for SFP {}".format(key, value, expected_value,
-                                                                                             sfp_idx))
-
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD":
+        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X":
             if xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                return False
         else:
@@ -188,11 +182,13 @@ class TestSfpApi(PlatformApiTestBase):
     #
 
     def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        expected_sfp_names = self.sfp_setup["sfp_fact_names"]
         for i in self.sfp_setup["sfp_test_port_indices"]:
             name = sfp.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve transceiver {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Transceiver {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i, duthosts[enum_rand_one_per_hwsku_hostname])
+                self.expect(name in expected_sfp_names,
+                        "Transceiver name '{}' for PORT{} NOT found in platform.json".format(name, i))
         self.assert_expectations()
 
     def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
@@ -464,7 +460,7 @@ class TestSfpApi(PlatformApiTestBase):
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
@@ -513,14 +509,14 @@ class TestSfpApi(PlatformApiTestBase):
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state".format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)

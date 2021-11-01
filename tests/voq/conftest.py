@@ -22,7 +22,7 @@ def chassis_facts(duthosts, request):
             host_vars = get_host_visible_vars(inv_files, a_host.hostname)
             assert 'slot_num' in host_vars, "Variable 'slot_num' not found in inventory for host {}".format(a_host.hostname)
             slot_num = host_vars['slot_num']
-            a_host.facts['slot_num'] = int(slot_num)
+            a_host.facts['slot_num'] = int(slot_num[len("slot"):])
 
 
 @pytest.fixture(scope="module")
