@@ -21,7 +21,7 @@ parameters:
 
   - name: CURRENT_VM_TYPE
     type: string
-    default: veos
+    default: ceos
     values:
       - veos
       - ceos
@@ -29,7 +29,7 @@ parameters:
 
   - name: TARGET_VM_TYPE
     type: string
-    default: veos
+    default: ceos
     values:
       - veos
       - ceos
