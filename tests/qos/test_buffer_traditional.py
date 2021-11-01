@@ -9,7 +9,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-global DEFAULT_LOSSLESS_PROFILES
+DEFAULT_LOSSLESS_PROFILES = None
+RECLAIM_BUFFER_ON_ADMIN_DOWN = None
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_module(duthosts, rand_one_dut_hostname):
@@ -19,9 +20,13 @@ def setup_module(duthosts, rand_one_dut_hostname):
         duthosts: The duthosts object
         rand_one_dut_hostname:
     """
+    global RECLAIM_BUFFER_ON_ADMIN_DOWN
+
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] != "mellanox":
-        pytest.skip("Traditional buffer test runs on Mellanox platform only, skip")
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        RECLAIM_BUFFER_ON_ADMIN_DOWN = True
+    else:
+        RECLAIM_BUFFER_ON_ADMIN_DOWN = False
 
     if "201911" not in duthost.os_version:
         pytest.skip("Buffer test runs on 201911 branch only, skip")
@@ -82,12 +87,16 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
     1. For all ports in the config_db,
        - Check whether there is no lossless buffer PG configured on an admin-down port
+         - on all paltforms, there is no lossless PG configured on inactive ports which are admin-down
+           which is guaranteed by buffer template
        - Check whether the lossless PG aligns with the port's speed and cable length
        - If name to oid maps exist for port and PG, check whether the information in ASIC_DB aligns with that in CONFIG_DB
        - If a lossless profile hasn't been checked, check whether lossless profile in CONFIG_DB aligns with
          - pg_profile_lookup.ini according to speed and cable length
          - information in ASIC_DB
-    2. Shutdown a port and check whether the lossless buffer PG has been removed
+    2. Shutdown a port and check whether the lossless buffer PGs
+       - has been removed on Mellanox platforms
+       - will not be changed on other platforms
     3. Startup the port and check whether the lossless PG has been readded.
     """
     def _check_condition(condition, message, use_assert):
@@ -185,17 +194,21 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
     configdb_ports = [x.split('|')[1] for x in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
     profiles_checked = {}
     lossless_pool_oid = None
+    buffer_profile_asic_info = None
     admin_up_ports = set()
     for port in configdb_ports:
         port_config = make_dict_from_output_lines(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port))['stdout'].split())
 
-        if port_config.get('admin_status') == 'up':
-            admin_up_ports.add(port)
+        is_port_up = port_config.get('admin_status') == 'up'
+        if is_port_up or not RECLAIM_BUFFER_ON_ADMIN_DOWN:
+            if is_port_up:
+                admin_up_ports.add(port)
+
             cable_length = cable_length_map[port]
             speed = port_config['speed']
             expected_profile = '[BUFFER_PROFILE|pg_lossless_{}_{}_profile]'.format(speed, cable_length)
 
-            logging.info("Checking admin-up port {} buffer information: profile {}".format(port, expected_profile))
+            logging.info("Checking admin-{} port {} buffer information: profile {}".format('up' if is_port_up else 'down', port, expected_profile))
 
             buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, expected_profile)
 
@@ -219,7 +232,8 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
 
                 profiles_checked[expected_profile] = buffer_profile_oid
                 if not lossless_pool_oid:
-                    lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
+                    if buffer_profile_asic_info:
+                        lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
                 else:
                     pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
                                   "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
@@ -228,16 +242,24 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                               "PG {}|3-4 has different OID of profile from other PGs sharing the same profile {}".format(port, expected_profile))
         else:
             # Port admin down. Make sure no lossless PG configured.
+            # After deployment, there should not be lossless PG configured on any platforms
+            # This is guaranteed by buffers_config.j2: no lossless PG will be configured on inactive ports
             logging.info("Checking admin-down port buffer information: {}".format(port))
             _, _ = _check_port_buffer_info_and_get_profile_oid(duthost, port, None)
 
     port_to_shutdown = admin_up_ports.pop()
     expected_profile = duthost.shell('redis-cli -n 4 hget "BUFFER_PG|{}|3-4" profile'.format(port_to_shutdown))['stdout']
     try:
-        # Shutdown the port and check whether the lossless PG has been removed
+        # Shutdown the port and check whether the lossless PGs
+        # - have been removed on Mellanox platforms
+        # - will not be affected on other platforms
         logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
         duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-        wait_until(60, 5, _check_port_buffer_info_and_return, duthost, port_to_shutdown, None)
+        if RECLAIM_BUFFER_ON_ADMIN_DOWN:
+            expected_profile_admin_down = None
+        else:
+            expected_profile_admin_down = expected_profile
+        wait_until(60, 5, _check_port_buffer_info_and_return, duthost, port_to_shutdown, expected_profile_admin_down)
 
         # Startup the port and check whether the lossless PG has been reconfigured
         logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
