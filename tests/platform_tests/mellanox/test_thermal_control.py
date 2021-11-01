@@ -25,6 +25,8 @@ COOLING_CUR_STATE_THRESHOLD = 7
 PSU_PRESENCE_PATH = '/run/hw-management/thermal/psu{}_status'
 PSU_SPEED_PATH = '/run/hw-management/thermal/psu{}_fan1_speed_get'
 PSU_MAX_SPEED_PATH = '/run/hw-management/config/psu_fan_max'
+PWM_PATH = '/run/hw-management/thermal/pwm1'
+MAX_PWM = 255
 PSU_SPEED_TOLERANCE = 0.25
 
 MAX_COOLING_LEVEL = 10
@@ -133,6 +135,28 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
             assert False, 'Wait for PSU fan speed change to normal failed'
 
 
+@pytest.mark.disable_loganalyzer
+def test_psu_absence_policy(duthosts, rand_one_dut_hostname, mocker_factory):
+    duthost = duthosts[rand_one_dut_hostname]
+    platform_data = get_platform_data(duthost)
+    hot_swappable = platform_data['psus']['hot_swappable']
+    if not hot_swappable:
+        pytest.skip('The platform {} does not support this test case.'.format(duthost.facts["platform"]))
+
+    psu_num = platform_data['psus']['number']
+    mocker = mocker_factory(duthost, 'PsuMocker')
+    psu_index = random.randint(1, psu_num)
+    mocker.mock_psu_status(psu_index, False)
+    wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                             THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                             0,
+                             check_pwm,
+                             duthost,
+                             255,
+                             operator.eq)
+    assert wait_result, 'PSU is absent, but PWM value is not turned to 255'
+
+
 def _check_psu_fan_speed_in_range(actual_speed, max_speed, cooling_level):
     expect_speed = max_speed * cooling_level / 10.0
     logger.info('Expect speed: {}, actual speed: {}'.format(expect_speed, actual_speed))
@@ -208,3 +232,28 @@ def check_psu_fan_speed(duthost, psu_num, psu_max_speed, op):
 def check_cooling_level_larger_than_minimum(duthost, expect_minimum_cooling_level):
     actual_cooling_level = get_cooling_cur_state(duthost)
     return actual_cooling_level >= expect_minimum_cooling_level
+
+
+def get_pwm_value(dut):
+    cmd_output = dut.command('cat {}'.format(PWM_PATH))
+    try:
+        pwm_value = int(cmd_output['stdout'])
+        logger.info('PWM is {}'.format(pwm_value))
+        return pwm_value
+    except Exception as e:
+        assert False, 'Bad content in {} - {}'.format(PWM_PATH, e)
+
+
+def check_pwm(duthost, expect_value, op):
+    """Check if FAN PWM value is the expect value
+
+    Args:
+        duthost (object): DUT host object
+        expect_value (int): Expect PWM value
+        op (object): Operator eq or ne
+
+    Returns:
+        boolean: True if the pwm value is expected
+    """
+    pwm_value = get_pwm_value(duthost)
+    return op(pwm_value, expect_value)
