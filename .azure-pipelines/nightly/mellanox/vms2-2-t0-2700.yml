@@ -28,7 +28,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "vlan fdb snmp arp/test_tagged_arp.py"'
+    default: '-I "vlan fdb snmp/test_snmp_fdb.py arp/test_tagged_arp.py"'
     displayName: Testbed specific
 
 stages:
