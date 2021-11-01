@@ -360,7 +360,7 @@ def get_convergence_for_reboot_test(duthost,
     p1.src_name = 'IPv4 3'
     p1.dst_ip = "1.1.1.1"
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    #reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type)
     wait_group = WaitGroup()
     wait_group.add(1)
     t1 = Thread(target=wait_for_bgp_downtime, args=([cvg_api, duthost, wait_group])).start()
@@ -393,4 +393,31 @@ def get_convergence_for_reboot_test(duthost,
         else:
             request.metrics.flow_names = [i]
             flow = cvg_api.get_results(request).flow_metric
-            assert int(fl
+            assert int(flow[0].frames_tx_rate) != 0, "No Frames sent for traffic item: {}".format(i)
+            assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, "Loss observed for Traffic Item: {}".format(i)
+            logger.info("No Loss Observed in Traffic Item {}".format(i))
+            dp.append(metrics.data_plane_convergence_us/1000)
+            logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i, metrics.data_plane_convergence_us/1000))
+
+    flow_names_table_rows = ["Server IPv4_1 - Server IPv4_2", "Server IPv6_2 - Server IPv6_1", "Server IPv4_1 - T1",
+                             "Server IPv6_2 - T1", "T1 - Server IPv4_1", "T1 - Server IPv6_2"]
+    for j, i in enumerate(flow_names_table_rows):
+        table.append([reboot_type, i, dp[j], float(0.0)])
+    table.append([reboot_type, 'BGP Control Plane Up Time', float(0.0), float(bgp_up_time)*1000])
+    table.append([reboot_type, ''.join('Loopback Up Time'.format(p1.dst_ip)), float(0.0),
+                  float(loopback_up_time)*1000])
+    columns = ['Reboot Type', 'Traffic Item Name', 'Data Plane Convergence Time (ms)', 'Time (ms)']
+    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+
+
+def cleanup_config(duthost):
+    """
+    Cleaning up dut config at the end of the test
+    Args:
+        duthost (pytest fixture): duthost fixture
+    """
+    logger.info('Cleaning up config')
+    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
+    duthost.shell("sudo config reload -y \n")
+    wait(TIMEOUT+30, "For Cleanup to complete \n")
+    logger.info('Convergence Test Completed')
