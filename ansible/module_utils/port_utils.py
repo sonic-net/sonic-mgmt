@@ -76,6 +76,12 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
         for i in range(29, 37):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
+    elif hwsku == "Arista-7280CR3-C40":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        for i in range(33, 41, 2):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/5" % i] = "Ethernet%d" % (i * 4)
     elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
         for i in range(1, 65):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
