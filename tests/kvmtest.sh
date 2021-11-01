@@ -150,7 +150,9 @@ test_t0() {
 
     # Run tests_2vlans on vlab-01 virtual switch
     tgname=2vlans
-    tests="dhcp_relay/test_dhcp_relay.py"
+    tests="\
+    dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
