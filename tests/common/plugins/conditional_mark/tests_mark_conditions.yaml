@@ -37,3 +37,9 @@ ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
+
+ntp/test_ntp/py::test_ntp_long_jump_disable:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    reason: "Known NTP bug"
