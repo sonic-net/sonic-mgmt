@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 import shutil
 import tempfile
@@ -97,7 +98,6 @@ def parallel_run(
                     logger.debug("Unable to kill {}:{}, error:{}".format(
                         p.pid, p.name, err
                     ))
-                    pass
 
             pt_assert(
                 False,
@@ -112,7 +112,9 @@ def parallel_run(
     tasks_done = 0
     total_tasks = len(nodes)
     tasks_running = 0
-    total_timeout = timeout * (int(len(nodes)/concurrent_tasks) + 1) if timeout else None
+    total_timeout = timeout * math.ceil(
+        len(nodes)/float(concurrent_tasks)
+    ) if timeout else None
     failed_processes = {}
 
     while tasks_done < total_tasks:
