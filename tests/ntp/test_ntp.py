@@ -94,7 +94,6 @@ def test_ntp_long_jump_enabled(duthosts, rand_one_dut_hostname, setup_ntp, setup
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP long jump enable failed")
 
-@pytest.mark.xfail
 def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
     duthost = duthosts[rand_one_dut_hostname]
 
