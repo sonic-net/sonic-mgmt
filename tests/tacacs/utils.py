@@ -49,6 +49,8 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
                   'tacacs_rw_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_rw_user_passwd'], 'abc'),
                   'tacacs_ro_user': creds_all_duts[duthost]['tacacs_ro_user'],
                   'tacacs_ro_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'abc'),
+                  'tacacs_authorization_user': creds_all_duts[duthost]['tacacs_authorization_user'],
+                  'tacacs_authorization_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_authorization_user_passwd'], 'abc'),
                   'tacacs_jit_user': creds_all_duts[duthost]['tacacs_jit_user'],
                   'tacacs_jit_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_jit_user_passwd'], 'abc'),
                   'tacacs_jit_user_membership': creds_all_duts[duthost]['tacacs_jit_user_membership']}
@@ -70,7 +72,7 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     check_all_services_status(ptfhost)
 
     # reset tacacs client configuration
-    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
-    duthost.shell("sudo config tacacs default passkey")
-    duthost.shell("sudo config aaa authentication login default")
-    duthost.shell("sudo config aaa authentication failthrough default")
+    #duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
+    #duthost.shell("sudo config tacacs default passkey")
+    #duthost.shell("sudo config aaa authentication login default")
+    #duthost.shell("sudo config aaa authentication failthrough default")
