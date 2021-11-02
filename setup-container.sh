@@ -21,6 +21,9 @@ declare -r HOST_UID="$(id -u)"
 
 declare -r ROOT_UID="0"
 
+declare -r YES_PARAM="yes"
+declare -r NO_PARAM="no"
+
 declare -r EXIT_SUCCESS="0"
 declare -r EXIT_FAILURE="1"
 
@@ -39,6 +42,8 @@ CONTAINER_NAME=""
 IMAGE_ID=""
 LINK_DIR=""
 MOUNT_POINTS="-v \"/var/run/docker.sock:/var/run/docker.sock:rslave\""
+PUBLISH_PORTS=""
+FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
 
@@ -98,6 +103,8 @@ function show_help_and_exit() {
     echo "                         3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
     echo "  -d <directory>       specify directory inside container to bind mount to sonic-mgmt root (default: \"/var/src\")"
     echo "  -m <mount_point>     specify directory to bind mount to container"
+    echo "  -p <port>            publish container port to the host"
+    echo "  -f                   automatically remove the container when it exits"
     echo "  -v                   explain what is being done"
     echo "  -h                   display this help and exit"
     echo
@@ -106,6 +113,7 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -i sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
@@ -254,14 +262,9 @@ EOF
 }
 
 function start_local_container() {
-    if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
-        show_local_container_login
-        exit_success "container is already started: ${CONTAINER_NAME}"
-    fi
-
     log_info "creating a container: ${CONTAINER_NAME} ..."
 
-    eval "docker run -d -t \
+    eval "docker run -d -t ${PUBLISH_PORTS} \
     -v \"${SCRIPT_DIR}:${LINK_DIR}/sonic-mgmt:rslave\" ${MOUNT_POINTS} \
     --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
     exit_failure "failed to start a container: ${CONTAINER_NAME}"
@@ -298,15 +301,11 @@ function parse_arguments() {
 # Script --------------------------------------------------------------------------------------------------------------
 #
 
-if [[ "$(id -u)" = "${ROOT_UID}" ]]; then
-    exit_failure "run as regular user!"
-fi
-
 if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:vh" opt; do
+while getopts "n:i:d:m:p:fvh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
@@ -319,6 +318,12 @@ while getopts "n:i:d:m:vh" opt; do
             ;;
         m )
             MOUNT_POINTS+=" -v \"${OPTARG}:${OPTARG}:rslave\""
+            ;;
+        p )
+            PUBLISH_PORTS+=" -p \"${OPTARG}\""
+            ;;
+        f )
+            FORCE_REMOVAL="${YES_PARAM}"
             ;;
         v )
             VERBOSE_LEVEL="${VERBOSE_MAX}"
@@ -335,8 +340,22 @@ done
 
 parse_arguments
 
+if [[ "$(id -u)" = "${ROOT_UID}" ]]; then
+    exit_failure "run as regular user!"
+fi
+
 if ! docker info &> /dev/null; then
     exit_failure "unable to access Docker daemon: make sure ${USER} is a member of the docker group"
+fi
+
+if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+    if [[ "${FORCE_REMOVAL}" = "${YES_PARAM}" ]]; then
+        log_notice "removing existing container as requested: ${CONTAINER_NAME}"
+        eval "docker rm -f \"${CONTAINER_NAME}\" ${SILENT_HOOK}"
+    else
+        show_local_container_login
+        exit_success "container is already exists: ${CONTAINER_NAME}"
+    fi
 fi
 
 pull_sonic_mgmt_docker_image
