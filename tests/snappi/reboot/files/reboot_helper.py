@@ -3,11 +3,10 @@ from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
 from wait_group import WaitGroup
-from threading import Lock, Thread
+from threading import Thread
 import json
 import ipaddr
 import time
-import re
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -303,7 +302,7 @@ def wait_for_bgp_downtime(cvg_api, duthost, wait_group):
         p1 = req.endpoints.ipv4()[-1]
         p1.src_name = 'IPv4 3'
         p1.dst_ip = "1.1.1.1"
-        responses = cvg_api.send_ping(req).responses
+        cvg_api.send_ping(req).responses
         try:
             bgp_facts = duthost.bgp_facts()['ansible_facts']
             for _, item in bgp_facts['bgp_neighbors'].items():
@@ -311,8 +310,9 @@ def wait_for_bgp_downtime(cvg_api, duthost, wait_group):
                     bgp_down_start_timer = time.time()
                     loopback_down_start_timer = time.time()
                     break
-        except:
+        except Exception as e:
             loopback_down_start_timer = time.time()
+            logger.info(e)
             break
     wait_group.done()
 
@@ -363,12 +363,13 @@ def get_convergence_for_reboot_test(duthost,
     reboot(duthost, localhost, reboot_type=reboot_type)
     wait_group = WaitGroup()
     wait_group.add(1)
-    t1 = Thread(target=wait_for_bgp_downtime, args=([cvg_api, duthost, wait_group])).start()
-    t2 = Thread(target=reboot, args=([duthost, localhost, reboot_type])).start()
+    Thread(target=wait_for_bgp_downtime, args=([cvg_api, duthost, wait_group])).start()
+    Thread(target=reboot, args=([duthost, localhost, reboot_type])).start()
     wait_group.wait()
     loopback_timer_start = time.time()
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
     check_bgp_state()
     bgp_up_time = time.time() - bgp_down_start_timer
     responses = cvg_api.send_ping(req).responses
