@@ -368,8 +368,7 @@ def get_convergence_for_reboot_test(duthost,
     wait_group.wait()
     loopback_timer_start = time.time()
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
     check_bgp_state()
     bgp_up_time = time.time() - bgp_down_start_timer
     responses = cvg_api.send_ping(req).responses
@@ -380,7 +379,7 @@ def get_convergence_for_reboot_test(duthost,
     request = cvg_api.convergence_request()
     request.convergence.flow_names = flow_names
     convergence_metrics = cvg_api.get_results(request).flow_convergence
-    for i, metrics in cs.transmit.flow_names, convergence_metrics:
+    for i, metrics in zip(cs.transmit.flow_names, convergence_metrics):
         if reboot_type == "warm":
             request.metrics.flow_names = [i]
             flow = cvg_api.get_results(request).flow_metric
