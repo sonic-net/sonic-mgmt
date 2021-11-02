@@ -168,9 +168,13 @@ class Parse_Lab_Graph():
                     card_type = "Linecard"
                     if 'CardType' in dev.attrib:
                         card_type = dev.attrib['CardType']
+                    hwsku_type = "predefined"
+                    if "HwSkuType" in dev.attrib:
+                        hwsku_type = dev.attrib["HwSkuType"]
                     deviceinfo[hostname]['HwSku'] = hwsku
                     deviceinfo[hostname]['Type'] = devtype
                     deviceinfo[hostname]['CardType'] = card_type
+                    deviceinfo[hostname]["HwSkuType"] = hwsku_type
                     self.links[hostname] = {}
         devicel2info = {}
         devicel3s = self.root.find(self.dpgtag).findall('DevicesL3Info')
