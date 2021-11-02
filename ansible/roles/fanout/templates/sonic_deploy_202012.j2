@@ -9,7 +9,7 @@
     "PORT": {
     {% for alias in fanout_port_config %}
         "{{ fanout_port_config[alias]['name'] }}": {
-            "alias": "{{ fanout_port_config[alias]['name'] }}",
+            "alias": "{{ alias }}",
             "speed" : "{{ fanout_port_config[alias]['speed'] | default('100000') }}",
             "index": "{{ fanout_port_config[alias]['index'] }}",
             "lanes": "{{ fanout_port_config[alias]['lanes'] }}",

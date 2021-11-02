@@ -3,6 +3,7 @@
     hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
     hwsku_type: "{{ device_info[inventory_hostname]['HwSkuType'] | default('predefined') }}"
     device_conn: "{{ device_conn[inventory_hostname] }}"
+  become: yes
 
 - name: build fanout startup config
   template:
@@ -24,8 +25,6 @@
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
 
-- pause:
-
 - name: Reboot switch to load the config
   shell: reboot
   async: 300
@@ -42,6 +41,10 @@
     delay: 180
     timeout: 600
   changed_when: false
+
+- name: pause for 60s to wait for fanout switch to initialize
+  pause:
+    seconds: 60
 
 - name: Setup broadcom based fanouts
   block:
