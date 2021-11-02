@@ -72,9 +72,14 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         downlink_vlan_iface['dhcp_server_addrs'] = mg_facts['dhcp_servers']
 
-        # We choose the physical interface where our DHCP client resides to be index of first interface in the VLAN
+        # We choose the physical interface where our DHCP client resides to be index of first interface with alias (ignore PortChannel) in the VLAN
         client_iface = {}
-        client_iface['name'] = vlan_info_dict['members'][0]
+        for port in vlan_info_dict['members']:
+            if port in mg_facts['minigraph_port_name_to_alias_map']:
+                break
+        else:
+            continue
+        client_iface['name'] = port
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
@@ -110,6 +115,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
         dhcp_relay_data['uplink_mac'] = res['stdout']
+        dhcp_relay_data['default_gw_ip'] = mg_facts['minigraph_mgmt_interface']['gwaddr']
 
         dhcp_relay_data_list.append(dhcp_relay_data)
 
@@ -119,15 +125,25 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
     """Validate there is route on DUT to each DHCP server
     """
+    default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
         dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
-        if len(rtInfo["nexthops"]) == 0:
+        nexthops = rtInfo["nexthops"]
+        if len(nexthops) == 0:
             logger.info("Failed to find route to DHCP server '{0}'".format(dhcp_server))
             return False
+        if len(nexthops) == 1:
+            # if only 1 route to dst available - check that it's not default route via MGMT iface
+            route_index_in_list = 0
+            ip_dst_index = 0
+            route_dst_ip = nexthops[route_index_in_list][ip_dst_index]
+            if route_dst_ip == ipaddress.ip_address(default_gw_ip):
+                logger.info("Found route to DHCP server via default GW(MGMT interface)")
+                return False
     return True
         
 
@@ -170,7 +186,25 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     subtype_exist, subtype_value = get_subtype_from_configdb(duthost)
 
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' in tbinfo['topo']['name']:
+        if testing_mode == SINGLE_TOR_MODE:
+            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
+
+        if testing_mode == DUAL_TOR_MODE:
+            if not subtype_exist or subtype_value != 'DualToR':
+                assert False, "Wrong DHCP setup on Dual ToR testbeds"
+
+            yield testing_mode, duthost, 'dual_testbed'
+    elif tbinfo['topo']['name'] == 't0-56-po2vlan':
+        if testing_mode == SINGLE_TOR_MODE:
+            if subtype_exist and subtype_value == 'DualToR':
+                assert False, "Wrong DHCP setup on t0-56-vlan2po testbeds"
+
+            yield testing_mode, duthost, 'single_testbed'
+
+        if testing_mode == DUAL_TOR_MODE:
+            pytest.skip("skip DUAL_TOR_MODE tests on t0-56-vlan2po testbeds")
+    else:
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist:
                 duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
@@ -186,15 +220,6 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
         if testing_mode == DUAL_TOR_MODE:
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
-    else:
-        if testing_mode == SINGLE_TOR_MODE:
-            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
-
-        if testing_mode == DUAL_TOR_MODE:
-            if not subtype_exist or subtype_value != 'DualToR':
-                assert False, "Wrong DHCP setup on Dual ToR testbeds"
-
-            yield testing_mode, duthost, 'dual_testbed'
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor):
@@ -244,7 +269,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} down'.format(iface))
 
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
+        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
@@ -252,7 +277,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
             duthost.shell('ifconfig {} up'.format(iface))
             
         # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
                       "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host
@@ -295,7 +320,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} down'.format(iface))
 
-        pytest_assert(wait_until(50, 5, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
+        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Restart DHCP relay service on DUT
@@ -310,7 +335,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
                       "Not all DHCP servers are routed")
 
         # Run the DHCP relay test on the PTF host

@@ -143,7 +143,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
             exp_queue = derive_queue_id_from_dscp(outer_dscp)
 
-            pytest_assert(wait_until(60, 5, queue_stats_check, self.standby_tor, exp_queue))
+            pytest_assert(wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue))
             return check_res
 
         def __init__(self, standby_tor, active_tor=None, existing=True):

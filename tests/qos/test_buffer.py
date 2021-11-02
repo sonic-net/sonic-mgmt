@@ -410,7 +410,7 @@ def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, in
     else:
         delay = 1
 
-    return wait_until(timeout, delay, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
+    return wait_until(timeout, delay, 0, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
 
 
 def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
@@ -432,7 +432,7 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
             profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout']
             return (profile == expected_profile)
 
-    if wait_until(10, 2, _check_pg_profile, duthost, pg, expected_profile):
+    if wait_until(10, 2, 0, _check_pg_profile, duthost, pg, expected_profile):
         return True
     else:
         if fail_test:
@@ -452,7 +452,7 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
         pfc_enable = duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
         return (expected_pfc_enable_map == pfc_enable)
 
-    pytest_assert(wait_until(10, 2, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
+    pytest_assert(wait_until(10, 2, 0, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
                   "Port {} pfc enable check failed expected: {} got: {}".format(
                       port,
                       expected_pfc_enable_map,
@@ -1098,7 +1098,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         # Return True only if all lossless profiles pass the check
         return True
 
-    pytest_assert(wait_until(20, 2, _check_buffer_profiles_for_shp, duthost, shp_enabled))
+    pytest_assert(wait_until(20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
 def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
@@ -1413,6 +1413,8 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    raw_lanes_str =  duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
+    list_of_lanes = raw_lanes_str.split(',')
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     if check_qos_db_fv_reference_with_table(duthost) == True:
         original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
@@ -1424,7 +1426,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     new_cable_len = '15m'
 
-    lossy_pg_size = TESTPARAM_LOSSY_PG.get(original_speed)
+    lossy_pg_size = TESTPARAM_LOSSY_PG.get(str(len(list_of_lanes)))
     if not lossy_pg_size:
         lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
         if not lossy_pg_size:

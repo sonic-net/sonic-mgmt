@@ -45,11 +45,18 @@ LOG_EXPECT_FAN_OVER_SPEED_CLEAR_RE = '.*Fan high speed warning cleared:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warning:.*'
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
+# These error messages are not triggered by platform test cases,
+# Ref to https://github.com/Azure/sonic-buildimage/issues/8944
+SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* queue egress Min limit get failed with error Invalid parameter.*',
+                         '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
+
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string.* or a number.*',
                                      '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
 
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*']
 
+SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
+SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
 
 def check_sensord_status(ans_host):
     """
@@ -359,6 +366,7 @@ def test_thermal_control_psu_absence(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info('Wait and check all FAN speed turn to 60%...')
         wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 0,
                                  fan_mocker.check_all_fan_speed,
                                  60)
 
@@ -383,6 +391,7 @@ def test_thermal_control_psu_absence(duthosts, enum_rand_one_per_hwsku_hostname,
         logging.info('Wait and check all FAN speed turn to 65%...')
         pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                                  THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                                 0,
                                  fan_mocker.check_all_fan_speed,
                                  65), 'FAN speed not change to 65% according to policy')
 
@@ -409,6 +418,7 @@ def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
     logging.info('Wait and check all FAN speed turn to 100%...')
     pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                              THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                             0,
                              mocker.check_all_fan_speed,
                              100), 'FAN speed not turn to 100% after PSU off')
 
@@ -432,7 +442,7 @@ def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, 
         logging.info('Mock FAN status data...')
         fan_mocker.mock_data()  # make data random
         restart_thermal_control_daemon(duthost)
-        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, fan_mocker.check_all_fan_speed,
+        wait_until(THERMAL_CONTROL_TEST_WAIT_TIME, THERMAL_CONTROL_TEST_CHECK_INTERVAL, 0, fan_mocker.check_all_fan_speed,
                    60)
         check_thermal_algorithm_status(duthost, mocker_factory, False)
 

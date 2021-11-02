@@ -22,7 +22,7 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, creds):
     # restart ntp server
     ntp_en_res = ptfhost.service(name="ntp", state="restarted")
 
-    pytest_assert(wait_until(120, 5, check_ntp_status, ptfhost), \
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost), \
         "NTP server was not started in PTF container {}; NTP service start result {}".format(ptfhost.hostname, ntp_en_res))
 
     # setup ntp on dut to sync with ntp server
@@ -57,5 +57,5 @@ def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
     duthost.service(name='ntp', state='stopped')
     duthost.command("ntpd -gq")
     duthost.service(name='ntp', state='restarted')
-    pytest_assert(wait_until(720, 10, check_ntp_status, duthost),
+    pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP not in sync")
