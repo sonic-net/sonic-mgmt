@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
 from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
 from tabulate import tabulate
+from .minimum_table import get_min_table
 import re
 
 pytestmark = [
@@ -32,40 +33,47 @@ MAX_COOLING_LEVEL = 10
 @pytest.mark.disable_loganalyzer
 def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
     duthost = duthosts[rand_one_dut_hostname]
-    max_temperature = 45000 # 45 C
-    cooling_cur_state = get_cooling_cur_state(duthost)
-    if cooling_cur_state >= COOLING_CUR_STATE_THRESHOLD:
-        pytest.skip('The cooling level {} is higher than threshold {}.'.format(cooling_cur_state, COOLING_CUR_STATE_THRESHOLD))
+    minimum_table = get_min_table(duthost)
+    if minimum_table:
+        max_temperature = 45000 # 45 C
+        cooling_cur_state = get_cooling_cur_state(duthost)
+        if cooling_cur_state >= COOLING_CUR_STATE_THRESHOLD:
+            pytest.skip('The cooling level {} is higher than threshold {}.'.format(cooling_cur_state, COOLING_CUR_STATE_THRESHOLD))
 
-    mocker = mocker_factory(duthost, 'MinTableMocker')
+        mocker = mocker_factory(duthost, 'MinTableMocker')
 
-    temperature = random.randint(0, max_temperature)
-    trust_state = True if random.randint(0, 1) else False
-    logger.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))
-    expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, trust_state)
-    logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
-    mocker.mock_min_table(temperature, trust_state)
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                      0,
-                      check_cooling_level_larger_than_minimum, 
-                      duthost,
-                      expect_minimum_cooling_level), \
-                      'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
+        temperature = random.randint(0, max_temperature)
+        trust_state = True if random.randint(0, 1) else False
+        logger.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))
+        expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, trust_state)
+        logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
+        mocker.mock_min_table(temperature, trust_state)
+        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                        THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                        check_cooling_level_larger_than_minimum,
+                        duthost,
+                        expect_minimum_cooling_level), \
+                        'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
 
-    temperature = random.randint(0, max_temperature)
-    logger.info('Testing with temperature={}, trust_state={}'.format(temperature, not trust_state))
-    expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, not trust_state)
-    logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
-    mocker.mock_min_table(temperature, not trust_state)
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                      0,
-                      check_cooling_level_larger_than_minimum, 
-                      duthost,
-                      expect_minimum_cooling_level), \
-                      'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
-
+        temperature = random.randint(0, max_temperature)
+        logger.info('Testing with temperature={}, trust_state={}'.format(temperature, not trust_state))
+        expect_minimum_cooling_level = mocker.get_expect_cooling_level(temperature, not trust_state)
+        logger.info('Expect minimum cooling level is {}'.format(expect_minimum_cooling_level))
+        mocker.mock_min_table(temperature, not trust_state)
+        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                        THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                        check_cooling_level_larger_than_minimum,
+                        duthost,
+                        expect_minimum_cooling_level), \
+                        'Cooling level is less than minimum allowed {}'.format(expect_minimum_cooling_level)
+    else:
+        # minimum table is not defined yet, check that the default cooling level is 6
+        assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
+                        THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                        check_cooling_level_larger_than_minimum,
+                        duthost,
+                        6), \
+                        'Cooling level is less than minimum allowed {}'.format(6)
 
 
 @pytest.mark.disable_loganalyzer
@@ -82,24 +90,24 @@ def test_set_psu_fan_speed(duthosts, rand_one_dut_hostname, mocker_factory):
     single_fan_mocker = mocker_factory(duthost, 'SingleFanMocker')
     logger.info('Mock FAN absence...')
     single_fan_mocker.mock_absence()
-    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
-                      THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
-                      0, 
-                      check_psu_fan_speed, 
-                      duthost, 
-                      psu_num, 
-                      psu_max_speed, 
+    assert wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2,
+                      THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                      0,
+                      check_psu_fan_speed,
+                      duthost,
+                      psu_num,
+                      psu_max_speed,
                       operator.eq), 'Wait for PSU fan speed change to full speed failed'
 
     logger.info('Mock FAN presence...')
     single_fan_mocker.mock_presence()
-    wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2, 
-                             THERMAL_CONTROL_TEST_CHECK_INTERVAL, 
-                             0, 
-                             check_psu_fan_speed, 
-                             duthost, 
-                             psu_num, 
-                             psu_max_speed, 
+    wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME * 2,
+                             THERMAL_CONTROL_TEST_CHECK_INTERVAL,
+                             0,
+                             check_psu_fan_speed,
+                             duthost,
+                             psu_num,
+                             psu_max_speed,
                              operator.ne)
 
     if not wait_result:
@@ -185,12 +193,12 @@ def check_psu_fan_speed(duthost, psu_num, psu_max_speed, op):
     # PSU fan speed will never be less than 60%
     if cooling_cur_state < 6:
         cooling_cur_state = 6
-        
+
     for index in range(psu_num):
         speed = get_psu_speed(duthost, index)
         if not _check_psu_fan_speed_in_range(speed, psu_max_speed, cooling_cur_state):
             return False
-    
+
     return True
 
 

@@ -745,6 +745,53 @@ SWITCH_MODELS = {
                 "number": 1
             }
         }
+    },
+    "x86_64-mlnx_msn4800-r0": {
+        "chip_type": "spectrum3",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 6,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 4,
+            "hot_swappable": True
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 6
+        },
+        "ports": {
+            "number": 0
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 6
+            },
+            "psu": {
+                "start": 1,
+                "number": 4
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 1
+            },
+            "fan_ambient": {
+                "number": 1
+            }
+        }
     }
 }
 

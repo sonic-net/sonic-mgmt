@@ -61,4 +61,5 @@ def get_min_table(dut):
     :return: A dictionary contains the dynamic minimum fan speed data
     """
     dut_platform = dut.facts["platform"]
-    return MINIMUM_TABLE[dut_platform]
+    return MINIMUM_TABLE.get(dut_platform)
+
