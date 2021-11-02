@@ -82,7 +82,7 @@ class SensorsModule(object):
             if ret_code != 0:
                 self.module.fail_json(msg=stderr)
             else:
-                os_version = self.stdout.split('.')[0].strip()
+                os_version = self.stdout.decode('utf-8').split('.')[0].strip()
 
         return os_version
 
@@ -106,6 +106,8 @@ class SensorsModule(object):
         try:
             process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             self.stdout, stderr = process.communicate()
+            self.stdout = self.stdout.decode('utf-8')
+            stderr = stderr.decode('utf-8')
             ret_code = process.returncode
         except Exception as e:
             self.module.fail_json(msg=str(e))
