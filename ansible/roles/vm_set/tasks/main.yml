@@ -206,13 +206,6 @@
     - ptf_imagename is defined
     - ptf_imagename == "docker-ptf-anvl"
 
-- name: VMs not needed for cable test
-  set_fact:
-    vm_required: false
-    VM_hosts:
-  when:
-    - topo == "cable-test"
-
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
         uri=qemu:///system
