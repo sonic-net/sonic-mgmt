@@ -217,11 +217,15 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
+        led_status_list = ["N/A"]
+    else:
+        led_status_list = ["green", "amber", "red", "off"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
         pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
         pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
-        pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
+        pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
