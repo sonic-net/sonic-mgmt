@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, component
 
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.utilities import skip_release_for_platform
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -164,6 +165,9 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_available_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
+
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -175,6 +179,9 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_firmware_update_notification(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
+
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -185,6 +192,9 @@ class TestComponentApi(PlatformApiTestBase):
                 pytest_assert(isinstance(notif, STRING_TYPE), "Component {}: Firmware update notification appears to be incorrect from image {}".format(i, image))
 
     def test_install_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
+
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
@@ -197,6 +207,9 @@ class TestComponentApi(PlatformApiTestBase):
 
 
     def test_update_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
+
         if self.num_components == 0:
             pytest.skip("No components found on device")
 
