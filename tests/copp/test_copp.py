@@ -112,7 +112,7 @@ class TestCOPP(object):
         trap_type = protocol.lower()
 
         # wait until the trap counter is enabled
-        assert wait_until(10, 1, _check_trap_counter_enabled, duthost, trap_type), 'counter is not created for {}'.format(trap_type)
+        assert wait_until(10, 1, 0, _check_trap_counter_enabled, duthost, trap_type), 'counter is not created for {}'.format(trap_type)
 
         # clean previous counter value
         duthost.command('sonic-clear flowcnt-trap')
@@ -132,7 +132,7 @@ class TestCOPP(object):
 
         # wait for thread finish
         t.join()
-        
+
         # get final packet count from CLI
         expect_rate = float(_SEND_PACKET_NUMBER / _SEND_DURATION)
         actual_packet_number = None
@@ -141,7 +141,7 @@ class TestCOPP(object):
             if 'trap name' in line and line['trap name'] == trap_type:
                 actual_packet_number = int(line['packets'].replace(',', ''))
                 break
-        
+
         assert actual_packet_number == _SEND_PACKET_NUMBER, 'Trap {} expect send packet number: {}, but actual: {}'.format(trap_type, _SEND_PACKET_NUMBER, actual_packet_number)
         assert len(actual_rate) == 1, 'Failed to collect PPS value for trap {}'.format(trap_type)
         # Allow a 10 percent threshold for trap rate
@@ -211,7 +211,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 def counter_test(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     duthost.command('counterpoll flowcnt-trap enable')
-    
+
     yield
 
     duthost.command('counterpoll flowcnt-trap disable')
@@ -427,7 +427,7 @@ def _collect_counter_rate(duthost, trap_type, actual_rate):
                     # PTF has not started yet
                     logging.debug('Trap {} packets value is still 0, PTF has not started yet'.format(trap_type))
                     break
-                
+
                 logging.info('Trap {} current PPS value is {}, packets value is {}'.format(trap_type, pps_value, packets))
                 rate_values.append(float(pps_value[:-2]))
                 break
@@ -436,7 +436,7 @@ def _collect_counter_rate(duthost, trap_type, actual_rate):
             break
         time.sleep(0.5)
         max_wait -= 0.5
-    
+
     if rate_values:
         # Calculate max PPS
         max_pps = max(rate_values)
