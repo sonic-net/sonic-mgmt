@@ -1,12 +1,13 @@
 import json
 import logging
 import pytest
+import time
 
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 from vnet_constants import CLEANUP_KEY, LOWER_BOUND_UDP_PORT_KEY, UPPER_BOUND_UDP_PORT_KEY
-from vnet_utils import generate_dut_config_files, safe_open_template, \
-                       apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
+from vnet_utils import generate_dut_config_files_ecmp, safe_open_template, \
+                       apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes_ecmp
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
@@ -33,7 +34,7 @@ def get_vxlan_srcport_range_enabled(duthost):
 
     return vxlan_srcport_range_enabled
 
-def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
+def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config_ecmp):
     """
     Prepares the PTF container for testing
 
@@ -43,7 +44,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
         ptfhost: PTF host object
         mg_facts: Minigraph facts
         dut_facts: DUT host facts
-        vnet_config: Configuration file generated from templates/vnet_config.j2
+        vnet_config_ecmp: Configuration file generated from templates/vnet_config_ecmp.j2
     """
 
     logger.info("Preparing PTF host")
@@ -56,7 +57,7 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     ptfhost.shell("supervisorctl reread")
     ptfhost.shell("supervisorctl update")
 
-    logger.debug("VNet config is: " + str(vnet_config))
+    logger.debug("VNet config is: " + str(vnet_config_ecmp))
     vnet_json = {
         "minigraph_port_indices": mg_facts["minigraph_port_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
@@ -65,16 +66,16 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
         "minigraph_vlans": mg_facts["minigraph_vlans"],
         "minigraph_vlan_interfaces": mg_facts["minigraph_vlan_interfaces"],
         "dut_mac": dut_facts["router_mac"],
-        "vnet_interfaces": vnet_config["vnet_intf_list"],
-        "vnet_routes": vnet_config["vnet_route_list"] + vnet_config["vnet_subnet_routes"],
-        "vnet_local_routes": vnet_config["vnet_local_routes"],
-        "vnet_neighbors": vnet_config["vnet_nbr_list"],
-        "vnet_peers": vnet_config["vnet_peer_list"]
+        "vnet_interfaces": vnet_config_ecmp["vnet_intf_list"],
+        "vnet_routes": vnet_config_ecmp["vnet_route_list_ecmp"],
+        "vnet_local_routes": [],
+        "vnet_neighbors": vnet_config_ecmp["vnet_nbr_list"],
+        "vnet_peers": vnet_config_ecmp["vnet_peer_list"]
     }
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
+def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config_ecmp, vnet_test_params):
     """
     Prepares DUT and PTF hosts for testing
 
@@ -82,21 +83,21 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
         duthost: DUT host object
         ptfhost: PTF host object
         minigraph_facts: Minigraph facts
-        vnet_config: Configuration file generated from templates/vnet_config.j2
+        vnet_config_ecmp: Configuration file generated from templates/vnet_config_ecmp.j2
         vnet_test_params: Dictionary holding vnet test parameters
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     dut_facts = duthost.facts
 
-    prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
+    prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config_ecmp)
 
-    generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
+    generate_dut_config_files_ecmp(duthost, minigraph_facts, vnet_test_params, vnet_config_ecmp)
 
     return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config_ecmp):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
@@ -123,6 +124,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
         if result["stdout_lines"] is not None:
             vlan_tagging_mode = result["stdout_lines"][0]
             duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
+
         apply_dut_config_files(duthost, vnet_test_params)
 
         vxlan_enabled = True
@@ -131,13 +133,13 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
             duthost.shell("redis-cli -n 4 hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(attached_vlan, vlan_member, vlan_tagging_mode))
 
         vxlan_enabled = True
-        cleanup_vnet_routes(duthost, vnet_config)
-        cleanup_dut_vnets(duthost, setup, vnet_config)
+        cleanup_vnet_routes_ecmp(duthost, vnet_config_ecmp)
+        cleanup_dut_vnets(duthost, setup, vnet_config_ecmp)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     return vxlan_enabled, request.param
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan_ecmp(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
     Test case for VNET VxLAN
 
@@ -173,9 +175,10 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
+    time.sleep(30)
     ptf_runner(ptfhost,
                "ptftests",
-               "vnet_vxlan.VNET",
+               "vnet_vxlan_ecmp.VNET",
                platform_dir="ptftests",
                params=ptf_params,
                qlen=1000,
