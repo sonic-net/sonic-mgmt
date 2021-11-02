@@ -24,12 +24,12 @@ def get_netif_show(module):
 
     return port_info
             
-def set_outer_tpid(module, port_info, fanout_port_vlans, fanout_port_config):
+def set_outer_tpid(module, fanout_port_info, fanout_port_vlans, fanout_port_config):
     modi_cmd_tmpl = "bcmcmd 'modi port %s 1 OUTER_TPID_ENABLE=0'"
     for port_alias in fanout_port_vlans:
         if fanout_port_vlans[port_alias]["mode"] == "Access":
             port_name = fanout_port_config[port_alias]["name"]
-            port_id = port_info[port_name]["port_id"]
+            port_id = fanout_port_info[port_name]["port_id"]
             cmd = modi_cmd_tmpl % port_id
             return_code, _, _ = module.run_command(cmd, use_unsafe_shell=True)
             if return_code:
@@ -48,8 +48,8 @@ def main():
     fanout_port_config = module.params["fanout_port_config"]
 
     try:
-        port_info = get_netif_show(module)
-        set_outer_tpid(module, port_info, fanout_port_vlans, fanout_port_config)
+        fanout_port_info = get_netif_show(module)
+        set_outer_tpid(module, fanout_port_info, fanout_port_vlans, fanout_port_config)
     except Exception as detail:
         module.fail_json(msg="ERROR: %s, TRACEBACK: %s" % (repr(detail), traceback.format_exc()))
     module.exit_json(changed=True)

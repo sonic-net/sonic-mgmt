@@ -10,7 +10,7 @@
     src: "sonic_deploy_202012.j2"
     dest: "/tmp/base_config.json"
 
-- name: copy platform related start config
+- name: copy platform related startup config
   copy:
     src: "{{ fanout_platform }}.json"
     dest: "/tmp/platform_config.json"

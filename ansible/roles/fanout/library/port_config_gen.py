@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Generate the port config for the fanout device."""
-import logging
 import json
 import os
 import re
@@ -12,12 +11,6 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from natsort import natsorted
 from ansible.module_utils.basic import AnsibleModule
-
-
-logging.basicConfig(
-    filename="/tmp/port_config.log",
-    level=logging.DEBUG,
-)
 
 
 DOCUMENTATION = """
@@ -64,12 +57,13 @@ class PortConfigGenerator(object):
             for line in machine_conf:
                 if not line:
                     continue
-                tokens = line.split('=')
-                key = tokens[0].strip()
-                value = tokens[1].strip()
-                if "platform" in key:
-                    return value
+                if "platform" in line:
+                    return line.split("=")[1].strip()
         raise ValueError("Failed to retrieve platform from '%s'" % self.MACHINE_CONF)
+
+    def _get_platform_default_hwsku(self):
+        with open(os.path.join(self.HWSKU_DIR_PREFIX, "default_sku")) as fd:
+            return fd.read().strip().split()[0]
 
     def _parse_interface_alias(self, port_alias):
         for alias_pattern in self.PORT_ALIAS_PATTERNS:
@@ -80,7 +74,6 @@ class PortConfigGenerator(object):
 
     def _create_sonic_sku(self, port_xml_file):
         cmd = "sonic_sku_create.py -f %s -k %s" % (port_xml_file, self.fanout_hwsku)
-        logging.debug(cmd)
         ret_code, stdout, stderr = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
         if ret_code:
             raise RuntimeError("Failed to create new hwsku:\nstdout: %s\nstderr: %s\n" % (stdout, stderr))
@@ -105,7 +98,6 @@ class PortConfigGenerator(object):
     def _prettify(xml_elem):
         """Output a xml element with indentation."""
         xml_output = ET.tostring(xml_elem, encoding="utf-8")
-        logging.debug(xml_output)
         reparsed_output = minidom.parseString(xml_output)
         return reparsed_output.toprettyxml(indent="  ")
 
@@ -113,8 +105,7 @@ class PortConfigGenerator(object):
         self.fanout_asic_type = self._get_asic_type()
         self.fanout_platform = self._get_platform()
         PortConfigGenerator.HWSKU_DIR_PREFIX = os.path.join(PortConfigGenerator.HWSKU_DIR_PREFIX, self.fanout_platform)
-        with open(os.path.join(self.HWSKU_DIR_PREFIX, "default_sku")) as fd:
-            self.platform_default_hwsku = fd.read().strip().split()[0]
+        self.platform_default_hwsku = self._get_platform_default_hwsku()
         self.platform_supported_hwsku_list = [_ for _ in os.listdir(self.HWSKU_DIR_PREFIX) if os.path.isdir(os.path.join(self.HWSKU_DIR_PREFIX, _))]
 
     def init_port_config(self):
@@ -138,8 +129,6 @@ class PortConfigGenerator(object):
             for port_config in default_hwsku_port_index_to_port_config.values():
                 fanout_connection[port_config['alias']] = port_config
 
-            logging.debug(json.dumps(default_hwsku_port_index_to_port_config, indent=4))
-
             # create the xml file as input to sonic_sku_create.py script
             self.fanout_hwsku = self.platform_default_hwsku + "_NEW"
             xml_file_root = ET.Element("DeviceInfo", attrib=OrderedDict(Vendor="Microsoft", HwSku=self.fanout_hwsku))
@@ -149,8 +138,6 @@ class PortConfigGenerator(object):
                 ET.SubElement(ether_elem, "Interface", attrib=OrderedDict(Index=str(index), PortName=str(index), InterfaceName=port_alias, Speed=fanout_connection[port_alias].get("speed", "100000")))
 
             with tempfile.NamedTemporaryFile(delete=False) as xml_file:
-                logging.debug("xml file name: %s", xml_file.name)
-                logging.debug(ET.dump(xml_file_root))
                 xml_file.write(self._prettify(xml_file_root))
                 xml_file.flush()
                 self._create_sonic_sku(xml_file.name)
