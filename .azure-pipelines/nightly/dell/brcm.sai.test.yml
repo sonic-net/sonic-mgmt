@@ -24,7 +24,7 @@ parameters:
     type: string
     displayName: "SAI PTF DOCKER"
     default: docker-ptf
-  
+
   # WorkFlow parameters
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
@@ -61,6 +61,9 @@ parameters:
     - $(IMAGE_BRCM_202012_SLIM)
     - $(IMAGE_BRCM_ABOOT_202012)
     - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+    - $(IMAGE_BRCM_PUBLIC)
+    - $(IMAGE_BRCM_PUBLIC_39085)
+    - $(IMAGE_BRCM_ABOOT_PUBLIC)
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
@@ -70,6 +73,7 @@ parameters:
     values: 
     - $(SAITHRIFT_BRCM_202012)
     - $(SAITHRIFT_BRCM_PUBLIC)
+    - $(SAITHRIFT_BRCM_PUBLIC_39085)
     - $(SAITHRIFT_MLNX_202012)
     - $(SAITHRIFT_MLNX_PUBLIC)
 
