@@ -113,6 +113,25 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     return candidates
 
 
+def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
+    """
+    Check portchannel status on the DUT.
+
+    Args:
+        dut: DUT host object
+        dut_port_channel: Portchannel of DUT
+        exp_state: State of DUT's port ('up' or 'down')
+        verbose: Logging port state.
+
+    Returns:
+        Bool value which confirm port state
+    """
+    status = __get_dut_if_status(dut, dut_port_channel)[dut_port_channel]
+    if verbose:
+        logger.debug("Portchannel status : %s", status)
+    return status['oper_state'] == exp_state
+
+
 def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     """
     Toggle one link on the fanout.
