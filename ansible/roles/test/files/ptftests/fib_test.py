@@ -279,7 +279,6 @@ class FibTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
-        send_packet(self, src_port, pkt)
         logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
@@ -296,8 +295,11 @@ class FibTest(BaseTest):
                     sport,
                     dport))
 
+        self.dataplane.flush()
+        send_packet(self, src_port, pkt, count=10)
+
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list, timeout=20)
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
@@ -355,7 +357,6 @@ class FibTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
-        send_packet(self, src_port, pkt)
         logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'\
             .format(pkt.src,
                     pkt.dst,
@@ -372,8 +373,10 @@ class FibTest(BaseTest):
                     sport,
                     dport))
 
+        self.dataplane.flush()
+        send_packet(self, src_port, pkt, count=10)
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list, timeout=20)
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if actual_src_mac != exp_src_mac:
