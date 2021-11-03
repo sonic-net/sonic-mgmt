@@ -191,14 +191,7 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
     yield "/root/{}".format(portMapFile.split('/')[-1])
 
 
-@pytest.fixture(scope="session", autouse=True)
-def run_icmp_responder(duthost, ptfhost, tbinfo):
-    """Run icmp_responder.py over ptfhost."""
-    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
-    if 't0' not in tbinfo['topo']['type']:
-        logger.info("Not running on a T0 testbed, not starting ICMP responder")
-        yield
-        return
+def _start_icmp_responder(duthost, ptfhost, tbinfo):
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
@@ -218,10 +211,32 @@ def run_icmp_responder(duthost, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl update")
     ptfhost.shell("supervisorctl start icmp_responder")
 
-    yield
 
+def _stop_icmp_responder(ptfhost):
     logging.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_icmp_responder(duthost, ptfhost, tbinfo):
+    """Run icmp_responder.py over ptfhost."""
+    # No vlan is avaliable on non-t0 testbed, so skip this fixture
+    if 't0' not in tbinfo['topo']['type']:
+        logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        return
+    _start_icmp_responder(duthost, ptfhost, tbinfo)
+    yield
+    _stop_icmp_responder(ptfhost)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def dualtor_icmp_responder(duthost, ptfhost, tbinfo):
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logger.info('Not dualtor topo, skip starting icmp responder')
+        return
+    _start_icmp_responder(duthost, ptfhost, tbinfo)
+    yield
+    _stop_icmp_responder(ptfhost)
 
 
 @pytest.fixture(scope='module', autouse=True)

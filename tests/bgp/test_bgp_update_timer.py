@@ -11,6 +11,7 @@ from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
 
+from tests.common.fixtures.ptfhost_utils import dualtor_icmp_responder      # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 

@@ -26,6 +26,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import dualtor_icmp_responder      # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
 from tests.common import config_reload

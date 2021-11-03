@@ -4,13 +4,10 @@ import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.mask import Mask
 
-import itertools
 import logging
-import ipaddress
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 from tests.common.helpers.assertions import pytest_require
 
@@ -27,14 +24,14 @@ DUMMY_IP_PREFIX = "188.123"
 DUMMY_ARP_COUNT = 10
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def skip_dualtor(tbinfo):
     """Skip running `test_tagged_arp` over dualtor."""
     pytest_require("dualtor" not in tbinfo["topo"]["name"], "Skip 'test_tagged_arp' over dualtor.")
 
 
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname, skip_dualtor):
+def cfg_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
