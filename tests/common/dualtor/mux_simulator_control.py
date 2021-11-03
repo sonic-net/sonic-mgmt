@@ -219,7 +219,7 @@ def set_output(url):
     return _set_output
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_upper_tor(url):
+def toggle_simulator_port_to_upper_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
@@ -230,6 +230,9 @@ def toggle_simulator_port_to_upper_tor(url):
             interface_name: a str, the name of interface
             target: "upper_tor" or "lower_tor"
         """
+        # Skip on non dualtor testbed
+        if 'dualtor' not in tbinfo['topo']['name']:
+            return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
         pytest_assert(_post(server_url, data), "Failed to toggle to upper_tor on interface {}".format(interface_name))
@@ -237,7 +240,7 @@ def toggle_simulator_port_to_upper_tor(url):
     return _toggle_simulator_port_to_upper_tor
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_lower_tor(url):
+def toggle_simulator_port_to_lower_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_lower_tor to make fixture accept arguments
     """
@@ -247,6 +250,9 @@ def toggle_simulator_port_to_lower_tor(url):
         Args:
             interface_name: a str, the name of interface to control
         """
+        # Skip on non dualtor testbed
+        if 'dualtor' not in tbinfo['topo']['name']:
+            return
         server_url = url(interface_name)
         data = {"active_side": LOWER_TOR}
         pytest_assert(_post(server_url, data), "Failed to toggle to lower_tor on interface {}".format(interface_name))
@@ -318,34 +324,37 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
 
     return _get_active_torhost
 
-def _toggle_all_simulator_ports(mux_server_url, side):
+def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url):
+def toggle_all_simulator_ports(mux_server_url, tbinfo):
     """
     A module level fixture to toggle all ports to specified side.
     """
     def _toggle(side):
-        _toggle_all_simulator_ports(mux_server_url, side)
+        _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
     return _toggle
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
+def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo):
     """
     A function level fixture to toggle all ports to upper_tor
     """
-    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR)
+    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
+def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo):
     """
     A function level fixture to toggle all ports to lower_tor
     """
-    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
+    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
@@ -410,13 +419,13 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(mux_server_url, tbinfo, ra
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to the randomly unselected tor, the counterpart of {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_another_side(mux_server_url):
+def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
     """
     A function level fixture to toggle all ports to another side
     For example, if the current active side for a certain port is upper_tor,
     then it will be toggled to lower_tor.
     """
-    _toggle_all_simulator_ports(mux_server_url, TOGGLE)
+    _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
 
 
 @pytest.fixture
@@ -475,7 +484,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo):
     if 'dualtor' not in tbinfo['topo']['name']:
         return
 
-    _toggle_all_simulator_ports(mux_server_url, RANDOM)
+    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
     upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
