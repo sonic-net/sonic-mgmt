@@ -11,19 +11,16 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-
-  - name: SAI_TEST_CONTAINER
-    type: string
-    default: saiserver
-    displayName: "SAI Test Container"
-    values: 
-    - saiserver
-    - syncd
   
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
     default: docker-ptf
+
+  - name: JOB_CONFIG
+    type: string
+    displayName: "JOB CONFIG"
+    default: " "
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
@@ -82,7 +79,6 @@ stages:
   - template: ../templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      SAI_TEST_CONTAINER: ${{ parameters.SAI_TEST_CONTAINER }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
       UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
       CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
@@ -91,3 +87,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
+      JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
