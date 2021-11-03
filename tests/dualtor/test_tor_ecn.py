@@ -21,7 +21,7 @@ from scapy.all import Ether, IP
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -58,7 +58,7 @@ def setup_dualtor_tor_active(
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_active_state_to_orchagent')
     else:
-        request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
 @pytest.fixture(scope="function")
 def setup_dualtor_tor_standby(
@@ -67,13 +67,13 @@ def setup_dualtor_tor_standby(
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_standby_state_to_orchagent')
     else:
-        request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
 @pytest.fixture(scope="function")
 def build_encapsulated_ip_packet(
-    rand_selected_interface, 
-    ptfadapter, 
-    rand_selected_dut, 
+    rand_selected_interface,
+    ptfadapter,
+    rand_selected_dut,
     tunnel_traffic_monitor
 ):
     """
@@ -119,9 +119,9 @@ def build_encapsulated_ip_packet(
 
 @pytest.fixture(scope="function")
 def build_non_encapsulated_ip_packet(
-    rand_selected_interface, 
-    ptfadapter, 
-    rand_selected_dut, 
+    rand_selected_interface,
+    ptfadapter,
+    rand_selected_dut,
     tunnel_traffic_monitor
 ):
     """
@@ -158,8 +158,8 @@ def build_non_encapsulated_ip_packet(
     return packet
 
 def get_ptf_server_intf_index(
-    tor, 
-    tbinfo, 
+    tor,
+    tbinfo,
     iface
 ):
     """
@@ -188,8 +188,8 @@ def build_expected_packet_to_server(
     return exp_pkt
 
 def get_queue_id_of_received_packet(
-    duthosts, 
-    rand_one_dut_hostname, 
+    duthosts,
+    rand_one_dut_hostname,
     rand_selected_interface
 ):
     """
@@ -199,7 +199,7 @@ def get_queue_id_of_received_packet(
     queue_counter = duthost.shell('show queue counters {} | grep "UC"'.format(rand_selected_interface[0]))['stdout']
     logging.info('queue_counter:\n{}'.format(queue_counter))
 
-    """ 
+    """
     regex search will look for following pattern in queue_counter o/p for interface
     ----------------------------------------------------------------------------_---
     Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
@@ -219,9 +219,9 @@ def get_queue_id_of_received_packet(
     return queue
 
 def verify_ecn_on_received_packet(
-    ptfadapter, 
-    exp_pkt, 
-    exp_ptf_port_index, 
+    ptfadapter,
+    exp_pkt,
+    exp_ptf_port_index,
     exp_ecn
 ):
     """
@@ -243,7 +243,7 @@ def test_dscp_to_queue_during_decap_on_active(
     ptfhost, setup_dualtor_tor_active,
     build_encapsulated_ip_packet, request,
     rand_selected_interface, ptfadapter,
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor, 
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,
     duthosts, rand_one_dut_hostname
 ):
     """
@@ -299,10 +299,10 @@ def test_dscp_to_queue_during_encap_on_standby(
     setup_dualtor_tor_standby,
     build_non_encapsulated_ip_packet,
     rand_selected_interface, ptfadapter,
-    tbinfo, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor, 
-    duthosts, 
+    tbinfo,
+    rand_selected_dut,
+    tunnel_traffic_monitor,
+    duthosts,
     rand_one_dut_hostname,
     write_standby
 ):
