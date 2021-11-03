@@ -12,10 +12,10 @@ parameters:
     displayName: "SAI PTF DOCKER"
     default: docker-ptf
 
-  - name: SAI_TEST_CONTAINER
+  - name: JOB_CONFIG
     type: string
-    default: saiserver
-    displayName: "SAI Test Container"
+    displayName: "JOB CONFIG"
+    default: " "
 
   - name: TESTBED_FILE
     type: string
@@ -326,8 +326,15 @@ stages:
               script: |
                 set -x
 
-                BASE_PATH=`pwd`
                 CONFIG_PARAMS=""
+                if [ ! "$JOB_CONFIG" ]
+                then
+                  CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
+                else
+                  CONFIG_PARAMS="${JOB_CONFIG}"
+                fi
+
+                BASE_PATH=`pwd`
                 LOG_LEVEL=info    
 
                 INVT=$BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos
@@ -341,9 +348,8 @@ stages:
                 export PYTEST_ADDOPTS="-vvvvv --allow_recover --skip_sanity \
                 --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH} \
                 --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
-                --disable_loganalyzer \
                 --py_saithrift_url=${PY_SAITHRIFT_URL} \
-                --sai_test_container=${SAI_TEST_CONTAINER}"
+                ${CONFIG_PARAMS}"
                 
 
                 rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
@@ -355,7 +361,6 @@ stages:
                 --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
                 --collect_techsupport=False --topology='ptf'
             env:
-              SAI_TEST_CONTAINER: ${{ parameters.SAI_TEST_CONTAINER }}
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
@@ -364,7 +369,8 @@ stages:
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
               SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
               SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
-              PYTEST_ENDPOINT: $${{ parameters.SAI_PYTEST_ENDPOINT }}
+              PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
+              JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
 
 
           - task: Bash@3
