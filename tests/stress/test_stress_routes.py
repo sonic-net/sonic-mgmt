@@ -62,4 +62,3 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
                   "ipv4 route used after is not equal to it used before")
     pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
                   "ipv6 route used after is not equal to it used before")
-

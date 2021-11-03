@@ -1,5 +1,3 @@
-import os
-import yaml
 import re
 
 TOPO_FILE_FOLDER = '../ansible/vars/'
