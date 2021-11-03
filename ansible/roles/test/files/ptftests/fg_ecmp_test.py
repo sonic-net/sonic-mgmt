@@ -28,6 +28,7 @@ import ptf.testutils as testutils
 from ptf.testutils import *
 
 PERSIST_MAP = '/tmp/fg_ecmp_persist_map.json'
+MAX_ONE_PERCENT_LOSS = 0.01
 
 def verify_packet_warm(test, pkt, port, device_number=0, timeout=None, n_timeout=None):
     # This packet verification function accounts for possible flood during warm boot
@@ -62,9 +63,9 @@ def verify_packet_any_port_lossy(test, pkt, ports=[], device_number=0, timeout=N
     # return value of -1 to denote that a packet loss occured. The caller can use the 
     # special return value to identify how many packets were lost and check if loss is within acceptable range
 
-    if timeout == None:
+    if timeout is None:
         timeout = ptf.ptfutils.default_timeout
-    if n_timeout == None:
+    if n_timeout is None:
         n_timeout = ptf.ptfutils.default_negative_timeout
     logging.debug("Checking for pkt on device %d, port %r", device_number, ports)
     result = dp_poll(test, device_number=device_number, timeout=timeout, exp_pkt=pkt)
@@ -101,7 +102,7 @@ class FgEcmpTest(BaseTest):
 
 
     def trigger_mac_learning(self, serv_ports):
-      	for src_port in serv_ports:
+        for src_port in serv_ports:
             pkt = simple_eth_packet(
                 eth_dst=self.router_mac,
                 eth_src=self.dataplane.get_mac(0, src_port),
@@ -211,16 +212,15 @@ class FgEcmpTest(BaseTest):
         tuple_to_port_map ={}
         hit_count_map = {}
 
-        if not os.path.exists(PERSIST_MAP):
+        if not os.path.exists(PERSIST_MAP) and self.test_case == 'create_flows':
             with open(PERSIST_MAP, 'w'): pass
-        else:
+        elif not self.test_case == 'verify_packets_received':
             with open(PERSIST_MAP) as fp:
                 try:
                     tuple_to_port_map = json.load(fp)
                 except ValueError:
                     print 'Decoding JSON failed for persist map'
-                    if not self.test_case == 'verify_packets_received':
-                        assert False
+                    assert False
 
         if tuple_to_port_map is None or self.dst_ip not in tuple_to_port_map:
             tuple_to_port_map[self.dst_ip] = {}
@@ -286,7 +286,7 @@ class FgEcmpTest(BaseTest):
 
             self.log("Number of lost packets were: " + str(total_num_pkts_lost))
             # Ensure less than 1% packet loss
-            assert (total_num_pkts_lost < (0.01 * self.num_flows))
+            assert (total_num_pkts_lost < (MAX_ONE_PERCENT_LOSS * self.num_flows))
             return
 
         elif self.test_case == 'bank_check':
@@ -498,8 +498,7 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-
-    return verify_fn(self, masked_exp_pkt, dst_port_list)
+        return verify_fn(self, masked_exp_pkt, dst_port_list)
 
 
     def send_rcv_ipv6_pkt(self, in_port, sport, dport,
@@ -543,7 +542,7 @@ class FgEcmpTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
-	return verify_fn(self, masked_exp_pkt,dst_port_list)
+        return verify_fn(self, masked_exp_pkt,dst_port_list)
 
     def runTest(self):
         # Main function which triggers all the tests
