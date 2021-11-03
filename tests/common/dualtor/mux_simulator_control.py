@@ -382,10 +382,10 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
         return True
 
     # Allow retry for mux cable toggling
-    RETRY = 3
+    RETRY = 5
     while RETRY > 0:
         _post(mux_server_url, data)
-        time.sleep(5)
+        time.sleep(10)
         if _check_all_active(duthost):
             break
         RETRY -= 1
