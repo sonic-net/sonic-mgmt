@@ -48,8 +48,7 @@ def prepare_configdb_field(duthost, configdb_field, value):
 
     Args:
         duthost: DUT host object
-        key: BUFFER_POOL table key to configure
-        field: BUFFER_POOL table field to configure
+        configdb_field: field in config_db BUFFER_POOL table of the form key/value
         value: BUFFER_POOL table value to be set
     """
 
