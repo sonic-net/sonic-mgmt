@@ -299,7 +299,7 @@ def main():
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
-                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k] for k in aliases],
+                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k] for k in aliases] if front_panel_asic_ifnames else [],
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
     except (IOError, OSError) as e:
