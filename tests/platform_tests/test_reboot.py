@@ -94,16 +94,26 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
         result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
-        assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
-            MAX_WAIT_TIME_FOR_INTERFACES)
+        if dut.has_sku:
+            assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+                MAX_WAIT_TIME_FOR_INTERFACES)
+        else:
+            if not result:
+                logging.warn("Not all transceivers are detected or interfaces are up in {} seconds, but the required hwsku.json is not present either".format(MAX_WAIT_TIME_FOR_INTERFACES))
 
 
         logging.info("Check transceiver status")
-        for asic_index in dut.get_frontend_asic_ids():
-            # Get the interfaces pertaining to that asic
-            interface_list = get_port_map(dut, asic_index)
-            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
-            check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+        try:
+            for asic_index in dut.get_frontend_asic_ids():
+                # Get the interfaces pertaining to that asic
+                interface_list = get_port_map(dut, asic_index)
+                interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
+                check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+        except AssertionError as ae:
+            if dut.has_sku:
+                raise ae
+            else:
+                logging.warn("Error in checking transceiver status {}".format(ae))
 
         logging.info("Check pmon daemon status")
         assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
