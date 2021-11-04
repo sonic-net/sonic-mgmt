@@ -42,4 +42,5 @@ ntp/test_ntp/py::test_ntp_long_jump_disable:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
   xfail:
+    strict: True
     reason: "Known NTP bug"
