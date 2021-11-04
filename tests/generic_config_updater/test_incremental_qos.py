@@ -16,9 +16,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.incremental_qos_orig /etc/sonic/config_db.json"
-DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.incremental_qos_orig"
-
 
 @pytest.fixture(scope="module")
 def ensure_dut_readiness(duthost):
