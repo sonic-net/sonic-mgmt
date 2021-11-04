@@ -40,7 +40,7 @@ Within the testbed.yaml file:
 ### device_groups section
 **USAGE**: lab
 
-The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. While the format in the configuration file is in yaml format, the script converts it to INI format. The device groups section includes all lab DUTs, fanout switches, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone.
+The device_groups section generates the lab file which is the inventory file necessary for setting up the testbed. While the format in the configuration file is in yaml format, the script converts it to INI format. The device groups section includes all lab DUTs, fanout switches, PTF containers, and testbed server topologies. Group children are referenced from the devices section below. For the most part this section can be left alone.
 
 ### devices section
 **USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
@@ -111,10 +111,10 @@ Define:
 
 This is where the topology configuration file for the testbed will collect information from when running TestbedProcessing.py.
 
-| #conf-name        | group-name         | topo    | ptf_image_name | ptf_ip       | server         | vm_base   | dut   | inv_name   | auto_recover   | comment   |
-| ----------------- | ------------------ | ------- | -------------- | ------------ | -------------- | --------- | ----- | ---------- | -------------- | --------- |
-| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf]   | [ip address] | [server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
-| [t0 conf-name]    | [t0 group-name]    | [t0]    | [docker-ptf]   | [ip address] | [server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
+| #conf-name        | group-name         | topo    | ptf_image_name | ptf|ptf_ip |ptf_ipv6    | server         | vm_base   | dut   | inv_name   | auto_recover   | comment   |
+| ----------------- | ------------------ | ------- | -------------- |---------- |------------ |------------|-------------- | --------- | ----- | ---------- | -------------- | --------- |
+| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
+| [t0 conf-name]    | [t0 group-name]    | [t0]    | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
 
 
 For each topology you use in your testbed environment, define the following:
@@ -125,7 +125,10 @@ For each topology you use in your testbed environment, define the following:
     > git clone --recursive https://github.com/Azure/sonic-buildimage.git <br/>
     > make configure PLATFORM=generic <br/>
     > make target/docker-ptf.gz
+    > You can also download a pre-built docker-ptf image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz)
+- ptf - ptf container's name
 - ptf_ip - ip address for mgmt interface of PTF container. Choose an IP address that is available
+- ptf_ipv6 - ipv6 address for mgmt interface of PTF container. Choose an IPV6 address that is available
 - server - server where the testbed resides. Choose a veos_group to use that contains both the lab server and virtual machines
 - vm_base - enter in the lowest ID value for the VMs you will be using to run the test cases. The lowest VM ID value can be found under the veos section of the testbed configuration file. IF empty, no VMs are used
 - dut - enter in the target DUT that is used in the testbed environment
@@ -161,8 +164,21 @@ The docker registry container below information:
 1. docker_registry_host
 
 If you already have this information set up, you can choose to leave this section blank and the script will skip this section.
+If you are using local docker registry, you can add your docker_registry_host, docker_registry_username, and docker_registry_password into the file.
+Example: 
+```
+cat ~/sonig-mgmt/ansible/vars/docker_registry.yml
+#docker_registry_host: sonicdev-microsoft.azurecr.io:443
+docker_registry_host: 127.0.0.1:5000
+docker_registry_username: root
+docker_registry_password: root
+```
 
-# Testbed Processing Script
+# Testbed Processing Script 
+**NOTE**:
+- This section is an example of starting VMs, deploying topology and running test cases with ansible-playbook. However, it is old-fasioned.
+- For latest deploying, please refer [here](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md#setup-vms-on-the-server). 
+- For latest running test cases, please refer [here](https://github.com/Azure/sonic-mgmt/blob/master/docs/tests/README.md)
 
 When the testbed.yaml file is completed with the values pertaining to your setup, place both the TestbedProcess.py script and the testbed.yaml configuration file into sonic-mgmt/ansible.
 
