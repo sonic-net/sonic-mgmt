@@ -4,7 +4,7 @@ import pytest
 
 from .test_ro_user import ssh_remote_run
 from tests.common.helpers.assertions import pytest_assert
-from .utils import stop_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,15 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+def setup_local_user(duthost, creds_all_duts):
+    try:
+        duthost.shell("sudo deluser {}".format(creds_all_duts[duthost]['tacacs_local_user']))
+    except:
+        logger.warning("local user not exist")
+    
+    duthost.shell("sudo useradd {}".format(creds_all_duts[duthost]['tacacs_local_user']))
+    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(creds_all_duts[duthost]['tacacs_local_user'],creds_all_duts[duthost]['tacacs_local_user_passwd']))
 
 def ssh_connect_remote(remote_ip, remote_username, remote_password):
     ssh = paramiko.SSHClient()
@@ -32,13 +41,13 @@ def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password)
     
     pytest_assert(login_failed == True)
 
-
 def ssh_run_command(ssh_client, command):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
-    return stdout.readlines(), stderr.readlines()
+    stdout_lines = stdout.readlines()
+    stderr_lines = stderr.readlines()
+    return stdout_lines, stderr_lines
 
 def check_ssh_output(res, exp_val):
-    logger.warning(res)
     content_exist = False
     for l in res:
         if exp_val in l:
@@ -68,15 +77,11 @@ def test_authorization_tacacs_only(localhost, duthosts, enum_rand_one_per_hwsku_
     stdout, stderr = ssh_run_command(ssh_client, "config aaa")
     check_ssh_output(stderr, 'Root privileges are required for this operation')
 
-    """
-        Verify TACACS+ user can't run command not in server side whitelist.
-    """
+    # Verify TACACS+ user can't run command not in server side whitelist.
     stdout, stderr = ssh_run_command(ssh_client, "cat /etc/passwd")
     check_ssh_output(stdout, '/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing')
 
-    """
-        Verify Local user can't login.
-    """
+    # Verify Local user can't login.
     check_ssh_connect_remote_failed(dutip, creds_all_duts[duthost]['tacacs_local_user'],
                              creds_all_duts[duthost]['tacacs_local_user_passwd'])
 
@@ -106,9 +111,7 @@ def test_authorization_tacacs_only_some_server_down(localhost, duthosts, enum_ra
     """
     test_authorization_tacacs_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs)
 
-    """
-        Cleanup UT.
-    """
+    # Cleanup
     duthost.shell("sudo config tacacs delete %s" % invalied_tacacs_server_ip)
 
 def test_authorization_tacacs_only_then_server_down_after_login(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
@@ -116,32 +119,22 @@ def test_authorization_tacacs_only_then_server_down_after_login(localhost, dutho
     duthost.shell("sudo config aaa authorization tacacs+")
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    """
-        Create a ssh connection to sonic device
-    """
+    # Create a ssh connection to sonic device.
     ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
                          creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
 
-    """
-        Verify when server are accessible, TACACS+ user can run command in server side whitelist.
-    """
+    # Verify when server are accessible, TACACS+ user can run command in server side whitelist.
     stdout, stderr = ssh_run_command(ssh_client, "show aaa")
     check_ssh_output(stdout, 'AAA authentication')
 
-    """
-        Shutdown tacacs server
-    """
+    # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
 
-    """
-        Verify when server are not accessible, TACACS+ user can't run any command.
-    """
+    # Verify when server are not accessible, TACACS+ user can't run any command.
     stdout, stderr = ssh_run_command(ssh_client, "show aaa")
     check_ssh_output(stdout, '/usr/local/bin/show not authorized by TACACS+ with given arguments, not executing')
 
-    """
-        Cleanup UT.
-    """
+    #  Cleanup UT.
     start_tacacs_server(ptfhost)
     ssh_client.close()
 
@@ -150,9 +143,7 @@ def test_authorization_tacacs_and_local(localhost, duthosts, enum_rand_one_per_h
     duthost.shell("sudo config aaa authorization \"tacacs+ local\"")
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    """
-        Create a ssh connection to sonic device
-    """
+    # Create a ssh connection to sonic device.
     ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
                          creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
 
@@ -171,16 +162,11 @@ def test_authorization_tacacs_and_local(localhost, duthosts, enum_rand_one_per_h
     stdout, stderr = ssh_run_command(ssh_client, "config aaa")
     check_ssh_output(stderr, 'Root privileges are required for this operation')
 
-    """
-        Verify TACACS+ user can run command not in server side whitelist, but have local permission.
-        TODO: update output
-    """
+    # Verify TACACS+ user can run command not in server side whitelist, but have local permission.
     stdout, stderr = ssh_run_command(ssh_client, "cat /etc/passwd")
-    check_ssh_output(stdout, 'TODO: update output')
+    check_ssh_output(stdout, 'root:x:0:0:root:/root:/bin/bash')
 
-    """
-        Verify Local user can't login.
-    """
+    # Verify Local user can't login.
     check_ssh_connect_remote_failed(dutip, creds_all_duts[duthost]['tacacs_local_user'],
                              creds_all_duts[duthost]['tacacs_local_user_passwd'])
     
@@ -190,53 +176,37 @@ def test_authorization_tacacs_and_local(localhost, duthosts, enum_rand_one_per_h
 def test_authorization_tacacs_and_local_then_server_down_after_login(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa authorization \"tacacs+ local\"")
+    setup_local_user(duthost, creds_all_duts)
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    """
-        Create a ssh connection to sonic device
-    """
+    # Create a ssh connection to sonic device
     ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
                          creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
 
-    """
-        Shutdown tacacs server
-    """
+    # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
     
-    """
-        Verify TACACS+ user can run command not in server side whitelist but have permission in local.
-        TODO: update output
-    """
+    # Verify TACACS+ user can run command not in server side whitelist but have permission in local.
     stdout, stderr = ssh_run_command(ssh_client, "cat /etc/passwd")
-    check_ssh_output(stdout, 'TODO: update output')
+    check_ssh_output(stdout, 'root:x:0:0:root:/root:/bin/bash')
     
-    """
-        Verify TACACS+ user can't run command in server side whitelist but not have permission in local.
-        TODO: update input and output
-    """
-    stdout, stderr = ssh_run_command(ssh_client, "vi /etc/passwd")
-    check_ssh_output(stdout, 'TODO: update output')
+    # Verify TACACS+ user can't run command in server side whitelist also not have permission in local.
+    stdout, stderr = ssh_run_command(ssh_client, "config tacacs")
+    check_ssh_output(stdout, '/usr/local/bin/config not authorized by TACACS+ with given arguments, not executing')
+    check_ssh_output(stderr, 'Root privileges are required for this operation')
 
-    """
-        Verify Local user can login, and run command with local permission.
-    """
+    # Verify Local user can login, and run command with local permission.
     ssh_client_local = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_local_user'],
                          creds_all_duts[duthost]['tacacs_local_user_passwd'])
 
-    """
-        Start tacacs server
-    """
+    # Start tacacs server
     start_tacacs_server(ptfhost)
     
-    """
-        Verify after Local user login, then server becomes accessible, Local user still can run command with local permission.
-    """
+    # Verify after Local user login, then server becomes accessible, Local user still can run command with local permission.
     stdout, stderr = ssh_run_command(ssh_client_local, "show aaa")
     check_ssh_output(stdout, 'AAA authentication')
 
-    """
-        Cleanup UT.
-    """
+    # Cleanup
     ssh_client.close()
     ssh_client_local.close()
 
@@ -244,8 +214,10 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(localhost, 
 def test_authorization_local(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa authorization local")
+    setup_local_user(duthost, creds_all_duts)
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
+    # Create a ssh connection to sonic device.
     ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
                          creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
 
@@ -263,9 +235,7 @@ def test_authorization_local(localhost, duthosts, enum_rand_one_per_hwsku_hostna
     stdout, stderr = ssh_run_command(ssh_client, "config aaa")
     check_ssh_output(stderr, 'Root privileges are required for this operation')
 
-    """
-        Shutdown tacacs server
-    """
+    # Shutdown tacacs server.
     stop_tacacs_server(ptfhost)
 
     """
@@ -278,43 +248,95 @@ def test_authorization_local(localhost, duthosts, enum_rand_one_per_hwsku_hostna
     stdout, stderr = ssh_run_command(ssh_client_local, "show aaa")
     check_ssh_output(stdout, 'AAA authentication')
     
-    """
-        Cleanup UT.
-    """
+    # Cleanup
     start_tacacs_server(ptfhost)
     ssh_client.close()
     ssh_client_local.close()
 
 
 def test_bypass_authorization(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config aaa authorization tacacs+")
+    setup_local_user(duthost, creds_all_duts)
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+
+    # Create a ssh connection to sonic device
+    ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
+                         creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
+
     """
-        Setup TACACS+ server side rules:
-            - Disable user run python, sh command.
-            - Disable user run find with '-exec'
-            - Disable user run /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
         Verify user can't run script with sh/python with following command.
             python ./testscript.py
-        Verify user can't run 'find' command with '-exec' parameter.
-        Verify user can run 'find' command without '-exec' parameter.
+    """
+    stdout, stderr = ssh_run_command(ssh_client, 'echo "" >> ./testscript.py')
+    stdout, stderr = ssh_run_command(ssh_client, "python ./testscript.py")
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+
+    # Verify user can't run 'find' command with '-exec' parameter.
+    stdout, stderr = ssh_run_command(ssh_client, "find . -type f -exec /bin/sh ;")
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+
+    # Verify user can run 'find' command without '-exec' parameter.
+    stdout, stderr = ssh_run_command(ssh_client, "find . /bin/sh")
+    check_ssh_output(stdout, '/bin/sh')
+
+    """
         Verify user can't run command with loader:
             /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh
+    """
+    stdout, stderr = ssh_run_command(ssh_client, "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh")
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+
+    """
         Verify user can't run command with prefix/quoting:
             \sh
             "sh"
             echo $(sh -c ls)
     """
+    stdout, stderr = ssh_run_command(ssh_client, "\\sh")
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    
+    stdout, stderr = ssh_run_command(ssh_client, '"sh"')
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    
+    stdout, stderr = ssh_run_command(ssh_client, "echo $(sh -c ls)")
+    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    
+    ssh_client.close()
 
 def test_backward_compatibility_disable_authorization(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
-    """
-        Verify domain account can login to device successfully.
-        Verify domain account can run command if have permission in local.
-        Verify domain account can login to device successfully.
-        Verify local admin account can login to device successfully.
-        Verify local admin account can run command if have permission in local.
-        Verify local admin account can't run command if not have permission in local.
-    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config aaa authorization local")
+    setup_local_user(duthost, creds_all_duts)
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-def test_backward_compatibility_enable_authorization(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs):
-    """
-        Verify all test case not break.
-    """
+    # Verify domain account can login to device successfully.
+    ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
+                         creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
+
+    # Verify domain account can run command if have permission in local.
+    stdout, stderr = ssh_run_command(ssh_client, "show aaa")
+    check_ssh_output(stdout, 'AAA authentication')
+    ssh_client.close()
+
+    # Shutdown tacacs server
+    stop_tacacs_server(ptfhost)
+
+    # Verify domain account can't login to device successfully.
+    check_ssh_connect_remote_failed(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
+                         creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
+
+    # Verify local admin account can login to device successfully.
+    ssh_client_local = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_local_user'],
+                         creds_all_duts[duthost]['tacacs_local_user_passwd'])
+
+    # Verify local admin account can run command if have permission in local.
+    stdout, stderr = ssh_run_command(ssh_client_local, "show aaa")
+    check_ssh_output(stdout, 'AAA authentication')
+
+    # Verify local admin account can't run command if not have permission in local.
+    stdout, stderr = ssh_run_command(ssh_client_local, "config aaa")
+    check_ssh_output(stderr, 'Root privileges are required for this operation')
+
+    ssh_client_local.close()
+    start_tacacs_server(ptfhost)

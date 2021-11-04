@@ -22,6 +22,9 @@ def start_tacacs_server(ptfhost):
     ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
     return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
 
+def stop_tacacs_server(ptfhost):
+    ptfhost.service(name="tacacs_plus", state="stopped")
+    check_all_services_status(ptfhost)
 
 def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
     """setup tacacs client"""
@@ -68,11 +71,10 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
 
 def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     # stop tacacs server
-    ptfhost.service(name="tacacs_plus", state="stopped")
-    check_all_services_status(ptfhost)
+    stop_tacacs_server(ptfhost)
 
     # reset tacacs client configuration
-    #duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
-    #duthost.shell("sudo config tacacs default passkey")
-    #duthost.shell("sudo config aaa authentication login default")
-    #duthost.shell("sudo config aaa authentication failthrough default")
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs default passkey")
+    duthost.shell("sudo config aaa authentication login default")
+    duthost.shell("sudo config aaa authentication failthrough default")
