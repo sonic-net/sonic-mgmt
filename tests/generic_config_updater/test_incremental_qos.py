@@ -3,18 +3,20 @@ import json
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
+from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.asic("mellanox")
+    pytest.mark.asic('mellanox')
 ]
 
 logger = logging.getLogger(__name__)
 
-BACKUP_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json /etc/sonic/config_db.json.incremental_qos_orig"
 RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.incremental_qos_orig /etc/sonic/config_db.json"
 DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.incremental_qos_orig"
-INCREMENTAL_QOS_TEST_FILE_LIST = []
+CONFIG_RELOAD_CMD = "sudo config reload -y"
 
 
 def verifyOrchagentRunningOrAssert(duthost):
@@ -24,11 +26,16 @@ def verifyOrchagentRunningOrAssert(duthost):
     Args: 
         duthost: Device Under Test (DUT)
     """
-    result = duthost.shell(argv=["pgrep", "orchagent"])
-    orchagent_pids = result['stdout'].splitlines()
-    pytest_assert(len(orchagent_pids) == duthost.num_asics(), "Orchagent is not running")
-    for pid in orchagent_pids:
-        pytest_assert(int(pid) > 0, "Orchagent is not running")
+   
+    def _orchagent_running(): 
+        cmds = 'docker exec swss supervisorctl status orchagent'
+        output = duthost.shell(cmds)['stdout']
+        return 'RUNNING' in output
+
+    pytest_assert(
+        wait_until(120, 10, 0, _orchagent_running),
+        "Orchagent is not running"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -39,26 +46,26 @@ def ensure_dut_readiness(duthost):
     Args:
         duthost: DUT host object
     """
+    config_tmpfile = generate_tmpfile(duthost)
+    logger.info("config_tmpfile {}".format(config_tmpfile))
     logger.info("Backing up config_db.json")
-    duthost.shell(BACKUP_CONFIG_DB_CMD)
+    duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
     verifyOrchagentRunningOrAssert(duthost)
 
     yield
-
+ 
     verifyOrchagentRunningOrAssert(duthost)
     logger.info("Restoring config_db.json")
-    duthost.shell(RESTORE_CONFIG_DB_CMD)
-    duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
-
-    for temp_file in INCREMENTAL_QOS_TEST_FILE_LIST:
-        duthost.shell('rm -rf {}'.format(temp_file))
+    duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
+    delete_tmpfile(duthost, config_tmpfile)
+    duthost.shell(CONFIG_RELOAD_CMD)
 
     logger.info("TEARDOWN COMPLETED")
 
 
-def prepare_configdb_field(duthost, key, field, value):
+def prepare_configdb_field(duthost, configdb_field, value):
     """
-    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty, delete the current entry. 
+    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty string, delete the current entry. 
 
     Args:
         duthost: DUT host object
@@ -66,212 +73,43 @@ def prepare_configdb_field(duthost, key, field, value):
         field: BUFFER_POOL table field to configure
         value: BUFFER_POOL table value to be set
     """
-    logger.info("Setting configdb field: {} to value: {}".format(field, value))
+
+    configdb_field_elements = configdb_field.split('/')
+    pytest_assert((len(configdb_field_elements) == 2), "Configdb field not identifiable")
+
+    key = configdbfield_elements[0]
+    field = configdbfield_elements[1]
+    logger.info("Setting configdb key: {} field: {} to value: {}".format(key, field, value))
    
     if value:
-        cmd = "redis-cli -n 4 hset \"BUFFER_POOL|{}\" \"{}\" \"{}\" ".format(key, field, value)
+        cmd = "sonic-db-cli CONFIG_DB \"BUFFER_POOL|{}\" \"{}\" \"{}\" ".format(key, field, value)
     else:
-        cmd = "redis-cli -n 4 del \"BUFFER_POOL|{}\" \"{}\" ".format(key, field)
+        cmd = "sonic-db-cli CONFIG_DB del \"BUFFER_POOL|{}\" \"{}\" ".format(key, field)
    
     verifyOrchagentRunningOrAssert(duthost)
 
 
-def ensure_patch_application(duthost, patch_path):
-    """
-    Applies patch at specified path, and asserts for successful application
-
+@pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
+@pytest.mark.parametrize("operation", ["add", "replace", "remove"])
+@pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
+def test_incremental_qos_config_updates(duthost, ensure_dut_readiness, configdb_field, operation, field_pre_status):
+    operation_to_new_value_map = {"add": "678", "replace": "789", "remove": ""}
+    field_pre_status_to_value_map = {"existing": "567", "nonexistent": ""}
     
-    Args:
-        duthost: DUT host object
-        patch_path: path of JSON patch to be applied
-    """
-    cmds = 'config apply-patch {}'.format(patch_path)
+    prepare_configdb_field(duthost, configdb_field, field_pre_status_to_value_map[field_pre_status]) 
 
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds)
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {} created for json patch of field: {} and operation: {}".format(tmpfile, configdb_field, operation))
 
-    pytest_assert("Patch applied successfully" in output['stdout'], "Please check if json file is validated")
-
-
-DUT_ADD_HEADROOM_JSON_FILE='/tmp/add_headroom_pool.json'
-INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_ADD_HEADROOM_JSON_FILE)
-def test_set_nonexistent_headroom_pool(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "xoff", "")
-    
-    add_headroom_pool_json = [
+    json_patch = [
         {
-            "op": "add",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/xoff",
-            "value": "567"
-        }
-    ]  
-
-    duthost.copy(content=json.dumps(add_headroom_pool_json, indent=4), dest=DUT_ADD_HEADROOM_JSON_FILE)
-    ensure_patch_application(DUT_ADD_HEADROOM_JSON_FILE)
-
-
-DUT_REPLACE_HEADROOM_JSON_FILE='/tmp/replace_headroom_pool.json'
-INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_REPLACE_HEADROOM_JSON_FILE)
-def test_replace_existing_headroom_pool(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "xoff", "567")
-
-    set_headroom_pool_json = [
-        {
-            "op": "replace",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/xoff",
-            "value": "678"
+            "op": "{}".format(operation), 
+            "path": "/BUFFER_POOL/{}".format(configdb_field), 
+            "value": "".format(operation_to_new_value_map[operation])
         }
     ]
 
-    duthost.copy(content=json.dumps(set_headroom_pool_json, indent=4), dest=DUT_REPLACE_HEADROOM_JSON_FILE)
-    ensure_patch_application(DUT_REPLACE_HEADROOM_JSON_FILE)
+    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    expect_op_success(duthost, output)
 
-
-DUT_DEL_HEADROOM_JSON_FILE='/tmp/del_headroom_pool.json'
-INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_DEL_HEADROOM_JSON_FILE)
-def test_del_existing_headroom_pool(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "xoff", "567")
-
-    del_headroom_pool_json = [
-        {
-            "op": "remove",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/xoff"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_headroom_pool_json, indent=4), dest=DUT_DEL_HEADROOM_JSON_FILE)
-    ensure_patch_application(DUT_DEL_HEADROOM_JSON_FILE)
-
-
-def test_del_nonexistent_headroom_pool(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "xoff")
-
-    del_headroom_pool_json = [
-        {
-            "op": "remove",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/xoff"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_headroom_pool_json, indent=4), dest=DUT_DEL_HEADROOM_JSON_FILE)
-    ensure_patch_application(DUT_DEL_HEADROOM_JSON_FILE)
-
-
-DUT_ADD_POOL_JSON_FILE='/tmp/add_pool.json'
-INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_ADD_POOL_JSON_FILE)
-def test_set_nonexistent_pool_size_ingress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "size", "")
-
-    set_pool_size_json = [
-        {
-            "op": "add",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/size",
-            "value": "567"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-    ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
-
-
-def test_replace_existing_pool_size_ingress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "size", "567")
-
-    set_pool_size_json = [
-        {
-            "op": "replace",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/size",
-            "value": "678"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-    ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
-
-
-DUT_DEL_POOL_JSON_FILE='/tmp/del_pool.json'
-INCREMENTAL_QOS_TEST_FILE_LIST.append(DUT_DEL_POOL_JSON_FILE)
-def test_del_existing_pool_size_ingress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "size", "567")
-
-    del_pool_size_json = [
-        {
-            "op": "remove",
-            "path": "/BUFFER_POOL/ingress_lossless_pool/size"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-    ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
-
-
-def test_del_nonexistent_pool_size_ingress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("ingress_lossless_pool", "size", "")
-
-    del_pool_size_json = [
-        {
-            "op": "remove", 
-            "path": "/BUFFER_POOL/ingress_lossless_pool/size"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-    ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
-
-
-def test_set_nonexistent_pool_size_egress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("egress_lossy_pool", "size", "")
-
-    set_pool_size_json = [
-        {
-            "op": "replace",
-            "path": "/BUFFER_POOL/egress_lossy_pool/size",
-            "value": "567"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-    ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
-
-
-def test_replace_existing_pool_size_egress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("egress_lossy_pool", "size", "567")
-
-    set_pool_size_json = [
-        {
-            "op": "replace",
-            "path": "/BUFFER_POOL/egress_lossy_pool/size",
-            "value": "678"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(set_pool_size_json, indent=4), dest=DUT_ADD_POOL_JSON_FILE)
-    ensure_patch_application(DUT_ADD_POOL_JSON_FILE)
-
-
-def test_del_nonexistent_pool_size_egress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("egress_lossy_pool", "size", "")
-
-    del_pool_size_json = [
-        {
-            "op": "remove", 
-            "path": "/BUFFER_POOL/egress_lossy_pool/size"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-    ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
-
-
-def test_del_existing_pool_size_egress(duthost, ensure_dut_readiness):
-    prepare_configdb_field("egress_lossy_pool", "size", "567")
-
-    del_pool_size_json = [
-        {
-            "op": "remove", 
-            "path": "/BUFFER_POOL/egress_lossy_pool/size"
-        }
-    ]
-
-    duthost.copy(content=json.dumps(del_pool_size_json, indent=4), dest=DUT_DEL_POOL_JSON_FILE)
-    ensure_patch_application(DUT_DEL_POOL_JSON_FILE)
+    delete_tmpfile(duthost, tmpfile)
