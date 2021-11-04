@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Generate the port config for the fanout device."""
-import json
 import os
 import re
 import tempfile
