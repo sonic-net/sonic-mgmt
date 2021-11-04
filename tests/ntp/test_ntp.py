@@ -24,6 +24,7 @@ def config_long_jump(duthost, enable=False):
         regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
 
     duthost.command("sed -i %s /etc/default/ntp" % regex)
+    duthost.service(name='ntp', state='restarted')
 
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
@@ -79,10 +80,9 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
 
     # set DUT's time back after long jump test
     duthost.service(name='ntp', state='stopped')
-    config_long_jump(duthost, long_jump_enable)
     dut_end_time = int(time.time()) - int(start_time) + start_time_dut
     duthost.command("date -s '@{}'".format(dut_end_time))
-    duthost.service(name='ntp', state='restarted')
+    config_long_jump(duthost, long_jump_enable)
 
 def check_ntp_status(host):
     res = host.command("ntpstat", module_ignore_errors=True)
@@ -94,7 +94,6 @@ def test_ntp_long_jump_enabled(duthosts, rand_one_dut_hostname, setup_ntp, setup
     duthost = duthosts[rand_one_dut_hostname]
 
     config_long_jump(duthost, enable=True)
-    duthost.service(name='ntp', state='restarted')
 
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP long jump enable failed")
@@ -103,7 +102,6 @@ def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setu
     duthost = duthosts[rand_one_dut_hostname]
 
     config_long_jump(duthost, enable=False)
-    duthost.service(name='ntp', state='restarted')
 
     if wait_until(720, 10, 0, check_ntp_status, duthost):
         pytest.fail("NTP long jump disable failed")
