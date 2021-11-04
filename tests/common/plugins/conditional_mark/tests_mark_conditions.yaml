@@ -468,11 +468,6 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
-<<<<<<< HEAD
   xfail:
     strict: True
     reason: "Known NTP bug"
-=======
-  xfail: 
-    reason: "Existing NTP bug"
->>>>>>> ba54345c81966e53f50783acb6cca5abb57a05ae
