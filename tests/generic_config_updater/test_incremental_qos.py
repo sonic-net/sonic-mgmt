@@ -4,6 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
@@ -19,25 +20,6 @@ DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.incremental_qos
 CONFIG_RELOAD_CMD = "sudo config reload -y"
 
 
-def verifyOrchagentRunningOrAssert(duthost):
-    """
-    Verifies that orchagent is running, asserts otherwise
-
-    Args: 
-        duthost: Device Under Test (DUT)
-    """
-   
-    def _orchagent_running(): 
-        cmds = 'docker exec swss supervisorctl status orchagent'
-        output = duthost.shell(cmds)['stdout']
-        return 'RUNNING' in output
-
-    pytest_assert(
-        wait_until(120, 10, 0, _orchagent_running),
-        "Orchagent is not running"
-    )
-
-
 @pytest.fixture(scope="module")
 def ensure_dut_readiness(duthost):
     """
@@ -50,11 +32,11 @@ def ensure_dut_readiness(duthost):
     logger.info("config_tmpfile {}".format(config_tmpfile))
     logger.info("Backing up config_db.json")
     duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
-    verifyOrchagentRunningOrAssert(duthost)
+    verify_orchagent_running_or_assert(duthost)
 
     yield
  
-    verifyOrchagentRunningOrAssert(duthost)
+    verify_orchagent_running_or_assert(duthost)
     logger.info("Restoring config_db.json")
     duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
     delete_tmpfile(duthost, config_tmpfile)
@@ -77,8 +59,8 @@ def prepare_configdb_field(duthost, configdb_field, value):
     configdb_field_elements = configdb_field.split('/')
     pytest_assert((len(configdb_field_elements) == 2), "Configdb field not identifiable")
 
-    key = configdbfield_elements[0]
-    field = configdbfield_elements[1]
+    key = configdb_field_elements[0]
+    field = configdb_field_elements[1]
     logger.info("Setting configdb key: {} field: {} to value: {}".format(key, field, value))
    
     if value:
@@ -86,8 +68,7 @@ def prepare_configdb_field(duthost, configdb_field, value):
     else:
         cmd = "sonic-db-cli CONFIG_DB del \"BUFFER_POOL|{}\" \"{}\" ".format(key, field)
    
-    verifyOrchagentRunningOrAssert(duthost)
-
+    verify_orchagent_running_or_assert(duthost)
 
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("operation", ["add", "replace", "remove"])
