@@ -658,8 +658,8 @@ def main():
         else:
             base_topo_file = 'testbed-t1-8-lag.yaml'
         os.system("cp sonic_t1_topo/* .")
-        vEOS_count = 24
-        ptf_intfcount = 64
+        vEOS_count = 6
+        ptf_intfcount = 8
     elif topo_type == 't0-64':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
