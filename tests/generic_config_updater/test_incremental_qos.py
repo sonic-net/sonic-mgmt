@@ -4,6 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
@@ -17,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.incremental_qos_orig /etc/sonic/config_db.json"
 DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.incremental_qos_orig"
-CONFIG_RELOAD_CMD = "sudo config reload -y"
 
 
 @pytest.fixture(scope="module")
@@ -40,7 +40,7 @@ def ensure_dut_readiness(duthost):
     logger.info("Restoring config_db.json")
     duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
     delete_tmpfile(duthost, config_tmpfile)
-    duthost.shell(CONFIG_RELOAD_CMD)
+    config_reload(duthost)
 
     logger.info("TEARDOWN COMPLETED")
 
