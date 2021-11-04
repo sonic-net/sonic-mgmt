@@ -66,6 +66,7 @@ def prepare_configdb_field(duthost, configdb_field, value):
    
     verify_orchagent_running_or_assert(duthost)
 
+
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("operation", ["add", "replace", "remove"])
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
