@@ -40,18 +40,25 @@ def vnet_test_params(request):
 
     Returns:
         A dictionary holding each parameter with the parameter name as the key
-            * ipv6_vxlan_test - whether to include ipv6 functionality in testing
             * cleanup - whether to remove test data/configs after test is finished
             * apply_new_config - whether to apply new configurations that were pushed to the DUT
     """
 
     params = {}
-    params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
     params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
+    # ECMP
+    params[TOTAL_NUMBER_OF_ENDPOINTS] = request.config.option.total_number_of_endpoints
+    params[ECMP_NHS_PER_DESTINATION] = request.config.option.ecmp_nhs_per_destination
+    params[TOTAL_NUMBER_OF_NEXTHOPS] = request.config.option.total_number_of_nexthops
+    params['number_of_destinations'] = int(params[TOTAL_NUMBER_OF_NEXTHOPS] / params[ECMP_NHS_PER_DESTINATION])
+    params[IPV4_IN_IPV4] = request.config.option.ipv4_in_ipv4
+    params[IPV6_IN_IPV4] = request.config.option.ipv6_in_ipv4
+    params[IPV4_IN_IPV6] = request.config.option.ipv4_in_ipv6
+    params[IPV6_IN_IPV6] = request.config.option.ipv6_in_ipv6
     return params
 
 @pytest.fixture(scope="module")
@@ -90,3 +97,25 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
 
     combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
     return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
+
+@pytest.fixture(scope="module")
+def vnet_config_ecmp(minigraph_facts, vnet_test_params, scaled_vnet_params):
+    """
+    Fixture to generate vnet configuration from templates/vnet_config_ecmp.j2
+
+    Args:
+        minigraph_facts: minigraph information/facts
+        vnet_test_params: Dictionary holding vnet test parameters
+        scaled_vnet_params: Dictionary holding scaled vnet testing parameters
+
+    Returns:
+        A dictionary containing the generated vnet configuration information
+    """
+
+    num_rifs = vnet_test_params[NUM_INTF_PER_VNET_KEY] * scaled_vnet_params[NUM_VNET_KEY]
+
+    if num_rifs > 128:
+        logger.warning("Total number of configured interfaces will be greater than 128. This is not a supported test scenario")
+
+    combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
+    return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config_ecmp.j2")).render(combined_args))

@@ -201,8 +201,8 @@ vnet_subnet_routes:
     {% set ip_a, ip_b = vlan_str[:2]|int, (vlan_str[2:]|int)+1 %}
       - pfx: '{{ ip_a }}.{{ ip_b }}.10.202/32'
         end: '200.1.{{ ip_a }}.{{ ip_b }}'
-        vni: '12345'
-        mac: '00:00:00:00:a1:b2'
+        #vni: '12345'
+        #mac: '00:00:00:00:a1:b2'
 {% endfor %}
 
 {# Vnet - Routes
@@ -235,7 +235,7 @@ vnet_route_list:
         end: '200.1.{{ e_idx_a }}.{{ e_idx_b }}'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
         end: '200.1.{{ e_idx_a }}.{{ e_idx_b+1 }}'
-        mac: '00:00:00:00:01:02'
+        #mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[1] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
@@ -245,7 +245,7 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+1 }}.{{ idx_a }}.{{ idx_b }}/32'
         end: '200.2.{{ e_idx_a }}.{{ e_idx_b }}'
-        mac: '00:00:00:00:02:05'
+        #mac: '00:00:00:00:02:05'
     {% endfor %}
   - Vnet{{ vnet_batch[2] }}_route_list:
     {% for idx in range (0, num_routes_iterations*2, 2) %}
@@ -255,10 +255,10 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
         end: '200.1.{{ e_idx_a }}.{{ e_idx_b }}'
-        vni: '12345'
+        #vni: '12345'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
         end: '200.1.{{ e_idx_a }}.{{ e_idx_b+1 }}'
-        mac: '00:00:00:00:01:02'
+        #mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[3] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
@@ -268,7 +268,7 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+3 }}.{{ idx_a }}.{{ idx_b }}/32'
         end: '200.4.{{ e_idx_a }}.{{ e_idx_b }}'
-        mac: '00:00:00:00:02:05'
+        #mac: '00:00:00:00:02:05'
     {% endfor %}
 {% if ipv6_vxlan_test == true %}
   - Vnet{{ vnet_batch[4] }}_route_list:
@@ -281,7 +281,7 @@ vnet_route_list:
         end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b }}'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
         end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b+1 }}'
-        mac: '00:00:00:00:01:02'
+        #mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[5] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
@@ -291,7 +291,7 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+1 }}.{{ idx_a }}.{{ idx_b }}/32'
         end: 'FC00:2::{{ e_idx_a }}:{{ e_idx_b }}'
-        mac: '00:00:00:00:02:05'
+        #mac: '00:00:00:00:02:05'
     {% endfor %}
   - Vnet{{ vnet_batch[6] }}_route_list:
     {% for idx in range (0, num_routes_iterations*2, 2) %}
@@ -301,10 +301,10 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b }}/32'
         end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b }}'
-        vni: '12345'
+        #vni: '12345'
       - pfx: '{{ ip_r_a }}.{{ ip_r_b }}.{{ idx_a }}.{{ idx_b+1 }}/32'
         end: 'FC00:1::{{ e_idx_a }}:{{ e_idx_b+1 }}'
-        mac: '00:00:00:00:01:02'
+        #mac: '00:00:00:00:01:02'
     {% endfor %}
   - Vnet{{ vnet_batch[7] }}_route_list:
     {% for idx in range (num_routes_iterations) %}
@@ -314,7 +314,7 @@ vnet_route_list:
 
       - pfx: '{{ ip_r_a }}.{{ ip_r_b+3 }}.{{ idx_a }}.{{ idx_b }}/32'
         end: 'FC00:4::{{ e_idx_a }}:{{ e_idx_b }}'
-        mac: '00:00:00:00:02:05'
+        #mac: '00:00:00:00:02:05'
     {% endfor %}
 {% endif %}
 {% endfor %}
