@@ -63,7 +63,7 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
 
     # collect long jump state
     long_jump_enable = False
-    if not duthost.shell("grep -q '-g' /etc/default/ntp", module_ignore_errors=True)['rc']:
+    if not duthost.shell("grep -q \"NTPD_OPTS='-g'\" /etc/default/ntp", module_ignore_errors=True)['rc']:
         long_jump_enable = True
 
     # get time before set time
