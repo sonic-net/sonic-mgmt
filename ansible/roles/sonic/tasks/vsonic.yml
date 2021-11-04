@@ -30,7 +30,7 @@
 
 - name: create interface config
   shell: >
-          sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/Force10-S6000/port_config.ini -k Force10-S6000 --print-data
+          sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/SONiC-VM/port_config.ini -k SONiC-VM --print-data
           | jq '.PORT[].admin_status |= "up"'
           > config-port.json
   when: hostname in configuration

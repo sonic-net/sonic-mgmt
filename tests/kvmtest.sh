@@ -164,7 +164,7 @@ test_t0_sonic() {
     tests="bgp/test_bgp_fact.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --skip_sanity --disable_loganalyzer"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
     popd
 }
 

@@ -21,7 +21,7 @@
 {% if iface['lacp'] is defined %}
     "PORTCHANNEL_MEMBER": {
 {% set index = name | replace("Ethernet", "") | int - 1 %}
-        "PortChannel{{ iface['lacp'] }}|Ethernet{{ index * 4}}": {}
+        "PortChannel{{ iface['lacp'] }}|Ethernet{{ index + 1}}": {}
     },
 {% endif %}
 {% endfor %}
