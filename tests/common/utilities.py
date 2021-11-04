@@ -104,7 +104,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
             details = traceback.format_exception(*exc_info)
             logger.error(
                 "Exception caught while checking {}:{}, error:{}".format(
-                    condition.__name__, "".join(details, e)
+                    condition.__name__, "".join(details), e
                 )
             )
             check_result = False
