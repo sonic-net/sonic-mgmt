@@ -15,9 +15,9 @@
 - name: deploy SONiC fanout with image version 201811
   include_tasks:
     sonic/fanout_sonic_201811.yml
-  when: "{{ '20181130' in fanout_sonic_version['build_version'] }}"
+  when: "'20181130' in fanout_sonic_version['build_version']"
 
 - name: deploy SONiC fanout with image version 202012
   include_tasks:
     sonic/fanout_sonic_202012.yml
-  when: "{{ '20201231' in fanout_sonic_version['build_version'] }}"
+  when: "'20201231' in fanout_sonic_version['build_version']"

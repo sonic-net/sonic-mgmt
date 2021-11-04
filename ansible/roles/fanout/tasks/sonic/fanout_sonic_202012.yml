@@ -56,4 +56,4 @@
     - name: reinit fp entries
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
-  when: "{{ 'broadcom' in fanout_sonic_version.asic_type }}"
+  when: "'broadcom' in fanout_sonic_version.asic_type"
