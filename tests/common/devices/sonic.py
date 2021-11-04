@@ -745,18 +745,6 @@ class SonicHost(AnsibleHostBase):
 
         return namespace_ids, True
 
-
-    def get_up_time(self):
-        up_time_text = self.command("uptime -s")["stdout"]
-        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
-
-    def get_now_time(self):
-        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
-        return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
-
-    def get_uptime(self):
-        return self.get_now_time() - self.get_up_time()
-
     def get_networking_uptime(self):
         start_time = self.get_service_props("networking", props=["ExecMainStartTimestamp",])
         try:

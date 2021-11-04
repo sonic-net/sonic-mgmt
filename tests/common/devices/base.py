@@ -3,6 +3,7 @@ import json
 import logging
 
 from multiprocessing.pool import ThreadPool
+from datetime import datetime
 
 from tests.common.errors import RunAnsibleModuleFail
 
@@ -89,3 +90,14 @@ class AnsibleHostBase(object):
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
+
+    def get_up_time(self):
+        up_time_text = self.command("uptime -s")["stdout"]
+        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+
+    def get_now_time(self):
+        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
+        return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
+
+    def get_uptime(self):
+        return self.get_now_time() - self.get_up_time()
