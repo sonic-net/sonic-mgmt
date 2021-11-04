@@ -2,14 +2,14 @@
 
  ## Scope
 
-1. Make sure SSHv1 is disabled (not enabled) by default
-2. Preferred Ciphers: ["aes256-gcm@openssh.com"], permitted Ciphers: ["aes256-ctr", "aes192-ctr"] with hmac auth macs below
-3. preferred Macs: ['hmac-sha2-512-etm@openssh.com'], Permitted Mac: ['hmac-sha2-256-etm@openssh.com']
-4. Preferred Kex: [ 'ecdh-sha2-nistp384'], Permitted Kex: [ 'ecdh-sha2-nistp521']
-5. SSH to Device using all combinations of preferred Ciphers, Macs, and Kex and make sure SSH session works
-6. SSH to Device using non-permitted Ciphers, Macs, and Kex and make sure SSH session fails to negotiate
+ 1. Make sure SSHv1 is disabled (not enabled) by default
+ 2. Preferred Ciphers: ["aes256-gcm@openssh.com"], permitted Ciphers: ["aes256-ctr", "aes192-ctr"] with hmac auth macs below
+ 3. preferred Macs: ['hmac-sha2-512-etm@openssh.com'], Permitted Mac: ['hmac-sha2-256-etm@openssh.com']
+ 4. Preferred Kex: [ 'ecdh-sha2-nistp384'], Permitted Kex: [ 'ecdh-sha2-nistp521']
+ 5. SSH to Device using all combinations of preferred Ciphers, Macs, and Kex and make sure SSH session works
+ 6. SSH to Device using non-permitted Ciphers, Macs, and Kex and make sure SSH session fails to negotiate
 
-   Passing critera: Only preferred Ciphers/Mac/Kex should work without issues
+ >  Passing critera: Only preferred Ciphers/Mac/Kex should work without issues
 
  ## Test cases
 
