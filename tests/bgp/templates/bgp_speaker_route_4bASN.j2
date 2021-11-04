@@ -1,0 +1,1 @@
+{{announce_prefix}} {% for vlan, v in minigraph_vlans.iteritems() %}{% for member in v.members %}[{{ '%d' % minigraph_port_indices[member]}}]{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %} {% endif %}{% endfor %}
