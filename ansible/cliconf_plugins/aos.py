@@ -2,8 +2,6 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 import json
-import time
-import re
 
 from ansible.errors import AnsibleConnectionFailure
 from ansible.module_utils._text import to_text
@@ -63,8 +61,6 @@ class Cliconf(CliconfBase):
                 continue
             elif cmd.startswith('banner') or multiline:
                 multiline = True
-            elif cmd == 'EOF' and multiline:
-                multiline = False
 
             if multiline:
                 line['sendonly'] = True

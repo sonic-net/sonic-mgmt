@@ -406,7 +406,6 @@ def is_new_config_provided(module):
 
 def apply_config(module, running_cfg):
     result = {}
-    candidate = get_candidate(module)
     running = get_running_config(module, running_cfg)
     config_diff = compare_config(module, running)
 
@@ -483,7 +482,6 @@ def main():
 
     runnconfig_before_changes = None
     flags = ['all'] if module.params['defaults'] else []
-    connection = get_connection(module)
 
     running_cfg = None
     if is_backup_requested(module):
