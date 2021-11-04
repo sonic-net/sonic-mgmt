@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 THERMAL_CONTROL_TEST_WAIT_TIME = 75
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
+THERMAL_PATH = '/run/hw-management/thermal/'
 COOLING_CUR_STATE_PATH = '/run/hw-management/thermal/cooling_cur_state'
 COOLING_CUR_STATE_THRESHOLD = 7
 PSU_PRESENCE_PATH = '/run/hw-management/thermal/psu{}_status'
@@ -144,17 +145,18 @@ def test_psu_absence_policy(duthosts, rand_one_dut_hostname, mocker_factory):
         pytest.skip('The platform {} does not support this test case.'.format(duthost.facts["platform"]))
 
     psu_num = platform_data['psus']['number']
-    mocker = mocker_factory(duthost, 'PsuMocker')
+    psu_mocker = mocker_factory(duthost, 'PsuMocker')
     psu_index = random.randint(1, psu_num)
-    mocker.mock_psu_status(psu_index, False)
+    psu_mocker.mock_psu_status(psu_index, False)
     wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
                              THERMAL_CONTROL_TEST_CHECK_INTERVAL,
                              0,
                              check_pwm,
                              duthost,
-                             255,
+                             MAX_PWM,
                              operator.eq)
-    assert wait_result, 'PSU is absent, but PWM value is not turned to 255'
+    assert wait_result, 'PSU is absent, but PWM value is not turned to {}'.format(MAX_PWM)
+    assert check_fan_speed(duthost, MAX_PWM), 'Fan speed is not turn to {}'.format(MAX_PWM)
 
 
 def _check_psu_fan_speed_in_range(actual_speed, max_speed, cooling_level):
@@ -257,3 +259,14 @@ def check_pwm(duthost, expect_value, op):
     """
     pwm_value = get_pwm_value(duthost)
     return op(pwm_value, expect_value)
+
+
+def check_fan_speed(duthost, expect_value):
+    get_fan_speed_sysfs_cmd = 'ls {}fan*_speed_set'.format(THERMAL_PATH)
+    file_list = duthost.shell(get_fan_speed_sysfs_cmd)['stdout'].splitlines()
+    for file in file_list:
+        actual_speed = int(duthost.shell('cat {}'.format(file))['stdout'].strip())
+        if actual_speed != expect_value:
+            logging.error('For file {}, Expect speed {}, but actual is {}'.format(file, expect_value, actual_speed))
+            return False
+    return True
