@@ -61,6 +61,11 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    # collect long jump state
+    long_jump_enable = False
+    if not duthost.shell("grep -q '-g' /etc/default/ntp", module_ignore_errors=True)['rc']:
+        long_jump_enable = True
+
     # get time before set time
     start_time_dut = int(duthost.command("date +%s")['stdout'])
     start_time = time.time()
@@ -74,7 +79,7 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
 
     # set DUT's time back after long jump test
     duthost.service(name='ntp', state='stopped')
-    config_long_jump(duthost)
+    config_long_jump(duthost, long_jump_enable)
     dut_end_time = int(time.time()) - int(start_time) + start_time_dut
     duthost.command("date -s '@{}'".format(dut_end_time))
     duthost.service(name='ntp', state='restarted')
