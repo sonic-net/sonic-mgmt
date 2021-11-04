@@ -8,7 +8,8 @@
 4. Preferred Kex: [ 'ecdh-sha2-nistp384'], Permitted Kex: [ 'ecdh-sha2-nistp521']
 5. SSH to Device using all combinations of preferred Ciphers, Macs, and Kex and make sure SSH session works
 6. SSH to Device using non-permitted Ciphers, Macs, and Kex and make sure SSH session fails to negotiate
-Passing critera: Only preferred Ciphers/Mac/Kex should work without issues
+
+   Passing critera: Only preferred Ciphers/Mac/Kex should work without issues
 
  ## Test cases
 
@@ -22,22 +23,22 @@ Passing critera: Only preferred Ciphers/Mac/Kex should work without issues
 
  #### Test Steps
 
- Use `ssh --version` to print help menu, and check if it has option '-1'
+ Use `ssh --version` **on DUT** to print help menu, and check if it has option '-1'
 
  ### Test Case #2 - SSH Permitted Ciphers
 
  #### Test Steps
 
- Use `ssh -c {perfered/permitted cipher} admin@{dut_ip}` on test server to test if it can **connect successfully**
+ Use `ssh -c {perfered/permitted cipher} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
 
  ### Test Case #3 - SSH Permitted MACs
 
  #### Test Steps
 
- Use `ssh -m {perfered/permitted MACs} admin@{dut_ip}` on test server to test if it can **connect successfully**
+ Use `ssh -m {perfered/permitted MACs} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
 
  ### Test Case #4 - SSH Permitted Kexs
 
  #### Test Steps
 
- Use `ssh -oKexAlgorithms={perfered/permitted Kex} admin@{dut_ip}` on test server to test if it can **connect successfully**
+ Use `ssh -oKexAlgorithms={perfered/permitted Kex} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
