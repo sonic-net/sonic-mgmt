@@ -306,18 +306,6 @@ def check_all_critical_processes_status(duthost):
 
     return True
 
-def post_test_check(duthost, up_bgp_neighbors):
-    """Checks whether critical processes are running and BGP sessions are established.
-
-    Args:
-      duthost: An ansible object of DuT.
-      up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
-
-    Returns:
-      Ture if critical processes are running and BGP sessions are up; Otherwise False.
-    """
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
-
 
 def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
     """Restarts the containers which hit the restart limitation. Then post checks
@@ -337,8 +325,17 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-                      post_test_check, duthost, up_bgp_neighbors)
+    critical_proceses = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
+    bgp_check = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        duthost.check_bgp_session_state, up_bgp_neighbors, "established"
+    )
+
+    return critical_proceses and bgp_check
 
 
 def run_test_on_single_container(duthost, container_name, tbinfo):
