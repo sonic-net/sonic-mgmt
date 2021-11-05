@@ -225,12 +225,39 @@ def combinations(iterable, r):
 
 def loganalyzer_ignore_regex_list():
     ignore = [
-        ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*"
+        ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+        ".*ERR swss#orchagent: :- addAclTable: Failed to.*",
+        ".*ERR swss#orchagent: :- create: create status:.*",
+        ".*ERR syncd#syncd: [none] SAI_API_ACL:brcm_sai_dnx_create_acl_table:338 create table.*",
+        ".*ERR syncd#syncd: [none] SAI_API_ACL:_brcm_sai_dnx_create_acl_table:7807 field group.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_ACL_BIND_POINT_TYPE_LIST:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_ACL_STAGE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ACL_RANGE_TYPE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_DSCP:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_DST_IP:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ETHER_TYPE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ICMP_CODE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ICMP_TYPE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ICMPV6_CODE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_ICMPV6_TYPE:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_IN_PORTS:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_IPV6_NEXT_HEADER:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_L4_SRC_PORT:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_OUTER_VLAN_ID:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_SRC_IP:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6:.*",
+        ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_TCP_FLAGS:.*",
+        ".*ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_CREATE.*",
+        ".*brcm_sai_dnx_create_acl_table:.*",
     ]
     return ignore
 
 
-def test_nhop(request, duthost):
+def test_nhop(request, duthost, tbinfo):
     """
     Test next hop group resource count. Steps:
     - Add test IP address to an active IP interface
@@ -261,7 +288,7 @@ def test_nhop(request, duthost):
     nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces().keys()
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
