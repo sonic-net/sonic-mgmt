@@ -73,12 +73,12 @@ def fake_storm(request, duthosts, rand_one_dut_hostname):
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
-def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index):
+def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
     """
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces()
+    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
     port_list = []
     for iface in ip_ifaces.keys():
         if iface.startswith("PortChannel"):
@@ -135,7 +135,7 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
-            duthost, mg_facts, test_ports, enum_frontend_asic_index
+            duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
         )
 
     # select a subset of ports from the generated port list

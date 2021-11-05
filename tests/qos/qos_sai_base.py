@@ -545,7 +545,7 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
-            for iface,addr in dut_asic.get_active_ip_interfaces().items():
+            for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
                     if "." in iface:
@@ -1452,7 +1452,7 @@ class QosSaiBaseMasic(QosBase):
         pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ip_ifaces = duthost.get_active_ip_interfaces(asic_index="all")
+        ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
 
         port_ips = dict()
         for idx in range(len(ip_ifaces)):
