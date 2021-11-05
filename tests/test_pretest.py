@@ -157,7 +157,8 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
             continue
-        duthost.disable_syslog_rate_limit(feature_name)
+        duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+
 
 def collect_dut_lossless_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
