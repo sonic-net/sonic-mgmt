@@ -375,7 +375,7 @@ class MultiAsicSonicHost(object):
             # If 'No such command' is found in stderr, the command doesn't exist
             return 'No such command' not in e.results['stderr']
 
-    def disable_syslog_rate_limit(self, feature):
+    def modify_syslog_rate_limit(self, feature, rl_option='disable'):
         """
         Disable Rate limit for a given service
         """
@@ -394,9 +394,18 @@ class MultiAsicSonicHost(object):
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
                 r"/etc/rsyslog.conf"
             )
+            cmd_enable_rate_limit = (
+                r"docker exec -i {} sed -i "
+                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
+                r"/etc/rsyslog.conf"
+            )
             cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
             cmds = []
-            cmds.append(cmd_disable_rate_limit.format(docker))
+
+            if rl_option == 'disable':
+                cmds.append(cmd_disable_rate_limit.format(docker))
+            else:
+                cmds.append(cmd_enable_rate_limit.format(docker))
             cmds.append(cmd_reload.format(docker))
             self.sonichost.shell_cmds(cmds=cmds)
 
