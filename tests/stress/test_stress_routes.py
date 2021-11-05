@@ -18,16 +18,12 @@ ALLOW_ROUTES_CHANGE_NUMS = 10
 CRM_POLLING_INTERVAL = 1
 MAX_WAIT_TIME = 120
 
-pytestmark = [
-    pytest.mark.topology('t0')
-]
-
 logger = logging.getLogger(__name__)
 
 
 def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("announce ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
 
@@ -35,7 +31,7 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
     time.sleep(CRM_POLLING_INTERVAL * 5)
     logger.info("withdraw ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
     time.sleep(CRM_POLLING_INTERVAL * 5)
@@ -46,6 +42,8 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
 def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
                                  withdraw_and_announce_existing_routes):
     normalized_level = get_function_conpleteness_level
+    if normalized_level is None:
+        normalized_level = "basic"
 
     ptf_ip, topo_name, ipv4_route_used_before, ipv6_route_used_before = withdraw_and_announce_existing_routes
 

@@ -37,7 +37,7 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     topo_name = tbinfo["topo"]["name"]
 
     logger.info("withdraw existing ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
     time.sleep(CRM_POLLING_INTERVAL * 5)
@@ -49,7 +49,7 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     yield ptf_ip, topo_name, ipv4_route_used_before, ipv6_route_used_before
 
     logger.info("announce existing ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce")
+    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
     time.sleep(CRM_POLLING_INTERVAL * 5)

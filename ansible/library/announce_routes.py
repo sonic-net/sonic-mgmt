@@ -80,8 +80,8 @@ def get_topo_type(topo_name):
     return topo_type
 
 
-def read_topo(topo_name):
-    topo_file_path = os.path.join(TOPO_FILE_FOLDER, TOPO_FILENAME_TEMPLATE.format(topo_name))
+def read_topo(topo_name, path):
+    topo_file_path = os.path.join(path, TOPO_FILE_FOLDER, TOPO_FILENAME_TEMPLATE.format(topo_name))
     try:
         with open(topo_file_path) as f:
             return yaml.safe_load(f)
@@ -436,13 +436,15 @@ def main():
         argument_spec=dict(
             topo_name=dict(required=True, type='str'),
             ptf_ip=dict(required=True, type='str'),
-            action=dict(required=False, type='str', default='announce')
+            action=dict(required=False, type='str', default='announce'),
+            path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
 
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
     action = module.params['action']
+    path = module.params['path']
 
     topo = read_topo(topo_name)
     if not topo:
