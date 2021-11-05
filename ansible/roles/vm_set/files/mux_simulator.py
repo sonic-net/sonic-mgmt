@@ -172,12 +172,12 @@ class Mux(object):
 
         self._init_ports()
 
-        # If the mux does not have valid ports attahed, it is invalid
+        # If the mux does not have valid ports attached, it is invalid
         if not self._get_ports():
             self.isvalid = False
             return
 
-        # Initilize the flows configured on the mux bridge
+        # Initialize the flows configured on the mux bridge
         self._init_flows()
         self._get_flows()
 
@@ -248,12 +248,13 @@ class Mux(object):
             tor_ports[1]: LOWER_TOR
         }
 
+        self.info('Sides map: {}'.format(self.sides, indent=2))
         return True
 
     def _active_standby_state_helper(self, active_side):
         if active_side is None:
             active_side = random.choice([UPPER_TOR, LOWER_TOR])
-        standby_side = LOWER_TOR if active_side == UPPER_TOR else LOWER_TOR
+        standby_side = LOWER_TOR if active_side == UPPER_TOR else UPPER_TOR
 
         self.active_side = active_side
         self.active_port = self.ports[active_side]
@@ -323,7 +324,7 @@ class Mux(object):
 
     @property
     def status(self):
-        """Property for statu of the mux bridge.
+        """Property for status of the mux bridge.
 
         Status of the mux bridge is maintained in instance attributes. This property is to gather the attributes and
         return them in a dict.
@@ -364,7 +365,7 @@ class Mux(object):
     def set_active_side(self, new_active_side):
         """Set the active side of the mux bridge to the specified side.
 
-        If the specified side is same as the current active side of bridge, no config change is reuqired. Otherwise,
+        If the specified side is same as the current active side of bridge, no config change is required. Otherwise,
         this method will run ovs-ofctl command to remove flow and add a new flow to switch active side. All the
         related instance attributes are updated after open flow rules are changed.
         """
