@@ -121,8 +121,6 @@ def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):
 def get_manufacturer_program_to_check(duthost):
     if is_mlnx(duthost):
         return CounterpollConstants.SX_SDK
-    else:
-        None
 
 
 def is_mlnx(duthost):
