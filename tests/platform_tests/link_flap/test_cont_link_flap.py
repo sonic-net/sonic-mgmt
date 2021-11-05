@@ -104,7 +104,7 @@ class TestContLinkFlap(object):
                 if isinstance(nbrhost, EosHost):
                     res = nbrhost.eos_command(commands=['show ip bgp sum'])
                 elif isinstance(nbrhost, SonicHost):
-                    res = nbrhost.eos_command('vtysh -c "show ip bgp sum"')
+                    res = nbrhost.command('vtysh -c "show ip bgp sum"')
                 else:
                     res = ""
                 failmsg.append(res['stdout'])
