@@ -113,7 +113,7 @@ redis_db_cmds = [
 ]
 
 docker_cmds = [
-    "docker exec -it syncd{} saidump",
+    "docker exec syncd{} saidump",
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
