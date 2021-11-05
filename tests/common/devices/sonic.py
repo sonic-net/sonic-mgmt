@@ -17,6 +17,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
+from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -1657,23 +1658,26 @@ Totals               6450                 6449
         except socket.error:
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
         try:
             self.shell("{}ping -q -c{} {} > /dev/null".format(
-                ns_arg, count, ipv4
+                netns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
         return True
 
-    def is_backend_portchannel(self, port_channel):
-        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+    def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
         if ports is None:
             return True
         return False if "Ethernet-BP" not in ports["members"][0] else True
 
-    def active_ip_interfaces(self, ip_ifs, ns_arg=""):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -1681,11 +1685,12 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
         for k,v in ip_ifs.items():
-            if (k.startswith("Ethernet") or
+            if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
-                self.is_backend_portchannel(k))
+                self.is_backend_portchannel(k, mg_facts))
             ):
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.

@@ -3,9 +3,11 @@
 
 import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
+INBAND_PORT_REGEX = (r"(Ethernet-IB)(\d+)$")
 
 def chassis_api(conn, name, args=None):
     if args is None:
@@ -190,3 +192,9 @@ def get_my_slot(conn):
 
 def is_modular_chassis(conn):
     return chassis_api(conn, 'is_modular_chassis')
+
+
+def is_inband_port(port):
+    if re.match(INBAND_PORT_REGEX, port):
+        return True
+    return False
