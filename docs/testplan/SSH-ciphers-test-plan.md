@@ -29,16 +29,34 @@
 
  #### Test Steps
 
- Use `ssh -c {perfered/permitted cipher} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
+ Use `ssh -c {perfered/permitted cipher} admin@{dut_ip}` on **test server** to test if it connects **successfully**
 
- ### Test Case #3 - SSH Permitted MACs
-
- #### Test Steps
-
- Use `ssh -m {perfered/permitted MACs} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
-
- ### Test Case #4 - SSH Permitted Kexs
+ ### Test Case #3 - SSH NOT Permitted Ciphers
 
  #### Test Steps
 
- Use `ssh -oKexAlgorithms={perfered/permitted Kex} admin@{dut_ip}` on **test server** to test if it can **connect successfully**
+ Use `ssh -c {cipher not allowed} admin@{dut_ip}` on *test server* to test if it connects **failed**
+
+ ### Test Case #4 - SSH Permitted MACs
+
+ #### Test Steps
+
+ Use `ssh -m {perfered/permitted MACs} admin@{dut_ip}` on **test server** to test if it connects **successfully**
+
+  ### Test Case #5 - SSH NOT Permitted MACs
+
+ #### Test Steps
+
+ Use `ssh -m {MACs not allowed} admin@{dut_ip}` on **test server** to test if it connects **failed**
+
+ ### Test Case #6 - SSH Permitted Kexs
+
+ #### Test Steps
+
+ Use `ssh -oKexAlgorithms={perfered/permitted Kex} admin@{dut_ip}` on **test server** to test if it connects **successfully**
+
+  ### Test Case #7 - SSH Permitted Kexs
+
+ #### Test Steps
+
+ Use `ssh -oKexAlgorithms={Kex not allowed} admin@{dut_ip}` on **test server** to test if it connects **failed**
