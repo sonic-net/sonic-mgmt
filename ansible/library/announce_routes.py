@@ -446,7 +446,7 @@ def main():
     action = module.params['action']
     path = module.params['path']
 
-    topo = read_topo(topo_name)
+    topo = read_topo(topo_name, path)
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
 
