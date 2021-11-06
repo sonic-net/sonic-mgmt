@@ -1,4 +1,3 @@
-from _typeshed import OpenTextModeReading
 import re
 import json
 import logging
