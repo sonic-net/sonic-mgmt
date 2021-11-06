@@ -548,6 +548,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     for port_idx in upper_tor_mux_status:
         if upper_tor_mux_status[port_idx] != lower_tor_mux_status[port_idx]:
             err_msg = 'Inconsistent mux status on dualtors, please check output of "show mux status"'
+            return False, err_msg, {}
 
     logger.info('Check passed, return parsed mux status')
     return True, "", upper_tor_mux_status
@@ -578,8 +579,8 @@ def check_mux_simulator(duthosts, duts_minigraph_facts, get_mux_status, reset_si
         failed = False
         reason = ''
 
-        check_result, err_msg, dut_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts)
-        if not check_result:
+        check_passed, err_msg, dut_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts)
+        if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
             results['failed_reason'] = err_msg
@@ -592,7 +593,7 @@ def check_mux_simulator(duthosts, duts_minigraph_facts, get_mux_status, reset_si
             port_index = str(status['port_index'])
 
             # Some host interfaces in dualtor topo are disabled.
-            # We only care status of mux for the enabled host interfaces
+            # We only care about status of mux for the enabled host interfaces
             if port_index in dut_mux_status:
                 active_side = dut_mux_status[port_index]
                 failed, reason = _check_single_intf_status(status, expected_side=active_side)
