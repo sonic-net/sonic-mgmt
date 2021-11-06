@@ -1,3 +1,4 @@
+from _typeshed import OpenTextModeReading
 import re
 import json
 import logging
@@ -267,6 +268,7 @@ def _is_db_omem_over_threshold(command_output):
             omem = int(m.group(1))
             total_omem += omem
     logger.debug(json.dumps(command_output, indent=4))
+    logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
@@ -291,9 +293,9 @@ def check_dbmemory(duthosts):
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
             result, total_omem = _is_db_omem_over_threshold(res)
+            check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
-                check_result["total_omem"] = total_omem
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
@@ -345,7 +347,7 @@ def _check_intf_names(intf_status, active_intf, mux_intf, expected_side):
         failed_reason = 'Active interface name mismatch for {}, got {} but expected {}' \
                         .format(bridge, active_intf, intf_status['ports'][expected_side])
         return failed, failed_reason
- 
+
     # Verify correct server interface name
     if mux_intf is not None and mux_intf != intf_status['ports'][NIC]:
         failed = True
@@ -369,7 +371,7 @@ def _check_server_flows(intf_status, mux_flows):
     failed = False
     failed_reason = ''
     bridge = intf_status['bridge']
-    # Checking server flows 
+    # Checking server flows
     if len(mux_flows) != 2:
         failed = True
         failed_reason = 'Incorrect number of mux flows for {}, got {} but expected 2' \
@@ -377,7 +379,7 @@ def _check_server_flows(intf_status, mux_flows):
         return failed, failed_reason
 
     tor_intfs = [intf_status['ports'][UPPER_TOR], intf_status['ports'][LOWER_TOR]]
-    
+
     # Each flow should be set to output and have the output interface
     # as one of the ToR interfaces
     for flow in mux_flows:
@@ -386,7 +388,7 @@ def _check_server_flows(intf_status, mux_flows):
             failed_reason = 'Incorrect mux flow action for {}, got {} but expected output' \
                             .format(bridge, flow['action'])
             return failed, failed_reason
-        
+
         if flow['out_port'] not in tor_intfs:
             failed = True
             failed_reason = 'Incorrect ToR output interface for {}, got {} but expected one of {}' \
@@ -417,19 +419,19 @@ def _check_tor_flows(active_flows, mux_intf, bridge):
         failed_reason = 'Incorrect number of active ToR flows for {}, got {} but expected 1' \
                         .format(bridge, len(active_flows))
         return failed, failed_reason
-    
+
     if active_flows[0]['action'] != 'output':
         failed = True
         failed_reason = 'Incorrect active ToR action for {}, got {} but expected output' \
                         .format(bridge, active_flows[0]['action'])
         return failed, failed_reason
-    
+
     if active_flows[0]['out_port'] != mux_intf:
         failed = True
         failed_reason = 'Incorrect active ToR flow output interface for {}, got {} but expected {}' \
                         .format(bridge, active_flows[0]['out_port'], mux_intf)
         return failed, failed_reason
-    
+
     return failed, failed_reason
 
 
@@ -442,7 +444,7 @@ def _check_single_intf_status(intf_status, expected_side):
 
     bridge = intf_status['bridge']
 
-    # Check the total number of flows is 2, one for 
+    # Check the total number of flows is 2, one for
     # server to both ToRs and one for active ToR to server
     if len(intf_status['flows']) != 2:
         failed = True
@@ -473,7 +475,7 @@ def _check_single_intf_status(intf_status, expected_side):
             active_flows = actions
 
     failed, failed_reason = _check_intf_names(intf_status, active_intf, mux_intf, expected_side)
- 
+
     if not failed:
         failed, failed_reason = _check_server_flows(intf_status, mux_flows)
 
