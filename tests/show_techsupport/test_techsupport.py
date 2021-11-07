@@ -266,7 +266,7 @@ def execute_command(duthost, since):
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    result = duthost.command("show techsupport -r --since={}".format('"' + since + '"'))
+    result = duthost.command("show techsupport -r --since={}".format('"' + since + '"'), module_ignore_errors=True)
     if result['rc'] != SUCCESS_CODE:
         pytest.fail('Failed to create techsupport. \nstdout:{}. \nstderr:{}'.format(result['stdout'], result['stderr']))
     pytest.tar_stdout = result['stdout']
