@@ -73,19 +73,25 @@ def wait(seconds, msg=""):
     time.sleep(seconds)
 
 
-def wait_until(timeout, interval, condition, *args, **kwargs):
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Wait until the specified condition is True or timeout.
     @param timeout: Maximum time to wait
     @param interval: Poll interval
+    @param delay: Delay time
     @param condition: A function that returns False or True
     @param *args: Extra args required by the 'condition' function.
     @param **kwargs: Extra args required by the 'condition' function.
     @return: If the condition function returns True before timeout, return True. If the condition function raises an
         exception, log the error and keep waiting and polling.
     """
-    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s" % \
-        (condition.__name__, timeout, interval))
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
+        (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        time.sleep(delay)
+
     start_time = time.time()
     elapsed_time = 0
     while elapsed_time < timeout:
@@ -93,10 +99,14 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception:
+        except Exception as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
-            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
             check_result = False
 
         if check_result:

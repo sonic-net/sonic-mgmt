@@ -88,6 +88,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     duthost.shell("sudo systemctl start {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 

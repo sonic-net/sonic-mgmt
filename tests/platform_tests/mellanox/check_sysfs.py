@@ -67,7 +67,7 @@ def check_sysfs(dut):
 
     if not _is_fan_speed_in_range(sysfs_facts):
         sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
-        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
+        assert wait_until(30, 5, 0, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
@@ -128,6 +128,17 @@ def check_sysfs(dut):
             except Exception as e:
                 assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
+
+            # Check consistency between voltage capability and sysfs
+            all_capabilities = platform_data["psus"].get("capabilities")
+            if all_capabilities:
+                for capabilities in all_capabilities:
+                    psu_cmd_prefix = 'cat /var/run/hw-management/power/{}_'.format(capabilities.format(psu_id))
+                    psu_capability = dut.command(psu_cmd_prefix + 'capability')['stdout'].split()
+                    for capability in psu_capability:
+                        # Each capability should exist
+                        output = dut.command(psu_cmd_prefix + capability)['stdout']
+                        assert output, "PSU capability {} doesn't not exist".format(capability)
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():

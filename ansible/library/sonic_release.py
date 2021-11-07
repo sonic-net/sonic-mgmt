@@ -31,6 +31,8 @@ def main():
         process = subprocess.Popen(['sonic-cfggen', '-y', '/etc/sonic/sonic_version.yml', '-v', 'release'],
                 stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         self.stdout, stderr = process.communicate()
+        self.stdout = self.stdout.decode('utf-8')
+        stderr = stderr.decode('utf-8')
         ret_code = process.returncode
     except Exception as e:
         module.fail_json(msg=str(e))
