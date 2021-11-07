@@ -107,7 +107,8 @@ class SensorsModule(object):
             process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             self.stdout, stderr = process.communicate()
             self.stdout = self.stdout.decode('utf-8')
-            stderr = stderr.decode('utf-8')
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode('utf-8')
             ret_code = process.returncode
         except Exception as e:
             self.module.fail_json(msg=str(e))
