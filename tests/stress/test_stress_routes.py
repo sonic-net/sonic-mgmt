@@ -29,12 +29,12 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
 
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
-    time.sleep(CRM_POLLING_INTERVAL * 5)
+    time.sleep(CRM_POLLING_INTERVAL * 100)
     logger.info("withdraw ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
-    time.sleep(CRM_POLLING_INTERVAL * 5)
+    time.sleep(CRM_POLLING_INTERVAL * 100)
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
 

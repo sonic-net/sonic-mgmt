@@ -40,7 +40,7 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
-    time.sleep(CRM_POLLING_INTERVAL * 5)
+    time.sleep(CRM_POLLING_INTERVAL * 100)
     ipv4_route_used_before = get_crm_resources(duthost, "ipv4_route", "used")
     ipv6_route_used_before = get_crm_resources(duthost, "ipv6_route", "used")
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
@@ -52,6 +52,6 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
-    time.sleep(CRM_POLLING_INTERVAL * 5)
+    time.sleep(CRM_POLLING_INTERVAL * 100)
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
