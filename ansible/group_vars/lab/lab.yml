@@ -31,8 +31,8 @@ tacacs_jit_user_passwd: '123456'
 tacacs_jit_user_membership: netuser
 tacacs_authorization_user: test_auuser
 tacacs_authorization_user_passwd: '123456'
-tacacs_local_user: test_louser
-tacacs_local_user_passwd: '123456'
+local_user: test_louser
+local_user_passwd: '123456'
 
 # tacacs grous
 tacacs_group: 'testlab'

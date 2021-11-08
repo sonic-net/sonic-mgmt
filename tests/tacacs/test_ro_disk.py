@@ -109,12 +109,3 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         assert wait_until(600, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-
-
-def test_backward_compatibility_enable_authorization_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs, check_tacacs_v6):
-    # Enable per-command authorization.
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa authorization local")
-
-    # Test all current UT.
-    test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs)

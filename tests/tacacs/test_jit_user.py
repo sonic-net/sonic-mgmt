@@ -37,11 +37,3 @@ def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname
     res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_jit_user'],
                          creds_all_duts[duthost]['tacacs_jit_user_passwd'], 'cat /etc/passwd')
     check_output(res, 'test', 'remote_user')
-
-def test_backward_compatibility_enable_authorization_jit(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs, check_tacacs_v6):
-    # Enable per-command authorization.
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa authorization local")
-
-    # Test all current UT.
-    test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs)

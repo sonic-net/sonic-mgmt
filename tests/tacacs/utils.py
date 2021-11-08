@@ -26,6 +26,15 @@ def stop_tacacs_server(ptfhost):
     ptfhost.service(name="tacacs_plus", state="stopped")
     check_all_services_status(ptfhost)
 
+def setup_local_user(duthost, creds_all_duts):
+    try:
+        duthost.shell("sudo deluser {}".format(creds_all_duts[duthost]['local_user']))
+    except:
+        logger.info("local user not exist")
+    
+    duthost.shell("sudo useradd {}".format(creds_all_duts[duthost]['local_user']))
+    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(creds_all_duts[duthost]['local_user'],creds_all_duts[duthost]['local_user_passwd']))
+
 def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
     """setup tacacs client"""
 
@@ -41,6 +50,11 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
 
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
+    duthost.shell("sudo config aaa authorization local")
+    duthost.shell("sudo config aaa accounting disable")
+    
+    # setup local user
+    setup_local_user(duthost, creds_all_duts)
 
 
 def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
@@ -78,3 +92,5 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
+    duthost.shell("sudo config aaa authorization local")
+    duthost.shell("sudo config aaa accounting disable")
