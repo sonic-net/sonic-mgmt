@@ -3,28 +3,63 @@ In this article, you will get known how to get a saiserver docker and get a buil
 1. Check SONiC version in a DUT
 **Old version might hit some issue caused by related package upgrade, you can always use the latest tag of a major version(i.e major is 20201231) but notice the matching image version.**
    ```
+   #Image build with tag
    show version
-
    SONiC Software Version: SONiC.20201231.39
    ```
-2.  In your dev envrironment, install prerequirment lib, e.g. pip and jinja, re-located code to that tag and resident on a new branch, 
-here we use repository [sonic-buildimage](https://github.com/Azure/sonic-buildimage)
-Follow the doc at [Check SAI header version and SONiC branch](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/sai_quality/CheckSAIHeaderVersionAndSONiCBranch.md)
-    ```	
-    # git checkout tags/<tag> -b <branch>
-    # Example:
+   ```
+   #Image build without tag
+   SONiC Software Version: SONiC.master.39085-dirty-20210923.145659
+   ```
+2.  Get the commit id from sonic-buildimage.
 
-    git checkout tags/20201231.39 -b richardyu/20201231-39
-    ```
-    *note: Check submodule recursively*
-    ```
-    git submodule update --init --recursive
+      *ps. sonic-buildimage is a repository which used to build sonic images and docker images. SAI is a submodule in sonic-buildimage(/sonic-buildimage/tree/master/src/sonic-sairedis). The commit id in sonic-buildimage can be used to get all the submodule for its submodule, like sai.*
 
-    # Execute make init once after cloning the repo, or after fetching remote repo with submodule updates
+      In your dev envrironment, install prerequirment lib, e.g. pip and jinja, re-located code to that tag and resident on a new branch, 
+      here we use repository [sonic-buildimage](https://github.com/Azure/sonic-buildimage)
+      Follow the doc at [Check SAI header version and SONiC branch](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/sai_quality/CheckSAIHeaderVersionAndSONiCBranch.md)
 
-    make init
-    ```
-    *Note: Follow the resource to get how to build a binary and docker*
+   - Get commit id from tag.
+
+      ```	
+      # git checkout tags/<tag> -b <branch>
+      # Example:
+      git checkout tags/20201231.39 -b richardyu/20201231-39
+      #check the commit id
+      git rev-list -n 1 20201231.39
+      ```
+   - Get commit id from docker image
+      ```
+      #Get image name
+      docker images
+      REPOSITORY                                        TAG                                  IMAGE ID            CREATED             SIZE   
+      ...   
+      docker-orchagent                                  latest                               99d39d932020        6 weeks ago         443MB
+      ```
+      Check image information
+      ```
+      docker image inspect docker-orchagent:latest
+      "Image": "sha256:...",
+            "Volumes": null,
+            "WorkingDir": "",
+            ...
+            "OnBuild": null,
+            "Labels": {
+                "Tag": "master.39085-bc06c6fcb",
+
+      ```
+      **bc06c6fcb is the commit id in sonic-buildimage** 
+
+   *note: Check submodule recursively*
+   ```
+   git submodule update --init --recursive
+
+   # Execute make init once after cloning the repo, or after fetching remote repo with submodule updates
+
+   make init
+   ```
+   *Note: Follow the resource to get how to build a binary and docker*
+
    [GitHub - Azure/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/Azure/sonic-buildimage)
 
 3. Start a local build
