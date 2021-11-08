@@ -156,6 +156,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
         pytest_assert(underscore_allowed, "command 'sudo sonic_installer list' should be allowed if"
                                           " 'sudo sonic-installer list' is banned")
 
+
 def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
