@@ -10,7 +10,9 @@ from ptf import testutils
 from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
-from tests.common.utilities import is_ipv4_address, wait_until
+from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import wait_until
+from tests.common.utilities import skip_version
 
 
 pytestmark = [
@@ -41,6 +43,7 @@ def log_icmp_updates(duthost, iface, save_path):
 @pytest.fixture(scope="module")
 def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
+    skip_version(duthost, ["201811", "201911"])
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     vlan_intf_name = mg_facts["minigraph_vlans"].keys()[0]
