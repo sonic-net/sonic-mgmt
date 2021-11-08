@@ -92,7 +92,7 @@ def test_authorization_tacacs_only(localhost, duthosts, enum_rand_one_per_hwsku_
 def test_authorization_tacacs_only_some_server_down(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts,ptfhost, check_tacacs, remote_user_client):
     """
         Setup multiple tacacs server for this UT.
-        Tacacs server 1.2.3.4 not accessible.
+        Tacacs server 127.0.0.1 not accessible.
     """
     invalid_tacacs_server_ip = "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
