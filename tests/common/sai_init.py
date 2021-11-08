@@ -7,32 +7,34 @@ import logging
 import subprocess
 import argparse
 
-"""
+logger = logging.getLogger(__name__)
+
+def get_raw_output(ansible_cmd, param_cmd):
+    """
     Return raw output from Ansible ad-hoc command 
     param: 
         ansible_cmd : original Ansible ad-hoc command
         param_cmd : customized commands
-"""
-def get_raw_output(ansible_cmd, param_cmd):
+    """
     try:
-        logging.info("running ad-hoc command: {} {}".format(ansible_cmd, param_cmd))
+        logger.info("running ad-hoc command: {} {}".format(ansible_cmd, param_cmd))
         final_cmds = ansible_cmd.split()
         final_cmds.append(param_cmd)
         raw_output = subprocess.check_output(final_cmds).decode('utf-8')
     except Exception as e:
-        logging.error('Failed to run commands, exception: {}'.format(repr(e)))
+        logger.error('Failed to run commands, exception: {}'.format(repr(e)))
 
     return raw_output
 
 
-"""
+def run_command(host, inv_file, cmds):
+    """
     Run 'shell_cmds' Ansible customized ad-hoc command implemented under ansible/library
     param: 
         host: either DUT hostname or PTF hostname
         inv_file : inventory
         cmds : customized commands, seperate them with comma and no space between cmds if multiple input. e.g "who,ls /tmp"
-"""
-def run_command(host, inv_file, cmds):
+    """
     results = []
     try:
         cmds_list = 'cmds={{' + str(cmds.split(",")) + '}}'
@@ -43,19 +45,19 @@ def run_command(host, inv_file, cmds):
         if len(output_fields) >= 2:
             results = json.loads(output_fields[1].strip(), strict=False)['results']
     except Exception as e:
-        logging.error('Failed to run commands, exception: {}'.format(repr(e)))
+        logger.error('Failed to run commands, exception: {}'.format(repr(e)))
 
-    logging.info(results)
+    logger.info(results)
 
 
-"""
+def run_copy(host, inv_file, cmds):
+    """
     Run 'copy' Ansible ad-hoc command
     param: 
         host: either DUT hostname or PTF hostname
         inv_file : inventory
         cmds : must in format of "src=<path> dest=<path>"
-"""
-def run_copy(host, inv_file, cmds):
+    """
     try:
         ansible_cmd = 'ansible -m copy -i ../ansible/{} {} -o -a'.format(inv_file, host)
         raw_output = get_raw_output(ansible_cmd, cmds)
@@ -69,19 +71,19 @@ def run_copy(host, inv_file, cmds):
             raise Exception("Failed copying file")
 
         file_dest = json.loads(output_fields[1].strip())["dest"]
-        logging.info("Copying to {}".format(file_dest))
+        logger.info("Copying to {}".format(file_dest))
     except Exception as e:
-        logging.error('Failed to run commands, exception: {}'.format(repr(e)))
+        logger.error('Failed to run commands, exception: {}'.format(repr(e)))
 
 
-"""
+def run_fetch(host, inv_file, cmds):
+    """
     Run 'fetch' Ansible ad-hoc command
     param: 
         host: either DUT hostname or PTF hostname
         inv_file : inventory
         cmds : must in format of "src=<path> dest=<path> flat=<true or false>"
-"""
-def run_fetch(host, inv_file, cmds):
+    """
     try:
         ansible_cmd = 'ansible -m fetch -i ../ansible/{} {} -o -a'.format(inv_file, host)
         raw_output = get_raw_output(ansible_cmd, cmds)
@@ -93,9 +95,9 @@ def run_fetch(host, inv_file, cmds):
             raise Exception("Failed copying file")
 
         file_dest = json.loads(output_fields[1].strip())["dest"]
-        logging.info("Fetching file to {}".format(file_dest))
+        logger.info("Fetching file to {}".format(file_dest))
     except Exception as e:
-        logging.error('Failed to run commands, exception: {}'.format(repr(e)))
+        logger.error('Failed to run commands, exception: {}'.format(repr(e)))
 
 
 if __name__ == '__main__':
