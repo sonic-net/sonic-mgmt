@@ -27,6 +27,10 @@ Options:
     - option-name: action
       description: announce or withdraw routes
       required: False
+      
+    - option-name: path
+      description: to figure out the path of topo_{}.yml 
+      required: False
 '''
 
 EXAMPLES = '''
