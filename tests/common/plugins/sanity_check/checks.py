@@ -5,7 +5,7 @@ import pytest
 import time
 
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, reset_simulator_port
+from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
