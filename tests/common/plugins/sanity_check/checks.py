@@ -539,11 +539,6 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
     lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
 
-    logger.info('Verify that dualtor hosts have the same set of mux cables')
-    if set(upper_tor_mux_status.keys()) != set(lower_tor_mux_status.keys()):
-        err_msg = 'Mux number not match on dualtors, please check output of "show mux status"'
-        return False, err_msg, {}
-
     logger.info('Verify that mux status is consistent on both ToRs.')
     for port_idx in upper_tor_mux_status:
         if upper_tor_mux_status[port_idx] != lower_tor_mux_status[port_idx]:
