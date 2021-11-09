@@ -32,15 +32,16 @@ def main():
                 stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         self.stdout, stderr = process.communicate()
         self.stdout = self.stdout.decode('utf-8')
-        stderr = stderr.decode('utf-8')
+        if stderr is not None:
+            stderr = stderr.decode('utf-8')
         ret_code = process.returncode
     except Exception as e:
         module.fail_json(msg=str(e))
     else:
         if ret_code != 0:
-             module.fail_json(msg=stderr)
+            module.fail_json(msg=stderr)
         else:
-             sonic_release = self.stdout.split('.')[0].strip()
+            sonic_release = self.stdout.split('.')[0].strip()
     """
     Check for QOS DB format for Field Value refered with tables or not.
     """
