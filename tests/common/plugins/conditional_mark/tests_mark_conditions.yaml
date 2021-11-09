@@ -215,13 +215,6 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
-  xfail:
-    reason: "Image issue on Broadcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['t0-backend', 't1-backend']"
-
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
   xfail:
     reason: "Image issue on Arista platforms"
