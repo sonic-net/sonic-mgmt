@@ -52,11 +52,6 @@
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
-- name: remove old python packages
-  pip: name=docker-py state=absent executable={{ pip_executable }}
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
-
 - name: Install python packages
   pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
   become: yes
