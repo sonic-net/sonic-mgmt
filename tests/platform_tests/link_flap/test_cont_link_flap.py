@@ -14,7 +14,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes, check_portchannel_status
 from tests.common.utilities import wait_until
-
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -26,7 +27,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
+    def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
         Validates that continuous link flap works as expected
 
@@ -91,7 +92,23 @@ class TestContLinkFlap(object):
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
             endv4, endv6 = duthost.get_ip_route_summary()
-            pytest.fail("IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4, sumv6, endv4, endv6))
+            failmsg = []
+            failmsg.append(
+                "IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4,
+                                                                                                                sumv6,
+                                                                                                                endv4,
+                                                                                                                endv6))
+            nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+            for k in nei_meta.keys():
+                nbrhost = nbrhosts[k]['host']
+                if isinstance(nbrhost, EosHost):
+                    res = nbrhost.eos_command(commands=['show ip bgp sum'])
+                elif isinstance(nbrhost, SonicHost):
+                    res = nbrhost.command('vtysh -c "show ip bgp sum"')
+                else:
+                    res = ""
+                failmsg.append(res['stdout'])
+            pytest.fail(str(failmsg))
 
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
