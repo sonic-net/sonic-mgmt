@@ -7,6 +7,13 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    strict: True
+    reason: "Known NTP bug"
+
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
