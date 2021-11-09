@@ -66,7 +66,8 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
 
 @pytest.fixture(scope='module')
 def apply_mirror_session(rand_selected_dut):
-    mirror_session_info = BaseEverflowTest.mirror_session_info(EVERFLOW_SESSION_NAME, rand_selected_dut.facts["asic_type"])
+    mirror_session_info = BaseEverflowTest.mirror_session_info(EVERFLOW_SESSION_NAME, rand_selected_dut.facts["asic_type"],
+                                                               rand_selected_dut)
     logger.info("Applying mirror session to DUT")
     BaseEverflowTest.apply_mirror_config(rand_selected_dut, mirror_session_info)
     time.sleep(10)
