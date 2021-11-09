@@ -191,6 +191,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    strict: True
+    reason: "Known NTP bug"
 
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:

@@ -545,7 +545,7 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
-            for iface,addr in dut_asic.get_active_ip_interfaces().items():
+            for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
                     if "." in iface:
@@ -741,10 +741,6 @@ class QosSaiBase(QosBase):
 
         yield
 
-        enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
-
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
@@ -761,6 +757,11 @@ class QosSaiBase(QosBase):
            duthost.shell('sudo config feature state mux enabled')
            duthost_lower.shell('sudo config feature state mux enabled')
            logger.info("Start mux container for dual ToR testbed")
+
+        enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
+        if 'dualtor' in tbinfo['topo']['name']:
+            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
@@ -1454,7 +1455,7 @@ class QosSaiBaseMasic(QosBase):
         pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ip_ifaces = duthost.get_active_ip_interfaces(asic_index="all")
+        ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
 
         port_ips = dict()
         for idx in range(len(ip_ifaces)):

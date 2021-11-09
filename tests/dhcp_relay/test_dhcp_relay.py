@@ -13,6 +13,7 @@ from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import skip_release
 
 
 pytestmark = [
@@ -178,7 +179,7 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
                 logger.info("Found route to DHCP server via default GW(MGMT interface)")
                 return False
     return True
-        
+
 
 @pytest.fixture(scope="module")
 def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
@@ -257,10 +258,12 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor):
     """Test DHCP relay functionality on T0 topology.
-
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     testing_mode, duthost, testbed_mode = testing_config
+
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -288,7 +291,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology after uplinks flap
-
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
        then test whether the DHCP relay agent relays packets properly.
     """
@@ -296,6 +298,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
     if testbed_mode == 'dual_testbed':
         pytest.skip("skip the link flap testcase on dual tor testbeds")
+
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -308,7 +313,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('ifconfig {} up'.format(iface))
-            
+
         # Wait until uplinks are up and routes are recovered
         pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
                       "Not all DHCP servers are routed")
@@ -338,7 +343,6 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
-
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
        relay agent while the uplinks are still down. Then test whether the DHCP relay agent
        relays packets properly.
@@ -347,6 +351,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
     if testbed_mode == 'dual_testbed':
         pytest.skip("skip the uplinks down testcase on dual tor testbeds")
+
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -400,6 +407,9 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
     """
     testing_mode, duthost, testbed_mode = testing_config
 
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
+
     if len(dut_dhcp_relay_data) > 1:
         pytest.skip("skip the unicast mac testcase in the multi-Vlan setting")
 
@@ -429,11 +439,13 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor):
     """Test DHCP relay functionality on T0 topology with random source port (sport)
-
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
     """
     testing_mode, duthost, testbed_mode = testing_config
+
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
 
     RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
