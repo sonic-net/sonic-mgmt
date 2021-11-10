@@ -104,7 +104,7 @@ class SensorsModule(object):
             Collect sensors by reading output of 'sensors' utility
         '''
         try:
-            process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.stdout, stderr = process.communicate()
             self.stdout = self.stdout.decode('utf-8')
             stderr = stderr.decode('utf-8')
