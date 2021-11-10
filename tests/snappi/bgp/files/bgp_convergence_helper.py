@@ -522,7 +522,6 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-            import pdb;pdb.set_trace()
             """ Advertise the routes back at the end of iteration """
             cs = cvg_api.convergence_state()
             cs.route.names = [route_name]
