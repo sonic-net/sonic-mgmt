@@ -5,7 +5,7 @@ import pytest
 import time
 
 from tests.common.utilities import wait, wait_until
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, reset_simulator_port
+from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
@@ -345,7 +345,7 @@ def _check_intf_names(intf_status, active_intf, mux_intf, expected_side):
         failed_reason = 'Active interface name mismatch for {}, got {} but expected {}' \
                         .format(bridge, active_intf, intf_status['ports'][expected_side])
         return failed, failed_reason
- 
+
     # Verify correct server interface name
     if mux_intf is not None and mux_intf != intf_status['ports'][NIC]:
         failed = True
@@ -369,7 +369,7 @@ def _check_server_flows(intf_status, mux_flows):
     failed = False
     failed_reason = ''
     bridge = intf_status['bridge']
-    # Checking server flows 
+    # Checking server flows
     if len(mux_flows) != 2:
         failed = True
         failed_reason = 'Incorrect number of mux flows for {}, got {} but expected 2' \
@@ -377,7 +377,7 @@ def _check_server_flows(intf_status, mux_flows):
         return failed, failed_reason
 
     tor_intfs = [intf_status['ports'][UPPER_TOR], intf_status['ports'][LOWER_TOR]]
-    
+
     # Each flow should be set to output and have the output interface
     # as one of the ToR interfaces
     for flow in mux_flows:
@@ -386,7 +386,7 @@ def _check_server_flows(intf_status, mux_flows):
             failed_reason = 'Incorrect mux flow action for {}, got {} but expected output' \
                             .format(bridge, flow['action'])
             return failed, failed_reason
-        
+
         if flow['out_port'] not in tor_intfs:
             failed = True
             failed_reason = 'Incorrect ToR output interface for {}, got {} but expected one of {}' \
@@ -417,19 +417,19 @@ def _check_tor_flows(active_flows, mux_intf, bridge):
         failed_reason = 'Incorrect number of active ToR flows for {}, got {} but expected 1' \
                         .format(bridge, len(active_flows))
         return failed, failed_reason
-    
+
     if active_flows[0]['action'] != 'output':
         failed = True
         failed_reason = 'Incorrect active ToR action for {}, got {} but expected output' \
                         .format(bridge, active_flows[0]['action'])
         return failed, failed_reason
-    
+
     if active_flows[0]['out_port'] != mux_intf:
         failed = True
         failed_reason = 'Incorrect active ToR flow output interface for {}, got {} but expected {}' \
                         .format(bridge, active_flows[0]['out_port'], mux_intf)
         return failed, failed_reason
-    
+
     return failed, failed_reason
 
 
@@ -442,7 +442,7 @@ def _check_single_intf_status(intf_status, expected_side):
 
     bridge = intf_status['bridge']
 
-    # Check the total number of flows is 2, one for 
+    # Check the total number of flows is 2, one for
     # server to both ToRs and one for active ToR to server
     if len(intf_status['flows']) != 2:
         failed = True
@@ -473,7 +473,7 @@ def _check_single_intf_status(intf_status, expected_side):
             active_flows = actions
 
     failed, failed_reason = _check_intf_names(intf_status, active_intf, mux_intf, expected_side)
- 
+
     if not failed:
         failed, failed_reason = _check_server_flows(intf_status, mux_flows)
 
@@ -483,8 +483,74 @@ def _check_single_intf_status(intf_status, expected_side):
     return failed, failed_reason
 
 
+def _check_dut_mux_status(duthosts, duts_minigraph_facts):
+    dut_upper_tor = duthosts[0]
+    dut_lower_tor = duthosts[1]
+
+    # Run "show mux status" on dualtor DUTs to collect mux status
+    duts_mux_status = duthosts.show_and_parse('show mux status')
+
+    # Parse and basic check
+    duts_parsed_mux_status = {}
+    for dut_hostname, dut_mux_status in duts_mux_status.items():
+
+        logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
+        if len(dut_mux_status) == 0:
+            err_msg = 'No mux status in output of "show mux status"'
+            return False, err_msg, {}
+
+        logger.info('Verify that mux ports match vlan interfaces of DUT.')
+        vlan_intf_names = set()
+        for vlan in duts_minigraph_facts[dut_hostname]['minigraph_vlans'].values():
+            vlan_intf_names = vlan_intf_names.union(set(vlan['members']))
+        dut_mux_intfs = []
+        for row in dut_mux_status:
+            dut_mux_intfs.append(row['port'])
+        if vlan_intf_names != set(dut_mux_intfs):
+            err_msg = 'Mux ports mismatch vlan interfaces, please check output of "show mux status"'
+            return False, err_msg, {}
+
+        logger.info('Verify mux status and parse active/standby side')
+        dut_parsed_mux_status = {}
+        for row in dut_mux_status:
+            # Verify that mux status is either active or standby
+            if row['status'] not in ['active', 'standby']:
+                err_msg = 'Unexpected mux status "{}", please check output of "show mux status"'.format(row['status'])
+                return False, err_msg, {}
+
+            # Parse mux status, transform port name to port index, which is also mux index
+            port_name = row['port']
+            port_idx = duts_minigraph_facts[dut_hostname]['minigraph_port_indices'][port_name]
+
+            # Transform "active" and "standby" to active side which is "upper_tor" or "lower_tor"
+            status = row['status']
+            if dut_hostname == dut_upper_tor.hostname:
+                # On upper tor, mux status "active" means that active side of mux is upper_tor
+                # mux status "standby" means that active side of mux is lower_tor
+                active_side = UPPER_TOR if status == 'active' else LOWER_TOR
+            else:
+                # On lower tor, mux status "active" means that active side of mux is lower_tor
+                # mux status "standby" means that active side of mux is upper_tor
+                active_side = UPPER_TOR if status == 'standby' else LOWER_TOR
+            dut_parsed_mux_status[str(port_idx)] = active_side
+        duts_parsed_mux_status[dut_hostname] = dut_parsed_mux_status
+
+    logger.info('Verify that the mux status on both ToRs are consistent')
+    upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
+    lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
+
+    logger.info('Verify that mux status is consistent on both ToRs.')
+    for port_idx in upper_tor_mux_status:
+        if upper_tor_mux_status[port_idx] != lower_tor_mux_status[port_idx]:
+            err_msg = 'Inconsistent mux status on dualtors, please check output of "show mux status"'
+            return False, err_msg, {}
+
+    logger.info('Check passed, return parsed mux status')
+    return True, "", upper_tor_mux_status
+
+
 @pytest.fixture(scope='module')
-def check_mux_simulator(toggle_all_simulator_ports, get_mux_status, reset_simulator_port):
+def check_mux_simulator(duthosts, duts_minigraph_facts, get_mux_status, reset_simulator_port):
 
     def _check(*args, **kwargs):
         """
@@ -508,23 +574,36 @@ def check_mux_simulator(toggle_all_simulator_ports, get_mux_status, reset_simula
         failed = False
         reason = ''
 
-        for side in [UPPER_TOR, LOWER_TOR]:
-            toggle_all_simulator_ports(side)
-            time.sleep(5)
-            mux_status = get_mux_status()
-            for status in mux_status.values():
-                failed, reason = _check_single_intf_status(status, expected_side=side)
+        check_passed, err_msg, dut_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts)
+        if not check_passed:
+            logger.warning(err_msg)
+            results['failed'] = True
+            results['failed_reason'] = err_msg
+            results['action'] = reset_simulator_port
+            return results
 
-                if failed:
-                    logger.warning('Mux sanity check failed for status:\n{}'.format(status))
-                    results['failed'] = failed
-                    results['failed_reason'] = reason
-                    results['action'] = reset_simulator_port
-                    return results
+        mux_simulator_status = get_mux_status()
+
+        for status in mux_simulator_status.values():
+            port_index = str(status['port_index'])
+
+            # Some host interfaces in dualtor topo are disabled.
+            # We only care about status of mux for the enabled host interfaces
+            if port_index in dut_mux_status:
+                active_side = dut_mux_status[port_index]
+                failed, reason = _check_single_intf_status(status, expected_side=active_side)
+
+            if failed:
+                logger.warning('Mux sanity check failed for status:\n{}'.format(status))
+                results['failed'] = failed
+                results['failed_reason'] = reason
+                results['action'] = reset_simulator_port
+                return results
 
         return results
 
     return _check
+
 
 @pytest.fixture(scope="module")
 def check_monit(duthosts):
