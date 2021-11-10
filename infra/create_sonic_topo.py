@@ -596,7 +596,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii"))
-        if tc_name in resp.decode("ascii"):
+        if 'Total' in resp.decode("ascii"):
             break
         else:
             if datetime.datetime.now() < later:
