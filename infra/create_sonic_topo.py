@@ -567,6 +567,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
     chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
@@ -604,6 +605,13 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
                 print("Looks like test is taking longer than an hour. Check list of sanity scripts or increase time to wait")
                 break
     ssh.close()
+    delta2 = datetime.datetime.now()
+    time_delta = (delta2 - delta1)
+    total_seconds = time_delta.total_seconds()
+    minutes = total_seconds/60
+
+    print("Total run time for sanity suite: {} mins".format(minutes))
+    return minutes
 
 
 def main():
@@ -673,6 +681,7 @@ def main():
 
     input_file = args['input_file']
 
+    delta1 = datetime.datetime.now()
     if input_file is None:
         if clean_sim:
             os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
@@ -684,6 +693,7 @@ def main():
 
         os.system("/auto/vxr/pyvxr/pyvxr-1.1.2/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
+    delta2 = datetime.datetime.now()
 
     with open(input_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -761,9 +771,24 @@ def main():
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
+    delta3 = datetime.datetime.now()
+
     if run_sanity:
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
+        delta4 = datetime.datetime.now()
+
+    sim_time_delta = (delta2 - delta1).total_seconds()
+    profile_time_delta = (delta3 - delta2).total_seconds()
+    if run_sanity:
+        sanity_time_delta = (delta4 - delta3).total_seconds()
+
+    print("******************************************************************************************************************************************************************************\n")
+    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+    print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
+    if run_sanity:
+        print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
+    print("******************************************************************************************************************************************************************************\n")
 
     for dut_name in get_dut_names(data):
         device = data[dut_name]

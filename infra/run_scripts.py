@@ -44,11 +44,11 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         ssh.close()
 
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs=False,dut_address=None):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,collect_logs=False,dut_address=None):
     if drop_version is not None:
-        filename = "ongoing_result_{}.txt".format(drop_version)
+        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
-        filename = 'ongoing_result.txt'
+        filename = 'ongoing_result_{}.csv'.format(tstamp)
     if log_dir is not None:
         log_dir = '/data/tests/{}'.format(log_dir)
     else:
@@ -73,13 +73,42 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-    cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+    import datetime
+    delta1 = datetime.datetime.now()
+    tc_name = "bgp_fact"
+    cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
     os.system("bash -c '{}'".format(cmd))
+    total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
+    skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l", shell=True).strip()
+    errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
+    time.sleep(10)
+    final_total += int(total_tests)
+    total_passed += int(passed)
+    total_failed += int(failed)
+    total_skipped += int(skipped)
+    total_error += int(errored)
+
+    print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
+
+    current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
+    current_result_file.flush()
+    if collect_logs and dut_address is not None:
+        cmd_list = list()
+        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
     if not int(passed):
-        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")        
+        current_result_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        current_result_file.flush()
+        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+
 
     for tc in tcs:
+        if '#' in tc:
+            continue
         tc = tc.strip()
         tc_name = tc.split('/')
         tc_name = tc_name[len(tc_name)-1].split('.')[0]
@@ -101,7 +130,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
 
-        cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
@@ -128,6 +157,85 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,collect_logs
 
     current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
+    delta2 = datetime.datetime.now()
+    print(delta2)
+    time_delta = (delta2 - delta1)
+    print(time_delta)
+    total_seconds = time_delta.total_seconds()
+    minutes = total_seconds/60
+
+    print("Total time : {} mins".format(minutes))
+
+def parse_results():
+    total_passed = 0
+    total_failed = 0
+    total_skipped = 0
+    total_error = 0
+    final_total = 0
+
+    log_list = list()
+    for filename in os.listdir('/data/tests'):
+        if filename.endswith(".log") or filename.endswith(".txt"):
+            log_list.append(filename)
+        else:
+            continue
+
+    result_file = open('final_result.csv', 'w')
+    if len(log_list) > 0:
+        for log_file in log_list:
+            os.system("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g'  >> all_result.txt".format(log_file))
+
+            total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(log_file), shell=True).strip()
+            passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(log_file), shell=True).strip()
+            failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l".format(log_file), shell=True).strip()
+            skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(log_file), shell=True).strip()
+            errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(log_file), shell=True).strip()
+
+            final_total += int(total_tests)
+            total_passed += int(passed)
+            total_failed += int(failed)
+            total_skipped += int(skipped)
+            total_error += int(errored)
+            print("{}     : {} : {} : {} : {} : {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
+
+            result_file.write("{}     , {} , {} , {} , {} , {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
+
+    result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    result_file.close()
+
+
+def main():
+    argparser = _create_parser()
+    args = vars(argparser.parse_args())
+    script_file = args['script_file']
+    drop_version = args['drop_version']
+    log_dir = args['log_dir']
+    only_parse = args['only_parse']
+    device_type = args['device_type']
+    tstamp = args['tstamp']
+    collect_logs = args['collect_logs']
+    dut_address = args.get('dut_address')
+    dut_name = args['dut_name']
+    topo_name = args['topo_name']
+
+    if device_type == 'sherman':
+        dut_name = 'sherman-01'
+    else:
+        dut_name = 'mathilda-01'
+
+    if tstamp is None:
+        tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+
+    if only_parse:
+        parse_results()
+    else:
+        if not collect_logs:
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp)
+        else:
+            if dut_address is None:
+                print('Missing DUT Address, specify DUT address for collecting logs')
+                exit
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,collect_logs,dut_address)
 
 def parse_results():
     total_passed = 0
