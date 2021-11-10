@@ -29,11 +29,10 @@ def main():
     sonic_qos_db_fv_reference_with_table = false
     try:
         process = subprocess.Popen(['sonic-cfggen', '-y', '/etc/sonic/sonic_version.yml', '-v', 'release'],
-                stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.stdout, stderr = process.communicate()
         self.stdout = self.stdout.decode('utf-8')
-        if stderr is not None:
-            stderr = stderr.decode('utf-8')
+        stderr = stderr.decode('utf-8')
         ret_code = process.returncode
     except Exception as e:
         module.fail_json(msg=str(e))
