@@ -220,7 +220,7 @@ def duthost_bgp_config(duthost,
         "sudo config interface ip add PortChannel%s %s/%s\n"
         )
         portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
-        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[1]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
+        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
         duthost.shell(portchannel_config)
     logger.info('Configuring BGP in config_db.json')
     bgp_neighbors = dict()
@@ -236,7 +236,6 @@ def duthost_bgp_config(duthost,
         json.dump(cdf, fp, indent=4)
     duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
     cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
-    logger.info(cdf)
     duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json","/etc/sonic/config_db.json"))
     logger.info('Reloading config to apply BGP config')
     duthost.shell("sudo config reload -y \n")
@@ -523,7 +522,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-
+            import pdb;pdb.set_trace()
             """ Advertise the routes back at the end of iteration """
             cs = cvg_api.convergence_state()
             cs.route.names = [route_name]
