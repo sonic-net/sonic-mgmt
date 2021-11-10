@@ -273,6 +273,18 @@ syslog/test_syslog.py:
       - "topo_name in ['t0-backend', 't1-backend']"
       - https://github.com/Azure/sonic-mgmt/issues/4469
 
+ecmp/inner_hashing/test_inner_hashing.py:
+  skip:
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    conditions:
+      - "branch not in ['master']"
+
+ecmp/inner_hashing/test_wr_inner_hashing.py:
+  skip:
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    conditions:
+      - "branch not in ['master']"
+
 # Skip unsupported API test on Mellanox platform
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   skip:
