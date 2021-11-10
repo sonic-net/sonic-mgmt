@@ -73,8 +73,10 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
     wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == DUT_VLAN_INTF_MAC)
 
     yield
-
-    config_reload(duthost)
+    
+    DUT_HOST_MAC = duthost.get_dut_iface_mac('eth0')
+    duthost.shell('redis-cli -n 4 hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], DUT_HOST_MAC))
+    wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == DUT_HOST_MAC)
 
 
 def test_host_vlan_no_floodling(
