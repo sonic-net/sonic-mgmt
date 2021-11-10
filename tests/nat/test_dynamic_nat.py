@@ -646,7 +646,7 @@ class TestDynamicNat(object):
                                                                                                   portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Enable outer interface
         dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
         # Send traffic
@@ -941,7 +941,7 @@ class TestDynamicNat(object):
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
 
         # Prepare and add configuration json file
         nat_session = {
@@ -963,7 +963,7 @@ class TestDynamicNat(object):
                                                                                                   port_range)]
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Check traffic. Zone 1 is not configured, not NAT translations expected
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
 
@@ -981,7 +981,7 @@ class TestDynamicNat(object):
                                                                                                   port_range)]
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
 
         # Perform TCP handshake (host-tor -> leaf-tor)
         perform_handshake(ptfhost, setup_data, protocol_type, direction,
@@ -1030,7 +1030,7 @@ class TestDynamicNat(object):
                                                                                                   portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Send TCP/UDP traffic and check
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
 
@@ -1045,7 +1045,7 @@ class TestDynamicNat(object):
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         wait_timeout(protocol_type)
         # Send TCP/UDP traffic and check without NAT
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
@@ -1067,7 +1067,7 @@ class TestDynamicNat(object):
                                                                                                          portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
-                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_ouput, iptables_rules))
+                      "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
 
         # Perform TCP handshake (host-tor -> leaf-tor)
         perform_handshake(ptfhost, setup_info, protocol_type, direction,
