@@ -3,14 +3,6 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 10 * * 0-4"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -18,36 +10,25 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-dual-t0-7260
+    default: vms2-2-t0-2700
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_MLNX_201911)
     displayName: "Image URL"
-
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_MLNX_201911)
     displayName: "py_saithrift URL"
 
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "arp/test_wr_arp.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py"
-    displayName: "Skip Scripts"
-
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces platform_tests"'
+    default: '-I "vlan fdb snmp/test_snmp_fdb.py arp/test_tagged_arp.py"'
     displayName: Testbed specific
 
 stages:
@@ -56,6 +37,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

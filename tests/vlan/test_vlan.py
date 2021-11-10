@@ -7,21 +7,26 @@ from ptf.mask import Mask
 import itertools
 import logging
 import ipaddress
+import pprint
+import time
 
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan')
+    pytest.mark.topology('t0')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
 PTF_PORT_MAPPING_MODE = "use_orig_interface"
+
+# Only test the first 2 portchannels
+PORTCHANNELS_TEST_NUM = 2
 
 
 @pytest.fixture(scope="module")
@@ -76,7 +81,7 @@ def vlan_intfs_dict(cfg_facts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_ports_list, vlan_intfs_dict):
+def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_ports_list, vlan_intfs_dict, pc_num=PORTCHANNELS_TEST_NUM):
     if tbinfo['topo']['name'] == 't0-56-po2vlan':
         return vlan_ports_list
 
@@ -99,12 +104,13 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_
                 'permit_vlanid' : []
             }
             # Add 2 portchannels for test
-            if portchannel_cnt < 2:
+            if portchannel_cnt < pc_num:
                 portchannel_cnt += 1
                 vlan_port['pvid'] = pvid_cycle.next()
                 vlan_port['permit_vlanid'] = vlan_id_list[:]
             if 'pvid' in vlan_port:
                 work_vlan_ports_list.append(vlan_port)
+    assert portchannel_cnt == pc_num, 'Need 2 portchannels for test'
 
     for i, port in enumerate(ports_list):
         vlan_port = {
@@ -122,32 +128,42 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, vlan_
     return work_vlan_ports_list
 
 
-def create_vlan_interfaces(work_vlan_ports_list, ptfhost):
-    logger.info("Create PTF VLAN intfs")
-    for vlan_port in work_vlan_ports_list:
-        for permit_vlanid in vlan_port["permit_vlanid"]:
-            if int(permit_vlanid) != vlan_port["pvid"]:
-
-                ptfhost.command("ip link add link eth{idx} name eth{idx}.{pvid} type vlan id {pvid}".format(
-                   idx=vlan_port["port_index"][0],
-                   pvid=permit_vlanid
-                ))
-
-                ptfhost.command("ip link set eth{idx}.{pvid} up".format(
-                   idx=vlan_port["port_index"][0],
-                   pvid=permit_vlanid
-                ))
-
-
-def shutdown_portchannels(duthost, portchannel_interfaces):
+def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
     cmds = []
+    cnt = 0
     logger.info("Shutdown lags, flush IP addresses")
     for portchannel, ips in portchannel_interfaces.items():
         cmds.append('config interface shutdown {}'.format(portchannel))
         for ip in ips:
             cmds.append('config interface ip remove {} {}'.format(portchannel, ip))
+        cnt += 1
+        if cnt >= pc_num:
+            break
 
     duthost.shell_cmds(cmds=cmds)
+
+
+def check_portchannels_down(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
+    '''
+    After shutdown portchannels, check redis to make sure router interface is removed.
+    '''
+    cnt = 0
+    oid_list = []
+    # Get oid list for first 2 portchannels
+    for portchannel in portchannel_interfaces:
+        res = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_LAG_NAME_MAP {}".format(portchannel))
+        oid_list.append(res['stdout'])
+        cnt += 1
+        if cnt >= pc_num:
+            break
+    res = duthost.shell("sonic-db-cli ASIC_DB keys *ROUTER_INTERFACE*")
+    for line in res['stdout_lines']:
+        get_res = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_ROUTER_INTERFACE_ATTR_PORT_ID".format(line))
+        if 'oid' not in get_res['stdout']:
+            continue
+        if get_res['stdout'] in oid_list:
+            return False
+    return True
 
 
 def create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict):
@@ -186,54 +202,54 @@ def create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict)
     duthost.shell_cmds(cmds=cmds)
 
 
-def startup_portchannels(duthost, portchannel_interfaces):
-    cmds  =[]
+def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
+    cmds = []
+    cnt = 0
     logger.info("Bringup lags")
     for portchannel in portchannel_interfaces:
         cmds.append('config interface startup {}'.format(portchannel))
+        cnt += 1
+        if cnt >= pc_num:
+            break
 
     duthost.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
-        portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
-
-        shutdown_portchannels(duthost, portchannel_interfaces)
-
-        create_vlan_interfaces(work_vlan_ports_list, ptfhost)
-
         if tbinfo['topo']['name'] != 't0-56-po2vlan':
+            portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
+
+            shutdown_portchannels(duthost, portchannel_interfaces)
+
+            # Must wait for orchagent to remove related router interface
+            start_time = time.time()
+            assert wait_until(120, 2, 0, check_portchannels_down, duthost, portchannel_interfaces), "Shutdown portchannels failed"
+            end_time = time.time()
+            logger.info('Take {} seconds to shutdown portchannels'.format(end_time-start_time))
+
             create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict)
 
-        startup_portchannels(duthost, portchannel_interfaces)
+            startup_portchannels(duthost, portchannel_interfaces)
+
+            res = duthost.command('show int portchannel')
+            logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
     finally:
-        tearDown(work_vlan_ports_list, duthost, ptfhost)
+        tearDown(duthost, tbinfo)
 
 
-def tearDown(work_vlan_ports_list, duthost, ptfhost):
+def tearDown(duthost, tbinfo):
 
     logger.info("VLAN test ending ...")
 
-    logger.info("Delete VLAN intf")
-    for vlan_port in work_vlan_ports_list:
-        for permit_vlanid in vlan_port["permit_vlanid"]:
-            if int(permit_vlanid) != vlan_port["pvid"]:
-                try:
-                    ptfhost.command("ip link delete eth{idx}.{pvid}".format(
-                    idx=vlan_port["port_index"][0],
-                    pvid=permit_vlanid
-                    ))
-                except RunAnsibleModuleFail as e:
-                    logger.error(e)
-
-    config_reload(duthost)
+    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+        config_reload(duthost)
 
 
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",

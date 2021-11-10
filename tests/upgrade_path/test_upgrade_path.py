@@ -1,4 +1,8 @@
 import pytest
+import os
+import tempfile
+import json
+import random
 import logging
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -6,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_COLD
+from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
 from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version, get_reboot_command
 from tests.upgrade_path.upgrade_helpers import ptf_params, setup  # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -59,9 +63,9 @@ def upgrade_path_lists(request):
     restore_to_image = request.config.getoption('restore_to_image')
     return upgrade_type, from_list, to_list, restore_to_image
 
-
 @pytest.mark.device_type('vs')
-def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgrade_path_lists, ptf_params, setup, tbinfo):
+def test_upgrade_path(request, localhost, duthosts, rand_one_dut_hostname, ptfhost,
+    upgrade_path_lists, ptf_params, setup, tbinfo, create_hole_in_tcam):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
@@ -84,6 +88,9 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, upgra
             test_params = ptf_params
             test_params['target_version'] = target_version
             test_params['reboot_type'] = get_reboot_command(duthost, upgrade_type)
+            if create_hole:
+                ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+                test_params['reboot_type'] = "warm-reboot -c {}".format(ptf_ip)
             prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
             log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
             if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):

@@ -454,6 +454,6 @@ class MlnxCableSupportedSpeedsHelper(object):
         if pos == -1:
             return None
         speeds_str = output[pos+1:-1]
-        speeds =  [speed[:-1] + '000' for speed in speeds_str.split(',')]
+        speeds = list(set([speed.split('G')[0] + '000' for speed in speeds_str.split(',')]))
         cls.supported_speeds[(duthost, dut_port_name)] = speeds
         return speeds

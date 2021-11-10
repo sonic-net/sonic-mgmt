@@ -307,7 +307,7 @@ if __name__ == '__main__':
     parser.add_argument('--testbed-servers', action='append', type=str, required=True, help='testbed server to recover')
     parser.add_argument('--testbed', default='testbed.yaml', help='testbed file(default: testbed.yaml)')
     parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
-    parser.add_argument('--vm-type', default='veos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
+    parser.add_argument('--vm-type', default='ceos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: ceos)')
     parser.add_argument('--inventory', help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
     parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
     parser.add_argument('--skip-cleanup', action='store_true', help='Skip cleanup server')

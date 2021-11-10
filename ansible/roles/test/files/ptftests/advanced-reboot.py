@@ -151,7 +151,7 @@ class ReloadTest(BaseTest):
         self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
         self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required=False)
-        self.check_param('sniff_time_incr', 60, required=False)
+        self.check_param('sniff_time_incr', 300, required=False)
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
         self.check_param('target_version', '', required=False)
@@ -204,7 +204,7 @@ class ReloadTest(BaseTest):
                                   # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
-        self.time_to_listen = 180.0     # Listen for more then 180 seconds, to be used in sniff_in_background method.
+        self.time_to_listen = 240.0 # Listen for more then 240 seconds, to be used in sniff_in_background method.
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
@@ -917,14 +917,13 @@ class ReloadTest(BaseTest):
         self.check_alive()
         self.fails['dut'].clear()
 
-        self.send_and_sniff()
+        self.sniff_thr.join()
+        self.sender_thr.join()
 
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
         self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
-
-        self.save_sniffed_packets()
 
         examine_start = datetime.datetime.now()
         self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
@@ -941,14 +940,13 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
-        self.send_and_sniff()
+        self.sniff_thr.join()
+        self.sender_thr.join()
 
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
         self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
-
-        self.save_sniffed_packets()
 
         examine_start = datetime.datetime.now()
         self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
@@ -1261,6 +1259,14 @@ class ReloadTest(BaseTest):
     def reboot_dut(self):
         time.sleep(self.reboot_delay)
 
+        if not self.kvm_test and\
+            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type):
+            self.sender_thr = threading.Thread(target = self.send_in_background)
+            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+            self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
+            self.sniff_thr.start()
+            self.sender_thr.start()
+
         self.log("Rebooting remote side")
         stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
         if stdout != []:
@@ -1342,7 +1348,17 @@ class ReloadTest(BaseTest):
                 sent_packet_count += 1
             self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
             self.log("Total sent packets by sender: {}".format(sent_packet_count))
-            # Remove filter
+
+            # Signal sniffer thread to allow early finish.
+            # Without this signalling mechanism, the sniffer thread can continue for a hardcoded max time.
+            # Sometimes this max time is too long and sniffer keeps running too long after sender finishes.
+            # Other times, sniffer finishes too early (when max time is less) while the sender is still sending packets.
+            # So now:
+            # 1. sniffer max timeout is increased (to prevent sniffer finish before sender)
+            # 2. and sender can signal sniffer to end after all packets are sent.
+            time.sleep(1)
+            kill_sniffer_cmd = "pkill -SIGINT -f {}".format(self.ptf_sniffer)
+            subprocess.Popen(kill_sniffer_cmd.split())
             self.apply_filter_all_ports('')
 
     def sniff_in_background(self, wait = None):
@@ -1357,7 +1373,8 @@ class ReloadTest(BaseTest):
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
+        scapy_sniffer = threading.Thread(target=self.scapy_sniff,
+            kwargs={'wait': wait, 'sniff_filter': sniff_filter})
         scapy_sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
@@ -1365,19 +1382,22 @@ class ReloadTest(BaseTest):
         self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
         self.sniffer_started.clear()
 
-    def save_sniffed_packets(self):
-        filename = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
-        if self.packets:
-            scapyall.wrpcap(filename, self.packets)
-            self.log("Pcap file dumped to %s" % filename)
-        else:
-            self.log("Pcap file is empty.")
-
-    def scapy_sniff(self, wait = 180, sniff_filter = ''):
+    def scapy_sniff(self, wait=300, sniff_filter=''):
         """
-        This method exploits native scapy sniff() method.
+        @summary: PTF runner -  runs a sniffer in PTF container.
+        Args:
+            wait (int): Duration in seconds to sniff the traffic
+            sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
-        self.packets = scapyall.sniff(timeout = wait, filter = sniff_filter)
+        capture_pcap = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
+        capture_log = "/tmp/capture.log"
+        self.ptf_sniffer = "/root/ptftests/advanced_reboot_sniffer.py"
+        sniffer_command = ["python", self.ptf_sniffer, "-f", "'{}'".format(sniff_filter), "-p",\
+        capture_pcap, "-l", capture_log, "-t" , str(wait)]
+        subprocess.call(["rm", "-rf", capture_pcap]) # remove old capture
+        subprocess.call(sniffer_command)
+        self.packets = scapyall.rdpcap(capture_pcap)
+        self.log("Number of all packets captured: {}".format(len(self.packets)))
 
     def send_and_sniff(self):
         """

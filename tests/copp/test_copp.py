@@ -27,7 +27,7 @@ from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
-from tests.common import config_reload
+from tests.common import config_reload, constants
 from tests.common.system_utils import docker
 
 # Module-level fixtures
@@ -46,9 +46,10 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "peerip",
                                   "nn_target_interface",
                                   "nn_target_namespace",
-                                  "send_rate_limit"])
+                                  "send_rate_limit",
+                                  "nn_target_vlanid"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag"]
+_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
 _SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
@@ -194,6 +195,7 @@ def _gather_test_params(tbinfo, duthost, request):
     send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     # get the port_index_map using the ptf_indicies to support multi DUT topologies
     port_index_map = {
         k: v
@@ -214,24 +216,33 @@ def _gather_test_params(tbinfo, duthost, request):
             break
 
     nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+    if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+        nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+    else:
+        nn_target_vlanid = None
 
-    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {}".format(nn_target_port, nn_target_interface, nn_target_namespace))
+
+    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}".format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                swap_syncd=swap_syncd,
                                topo=topo,
                                myip=myip,
-                               peerip = peerip,
+                               peerip=peerip,
                                nn_target_interface=nn_target_interface,
                                nn_target_namespace=nn_target_namespace,
-                               send_rate_limit=send_rate_limit)
+                               send_rate_limit=send_rate_limit,
+                               nn_target_vlanid=nn_target_vlanid)
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Sets up the testbed to run the COPP tests.
     """
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+
     logging.info("Set up the PTF for COPP tests")
-    copp_utils.configure_ptf(ptf, test_params.nn_target_port)
+    copp_utils.configure_ptf(ptf, test_params.nn_target_port, test_params.nn_target_vlanid, is_backend_topology)
 
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
@@ -254,7 +265,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
-                               test_params.nn_target_namespace, creds)
+                               test_params.nn_target_namespace, test_params.nn_target_vlanid, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """

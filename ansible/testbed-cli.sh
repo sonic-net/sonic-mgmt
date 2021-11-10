@@ -20,7 +20,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -163,6 +163,10 @@ function read_file
 
 function start_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run start-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   server=$1
   passwd=$2
   shift
@@ -175,6 +179,10 @@ function start_vms
 
 function stop_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run stop-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   server=$1
   passwd=$2
   shift
@@ -186,6 +194,10 @@ function stop_vms
 
 function start_topo_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run start-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   testbed_name=$1
   passwd=$2
   shift
@@ -199,6 +211,10 @@ function start_topo_vms
 
 function stop_topo_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run stop-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   testbed_name=$1
   passwd=$2
   shift
@@ -514,7 +530,7 @@ function cleanup_vmhost
 
 vmfile=veos
 tbfile=testbed.yaml
-vm_type=veos
+vm_type=ceos
 vm_num=0
 msetnumber=1
 sonic_vm_dir=""

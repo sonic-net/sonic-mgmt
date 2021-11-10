@@ -68,7 +68,7 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
     return None
 
 def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action=None,
-                                type_of_traffic=None, ttl=64, pktlen=100, ip_tunnel=None):
+                                type_of_traffic=None, ttl=64, pktlen=100, ip_tunnel=None, **kwargs):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -93,7 +93,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ip_src,
         if 'TCP' in tr_type or 'UDP' in tr_type:
             generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, pktlen, ttl)
         elif 'ICMP' in tr_type:
-            generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl)
+            generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl, untagged_icmp_request=kwargs.pop("untagged_icmp_request", False))
         elif 'decap' in tr_type:
             generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, ip_tunnel)
         else:
@@ -170,7 +170,7 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
     pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
-def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl=64):
+def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl=64, untagged_icmp_request=False):
     """
     Send ICMP request packet from PTF to DUT and
     verify that DUT sends/doesn't send ICMP reply packet to PTF.
@@ -185,6 +185,7 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
         pkt_action: Packet action (forwarded or drop)
         tr_type: Type of traffic (TCP or UDP)
         ttl: Time to live
+        untagged_icmp_request: send untagged ICMP request if True
     """
     vlan_vid = None
     dl_vlan_enable = False
@@ -205,7 +206,7 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
                         ip_src=ip_src,
                         ip_dst=ip_dst,
                         vlan_vid=vlan_vid,
-                        dl_vlan_enable=dl_vlan_enable,
+                        dl_vlan_enable=not untagged_icmp_request and dl_vlan_enable,
                         tr_type=tr_type,
                         ttl=64)
 

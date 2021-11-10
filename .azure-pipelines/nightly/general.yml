@@ -1,0 +1,145 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name"
+
+  - name: TESTBED_FILE
+    type: string
+    default: testbed.yaml
+    values:
+      - testbed.csv
+      - testbed.yaml
+    displayName: "Testbed file"
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 30 hours
+    displayName: "Nightly test timeout (minutes)"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202012)
+    displayName: "Image URL"
+
+  - name: PREV_IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202012).PREV.1
+    displayName: "Previous version image URL"
+
+  - name: ALWAYS_INSTALL_NEW_IMAGE
+    type: boolean
+    default: true
+    displayName: "Always install new image"
+
+  - name: UPGRADE_TYPE
+    type: string
+    default: sonic
+    values:
+      - sonic
+      - onie
+    displayName: "Upgrade type"
+
+  - name: PAUSE_TIME
+    type: number
+    default: 0
+    displayName: "Pause time after upgrade"
+
+  # Control the behavior if power cycle unreachable DUT
+  # is allowed. Default: allowed (true)
+  - name: POWER_CYCLE_UNREACHABLE_DUTS
+    type: boolean
+    default: true
+    displayName: "Power cycle unreachable DUTs"
+
+  # Control the behavior of power cycle DUT before tests. If set to true,
+  # DUTs will always be power cycled before tests. Default: false
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: false
+    displayName: "Always power cycle DUTs"
+
+  # ============ Deploy parameters ============
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: true
+    displayName: "Enable DATAACL"
+
+  # ============ Test Parameters ============
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
+
+  - name: PTF_PORTMAP
+    type: string
+    default: " "
+    displayName: "PTF portmap"
+
+  # This is for the extra parameters to be passed to pytest by the "-e" option of run_tests.sh. For example,
+  # to skip sanity check and disable log analyzer, the job yaml file calling this template can pass value
+  # "--skip_sanity --disable_loganalyzer" to this EXTRA_PARAMS parameter.
+  - name: EXTRA_PARAMS
+    type: string
+    default: " "
+    displayName: "Extra pytest parameters"
+
+  # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
+  # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
+  # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
+  # this TESTBED_SPECIFIC parameter.
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: " "
+    displayName: "Testbed specific parameters"
+
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
+    type: string
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+    displayName: "Default skip scripts"
+
+  # Individual nightly test scheduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
+    displayName: "Skip scripts"
+
+  # Individual nightly test scheduler file could override this variable
+  # to skip uploading test results to kusto.
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip test results uploading to Kusto"
+
+stages:
+  - template: ./templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+      ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
+      UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+      PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
+      POWER_CYCLE_UNREACHABLE_DUTS: ${{ parameters.POWER_CYCLE_UNREACHABLE_DUTS }}
+      ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      DEFAULT_SKIP_SCRIPTS: ${{ parameters.DEFAULT_SKIP_SCRIPTS }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

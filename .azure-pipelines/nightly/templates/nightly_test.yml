@@ -379,9 +379,9 @@ stages:
                   # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
                   # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
                   # of task. The workaround is to explicitly override the environment variables in bash here:
-                  TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
-                  TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
-                  TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
+                  export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
+                  export TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
+                  export TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
 
                   cd test_reporting
 
