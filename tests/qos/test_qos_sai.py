@@ -687,6 +687,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
 
+        if "pkts_num_margin" in qosConfig[pgProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
             testParams=testParams
