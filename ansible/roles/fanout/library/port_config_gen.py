@@ -2,6 +2,7 @@
 """Generate the port config for the fanout device."""
 import os
 import re
+import shutil
 import tempfile
 import traceback
 import xml.dom.minidom as minidom
@@ -72,6 +73,7 @@ class PortConfigGenerator(object):
         raise ValueError("Invalid parse port alias format %s" % port_alias)
 
     def _create_sonic_sku(self, port_xml_file):
+        shutil.rmtree(os.path.join(self.HWSKU_DIR_PREFIX, self.fanout_hwsku), ignore_errors=True)
         cmd = "sonic_sku_create.py -f %s -k %s" % (port_xml_file, self.fanout_hwsku)
         ret_code, stdout, stderr = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
         if ret_code:

@@ -5,6 +5,24 @@
     device_conn: "{{ device_conn[inventory_hostname] }}"
   become: yes
 
+- name: copy platform flex config
+  block:
+    - name: include broadcom config mapping
+      include_vars:
+        file: platform_bcm_mapping.yml
+        name: platform_bcm_configs
+
+    - debug: var=platform_bcm_configs
+
+    - name: copy platform flex config to the hwsku {{ fanout_hwsku }}
+      copy:
+        src: "{{ platform_bcm_configs[fanout_platform] }}"
+        dest: "/usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/{{ platform_bcm_configs[fanout_platform] }}"
+      become: yes
+  when:
+    - "'broadcom' in fanout_sonic_version.asic_type"
+    - "'dynamic' in device_info[inventory_hostname]['HwSkuType'] | default('predefined')"
+
 - name: build fanout startup config
   template:
     src: "sonic_deploy_202012.j2"
