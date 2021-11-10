@@ -7,7 +7,6 @@ import tempfile
 from scapy.all import sniff
 from ptf import testutils
 
-from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
