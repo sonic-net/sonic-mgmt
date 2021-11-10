@@ -12,9 +12,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
-from tests.common.dualtor.mux_simulator_control import mux_server_url     # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
-from tests.common.dualtor.dual_tor_utils import map_hostname_to_tor_side
 from tests.common.helpers.assertions import pytest_require
 from tests.common import constants
 
@@ -67,14 +64,11 @@ def skip_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, toggle_all_simulator_ports):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
 
     logger.info("########### Setup for bgp speaker testing ###########")
 
     duthost = duthosts[rand_one_dut_hostname]
-
-    if 'dualtor' in tbinfo['topo']['name']:
-        toggle_all_simulator_ports(map_hostname_to_tor_side(tbinfo, rand_one_dut_hostname))
 
     ptfip = ptfhost.mgmt_ip
     logger.info("ptfip=%s" % ptfip)
