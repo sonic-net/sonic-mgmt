@@ -31,6 +31,8 @@
       name: ptf_{{ vm_set_name }}
     register: ptf_docker_info
 
+  - debug: var=ptf_docker_info
+
   - name: Flush ptf network info log
     shell: |
       date > /tmp/ptf_network_{{ vm_set_name }}.log
@@ -40,6 +42,7 @@
       echo "before deleting" >> /tmp/ptf_network_{{ vm_set_name }}.log
       ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
+    when: ptf_docker_info.exists
 
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
@@ -61,6 +64,7 @@
       echo "Before recreating" >> /tmp/ptf_network_{{ vm_set_name }}.log
       ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
+    when: ptf_docker_info.exists
 
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
