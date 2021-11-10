@@ -15,10 +15,12 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cpu_threshold = 50
     memory_threshold = 60
+    high_cpu_consume_procs = {}
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0'):
         memory_threshold = 80
-    return memory_threshold, cpu_threshold
-
+    if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
+        high_cpu_consume_procs['syncd'] = 80
+    return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
@@ -26,7 +28,7 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     monit_results = duthost.monit_process(iterations=24)['monit_results']
 
-    memory_threshold, cpu_threshold = setup_thresholds
+    memory_threshold, normal_cpu_threshold, high_cpu_consume_procs = setup_thresholds
     persist_threshold = 8
     outstanding_mem_polls = {}
     outstanding_procs = {}
@@ -38,6 +40,9 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                           memory_threshold, monit_result.memory)
             outstanding_mem_polls[i] = monit_result.memory
         for proc in monit_result.processes:
+            cpu_threshold = normal_cpu_threshold
+            if high_cpu_consume_procs.has_key(proc['name']):
+                cpu_threshold = high_cpu_consume_procs[proc['name']]                
             if proc['cpu_percent'] >= cpu_threshold:
                 logging.debug("process %s(%d) cpu usage exceeds %d%%.",
                               proc['name'], proc['pid'], cpu_threshold)
