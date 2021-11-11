@@ -434,7 +434,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -444,6 +444,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
+            duthost = duthosts[dut_host]
+            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
                 fanout_host = str(fanout_rec['peerdevice'])
@@ -481,6 +483,12 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+
+                # Add port name to fanout port mapping port if dut_port is alias.
+                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                    fanout.add_port_map(encode_dut_port_name(
+                       dut_host, mg_facts['minigraph_port_alias_to_name_map'][dut_port]), fanout_port)
+ 
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
     except:

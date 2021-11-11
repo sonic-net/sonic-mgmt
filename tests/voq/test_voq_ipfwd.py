@@ -439,7 +439,7 @@ class TestTableValidation(object):
 
         intf = cfg_facts['VOQ_INBAND_INTERFACE']
         for port in intf:
-            for address in cfg_facts['BGP_INTERNAL_NEIGHBOR'].keys():
+            for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
                 # self.check_is_connected(address, port, ipv4_routes, ipv6_routes)
                 ip_intf = ipaddress.ip_interface(address)
                 logger.info("Network %s v%s, is connected via: %s", str(ip_intf.network), ip_intf.network.version, port)
@@ -472,12 +472,12 @@ class TestTableValidation(object):
         asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
-        if 'BGP_INTERNAL_NEIGHBOR' not in cfg_facts:
+        if 'BGP_VOQ_CHASSIS_NEIGHBOR' not in cfg_facts:
             # There are no inband interfaces, this must be an asic not connected to fabric
             pytest.skip("Asic {} on {} has no inband interfaces, so must not be connected to fabric".format(asic.asic_index, per_host.hostname))
 
         bgp_facts = per_host.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-        for address in cfg_facts['BGP_INTERNAL_NEIGHBOR'].keys():
+        for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
             pytest_assert(bgp_facts['bgp_neighbors'][address]['state'] == "established",
                           "BGP internal neighbor: %s is not established: %s" % (
                               address, bgp_facts['bgp_neighbors'][address]['state']))
