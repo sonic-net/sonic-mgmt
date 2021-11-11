@@ -12,7 +12,7 @@ from pkg_resources import parse_version
 from tests.common.devices.ptf import PTFHost
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
