@@ -302,8 +302,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
     duthost = duthosts[rand_one_dut_hostname]
     test_name = request.node.name
-    if "warm" in test_name or\
-        ("continuous" in test_name and request.config.getoption("--reboot_type") == "warm"):
+    if "warm" in test_name:
         reboot_type = "warm"
     elif "fast" in test_name:
         reboot_type = "fast"
@@ -373,7 +372,6 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         json.dump(result_summary, fp, indent=4)
 
     # After generating timing data report, do some checks on the timing data
-
     verify_mac_jumping(test_name, analyze_result)
 
 @pytest.fixture()

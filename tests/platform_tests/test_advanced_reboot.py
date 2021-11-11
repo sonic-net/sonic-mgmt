@@ -31,7 +31,6 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot')
     advancedReboot.runRebootTestcase()
 
