@@ -579,7 +579,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    tcs_file = open(script_file, 'r')
+    tcs_file = open("./../sonic-mgmt/tests/"+script_file, 'r')
     tcs = tcs_file.readlines()
     for tc in tcs:
         if '#' in tc:
@@ -596,7 +596,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii"))
-        if 'Total' in resp.decode("ascii"):
+        if 'Total' in resp.decode("ascii") or 'Exiting' in resp.decode("ascii"):
             break
         else:
             if datetime.datetime.now() < later:
