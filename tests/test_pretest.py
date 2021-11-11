@@ -241,6 +241,24 @@ def test_update_saithrift_ptf(request, ptfhost):
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 
+def test_increase_linkmgrd_probe_interval(duthosts, enum_dut_hostname, tbinfo):
+    '''
+    Increase the interval at which linkmgrd sends ICMP heartbeats to the server/PTF
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    duthost = duthosts[enum_dut_hostname]
+    probe_interval_ms = 1000
+
+    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthost, probe_interval_ms))
+
+    cmds = []
+    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
+                    .format(probe_interval_ms))
+    cmds.append("config save -y")
+    duthost.shell_cmds(cmds=cmds)
+
 def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo, vmhost):
     '''
     Inject the Y cable simulator client to both ToRs in a dualtor testbed
