@@ -9,7 +9,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC, CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology('dualtor')
 ]
 
 
