@@ -13,7 +13,7 @@ from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology('dualtor')
 ]
 
 
