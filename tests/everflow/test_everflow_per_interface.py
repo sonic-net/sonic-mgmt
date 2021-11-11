@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 EVERFLOW_TABLE_NAME = {
