@@ -18,7 +18,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology('dualtor')
 ]
 
 def _set_drop_factory(set_drop_func, direction, tor_mux_intfs):
