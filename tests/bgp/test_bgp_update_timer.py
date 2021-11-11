@@ -16,7 +16,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology('any'),
 ]
 
 PEER_COUNT = 2
