@@ -82,6 +82,8 @@ def get_state_times(timestamp, state, state_times, first_after_kexec=None):
         # capture last occcurence - useful in calculating events end time
         state_dict["last_occurence"] = time
     elif first_after_kexec:
+        # capture the first occurence as the one after kexec timestamp and ignore the ones before
+        # this is useful for cases when time data for only warm recovery path needs to be collected.
         if datetime.strptime(first_after_kexec, FMT) < datetime.strptime(time, FMT):
             timestamps[state_status] = time
     else:
@@ -285,7 +287,7 @@ def verify_mac_jumping(test_name, timing_data):
     else:
         # MAC jumping not allowed
         if mac_jumping_scapy_addr or mac_jumping_other_addr:
-            pytest.fail("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC"\
+            pytest.fail("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC: {}"\
                 .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
 
         
