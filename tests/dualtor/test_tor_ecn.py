@@ -31,7 +31,7 @@ from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology('t0')
 ]
 
 @contextlib.contextmanager
