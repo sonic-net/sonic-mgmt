@@ -475,6 +475,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
+        yield
         return
 
     logger.info('Set all muxcable to manual mode on all ToRs')
