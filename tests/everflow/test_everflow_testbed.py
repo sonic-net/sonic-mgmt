@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa
 from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("t1")
+    pytest.mark.topology('t1')
 ]
 
 
