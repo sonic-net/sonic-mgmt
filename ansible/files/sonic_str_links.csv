@@ -1741,7 +1741,7 @@ str-dx010-acs-5,Ethernet112,str-7260cx3-64-18,Ethernet29/1,100000,2213,Access
 str-dx010-acs-5,Ethernet116,str-7260cx3-64-18,Ethernet30/1,100000,2214,Access
 str-dx010-acs-5,Ethernet120,str-7260cx3-64-18,Ethernet31/1,100000,2215,Access
 str-dx010-acs-5,Ethernet124,str-7260cx3-64-18,Ethernet32/1,100000,2216,Access
-str-a7170-acs-1,Ethernet0,str-7260cx3-fan-03,Ethernet37/1,100000,2249,Access
+str-a7170-acs-1,Ethernet0,str-7260cx3-fan-03,Ethernet36/1,100000,2249,Access
 str-a7170-acs-1,Ethernet4,str-7260cx3-fan-03,Ethernet38/1,100000,2250,Access
 str-a7170-acs-1,Ethernet8,str-7260cx3-fan-03,Ethernet39/1,100000,2251,Access
 str-a7170-acs-1,Ethernet12,str-7260cx3-fan-03,Ethernet40/1,100000,2252,Access
