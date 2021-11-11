@@ -464,6 +464,11 @@ def get_inband_info(cfg_facts):
         for a_intf in intf:
             for addrs in intf[a_intf]:
                 ret['port'] = a_intf
+
+                # Skip fields that are not inband address
+                if '/' not in addrs:
+                    continue
+
                 intf_ip = addrs.split('/')
                 if ':' in intf_ip[0]:
                     ret['ipv6_addr'] = intf_ip[0]
@@ -548,9 +553,9 @@ def find_system_port(dev_sysports, slot, asic_index, hostif):
     """
 
     if "portchannel" in hostif.lower():
-        sys_re = re.compile(r'^([a-zA-Z]+{})\|([a-zA-Z]+{})\|'.format(slot, asic_index))
+        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|'.format(slot, asic_index))
     else:
-        sys_re = re.compile(r'^([a-zA-Z]+{})\|([a-zA-Z]+{})\|{}$'.format(slot, asic_index, hostif))
+        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|{}$'.format(slot, asic_index, hostif))
     sys_info = {}
 
     for sysport in dev_sysports:
