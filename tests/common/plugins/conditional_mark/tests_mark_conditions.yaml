@@ -130,6 +130,24 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_psu.py::TestPsuApi::test_fans:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
