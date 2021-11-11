@@ -8,7 +8,7 @@ from scapy.all import rdpcap
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
