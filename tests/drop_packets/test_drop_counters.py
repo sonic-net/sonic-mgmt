@@ -15,7 +15,7 @@ from tests.common.helpers.drop_counters.drop_counters import verify_drop_counter
 from .drop_packets import *  # FIXME
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
