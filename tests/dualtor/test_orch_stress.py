@@ -29,7 +29,7 @@ from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
 from tests.common.dualtor.dual_tor_mock import *
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
