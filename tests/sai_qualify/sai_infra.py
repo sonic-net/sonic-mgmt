@@ -20,7 +20,7 @@ from community_cases import *
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("ptf")
+    pytest.mark.topology('ptf')
 ]
 
 TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '2@eth2' \
