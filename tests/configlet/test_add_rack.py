@@ -54,7 +54,7 @@ from common import *
 #
 
 pytestmark = [
-        pytest.mark.topology("t1")
+        pytest.mark.topology('t1')
         ]
 
 ORIG_DB_SUB_DIR = "orig"
