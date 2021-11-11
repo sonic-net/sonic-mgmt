@@ -10,7 +10,7 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology('dualtor')
 ]
 
 '''
