@@ -36,6 +36,7 @@ def xcvr_skip_list(duthosts):
         hwsku = dut.facts['hwsku']
         f_path = os.path.join('/usr/share/sonic/device', platform, hwsku, 'hwsku.json')
         intf_skip_list[dut.hostname] = []
+        dut.has_sku = True
         try:
             out = dut.command("cat {}".format(f_path))
             hwsku_info = json.loads(out["stdout"])
@@ -45,6 +46,7 @@ def xcvr_skip_list(duthosts):
 
         except Exception:
             # hwsku.json does not exist will return empty skip list
+            dut.has_sku = False
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
 
