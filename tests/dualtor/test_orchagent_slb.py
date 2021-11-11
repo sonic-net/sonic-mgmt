@@ -22,7 +22,7 @@ from tests.common.utilities import is_ipv4_address
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology('dualtor')
 ]
 
 
