@@ -169,6 +169,8 @@ def ensure_dhcp_server_up(duthost):
     def _dhcp_server_up():
         cmds = 'docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay'
         output = duthost.shell(cmds)['stdout']
+        pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+
         return 'RUNNING' in output
 
     pytest_assert(
@@ -186,11 +188,16 @@ def dhcp_severs_by_vlanid(duthost, vlanid):
     '''
     cmds = "docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay \
         | grep 'Vlan{} ' | awk '{{print $4}}'".format(vlanid)
-    pid = duthost.shell(cmds)['stdout'].strip(",")
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+
+    pid = output['stdout'].strip(",")
     logger.info("pid {} for Vlan{}".format(pid, vlanid))
 
     cmds = 'docker exec dhcp_relay ps -fp {} | sed "1d"'.format(pid)
     output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+
     return output
 
 def expect_res_success_by_vlanid(duthost, vlanid, expected_content_list, unexpected_content_list):
