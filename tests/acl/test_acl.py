@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology('any'),
     pytest.mark.usefixtures('backup_and_restore_config_db_on_duts')
 ]
 
