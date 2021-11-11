@@ -19,6 +19,7 @@ r, ".* NOTICE syncd#syncd.*performWarmRestart: switches defined in warm restart.
 r, ".* NOTICE syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*"
 r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart timer started.*.*"
 r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart reconciliation processed..*"
+r, ".* INFO syncd#syncd.*SAI_API_FDB:_brcm_sai_fdb_event_cb.*fdbEvent: 0 for mac.*"
 
 # sairedis.rec messages
 r, ".*\|c\|SAI_OBJECT_TYPE_SWITCH.*"

@@ -31,6 +31,7 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot')
     advancedReboot.runRebootTestcase()
 
@@ -45,6 +46,25 @@ def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
     @param get_advanced_reboot: advanced reboot test fixture
     '''
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot.runRebootTestcase()
+
+
+def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
+    '''
+    Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
+    all VLAN ports.
+    Part of the warm reboot handling is to ensure there are no MAC events reported
+    while warm reboot is in progress. So at the beginning of warm reboot SONIC
+    instructs SAI to disable MAC learning on all the ports.
+    When the warm reboot completes, SAI is communicated again for each port to enable
+    MAC learning. To ensure that this is properly handled by SAI, this test case
+    purposely generates new MAC learn events or MAC move events during warm reboot
+    and the expected results is to only see those MAC move events after warm reboot competed.
+    If for some reason SAI is not adhering to this requirement, any MAC learn events
+    generated during warm reboot will cause META checker failure resulting to Orchagent crash.
+    '''
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True)
     advancedReboot.runRebootTestcase()
 
 

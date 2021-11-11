@@ -71,7 +71,7 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
             duthost.no_shutdown(ifname=port)
 
 
-def get_state_times(timestamp, state, state_times):
+def get_state_times(timestamp, state, state_times, first_after_kexec=None):
     time = timestamp.strftime(FMT)
     state_name = state.split("|")[0].strip()
     state_status = state.split("|")[1].strip()
@@ -81,6 +81,9 @@ def get_state_times(timestamp, state, state_times):
         state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
         # capture last occcurence - useful in calculating events end time
         state_dict["last_occurence"] = time
+    elif first_after_kexec:
+        if datetime.strptime(first_after_kexec, FMT) < datetime.strptime(time, FMT):
+            timestamps[state_status] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
         # this is useful in capturing start point. Eg., first neighbor entry, LAG ready, etc.
@@ -189,7 +192,8 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                 timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
                 state_name = state.split("|")[0].strip()
                 if state_name + "|End" not in derived_patterns.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_kexec=reboot_time)
                     offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, service_restart_times)
@@ -230,11 +234,12 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
                 state_name = state.split("|")[0].strip()
+                reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
                 if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_kexec=reboot_time)
                     offset_from_kexec.update(state_times)
                 else:
-                    state_times = get_state_times(timestamp, state, sai_redis_state_times)
+                    state_times = get_state_times(timestamp, state, sai_redis_state_times, first_after_kexec=reboot_time)
                     sai_redis_state_times.update(state_times)
 
     for _, timings in sai_redis_state_times.items():
@@ -257,6 +262,33 @@ def get_data_plane_report(analyze_result, reboot_type):
     analyze_result.update(report)
 
 
+def verify_mac_jumping(test_name, timing_data):
+    mac_jumping_other_addr = timing_data.get("offset_from_kexec", {})\
+        .get("FDB_EVENT_OTHER_MAC_EXPIRY",{}).get("Start count", 0)
+    mac_jumping_scapy_addr = timing_data.get("offset_from_kexec", {})\
+        .get("FDB_EVENT_SCAPY_MAC_EXPIRY",{}).get("Start count", 0)
+    if "mac_jump" in test_name:
+        # MAC jumping allowed, but check for any unexpected MAC jumps
+        logging.info("MAC jumping is allowed. Jump count for expected mac: {}, unexpected MAC: {}"\
+            .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
+        if mac_jumping_other_addr:
+            mac_expiry_start = timing_data.get("offset_from_kexec", {}).get("FDB_EVENT_OTHER_MAC_EXPIRY",{})\
+                .get("timestamp", {}).get("Start")
+            finalizer_end = timing_data.get("time_span",{}).get("FINALIZER", {})\
+                .get("timestamp", {}).get("End")
+            logging.info("Mac expiry for other address started at {}".format(mac_expiry_start) +\
+                " and Warmboot finished at {}".format(finalizer_end))
+            mac_expiry_start = datetime.strptime(mac_expiry_start, FMT)
+            finalizer_end = datetime.strptime(finalizer_end, FMT)
+            if mac_expiry_start < finalizer_end:
+                pytest.fail("Mac expiry for unexpected address detected before warmboot completed")
+    else:
+        # MAC jumping not allowed
+        if mac_jumping_scapy_addr or mac_jumping_other_addr:
+            pytest.fail("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC"\
+                .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
+
+        
 @pytest.fixture()
 def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
@@ -270,7 +302,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
     duthost = duthosts[rand_one_dut_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "warm" in test_name or\
+        ("continuous" in test_name and request.config.getoption("--reboot_type") == "warm"):
         reboot_type = "warm"
     elif "fast" in test_name:
         reboot_type = "fast"
@@ -339,6 +372,9 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     with open(summary_file_path, 'w') as fp:
         json.dump(result_summary, fp, indent=4)
 
+    # After generating timing data report, do some checks on the timing data
+
+    verify_mac_jumping(test_name, analyze_result)
 
 @pytest.fixture()
 def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
