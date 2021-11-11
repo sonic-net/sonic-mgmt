@@ -8,7 +8,7 @@ from tests.common import port_toggle
 
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 
