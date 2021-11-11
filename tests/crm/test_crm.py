@@ -17,7 +17,7 @@ from tests.common.fixtures.duthost_utils import disable_fdb_aging
 
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
