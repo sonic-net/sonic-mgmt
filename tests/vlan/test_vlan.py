@@ -6,7 +6,6 @@ from ptf.mask import Mask
 
 import itertools
 import logging
-import ipaddress
 import pprint
 import time
 
