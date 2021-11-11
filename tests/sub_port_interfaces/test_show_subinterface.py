@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology('t0', 't1')
 ]
 
 
