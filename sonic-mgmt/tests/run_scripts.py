@@ -47,7 +47,6 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         ssh.close()
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,collect_logs=False,dut_address=None):
-#def run_scripts(dut_name,script_file,drop_version,log_dir,tstamp):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -76,8 +75,9 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
+    delta1 = datetime.datetime.now()
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+    cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
     os.system("bash -c '{}'".format(cmd))
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
@@ -100,12 +100,12 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
         cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-    
+
     if not int(passed):
         current_result_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
         current_result_file.flush()
-        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")  
-        
+        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+
 
     for tc in tcs:
         if '#' in tc:
@@ -131,7 +131,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
 
-        cmd = "./run_tests.sh -n {} -d {} -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | grep -i teardown  |sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
@@ -158,6 +158,14 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
     current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
+    delta2 = datetime.datetime.now()
+    print(delta2)
+    time_delta = (delta2 - delta1)
+    print(time_delta)
+    total_seconds = time_delta.total_seconds()
+    minutes = total_seconds/60
+
+    print("Total time : {} mins".format(minutes))
 
 def parse_results():
     total_passed = 0
