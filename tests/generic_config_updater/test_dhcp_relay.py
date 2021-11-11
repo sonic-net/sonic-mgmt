@@ -168,10 +168,10 @@ def ensure_dhcp_server_up(duthost):
     '''
     def _dhcp_server_up():
         cmds = 'docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay'
-        output = duthost.shell(cmds)['stdout']
+        output = duthost.shell(cmds)
         pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
-        return 'RUNNING' in output
+        return 'RUNNING' in output['stdout']
 
     pytest_assert(
         wait_until(DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0, _dhcp_server_up),
