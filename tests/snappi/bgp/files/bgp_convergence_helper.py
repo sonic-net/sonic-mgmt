@@ -229,6 +229,7 @@ def duthost_bgp_config(duthost,
         bgp_neighbors[tgen_ports[i]['ip']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[i]['peer_ip'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
 
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    logger.info(cdf)
     for neighbor, neighbor_info in bgp_neighbors.items():
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
 
@@ -651,8 +652,19 @@ def get_RIB_IN_capacity(cvg_api,
         config = conv_config.config
         for i in range(1, 3):
             config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+            c_lag = config.lags.lag(name="lag%d" % i)[-1]
+            lp = c_lag.ports.port(port_name='Test_Port_%d' % i)[-1]
+            lp.ethernet.name = 'lag_eth_%d' % i
+            if len(str(hex(i).split('0x')[1])) == 1:
+                m = '0'+hex(i).split('0x')[1]
+            else:
+                m = hex(i).split('0x')[1]
+            lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+            lp.ethernet.name = "lag_Ethernet %s" % i
+            lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)
-            config.devices[i-1].container_name = config.ports[i-1].name
+            config.devices[i-1].container_name = c_lag.name
+            #config.devices[i-1].container_name = config.ports[i-1].name
 
         config.options.port_options.location_preemption = True
         layer1 = config.layer1.layer1()[-1]
@@ -744,32 +756,33 @@ def get_RIB_IN_capacity(cvg_api,
         flow.metrics.loss = True
         return conv_config
 
-    for j in range(start_value, 100000000000, step_value):
-        logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(j))
-        conv_config = tgen_capacity(j)
-        cvg_api.set_config(conv_config)
 
-        """ Starting Traffic """
-        logger.info('Starting Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To start")
-        flow_stats = get_flow_stats(cvg_api)
-        logger.info('Loss% : {}'.format(flow_stats[0].loss))
-        logger.info('Stopping Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.STOP
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
-        if float(flow_stats[0].loss)>0.1:
-            if start_value == j:
-                max_routes = 'N/A'
-                raise Exception('FAIL:Max Routes: {}, Loss observed in start value itself, set the start value less than : {} !!!!!!!!!!!!'.format(max_routes,start_value))
-            else:
-                max_routes = j-step_value
-                logger.info('max_routes :{}'.format(max_routes))
-            break
+    try:
+        for j in range(start_value, 100000000000, step_value):
+            logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(j))
+            conv_config = tgen_capacity(j)
+            cvg_api.set_config(conv_config)
+
+            """ Starting Traffic """
+            logger.info('Starting Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.START
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To start")
+            flow_stats = get_flow_stats(cvg_api)
+            logger.info('Loss% : {}'.format(flow_stats[0].loss))
+            logger.info('Stopping Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To stop")
+    except:
+        if start_value == j:
+            max_routes = 'N/A'
+            raise Exception('FAIL:Max Routes: {}, unable to apply traffic, set the start value less than : {} !!!!!!!!!!!!'.format(max_routes,start_value))
+        else:
+            max_routes = j-step_value
+            logger.info('max_routes :{}'.format(max_routes))
     logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
 
 def cleanup_config(duthost):
