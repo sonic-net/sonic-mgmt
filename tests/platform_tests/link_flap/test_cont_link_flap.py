@@ -85,9 +85,10 @@ class TestContLinkFlap(object):
 
         config_facts = duthost.get_running_config_facts()
 
-        for portchannel in config_facts['PORTCHANNEL'].keys():
-            pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
-                          "Fail: dut interface {}: link operational down".format(portchannel))
+        if config_facts and 'PORTCHANNEL' in config_facts:
+            for portchannel in config_facts['PORTCHANNEL'].keys():
+                pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
+                              "Fail: dut interface {}: link operational down".format(portchannel))
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
