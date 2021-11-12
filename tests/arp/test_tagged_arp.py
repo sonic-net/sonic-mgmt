@@ -82,7 +82,6 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
     return pkt
 
 
-<<<<<<< HEAD
 @pytest.mark.bsl
 def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_hostname):
     """
@@ -142,5 +141,6 @@ def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_host
                 assert arp_cnt == DUMMY_ARP_COUNT
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
+
 
 

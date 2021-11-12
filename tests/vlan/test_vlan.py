@@ -115,29 +115,6 @@ def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_T
     duthost.shell_cmds(cmds=cmds)
 
 
-def check_portchannels_down(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
-    '''
-    After shutdown portchannels, check redis to make sure router interface is removed.
-    '''
-    cnt = 0
-    oid_list = []
-    # Get oid list for first 2 portchannels
-    for portchannel in portchannel_interfaces:
-        res = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_LAG_NAME_MAP {}".format(portchannel))
-        oid_list.append(res['stdout'])
-        cnt += 1
-        if cnt >= pc_num:
-            break
-    res = duthost.shell("sonic-db-cli ASIC_DB keys *ROUTER_INTERFACE*")
-    for line in res['stdout_lines']:
-        get_res = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_ROUTER_INTERFACE_ATTR_PORT_ID".format(line))
-        if 'oid' not in get_res['stdout']:
-            continue
-        if get_res['stdout'] in oid_list:
-            return False
-    return True
-
-
 def create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict):
     utils_create_test_vlans(duthost, cfg_facts, work_vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=True)
 
