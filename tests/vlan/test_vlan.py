@@ -17,6 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list
 from tests.common.fixtures.duthost_utils import utils_create_test_vlans
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig
+
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 
 logger = logging.getLogger(__name__)
