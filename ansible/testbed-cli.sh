@@ -14,6 +14,7 @@ function usage
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] announce-routes <testbed-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo
@@ -62,6 +63,7 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
@@ -468,6 +470,24 @@ function test_minigraph
   echo Done
 }
 
+function config_y_cable
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Config y-cable on testbed '$testbed_name'"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
+
+  echo Done
+}
+
 function config_vm
 {
   echo "Configure VM $2"
@@ -601,6 +621,8 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  config-y-cable) config_y_cable $@
                ;;
   cleanup-vmhost) cleanup_vmhost $@
                ;;
