@@ -201,8 +201,7 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                             break
                         first_after_offset = fdb_aging_disable_start
                     else:
-                        reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
-                        first_after_offset = reboot_time
+                        first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
                     state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=first_after_offset)
                     offset_from_kexec.update(state_times)
                 else:
