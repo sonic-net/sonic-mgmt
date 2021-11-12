@@ -14,7 +14,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
 pytestmark = [
     pytest.mark.topology('t0')
 ]
@@ -49,7 +49,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
     vlan_table = duthost.get_running_config_facts()['VLAN']
     vlan_name = list(vlan_table.keys())[0]
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
-    
+
     vxlan_decap = {
         "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
@@ -152,7 +152,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = duthosts[rand_one_dut_hostname]
 
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")

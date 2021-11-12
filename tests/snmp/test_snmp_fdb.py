@@ -4,7 +4,7 @@ import logging
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 from tests.common.utilities import wait_until
 from tests.common.helpers.snmp_helpers import get_snmp_facts
@@ -60,7 +60,7 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
 
 
 @pytest.mark.bsl
-def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor, duthost, localhost, creds_all_duts):
+def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m, duthost, localhost, creds_all_duts):
     """
     Send tagged packets from each port.
     Verify SNMP FDB entry

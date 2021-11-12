@@ -8,7 +8,6 @@ import ipaddress
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
 from tests.common.helpers.assertions import pytest_require
 
@@ -83,7 +82,7 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
 
 
 @pytest.mark.bsl
-def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_tagged_arp_pkt(ptfadapter, vlan_ports_list, duthosts, rand_one_dut_hostname):
     """
     Send tagged GARP packets from each port.
     Verify packets egress without tag from ports whose PVID same with ingress port.

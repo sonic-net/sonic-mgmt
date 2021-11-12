@@ -11,7 +11,7 @@ import pprint
 import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
@@ -347,7 +347,7 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
 
 
 @pytest.mark.bsl
-def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #1
     Verify packets egress without tag from ports whose PVID same with ingress port
@@ -375,7 +375,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_sim
 
 
 @pytest.mark.bsl
-def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #2
     Send tagged packets from each port.
@@ -395,7 +395,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simul
 
 
 @pytest.mark.bsl
-def test_vlan_tc3_send_invalid_vid(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc3_send_invalid_vid(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #3
     Send packets with invalid VLAN ID
@@ -420,7 +420,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, work_vlan_ports_list, toggle_all_
 
 
 @pytest.mark.bsl
-def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
@@ -461,7 +461,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_di
 
 
 @pytest.mark.bsl
-def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #5
     Send packets w/ src and dst specified over untagged ports in vlan
@@ -503,7 +503,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
 
 
 @pytest.mark.bsl
-def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #6
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
@@ -555,7 +555,7 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(test_vlan, dst_port, src_port))
 
 
-def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, duthost, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, duthost, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #7
     Send qinq packets w/ src and dst specified over tagged ports in vlan

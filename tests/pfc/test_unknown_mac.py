@@ -16,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.utilities import get_intf_by_sub_intf
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor):
+                toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
