@@ -234,6 +234,18 @@ def compare_network(src_ipprefix, dst_ipprefix):
 
 @pytest.fixture(scope="module")
 def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
+    '''A module level fixture to record duthost's original vlan info
+
+    Args:
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        tbinfo: A fixture to gather information about the testbed.
+
+    Returns:
+        VLAN info dict with original VLAN info
+        Example:
+            {1000: {'ip':'192.168.0.1/21', 'orig': True}}
+    '''
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
@@ -250,6 +262,21 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     return vlan_intfs_dict
 
 def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
+    '''Utilities function to add add_cnt of new VLAN
+
+    Args:
+        vlan_intfs_dict: Original VLAN info dict
+        add_cnt: number of new vlan to add
+
+    Returns:
+        VLAN info dict combined with original and new added VLAN info
+        Example:
+        {
+            1000: {'ip':'192.168.0.1/21', 'orig': True},
+            108: {'ip':'192.168.8.1/24', 'orig': False},
+            109: {'ip':'192.168.9.1/24', 'orig': False}
+        }
+    '''
     vlan_cnt = 0
     for i in xrange(0, 255):
         vid = 100 + i
@@ -269,6 +296,15 @@ def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
     return vlan_intfs_dict
 
 def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan):
+    '''Utilities function to create vlans for test
+
+    Args:
+        duthost: Device Under Test (DUT)
+        cfg_facts: config facts fot the duthost
+        vlan_ports_list: vlan ports info
+        vlan_intfs_dict: VLAN info dict with VLAN info
+        delete_untagged_vlan: check to delete unttaged vlan
+    '''
     cmds = []
     logger.info("Add vlans, assign IPs")
     for k, v in vlan_intfs_dict.items():

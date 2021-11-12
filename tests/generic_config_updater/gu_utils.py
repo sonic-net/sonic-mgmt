@@ -19,7 +19,6 @@ def apply_patch(duthost, json_data, dest_file):
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
-    # output = duthost.shell(cmds)
 
     return output
 
@@ -52,12 +51,20 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
 
 def expect_op_failure(output):
     logger.info("return code {}".format(output['rc']))
-    pytest_assert(output['rc'], "The command should fail with non zero return code")
+    pytest_assert(
+        output['rc'],
+        "The command should fail with non zero return code"
+    )
 
 def start_limit_hit(duthost, container_name):
     """If start-limit-hit is hit, the service will not start anyway.
     """
     service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
+    pytest_assert(
+        not service_status['rc'],
+        "{} service status cannot be found".format(container_name)
+    )
+
     for line in service_status["stdout_lines"]:
         if "start-limit-hit" in line:
             return True
@@ -68,11 +75,25 @@ def reset_start_limit_hit(duthost, container_name, threshold, interval, delay):
     """Reset container if hit start-limit-hit
     """
     logger.info("Reset container '{}' due to start-limit-hit".format(container_name))
-    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
+
+    service_reset_failed = duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
+    pytest_assert(
+        not service_reset_failed['rc'],
+        "{} systemctl reset-failed service fails"
+    )
+
+    service_start = duthost.shell("sudo systemctl start {}.service".format(container_name))
+    pytest_assert(
+        not service_start['rc'],
+        "{} systemctl start service fails"
+    )
+
     reset_container = wait_until(threshold,
                         interval,
                         delay,
                         duthost.is_service_fully_started,
                         container_name)
-    pytest_assert(reset_container, "Failed to reset container '{}' due to start-limit-hit".format(container_name))
+    pytest_assert(
+        reset_container,
+        "Failed to reset container '{}' due to start-limit-hit".format(container_name)
+    )
