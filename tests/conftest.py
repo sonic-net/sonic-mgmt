@@ -129,16 +129,6 @@ def pytest_addoption(parser):
     parser.addoption("--testnum", action="store", default=None, type=str)
 
     ############################
-    # platform sfp api options #
-    ############################
-    # Allow user to skip the absent sfp modules. User can use it like below:
-    # "--skip-absent-sfp=True"
-    # If this option is not specified, False will be used by default.
-    parser.addoption("--skip-absent-sfp", action="store", type=bool, default=False,
-        help="Skip test on absent SFP",
-    )
-
-    ############################
     # upgrade_path options     #
     ############################
     parser.addoption("--upgrade_type", default="warm",
@@ -488,7 +478,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
                 if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
                     fanout.add_port_map(encode_dut_port_name(
                        dut_host, mg_facts['minigraph_port_alias_to_name_map'][dut_port]), fanout_port)
- 
+
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
     except:
