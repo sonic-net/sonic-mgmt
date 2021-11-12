@@ -2,6 +2,7 @@
 """Generate the port config for the fanout device."""
 import os
 import re
+import shutil
 import tempfile
 import traceback
 import xml.dom.minidom as minidom
@@ -36,6 +37,7 @@ class PortConfigGenerator(object):
         re.compile(r"^etp(?P<port_index>\d+)(?P<lane>[a-d]?)"),
         re.compile(r"^Ethernet(?P<port_index>\d+)(/)?(?(2)(?P<lane>[1-4]+))")
     )
+    BCM_CONFIG_SUFFIX = ".config.bcm"
 
     def __init__(self, module):
         self.module = module
@@ -72,10 +74,34 @@ class PortConfigGenerator(object):
         raise ValueError("Invalid parse port alias format %s" % port_alias)
 
     def _create_sonic_sku(self, port_xml_file):
+        shutil.rmtree(os.path.join(self.HWSKU_DIR_PREFIX, self.fanout_hwsku), ignore_errors=True)
         cmd = "sonic_sku_create.py -f %s -k %s" % (port_xml_file, self.fanout_hwsku)
         ret_code, stdout, stderr = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
         if ret_code:
             raise RuntimeError("Failed to create new hwsku:\nstdout: %s\nstderr: %s\n" % (stdout, stderr))
+
+    def _use_flex_bcm_config(self):
+        """Use flex port bcm config for the newly-created hwsku."""
+
+        def _find_bcm_config(dirpath):
+            for item in os.listdir(dirpath):
+                if os.path.isfile(os.path.join(dirpath, item)) and item.endswith(PortConfigGenerator.BCM_CONFIG_SUFFIX):
+                    return os.path.join(self.HWSKU_DIR_PREFIX, item)
+            return None
+
+        flex_bcm_config = _find_bcm_config(self.HWSKU_DIR_PREFIX)
+        if not flex_bcm_config:
+            raise ValueError("No flex bcm config found under %s" % self.HWSKU_DIR_PREFIX)
+        new_hwsku_dir = os.path.join(self.HWSKU_DIR_PREFIX, self.fanout_hwsku)
+        dest_bcm_config = _find_bcm_config(new_hwsku_dir)
+        if dest_bcm_config:
+            # for SAI bcm config specified by sai.profile.j2, simply replace the
+            # content of the .config.bcm file under the new hwsku directory with
+            # the flex bcm config
+            shutil.copyfile(flex_bcm_config, dest_bcm_config)
+        else:
+            # TODO: Add support to replace SAI bcm config if config.bcm.j2 is used
+            raise RuntimeError("No bcm config found under %s" % new_hwsku_dir)
 
     @staticmethod
     def _read_from_port_config(filepath):
@@ -140,6 +166,9 @@ class PortConfigGenerator(object):
                 xml_file.write(self._prettify(xml_file_root))
                 xml_file.flush()
                 self._create_sonic_sku(xml_file.name)
+
+            if "broadcom" in self.fanout_asic_type:
+                self._use_flex_bcm_config()
 
         hwsku_port_config = self._read_from_port_config(os.path.join(self.HWSKU_DIR_PREFIX, self.fanout_hwsku, self.PORT_CONF_FILENAME))
 
