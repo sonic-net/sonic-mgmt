@@ -21,11 +21,11 @@
 # -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
 #                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
 # -e vm_file=veos            - the virtual machine file name
-# -e deploy=True             - if deploy the newly generated minigraph to the targent DUT, default is false if not defined
-# -e save=True               - if save the newly generated minigraph to the targent DUT as starup-config, default is false if not defined
+# -e deploy=True             - if deploy the newly generated minigraph to the target DUT, default is false if not defined
+# -e save=True               - if save the newly generated minigraph to the target DUT as startup-config, default is false if not defined
 #
 # After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
-# The playbook will based on deploy=True or False to deside if load the SONiC device with new minigraph or not.
+# The playbook will based on deploy=True or False to decide if load the SONiC device with new minigraph or not.
 # If deploy=true, the playbook will apply the newly generated minigraph to the SONiC switch
 # If save=true, the playbook will save the newly generated minigraph to SONiC switch as startup-config
 #
@@ -97,7 +97,7 @@
     delegate_to: localhost
     when: deploy is not defined or deploy|bool == false
 
-  - name: find and generate fabric ASIC infomation
+  - name: find and generate fabric ASIC information
     fabric_info:
       num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
       asics_host_basepfx: "{{ asics_host_ip | default(None) }}"
@@ -122,7 +122,7 @@
     when: hostvars[item]['voq_inband_ipv6'] is defined
     loop: "{{ ansible_play_batch }}"
 
-  - name: set all Loopback4096 information for iBGP chassis 
+  - name: set all Loopback4096 information for iBGP chassis
     set_fact:
       all_loopback4096: "{{ all_loopback4096 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ip']}) }}"
     when: hostvars[item]['loopback4096_ip'] is defined
@@ -166,6 +166,12 @@
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
+  - name: generate y_cable simulator driver
+    include_tasks: dualtor/config_simulated_y_cable.yml
+    vars:
+      restart_pmon: no
+    when: "'dualtor' in topo"
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -175,7 +181,7 @@
       VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
-  - name: gather testbed VM informations
+  - name: gather testbed VM information
     testbed_vm_info: base_vm={{ testbed_facts['vm_base'] }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }}
     delegate_to: localhost
     when: "(VM_topo | bool) and ('cable' not in topo)"
@@ -227,7 +233,7 @@
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
-    when: front_panel_asic_ifnames != [] 
+    when: front_panel_asic_ifnames != []
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -275,7 +281,7 @@
       set_fact:
         subject_server: "{{ telemetry_certs['subject_server'] }}"
       when: telemetry_certs['subject_server'] is defined
-    
+
     - name: read client subject
       set_fact:
         subject_client: "{{ telemetry_certs['subject_client'] }}"
@@ -290,7 +296,7 @@
         dsmsroot_key: "{{ dsmsroot_key_t }}"
         cert_subject: "{{ subject_server }}"
         root_subject: "{{ subject_client }}"
-    
+
     when: deploy is defined and deploy|bool == true
 
   - block:
@@ -330,7 +336,7 @@
     when: deploy is defined and deploy|bool == true
 
   - block:
-      - name: saved original minigraph file in SONiC DUT(ignore errors when file doesnot exist)
+      - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
