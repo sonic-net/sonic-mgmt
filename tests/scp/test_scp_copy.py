@@ -44,8 +44,12 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, cred
     output = ptfhost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
     orig_checksum = output.split()[0]
 
-    duthost.command("python3 perform_scp.py in {} /root/{} /home/admin {} {}"\
-        .format(ptf_ip, TEST_FILE_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
+    python_version = "python3"
+    p3_pexp_exists = duthost.command("python3 -c 'import pexpect'", module_ignore_errors=True)["rc"]
+    if p3_pexp_exists!=0:
+        python_version = "python"
+    duthost.command("{} perform_scp.py in {} /root/{} /home/admin {} {}"\
+        .format(python_version, ptf_ip, TEST_FILE_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate file was received
     res = duthost.command("ls -ltr ./{}".format(TEST_FILE_NAME), module_ignore_errors=True)["rc"]
@@ -62,8 +66,8 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, cred
             .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("python3 perform_scp.py out {} /home/admin/{} /root/{} {} {}"\
-            .format(ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
+    duthost.command("{} perform_scp.py out {} /home/admin/{} /root/{} {} {}"\
+            .format(python_version, ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate that the file copied is now present in the PTF
     res = ptfhost.command("ls -ltr ./{}".format(TEST_FILE_2_NAME), module_ignore_errors=True)["rc"]
