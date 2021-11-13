@@ -5,7 +5,7 @@ import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import ports_list, vlan_ports_list
+from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list
 from tests.common.utilities import wait_until
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
@@ -60,7 +60,7 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
 
 
 @pytest.mark.bsl
-def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m, duthost, localhost, creds_all_duts):
+def test_snmp_fdb_send_tagged(ptfadapter, utils_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m, duthost, localhost, creds_all_duts):
     """
     Send tagged packets from each port.
     Verify SNMP FDB entry
@@ -69,7 +69,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, vlan_ports_list, toggle_all_simulator_
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     send_cnt = 0
     send_portchannels_cnt = 0
-    for vlan_port in vlan_ports_list:
+    for vlan_port in utils_vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             dummy_mac = '{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, (port_index>>8)&0xFF, port_index&0xFF)
