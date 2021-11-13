@@ -2,6 +2,7 @@ import pytest
 import logging
 import itertools
 import collections
+import ipaddress
 
 from jinja2 import Template
 
@@ -159,7 +160,7 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
+def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
     Get configured VLAN ports
     """
@@ -225,3 +226,115 @@ def vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, 
             vlan_ports_list.append(vlan_port)
 
     return vlan_ports_list
+
+def compare_network(src_ipprefix, dst_ipprefix):
+    src_network = ipaddress.IPv4Interface(src_ipprefix).network
+    dst_network = ipaddress.IPv4Interface(dst_ipprefix).network
+    return src_network.overlaps(dst_network)
+
+@pytest.fixture(scope="module")
+def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
+    '''A module level fixture to record duthost's original vlan info
+
+    Args:
+        duthosts: All DUTs belong to the testbed.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        tbinfo: A fixture to gather information about the testbed.
+
+    Returns:
+        VLAN info dict with original VLAN info
+        Example:
+            {1000: {'ip':'192.168.0.1/21', 'orig': True}}
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    vlan_intfs_dict = {}
+    for k, v in cfg_facts['VLAN'].items():
+        vlanid = v['vlanid']
+        for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
+            if addr.find(':') == -1:
+                ip = addr
+                break
+        else:
+            continue
+        logger.info("Original VLAN {}, ip {}".format(vlanid, ip))
+        vlan_intfs_dict[int(vlanid)] = {'ip': ip, 'orig': True}
+    return vlan_intfs_dict
+
+def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
+    '''Utilities function to add add_cnt of new VLAN
+
+    Args:
+        vlan_intfs_dict: Original VLAN info dict
+        add_cnt: number of new vlan to add
+
+    Returns:
+        VLAN info dict combined with original and new added VLAN info
+        Example:
+        {
+            1000: {'ip':'192.168.0.1/21', 'orig': True},
+            108: {'ip':'192.168.8.1/24', 'orig': False},
+            109: {'ip':'192.168.9.1/24', 'orig': False}
+        }
+    '''
+    vlan_cnt = 0
+    for i in xrange(0, 255):
+        vid = 100 + i
+        if vid in vlan_intfs_dict:
+            continue
+        ip = u'192.168.{}.1/24'.format(i)
+        for v in vlan_intfs_dict.values():
+            if compare_network(ip, v['ip']):
+                break
+        else:
+            logger.info("Add VLAN {}, ip {}".format(vid, ip))
+            vlan_intfs_dict[vid] = {'ip': ip, 'orig': False}
+            vlan_cnt += 1
+        if vlan_cnt >= add_cnt:
+            break
+    assert vlan_cnt == add_cnt
+    return vlan_intfs_dict
+
+def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan):
+    '''Utilities function to create vlans for test
+
+    Args:
+        duthost: Device Under Test (DUT)
+        cfg_facts: config facts fot the duthost
+        vlan_ports_list: vlan ports info
+        vlan_intfs_dict: VLAN info dict with VLAN info
+        delete_untagged_vlan: check to delete unttaged vlan
+    '''
+    cmds = []
+    logger.info("Add vlans, assign IPs")
+    for k, v in vlan_intfs_dict.items():
+        if v['orig'] == True:
+            continue
+        cmds.append('config vlan add {}'.format(k))
+        cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
+
+    # Delete untagged vlans from interfaces to avoid error message
+    # when adding untagged vlan to interface that already have one
+    if delete_untagged_vlan and '201911' not in duthost.os_version:
+        logger.info("Delete untagged vlans from interfaces")
+        for vlan_port in vlan_ports_list:
+            vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+            vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
+            try:
+                if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
+                    cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
+            except KeyError:
+                continue
+
+    logger.info("Add members to Vlans")
+    for vlan_port in vlan_ports_list:
+        for permit_vlanid in vlan_port['permit_vlanid']:
+            if vlan_intfs_dict[int(permit_vlanid)]['orig'] == True:
+                continue
+            cmds.append('config vlan member add {tagged} {id} {port}'.format(
+                tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
+                id=permit_vlanid,
+                port=vlan_port['dev']
+            ))
+    logger.info("Commands: {}".format(cmds))
+    duthost.shell_cmds(cmds=cmds)
