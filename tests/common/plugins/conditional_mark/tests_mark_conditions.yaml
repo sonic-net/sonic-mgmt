@@ -1,7 +1,6 @@
 cacl/test_cacl_application.py::test_cacl_application:
   xfail:
     reason: "Image issue on Boradcom dualtor testbeds"
-    strict: True
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
