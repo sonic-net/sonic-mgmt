@@ -589,9 +589,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] == "cisco-8000":
-            pytest.skip("PgShared Watermark not supported for cisco asic types")
-        
 	portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if pgProfile in dutQosConfig["param"][portSpeedCableLength].keys():
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
@@ -652,9 +649,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] == "cisco-8000":
-            pytest.skip("PgHeadroom Watermark not supported for cisco asic types")
-	
 	portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
