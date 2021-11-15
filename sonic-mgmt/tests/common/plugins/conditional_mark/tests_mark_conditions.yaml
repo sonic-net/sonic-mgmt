@@ -67,3 +67,27 @@ ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
