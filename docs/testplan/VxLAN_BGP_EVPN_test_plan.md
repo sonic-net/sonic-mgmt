@@ -51,7 +51,7 @@ The tests will use Single DUT Topology defined under Keysight Testbed section in
 ## Topology
 ### SONiC switch as Leaf
 
-![SONiC DUT as Leaf ](Img/Leaf_Spine_Topology.png)
+![SONiC DUT as Leaf ](Img/BGP_EVPN_Topology.png)
 
 ## Setup configuration
 IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will be used as the control plane protocol for overlay network. 
