@@ -12,6 +12,7 @@ from natsort import natsorted
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.dualtor.dual_tor_utils import increase_linkmgrd_probe_interval
 
 logger = logging.getLogger(__name__)
 
@@ -191,14 +192,18 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
     yield "/root/{}".format(portMapFile.split('/')[-1])
 
 
-@pytest.fixture(scope="session", autouse=True)
-def run_icmp_responder(duthost, ptfhost, tbinfo):
+@pytest.fixture(scope="module", autouse=True)
+def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is avaliable on non-t0 testbed, so skip this fixture 
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
         yield
         return
+
+    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+
+    duthost = duthosts[rand_one_dut_hostname]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
