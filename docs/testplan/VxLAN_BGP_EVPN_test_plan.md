@@ -72,14 +72,14 @@ IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will b
 Verify that switch supports 512 remote VTEPs.
 
 <p float="left">
-  <img src="Img/BGP_EVPN_VxLAN.png"  width="1000"  hspace="50"/>
+  <img src="Img/Max_VTEP.png"  width="1000"  hspace="50"/>
 </p>
 
 
 #### Test steps
+* Conifgure Maximum number of vteps supported and divide across n number of spines. In this test case we are are using sample as 3 spines.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure IBGP as overlay protocol for remote mac learning.
-* Configure 512 remote VTEPs.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
@@ -98,14 +98,15 @@ Verify that switch supports 512 remote VTEPs.
   Verify that switch supports total 4K L2 VNI's.
 
 <p float="left">
-  <img src="Img/BGP_EVPN_VxLAN.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2_VNI_Per_Switch.png" width="1000"  hspace="50"/>
 </p>
 
 
 #### Test steps
+* Configure maximum supported L2VNI per switch. In this case, we are distributing the max supported L2VNI across 10 vteps for each spine.
+* Configure 133 MAC-VRFs per vtep.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure IBGP as overlay protocol for remote mac learning.
-* Configure total 4K L2 VNIs per switch.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
@@ -123,14 +124,14 @@ Verify that switch supports 512 remote VTEPs.
 Verify that switch supports total 4K L2 VNI's per tunnel.
 
 <p float="left">
-  <img src="Img/BGP_EVPN_VxLAN.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2_VNI_Per_Tunnel.png" width="1000"  hspace="50"/>
 </p>
 
 
 #### Test steps
+* Configure 4K L2VNI per tunnel. Configure 4K MAC-VRF behind vtep. Simulate same vtep behind all spines.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure IBGP as overlay protocol for remote mac learning.
-* Configure total 4K L2 VNIs per tunnel.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
@@ -148,14 +149,14 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 Verify that swich supports upto 512 VRF instances.
 
 <p float="left">
-  <img src="Img/BGP_EVPN_VxLAN.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_VRF.png" width="1000"  hspace="50"/>
 </p>
 
 
 #### Test steps
+* Configure 512 VTEPs on each spine having 1 L3VNI(VRF). Advertise same 512 VTEPs behind each spine. So, overall 512 VRF per switch.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure IBGP as overlay protocol for remote mac learning.
-* Configure 512 VRF instances per switch.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
@@ -170,15 +171,16 @@ Verify that swich supports upto 512 VRF instances.
 Verify that swich supports host mobility and learns the informtion through new VTEP.
 
 <p float="left">
-  <img src="Img/BGP_EVPN_VxLAN.png" width="1000"  hspace="50"/>
+  <img src="Img/Host_Mobility.png" width="1000"  hspace="50"/>
 </p>
 
 
 #### Test steps
-* Configure EBGP/IBGP as underlay protocol.
+* Configure one VTEP behind each spine. 
+* onfigure EBGP/IBGP as underlay protocol.
 * Configure IBGP as overlay protocol for remote mac learning.
-* Move host from one VTEP to another and see that it learns the new information that it has been moved.
 * Start all protocols.
+* Move host from one VTEP1 to VTEP2 and see that it learns the new information that it has been moved.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
