@@ -55,8 +55,7 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32',
-        'cisco-8000'
+        'Arista-7050CX3-32S-C32'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -590,8 +589,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams["basicParams"]["sonic_asic_type"] == "cisco-8000":
+            pytest.skip("PgShared Watermark not supported for cisco asic types")
+        
+	portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if pgProfile in dutQosConfig["param"][portSpeedCableLength].keys():
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
@@ -651,7 +652,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams["basicParams"]["sonic_asic_type"] == "cisco-8000":
+            pytest.skip("PgHeadroom Watermark not supported for cisco asic types")
+	
+	portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
