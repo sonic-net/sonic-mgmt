@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
+import re
+import sys
+import time
 import subprocess
-import logging
-import traceback
-
+from pprint import pprint
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
@@ -27,43 +28,34 @@ DOCUMENTATION = '''
 '''
 
 CMD_DEBUG_FNAME = '/tmp/vlan_port.cmds.txt'
-
-
-logging.basicConfig(
-    filename=CMD_DEBUG_FNAME,
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)-8s %(message)s"
-)
-
+EXCEPTION_DEBUG_FNAME = '/tmp/vlan_port.exception.txt'
 
 class VlanPort(object):
     def __init__(self, external_port, vlan_ids):
         self.external_port = external_port
         self.vlan_ids = vlan_ids
+        self.host_ifaces = VlanPort.ifconfig('ifconfig -a')
 
         return
 
     def up_external_port(self):
-        if VlanPort.iface_exists(self.external_port):
+        if self.external_port in self.host_ifaces:
             VlanPort.iface_up(self.external_port)
 
         return
 
     def create_vlan_port(self, port, vlan_id):
         vlan_port = "%s.%d" % (port, vlan_id)
-        VlanPort.log_show_vlan_intf(port, vlan_id)
-        try:
-            self.destroy_vlan_port(vlan_port)
-        except Exception:
-            pass
+        if vlan_port not in self.host_ifaces:
+            VlanPort.cmd('vconfig rem %s' % vlan_port, True)
+            VlanPort.cmd('vconfig add %s %d' % (port, vlan_id))
 
-        VlanPort.cmd('vconfig add %s %d' % (port, vlan_id))
         VlanPort.iface_up(vlan_port)
 
         return
 
     def destroy_vlan_port(self, vlan_port):
-        if VlanPort.iface_exists(vlan_port):
+        if vlan_port in self.host_ifaces:
             VlanPort.iface_down(vlan_port)
             VlanPort.cmd('vconfig rem %s' % vlan_port)
 
@@ -103,21 +95,6 @@ class VlanPort(object):
         return VlanPort.iface_updown(iface_name, 'down', pid)
 
     @staticmethod
-    def iface_exists(iface_name):
-        iface = VlanPort.ifconfig("ifconfig -a %s" % iface_name)
-        return bool(iface)
-
-    @staticmethod
-    def log_show_vlan_intf(port, vlan_id):
-        cmdline = "cat /proc/net/vlan/config | grep %s" % vlan_id
-        out = VlanPort.cmd(cmdline, ignore_error=True)
-        if out:
-            vlan_intf, vlan_id, port = out.strip().split("|")
-            logging.debug("Port %s has vlan interface %s with vlan id %s" % (port, vlan_intf, vlan_id))
-        else:
-            logging.debug("Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
-
-    @staticmethod
     def iface_updown(iface_name, state, pid):
         if pid is None:
             return VlanPort.cmd('ip link set %s %s' % (iface_name, state))
@@ -126,18 +103,21 @@ class VlanPort(object):
 
     @staticmethod
     def cmd(cmdline, ignore_error=False):
-        logging.debug("CMD: %s", cmdline)
-        process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        with open(CMD_DEBUG_FNAME, 'a') as fp:
+            pprint("CMD: %s" % cmdline, fp)
+        cmd = cmdline.split(' ')
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         ret_code = process.returncode
 
         if ret_code != 0 and not ignore_error:
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
 
-        if ret_code == 0:
-            logging.info("OUTPUT: %s", stdout)
-        else:
-            logging.error("ERR: %s", stderr)
+        with open(CMD_DEBUG_FNAME, 'a') as fp:
+            if ret_code == 0:
+                pprint("OUTPUT: %s" % stdout, fp)
+            else:
+                pprint("ERR: %s" % stderr, fp)
 
         return stdout.decode('utf-8')
 
@@ -150,9 +130,6 @@ def main():
         vlan_ids=dict(required=True, type='dict'),
     ))
 
-    # log separator
-    logging.info("--------------------------------------------------------------------")
-
     cmd = module.params['cmd']
     external_port = module.params['external_port']
     vlan_ids = module.params['vlan_ids']
@@ -160,20 +137,19 @@ def main():
     fp_ports = {}
 
     vp = VlanPort(external_port, vlan_ids)
-    try:
-        vp.up_external_port()
-        if cmd == "create":
-            vp.create_vlan_ports()
-        elif cmd == "remove":
-            vp.remove_vlan_ports()
 
-        fp_port_templ = external_port + ".%s"
-        for a_port_index, vid in vlan_ids.items():
-            fp_ports[a_port_index] = fp_port_templ % vid
+    vp.up_external_port()
+    if cmd == "create":
+        vp.create_vlan_ports()
+    elif cmd == "remove":
+        vp.remove_vlan_ports()
 
-        module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
-    except Exception as detail:
-        module.fail_json(msg="ERROR: %s, TRACEBACK: %s" % (repr(detail), traceback.format_exc()))
+    fp_port_templ = external_port + ".%s"
+    for a_port_index, vid in vlan_ids.items():
+        fp_ports[a_port_index] = fp_port_templ % vid
+
+    module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
+
 
 if __name__ == "__main__":
     main()
