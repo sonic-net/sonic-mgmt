@@ -136,7 +136,7 @@ def detect_asic_table_keys(duthost):
     global MAC_PHY_DELAY
     global ASIC_TABLE_KEYS_LOADED
 
-    CELL_SIZE, PIPELINE_LATENCY, PIPELINE_LATENCY = get_asic_table_data_from_db(duthost)
+    CELL_SIZE, PIPELINE_LATENCY, MAC_PHY_DELAY = get_asic_table_data_from_db(duthost)
 
     ASIC_TABLE_KEYS_LOADED = True
 
@@ -2032,11 +2032,11 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     if port_speed in pause_quanta_per_speed_dict.keys():
         pause_quanta = pause_quanta_per_speed_dict[port_speed]
     else:
-        use_default_peer_response_time = True
         # Get default peer response time from State DB
         # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-3" "peer_response_time"
         peer_response_time_keys = duthost.shell('redis-cli -n 6 keys ASIC_TABLE*')['stdout']
         peer_response_time = float(duthost.shell('redis-cli -n 6 hget "{}" "peer_response_time"'.format(peer_response_time_keys))['stdout'])
+        use_default_peer_response_time = True
 
     # Get port mtu from config DB
     # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'mtu'
@@ -2072,7 +2072,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     is_8lane = port_lanes and len(port_lanes.split(',')) == 8
 
     if not ASIC_TABLE_KEYS_LOADED:
-        CELL_SIZE, PIPELINE_LATENCY, PIPELINE_LATENCY = get_asic_table_data_from_db(duthost)
+        CELL_SIZE, PIPELINE_LATENCY, MAC_PHY_DELAY = get_asic_table_data_from_db(duthost)
 
     if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
         LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE = get_lossless_traffic_pattern_data_from_db(duthost)
