@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class DualTorIO:
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, tor_vlan_port=None, send_interval=None):
+                io_ready, tor_vlan_port=None, send_interval=0.01):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -91,6 +91,7 @@ class DualTorIO:
         else:
             self.send_interval = send_interval
         # How many packets to be sent by sender thread
+        logger.info("Using send interval {}".format(self.send_interval))
         self.packets_to_send = min(int(self.time_to_listen /
             (self.send_interval + 0.0015)), 45000)
         self.packets_sent_per_server = dict()

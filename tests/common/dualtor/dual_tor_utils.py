@@ -1084,3 +1084,21 @@ def remove_static_routes(standby_tor, active_tor_loopback_ip):
     """
     logger.info("Removing dual ToR peer switch static route")
     standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
+
+
+def increase_linkmgrd_probe_interval(duthosts, tbinfo):
+    '''
+    Increase the interval at which linkmgrd sends ICMP heartbeats to the server/PTF
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    probe_interval_ms = 1000
+
+    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
+
+    cmds = []
+    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
+                    .format(probe_interval_ms))
+    cmds.append("config save -y")
+    duthosts.shell_cmds(cmds=cmds)
