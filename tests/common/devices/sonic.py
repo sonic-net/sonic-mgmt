@@ -762,7 +762,7 @@ class SonicHost(AnsibleHostBase):
         start_time = self.get_service_props("networking", props=["ExecMainStartTimestamp",])
         try:
             return self.get_now_time() - datetime.strptime(start_time["ExecMainStartTimestamp"],
-                                                           "%a %Y-%m-%d %H:%M:%S UTC")
+                                                           "%a %Y-%m-%d %H:%M:%S %Z")
         except Exception as e:
             logging.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
