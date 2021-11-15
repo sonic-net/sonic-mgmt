@@ -104,11 +104,17 @@ class TestContLinkFlap(object):
                 nbrhost = nbrhosts[k]['host']
                 if isinstance(nbrhost, EosHost):
                     res = nbrhost.eos_command(commands=['show ip bgp sum'])
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.eos_command(commands=['show ipv6 bgp sum'])
+                    failmsg.append(res['stdout'])
                 elif isinstance(nbrhost, SonicHost):
                     res = nbrhost.command('vtysh -c "show ip bgp sum"')
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.command('vtysh -c "show ipv6 bgp sum"')
+                    failmsg.append(res['stdout'])
                 else:
-                    res = ""
-                failmsg.append(res['stdout'])
+                    pass
+
             pytest.fail(str(failmsg))
 
         # Record memory status at end
