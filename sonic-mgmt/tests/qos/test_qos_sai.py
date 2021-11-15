@@ -589,6 +589,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+	
 	portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if pgProfile in dutQosConfig["param"][portSpeedCableLength].keys():
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
