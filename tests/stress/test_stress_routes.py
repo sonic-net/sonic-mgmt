@@ -51,7 +51,7 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-    while loop_times >= 0:
+    while loop_times > 0:
         announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
