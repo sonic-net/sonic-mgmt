@@ -81,7 +81,7 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
             duthost.no_shutdown(ifname=port)
 
 
-def get_state_times(timestamp, state, state_times):
+def get_state_times(timestamp, state, state_times, first_after_offset=None):
     time = timestamp.strftime(FMT)
     state_name = state.split("|")[0].strip()
     state_status = state.split("|")[1].strip()
@@ -91,6 +91,11 @@ def get_state_times(timestamp, state, state_times):
         state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
         # capture last occcurence - useful in calculating events end time
         state_dict["last_occurence"] = time
+    elif first_after_offset:
+        # capture the first occurence as the one after offset timestamp and ignore the ones before
+        # this is useful to find time after a specific instance, for eg. - kexec time or FDB disable time.
+        if datetime.strptime(first_after_offset, FMT) < datetime.strptime(time, FMT):
+            timestamps[state_status] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
         # this is useful in capturing start point. Eg., first neighbor entry, LAG ready, etc.
@@ -202,13 +207,20 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                 timestamp = _parse_timestamp(re.split(delim, message)[0].strip())
                 state_name = state.split("|")[0].strip()
                 if state_name + "|End" not in derived_patterns.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    if "FDB_EVENT_OTHER_MAC_EXPIRY" in state_name or "FDB_EVENT_SCAPY_MAC_EXPIRY" in state_name:
+                        fdb_aging_disable_start = service_restart_times.get("FDB_AGING_DISABLE", {})\
+                            .get("timestamp", {}).get("Start")
+                        if not fdb_aging_disable_start:
+                            break
+                        first_after_offset = fdb_aging_disable_start
+                    else:
+                        first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=first_after_offset)
                     offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
                 break
-
     # Calculate time that services took to stop/start
     for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
@@ -243,11 +255,12 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
                 state_name = state.split("|")[0].strip()
+                reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
                 if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec)
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=reboot_time)
                     offset_from_kexec.update(state_times)
                 else:
-                    state_times = get_state_times(timestamp, state, sai_redis_state_times)
+                    state_times = get_state_times(timestamp, state, sai_redis_state_times, first_after_offset=reboot_time)
                     sai_redis_state_times.update(state_times)
 
     for _, timings in sai_redis_state_times.items():
@@ -268,6 +281,40 @@ def get_data_plane_report(analyze_result, reboot_type):
         with open(filepath) as json_file:
             report = json.load(json_file)
     analyze_result.update(report)
+
+
+def verify_mac_jumping(test_name, timing_data):
+    mac_jumping_other_addr = timing_data.get("offset_from_kexec", {})\
+        .get("FDB_EVENT_OTHER_MAC_EXPIRY",{}).get("Start count", 0)
+    mac_jumping_scapy_addr = timing_data.get("offset_from_kexec", {})\
+        .get("FDB_EVENT_SCAPY_MAC_EXPIRY",{}).get("Start count", 0)
+    mac_expiry_start = timing_data.get("offset_from_kexec", {}).get("FDB_EVENT_OTHER_MAC_EXPIRY",{})\
+        .get("timestamp", {}).get("Start")
+    fdb_aging_disable_start = timing_data.get("time_span", {}).get("FDB_AGING_DISABLE",{})\
+        .get("timestamp", {}).get("Start")
+    fdb_aging_disable_end = timing_data.get("time_span", {}).get("FDB_AGING_DISABLE",{})\
+        .get("timestamp", {}).get("End")
+
+    if "mac_jump" in test_name:
+        # MAC jumping allowed - allow Scapy default MAC to jump
+        logging.info("MAC jumping is allowed. Jump count for expected mac: {}, unexpected MAC: {}"\
+            .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
+        if not mac_jumping_scapy_addr:
+            pytest.fail("MAC jumping not detected when expected for address: 00-06-07-08-09-0A")
+    else:
+        # MAC jumping not allowed - do not allow the SCAPY default MAC to jump
+        if mac_jumping_scapy_addr:
+            pytest.fail("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC: {}"\
+                .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
+    if mac_jumping_other_addr:
+        # In both mac jump allowed and denied cases unexpected MAC addresses should NOT jump between
+        # the window that starts when SAI is instructed to disable MAC learning (warmboot shutdown path)
+        # and ends when SAI is instructed to enable MAC learning (warmboot recovery path)
+        logging.info("Mac expiry for unexpected addresses started at {}".format(mac_expiry_start) +\
+            " and FDB learning enabled at {}".format(fdb_aging_disable_end))
+        if datetime.strptime(mac_expiry_start, FMT) > datetime.strptime(fdb_aging_disable_start, FMT) and\
+            datetime.strptime(mac_expiry_start, FMT) < datetime.strptime(fdb_aging_disable_end, FMT):
+            pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
 
 @pytest.fixture()
@@ -352,6 +399,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     with open(summary_file_path, 'w') as fp:
         json.dump(result_summary, fp, indent=4)
 
+    # After generating timing data report, do some checks on the timing data
+    verify_mac_jumping(test_name, analyze_result)
 
 @pytest.fixture()
 def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
