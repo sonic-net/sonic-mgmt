@@ -151,6 +151,7 @@ class ReloadTest(BaseTest):
         self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
         self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required=False)
+        self.check_param('allow_mac_jumping', False, required=False)
         self.check_param('sniff_time_incr', 300, required=False)
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
@@ -740,6 +741,9 @@ class ReloadTest(BaseTest):
                                         ip_src=dut_lo_ipv4,
                                         icmp_type='echo-reply')
 
+        self.ping_dut_macjump_packet = simple_icmp_packet(eth_dst=self.dut_mac,
+                                    ip_src=self.from_server_src_addr,
+                                    ip_dst=dut_lo_ipv4)
 
         self.ping_dut_exp_packet  = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -1832,9 +1836,13 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def pingDut(self):
-        for i in xrange(self.ping_dut_pkts):
-            src_port, packet = random.choice(self.ping_dut_packets)
-            testutils.send_packet(self, src_port, packet)
+        if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
+            for i in xrange(self.ping_dut_pkts):
+                testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
+        else:
+            for i in xrange(self.ping_dut_pkts):
+                src_port, packet = random.choice(self.ping_dut_packets)
+                testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
