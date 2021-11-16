@@ -118,7 +118,7 @@ class DBChecker:
                 if db_dump[table_key]['value'][field] != target_value:
                     mismatch_ports[table_key] = db_dump[table_key]['value']
 
-        self.mismtach_ports = mismatch_ports
+        self.mismatch_ports = mismatch_ports
 
         return not bool(mismatch_ports)
 
