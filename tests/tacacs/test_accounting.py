@@ -2,79 +2,103 @@ import crypt
 import paramiko
 import pytest
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, check_ssh_output, remote_user_client
-from .test_ro_user import ssh_remote_run
+from .test_authorization import ssh_connect_remote, ssh_run_command
 from tests.common.helpers.assertions import pytest_assert
 from .utils import stop_tacacs_server, start_tacacs_server
+from tests.common.errors import RunAnsibleModuleFail
+
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
 
 logger = logging.getLogger(__name__)
 
-def cleanup_tacacs_server_log(ptfhost):
-    res = ptfhost.command('> /var/log/tac_plus.acct')
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail as e:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    res = ptfhost.command('touch /var/log/tac_plus.acct')
     logger.info(res["stdout_lines"])
 
-def check_tacacs_server_log_exist(ptfhost, creds_all_duts, command):
-    username = creds_all_duts[duthost]['tacacs_authorization_user']
-    # check if tacacs accounting log contain user commands
-    sed_command = "sudo sed -nE '/user: {0},.*command: \{1},/P' /var/log/tac_plus.acct".format(username, command)
-    logger.info(res["stdout_lines"])
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
-def check_tacacs_server_no_other_user_log(ptfhost, creds_all_duts):
-    username = creds_all_duts[duthost]['tacacs_authorization_user']
-    # check if tacacs accounting log contain user commands
-    sed_command = "sudo sed -E '/user: {0},/D' /var/log/tac_plus.acct".format(username)
+def check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, command):
+    username = creds_all_duts[duthost]['tacacs_rw_user']
+    sed_command = "sed -nE '/	{0}	.*	cmd=.*{1}/P' /var/log/tac_plus.acct".format(username, command)
+    res = ptfhost.command(sed_command)
+    logger.info(sed_command)
     logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) > 0)
 
-def check_local_log_exist(remote_user_client, creds_all_duts, command):
-    username = creds_all_duts[duthost]['tacacs_authorization_user']
-    # check if tacacs accounting log contain user commands
-    sed_command = "sudo sed -nE '/user: {0},.*command: \{1},/P' /var/log/syslog".format(username, command)
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, sed_command)
+def check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts):
+    username = creds_all_duts[duthost]['tacacs_rw_user']
+    sed_command = "sed -nE '/	{0}	/D;/.*/P' /var/log/tac_plus.acct".format(username)
+    res = ptfhost.command(sed_command)
+    logger.info(sed_command)
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) == 0)
+
+def check_local_log_exist(rw_user_client, duthost, creds_all_duts, command):
+    username = creds_all_duts[duthost]['tacacs_rw_user']
+    sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},.*, command: .*{1},/P' /var/log/syslog".format(username, command)
+    exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)
+    logger.info(sed_command)
     logger.info(stdout)
+    pytest_assert(len(stdout) > 0)
 
-def check_local_no_other_user_log(remote_user_client, creds_all_duts):
-    username = creds_all_duts[duthost]['tacacs_authorization_user']
-    # check if tacacs accounting log contain user commands
-    sed_command = "sudo sed -E '/user: {0},/D' /var/log/syslog".format(username)
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, sed_command)
+def check_local_no_other_user_log(rw_user_client, duthost, creds_all_duts):
+    username = creds_all_duts[duthost]['tacacs_rw_user']
+    sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P' /var/log/syslog".format(username)
+    exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)
+    logger.info(sed_command)
     logger.info(stdout)
+    pytest_assert(len(stdout) == 0)
 
-def test_accounting_tacacs_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
+@pytest.fixture
+def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_rw_user'],
+                         creds_all_duts[duthost]['tacacs_rw_user_passwd'])
+    yield ssh_client
+    ssh_client.close()
+
+def test_accounting_tacacs_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting tacacs+")
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     # Verify TACACS+ server side have user command record.
-    check_tacacs_server_log_exist(ptfhost, creds_all_duts, "show")
+    check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, "grep")
     # Verify TACACS+ server side not have any command record which not run by user.
-    check_tacacs_server_no_other_user_log(ptfhost, creds_all_duts)
+    check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts)
 
 
-def test_accounting_tacacs_only_all_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
+def test_accounting_tacacs_only_all_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting tacacs+")
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
     """
         when user login server are accessible.
         user run some command in whitelist and server are accessible.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     # Verify TACACS+ server side have user command record.
-    check_tacacs_server_log_exist(ptfhost, creds_all_duts, "show")
+    check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, "grep")
     # Verify TACACS+ server side not have any command record which not run by user.
-    check_tacacs_server_no_other_user_log(ptfhost, creds_all_duts)
+    check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts)
 
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
@@ -83,14 +107,12 @@ def test_accounting_tacacs_only_all_tacacs_server_down(localhost, ptfhost, dutho
         then all server not accessible, and run some command
         Verify local user still can run command without any issue.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
 
-def test_accounting_tacacs_only_some_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
+def test_accounting_tacacs_only_some_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     """
         Setup multiple tacacs server for this UT.
         Tacacs server 127.0.0.1 not accessible.
@@ -106,44 +128,48 @@ def test_accounting_tacacs_only_some_tacacs_server_down(localhost, ptfhost, duth
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config aaa accounting tacacs+")
 
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     # Verify TACACS+ server side have user command record.
-    check_tacacs_server_log_exist(ptfhost, creds_all_duts, "show")
+    check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, "grep")
     # Verify TACACS+ server side not have any command record which not run by user.
-    check_tacacs_server_no_other_user_log(ptfhost, creds_all_duts)
-
-    cleanup_tacacs_server_log(ptfhost)
+    check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts)
 
     # Cleanup
     duthost.shell("sudo config tacacs delete %s" % invalid_tacacs_server_ip)
 
-def test_accounting_tacacs_and_local(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
+def test_accounting_local_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config aaa accounting local")
+    cleanup_tacacs_log(ptfhost, rw_user_client)
+
+    ssh_run_command(rw_user_client, "grep")
+
+    # Verify syslog have user command record.
+    check_local_log_exist(rw_user_client, duthost, creds_all_duts, "grep")
+    # Verify syslog not have any command record which not run by user.
+    check_local_no_other_user_log(rw_user_client, duthost, creds_all_duts)
+
+def test_accounting_tacacs_and_local(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell('sudo config aaa accounting "tacacs+ local"')
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     # Verify TACACS+ server and syslog have user command record.
-    check_tacacs_server_log_exist(ptfhost, creds_all_duts, "show")
-    check_local_log_exist(remote_user_client, creds_all_duts, "show")
+    check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, "grep")
+    check_local_log_exist(rw_user_client, duthost, creds_all_duts, "grep")
     # Verify TACACS+ server and syslog not have any command record which not run by user.
-    check_tacacs_server_no_other_user_log(ptfhost, creds_all_duts)
-    check_local_no_other_user_log(remote_user_client, creds_all_duts)
+    check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts)
+    check_local_no_other_user_log(rw_user_client, duthost, creds_all_duts)
 
-    cleanup_tacacs_server_log(ptfhost)
-
-def test_accounting_tacacs_and_local_all_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
+def test_accounting_tacacs_and_local_all_tacacs_server_down(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell('sudo config aaa accounting "tacacs+ local"')
-    cleanup_tacacs_server_log(ptfhost)
+    cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
     stop_tacacs_server(ptfhost)
@@ -152,28 +178,12 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(localhost, ptfhost, 
         After all server not accessible, run some command
         Verify local user still can run command without any issue.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    ssh_run_command(rw_user_client, "grep")
 
     # Verify syslog have user command record.
-    check_local_log_exist(remote_user_client, creds_all_duts, "show")
+    check_local_log_exist(rw_user_client, duthost, creds_all_duts, "grep")
     # Verify syslog not have any command record which not run by user.
-    check_local_no_other_user_log(remote_user_client, creds_all_duts)
+    check_local_no_other_user_log(rw_user_client, duthost, creds_all_duts)
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
-
-def test_accounting_local_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting local")
-    cleanup_tacacs_server_log(ptfhost)
-
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
-
-    # Verify syslog have user command record.
-    check_local_log_exist(remote_user_client, creds_all_duts, "show")
-    # Verify syslog not have any command record which not run by user.
-    check_local_no_other_user_log(remote_user_client, creds_all_duts)
