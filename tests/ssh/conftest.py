@@ -83,28 +83,24 @@ def generate_ssh_ciphers(request, typename):
     ansible_cmd = "ansible -m shell -i ../ansible/{} {} -a".format(inv_name, dut_name)
     cmd = ansible_cmd.split()
     cmd.append(remote_cmd)
-    logger.info('cmd:\n{}'.format(cmd))
+    logger.debug('cmd:\n{}'.format(cmd))
 
     try:
         raw_output = subprocess.check_output(cmd, shell=False, stderr=subprocess.STDOUT, universal_newlines=True).decode('utf-8')
         cipher_list = raw_output.split("rc=0 >>", 1)[1].split()
         logger.info('cipher full list:\n{}'.format(cipher_list))
-        cipher_param_list = []
+        cipher_param_list = permitted_list
         for cipher in cipher_list:
             if cipher in permitted_list:
-                cipher_param_list.append(cipher)
+                continue
             elif cipher in default_list:
                 cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail))
             else:
                 cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail(strict=True)))
 
         return cipher_param_list
-
-        #test_list = ["aes256-ctr", pytest.param("aes128-ctr", marks=pytest.mark.xfail(strict=True))]
-        #return test_list
     except subprocess.CalledProcessError as e:
-        logger.info('output before error: ',e.output)
-        logger.info('Return Code: ',e.returncode)
+        logger.error('Failed to get DUT\'s {} ciphers full list: {}'.format(typrname, e.output))
 
 def pytest_generate_tests(metafunc):
     if 'enum_dut_ssh_enc_cipher' in metafunc.fixturenames:
