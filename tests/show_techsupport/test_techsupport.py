@@ -457,3 +457,37 @@ def test_techsupport_commands(
         )
 
     pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
+
+def test_secret_removed_from_show_techsupport(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
+):
+    """
+    This test checks following secrets been removed from show techsupport result:
+        Tacacs key
+        Radius key
+        snmp community string
+        /etc/shadow, which includes the hash of local/domain users' password
+        /etc/sonic/*.certs, which are Azure internal used certificates
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # generate a new dump file
+    duthost.shell('sudo rm -f /var/dump/sonic_dump_*')
+    duthost.shell('sudo show techsupport')
+    dump_file = duthost.shell('sudo ls /var/dump/sonic_dump_* | tail -1')['stdout']
+
+    # extract for next step check
+    ptfhost.shell("sudo tar -xf {0}".format(dump_file))
+    dump_extract_path="./{0}/".format(dump_file.replace(".tar.gz", ""))
+    
+    # check Tacacs key
+    
+    # check Radius key
+    
+    # check snmp community string
+    
+    # check snmp community string
+    
+    # check /etc/shadow
+    
+    # check /etc/sonic/*.certs
