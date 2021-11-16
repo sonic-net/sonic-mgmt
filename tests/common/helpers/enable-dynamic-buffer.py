@@ -25,7 +25,6 @@ logger = Logger()
 
 def _replace_buffer_profile_lists(config_db, table):
     ingress_profile_lists = config_db.get_table(table)
-    zero_ports = {}
     for key, profile_list in ingress_profile_lists.items():
         if re.search(zero_profile_name_pattern, profile_list['profile_list']):
             zero_profiles = profile_list['profile_list'].split(',')
