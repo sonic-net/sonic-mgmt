@@ -22,7 +22,9 @@ OTHER_PATTERNS = {
         "FPMSYNCD_RECONCILIATION|Start": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart timer started.*'),
         "FPMSYNCD_RECONCILIATION|End": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart reconciliation processed.*'),
         "ROUTE_DEFERRAL_TIMER|Start": re.compile(r'.*ADJCHANGE: neighbor .* in vrf default Up.*'),
-        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*')
+        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*'),
+        "FDB_AGING_DISABLE|Start": re.compile(r'.*NOTICE swss#orchagent.*setAgingFDB: Set switch.*fdb_aging_time 0 sec'),
+        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*doAppSwitchTableTask: Set switch attribute fdb_aging_time to 600')
     },
     "LATEST": {
         "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),
@@ -41,6 +43,8 @@ OTHER_PATTERNS = {
     "BRCM": {
         "SYNCD_CREATE_SWITCH|Start": re.compile(r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
         "SYNCD_CREATE_SWITCH|End": re.compile(r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*'),
+        "FDB_EVENT_OTHER_MAC_EXPIRY|Start": re.compile(r".* INFO syncd#syncd.*SAI_API_FDB.*fdbEvent: 0 for mac (?!00-06-07-08-09-0A).*"),
+        "FDB_EVENT_SCAPY_MAC_EXPIRY|Start": re.compile(r".* INFO syncd#syncd.*SAI_API_FDB.*fdbEvent: 0 for mac 00-06-07-08-09-0A.*")
     },
     "MLNX": {
         "SYNCD_CREATE_SWITCH|Start": re.compile(r'.*syncd.*mlnx_sai_switch.*mlnx_create_switch: Create switch.*INIT_SWITCH=true.*'),
