@@ -440,7 +440,7 @@ def main():
         argument_spec=dict(
             topo_name=dict(required=True, type='str'),
             ptf_ip=dict(required=True, type='str'),
-            action=dict(required=False, type='str', default='announce'),
+            action=dict(required=False, type='str', default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
