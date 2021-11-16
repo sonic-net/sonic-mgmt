@@ -19,6 +19,14 @@ from .args.normal_reboot_args import add_normal_reboot_args
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
+FMT_SHORT = "%b %d %H:%M:%S"
+
+def _parse_timestamp(timestamp):
+    try:
+        time = datetime.strptime(timestamp, FMT)
+    except ValueError:
+        time = datetime.strptime(timestamp, FMT_SHORT)
+    return time
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
@@ -104,8 +112,8 @@ def get_report_summary(analyze_result, reboot_type):
             timestamp = time_spans.get(entity).get("timestamp", {})
             marker_start_time = timestamp.get("Start") if "Start" in timestamp else timestamp.get("Started")
             if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
-                time_taken = (datetime.strptime(marker_start_time, FMT) -\
-                    datetime.strptime(reboot_start_time, FMT)).total_seconds()
+                time_taken = (_parse_timestamp(marker_start_time) -
+                              _parse_timestamp(reboot_start_time)).total_seconds()
         kexec_offsets_summary.update({entity.lower(): str(time_taken)})
 
     for entity in TIME_SPAN_ITEMS:
@@ -116,8 +124,8 @@ def get_report_summary(analyze_result, reboot_type):
             marker_first_time = kexec_offsets.get(entity).get("timestamp", {}).get("Start")
             marker_last_time = kexec_offsets.get(entity).get("last_occurence")
             if marker_first_time and marker_last_time:
-                time_taken = (datetime.strptime(marker_last_time, FMT) -\
-                    datetime.strptime(marker_first_time, FMT)).total_seconds()
+                time_taken = (_parse_timestamp(marker_last_time) -
+                              _parse_timestamp(marker_first_time)).total_seconds()
         time_spans_summary.update({entity.lower(): str(time_taken)})
 
     result_summary = {
@@ -137,7 +145,8 @@ def get_kexec_time(duthost, messages, result):
         # Get timestamp of reboot - Rebooting string
         if re.search(reboot_pattern, message):
             logging.info("FOUND REBOOT PATTERN for {}".format(duthost.hostname))
-            reboot_time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT).strftime(FMT)
+            delim = "{}|{}".format(duthost.hostname, "sonic")
+            reboot_time = _parse_timestamp(re.split(delim, message)[0].strip()).strftime(FMT)
             continue
     result["reboot_time"] = {
         "timestamp": {"Start": reboot_time},
@@ -165,7 +174,8 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
         return None
 
     def service_time_check(message, status):
-        time = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
+        delim = "{}|{}".format(duthost.hostname, "sonic")
+        time = _parse_timestamp(re.split(delim, message)[0].strip())
         time = time.strftime(FMT)
         service_name = message.split(status + " ")[1].split()[0]
         service_name = service_name.upper()
@@ -188,7 +198,8 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
         # Get timestamps of all other entities
         for state, pattern in derived_patterns.items():
             if re.search(pattern, message):
-                timestamp = datetime.strptime(message.split(duthost.hostname)[0].strip(), FMT)
+                delim = "{}|{}".format(duthost.hostname, "sonic")
+                timestamp = _parse_timestamp(re.split(delim, message)[0].strip())
                 state_name = state.split("|")[0].strip()
                 if state_name + "|End" not in derived_patterns.keys():
                     state_times = get_state_times(timestamp, state, offset_from_kexec)
@@ -201,24 +212,24 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
     # Calculate time that services took to stop/start
     for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
-        timings["stop_time"] = (datetime.strptime(timestamps["Stopped"], FMT) -\
-            datetime.strptime(timestamps["Stopping"], FMT)).total_seconds() \
+        timings["stop_time"] = (_parse_timestamp(timestamps["Stopped"]) - \
+            _parse_timestamp(timestamps["Stopping"])).total_seconds() \
                 if "Stopped" in timestamps and "Stopping" in timestamps else None
 
-        timings["start_time"] = (datetime.strptime(timestamps["Started"], FMT) -\
-            datetime.strptime(timestamps["Starting"], FMT)).total_seconds() \
+        timings["start_time"] = (_parse_timestamp(timestamps["Started"]) -\
+            _parse_timestamp(timestamps["Starting"])).total_seconds() \
                 if "Started" in timestamps and "Starting" in timestamps else None
 
         if "Started" in timestamps and "Stopped" in timestamps:
-            timings["time_span"] = (datetime.strptime(timestamps["Started"], FMT) -\
-                datetime.strptime(timestamps["Stopped"], FMT)).total_seconds()
+            timings["time_span"] = (_parse_timestamp(timestamps["Started"]) -\
+                _parse_timestamp(timestamps["Stopped"])).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
             if "last_occurence" in timings:
-                timings["time_span"] = (datetime.strptime(timings["last_occurence"], FMT) -\
-                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+                timings["time_span"] = (_parse_timestamp(timings["last_occurence"]) -\
+                    _parse_timestamp(timestamps["Start"])).total_seconds()
             else:
-                timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
-                    datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+                timings["time_span"] = (_parse_timestamp(timestamps["End"]) -\
+                    _parse_timestamp(timestamps["Start"])).total_seconds()
 
     result["time_span"].update(service_restart_times)
     result["offset_from_kexec"] = offset_from_kexec
@@ -242,8 +253,8 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
     for _, timings in sai_redis_state_times.items():
         timestamps = timings["timestamp"]
         if "Start" in timestamps and "End" in timestamps:
-            timings["time_span"] = (datetime.strptime(timestamps["End"], FMT) -\
-                datetime.strptime(timestamps["Start"], FMT)).total_seconds()
+            timings["time_span"] = (_parse_timestamp(timestamps["End"]) -\
+                _parse_timestamp(timestamps["Start"])).total_seconds()
 
     result["time_span"].update(sai_redis_state_times)
     result["offset_from_kexec"] = offset_from_kexec
@@ -319,8 +330,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         marker_start_time = time_data.get("timestamp", {}).get("Start")
         reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
         if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
-            time_data["time_taken"] = (datetime.strptime(marker_start_time, FMT) -\
-                datetime.strptime(reboot_start_time, FMT)).total_seconds()
+            time_data["time_taken"] = (_parse_timestamp(marker_start_time) -\
+                _parse_timestamp(reboot_start_time)).total_seconds()
         else:
             time_data["time_taken"] = "N/A"
 
