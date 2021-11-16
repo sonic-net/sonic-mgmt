@@ -12,14 +12,14 @@ permitted_enc_ciphers = [
     "aes192-ctr"
 ]
 
-default_enc_ciphers = [
-    "chacha20-poly1305@openssh.com",
-    "aes128-ctr",
-    "aes192-ctr",
-    "aes256-ctr",
-    "aes128-gcm@openssh.com",
-    "aes256-gcm@openssh.com"
-]
+#default_enc_ciphers = [
+#    "chacha20-poly1305@openssh.com",
+#    "aes128-ctr",
+#    "aes192-ctr",
+#    "aes256-ctr",
+#    "aes128-gcm@openssh.com",
+#    "aes256-gcm@openssh.com"
+#]
 
 # MACs list
 permitted_macs = [
@@ -27,17 +27,17 @@ permitted_macs = [
     "hmac-sha2-256-etm@openssh.com"
 ]
 
-default_macs = [
-    "umac-64-etm@openssh.com",
-    "umac-128-etm@openssh.com",
-    "hmac-sha2-256-etm@openssh.com",
-    "hmac-sha2-512-etm@openssh.com",
-    "hmac-sha1-etm@openssh.com",
-    "umac-64@openssh.com,umac-128@openssh.com",
-    "hmac-sha2-256",
-    "hmac-sha2-512",
-    "hmac-sha1"
-]
+#default_macs = [
+#    "umac-64-etm@openssh.com",
+#    "umac-128-etm@openssh.com",
+#    "hmac-sha2-256-etm@openssh.com",
+#    "hmac-sha2-512-etm@openssh.com",
+#    "hmac-sha1-etm@openssh.com",
+#    "umac-64@openssh.com,umac-128@openssh.com",
+#    "hmac-sha2-256",
+#    "hmac-sha2-512",
+#    "hmac-sha1"
+#]
 
 # Kexs list
 permitted_kexs = [
@@ -45,18 +45,18 @@ permitted_kexs = [
     "ecdh-sha2-nistp521"
 ]
 
-default_kexs = [
-    "curve25519-sha256",
-    "curve25519-sha256@libssh.org",
-    "ecdh-sha2-nistp256",
-    "ecdh-sha2-nistp384",
-    "ecdh-sha2-nistp521",
-    "diffie-hellman-group-exchange-sha256",
-    "diffie-hellman-group16-sha512",
-    "diffie-hellman-group18-sha512",
-    "diffie-hellman-group14-sha256",
-    "diffie-hellman-group14-sha1"
-]
+#default_kexs = [
+#    "curve25519-sha256",
+#    "curve25519-sha256@libssh.org",
+#    "ecdh-sha2-nistp256",
+#    "ecdh-sha2-nistp384",
+#    "ecdh-sha2-nistp521",
+#    "diffie-hellman-group-exchange-sha256",
+#    "diffie-hellman-group16-sha512",
+#    "diffie-hellman-group18-sha512",
+#    "diffie-hellman-group14-sha256",
+#    "diffie-hellman-group14-sha1"
+#]
 
 def generate_ssh_ciphers(request, typename):
     if typename == "enc":
@@ -93,10 +93,11 @@ def generate_ssh_ciphers(request, typename):
         for cipher in cipher_list:
             if cipher in permitted_list:
                 continue
-            elif cipher in default_list:
-                cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail))
+            #elif cipher in default_list:
+            #    cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail))
             else:
-                cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail(strict=True)))
+            #    cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail(strict=True)))
+                cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail))
 
         return cipher_param_list
     except subprocess.CalledProcessError as e:
