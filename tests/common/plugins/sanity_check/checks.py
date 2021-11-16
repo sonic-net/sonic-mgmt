@@ -266,7 +266,6 @@ def _is_db_omem_over_threshold(command_output):
         if m:
             omem = int(m.group(1))
             total_omem += omem
-    logger.debug(json.dumps(command_output, indent=4))
     logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
