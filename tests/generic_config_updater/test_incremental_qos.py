@@ -60,7 +60,7 @@ def prepare_configdb_field(duthost, configdb_field, value):
     logger.info("Setting configdb key: {} field: {} to value: {}".format(key, field, value))
    
     if value:
-        cmd = "sonic-db-cli CONFIG_DB \"BUFFER_POOL|{}\" \"{}\" \"{}\" ".format(key, field, value)
+        cmd = "sonic-db-cli CONFIG_DB hset \"BUFFER_POOL|{}\" \"{}\" \"{}\" ".format(key, field, value)
     else:
         cmd = "sonic-db-cli CONFIG_DB del \"BUFFER_POOL|{}\" \"{}\" ".format(key, field)
    
