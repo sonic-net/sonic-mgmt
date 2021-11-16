@@ -6,6 +6,12 @@ from .test_ro_user import ssh_remote_run
 from tests.common.helpers.assertions import pytest_assert
 from .utils import stop_tacacs_server, start_tacacs_server
 
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('vs')
+]
+
 logger = logging.getLogger(__name__)
 
 TIMEOUT_LIMIT   = 120
