@@ -61,7 +61,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1', choices=['t0', 't1', 'dualtor-56', 't1-64-lag', 't0-64'])
+                      required=True,default='t1', choices=['t0', 't1', 'dualtor-56', 't1-64-lag', 't0-64', "t1-8-lag"])
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -652,6 +652,14 @@ def main():
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 24
         ptf_intfcount = 64
+    elif topo_type == 't1-8-lag':
+        if device_type == 'sherman':
+            base_topo_file = 'testbed-sherman-t1-8-lag.yaml'
+        else:
+            base_topo_file = 'testbed-t1-8-lag.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 6
+        ptf_intfcount = 8
     elif topo_type == 't0-64':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4

@@ -1,0 +1,58 @@
+[
+{%- set my_vni = "" %}
+{%- set my_mac = "" %}
+{%- set list_of_entries = [] %}
+{%- for vnet in vnet_id_list %}
+  {%- for routes in vnet_route_list_ecmp %}
+    {%- set route_list_key = vnet.keys()[0] + '_route_list_ecmp' %}
+    {%- if routes.keys()[0] == route_list_key %}
+      {%- for key,entries in routes.items() %}
+        {%- for route in entries %}
+          {%- set my_vni = "" %}
+          {%- if route.vni is defined %}
+            {%- set my_vni =  ',\n"vni" : "' +  route.vni %}
+          {%- endif %}
+
+          {%- set my_mac = "" %}
+          {%- if route.mac is defined %}
+            {%- set my_mac = ',\n       "mac_address": "' + route.mac + '"' %}
+          {%- endif %}
+    
+    {%- set _ = list_of_entries.append(
+        '\n  {'
+        '\n     "VNET_ROUTE_TUNNEL_TABLE:' + vnet.keys()[0] + ":" + route.pfx + '" : {' +  my_vni + my_mac +
+        '\n       "endpoint": "' + route.end + '"'
+        '\n     },'
+        '\n     "OP": "' + op + '"'
+        '\n  }'
+    )
+    %}
+        {%- endfor %}
+      {%- endfor %}
+    {%- endif %}
+  {%- endfor %}
+{%- endfor %}
+
+{%- for vnet in vnet_id_list %}
+  {%- for routes in vnet_local_routes %}
+    {%- set route_list = vnet.keys()[0] + '_route_list' %}
+    {%- if routes.keys()[0] == route_list %}
+      {%- for key,entries in routes.items() %}
+        {%- for route in entries %}
+          {%- set _ = list_of_entries.append(
+            '\n  {'
+            '\n "VNET_ROUTE_TABLE:' + vnet.keys()[0] + ':' +  route.pfx + '": { '
+            '\n      "nexthop": "' +  route.nh    + '",'
+            '\n      "ifname": "'  + route.ifname + '" '
+            '\n  },'
+            '\n "OP": "' + op + '"'
+            '\n}'
+            ) %}
+        {%- endfor %}
+      {%- endfor %}
+    {%- endif %}
+  {%- endfor %}
+{%- endfor %}
+
+{{ list_of_entries|join(",") }}
+]
