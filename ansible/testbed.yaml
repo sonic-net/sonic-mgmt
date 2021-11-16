@@ -90,6 +90,21 @@
   auto_recover: 'True'
   comment: Jenkins
 
+- conf-name: vms1-t0-3132-3
+  group-name: vms1-11
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms1-11
+  ptf_ip: 10.3.147.19/23
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0188
+  dut:
+    - str-n3132-acs-3
+  inv_name: str
+  auto_recover: 'True'
+  comment: Ying
+
 - conf-name: vms2-2-t0-2700
   group-name: vms2-2
   topo: t0-56-po2vlan
