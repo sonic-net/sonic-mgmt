@@ -68,14 +68,3 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
-  skip:
-    reason: "Priority Group Shared Watermark is not supported on cisco aisc"
-    conditions:
-      - "asic_type=='cisco-8000'"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  skip:
-    reason: "Priority Group Headroom Watermark is not supported on cisco aisc"
-    conditions:
-      - "asic_type=='cisco-8000'" 
