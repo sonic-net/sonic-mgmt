@@ -17,7 +17,6 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-
 from abc import abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,8 @@ TYPE_COMBINE_UNTAGGED = 'COMBINE_UNTAGGED' # The interface is in two vlans
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
-
+ARP_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/arp_responder.py'
+ARP_RESPONDER_SCRIPT_DEST_PATH = '/opt/arp_responder.py'
 
 @pytest.fixture(scope="module", params=[IPV4, IPV6])
 def ip_version(request):
@@ -269,6 +269,7 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_ac
     elif pkt_action == ACTION_DROP:
         testutils.verify_no_packet(ptfadapter, exp_pkt, dst_port)
 
+
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
     """
     Get Acl counter packets value
@@ -451,7 +452,7 @@ class AclVlanOuterTest_Base(object):
         logger.info("Creating ACL rule matching vlan {} action {}".format(vlan_id, action))
         duthost.shell("config load -y {}".format(dest_path))
 
-        pytest_assert(wait_until(60, 2, check_rule_counters, duthost), "Acl rule counters are not ready")
+        pytest_assert(wait_until(60, 2, 0, check_rule_counters, duthost), "Acl rule counters are not ready")
 
     def _remove_acl_rules(self, duthost, stage, ip_ver):
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_ver)
@@ -647,6 +648,9 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
         ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
         ptfhost.template(src='templates/arp_responder.conf.j2', dest='/etc/supervisor/conf.d/arp_responder.conf')
+        # Copy arp_responder.py script
+        # Please be noted that tests/script/arp_responder.py can't deal with arp request with vlan id
+        ptfhost.copy(src=ARP_RESPONDER_SCRIPT_SRC_PATH, dest=ARP_RESPONDER_SCRIPT_DEST_PATH)
 
         ptfhost.command('supervisorctl reread')
         ptfhost.command('supervisorctl update')
@@ -658,6 +662,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
     def _teardown_arp_responder(self, ptfhost):
         logger.info("Stopping arp_responder")
         ptfhost.command('supervisorctl stop arp_responder')
+        ptfhost.file(path=ARP_RESPONDER_SCRIPT_DEST_PATH, state="absent")
 
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
         # Skip on broadcom platforms
