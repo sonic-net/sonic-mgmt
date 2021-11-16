@@ -14,6 +14,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
+from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -2242,6 +2243,9 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         return result
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Skip the legacy branches
+    skip_release(duthost, ["201811", "201911"])
 
     # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
