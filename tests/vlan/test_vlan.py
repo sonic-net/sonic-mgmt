@@ -80,7 +80,7 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
                 vlan_port['permit_vlanid'] = vlan_id_list[:]
             if 'pvid' in vlan_port:
                 work_vlan_ports_list.append(vlan_port)
-    assert portchannel_cnt == pc_num, 'Need 2 portchannels for test'
+        assert portchannel_cnt == pc_num, 'Need 2 portchannels for test'
 
     for i, port in enumerate(ports_list):
         vlan_port = {
