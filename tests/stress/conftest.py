@@ -51,7 +51,7 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
-    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    sleep_to_wait(CRM_POLLING_INTERVAL * 5)
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
 
