@@ -519,6 +519,15 @@ def ptf_test_port_map(tbinfo, duthosts, mg_facts, ptfhost, rand_one_dut_hostname
         }
     ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
+@pytest.fixture()
+def disable_swss_warm_boot_flag(duthosts, rand_one_dut_hostname):
+    yield
+
+    duthost = duthosts[rand_one_dut_hostname]
+    swss_flag = duthost.shell("sonic-db-cli STATE_DB HGET 'WARM_RESTART_ENABLE_TABLE|swss' 'enable'")['stdout']
+    if swss_flag == 'true':
+        duthost.shell("config warm_restart disable swss")
+
 # tests
 class TestVrfCreateAndBind():
     def test_vrf_in_kernel(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1007,6 +1016,7 @@ class TestVrfWarmReboot():
         #FIXME Might need cold reboot if test failed?
         pass
 
+    @pytest.mark.usefixtures('disable_swss_warm_boot_flag')
     def test_vrf_swss_warm_reboot(self, duthosts, rand_one_dut_hostname, cfg_facts, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         # enable swss warm-reboot
