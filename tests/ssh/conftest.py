@@ -28,15 +28,12 @@ def generate_ssh_ciphers(request, typename):
     if typename == "enc":
         remote_cmd = "ssh -Q cipher"
         permitted_list = permitted_enc_ciphers
-        default_list = default_enc_ciphers
     elif typename == "mac":
         remote_cmd = "ssh -Q mac"
         permitted_list = permitted_macs
-        default_list = default_macs
     elif typename == "kex":
         remote_cmd = "ssh -Q kex"
         permitted_list = permitted_kexs
-        default_list = default_kexs
 
     testbed_name = request.config.option.testbed
     testbed_file = request.config.option.testbed_file
