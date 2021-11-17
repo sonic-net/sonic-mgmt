@@ -24,16 +24,14 @@ class TestLinkFlap(object):
     """
     TestLinkFlap class for link flap
     """
-    def __init__(self, request):
+    def get_completeness_level(self,request):
         """
-        Initialization of parameters for test
-
         Args:
             request: pytest request object
         """
-        self.completeness_level = CompletenessLevel.get_normalized_level(request)
+        return CompletenessLevel.get_normalized_level(request)
 
-    def run_link_flap_test(self, dut, fanouthosts, port):
+    def run_link_flap_test(self, request, dut, fanouthosts, port):
         """
         Test runner of link flap test.
 
@@ -41,7 +39,8 @@ class TestLinkFlap(object):
             dut: DUT host object
             fanouthosts: List of fanout switch instances.
         """
-        candidates = build_test_candidates(dut, fanouthosts, port, self.completeness_level)
+        completeness_level = self.get_completeness_level(request)
+        candidates = build_test_candidates(dut, fanouthosts, port, completeness_level)
         pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
         for dut_port, fanout, fanout_port in candidates:
@@ -53,9 +52,9 @@ def test_link_flap(request, duthosts, enum_dut_portname, fanouthosts):
     """
     Validates that link flap works as expected
     """
-    tlf = TestLinkFlap(request)
+    tlf = TestLinkFlap()
 
     dutname, portname = decode_dut_port_name(enum_dut_portname)
     for dut in duthosts:
         if dutname == 'unknown' or dutname == dut.hostname:
-            tlf.run_link_flap_test(dut, fanouthosts, portname)
+            tlf.run_link_flap_test(request, dut, fanouthosts, portname)
