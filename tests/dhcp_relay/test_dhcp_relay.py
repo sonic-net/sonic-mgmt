@@ -232,9 +232,10 @@ def check_interface_status(duthosts, rand_one_dut_hostname):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
+    skip_release(duthost, ["201811", "201911", "202106"])
     config_reload(duthost)
     wait_critical_processes(duthost)
-    wait_until(120, 5, 0, check_interface_status)
+    wait_until(120, 5, 0, check_interface_status, duthosts, rand_one_dut_hostname)
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8")
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
