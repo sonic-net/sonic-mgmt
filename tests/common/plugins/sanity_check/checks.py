@@ -266,7 +266,7 @@ def _is_db_omem_over_threshold(command_output):
         if m:
             omem = int(m.group(1))
             total_omem += omem
-    logger.debug(json.dumps(command_output, indent=4))
+    logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
@@ -291,9 +291,9 @@ def check_dbmemory(duthosts):
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
             result, total_omem = _is_db_omem_over_threshold(res)
+            check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
-                check_result["total_omem"] = total_omem
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)

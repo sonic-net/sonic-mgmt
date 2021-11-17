@@ -269,7 +269,6 @@ def pytest_collection_modifyitems(session, config, items):
     if not conditions:
         logger.debug('No mark condition is defined')
         return
-    logger.debug('Predefined mark conditions\n{}'.format(json.dumps(conditions, indent=2)))
 
     basic_facts = config.cache.get('BASIC_FACTS', None)
     if not basic_facts:
