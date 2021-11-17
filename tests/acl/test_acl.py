@@ -20,8 +20,6 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
-from tests.conftest import duthost
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
@@ -534,7 +532,7 @@ class BaseAclTest(object):
     def check_rule_counters(self, duthost):
         logger.info('Wait all rule counters are ready')
 
-        return wait_until(60, 2, self.check_rule_counters_internal, duthost)
+        return wait_until(60, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():

@@ -29,8 +29,11 @@ vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 vrf definition management
    rd 1:1
 !
-{% for i in range(1,33) %}
+{% for i in range(1, device_port_vlans[inventory_hostname]|length + 1) %}
 {% set intf =  'Ethernet' + i|string + '/1'  %}
+{% if intf not in device_port_vlans[inventory_hostname] %}
+{% set intf =  'Ethernet' + i|string  %}
+{% endif %}
 interface {{ intf }}
 {% if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
 {%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
@@ -111,7 +114,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}/{{ hostvars[inventory_hostname].mgmt_subnet_mask_length }}
  no shutdown
 !
 # LACP packets pass through

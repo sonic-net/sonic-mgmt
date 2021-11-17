@@ -138,7 +138,7 @@ def setup_ntp(ptfhost, duthost, ntp_servers):
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
     # restart ntp server
     ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, check_ntp_status, ptfhost), \
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost), \
         "NTP server was not started in PTF container {}; NTP service start result {}".format(ptfhost.hostname, ntp_en_res))
     # setup ntp on dut to sync with ntp server
     for ntp_server in ntp_servers:
@@ -207,7 +207,7 @@ class TestServices():
         logger.info("Ntp restart in mgmt vrf")
         execute_dut_command(duthost, force_ntp)
         duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, check_ntp_status, duthost), "Ntp not started")
+        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]
@@ -247,7 +247,7 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
-        pytest_assert(wait_until(120, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
+        pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
@@ -255,7 +255,7 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
-        pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
+        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
@@ -263,5 +263,5 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="fast")
-        pytest_assert(wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started")
+        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)

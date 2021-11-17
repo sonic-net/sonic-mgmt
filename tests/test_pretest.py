@@ -41,13 +41,13 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     """
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
-    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, verify_features_state, duthost):
+    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
         logger.warn("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
         reboot(duthost, localhost)
         # Some services are not ready immeidately after reboot
         wait_critical_processes(duthost)
 
-    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS,
+    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0,
                              verify_features_state, duthost), "Not all service states are valid!")
     logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
@@ -101,12 +101,13 @@ def collect_dut_info(dut):
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
         if dut.sonichost.is_multi_asic:
-            fe = random.choice(front_end_asics)
-            be = random.choice(back_end_asics)
-            asic_services[service] = [
-                dut.get_docker_name(service, asic_index=fe),
-                dut.get_docker_name(service, asic_index=be)
-            ]
+            asic_services[service] = []
+            if len(front_end_asics):
+                fe = random.choice(front_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=fe))
+            if len(back_end_asics):
+                be = random.choice(back_end_asics)
+                asic_services[service].append(dut.get_docker_name(service, asic_index=be))
 
     dut_info = {
         "intf_status": status,
@@ -156,7 +157,8 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
             continue
-        duthost.disable_syslog_rate_limit(feature_name)
+        duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+
 
 def collect_dut_lossless_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
@@ -239,53 +241,6 @@ def test_update_saithrift_ptf(request, ptfhost):
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 
-def test_inject_y_cable_simulator_client(duthosts, enum_dut_hostname, tbinfo, vmhost):
-    '''
-    Inject the Y cable simulator client to both ToRs in a dualtor testbed
-    '''
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    logger.info("Injecting Y cable simulator client to {}".format(enum_dut_hostname))
-    dut = duthosts[enum_dut_hostname]
-    tbname = tbinfo['conf-name']
-    _hostvars = get_host_visible_vars(dut.host.options['inventory'], dut.hostname)
-    mux_simulator_port = _hostvars['mux_simulator_http_port'][tbname]
-    y_cable_sim_client_template_path = 'templates/y_cable_simulator_client.j2'
-
-    template_args = {
-        'duts_map': json.dumps(tbinfo['duts_map'], sort_keys=True, indent=4),
-        'mux_simulator_server': vmhost.mgmt_ip,
-        'mux_simulator_port': mux_simulator_port,
-        'dut_name': enum_dut_hostname,
-        'group_name': tbinfo['group-name']
-    }
-
-    with open(y_cable_sim_client_template_path) as f:
-        template = Template(f.read())
-
-    rendered = template.render(template_args)
-
-    dut.copy(content=rendered, dest='/tmp/y_cable_simulator_client.py')
-    dut.shell('cp /tmp/y_cable_simulator_client.py /usr/lib/python3/dist-packages/')
-    dut.shell('docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages/')
-
-    # Below changes are required after these PRs are merged:
-    # * https://github.com/Azure/sonic-platform-common/pull/213
-    # * https://github.com/Azure/sonic-platform-daemons/pull/197
-    # For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
-    # When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
-    # File /etc/sonic/mux_simulator.json can co-exist with the 'y_cable_simulator_client.py' file injected above.
-    # Process xcvrd will determine which one to load or use.
-    mux_simulator_config = {
-        'server_ip': vmhost.mgmt_ip,
-        'server_port': mux_simulator_port,
-        'vm_set': tbinfo['group-name'],
-        'side': UPPER_TOR if tbinfo['duts'].index(enum_dut_hostname) == 0 else LOWER_TOR
-    }
-    dut.copy(content=json.dumps(mux_simulator_config, indent=2), dest='/etc/sonic/mux_simulator.json')
-
-    dut.shell('systemctl restart pmon')
 
 def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     '''

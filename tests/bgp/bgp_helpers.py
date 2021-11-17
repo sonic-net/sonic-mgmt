@@ -44,7 +44,7 @@ def restart_bgp(duthost, asic_index=DEFAULT_ASIC_ID):
     duthost.asic_instance(asic_index).reset_service("bgp")
     duthost.asic_instance(asic_index).restart_service("bgp")
     docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
-    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, docker_name), "BGP not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
 
 
 def define_config(duthost, template_src_path, template_dst_path):
@@ -128,7 +128,7 @@ def get_routes_not_announced_to_bgpmon(duthost, ptfhost):
     """
     def _dump_fie_exists(host):
         return host.stat(path=DUMP_FILE).get('stat', {}).get('exists', False)
-    pytest_assert(wait_until(120, 10, _dump_fie_exists, ptfhost))
+    pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost))
     time.sleep(20)  # Wait until all routes announced to bgpmon
     bgpmon_routes = parse_exabgp_dump(ptfhost)
     rib_v4 = parse_rib(duthost, 4)

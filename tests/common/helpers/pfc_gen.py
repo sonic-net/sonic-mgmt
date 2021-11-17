@@ -122,7 +122,7 @@ def main():
     pause time      |        0x0000         |
                     -------------------------
     """
-    src_addr = "\x01\x02\x03\x04\x05\x06" 
+    src_addr = "\x00\x01\x02\x03\x04\x05" 
     dst_addr = "\x01\x80\xc2\x00\x00\x01"
     if options.global_pf:
         opcode = "\x00\x01"

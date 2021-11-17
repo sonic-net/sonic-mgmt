@@ -4,8 +4,11 @@ Conftest file for span tests
 
 import pytest
 
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
+
+
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname):
+def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):
     '''
     Used to get config facts for selected DUT
 
@@ -55,7 +58,7 @@ def ports_for_test(cfg_facts):
 
 @pytest.fixture(scope='module', autouse=True)
 def skip_unsupported_asic_type(duthost):
-    SPAN_UNSUPPORTED_ASIC_TYPE = ["broadcom"]
+    SPAN_UNSUPPORTED_ASIC_TYPE = ["broadcom", "cisco-8000"]
     if duthost.facts["asic_type"] in SPAN_UNSUPPORTED_ASIC_TYPE:
         pytest.skip(
             "Skipping span test on {} platform".format(duthost.facts["asic_type"]))

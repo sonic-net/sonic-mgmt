@@ -1,6 +1,14 @@
 <DeviceMiniGraph xmlns="Microsoft.Search.Autopilot.Evolution" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+{% if 'cable' not in topo %}
 {% set vms=vm_topo_config['vm'].keys() | sort %}
+{% endif %}
+{% if 'cable' in topo %}
+{% set vms_number = 0 %}
+{% set enable_data_plane_acl = false %}
+{% set neighbor_eosvm_mgmt = {} %}
+{% else %}
 {% set vms_number = vms | length %}
+{% endif %}
 {% if 'loopback' in vm_topo_config['DUT'] %}
 {% if card_type is not defined or card_type != 'supervisor' %}
 {% set lp_ipv4 = vm_topo_config['DUT']['loopback']['ipv4'][dut_index|int] %}

@@ -159,11 +159,11 @@ def start_sai_test_conatiner_with_retry(duthost, container_name):
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     logger.info("Checking the PRC connection before starting the {}.".format(container_name))
-    rpc_ready = wait_until(1, 1, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(1, 1, 0, _is_rpc_server_ready, dut_ip)
     
     if not rpc_ready:
         logger.info("Attempting to start {}.".format(container_name))
-        sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, _is_sai_test_container_restarted, duthost, container_name)
+        sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, 0, _is_sai_test_container_restarted, duthost, container_name)
         pt_assert(sai_ready, "[{}] sai test container failed to start in {}s".format(container_name, SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC))
         logger.info("Waiting for another {} second for sai test container warm up.".format(SAI_TEST_CONTAINER_WARM_UP_IN_SEC))
         time.sleep(SAI_TEST_CONTAINER_WARM_UP_IN_SEC)
@@ -199,7 +199,7 @@ def _is_sai_test_container_restarted(duthost, container_name):
         logger.info("{} already exists, stop and remove it for a clear restart.".format(container_name))
         stop_and_rm_sai_test_container(duthost, container_name)
     _start_sai_test_container(duthost, container_name)
-    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, 0, _is_rpc_server_ready, dut_ip)
     if not rpc_ready:
         logger.info("Failed to start up {} for sai testing on DUT, stop it for a restart".format(container_name))
     return rpc_ready
@@ -437,7 +437,7 @@ def _services_env_stop_check(duthost):
             return False
         return True
 
-    shutdown_check = wait_until(20, 4, ready_for_sai_test)
+    shutdown_check = wait_until(20, 4, 0, ready_for_sai_test)
     if running_services:
         format_list = ['{:>1}' for item in running_services] 
         servers = ','.join(format_list)

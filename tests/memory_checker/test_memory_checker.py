@@ -159,6 +159,7 @@ def consume_memory_and_restart_container(duthost, container_name, vm_workers, lo
     logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
     logger.info("'{}' container is restarted.".format(container_name))
@@ -193,7 +194,7 @@ def postcheck_critical_processes(duthost, container_name):
     """
     logger.info("Checking the running status of critical processes in '{}' container ..."
                 .format(container_name))
-    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
+    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
                               check_critical_processes, duthost, container_name)
     if not is_succeeded:
         pytest.fail("Not all critical processes in '{}' container are running!"
