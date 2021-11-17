@@ -24,7 +24,7 @@ def test_ssh_enc_ciphers(duthosts, rand_one_dut_hostname, enum_dut_ssh_enc_ciphe
     dutip = duthost.mgmt_ip
 
     try:
-        connect = pexpect.spawn("ssh -c {} {}@{}".format(enum_dut_ssh_enc_cipher, dutuser, dutip))
+        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -c {} {}@{}".format(enum_dut_ssh_enc_cipher, dutuser, dutip))
         connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
         connect.sendline(dutpass)
 
@@ -43,7 +43,7 @@ def test_ssh_macs(duthosts, rand_one_dut_hostname, enum_dut_ssh_mac, creds):
     dutip = duthost.mgmt_ip
 
     try:
-        connect = pexpect.spawn("ssh -m {} {}@{}".format(enum_dut_ssh_mac, dutuser, dutip))
+        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -m {} {}@{}".format(enum_dut_ssh_mac, dutuser, dutip))
         connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
         connect.sendline(dutpass)
 
@@ -62,7 +62,7 @@ def test_ssh_kex(duthosts, rand_one_dut_hostname, enum_dut_ssh_kex, creds):
     dutip = duthost.mgmt_ip
 
     try:
-        connect = pexpect.spawn("ssh -oKexAlgorithms={} {}@{}".format(enum_dut_ssh_kex, dutuser, dutip))
+        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -oKexAlgorithms={} {}@{}".format(enum_dut_ssh_kex, dutuser, dutip))
         connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
         connect.sendline(dutpass)
 
