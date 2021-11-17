@@ -29,7 +29,7 @@ def main():
     sonic_qos_db_fv_reference_with_table = false
     try:
         process = subprocess.Popen(['sonic-cfggen', '-y', '/etc/sonic/sonic_version.yml', '-v', 'release'],
-                stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.stdout, stderr = process.communicate()
         self.stdout = self.stdout.decode('utf-8')
         stderr = stderr.decode('utf-8')
@@ -38,9 +38,9 @@ def main():
         module.fail_json(msg=str(e))
     else:
         if ret_code != 0:
-             module.fail_json(msg=stderr)
+            module.fail_json(msg=stderr)
         else:
-             sonic_release = self.stdout.split('.')[0].strip()
+            sonic_release = self.stdout.split('.')[0].strip()
     """
     Check for QOS DB format for Field Value refered with tables or not.
     """

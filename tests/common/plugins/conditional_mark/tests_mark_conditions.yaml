@@ -7,6 +7,13 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    strict: True
+    reason: "Known NTP bug"
+
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
@@ -118,6 +125,24 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_fans:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -464,3 +489,9 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
+  skip:
+    reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
+    conditions:
+      - "asic_type=='cisco-8000'"
