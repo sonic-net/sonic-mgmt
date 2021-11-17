@@ -25,19 +25,6 @@ def chassis_facts(duthosts, request):
             a_host.facts['slot_num'] = int(slot_num[len("slot"):])
 
 
-@pytest.fixture(scope="module")
-def all_cfg_facts(duthosts):
-    # { 'ixr_vdk_boar10' : [ asic0_results, asic1_results ] }
-    #   asic0_results['ansible_facts']
-    # result = duthosts.config_facts(source='persistent', asic_index='all')
-    # return result
-    # Working around issue 3020
-    results = {}
-    for node in duthosts.nodes:
-        results[node.hostname] = node.config_facts(source='persistent', asic_index='all')
-    return results
-
-
 @reset_ansible_local_tmp
 def _get_nbr_macs(nbrhosts, node=None, results=None):
     vm = nbrhosts[node]
