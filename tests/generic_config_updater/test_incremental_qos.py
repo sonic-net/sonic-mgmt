@@ -44,7 +44,7 @@ def ensure_dut_readiness(duthost):
 
 def prepare_configdb_field(duthost, configdb_field, value):
     """
-    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty string, delete the current entry. 
+    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty string or None, delete the current entry. 
 
     Args:
         duthost: DUT host object
@@ -83,7 +83,7 @@ def test_incremental_qos_config_updates(duthost, ensure_dut_readiness, configdb_
         {
             "op": "{}".format(operation), 
             "path": "/BUFFER_POOL/{}".format(configdb_field), 
-            "value": "".format(operation_to_new_value_map[operation])
+            "value": "{}".format(operation_to_new_value_map[operation])
         }
     ]
 
