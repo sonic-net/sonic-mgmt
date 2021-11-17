@@ -93,7 +93,7 @@ class DualTorIO:
         # How many packets to be sent by sender thread
         logger.info("Using send interval {}".format(self.send_interval))
         self.packets_to_send = min(int(self.time_to_listen /
-            (self.send_interval + 0.0015)), 45000)
+            (self.send_interval * 2)), 45000)
         self.packets_sent_per_server = dict()
 
         if self.tor_vlan_intf:
