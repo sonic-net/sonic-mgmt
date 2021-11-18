@@ -88,8 +88,9 @@ Verify that switch supports 512 remote VTEPs.
 * Traffic should flow without any loss at line rate.
 
 #### Test results
-* It supports upto 500 VTEPs. 
-* If we go beyond 500, it is not able to forward the traffic between the hosts on these VTEPs.
+* It supports only upto 128 VTEPs. 
+* If we go beyond 128, VxLAN tunnel's are not coming up.
+* Vxlan tunnel destination IP's are not seen in community images.
 
 
 ## Test cases
@@ -115,7 +116,6 @@ Verify that switch supports 512 remote VTEPs.
 * Traffic should flow without any loss at line rate.
 
 #### Test results
-* Switch becomes very slow and unusable after configuring 4K L2 VNI. 
 
 
 ## Test cases
@@ -140,7 +140,6 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 * Traffic should flow without any loss at line rate
 
 #### Test results
-* Switch becomes very slow and unusable after configuring 4K L2 VNI. 
 
 
 ## Test cases
@@ -163,6 +162,8 @@ Verify that swich supports upto 512 VRF instances.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
+
+#### Test results
 
 
 ## Test cases
