@@ -457,7 +457,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
 
     # Add IPv[4/6] routes 
-    if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == 4:
+    if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == '4':
         total_routes = 10
     else:
         total_routes = 1
