@@ -6,6 +6,8 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
+
 def generate_tmpfile(duthost):
     return duthost.shell('mktemp')['stdout']
 
@@ -29,12 +31,12 @@ def expect_op_success(duthost, output):
         "Please check if json file is validate"
     )
 
-def expect_op_success_and_reset_check(duthost, output, container_name, threshold, interval, delay):
+def expect_op_success_and_reset_check(duthost, output, service_name, threshold, interval, delay):
     '''Add contianer reset check after op success
     '''
     expect_op_success(duthost, output)
-    if start_limit_hit(duthost, container_name):
-        reset_start_limit_hit(duthost, container_name, threshold, interval, delay)
+    if start_limit_hit(duthost, service_name):
+        reset_start_limit_hit(duthost, service_name, threshold, interval, delay)
 
 def expect_res_success(duthost, output, expected_content_list, unexpected_content_list):
     for expected_content in expected_content_list:
@@ -56,13 +58,13 @@ def expect_op_failure(output):
         "The command should fail with non zero return code"
     )
 
-def start_limit_hit(duthost, container_name):
+def start_limit_hit(duthost, service_name):
     """If start-limit-hit is hit, the service will not start anyway.
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
+    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
     pytest_assert(
         not service_status['rc'],
-        "{} service status cannot be found".format(container_name)
+        "{} service status cannot be found".format(service_name)
     )
 
     for line in service_status["stdout_lines"]:
@@ -71,29 +73,31 @@ def start_limit_hit(duthost, container_name):
 
     return False
 
-def reset_start_limit_hit(duthost, container_name, threshold, interval, delay):
-    """Reset container if hit start-limit-hit
+def reset_start_limit_hit(duthost, service_name, threshold, interval, delay):
+    """Reset service if hit start-limit-hit
     """
-    logger.info("Reset container '{}' due to start-limit-hit".format(container_name))
+    logger.info("Reset service '{}' due to start-limit-hit".format(service_name))
 
-    service_reset_failed = duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
+    service_reset_failed = duthost.shell("sudo systemctl reset-failed {}.service".format(service_name))
     pytest_assert(
         not service_reset_failed['rc'],
         "{} systemctl reset-failed service fails"
     )
 
-    service_start = duthost.shell("sudo systemctl start {}.service".format(container_name))
+    service_start = duthost.shell("sudo systemctl start {}.service".format(service_name))
     pytest_assert(
         not service_start['rc'],
         "{} systemctl start service fails"
     )
 
-    reset_container = wait_until(threshold,
+    is_container = service_name in CONTAINER_SERVICES_LIST
+
+    reset_service = wait_until(threshold,
                         interval,
                         delay,
-                        duthost.is_service_fully_started,
-                        container_name)
+                        duthost.is_service_fully_started if is_container else True,
+                        service_name)
     pytest_assert(
-        reset_container,
-        "Failed to reset container '{}' due to start-limit-hit".format(container_name)
+        reset_service,
+        "Failed to reset service '{}' due to start-limit-hit".format(service_name)
     )
