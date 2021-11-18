@@ -21,7 +21,7 @@ stages:
   - job:
     pool: sonictest
     displayName: "kvmtest-t0"
-    timeoutInMinutes: 300
+    timeoutInMinutes: 330
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
