@@ -46,7 +46,7 @@ class TestLinkFlap(object):
         while loop_times > 0:
             loop_times -= 1
             for dut_port, fanout, fanout_port in candidates:
-                toggle_one_link(loop_times, dut, dut_port, fanout, fanout_port)
+                toggle_one_link(dut, dut_port, fanout, fanout_port)
 
 
 @pytest.mark.platform('physical')
