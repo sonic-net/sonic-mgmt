@@ -914,7 +914,7 @@ def get_testbed_metadata(request):
     return metadata.get(tbname)
 
 
-def generate_port_lists(request, port_scope):
+def generate_port_lists(request, port_scope = "all_ports"):
     empty = [ encode_dut_port_name('unknown', 'unknown') ]
     if 'ports' in port_scope:
         scope = 'Ethernet'

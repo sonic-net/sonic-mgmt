@@ -31,7 +31,7 @@ class TestLinkFlap(object):
     """
     TestLinkFlap class for link flap
     """
-    def run_link_flap_test(self, normalized_level, loop_times, dut, fanouthosts, port):
+    def run_link_flap_test(self, normalized_level, dut, fanouthosts, port):
         """
         Test runner of link flap test.
 
@@ -48,7 +48,7 @@ class TestLinkFlap(object):
 
 
 @pytest.mark.platform('physical')
-def test_link_flap(duthosts, enum_dut_portname, fanouthosts, get_function_conpleteness_level):
+def test_link_flap(duthosts, generate_port_lists, fanouthosts, get_function_conpleteness_level):
     """
     Validates that link flap works as expected
     """
@@ -60,10 +60,15 @@ def test_link_flap(duthosts, enum_dut_portname, fanouthosts, get_function_conple
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-    dutname, portname = decode_dut_port_name(enum_dut_portname)
+    port_lists = generate_port_lists
 
     while loop_times > 0:
         loop_times -= 1
-        for dut in duthosts:
-            if dutname == 'unknown' or dutname == dut.hostname:
-                tlf.run_link_flap_test(normalized_level, loop_times, dut, fanouthosts, portname)
+        logging.info("YT test loop")
+
+        for port in generate_port_lists:
+            dutname, portname = decode_dut_port_name(enum_dut_portname)
+
+            for dut in duthosts:
+                if dutname == 'unknown' or dutname == dut.hostname:
+                    tlf.run_link_flap_test(normalized_level, dut, fanouthosts, portname)
