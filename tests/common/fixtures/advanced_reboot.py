@@ -75,6 +75,7 @@ class AdvancedReboot:
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
+        self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -516,7 +517,8 @@ class AdvancedReboot:
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
-            "asic_type": self.duthost.facts["asic_type"]
+            "asic_type": self.duthost.facts["asic_type"],
+            "allow_mac_jumping": self.allowMacJump
         }
 
         if not isinstance(rebootOper, SadOperation):
