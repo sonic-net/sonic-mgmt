@@ -132,7 +132,7 @@ def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
     return status['oper_state'] == exp_state
 
 
-def toggle_one_link(loop_times, dut, dut_port, fanout, fanout_port, watch=False):
+def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     """
     Toggle one link on the fanout.
 
