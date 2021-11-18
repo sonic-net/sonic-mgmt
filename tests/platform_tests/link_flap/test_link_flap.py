@@ -43,8 +43,10 @@ class TestLinkFlap(object):
         candidates = build_test_candidates(dut, fanouthosts, port, completeness_level)
         pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
-        for dut_port, fanout, fanout_port in candidates:
-            toggle_one_link(loop_times, dut, dut_port, fanout, fanout_port)
+        while loop_times > 0:
+            loop_times -= 1
+            for dut_port, fanout, fanout_port in candidates:
+                toggle_one_link(loop_times, dut, dut_port, fanout, fanout_port)
 
 
 @pytest.mark.platform('physical')

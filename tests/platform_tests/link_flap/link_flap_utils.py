@@ -151,19 +151,17 @@ def toggle_one_link(loop_times, dut, dut_port, fanout, fanout_port, watch=False)
 
     need_recovery = True
     try:
-        while loop_times > 0:
-            loop_times -= 1
-            fanout.shutdown(fanout_port)
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+        fanout.shutdown(fanout_port)
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
-            if watch:
-                time.sleep(1)
-                watch_system_status(dut)
+        if watch:
+            time.sleep(1)
+            watch_system_status(dut)
 
-            logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-            fanout.no_shutdown(fanout_port)
-            need_recovery = False
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+        logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
+        fanout.no_shutdown(fanout_port)
+        need_recovery = False
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
