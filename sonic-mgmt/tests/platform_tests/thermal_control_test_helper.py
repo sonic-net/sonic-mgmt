@@ -263,7 +263,7 @@ def restart_thermal_control_daemon(dut):
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
-    # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may 
+    # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
     # use subprocess to call ethtool to do initialization.
     # So we check here thermalcltd must have at least 2 processes.
     assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
@@ -303,7 +303,8 @@ class ThermalPolicyFileContext:
         thermal control daemon to make it effect.
         :return:
         """
-        if os.path.exists(self.thermal_policy_file_path):
+        out = self.dut.stat(path=self.thermal_policy_file_path)
+        if out['stat']['exists']:
             self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
         else:
             logging.warning("Thermal Policy file {} not found".format(self.thermal_policy_file_path))
@@ -318,8 +319,8 @@ class ThermalPolicyFileContext:
         :param exc_tb: Not used.
         :return:
         """
-
-        if os.path.exists(self.thermal_policy_file_backup_path):
+        out = self.dut.stat(path=self.thermal_policy_file_backup_path)
+        if out['stat']['exists']:
             self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
             restart_thermal_control_daemon(self.dut)
 
@@ -328,7 +329,7 @@ class ThermalPolicyFileContext:
 def disable_thermal_policy(duthosts, enum_rand_one_per_hwsku_hostname):
     """Fixture to help disable thermal policy during the test. After test, it will
        automatically re-enable thermal policy. The idea here is to make thermalctld
-       load a invalid policy file. To use this fixture, the test case will probably 
+       load a invalid policy file. To use this fixture, the test case will probably
        marked as @pytest.mark.disable_loganalyzer.
 
     Args:

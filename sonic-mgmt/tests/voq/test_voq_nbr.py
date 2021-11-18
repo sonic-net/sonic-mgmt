@@ -744,10 +744,10 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         # Check neighbor on local linecard
         logger.info("*" * 60)
         logger.info("Verify initial neighbor: %s, port %s", neighbor, local_port)
-        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
+        pytest_assert(wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
                       "MAC {} didn't change in ARP table".format(original_mac))
         sonic_ping(asic, neighbor, verbose=True)
-        pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac),
+        pytest_assert(wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, original_mac),
                       "MAC {} didn't change in ARP table".format(original_mac))
 
     dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
@@ -761,11 +761,11 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             if ":" in neighbor:
                 logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                 asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, NEW_MAC, checkstate=False),
+            pytest_assert(wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, NEW_MAC, checkstate=False),
                           "MAC {} didn't change in ARP table".format(NEW_MAC))
 
             sonic_ping(asic, neighbor, verbose=True)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, NEW_MAC),
+            pytest_assert(wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, NEW_MAC),
                           "MAC {} didn't change in ARP table".format(NEW_MAC))
             logger.info("Verify neighbor after mac change: %s, port %s", neighbor, local_port)
             check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
@@ -783,10 +783,10 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
                 logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                 asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
             pytest_assert(
-                wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
+                wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, original_mac, checkstate=False),
                 "MAC {} didn't change in ARP table".format(original_mac))
             sonic_ping(asic, neighbor, verbose=True)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, per_host, asic, neighbor, original_mac),
+            pytest_assert(wait_until(60, 2, 0, check_arptable_mac, per_host, asic, neighbor, original_mac),
                           "MAC {} didn't change in ARP table".format(original_mac))
 
         dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
@@ -829,7 +829,7 @@ class LinkFlap(object):
         """
         logger.info("Bring down link: %s/%s <-> %s/%s", fanout.hostname, fanport, dut.hostname, dut_intf)
         fanout.shutdown(fanport)
-        pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'down'),
+        pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'down'),
                       "dut port {} didn't go down as expected".format(dut_intf))
 
     def linkflap_up(self, fanout, fanport, dut, dut_intf):
@@ -848,7 +848,7 @@ class LinkFlap(object):
         """
         logger.info("Bring up link: %s/%s <-> %s/%s", fanout.hostname, fanport, dut.hostname, dut_intf)
         fanout.no_shutdown(fanport)
-        pytest_assert(wait_until(60, 1, self.check_intf_status, dut, dut_intf, 'up'),
+        pytest_assert(wait_until(60, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
     def localport_admindown(self, dut, asic, dut_intf):
@@ -865,7 +865,7 @@ class LinkFlap(object):
         """
         logger.info("Admin down port %s/%s", dut.hostname, dut_intf)
         asic.shutdown_interface(dut_intf)
-        pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'down'),
+        pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'down'),
                       "dut port {} didn't go down as expected".format(dut_intf))
 
     def localport_adminup(self, dut, asic, dut_intf):
@@ -882,7 +882,7 @@ class LinkFlap(object):
         """
         logger.info("Admin up port %s/%s", dut.hostname, dut_intf)
         asic.startup_interface(dut_intf)
-        pytest_assert(wait_until(30, 1, self.check_intf_status, dut, dut_intf, 'up'),
+        pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
 
@@ -978,7 +978,7 @@ class TestNeighborLinkFlap(LinkFlap):
                 sonic_ping(asic, neighbor)
 
             for neighbor in neighbors:
-                pytest_assert(wait_until(60, 2, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
+                pytest_assert(wait_until(60, 2, 0, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
                               "STATE for neighbor {} did not change to reachable".format(neighbor))
 
             dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighbors, nbrhosts, all_cfg_facts, nbr_macs)
@@ -1167,7 +1167,7 @@ class TestGratArp(object):
             logger.info("%s port %s is on ptf port: %s", duthost.hostname, local_port, tb_port)
             logger.info("-" * 60)
             sonic_ping(asic, neighbor)
-            pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac),
+            pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, original_mac),
                           "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
@@ -1176,13 +1176,13 @@ class TestGratArp(object):
                 change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], NEW_MAC)
                 self.send_grat_pkt(NEW_MAC, neighbor, int(tb_port))
 
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=False),
+                pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=False),
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 try:
                     sonic_ping(asic, neighbor)
                 except AssertionError:
                     logging.info("No initial response from ping, begin poll to see if ARP table responds.")
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
+                pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
                 ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
@@ -1195,10 +1195,10 @@ class TestGratArp(object):
                     logger.info("Force neighbor solicitation to workaround long IPV6 timer.")
                     asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
                 pytest_assert(
-                    wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac, checkstate=False),
+                    wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, original_mac, checkstate=False),
                     "MAC {} didn't change in ARP table".format(original_mac))
                 sonic_ping(asic, neighbor, verbose=True)
-                pytest_assert(wait_until(60, 2, check_arptable_mac, duthost, asic, neighbor, original_mac),
+                pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, original_mac),
                               "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)

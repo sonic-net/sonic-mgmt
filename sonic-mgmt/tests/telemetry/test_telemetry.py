@@ -93,7 +93,7 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
-    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
     logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
     # Wait until the TCP port was opened

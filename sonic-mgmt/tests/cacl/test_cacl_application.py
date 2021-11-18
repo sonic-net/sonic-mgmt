@@ -37,8 +37,21 @@ def docker_network(duthost):
     ipam_info = json.loads(output['stdout'])[0]['IPAM']
 
     docker_network = {}
-    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0]['Gateway'],
-                                'IPv6Address' : ipam_info['Config'][1]['Gateway'] }
+    """
+    FIXME: Work around dockerd issue. The Gateway entry might be missing. In that case, use 'Subnet' instead.
+           Sample output when docker hit the issue (Note that the IPv6 gateway is missing):
+				"Config": [
+					{
+						"Subnet": "240.127.1.1/24",
+						"Gateway": "240.127.1.1"
+					},
+					{
+						"Subnet": "fd00::/80"
+					}
+				]
+    """
+    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0].get('Gateway', ipam_info['Config'][0].get('Subnet')),
+                                'IPv6Address' : ipam_info['Config'][1].get('Gateway', ipam_info['Config'][1].get('Subnet')) }
 
     docker_network['container'] = {}
     for k,v in docker_containers_info.items():

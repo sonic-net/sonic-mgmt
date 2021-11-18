@@ -25,4 +25,7 @@ mux_simulator_http_port:
     dualtor-testbed-3: 8080
     dualtor-testbed-4: 8082
 
+    # For vs setup
+    vms-kvm-dual-t0: 8080
+
     #### Add your own port assignment after here ###

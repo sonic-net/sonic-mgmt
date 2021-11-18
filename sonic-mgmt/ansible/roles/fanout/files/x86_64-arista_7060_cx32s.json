@@ -1,0 +1,54 @@
+{
+    "WRED_PROFILE": {
+        "AZURE_LOSSLESS": {
+            "red_max_threshold": "2097152",
+            "red_drop_probability": "5",
+            "wred_green_enable": "true",
+            "ecn": "ecn_all",
+            "green_min_threshold": "250000",
+            "red_min_threshold": "1048576",
+            "wred_yellow_enable": "true",
+            "yellow_min_threshold": "1048576",
+            "green_max_threshold": "2097152",
+            "green_drop_probability": "5",
+            "yellow_max_threshold": "2097152",
+            "yellow_drop_probability": "5",
+            "wred_red_enable": "true"
+        }
+    },
+    "BUFFER_POOL": {
+        "egress_lossless_pool": {
+            "type": "egress",
+            "mode": "static",
+            "size": "15982720"
+        },
+        "egress_lossy_pool": {
+            "type": "egress",
+            "mode": "dynamic",
+            "size": "9243812"
+        },
+        "ingress_lossless_pool": {
+            "xoff": "4194112",
+            "type": "ingress",
+            "mode": "dynamic",
+            "size": "10875072"
+        }
+    },
+    "BUFFER_PROFILE": {
+        "egress_lossless_profile": {
+            "static_th": "15982720",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "1518"
+        },
+        "egress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "1518"
+        },
+        "ingress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        }
+    }
+}

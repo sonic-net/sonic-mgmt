@@ -1,0 +1,134 @@
+slot1:
+    ASIC0:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth2250-ASIC0
+              - Eth2252-ASIC0
+              - Eth2254-ASIC0
+          ASIC1:
+            asic_intfs:
+              - Eth2064-ASIC0
+              - Eth2246-ASIC0
+              - Eth2248-ASIC0
+              - Eth2262-ASIC0
+      configuration_properties:
+        common:
+          dut_asn: 65100
+          asic_type: FrontEnd 
+      configuration:
+        ASIC0:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.1.1/24
+                - 2603:10e2:400:1::1/64
+        ASIC1:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.2.1/24
+                - 2603:10e2:400:2::1/64
+    ASIC1:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth2504-ASIC1
+              - Eth2508-ASIC1
+              - Eth2510-ASIC1
+          ASIC1:
+            asic_intfs:
+              - Eth2320-ASIC1
+              - Eth2502-ASIC1
+              - Eth2506-ASIC1
+              - Eth2518-ASIC1
+      configuration_properties:
+        common:
+          dut_asn: 65100
+          asic_type: FrontEnd 
+      configuration:
+        ASIC0:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.1.2/24
+                - 2603:10e2:400:1::2/64
+        ASIC1:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.2.2/24
+                - 2603:10e2:400:2::2/64
+slot2:
+    ASIC0:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth2250-ASIC0
+              - Eth2252-ASIC0
+              - Eth2254-ASIC0
+          ASIC1:
+            asic_intfs:
+              - Eth2064-ASIC0
+              - Eth2246-ASIC0
+              - Eth2248-ASIC0
+              - Eth2262-ASIC0
+      configuration_properties:
+        common:
+          dut_asn: 65100
+          asic_type: FrontEnd 
+      configuration:
+        ASIC0:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.1.3/24
+                - 2603:10e2:400:1::3/64
+        ASIC1:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.2.3/24
+                - 2603:10e2:400:2::3/64
+    ASIC1:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth2504-ASIC1
+              - Eth2508-ASIC1
+              - Eth2510-ASIC1
+          ASIC1:
+            asic_intfs:
+              - Eth2320-ASIC1
+              - Eth2502-ASIC1
+              - Eth2506-ASIC1
+              - Eth2518-ASIC1
+      configuration_properties:
+        common:
+          dut_asn: 65100
+          asic_type: FrontEnd 
+      configuration:
+        ASIC0:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.1.4/24
+                - 2603:10e2:400:1::4/64
+        ASIC1:
+          bgp:
+            asn: 65100
+            peers:
+              65100:
+                - 10.0.2.4/24
+                - 2603:10e2:400:2::4/64

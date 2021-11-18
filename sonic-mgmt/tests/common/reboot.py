@@ -174,7 +174,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     if reboot_type == 'warm':
         logger.info('waiting for warmboot-finalizer service to become activating on {}'.format(hostname))
-        finalizer_state = get_warmboot_finalizer_state(duthost)
+        # Check if finalizer state reaches "activating" before the "wait" period,
+        # the default wait is 90s since issue of warm-reboot).
+        # If the finalizer state is activating, however time passed is greater than "wait",
+        # then fail the testcase. Start with empty value to verify time passed before
+        # checking finalizer state for the first time.
+        finalizer_state = ''
         while finalizer_state != 'activating':
             dut_datetime_after_ssh = duthost.get_now_time()
             time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))

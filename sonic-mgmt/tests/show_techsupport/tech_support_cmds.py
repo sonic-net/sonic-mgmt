@@ -113,7 +113,7 @@ redis_db_cmds = [
 ]
 
 docker_cmds = [
-    "docker exec -it syncd{} saidump",
+    "docker exec syncd{} saidump",
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
@@ -175,6 +175,11 @@ copy_config_cmds = [
     "cp .{}/pg_profile_lookup.ini",
     "cp .{}/port_config.ini",
     "cp .{}/qos.json.j2",
+    "cp .{}/sai.profile",
+]
+
+copy_config_cmds_no_qos = [
+    "cp .{}/port_config.ini",
     "cp .{}/sai.profile",
 ]
 

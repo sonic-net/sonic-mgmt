@@ -1,0 +1,37 @@
+- name: find interface name mapping
+  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
+
+- name: build fanout vlan config
+  fail: msg="SONiC fanout switch with HwSku {{ device_info[inventory_hostname]['HwSku'] }} not supported"
+  when: device_info[inventory_hostname]["HwSku"] != "Arista-7060CX-32S-C32"
+
+- name: build fanout startup config for Arista 7060 SONiC leaf fanout
+  template: src=sonic_deploy_arista_7060.j2
+            dest=/etc/sonic/vlan.json
+  when: device_info[inventory_hostname]["HwSku"] == "Arista-7060CX-32S-C32"
+  become: yes
+
+- name: disable all copp rules
+  shell:
+    cmd: docker exec swss bash -c 'echo [] > /etc/swss/config.d/00-copp.config.json'
+  become: yes
+
+- name: generate config_db.json
+  shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
+  become: yes
+
+- name: stop and disable lldp service
+  service: name=lldp state=stopped enabled=no
+  become: yes
+
+- name: stop and disable dhcp_relay service
+  service: name=dhcp_relay state=stopped enabled=no
+  become: yes
+
+- name: stop and disable bgp service
+  service: name=bgp state=stopped enabled=no
+  become: yes
+
+- name: stop and disable teamd service
+  service: name=teamd state=stopped enabled=no
+  become: yes

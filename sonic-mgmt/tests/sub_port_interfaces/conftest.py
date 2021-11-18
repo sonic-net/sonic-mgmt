@@ -61,7 +61,13 @@ def skip_unsupported_asic_type(duthost):
 
 
 @pytest.fixture(params=['port', 'port_in_lag'])
-def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
+def port_type(request):
+    """Port type to test, could be either port or port-channel."""
+    return request.param
+
+
+@pytest.fixture
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
     """
     Define configuration of sub-ports for TC run
 
@@ -69,6 +75,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         request: pytest request object
         duthost: DUT host object
         ptfhost: PTF host object
+        port_type: Port type to test
 
     Yields:
         Dictonary of sub-port parameters for configuration DUT and PTF host
@@ -102,7 +109,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         # but name of LAG port should have prefix 'PortChannel' and suffix
         # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
         # For example: 'PortChannel1.99'
-        if 'port_in_lag' in request.param:
+        if 'port_in_lag' in port_type:
             vlan_range_end = min(100, max_numbers_of_sub_ports + 11)
             vlan_ranges_dut = range(11, vlan_range_end)
             vlan_ranges_ptf = range(11, vlan_range_end)
@@ -112,7 +119,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
     prefix = 30
     network = ipaddress.ip_network(ip_subnet)
 
-    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, request.param)
+    # for normal t0, get_port tries to retrieve test ports from vlan members
+    # let's enforce same behavior for t0-backend
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, exclude_sub_interface_ports=True)
+    else:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
 
     subnets = [i for i, _ in zip(network.subnets(new_prefix=22), config_port_indices)]
 
@@ -131,7 +143,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter):
         'ptf_ports': ptf_ports,
         'subnet': network,
         'interface_ranges': config_port_indices.keys(),
-        'port_type': request.param
+        'port_type': port_type
     }
 
 
@@ -164,7 +176,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
-    py_assert(wait_until(3, 1, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
+    py_assert(wait_until(3, 1, 0, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
               "Some sub-ports were not created")
 
     yield sub_ports_vars
@@ -437,9 +449,10 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
-    for sub_port, sub_port_info in sub_ports.items():
-        remove_sub_port(duthost, sub_port, sub_port_info['ip'])
+    existing_sub_ports = cfg_facts.get("VLAN_SUB_INTERFACE", {})
+    for sub_port in sub_ports:
+        if sub_port in existing_sub_ports:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]['ip'])
 
     py_assert(check_sub_port(duthost, sub_ports.keys(), True), "Some sub-port were not deleted")
 
@@ -450,7 +463,7 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
     """
     PTF's configuration reload on teardown
