@@ -161,6 +161,10 @@ class TestSfpApi(PlatformApiTestBase):
                 compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
                 if compliance_code == "40GBASE-CR4":
                    return False
+                if compliance_code == "Extended":
+                    extended_code = spec_compliance_dict.get("Extended Specification Compliance")
+                    if "CR" in extended_code:
+                        return False
         return True
 
     def is_xcvr_resettable(self, xcvr_info_dict):
