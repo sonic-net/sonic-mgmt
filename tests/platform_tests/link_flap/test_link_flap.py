@@ -43,10 +43,8 @@ class TestLinkFlap(object):
         candidates = build_test_candidates(dut, fanouthosts, port, completeness_level)
         pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
-        while loop_times > 0:
-            loop_times -= 1
-            for dut_port, fanout, fanout_port in candidates:
-                toggle_one_link(dut, dut_port, fanout, fanout_port)
+        for dut_port, fanout, fanout_port in candidates:
+            toggle_one_link(dut, dut_port, fanout, fanout_port)
 
 
 @pytest.mark.platform('physical')
@@ -63,6 +61,9 @@ def test_link_flap(duthosts, enum_dut_portname, fanouthosts, get_function_conple
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     dutname, portname = decode_dut_port_name(enum_dut_portname)
-    for dut in duthosts:
-        if dutname == 'unknown' or dutname == dut.hostname:
-            tlf.run_link_flap_test(normalized_level, loop_times, dut, fanouthosts, portname)
+
+    while loop_times > 0:
+        loop_times -= 1
+        for dut in duthosts:
+            if dutname == 'unknown' or dutname == dut.hostname:
+                tlf.run_link_flap_test(normalized_level, loop_times, dut, fanouthosts, portname)
