@@ -12,7 +12,7 @@ from tests.common.helpers.bgp import BGPNeighbor
 
 
 from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 
 
 pytestmark = [
@@ -137,7 +137,7 @@ def constants(is_quagga, setup_interfaces):
 
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_dut_hostname,
-                          toggle_all_simulator_ports_to_rand_selected_tor):
+                          toggle_all_simulator_ports_to_rand_selected_tor_m):
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""

@@ -489,3 +489,9 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
+  skip:
+    reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
+    conditions:
+      - "asic_type=='cisco-8000'"
