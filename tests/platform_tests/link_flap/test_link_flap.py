@@ -8,7 +8,6 @@ import random
 
 from tests.common.plugins.test_completeness import CompletenessLevel
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_ports import decode_dut_port_name
 
 logger = logging.getLogger(__name__)
