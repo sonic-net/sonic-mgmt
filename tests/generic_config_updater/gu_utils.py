@@ -90,12 +90,13 @@ def reset_start_limit_hit(duthost, service_name, threshold, interval, delay):
         "{} systemctl start service fails"
     )
 
-    is_container = service_name in CONTAINER_SERVICES_LIST
+    if not service_name in CONTAINER_SERVICES_LIST:
+        return
 
     reset_service = wait_until(threshold,
                         interval,
                         delay,
-                        duthost.is_service_fully_started if is_container else True,
+                        duthost.is_service_fully_started,
                         service_name)
     pytest_assert(
         reset_service,
