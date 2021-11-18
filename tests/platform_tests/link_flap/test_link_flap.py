@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
-    pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic)
 ]
 
 LOOP_TIMES_LEVEL_MAP = {
