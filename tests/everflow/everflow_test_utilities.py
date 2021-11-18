@@ -32,6 +32,8 @@ EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
 STABILITY_BUFFER = 0.05 #50msec
 
+OUTER_HEADER_SIZE = 38
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     """
@@ -190,7 +192,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
            if k in mg_facts["minigraph_ports"]
         }
     }
-
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
     duthost.command("sudo config bgp shutdown all")
@@ -278,8 +279,6 @@ class BaseEverflowTest(object):
     mirror and ACL stage for the tests.
     """
 
-    OUTER_HEADER_SIZE = 38
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
@@ -304,13 +303,13 @@ class BaseEverflowTest(object):
             dict: Information about the mirror session configuration.
         """
         duthost = duthosts[rand_one_dut_hostname]
-        session_info = self._mirror_session_info("test_session_1", duthost.facts["asic_type"])
+        session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
 
-        self.apply_mirror_config(duthost, session_info, config_method)
+        BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method)
 
         yield session_info
 
-        self.remove_mirror_config(duthost, session_info["session_name"], config_method)
+        BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
     def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
@@ -330,16 +329,17 @@ class BaseEverflowTest(object):
         self.apply_policer_config(duthost, policer, config_method)
 
         # Create a mirror session with the TEST_POLICER attached
-        session_info = self._mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
-        self.apply_mirror_config(duthost, session_info, config_method, policer=policer)
+        session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+        BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer)
 
         yield session_info
 
         # Clean up mirror session and policer
-        self.remove_mirror_config(duthost, session_info["session_name"], config_method)
+        BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
         self.remove_policer_config(duthost, policer, config_method)
 
-    def apply_mirror_config(self, duthost, session_info, config_method, policer=None):
+    @staticmethod
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None):
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session add {} {} {} {} {} {}" \
                         .format(session_info["session_name"],
@@ -357,7 +357,8 @@ class BaseEverflowTest(object):
 
         duthost.command(command)
 
-    def remove_mirror_config(self, duthost, session_name, config_method):
+    @staticmethod
+    def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session remove {}".format(session_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
@@ -411,7 +412,7 @@ class BaseEverflowTest(object):
 
         yield
 
-        self.remove_acl_rule_config(duthost, table_name, config_method)
+        BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
 
         if self.acl_stage() == "egress":
             self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method)
@@ -472,7 +473,8 @@ class BaseEverflowTest(object):
         duthost.command(command)
         time.sleep(2)
 
-    def remove_acl_rule_config(self, duthost, table_name, config_method):
+    @staticmethod
+    def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI):
         if config_method == CONFIG_MODE_CLI:
             duthost.copy(src=os.path.join(FILE_DIR, EVERFLOW_RULE_DELETE_FILE),
                          dest=DUT_RUN_DIR)
@@ -536,12 +538,12 @@ class BaseEverflowTest(object):
         if src_port_namespace != dest_ports_namespace:
             src_port_set.add(dest_ports[0])
 
-        expected_mirror_packet_with_ttl = self._get_expected_mirror_packet(mirror_session,
+        expected_mirror_packet_with_ttl = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
                                                                   mirror_packet,
                                                                   True)
-        expected_mirror_packet_without_ttl = self._get_expected_mirror_packet(mirror_session,
+        expected_mirror_packet_without_ttl = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
                                                                   setup,
                                                                   duthost,
                                                                   mirror_packet,
@@ -589,8 +591,9 @@ class BaseEverflowTest(object):
                 pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
-
-    def _get_expected_mirror_packet(self, mirror_session, setup, duthost, mirror_packet, check_ttl):
+    
+    @staticmethod
+    def get_expected_mirror_packet(mirror_session, setup, duthost, mirror_packet, check_ttl):
         payload = mirror_packet.copy()
 
         # Add vendor specific padding to the packet
@@ -626,18 +629,19 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "tos")
 
         # Mask off the payload (we check it later)
-        expected_packet.set_do_not_care(self.OUTER_HEADER_SIZE * 8, len(payload) * 8)
+        expected_packet.set_do_not_care(OUTER_HEADER_SIZE * 8, len(payload) * 8)
 
         return expected_packet
 
     def _extract_mirror_payload(self, encapsulated_packet, payload_size):
-        pytest_assert(len(encapsulated_packet) >= self.OUTER_HEADER_SIZE,
-                      "Incomplete packet, expected at least {} header bytes".format(self.OUTER_HEADER_SIZE))
+        pytest_assert(len(encapsulated_packet) >= OUTER_HEADER_SIZE,
+                      "Incomplete packet, expected at least {} header bytes".format(OUTER_HEADER_SIZE))
 
         inner_frame = encapsulated_packet[-payload_size:]
         return packet.Ether(inner_frame)
 
-    def _mirror_session_info(self, session_name, asic_type):
+    @staticmethod
+    def mirror_session_info(session_name, asic_type):
         session_src_ip = "1.1.1.1"
         session_dst_ip = "2.2.2.2"
         session_dscp = "8"

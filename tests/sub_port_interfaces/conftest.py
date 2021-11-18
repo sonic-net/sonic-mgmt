@@ -67,7 +67,7 @@ def port_type(request):
 
 
 @pytest.fixture
-def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type):
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
     """
     Define configuration of sub-ports for TC run
 
@@ -119,7 +119,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     prefix = 30
     network = ipaddress.ip_network(ip_subnet)
 
-    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
+    # for normal t0, get_port tries to retrieve test ports from vlan members
+    # let's enforce same behavior for t0-backend
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, exclude_sub_interface_ports=True)
+    else:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
 
     subnets = [i for i, _ in zip(network.subnets(new_prefix=22), config_port_indices)]
 
@@ -171,7 +176,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
-    py_assert(wait_until(3, 1, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
+    py_assert(wait_until(3, 1, 0, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
               "Some sub-ports were not created")
 
     yield sub_ports_vars
@@ -444,10 +449,10 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
-    if check_sub_port(duthost, sub_ports.keys()):
-        for sub_port, sub_port_info in sub_ports.items():
-            remove_sub_port(duthost, sub_port, sub_port_info['ip'])
+    existing_sub_ports = cfg_facts.get("VLAN_SUB_INTERFACE", {})
+    for sub_port in sub_ports:
+        if sub_port in existing_sub_ports:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]['ip'])
 
     py_assert(check_sub_port(duthost, sub_ports.keys(), True), "Some sub-port were not deleted")
 

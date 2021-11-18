@@ -38,6 +38,9 @@ def common_setup_teardown(ptfhost):
 
     ptfhost.file(path=TEST_DIR, state="absent")
 
+def is_vtestbed(duthost):
+    return duthost.facts['asic_type'].lower() == "vs"
+
 class LagTest:
     def __init__(self, duthost, tbinfo, ptfhost, nbrhosts, fanouthosts, conn_graph_facts):
         self.duthost     = duthost
@@ -48,7 +51,10 @@ class LagTest:
         self.mg_facts         = duthost.get_extended_minigraph_facts(tbinfo)
         self.conn_graph_facts = conn_graph_facts
         self.vm_neighbors     = self.mg_facts['minigraph_neighbors']
-        self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
+        if is_vtestbed(duthost):
+            self.fanout_neighbors = None
+        else:
+            self.fanout_neighbors = self.conn_graph_facts['device_conn'][duthost.hostname] if 'device_conn' in self.conn_graph_facts else {}
 
     def __get_lag_facts(self):
         return self.duthost.lag_facts(host = self.duthost.hostname)['ansible_facts']['lag_facts']
@@ -112,7 +118,7 @@ class LagTest:
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' \
                     % (namespace_prefix, lag_name, po_intf)
-                    wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
+                    wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
@@ -136,7 +142,7 @@ class LagTest:
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"'\
                               % (namespace_prefix, lag_name, po_intf)
-                    wait_until(wait_timeout, delay, self.__check_shell_output, self.duthost, command)
+                    wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
     def run_single_lag_lacp_rate_test(self, lag_name, lag_facts):
         logger.info("Start checking single lag lacp rate for: %s" % lag_name)
@@ -216,7 +222,7 @@ class LagTest:
         try:
             # Shut down neighbor interface
             vm_host.shutdown(neighbor_intf)
-            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, False)
+            wait_until(wait_timeout, delay, 0, self.__check_intf_state, vm_host, neighbor_intf, False)
 
             # Refresh lag facts
             lag_facts = self.__get_lag_facts()
@@ -242,7 +248,7 @@ class LagTest:
         finally:
             # Bring up neighbor interface
             vm_host.no_shutdown(neighbor_intf)
-            wait_until(wait_timeout, delay, self.__check_intf_state, vm_host, neighbor_intf, True)
+            wait_until(wait_timeout, delay, 0, self.__check_intf_state, vm_host, neighbor_intf, True)
 
 @pytest.fixture(autouse=True, scope='module')
 def skip_if_no_lags(duthosts):
@@ -256,6 +262,10 @@ def skip_if_no_lags(duthosts):
                                       "lacp_rate",
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel, testcase):
+    # We can't run single_lag test on vtestbed since there is no leaffanout
+    if testcase == "single_lag" and is_vtestbed(duthosts[0]):
+        pytest.skip("Skip single_lag test on vtestbed")
+
     ptfhost = common_setup_teardown
 
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel)

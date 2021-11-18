@@ -105,7 +105,7 @@ def test_monit_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         monit_status_result = duthost.shell("sudo monit status", module_ignore_errors=True)
         return monit_status_result["rc"] == 0
     # Monit is configured with start delay = 300s, hence we wait up to 320s here
-    pytest_assert(wait_until(320, 20, _monit_status),
+    pytest_assert(wait_until(320, 20, 0, _monit_status),
                   "Monit is either not running or not configured correctly")
 
     logger.info("Checking the running status of Monit was done!")
@@ -133,7 +133,7 @@ def test_monit_reporting_message(duthosts, enum_rand_one_per_hwsku_frontend_host
 
     logger.info("Checking the format of Monit alerting message ...")
 
-    pytest_assert(wait_until(180, 60, check_monit_last_output, duthost),
+    pytest_assert(wait_until(180, 60, 0, check_monit_last_output, duthost),
                   "Expected Monit reporting message not found")
 
     logger.info("Checking the format of Monit alerting message was done!")
