@@ -3,7 +3,7 @@ Pytest configuration used by the link flap tests.
 
 Teardowns used by the link flap tests.
 """
-
+import pytest
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the Link flap tests.
