@@ -8,7 +8,7 @@ import random
 
 from tests.common.plugins.test_completeness import CompletenessLevel
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_ports import decode_dut_port_name
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class TestLinkFlap(object):
         """
         completeness_level = normalized_level
         candidates = build_test_candidates(dut, fanouthosts, port, completeness_level)
-        pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
+        pytest_assert(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
         for dut_port, fanout, fanout_port in candidates:
             toggle_one_link(dut, dut_port, fanout, fanout_port)
@@ -64,10 +64,9 @@ def test_link_flap(duthosts, generate_port_lists, fanouthosts, get_function_conp
 
     while loop_times > 0:
         loop_times -= 1
-        logging.info("YT test loop")
 
-        for port in generate_port_lists:
-            dutname, portname = decode_dut_port_name(enum_dut_portname)
+        for port in port_lists:
+            dutname, portname = decode_dut_port_name(port)
 
             for dut in duthosts:
                 if dutname == 'unknown' or dutname == dut.hostname:
