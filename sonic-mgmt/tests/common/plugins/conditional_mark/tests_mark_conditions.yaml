@@ -75,3 +75,19 @@ ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
+  #Most of the drivers used for thermal sensors are standard hwmon kernel drivers, and Cisco platform currently do not expose 
+  #serial and model number under sysfs path
+  skip:
+    reason: "test_get_model is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
+  #Most of the drivers used for thermal sensors are standard hwmon kernel drivers, and Cisco platform currently do not expose 
+  #serial and model number under sysfs path
+  skip:
+    reason: "test_get_serial is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
