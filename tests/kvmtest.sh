@@ -150,7 +150,9 @@ test_t0() {
 
     # Run tests_2vlans on vlab-01 virtual switch
     tgname=2vlans
-    tests="dhcp_relay/test_dhcp_relay.py"
+    tests="\
+    dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -164,7 +166,7 @@ test_t0_sonic() {
     tests="bgp/test_bgp_fact.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --skip_sanity --disable_loganalyzer"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
     popd
 }
 
@@ -202,7 +204,8 @@ test_t1_lag() {
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py \
-    scp/test_scp_copy.py"
+    scp/test_scp_copy.py \
+    pc/test_lag_2.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname

@@ -11,6 +11,7 @@ from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareT
 from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class AdvancedReboot:
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
+        self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -424,7 +426,7 @@ class AdvancedReboot:
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
         result = True
-        final_result = True
+        failed_list = list()
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
@@ -432,17 +434,17 @@ class AdvancedReboot:
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
             except Exception:
-                result = False
+                failed_list.append(rebootOper)
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-            if not result:
-                final_result = False
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-        return final_result
+        pytest_assert(len(failed_list) == 0,\
+            "Advanced-reboot failure. Failed cases: {}".format(failed_list))
+        return result
 
     def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
         '''
@@ -515,7 +517,8 @@ class AdvancedReboot:
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
-            "asic_type": self.duthost.facts["asic_type"]
+            "asic_type": self.duthost.facts["asic_type"],
+            "allow_mac_jumping": self.allowMacJump
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -536,23 +539,18 @@ class AdvancedReboot:
         self.__updateAndRestartArpResponder(rebootOper)
 
         logger.info('Run advanced-reboot ReloadTest on the PTF host')
-        try:
-            result = ptf_runner(
-                self.ptfhost,
-                "ptftests",
-                "advanced-reboot.ReloadTest",
-                qlen=PTFRUNNER_QLEN,
-                platform_dir="ptftests",
-                platform="remote",
-                params=params,
-                log_file=u'/tmp/advanced-reboot.ReloadTest.log',
-                module_ignore_errors=self.moduleIgnoreErrors,
-                timeout=REBOOT_CASE_TIMEOUT
-            )
-        except Exception as err:
-            logger.error("Timed out after {}s of executing advance reboot case: {}.".format(
-                REBOOT_CASE_TIMEOUT, str(rebootOper)) + ". Error message: {}".format(err.message))
-            raise Exception
+        result = ptf_runner(
+            self.ptfhost,
+            "ptftests",
+            "advanced-reboot.ReloadTest",
+            qlen=PTFRUNNER_QLEN,
+            platform_dir="ptftests",
+            platform="remote",
+            params=params,
+            log_file=u'/tmp/advanced-reboot.ReloadTest.log',
+            module_ignore_errors=self.moduleIgnoreErrors,
+            timeout=REBOOT_CASE_TIMEOUT
+        )
 
         return result
 

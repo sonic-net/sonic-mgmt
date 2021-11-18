@@ -226,6 +226,9 @@ class DefineOid(object):
         self.ipCidrRouteEntry = dp + "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0" # + .next hop IP
         self.ipCidrRouteStatus = dp + "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0" # + .next hop IP
 
+        # Dot1q MIB
+        self.dot1qTpFdbEntry = dp + "1.3.6.1.2.1.17.7.1.2.2.1.2" # + .VLAN.MAC
+
 def decode_hex(hexstring):
 
     if len(hexstring) < 3:
@@ -923,7 +926,6 @@ def main():
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
             if current_oid == v.sysTotalMemery:
                 results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalFreeMemery:
@@ -934,6 +936,31 @@ def main():
                 results['ansible_sysTotalBuffMemory'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysCachedMemory:
                 results['ansible_sysCachedMemory'] = decode_type(module, current_oid, val)
+
+        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+            snmp_auth,
+            cmdgen.UdpTransportTarget((m_args['host'], 161)),
+            cmdgen.MibVariable(p.dot1qTpFdbEntry,),
+        )
+
+        if errorIndication:
+            module.fail_json(msg=str(errorIndication) + ' querying FdbTable')
+
+        for varBinds in varTable:
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                if v.dot1qTpFdbEntry in current_oid:
+                    # extract fdb info from oid
+                    items = current_oid.split(v.dot1qTpFdbEntry + ".")[1].split(".")
+                    # VLAN + MAC(6)
+                    if len(items) != 7:
+                        continue
+                    mac_str = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(
+                        int(items[1]), int(items[2]), int(items[3]), int(items[4]), int(items[5]), int(items[6]))
+                    # key must be string
+                    key = items[0] + '.' + mac_str
+                    results['snmp_fdb'][key] = current_val
 
     module.exit_json(ansible_facts=results)
 
