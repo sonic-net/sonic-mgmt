@@ -239,9 +239,9 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8")
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
-        assert("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output)
+        assert "{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']), output)
         for iface in dhcp_relay['uplink_interfaces']:
-            assert("{}:67".format(iface) in output)
+            assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor):
     """Test DHCP relay functionality on T0 topology.
