@@ -3,9 +3,10 @@ import paramiko
 import pytest
 
 from .test_authorization import ssh_connect_remote, ssh_run_command
-from tests.common.helpers.assertions import pytest_assert
 from .utils import stop_tacacs_server, start_tacacs_server
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import skip_version
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
