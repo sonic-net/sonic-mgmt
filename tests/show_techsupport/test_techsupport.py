@@ -422,6 +422,11 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
 
     return cmd_not_found
 
+def check_secret_removed(duthost, command):
+    res = ptfhost.shell(command)
+    logger.info(command)
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) == 0)
 
 def test_techsupport_commands(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
@@ -472,21 +477,39 @@ def test_secret_removed_from_show_techsupport(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     # generate a new dump file
-    duthost.shell('sudo rm -f /var/dump/sonic_dump_*')
+    duthost.shell('sudo rm -rf /var/dump/sonic_dump_*')
     duthost.shell('sudo show techsupport')
     dump_file = duthost.shell('sudo ls /var/dump/sonic_dump_* | tail -1')['stdout']
 
     # extract for next step check
     ptfhost.shell("sudo tar -xf {0}".format(dump_file))
-    dump_extract_path="./{0}/".format(dump_file.replace(".tar.gz", ""))
+    dump_extract_path="./{0}".format(dump_file.replace(".tar.gz", ""))
     
     # check Tacacs key
+    sed_command = "sed -nE '/(secret=)([^,|\S]*)(.*)/P' {0}/etc/tacplus_nss.conf".format(dump_extract_path)
+    check_secret_removed(sed_command)
+
+    sed_command = "sed -nE '/(secret=)(\S*)/P' {0}/etc/pam.d/common-auth-sonic".format(dump_extract_path)
+    check_secret_removed(sed_command)
     
     # check Radius key
+    sed_command = "sed -nE '/(secret=)([^,|\S]*)(.*)/P' {0}/etc/radius_nss.conf".format(dump_extract_path)
+    check_secret_removed(sed_command)
+
+    sed_command = "sed -nE '/^([^#]\S*\s*)(\S*)/P' {0}/etc/pam_radius_auth.conf".format(dump_extract_path)
+    check_secret_removed(sed_command)
+    
+    # Check radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
+    list_command = "ls {0}/etc/pam_radius_auth.d/ | grep *.conf".format(dump_extract_path)
+    config_file_list = ptfhost.shell(list_command)["stdout_lines"]
+    for config_file in config_file_list():
+        logger.info(config_file)
+        sed_command = "sed -nE '/^([^#]\S*\s*)(\S*)/P' {0}/etc/pam_radius_auth.d/{1}".format(dump_extract_path, config_file)
+        check_secret_removed(sed_command)
     
     # check snmp community string
-    
-    # check snmp community string
+    sed_command = "sed -nE '/(\s*snmp_\S*community\s*:\s*)(\S*)/P' {0}/etc/sonic/snmp.yml".format(dump_extract_path)
+    check_secret_removed(sed_command)
     
     # check /etc/shadow
     
