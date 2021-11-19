@@ -8,7 +8,9 @@ PRINT_LOGS = {
     "neigh": "ip neigh",
     "bgpv4": "show ip bgp summary",
     "bgpv6": "show ipv6 bgp summary",
-    "routes": "ip route | wc -l"
+    "routes": "ip route | wc -l",
+    "mux_status": "show mux status",
+    "mux_config": "show mux config",
 }
 
 # Check items for testbed infrastructure that are not 

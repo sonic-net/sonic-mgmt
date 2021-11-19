@@ -86,11 +86,16 @@ def _update_check_items(old_items, new_items, supported_items):
     return updated_items
 
 
-def print_logs(duthosts):
+def print_logs(duthosts, print_dual_tor_logs=False):
     for dut in duthosts:
         logger.info("Run commands to print logs")
 
         cmds = constants.PRINT_LOGS.values()
+
+        if print_dual_tor_logs is False:
+            cmds.remove(constants.PRINT_LOGS['mux_status'])
+            cmds.remove(constants.PRINT_LOGS['mux_config'])
+
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
         for res in results:
@@ -220,8 +225,8 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
         # Dynamically attach selected check fixtures to node
         for item in set(pre_check_items):
             request.fixturenames.append(_item2fixture(item))
-
-        print_logs(duthosts)
+        dual_tor = 'dualtor' in tbinfo['topo']['name']
+        print_logs(duthosts, print_dual_tor_logs=dual_tor)
 
         check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
         logger.debug("Pre-test sanity check results:\n%s" % json.dumps(check_results, indent=4, default=fallback_serializer))
