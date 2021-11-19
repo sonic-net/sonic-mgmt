@@ -151,7 +151,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "Device Version",
             "MAC Addresses",
             "Manufacturer",
-            "Vendor Extension",
             "ONIE Version",
             "CRC-32"]
 

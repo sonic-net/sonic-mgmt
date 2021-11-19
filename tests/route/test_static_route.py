@@ -11,7 +11,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_r
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.utilities import wait_until, get_intf_by_sub_intf
 from tests.common import config_reload
 import ptf.testutils as testutils
@@ -231,7 +231,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices], [nexthop_interfaces[_] for _ in indices]
 
 
-def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
@@ -239,7 +239,7 @@ def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces)
 
 
-def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
@@ -247,7 +247,7 @@ def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggl
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, config_reload_test=True)
 
 
-def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
@@ -255,7 +255,7 @@ def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggl
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=True)
 
 
-def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
