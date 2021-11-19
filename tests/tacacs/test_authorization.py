@@ -3,8 +3,9 @@ import paramiko
 import pytest
 
 from .test_ro_user import ssh_remote_run
-from tests.common.helpers.assertions import pytest_assert
 from .utils import stop_tacacs_server, start_tacacs_server
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import skip_version
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -21,7 +22,6 @@ def ssh_connect_remote(remote_ip, remote_username, remote_password):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(remote_ip, username=remote_username, password=remote_password, allow_agent=False, look_for_keys=False, auth_timeout=TIMEOUT_LIMIT)
     return ssh
-    
 
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
@@ -64,6 +64,16 @@ def local_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     yield ssh_client
     ssh_client.close()
+
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is older than 202112
+    Args:
+        duthost: Hostname of DUT.
+    Returns:
+        None.
+    """
+    skip_version(duthost, ["201811", "201911", "202012", "202106"])
 
 def test_authorization_tacacs_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
