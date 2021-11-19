@@ -183,12 +183,13 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
                 break
         else:
             continue
-        for port in v['members']:
-            if k in vlan_members and port in vlan_members[k]:
-                if 'tagging_mode' not in vlan_members[k][port]:
-                    continue
-                mode = vlan_members[k][port]['tagging_mode']
-                config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
+        if k not in vlan_members:
+            continue
+        for port in vlan_members[k]:
+            if 'tagging_mode' not in vlan_members[k][port]:
+                continue
+            mode = vlan_members[k][port]['tagging_mode']
+            config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
 
     if config_portchannels:
         for po in config_portchannels:
