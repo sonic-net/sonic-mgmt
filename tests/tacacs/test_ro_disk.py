@@ -3,7 +3,7 @@ import crypt
 import logging
 from pkg_resources import parse_version
 
-from tests.common.helpers.assertions import pytest_require
+from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
@@ -14,20 +14,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-@pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
-    """Skips this test if the SONiC image installed on DUT is 20201231.38 or older image version.
-
-    Args:
-        duthost: Hostname of DUT.
-
-        Returns:
-            None.
-    """
-    pytest_require(parse_version(duthost.os_version) > parse_version("20201231.38"),
-            "Test is not supported for 20201231.38 and older image versions!")
-
 
 
 def check_disk_ro(duthost):
@@ -61,7 +47,7 @@ def print_res(res):
     logger.debug("stderr: {}".format(res.get('stderr', "").encode('utf-8').strip()))
 
 
-def collect_data(localhost, dutip, rw_user, rw_pass):
+def collect_data(duthost, localhost, dutip, rw_user, rw_pass):
     cmds = [
         "sudo find /run/mount -ls",
         "sudo ls -lrt /home",
@@ -71,6 +57,9 @@ def collect_data(localhost, dutip, rw_user, rw_pass):
 
     for cmd in cmds:
         print_res(ssh_remote_run(localhost, dutip, rw_user, rw_pass, cmd))
+
+    duthost.fetch(src="/run/mount/logs/syslog", dest="logs/tacacs")
+    duthost.fetch(src="/run/mount/logs/auth.log", dest="logs/tacacs")
 
 
 def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
@@ -95,10 +84,55 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
+def set_syslog_dest(duthost):
+    syslog_dir = "/run/mount/logs/"
+    res = duthost.shell("mkdir -p {}".format(syslog_dir))
+    assert res["rc"] == 0, "failed to create {}".format(syslog_dir)
+
+    data_dir = "logs/tacacs"
+    res = duthost.fetch(src="/etc/rsyslog.d/99-default.conf", dest=data_dir)
+
+
+    file_dir = "/".join(res["dest"].split("/")[0:-1])
+
+    with open(os.path.join(res["dest"]), "r") as s:
+        in_data = s.readlines()
+
+    out_data = []
+    for ln in in_data:
+        out_data.append(ln.replace("/var/log/", syslog_dir))
+
+    out_fname = "98-ro-disk.conf"
+    out_file = os.path.join(file_dir, out_fname)
+    with open(out_file, "w") as s:
+        s.writelines(out_data)
+
+    duthost_fpath = os.path.join("/etc/rsyslog.d/", out_fname)
+    duthost.copy(src=out_file, dest=duthost_fpath)
+
+    res = duthost.shell("ls -l {}".format(duthost_fpath))
+    assert res["rc"] == 0, "failed to create {}".format(duthost_fpath)
+
+    res = duthost.shell("systemctl restart rsyslog")
+    assert res["rc"] == 0, "failed to restart rsyslog"
+
+    # Give a pause before removing the added file
+    time.sleep(5)
+
+    # remove the file. So no impact upon reboot
+    res = duthost.shell("rm -f {}".format(duthost_fpath))
+    assert res["rc"] == 0, "failed to remove {}".format(duthost_fpath)
+
+
 def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release(duthost, ["201911", "201811"])
+
+    # Enable failthrough to allow admin access
+    res = duthost.shell("config aaa authentication failthrough enable")
+    assert res["rc"] == 0, "failed to enable failthrough"
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
@@ -125,6 +159,9 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         
         assert ret, "Failed to ssh as rw user"
 
+        # set additional log destination
+        set_syslog_dest(duthost)
+
         # Set disk in RO state
         simulate_ro(duthost)
 
@@ -137,7 +174,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     finally:
         if ret:
             logger.debug("Collect data before reboot")
-            collect_data(localhost, dutip, rw_user, rw_pass)
+            collect_data(duthost, localhost, dutip, rw_user, rw_pass)
 
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
@@ -146,4 +183,3 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
 
-       
