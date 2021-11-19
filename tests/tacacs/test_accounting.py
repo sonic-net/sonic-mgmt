@@ -69,6 +69,16 @@ def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     yield ssh_client
     ssh_client.close()
 
+@pytest.fixture(autouse=True, scope="module")
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is older than 202112
+    Args:
+        duthost: Hostname of DUT.
+    Returns:
+        None.
+    """
+    skip_version(duthost, ["201811", "201911", "202012", "202106"])
+
 def test_accounting_tacacs_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting tacacs+")
