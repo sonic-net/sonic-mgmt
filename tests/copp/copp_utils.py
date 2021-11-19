@@ -5,6 +5,7 @@
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
 import re
+import logging
 
 DEFAULT_NN_TARGET_PORT = 3
 
@@ -93,26 +94,29 @@ def restore_policer(dut, nn_target_namespace):
     else:
         dut.command("cp {} {}".format(_BASE_COPP_TEMPLATE, _DEFAULT_COPP_TEMPLATE))
 
-def configure_ptf(ptf, nn_target_port, nn_target_vlanid, is_backend_topology=False):
+
+def configure_ptf(ptf, test_params, is_backend_topology=False):
     """
         Configures the PTF to run the NN agent on the specified port.
 
         Args:
             ptf (PTFHost): The target PTF.
-            nn_target_port (int): The port to run NN agent on.
-            nn_target_vlanid (str): The vlan id of the port to run NN agent on.
-            is_backend_topology (bool): Whether it's a backend topology testbed
+            test_params (_COPPTestParameters): test parameters set.
+            is_backend_topology (bool): Whether it's a backend topology testbed.
     """
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
     if is_backend_topology:
-        ptf.script(cmd=_ADD_IP_BACKEND_SCRIPT)
+        ip_command = "ip address add %s/31 dev \"eth%s.%s\"" % (test_params.myip, test_params.nn_target_port, test_params.nn_target_vlanid)
     else:
-        ptf.script(cmd=_ADD_IP_SCRIPT)
+        ip_command = "ip address add %s/31 dev eth%s" % (test_params.myip, test_params.nn_target_port)
+
+    logging.debug("ip_command is: %s" % ip_command)
+    ptf.command(ip_command)
 
     facts = {
-        "nn_target_port": nn_target_port,
-        "nn_target_vlanid": nn_target_vlanid
+        "nn_target_port": test_params.nn_target_port,
+        "nn_target_vlanid": test_params.nn_target_vlanid
     }
     ptf.host.options["variable_manager"].extra_vars.update(facts)
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
@@ -129,7 +133,10 @@ def restore_ptf(ptf):
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
 
-    facts = {"nn_target_port": DEFAULT_NN_TARGET_PORT}
+    facts = {
+        "nn_target_port": DEFAULT_NN_TARGET_PORT,
+        "nn_target_vlanid": None
+    }
     ptf.host.options["variable_manager"].extra_vars.update(facts)
 
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
@@ -201,7 +208,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                 rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
-                && apt-get install -y python-pip build-essential libssl-dev python-dev python-setuptools wget cmake \
+                && apt-get install -y python-pip build-essential libssl-dev libffi-dev python-dev python-setuptools wget cmake \
                 && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
                 && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
                 && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \

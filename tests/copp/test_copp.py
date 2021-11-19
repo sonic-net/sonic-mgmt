@@ -53,6 +53,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "send_rate_limit",
                                   "nn_target_vlanid"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
+_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
 _SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -176,7 +177,7 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     try:
@@ -263,11 +264,13 @@ def _gather_test_params(tbinfo, duthost, request):
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+    # filter out server peer port and only bgp peer ports remain, to support T0 topologies
+    bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
     # get the port_index_map using the ptf_indicies to support multi DUT topologies
     port_index_map = {
         k: v
         for k, v in mg_facts["minigraph_ptf_indices"].items()
-        if k in mg_facts["minigraph_ports"]
+        if k in mg_facts["minigraph_ports"] and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
     }
     # use randam sonic interface for testing
     nn_target_interface = random.choice(port_index_map.keys())
@@ -309,7 +312,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
     logging.info("Set up the PTF for COPP tests")
-    copp_utils.configure_ptf(ptf, test_params.nn_target_port, test_params.nn_target_vlanid, is_backend_topology)
+    copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
