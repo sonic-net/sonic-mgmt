@@ -13,7 +13,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 # This is restricted by sonic-syslog.yang
-SYSLOG_MAX_SERVER=10
+SYSLOG_MAX_SERVER=-1
 
 SYSLOG_THRESHOLD=10
 SYSLOG_INTERVAL=1
@@ -209,8 +209,11 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
     ----------------
     [10.0.0.1]
     ...
-    [10.0.0.10]
+    [10.0.0.SYSLOG_MAX_SERVER]
     """
+    if SYSLOG_MAX_SERVER == -1:
+        pytest.skip("SYSLOG_MAX_SERVER is not set")
+
     syslog_servers = ["10.0.0.{}".format(i) for i in range(1, SYSLOG_MAX_SERVER+1)]
 
     json_patch = [
@@ -228,9 +231,9 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
     expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_THRESHOLD, SYSLOG_INTERVAL, 0)
-    logger.info("ActiveState{}".format(duthost.get_service_props('rsyslog-config')))
+
     status = duthost.get_service_props('rsyslog-config')["ActiveState"]
-    logger.info("status {}".format(status))
+    logger.info("rsyslog-config status {}".format(status))
     pytest_assert(
         duthost.get_service_props('rsyslog-config')["ActiveState"] == "active",
         "rsyslog-config service is not active"
@@ -244,6 +247,8 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
 def test_syslog_server_tc6_exceed_max(duthost, setup_env):
     """ Exceed syslog server maximum test
     """
+    if SYSLOG_MAX_SERVER == -1:
+        pytest.skip("SYSLOG_MAX_SERVER is not set")
 
     json_patch = [
         {
