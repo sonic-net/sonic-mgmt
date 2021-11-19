@@ -2,11 +2,14 @@ import random
 import pytest
 import ipaddress
 import logging
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+
+
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't0-52')
 ]
 
 
@@ -50,6 +53,9 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
     Teardown:   deletes ipv4 and ipv6 address on ptf hosts and removes routes to VM. Also removes residual static arp entries from tests
     """
     try:
+        # disabling icmp reply by Kernel Stack since we are running icmp_responder
+        ptfhost.shell("echo '1' > /proc/sys/net/ipv4/icmp_echo_ignore_all")
+
         k, v = random.choice(nbrhosts.items())
         vm_host = v['host']
         vm_host_ip = (v['conf']['interfaces']['Port-Channel1']['ipv4']).decode('utf-8')
@@ -75,22 +81,26 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
         vlan_ip_address_v4 = ipaddress.IPv4Interface(ip4).ip
         vlan_ip_prefixlen_v4 = ipaddress.IPv4Interface(ip4).network.prefixlen
         vlan_ip_prefixlen_v6 = ipaddress.IPv6Interface(ip6).network.prefixlen
+        vlan_ip_network_v4 = ipaddress.IPv4Interface(ip4).network
 
         # selecting 2 random vlan members of DUT
-        exclude_member = ["Ethernet0", "Ethernet1"]
-        vlan_member_list = [ele for ele in my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys() if ele not in exclude_member]
-        rand_vlan_member_list = random.sample(vlan_member_list, 2)
+        rand_vlan_member_list = random.sample(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys(), 2)
+        exclude_ip = []
+        exclude_ip.extend(
+            [ipaddress.IPv4Interface(ip4).network.network_address, ipaddress.IPv4Interface(ip4).network.broadcast_address, vlan_ip_address_v4]
+        )
+
 
         # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
         for member in rand_vlan_member_list:
+            random_ip_in_vlan = random.choice([x for x in vlan_ip_network_v4 if x not in exclude_ip])
             ptfhost_info[member] = {}
             ptfhost_info[member]["Vlanid"] = vlanid
             ptfhost_info[member]["port_index"] = my_cfg_facts['port_index_map'][member]
             ptfhost_info[member]["mac"] = (ptfhost.shell(
                 "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
                     "port_index"]))['stdout']
-            ptfhost_info[member]["ipv4"] = str(
-                ipaddress.IPv4Interface(ip4).network[ptfhost_info[member]["port_index"]])
+            ptfhost_info[member]["ipv4"] = str(random_ip_in_vlan)
             ptfhost_info[member]["ipv6"] = str(
                 ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index"]])
             # add ipv4 and v6 to randomly selected ports in ptf
@@ -106,6 +116,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
         # adding route on ptf for VM for connectivity
         logger.info("adding routes for VM")
         ptfhost.command("ip route add {ip} via {id}".format(ip=vm_host_network, id=vlan_ip_address_v4))
+
         yield vm_host, ptfhost_info
     finally:
         # Teardown of ip addresses and static arp entries used in the test
@@ -120,6 +131,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
                                                                            pi=ptfhost_info[member]['port_index']))
             logger.debug("deleting ipv4 static arp entry for ip %s on DUT" % (ptfhost_info[member]['ipv4']))
             duthost.shell("sudo arp -d {0}".format(ptfhost_info[member]['ipv4']))
+            ptfhost.shell("echo '0' > /proc/sys/net/ipv4/icmp_echo_ignore_all")
 
 
 def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
@@ -128,9 +140,8 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nb
     """
     duthost = duthosts[rand_one_dut_hostname]
     vm_host, ptfhost_info = vlan_ping_setup
-    device2 = dict(list(ptfhost_info.items())[len(ptfhost_info)//2:])
-    device1 = dict(list(ptfhost_info.items())[:len(ptfhost_info) // 2])
-    print (device1,device2)
+    device2 = dict(list(ptfhost_info.items())[1:])
+    device1 = dict(list(ptfhost_info.items())[:1])
 
     # initial setup and checking connectivity, try to break in more chunks
     logger.info("initializing setup for ipv4 and ipv6")
@@ -154,4 +165,6 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nb
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        vm_host.command("ping {} -c 5".format(ptfhost_info[member]['ipv4']))
+        output = vm_host.command("ping {} -c 5".format(ptfhost_info[member]['ipv4']))
+        if "0% packet loss" not in output['stdout_lines'][-2]:
+            pytest.fail("failed to ping {} from {}".format(ptfhost_info[member], vm_host))
