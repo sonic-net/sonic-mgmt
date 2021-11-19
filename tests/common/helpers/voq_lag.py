@@ -91,7 +91,7 @@ def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
         pytest_assert(int_facts['ansible_interface_facts']
                       [portchannel]['ipv4']['address'] == portchannel_ip.split('/')[0])
 
-        pytest_assert(wait_until(30,5, verify_lag_interface, duthost, asic, portchannel),
+        pytest_assert(wait_until(30,5, 0, verify_lag_interface, duthost, asic, portchannel),
                       'For added Portchannel {} link is not up'.format(portchannel))
 
 
@@ -209,7 +209,7 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
         duthost.shell("config interface {} ip remove {} {}"
                       .format(asic.cli_ns_option, portchannel, portchannel_ip))
 
-        pytest_assert(wait_until(30,5, verify_lag_interface, duthost, asic, portchannel, expected=False),
+        pytest_assert(wait_until(30,5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
                       'For deleted Portchannel {} ip link is not down'.format(portchannel))
 
 
@@ -352,3 +352,18 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                 if not exist:
                     pytest.fail('lag member {} not found in system lag member table {}'
                                 .format(member, lag_member_list))
+
+def is_lag_in_app_db(asic):
+    """
+    Returnes True if lag in app db else False
+    It runs the command e.g. 'redis-cli -n 0 --raw keys "*LAG_TABLE*"'
+    Args:
+        asic<obj>: asic
+    """
+    appdb = AppDbCli(asic)
+    app_db_lag_list = appdb.get_app_db_lag_list()
+    for lag in app_db_lag_list:
+        if TMP_PC in lag:
+            return True
+
+    return False

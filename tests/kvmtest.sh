@@ -122,9 +122,11 @@ test_t0() {
     snmp/test_snmp_queue.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_default_route.py \
+    ssh/test_ssh_stress.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
     telemetry/test_telemetry.py \
     test_features.py \
@@ -133,7 +135,8 @@ test_t0() {
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
-    process_monitoring/test_critical_process_monitoring.py"
+    process_monitoring/test_critical_process_monitoring.py \
+    system_health/test_system_status.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -147,10 +150,23 @@ test_t0() {
 
     # Run tests_2vlans on vlab-01 virtual switch
     tgname=2vlans
-    tests="dhcp_relay/test_dhcp_relay.py"
+    tests="\
+    dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+    popd
+}
+
+test_t0_sonic() {
+    # Run tests_1vlan on vlab-01 virtual switch
+    # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
+    tgname=t0-sonic
+    tests="bgp/test_bgp_fact.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
     popd
 }
 
@@ -187,7 +203,9 @@ test_t1_lag() {
     platform_tests/test_cpu_memory_usage.py \
     bgp/test_bgpmon.py \
     container_checker/test_container_checker.py \
-    process_monitoring/test_critical_process_monitoring.py"
+    process_monitoring/test_critical_process_monitoring.py \
+    scp/test_scp_copy.py \
+    pc/test_lag_2.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -204,11 +222,12 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_default_route.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
     # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
     popd
 }
 
@@ -245,6 +264,8 @@ mkdir -p  $SONIC_MGMT_DIR/tests/logs
 # run tests
 if [ x$test_suite == x"t0" ]; then
     test_t0
+elif [ x$test_suite == x"t0-sonic" ]; then
+    test_t0_sonic
 elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then

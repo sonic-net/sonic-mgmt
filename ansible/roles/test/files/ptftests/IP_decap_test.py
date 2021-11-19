@@ -358,10 +358,15 @@ class DecapPacketTest(BaseTest):
                 inner_ttl_info = pkt['IPv6'].payload.hlim
                 inner_tos = pkt['IPv6'].payload.tc
 
+        exp_ttl = 'any'
         if inner_pkt_type == 'ipv4':
             exp_tos = exp_pkt.tos
+            if not self.ignore_ttl:
+                exp_ttl = exp_pkt.ttl
         else:
             exp_tos = exp_pkt.tc
+            if not self.ignore_ttl:
+                exp_ttl = exp_pkt.hlim
 
         #send and verify the return packets
         send_packet(self, src_port, pkt)
@@ -384,7 +389,7 @@ class DecapPacketTest(BaseTest):
                     inner_src_ip,
                     dst_ip,
                     exp_tos,
-                    'any',
+                    exp_ttl,
                     str(expected_ports)))
 
         matched, received = verify_packet_any_port(self, masked_exp_pkt, expected_ports)

@@ -169,3 +169,19 @@
   dut:
     - vlab-01
   comment: Test ptf ANVL SONIC VM
+
+- conf-name: vms-chassis-packet-dut
+  group-name: vms-dummy-dut
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: ptf-unknown
+  ptf_ip: 1.1.1.1/23
+  ptf_ipv6:
+  server: dummy_1
+  vm_base: DUMMY0001
+  dut:
+    - lab-msft-lc0-1
+    - lab-msft-lc1-1
+    - lab-msft-lc2-1
+    - lab-msft-sup-1
+  comment: Chasiss Testbed

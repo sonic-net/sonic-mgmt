@@ -21,6 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import skip_release_for_platform
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -92,6 +93,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050","arista_7260"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -149,7 +151,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "Device Version",
             "MAC Addresses",
             "Manufacturer",
-            "Vendor Extension",
             "ONIE Version",
             "CRC-32"]
 
@@ -215,11 +216,15 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
+        led_status_list = ["N/A"]
+    else:
+        led_status_list = ["green", "amber", "red", "off"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
         pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
         pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
-        pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
+        pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
@@ -345,6 +350,9 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+
+
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))

@@ -92,7 +92,7 @@ function setup_environment()
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests scripts k8s"
+    SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_INPUT_ORDER="False"
@@ -102,6 +102,12 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+
+    # Kill pytest and ansible-playbook process
+    pkill --signal 9 pytest
+    pkill --signal 9 ansible-playbook
+    # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
+    pkill --signal 9 -f "^ssh.*/\.ansible"
 
     rm -fr ${BASE_PATH}/tests/_cache
 }
@@ -139,6 +145,11 @@ function setup_test_options()
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
     TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+
+    if [[ -z $TEST_CASES ]]; then
+        echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
+        show_help_and_exit 1
+    fi
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \

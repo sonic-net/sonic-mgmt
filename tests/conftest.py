@@ -10,6 +10,7 @@ import yaml
 import jinja2
 
 from datetime import datetime
+from ipaddress import ip_interface, IPv4Interface
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -20,6 +21,8 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
+
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
@@ -43,7 +46,6 @@ cache = FactsCache()
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
@@ -54,7 +56,9 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
                   'tests.vxlan',
-                  'tests.common.plugins.allure_server')
+                  'tests.decap',
+                  'tests.common.plugins.allure_server',
+                  'tests.common.plugins.conditional_mark')
 
 
 def pytest_addoption(parser):
@@ -123,16 +127,6 @@ def pytest_addoption(parser):
     #  keysight ixanvl options #
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
-
-    ############################
-    # platform sfp api options #
-    ############################
-    # Allow user to skip the absent sfp modules. User can use it like below:
-    # "--skip-absent-sfp=True"
-    # If this option is not specified, False will be used by default.
-    parser.addoption("--skip-absent-sfp", action="store", type=bool, default=False,
-        help="Skip test on absent SFP",
-    )
 
     ############################
     # upgrade_path options     #
@@ -398,12 +392,17 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
 
     devices = {}
-    if not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']:
+    if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
     vm_base = int(tbinfo['vm_base'][2:])
     neighbor_type = request.config.getoption("--neighbor_type")
+
+    if not 'VMs' in tbinfo['topo']['properties']['topology']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        return devices
+
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
@@ -425,7 +424,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -435,6 +434,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
+            duthost = duthosts[dut_host]
+            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
                 fanout_host = str(fanout_rec['peerdevice'])
@@ -472,6 +473,12 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+
+                # Add port name to fanout port mapping port if dut_port is alias.
+                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                    fanout.add_port_map(encode_dut_port_name(
+                       dut_host, mg_facts['minigraph_port_alias_to_name_map'][dut_port]), fanout_port)
+
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
     except:
@@ -482,7 +489,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
 @pytest.fixture(scope="session")
 def vmhost(ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
-    inv_files = request.config.option.ansible_inventory
+    inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
     return VMHost(ansible_adhoc, vmhost.name)
 
@@ -1139,6 +1146,93 @@ def cleanup_cache_for_session(request):
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
 
+def get_l2_info(dut):
+    """
+    Helper function for l2 mode fixture
+    """
+    config_facts = dut.get_running_config_facts()
+    mgmt_intf_table = config_facts['MGMT_INTERFACE']
+    metadata_table = config_facts['DEVICE_METADATA']['localhost']
+    mgmt_ip = None
+    for ip in mgmt_intf_table['eth0'].keys():
+        if type(ip_interface(ip)) is IPv4Interface:
+            mgmt_ip = ip
+    mgmt_gw = mgmt_intf_table['eth0'][mgmt_ip]['gwaddr']
+    hwsku = metadata_table['hwsku']
+
+    return mgmt_ip, mgmt_gw, hwsku
+
+@pytest.fixture(scope='session')
+def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):
+    """
+    Configures L2 switch mode according to
+    https://github.com/Azure/SONiC/wiki/L2-Switch-mode
+
+    Currently not compatible with version 201811
+
+    This fixture does not auto-cleanup after itself
+    A manual config reload is required to restore regular state
+    """
+    base_config_db_cmd = 'echo \'{}\' | config reload /dev/stdin -y'
+    l2_preset_cmd = 'sonic-cfggen --preset l2 -p -H -k {} -a \'{}\' | config load /dev/stdin -y'
+    is_dualtor = 'dualtor' in tbinfo['topo']['name']
+
+    for dut in duthosts:
+        logger.info("Setting L2 mode on {}".format(dut))
+        cmds = []
+        mgmt_ip, mgmt_gw, hwsku = get_l2_info(dut)
+        # step 1
+        base_config_db = {
+                            "MGMT_INTERFACE": {
+                                "eth0|{}".format(mgmt_ip): {
+                                    "gwaddr": "{}".format(mgmt_gw)
+                                }
+                            },
+                            "DEVICE_METADATA": {
+                                "localhost": {
+                                    "hostname": "sonic"
+                                }
+                            }
+                        }
+
+        if is_dualtor:
+            base_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "DualToR"
+        cmds.append(base_config_db_cmd.format(json.dumps(base_config_db)))
+
+        # step 2
+        cmds.append('sonic-cfggen -H --write-to-db')
+
+        # step 3 is optional and skipped here
+        # step 4
+        if is_dualtor:
+            mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+            all_ports = mg_facts['minigraph_ports'].keys()
+            downlinks = []
+            for vlan_info in mg_facts['minigraph_vlans'].values():
+                downlinks.extend(vlan_info['members'])
+            uplinks = [intf for intf in all_ports if intf not in downlinks]
+            extra_args = {
+                'is_dualtor': 'true',
+                'uplinks': uplinks,
+                'downlinks': downlinks
+            }
+        else:
+            extra_args = {}
+        cmds.append(l2_preset_cmd.format(hwsku, json.dumps(extra_args)))
+
+        # extra step needed to render the feature table correctly
+        if is_dualtor:
+            cmds.append('while [ $(show feature config mux | awk \'{print $2}\' | tail -n 1) != "enabled" ]; do sleep 1; done')
+
+        # step 5
+        cmds.append('config save -y')
+
+        # step 6
+        cmds.append('config reload -y')
+
+        logger.debug("Commands to be run:\n{}".format(cmds))
+
+        dut.shell_cmds(cmds=cmds)
 
 @pytest.fixture(scope='session')
 def duts_running_config_facts(duthosts):

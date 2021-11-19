@@ -559,11 +559,13 @@ class TestShowVlan():
         show_vlan_brief = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show vlan brief'.format(ifmode))['stdout']
         logger.info('show_vlan_brief:\n{}'.format(show_vlan_brief))
 
+        vlan_type = minigraph_vlans['Vlan1000'].get('type', 'untagged').lower()
+
         for item in minigraph_vlans['Vlan1000']['members']:
             if mode == 'alias':
-                assert re.search(r'{}.*untagged'.format(setup['port_name_map'][item]), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(setup['port_name_map'][item], vlan_type), show_vlan_brief) is not None
             elif mode == 'default':
-                assert re.search(r'{}.*untagged'.format(item), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(item, vlan_type), show_vlan_brief) is not None
 
     @pytest.mark.usefixtures('setup_vlan')
     def test_show_vlan_config(self, setup, setup_config_mode):
@@ -686,14 +688,14 @@ class TestConfigInterface():
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
                         "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                         "Interface {} should be admin up".format(test_intf))
 
 

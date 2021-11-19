@@ -12,9 +12,10 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes, check_portchannel_status
 from tests.common.utilities import wait_until
-
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -26,7 +27,7 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
+    def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
         Validates that continuous link flap works as expected
 
@@ -53,16 +54,17 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        start_time_ipv4_route_counts = duthost.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
-        logging.info("IPv4 routes at start: %s", start_time_ipv4_route_counts)
-
-        # Record ipv6 route counts at start
-        start_time_ipv6_route_counts = duthost.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
-        logging.info("IPv6 routes at start %s", start_time_ipv6_route_counts)
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        totalsv4 = sumv4.get('Totals', {})
+        totalsv6 = sumv6.get('Totals', {})
+        start_time_ipv4_route_counts = totalsv4.get('routes', 0)
+        start_time_ipv6_route_counts = totalsv6.get('routes', 0)
+        logging.info("IPv4 routes: start {}, summary {}".format(start_time_ipv4_route_counts, sumv4))
+        logging.info("IPv6 routes: start {}, summary {}".format(start_time_ipv6_route_counts, sumv6))
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
-        pytest_assert(wait_until(100, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                   "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
 
@@ -81,13 +83,39 @@ class TestContLinkFlap(object):
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
-        # Make Sure all ipv4 routes are relearned with jitter of ~5
-        logging.info("IPv4 routes at start: %s", start_time_ipv4_route_counts)
-        pytest_assert(wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv4_route_counts, True), "Ipv4 routes are not equal after link flap")
+        config_facts = duthost.get_running_config_facts()
 
-        # Make Sure all ipv6 routes are relearned with jitter of ~5
-        logging.info("IPv6 routes at start: %s", start_time_ipv6_route_counts)
-        pytest_assert(wait_until(60, 1, check_bgp_routes, duthost, start_time_ipv6_route_counts), "Ipv6 routes are not equal after link flap")
+        if config_facts and 'PORTCHANNEL' in config_facts:
+            for portchannel in config_facts['PORTCHANNEL'].keys():
+                pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
+                              "Fail: dut interface {}: link operational down".format(portchannel))
+
+        # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
+        if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
+            endv4, endv6 = duthost.get_ip_route_summary()
+            failmsg = []
+            failmsg.append(
+                "IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4,
+                                                                                                                sumv6,
+                                                                                                                endv4,
+                                                                                                                endv6))
+            nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+            for k in nei_meta.keys():
+                nbrhost = nbrhosts[k]['host']
+                if isinstance(nbrhost, EosHost):
+                    res = nbrhost.eos_command(commands=['show ip bgp sum'])
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.eos_command(commands=['show ipv6 bgp sum'])
+                    failmsg.append(res['stdout'])
+                elif isinstance(nbrhost, SonicHost):
+                    res = nbrhost.command('vtysh -c "show ip bgp sum"')
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.command('vtysh -c "show ipv6 bgp sum"')
+                    failmsg.append(res['stdout'])
+                else:
+                    pass
+
+            pytest.fail(str(failmsg))
 
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
@@ -114,6 +142,6 @@ class TestContLinkFlap(object):
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-        pytest_assert(wait_until(45, 2, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                   "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))

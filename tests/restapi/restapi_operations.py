@@ -20,6 +20,12 @@ class Restapi:
     def request(self, method, url, params=None):
         session = requests.Session()
         session.headers.update({'Content-type': 'application/json'})
+        # Disable proxies explicitly
+        proxies = {
+                    "http": "",
+                    "https": ""
+                    }
+        session.proxies.update(proxies)
         if method == GET:
             req = requests.Request(GET, url)
         elif method == POST:
@@ -39,6 +45,23 @@ class Restapi:
     #
     # Fundamental operations
     #
+    # Reset Status
+    def get_reset_status(self, construct_url):
+        path = API_VERSION+"/config/resetstatus"
+        url = construct_url(path)
+        if url:
+            return self.request(GET, url)
+        else:
+            logger.error("Malformed URL for "+path+"!")
+    
+    def post_reset_status(self, construct_url, params):
+        path = API_VERSION+"/config/resetstatus"
+        url = construct_url(path)
+        if url:
+            return self.request(POST, url, params)
+        else:
+            logger.error("Malformed URL for "+path+"!")
+        
     # Decap
     def post_config_tunnel_decap_tunnel_type(self, construct_url, tunnel_type, params):
         path = API_VERSION+'/config/tunnel/decap/{tunnel_type}'.format(tunnel_type=tunnel_type)

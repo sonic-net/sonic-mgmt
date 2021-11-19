@@ -268,7 +268,7 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self):
+    def get_active_ip_interfaces(self, tbinfo):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -277,7 +277,9 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
+        return self.sonichost.active_ip_interfaces(
+            ip_ifs, tbinfo, self.namespace
+        )
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -368,6 +370,21 @@ class SonicAsic(object):
 
         cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
+        return self.sonichost.command(cmdstr)
+
+    def run_vtysh(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("vtysh {}".format(cmdstr))
+
+        cmdstr = "vtysh -n {} {}".format(self.asic_index, cmdstr)
         return self.sonichost.command(cmdstr)
 
     def run_redis_cmd(self, argv=[]):

@@ -167,6 +167,7 @@ class IpinIPTunnelTest(BaseTest):
         for i in range(0, PACKET_NUM_FOR_NEGATIVE_CHECK):
             inner_pkt = self.generate_packet_to_server('src-ip')
             unexpected_packet = self.generate_unexpected_packet(inner_pkt)
+            self.dataplane.flush()
             send_packet(self, src_port, inner_pkt)
             verify_no_packet(test=self,
                              port_id=self.server_port,
@@ -180,8 +181,9 @@ class IpinIPTunnelTest(BaseTest):
             for i in range(0, PACKET_NUM):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
-                self.logger.info("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
+                self.logger.debug("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
                     .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, inner_pkt[IP].dst, inner_pkt[IP].src, src_port))
+                self.dataplane.flush()
                 send_packet(self, src_port, inner_pkt)
                 # Verify packet is received from IPinIP tunnel
                 idx, count = verify_packet_any_port(test=self,

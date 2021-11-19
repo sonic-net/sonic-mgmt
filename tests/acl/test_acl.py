@@ -1,3 +1,4 @@
+from tests.common import reboot, port_toggle
 import os
 import time
 import random
@@ -19,8 +20,6 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
-from tests.conftest import duthost
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
@@ -96,7 +95,7 @@ BYTES_COUNT = "bytes_count"
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -147,6 +146,11 @@ def setup(duthosts, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+
+    # stop garp service for single tor
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logging.info("Stopping GARP service on single tor")
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
 
     # If running on a dual ToR testbed, any uplink for either ToR is an acceptable
     # source or destination port
@@ -528,7 +532,7 @@ class BaseAclTest(object):
     def check_rule_counters(self, duthost):
         logger.info('Wait all rule counters are ready')
 
-        return wait_until(60, 2, self.check_rule_counters_internal, duthost)
+        return wait_until(60, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
@@ -859,7 +863,7 @@ class BaseAclTest(object):
         if dropped:
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
         else:
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction), timeout=20)
 
 
 class TestBasicAcl(BaseAclTest):

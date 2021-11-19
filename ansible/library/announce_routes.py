@@ -5,8 +5,10 @@ import os
 import yaml
 import re
 import requests
+import time
 
 from ansible.module_utils.basic import *
+
 
 DOCUMENTATION = '''
 module:  announce_routes
@@ -43,11 +45,23 @@ TOR_SUBNET_SIZE = 128
 NHIPV4 = '10.10.246.254'
 NHIPV6 = 'fc0a::ff'
 SPINE_ASN = 65534
+CORE_RA_ASN = 65900
 LEAF_ASN_START = 64600
 TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
 
+def wait_for_http(host_ip, http_port, timeout=10):
+    """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
+    started = False
+    tries = 0
+    while not started and tries < timeout:
+        if os.system("curl {}:{}".format(host_ip, http_port)) == 0:
+            started = True
+        tries += 1
+        time.sleep(1)
+    
+    return started
 
 def get_topo_type(topo_name):
     pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
@@ -78,6 +92,7 @@ def announce_routes(ptf_ip, port, routes):
         else:
             messages.append("announce route {} next-hop {}".format(prefix, nexthop))
 
+    wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
     r = requests.post(url, data=data, timeout=90)
@@ -112,10 +127,10 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
 
 
 def generate_routes(family, podset_number, tor_number, tor_subnet_number,
-                    spine_asn, leaf_asn_start, tor_asn_start,
-                    nexthop, nexthop_v6,
-                    tor_subnet_size, max_tor_subnet_number, topo,
-                    router_type = "leaf", tor_index=None, set_num=None, no_default_route=False):
+                    spine_asn, leaf_asn_start, tor_asn_start, nexthop,
+                    nexthop_v6, tor_subnet_size, max_tor_subnet_number, topo,
+                    router_type = "leaf", tor_index=None, set_num=None,
+                    no_default_route=False, core_ra_asn=CORE_RA_ASN):
     routes = []
     if not no_default_route and router_type != "tor":
         default_route_as_path = get_uplink_router_as_path(router_type, spine_asn)
@@ -192,7 +207,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
 
                 aspath = None
                 if router_type == "core":
-                    aspath = "{} {}".format(leaf_asn, tor_asn)
+                    aspath = "{} {}".format(leaf_asn, core_ra_asn)
                 elif router_type == "spine":
                     aspath = "{} {}".format(leaf_asn, tor_asn)
                 elif router_type == "leaf":
@@ -358,6 +373,7 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip):
     nhipv6 = common_config.get("nhipv6", NHIPV6)
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    core_ra_asn = common_config.get("core_ra_asn", CORE_RA_ASN)
 
     # generate routes for t1 vms
     for a_dut_index in dut_vm_dict:
@@ -390,11 +406,13 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip):
                 routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                             common_config['dut_asn'], leaf_asn_start, tor_asn_start,
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
-                                            router_type=router_type, tor_index=tor_index, set_num=set_num)
+                                            router_type=router_type, tor_index=tor_index, set_num=set_num,
+                                            core_ra_asn=core_ra_asn)
                 routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                             common_config['dut_asn'], leaf_asn_start, tor_asn_start,
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
-                                            router_type=router_type, tor_index=tor_index, set_num=set_num)
+                                            router_type=router_type, tor_index=tor_index, set_num=set_num,
+                                            core_ra_asn=core_ra_asn)
                 announce_routes(ptf_ip, port, routes_v4)
                 announce_routes(ptf_ip, port6, routes_v6)
 

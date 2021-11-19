@@ -113,6 +113,25 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     return candidates
 
 
+def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
+    """
+    Check portchannel status on the DUT.
+
+    Args:
+        dut: DUT host object
+        dut_port_channel: Portchannel of DUT
+        exp_state: State of DUT's port ('up' or 'down')
+        verbose: Logging port state.
+
+    Returns:
+        Bool value which confirm port state
+    """
+    status = __get_dut_if_status(dut, dut_port_channel)[dut_port_channel]
+    if verbose:
+        logger.debug("Portchannel status : %s", status)
+    return status['oper_state'] == exp_state
+
+
 def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     """
     Toggle one link on the fanout.
@@ -133,7 +152,7 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     need_recovery = True
     try:
         fanout.shutdown(fanout_port)
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
         if watch:
             time.sleep(1)
@@ -142,11 +161,11 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
         logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
         fanout.no_shutdown(fanout_port)
         need_recovery = False
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
-            wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True)
+            wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True)
 
 
 def watch_system_status(dut):
@@ -181,21 +200,25 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     return int(float(orch_cpu)) < orch_cpu_threshold
 
 
-def check_bgp_routes(dut, start_time_ip_route_counts, ipv4=False):
+def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
     """
-    Make Sure all ip routes are relearned with jitter of ~5
+    Make Sure all ip routes are relearned with jitter of ~MAX_DIFF
 
     Args:
         dut: DUT host object
-        start_time_ip_route_counts: IP route counts at start
-        ipv4: Version of IP
+        start_time_ipv4_route_counts: IPv4 route counts at start
+        start_time_ipv6_route_counts: IPv6 route counts at start
     """
-    if ipv4:
-        end_time_ip_route_counts = dut.shell("show ip route summary | grep Total | awk '{print $2}'")["stdout"]
-        logger.info("IPv4 routes at end: %s", end_time_ip_route_counts)
-    else:
-        end_time_ip_route_counts = dut.shell("show ipv6 route summary | grep Total | awk '{print $2}'")["stdout"]
-        logger.info("IPv6 routes at end: %s", end_time_ip_route_counts)
+    MAX_DIFF = 5
 
-    incr_ip_route_counts = abs(int(float(start_time_ip_route_counts)) - int(float(end_time_ip_route_counts)))
-    return incr_ip_route_counts < 5
+    sumv4, sumv6 = dut.get_ip_route_summary()
+    totalsv4 = sumv4.get('Totals', {})
+    totalsv6 = sumv6.get('Totals', {})
+    routesv4 = totalsv4.get('routes', 0)
+    routesv6 = totalsv6.get('routes', 0)
+    logger.info("IPv4 routes: start {} end {}, summary {}".format(start_time_ipv4_route_counts, routesv4, sumv4))
+    logger.info("IPv6 routes: start {} end {}, summary {}".format(start_time_ipv6_route_counts, routesv6, sumv6))
+
+    incr_ipv4_route_counts = abs(int(float(start_time_ipv4_route_counts)) - int(float(routesv4)))
+    incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
+    return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF

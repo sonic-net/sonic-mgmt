@@ -22,8 +22,9 @@ pytestmark = [
 
 
 ### Tetcases to verify normal reboot procedure ###
+@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Fast reboot test case is run using advacned reboot test fixture
 
@@ -36,7 +37,7 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
@@ -44,6 +45,25 @@ def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
     @param get_advanced_reboot: advanced reboot test fixture
     '''
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot.runRebootTestcase()
+
+
+def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
+    '''
+    Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
+    all VLAN ports.
+    Part of the warm reboot handling is to ensure there are no MAC events reported
+    while warm reboot is in progress. So at the beginning of warm reboot SONIC
+    instructs SAI to disable MAC learning on all the ports.
+    When the warm reboot completes, SAI is communicated again for each port to enable
+    MAC learning. To ensure that this is properly handled by SAI, this test case
+    purposely generates new MAC learn events or MAC move events during warm reboot
+    and the expected results is to only see those MAC move events after warm reboot competed.
+    If for some reason SAI is not adhering to this requirement, any MAC learn events
+    generated during warm reboot will cause META checker failure resulting to Orchagent crash.
+    '''
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True)
     advancedReboot.runRebootTestcase()
 
 
@@ -57,6 +77,7 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     @param request: Pytest request instance
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    add_fail_step_to_reboot('fast-reboot')
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
 
@@ -71,6 +92,7 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     @param request: Pytest request instance
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    add_fail_step_to_reboot('warm-reboot')
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
 
