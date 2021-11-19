@@ -1,7 +1,10 @@
 import logging
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+MAC_STR = "000000000000"
 
 def clear_dut_arp_cache(duthost, ns_option = None):
     logger.info("Clearing {} neighbor table".format(duthost.hostname))
@@ -10,13 +13,11 @@ def clear_dut_arp_cache(duthost, ns_option = None):
         arp_flush_cmd = "sudo ip -stats {} neigh flush all".format(ns_option)
     duthost.shell(arp_flush_cmd)
 
-
 def get_po(mg_facts, intf):
     for k, v in mg_facts['minigraph_portchannels'].iteritems():
         if intf in v['members']:
             return k
     return None
-
 
 def collect_info(duthost):
     if duthost.facts['asic_type'] == "mellanox":
@@ -43,3 +44,37 @@ def increment_ipv6_addr(ipv6_addr, incr=1):
     new_octet_str = '{:x}'.format(incremented_octet)
 
     return ':'.join(octets[:-1]) + ':' + new_octet_str
+
+def MacToInt(mac):
+    mac = mac.replace(":", "")
+    return int(mac, 16)
+
+def IntToMac(intMac):
+    hexStr = hex(intMac)[2:]
+    hexStr = MAC_STR[0:12-len(hexStr)] + hexStr
+    return ":".join(re.findall(r'.{2}|.+', hexStr))
+
+def get_crm_resources(duthost, resource, status):
+    return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
+
+
+def get_fdb_dynamic_mac_count(duthost):
+    res = duthost.command('show mac')
+    # logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    total_mac_count = 0
+    for l in res['stdout_lines']:
+        if "dynamic" in l.lower():
+            total_mac_count += 1
+    return total_mac_count
+
+def fdb_table_has_no_dynamic_macs(duthost):
+    return (get_fdb_dynamic_mac_count(duthost) == 0)
+
+def fdb_cleanup(duthost):
+    """ cleanup FDB before and after test run """
+    if fdb_table_has_no_dynamic_macs(duthost):
+        return
+    else:
+        duthost.command('fdbclear')
+        pytest_assert(wait_until(20, 1, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) == True),
+                      "FDB Table Cleanup failed")

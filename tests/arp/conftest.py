@@ -6,8 +6,26 @@ from .args.wr_arp_args import add_wr_arp_args
 from .arp_utils import collect_info, get_po
 from tests.common import constants
 from tests.common.config_reload import config_reload
+from ipaddress import ip_network, IPv6Network, IPv4Network
+from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
+
+CRM_POLLING_INTERVAL = 1
+CRM_DEFAULT_POLL_INTERVAL = 300
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope="module", autouse=True)
+def set_polling_interval(duthost):
+    wait_time = 2
+    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
+
+    yield
+
+    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
 
 # WR-ARP pytest arguments
 def pytest_addoption(parser):
@@ -22,6 +40,9 @@ def pytest_addoption(parser):
     '''
     add_wr_arp_args(parser)
 
+@pytest.fixture(scope='module')
+def get_function_conpleteness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
 
 @pytest.fixture(scope="module")
 def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -129,4 +150,95 @@ def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_ho
         #Recover DUT interface IP address
         config_reload(duthost, config_source='config_db', wait=120)
 
+@pytest.fixture
+def garp_enabled(rand_selected_dut, config_facts):
+    """
+    Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
+    Also checks the kernel `arp_accept` value to see if the
+    attempt was successful.
+
+    During teardown, restores the original `grat_arp` value in
+    CONFIG_DB
+
+    Yields:
+        (bool) True if `arp_accept` was successfully set for all VLANs,
+               False otherwise
+
+    """
+    duthost = rand_selected_dut
+
+    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
+    garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
+    garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
+    cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
+    arp_accept_vals = []
+    old_grat_arp_vals = {}
+
+    for vlan in vlan_intfs:
+        old_grat_arp_res = duthost.shell(garp_check_cmd.format(vlan))
+        old_grat_arp_vals[vlan] = old_grat_arp_res['stdout']
+        res = duthost.shell(garp_enable_cmd.format(vlan))
+
+        if res['rc'] != 0:
+            pytest.fail("Unable to enable GARP for {}".format(vlan))
+        else:
+            logger.info("Enabled GARP for {}".format(vlan))
+
+            # Get the `arp_accept` values for each VLAN interface
+            arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
+            arp_accept_vals.append(arp_accept_res['stdout'])
+
+    yield all(int(val) == 1 for val in arp_accept_vals)
+
+    garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
+    for vlan in vlan_intfs:
+        old_grat_arp_val = old_grat_arp_vals[vlan]
+
+        if 'enabled' not in old_grat_arp_val:
+            res = duthost.shell(garp_disable_cmd.format(vlan))
+
+            if res['rc'] != 0:
+                pytest.fail("Unable to disable GARP for {}".format(vlan))
+            else:
+                logger.info("GARP disabled for {}".format(vlan))
+
+@pytest.fixture(scope='module')
+def ip_and_intf_info(config_facts, intfs_for_test):
+    """
+    Calculate IP addresses and interface to use for test
+    """
+    _, _, intf1_index, _, = intfs_for_test
+    ptf_intf_name = "eth{}".format(intf1_index)
+
+    # Calculate the IPv6 address to assign to the PTF port
+    vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
+    intf_ipv6_addr = None
+    intf_ipv4_addr = None
+
+    for addr in vlan_addrs:
+        try:
+            if type(ip_network(addr, strict=False)) is IPv6Network:
+                intf_ipv6_addr = ip_network(addr, strict=False)
+            elif type(ip_network(addr, strict=False)) is IPv4Network:
+                intf_ipv4_addr = ip_network(addr, strict=False)
+        except ValueError:
+            continue
+
+    # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
+    # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
+    if intf_ipv4_addr is not None:
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
+        ptf_intf_ipv4_hosts = intf_ipv4_addr.hosts()
+    else:
+        ptf_intf_ipv4_addr = None
+        ptf_intf_ipv4_hosts = None
+
+    if intf_ipv6_addr is not None:
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
+    else:
+        ptf_intf_ipv6_addr = None
+
+    logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
+
+    return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name
