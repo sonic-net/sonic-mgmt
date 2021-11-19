@@ -913,8 +913,7 @@ def get_testbed_metadata(request):
 
     return metadata.get(tbname)
 
-@pytest.fixture(scope='module')
-def generate_port_lists(request, port_scope = "all_ports"):
+def generate_port_lists(request, port_scope):
     empty = [ encode_dut_port_name('unknown', 'unknown') ]
     if 'ports' in port_scope:
         scope = 'Ethernet'

@@ -6,7 +6,6 @@ import logging
 import pytest
 import random
 
-from tests.common.plugins.test_completeness import CompletenessLevel
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
 from tests.common.helpers.dut_ports import decode_dut_port_name
 
@@ -43,9 +42,8 @@ class TestLinkFlap(object):
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(dut, dut_port, fanout, fanout_port)
 
-
 @pytest.mark.platform('physical')
-def test_link_flap(duthosts, generate_port_lists, fanouthosts, get_function_conpleteness_level):
+def test_link_flap(duthosts, get_port_list, fanouthosts, get_function_conpleteness_level):
     """
     Validates that link flap works as expected
     """
@@ -57,7 +55,7 @@ def test_link_flap(duthosts, generate_port_lists, fanouthosts, get_function_conp
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-    port_lists = generate_port_lists
+    port_lists = get_port_list
 
     while loop_times > 0:
         loop_times -= 1
