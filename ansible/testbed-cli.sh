@@ -14,13 +14,14 @@ function usage
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] announce-routes <testbed-name> <vault-password-file>"
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -62,6 +63,7 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
@@ -163,6 +165,10 @@ function read_file
 
 function start_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run start-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   server=$1
   passwd=$2
   shift
@@ -175,6 +181,10 @@ function start_vms
 
 function stop_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run stop-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   server=$1
   passwd=$2
   shift
@@ -186,6 +196,10 @@ function stop_vms
 
 function start_topo_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run start-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   testbed_name=$1
   passwd=$2
   shift
@@ -199,6 +213,10 @@ function start_topo_vms
 
 function stop_topo_vms
 {
+  if [[ $vm_type == ceos ]]; then
+    echo "VM type is ceos. No need to run stop-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    exit
+  fi
   testbed_name=$1
   passwd=$2
   shift
@@ -452,6 +470,24 @@ function test_minigraph
   echo Done
 }
 
+function config_y_cable
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Config y-cable on testbed '$testbed_name'"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
+
+  echo Done
+}
+
 function config_vm
 {
   echo "Configure VM $2"
@@ -514,7 +550,7 @@ function cleanup_vmhost
 
 vmfile=veos
 tbfile=testbed.yaml
-vm_type=veos
+vm_type=ceos
 vm_num=0
 msetnumber=1
 sonic_vm_dir=""
@@ -585,6 +621,8 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  config-y-cable) config_y_cable $@
                ;;
   cleanup-vmhost) cleanup_vmhost $@
                ;;

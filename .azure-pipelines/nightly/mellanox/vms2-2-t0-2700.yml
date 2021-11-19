@@ -3,14 +3,6 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 4 1-31/2 * 0-5"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -18,7 +10,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms24-t0-3800-azd
+    default: vms2-2-t0-2700
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -36,7 +28,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "dualtor ecmp platform_tests"'
+    default: '-I "vlan fdb snmp/test_snmp_fdb.py arp/test_tagged_arp.py"'
     displayName: Testbed specific
 
 stages:

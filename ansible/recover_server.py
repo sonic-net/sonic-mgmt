@@ -89,16 +89,16 @@ class Task(object):
 class TaskStartTopoVMs(Task):
     """Task start-topo-vms."""
 
-    def __init__(self, tbname, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
-        Task.__init__(self, tbname + '_start_topo_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+    def __init__(self, tbname, passfile, log_save_dir, tbfile=None, vmfile=None, vmtype=None, dry_run=False):
+        Task.__init__(self, tbname + '_start_topo_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
         self.args.extend(('start-topo-vms', tbname, passfile))
         self.tbname = tbname
 
 class TaskStartVMs(Task):
     """Task start-vm"""
 
-    def __init__(self, server, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
-        Task.__init__(self, server + '_start_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+    def __init__(self, server, passfile, log_save_dir, tbfile=None, vmfile=None, vmtype=None, dry_run=False):
+        Task.__init__(self, server + '_start_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
         self.args.extend(('start-vms', server, passfile))
 
 class TaskAddTopo(Task):
@@ -153,7 +153,7 @@ class Job(object):
         elif jobname == 'start-vms':
             server = kwargs['server']
             self.tasks = [
-                TaskStartVMs(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
+                TaskStartVMs(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=self.dry_run)
             ]
             self.ignore_errors = False
         elif jobname == 'init_testbed':
@@ -279,6 +279,7 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                     passfile=passfile,
                     tbfile=tbfile,
                     vmfile=vmfile,
+                    vmtype=vmtype,
                     log_save_dir=log_save_dir_per_server,
                     dry_run=dry_run
                 )
@@ -307,7 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('--testbed-servers', action='append', type=str, required=True, help='testbed server to recover')
     parser.add_argument('--testbed', default='testbed.yaml', help='testbed file(default: testbed.yaml)')
     parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
-    parser.add_argument('--vm-type', default='veos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
+    parser.add_argument('--vm-type', default='ceos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: ceos)')
     parser.add_argument('--inventory', help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
     parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
     parser.add_argument('--skip-cleanup', action='store_true', help='Skip cleanup server')

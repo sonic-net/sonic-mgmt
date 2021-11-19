@@ -17,11 +17,11 @@ parameters:
 
   - name: VM_TYPE
     type: string
-    default: veos
+    default: ceos
     values:
       - veos
       - ceos
-    displayName: "VM type"
+    displayName: "VM type. (cEOS is only supported on Ubuntu >= 18.04)"
 
   - name: SKIP_CLEANUP
     type: boolean

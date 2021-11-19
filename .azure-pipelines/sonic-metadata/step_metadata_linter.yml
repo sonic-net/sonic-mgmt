@@ -11,3 +11,10 @@ steps:
     pylint *.py  postupgrade_actions
   displayName: Python linter test
   condition: always()
+
+- script: |
+    # set -x
+    cd sonic-metadata/scripts/tests
+    pytest test_tabs_presence.py
+  displayName: TABs presence test
+  condition: always()
