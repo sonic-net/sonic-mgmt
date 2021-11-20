@@ -63,9 +63,21 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
 
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
-    test port channel are cleaned up correctly after config reload
+    test port channel are cleaned up correctly after config reload, with system under stress.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    host_facts = duthost.setup()['ansible_facts']
+
+    # Get the cpu information.
+    if host_facts.has_key("ansible_processor_vcpus"):
+        host_vcpus = int(host_facts['ansible_processor_vcpus'])
+    else:
+        res = duthost.shell("nproc")
+        host_vcpus = int(res['stdout'])
+
+    logging.info("found {} cpu on the dut".format(host_vcpus))
+
+    # Get portchannel facts and interfaces.
     lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
     port_channel_intfs = lag_facts['names'].keys()
 
@@ -75,6 +87,16 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     for pc in port_channel_intfs:
         loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
 
-    logging.info("Reloading config..")
-    with loganalyzer:
-        config_reload(duthost)
+    try:
+        # Make CPU high
+        for i in range(host_vcpus):
+            duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
+
+        with loganalyzer:
+            logging.info("Reloading config..")
+            config_reload(duthost)
+
+        duthost.shell("killall yes")
+    except:
+        duthost.shell("killall yes")
+        raise
