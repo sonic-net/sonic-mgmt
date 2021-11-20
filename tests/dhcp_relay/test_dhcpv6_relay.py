@@ -129,6 +129,18 @@ def test_dhcp_relay_default(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_r
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
 
+def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+    """ Test DHCPv6 Counter """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    messages = ["Solicit", "Advertise", "Request", "Reply", "Relay-Forward", "Relay-Reply"]
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        for message in messages:
+            get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
+            message_count = duthost.shell(get_message)['stdout']
+            assert int(message_count) > 0, "Missing {} count".format(message)
+
 
 def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology after uplinks flap
