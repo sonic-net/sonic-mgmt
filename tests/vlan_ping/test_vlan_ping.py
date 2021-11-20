@@ -2,9 +2,8 @@ import random
 import pytest
 import ipaddress
 import logging
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder
-
-
+import ptf.testutils as testutils
+from tests.common.plugins import ptfadapter
 
 logger = logging.getLogger(__name__)
 
@@ -47,99 +46,94 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 
 
 @pytest.fixture(scope='module')
-def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
+def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     """
     Setup:      adds ipv4 and ipv6 address on ptf hosts and routes for VM
     Teardown:   deletes ipv4 and ipv6 address on ptf hosts and removes routes to VM. Also removes residual static arp entries from tests
     """
-    try:
-        # disabling icmp reply by Kernel Stack since we are running icmp_responder
-        ptfhost.shell("echo '1' > /proc/sys/net/ipv4/icmp_echo_ignore_all")
+    vm_host_info = {}
+    vm_name, vm_info = random.choice(nbrhosts.items())
+    vm_ip_with_prefix = (vm_info['conf']['interfaces']['Port-Channel1']['ipv4']).decode('utf-8')
+    output = vm_info['host'].command("ip addr show dev po1")
+    vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
+    vm_ip_intf = ipaddress.IPv4Interface(vm_ip_with_prefix).ip
+    vm_host_info["ipv4"] = vm_ip_intf
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    ptfhost_info = {}
+    for a_bgp_nbr in mg_facts['minigraph_bgp']:
+        # Get the bgp neighbor connected to the selected VM
+        if a_bgp_nbr['name'] == vm_name and a_bgp_nbr['addr'] == str(vm_host_info['ipv4']):
+            # Find the port channel that connects to the selected VM
+            for intf in mg_facts['minigraph_portchannel_interfaces']:
+                if intf['peer_addr'] == str(vm_host_info['ipv4']):
+                    portchannel = intf['attachto']
+                    vm_host_info['port_index'] = mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_portchannels'][portchannel]['members'][0]]
+                    break
+            break
 
-        k, v = random.choice(nbrhosts.items())
-        vm_host = v['host']
-        vm_host_ip = (v['conf']['interfaces']['Port-Channel1']['ipv4']).decode('utf-8')
-        vm_host_network = ipaddress.IPv4Interface(format(vm_host_ip)).network
-        duthost = duthosts[rand_one_dut_hostname]
-        my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-        ptfhost_info = {}
+    # getting the ipv4, ipv6 and vlan id of a vlan in DUT with 2 or more vlan members
+    for k, v in my_cfg_facts['VLAN'].items():
+        vlanid = v['vlanid']
+        if len(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid]) >= 2:
+            for addr in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid]:
+                if addr.find(':') == -1:
+                    ip4 = addr
+                else:
+                    ip6 = addr
+            break  # need only 1 vlan details
+        else:
+            continue
 
-        # getting the ipv4, ipv6 and vlan id of a vlan in DUT with 2 or more vlan members
-        for k, v in my_cfg_facts['VLAN'].items():
-            vlanid = v['vlanid']
-            if len(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid]) >= 2:
-                for addr in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid]:
-                    if addr.find(':') == -1:
-                        ip4 = addr
-                    else:
-                        ip6 = addr
-                break  # need only 1 vlan details
-            else:
-                continue
+    # ip prefixes of the vlan
+    vlan_ip_address_v4 = ipaddress.IPv4Interface(ip4).ip
+    vlan_ip_network_v4 = ipaddress.IPv4Interface(ip4).network
 
-        # ip prefixes of the vlan
-        vlan_ip_address_v4 = ipaddress.IPv4Interface(ip4).ip
-        vlan_ip_prefixlen_v4 = ipaddress.IPv4Interface(ip4).network.prefixlen
-        vlan_ip_prefixlen_v6 = ipaddress.IPv6Interface(ip6).network.prefixlen
-        vlan_ip_network_v4 = ipaddress.IPv4Interface(ip4).network
+    # selecting 2 random vlan members of DUT
+    rand_vlan_member_list = random.sample(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys(), 2)
+    exclude_ip = []
+    exclude_ip.extend(
+        [ipaddress.IPv4Interface(ip4).network.network_address, ipaddress.IPv4Interface(ip4).network.broadcast_address,
+         vlan_ip_address_v4]
+    )
 
-        # selecting 2 random vlan members of DUT
-        rand_vlan_member_list = random.sample(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys(), 2)
-        exclude_ip = []
-        exclude_ip.extend(
-            [ipaddress.IPv4Interface(ip4).network.network_address, ipaddress.IPv4Interface(ip4).network.broadcast_address, vlan_ip_address_v4]
-        )
+    # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
+    for member in rand_vlan_member_list:
+        random_ip_in_vlan = random.choice([x for x in vlan_ip_network_v4 if x not in exclude_ip])
+        ptfhost_info[member] = {}
+        ptfhost_info[member]["Vlanid"] = vlanid
+        ptfhost_info[member]["port_index"] = mg_facts['minigraph_ptf_indices'][member]
+        ptfhost_info[member]["mac"] = (ptfhost.shell(
+            "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
+                "port_index"]))['stdout']
+        ptfhost_info[member]["ipv4"] = str(random_ip_in_vlan)
+        ptfhost_info[member]["ipv6"] = str(
+            ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index"]])
 
-
-        # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
-        for member in rand_vlan_member_list:
-            random_ip_in_vlan = random.choice([x for x in vlan_ip_network_v4 if x not in exclude_ip])
-            ptfhost_info[member] = {}
-            ptfhost_info[member]["Vlanid"] = vlanid
-            ptfhost_info[member]["port_index"] = my_cfg_facts['port_index_map'][member]
-            ptfhost_info[member]["mac"] = (ptfhost.shell(
-                "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
-                    "port_index"]))['stdout']
-            ptfhost_info[member]["ipv4"] = str(random_ip_in_vlan)
-            ptfhost_info[member]["ipv6"] = str(
-                ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index"]])
-            # add ipv4 and v6 to randomly selected ports in ptf
-            logger.info("adding ip to ptf ports")
-            logger.debug("adding ipv4 of ptf port %d " % ptfhost_info[member]['port_index'])
-            ptfhost.command("ip addr add {ip}/{prefix} dev eth{pi}".format(ip=ptfhost_info[member]['ipv4'],
-                                                                           prefix=vlan_ip_prefixlen_v4,
-                                                                           pi=ptfhost_info[member]['port_index']))
-            logger.debug("adding ipv6 of ptf port %d " % ptfhost_info[member]['port_index'])
-            ptfhost.command("ip addr add {ip}/{prefix} dev eth{pi}".format(ip=ptfhost_info[member]['ipv6'],
-                                                                           prefix=vlan_ip_prefixlen_v6,
-                                                                           pi=ptfhost_info[member]['port_index']))
-        # adding route on ptf for VM for connectivity
-        logger.info("adding routes for VM")
-        ptfhost.command("ip route add {ip} via {id}".format(ip=vm_host_network, id=vlan_ip_address_v4))
-
-        yield vm_host, ptfhost_info
-    finally:
-        # Teardown of ip addresses and static arp entries used in the test
-        for member in rand_vlan_member_list:
-            logger.debug("deleting ipv4 of ptf port %d " % ptfhost_info[member]['port_index'])
-            ptfhost.command("ip addr del {ip}/{prefix} dev eth{pi}".format(ip=ptfhost_info[member]['ipv4'],
-                                                                           prefix=vlan_ip_prefixlen_v4,
-                                                                           pi=ptfhost_info[member]['port_index']))
-            logger.debug("deleting ipv6 of ptf port %d " % ptfhost_info[member]['port_index'])
-            ptfhost.command("ip addr del {ip}/{prefix} dev eth{pi}".format(ip=ptfhost_info[member]['ipv6'],
-                                                                           prefix=vlan_ip_prefixlen_v6,
-                                                                           pi=ptfhost_info[member]['port_index']))
-            logger.debug("deleting ipv4 static arp entry for ip %s on DUT" % (ptfhost_info[member]['ipv4']))
-            duthost.shell("sudo arp -d {0}".format(ptfhost_info[member]['ipv4']))
-            ptfhost.shell("echo '0' > /proc/sys/net/ipv4/icmp_echo_ignore_all")
+    return vm_host_info, ptfhost_info
 
 
-def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts):
+def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
+    pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
+                                       eth_dst=str(dut_mac),
+                                       ip_src=str(src_port['ipv4']),
+                                       ip_dst=str(dst_port['ipv4']), ip_ttl=64)
+    exptd_pkt = testutils.simple_icmp_packet(eth_src=str(dut_mac),
+                                             eth_dst=str(dst_port['mac']),
+                                             ip_src=str(src_port['ipv4']),
+                                             ip_dst=str(dst_port['ipv4']), ip_ttl=63)
+    for i in range(5):
+        testutils.send_packet(ptfadapter, src_port['port_index'], pkt)
+        testutils.verify_packet(ptfadapter, exptd_pkt, dst_port['port_index'])
+
+
+def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
     duthost = duthosts[rand_one_dut_hostname]
-    vm_host, ptfhost_info = vlan_ping_setup
+    vmhost_info, ptfhost_info = vlan_ping_setup
     device2 = dict(list(ptfhost_info.items())[1:])
     device1 = dict(list(ptfhost_info.items())[:1])
 
@@ -148,7 +142,8 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nb
     static_neighbor_entry(duthost, ptfhost_info, "add")
     logger.info("Checking connectivity to ptf ports")
     for member in ptfhost_info:
-        vm_host.command("ping {} -c 5".format(ptfhost_info[member]['ipv4']))
+        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
+        verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
@@ -165,6 +160,5 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nb
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        output = vm_host.command("ping {} -c 5".format(ptfhost_info[member]['ipv4']))
-        if "0% packet loss" not in output['stdout_lines'][-2]:
-            pytest.fail("failed to ping {} from {}".format(ptfhost_info[member], vm_host))
+        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
+        verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
