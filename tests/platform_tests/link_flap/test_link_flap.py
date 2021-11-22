@@ -28,7 +28,6 @@ LOOP_TIMES_LEVEL_MAP = {
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    logging.info(mg_facts["minigraph_port_indices"].keys())
     return mg_facts["minigraph_port_indices"].keys()
 
 
@@ -61,21 +60,20 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     port_lists = get_port_list(duthost, tbinfo)
-    logging.info(port_lists)
 
     candidates = []
     for port in port_lists:
-        candidate = build_test_candidates(duthost, fanouthosts, port, normalized_level)
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        candidate = (port, fanouthosts,fanout_port, normalized_level)
         if candidate:
-            candidates.append(candidates)
+            candidates.append(candidate)
 
     for loop_time in range(0, loop_times):
+        watch = False
+        check_status = False
         if loop_time == 0 or loop_time == loop_times - 1:
             watch = True
             check_status = True
-        else:
-            watch = False
-            cheeck_status = False
 
         for dut_port, fanout, fanout_port in candidates:
             toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
