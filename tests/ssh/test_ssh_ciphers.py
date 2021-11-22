@@ -22,6 +22,8 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
         ssh_cipher_option = "-m {}".format(specified_cipher)
     elif typename == "kex":
         ssh_cipher_option = "-o KexAlgorithms={}".format(specified_cipher)
+    else:
+        pytest.fail("typename only supports enc/mac/kex")
 
     ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {} {}@{}".format(ssh_cipher_option, dutuser, dutip)
 
