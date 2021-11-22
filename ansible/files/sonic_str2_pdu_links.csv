@@ -134,6 +134,10 @@ pdu-125,46,str2-7804-lc6-1,PSU1
 pdu-124,46,str2-7804-lc6-1,PSU2
 pdu-125,20,str2-7804-lc7-1,PSU1
 pdu-124,20,str2-7804-lc7-1,PSU2
+pdu-122,8,str2-7260cx3-acs-fan-23,PSU1
+pdu-121,8,str2-7260cx3-acs-fan-23,PSU2
+pdu-124,25,str2-7260cx3-acs-fan-35,PSU1
+pdu-125,25,str2-7260cx3-acs-fan-35,PSU2
 pdu-122,7,str2-7260cx3-acs-fan-24,PSU1
 pdu-121,7,str2-7260cx3-acs-fan-24,PSU2
 pdu-122,6,str2-7260cx3-acs-fan-25,PSU1
