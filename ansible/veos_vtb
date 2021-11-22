@@ -262,3 +262,7 @@ vms_1:
       ansible_host: 10.250.0.81
     VM0131:
       ansible_host: 10.250.0.82
+    VM0132:
+      ansible_host: 10.250.0.83
+    VM0133:
+      ansible_host: 10.250.0.84
