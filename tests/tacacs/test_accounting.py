@@ -6,7 +6,7 @@ from .test_authorization import ssh_connect_remote, ssh_run_command
 from .utils import stop_tacacs_server, start_tacacs_server
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -70,7 +70,7 @@ def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     yield ssh_client
     ssh_client.close()
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
     Args:
@@ -78,7 +78,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_version(duthost, ["201811", "201911", "202012", "202106"])
+    skip_release(duthost, ["201811", "201911", "202012", "202106"])
 
 def test_accounting_tacacs_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
