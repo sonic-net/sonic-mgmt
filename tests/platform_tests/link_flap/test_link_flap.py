@@ -51,7 +51,7 @@ def test_link_flap(duthosts, get_port_list, fanouthosts, get_function_conpletene
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = "basic"
+        normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
