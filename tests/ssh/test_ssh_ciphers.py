@@ -27,7 +27,7 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
 
     try:
         connect = pexpect.spawn(ssh_cmd)
-        connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
+        connect.expect('.*[Pp]assword:')
         connect.sendline(dutpass)
 
         i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
