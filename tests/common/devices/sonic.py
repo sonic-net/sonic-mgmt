@@ -1171,6 +1171,10 @@ Totals               6450                 6449
             headers.append(header_line[left:right].strip().lower())
 
         for content_line in content_lines:
+            # When an empty line is encountered while parsing the tabulate content, it is highly possible that the
+            # tabulate content has been drained. The empty line and rest of the lines should not be parsed.
+            if len(content_line) == 0:
+                break
             item = {}
             for idx, (left, right) in enumerate(positions):
                 k = headers[idx]
