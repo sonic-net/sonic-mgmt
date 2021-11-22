@@ -218,7 +218,6 @@ def __tgen_bgp_config(cvg_api,):
         ipv6_1.name = 'IPv6 1_{}'.format(i-1)
         ipv6_1.address = conf_values['server_1_ipv6'][i-1]
         ipv6_1.gateway = '5001::1'
-        #ipv6_1.prefix = 64
         ipv6_1.prefix = 128
         #server2
         d2 = config.devices.device(name='Server_2_{}'.format(i-1))[-1]
@@ -235,7 +234,6 @@ def __tgen_bgp_config(cvg_api,):
         ipv6_2.name = 'IPv6 2_{}'.format(i-1)
         ipv6_2.address = conf_values['server_2_ipv6'][i-1]
         ipv6_2.gateway = '5001::1'
-        #ipv6_2.prefix = 64
         ipv6_2.prefix = 128
 
     #T1
@@ -254,7 +252,6 @@ def __tgen_bgp_config(cvg_api,):
 
     ipv6_3.address = temp_tg_port[1]['ipv6']
     ipv6_3.gateway = temp_tg_port[1]['peer_ipv6']
-    #ipv6_3.prefix = 64
     ipv6_3.prefix = 128
     bgpv4_stack = ipv4_3.bgpv4
     bgpv4_stack.name = 'BGP 3'
@@ -294,14 +291,35 @@ def __tgen_bgp_config(cvg_api,):
 
 
 def ping_loopback_if(cvg_api, ping_req):
+    """
+    Args:
+        cvg_api (pytest fixture): snappi API
+        ping_req : ping_req, snappi API object
+
+    """
     return cvg_api.send_ping(ping_req).responses
 
 
 def get_bgpv4_metrics(cvg_api, bgp_req):
+    """
+    Args:
+        cvg_api (pytest fixture): snappi API
+        bgp_req : ping_req, snappi API object
+
+    """
     return cvg_api.get_results(bgp_req).bgpv4_metrics
 
 
 def wait_for_bgp_and_lb_soft(cvg_api, ping_req,):
+    """
+    Method for when reboot type is Soft.  Check for Loopback I/F to go down then take timestamp.
+    Then check for LoopBack I/F state to change from down to up and record timestamp.
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        ping_req : ping_req, snappi API
+
+    """
     global loopback_down_start_timer
     global loopback_up_start_timer
 
@@ -326,6 +344,14 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req,):
 
 
 def wait_for_bgp_and_lb(cvg_api, ping_req,):
+    """
+    Method to wait for BGP and Loopback state to change from up to down take timestamp of event.
+    Then wait for BGP and Loopback state to change from down to up and take timestamp of event.
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        ping_req : ping_req, snappi API
+    """
     global loopback_down_start_timer
     global loopback_up_start_timer
     global bgp_down_start_timer
