@@ -12,7 +12,9 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-
+from tests.common import config_reload
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -222,6 +224,24 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
 
+def check_interface_status(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    if ":67" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8"):
+        return True
+    return False
+
+def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+    duthost = duthosts[rand_one_dut_hostname]
+    skip_release(duthost, ["201811", "201911", "202106"])
+    config_reload(duthost)
+    wait_critical_processes(duthost)
+    wait_until(120, 5, 0, check_interface_status, duthosts, rand_one_dut_hostname)
+    output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8")
+    logger.info(output)
+    for dhcp_relay in dut_dhcp_relay_data:
+        assert "{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']), output)
+        for iface in dhcp_relay['uplink_interfaces']:
+            assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """Test DHCP relay functionality on T0 topology.
