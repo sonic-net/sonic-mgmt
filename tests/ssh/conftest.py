@@ -6,20 +6,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 # enc_ciphers list
-permitted_enc_ciphers = [
+PERMITTED_ENC_CIPHERS = [
     "aes256-gcm@openssh.com",
     "aes256-ctr",
     "aes192-ctr"
 ]
 
 # MACs list
-permitted_macs = [
+PERMITTED_MACS = [
     "hmac-sha2-512-etm@openssh.com",
     "hmac-sha2-256-etm@openssh.com"
 ]
 
 # Kexs list
-permitted_kexs = [
+PERMITTED_KEXS = [
     "ecdh-sha2-nistp384",
     "ecdh-sha2-nistp521"
 ]
@@ -27,13 +27,13 @@ permitted_kexs = [
 def generate_ssh_ciphers(request, typename):
     if typename == "enc":
         remote_cmd = "ssh -Q cipher"
-        permitted_list = permitted_enc_ciphers
+        permitted_list = PERMITTED_ENC_CIPHERS
     elif typename == "mac":
         remote_cmd = "ssh -Q mac"
-        permitted_list = permitted_macs
+        permitted_list = PERMITTED_MACS
     elif typename == "kex":
         remote_cmd = "ssh -Q kex"
-        permitted_list = permitted_kexs
+        permitted_list = PERMITTED_KEXS
 
     testbed_name = request.config.option.testbed
     testbed_file = request.config.option.testbed_file

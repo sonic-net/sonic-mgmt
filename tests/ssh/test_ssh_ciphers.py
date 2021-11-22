@@ -11,6 +11,34 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_cipher, creds, typename):
+    duthost = duthosts[rand_one_dut_hostname]
+    dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
+    dutip = duthost.mgmt_ip
+
+    if typename == "enc":
+        ssh_cipher_option = "-c {}".format(specified_cipher)
+    elif typename == "mac":
+        ssh_cipher_option = "-m {}".format(specified_cipher)
+    elif typename == "kex":
+        ssh_cipher_option = "-o KexAlgorithms={}".format(specified_cipher)
+
+    ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {} {}@{}".format(ssh_cipher_option, dutuser, dutip)
+
+    try:
+        connect = pexpect.spawn(ssh_cmd)
+        connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
+        connect.sendline(dutpass)
+
+        i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
+        pytest_assert(i == 0, "Failed to connect")
+    except pexpect.exceptions.EOF:
+        pytest.fail("EOF reached")
+    except pexpect.exceptions.TIMEOUT:
+        pytest.fail("Timeout reached")
+    except Exception as e:
+        pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
+
 def test_ssh_protocol_version(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     result = duthost.shell("sshd --error", module_ignore_errors=True)
@@ -19,59 +47,13 @@ def test_ssh_protocol_version(duthosts, rand_one_dut_hostname):
         pytest.fail("SSHD may support protocol version 1.x, only version 2.x will be passed")
 
 def test_ssh_enc_ciphers(duthosts, rand_one_dut_hostname, enum_dut_ssh_enc_cipher, creds):
-    duthost = duthosts[rand_one_dut_hostname]
-    dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
-    dutip = duthost.mgmt_ip
-
-    try:
-        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -c {} {}@{}".format(enum_dut_ssh_enc_cipher, dutuser, dutip))
-        connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
-        connect.sendline(dutpass)
-
-        i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
-        pytest_assert(i == 0, "Failed to connect")
-    except pexpect.exceptions.EOF:
-        pytest.fail("EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest.fail("Timeout reached")
-    except Exception as e:
-        pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
+    typename = "enc"
+    connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, enum_dut_ssh_enc_cipher, creds, typename)
 
 def test_ssh_macs(duthosts, rand_one_dut_hostname, enum_dut_ssh_mac, creds):
-    duthost = duthosts[rand_one_dut_hostname]
-    dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
-    dutip = duthost.mgmt_ip
-
-    try:
-        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -m {} {}@{}".format(enum_dut_ssh_mac, dutuser, dutip))
-        connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
-        connect.sendline(dutpass)
-
-        i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
-        pytest_assert(i == 0, "Failed to SSH connect")
-    except pexpect.exceptions.EOF:
-        pytest.fail("EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest.fail("Timeout reached")
-    except Exception as e:
-        pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
+    typename = "mac"
+    connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, enum_dut_ssh_mac, creds, typename)
 
 def test_ssh_kex(duthosts, rand_one_dut_hostname, enum_dut_ssh_kex, creds):
-    duthost = duthosts[rand_one_dut_hostname]
-    dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
-    dutip = duthost.mgmt_ip
-
-    try:
-        connect = pexpect.spawn("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -oKexAlgorithms={} {}@{}".format(enum_dut_ssh_kex, dutuser, dutip))
-        connect.expect('{}@{}\'s password:'.format(dutuser, dutip))
-        connect.sendline(dutpass)
-
-        i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
-        pytest_assert(i == 0, "Failed to connect")
-    except pexpect.exceptions.EOF:
-        pytest.fail("EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest.fail("Timeout reached")
-    except Exception as e:
-        pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
-
+    typename = "kex"
+    connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, enum_dut_ssh_kex, creds, typename)
