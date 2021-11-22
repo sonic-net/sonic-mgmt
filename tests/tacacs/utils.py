@@ -29,7 +29,7 @@ def stop_tacacs_server(ptfhost):
 def setup_local_user(duthost, creds_all_duts):
     try:
         duthost.shell("sudo deluser {}".format(creds_all_duts[duthost]['local_user']))
-    except:
+    except RunAnsibleModuleFail:
         logger.info("local user not exist")
     
     duthost.shell("sudo useradd {}".format(creds_all_duts[duthost]['local_user']))
