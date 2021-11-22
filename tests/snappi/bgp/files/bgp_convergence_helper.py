@@ -240,7 +240,7 @@ def duthost_bgp_config(duthost,
     duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json","/etc/sonic/config_db.json"))
     logger.info('Reloading config to apply BGP config')
     duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT+60,"For Config to reload \n")
+    wait(TIMEOUT,"For Config to reload \n")
 
 
 def __tgen_bgp_config(cvg_api,
@@ -759,6 +759,7 @@ def get_RIB_IN_capacity(cvg_api,
 
     try:
         for j in range(start_value, 100000000000, step_value):
+            tx_frate, rx_frate = [], []
             logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(j))
             conv_config = tgen_capacity(j)
             cvg_api.set_config(conv_config)
@@ -771,19 +772,27 @@ def get_RIB_IN_capacity(cvg_api,
             wait(TIMEOUT, "For Traffic To start")
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
-            logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
-            wait(TIMEOUT, "For Traffic To stop")
+            flows = get_flow_stats(cvg_api)
+            for flow in flows:
+                tx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_tx_rate)
+            if sum(tx_frate) != sum(rx_frate):
+                raise Exception('Tx Frame rate not equal to Rx Frame rate for {} routes'.format(j))
+            else:
+                logger.info('Stopping Traffic')
+                cs = cvg_api.convergence_state()
+                cs.transmit.state = cs.transmit.STOP
+                cvg_api.set_state(cs)
+                wait(TIMEOUT, "For Traffic To stop")
     except:
         if start_value == j:
             max_routes = 'N/A'
-            raise Exception('FAIL:Max Routes: {}, unable to apply traffic, set the start value less than : {} !!!!!!!!!!!!'.format(max_routes,start_value))
+            raise Exception('Set the start_value less than : {} !!!!!!!!!!!!'.format(start_value))
         else:
             max_routes = j-step_value
             logger.info('max_routes :{}'.format(max_routes))
-    logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
+    finally:
+        logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
 
 def cleanup_config(duthost):
     """
