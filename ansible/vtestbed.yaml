@@ -99,7 +99,7 @@
   ptf_ip: 10.250.0.110/24
   ptf_ipv6: fec0::ffff:afa:a/64
   server: server_1
-  vm_base: VM0104
+  vm_base: VM0128
   dut:
     - vlab-08
   inv_name: veos_vtb
