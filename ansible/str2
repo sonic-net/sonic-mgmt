@@ -923,7 +923,7 @@ sonic_cisco_sup:
     str2-8800-sup-1:
       ansible_host: 10.3.147.95
       hwsku: 8800-RP-O
-      num_asics: 2
+      num_asics: 16
 
 
 sonic_nokia_7215:
