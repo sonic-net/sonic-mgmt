@@ -170,7 +170,7 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
 
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
-                                 dst_port_number=dst_port_number,
+                                 dst_port_numbers=dst_port_number,
                                  match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"), ("IP", "src"), ("IP", "dst"), (tr_type, "dport")],
                                  ignore_fields=[])
 
@@ -295,7 +295,7 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
-                                 dst_port_number=dst_port_number,
+                                 dst_port_numbers=dst_port_number,
                                  match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"), ("IP", "src"), ("IP", "dst")],
                                  ignore_fields=[])
 
@@ -322,30 +322,28 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
     router_mac = duthost.facts['router_mac']
     src_port_number = int(get_port_number(src_port))
     src_mac = ptfadapter.dataplane.get_mac(0, src_port_number)
-    ip_src = ipaddress.ip_address(u'10.0.0.1')
+    ip_src = '10.0.0.1'
     ip_dst = ip_dst.split('/')[0]
 
+    pkt = create_packet(eth_src=src_mac,
+                        eth_dst=router_mac,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        vlan_vid=None,
+                        dl_vlan_enable=False,
+                        tr_type='TCP',
+                        ttl=64)
+
     ptfadapter.dataplane.flush()
-    time.sleep(1)
+    time.sleep(2)
 
     for _ in range(BALANCING_TEST_TIMES * len(dst_port)):
-
-        pkt = create_packet(eth_src=src_mac,
-                            eth_dst=router_mac,
-                            ip_src=str(ip_src),
-                            ip_dst=ip_dst,
-                            vlan_vid=None,
-                            dl_vlan_enable=False,
-                            tr_type='TCP',
-                            ttl=64)
-
         testutils.send_packet(ptfadapter, src_port_number, pkt)
-
-        ip_src += 1
+        pkt['IP'].src = str(ipaddress.ip_address(pkt['IP'].src.encode().decode()) + 1)
 
     exp_pkt = create_packet(eth_src=router_mac,
                             eth_dst=src_mac,
-                            ip_src=str(ip_src),
+                            ip_src=ip_src,
                             ip_dst=ip_dst,
                             vlan_vid=None,
                             dl_vlan_enable=False,
@@ -355,11 +353,11 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
 
     ifaces_map = ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
     config_port_indices = {v: k for k, v in ifaces_map.items()}
-    dst_port_number = [config_port_indices[k] for k in config_port_indices if k in dst_port]
+    dst_port_numbers = [config_port_indices[k] for k in config_port_indices if k in dst_port]
 
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
-                                 dst_port_number=dst_port_number,
+                                 dst_port_numbers=dst_port_numbers,
                                  match_fields=[("Ethernet", "src"), ("IP", "dst"), ('TCP', "dport")],
                                  ignore_fields=[("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")])
 
@@ -994,8 +992,7 @@ def cleanup_ptf_nn_agent(ptfhost, ptfadapter, ifaces):
 
     for iface in ifaces:
         ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].pop(config_port_indices[iface])
-        iface_index = ptfadapter.ptf_port_set.index(config_port_indices[iface])
-        ptfadapter.ptf_port_set.pop(iface_index)
+        ptfadapter.ptf_port_set.remove(config_port_indices[iface])
 
     restart_ptf_nn_agent(ptfhost)
 

@@ -474,6 +474,5 @@ class TestSubPorts(object):
                                         src_port=src_port,
                                         dst_port=dst_ports,
                                         ip_dst=ip_dst,
-                                        pkt_action='fwd',
                                         type_of_traffic='balancing',
                                         ttl=63)
