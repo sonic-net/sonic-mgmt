@@ -66,7 +66,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     for port in port_lists:
         candidate = build_test_candidates(duthost, fanouthosts, port, normalized_level)
         if candidate:
-            candidates.append(candidate)
+            candidates.append(candidate[0])
 
     for loop_time in range(0, loop_times):
         watch = False
