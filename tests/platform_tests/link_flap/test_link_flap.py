@@ -7,6 +7,7 @@ import pytest
 import random
 
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes, check_portchannel_status
+from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -63,8 +64,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     candidates = []
     for port in port_lists:
-        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-        candidate = (port, fanouthosts,fanout_port, normalized_level)
+        candidate = build_test_candidates(duthost, fanouthosts, port, normalized_level)
         if candidate:
             candidates.append(candidate)
 
@@ -75,7 +75,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
             watch = True
             check_status = True
 
-        for dut_port, fanout, fanout_port in candidates:
+        for candidate in candidates:
+            dut_port, fanout, fanout_port = tuple(candidate)
             toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
 
     # Record memory status at end
