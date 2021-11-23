@@ -169,15 +169,18 @@ function setup_local_image() {
     if [[ -f "${AUTHKEY_FILE}" ]]; then
         grep -q "${SSH_PUBKEY}" "${AUTHKEY_FILE}" || echo "${SSH_PUBKEY}" >> "${AUTHKEY_FILE}"
     else
-        cat "${PUBKEY_FILE}" > "${AUTHKEY_FILE}"
+        echo "${SSH_PUBKEY}" > "${AUTHKEY_FILE}"
         chmod 0644 "${AUTHKEY_FILE}"
     fi
 
     TMP_DIR="$(mktemp -d)"
     log_info "setup a temporary dir: ${TMP_DIR}"
 
-    log_info "prepare a Dockerfile template: ${TMP_DIR}/Dockerfile.j2"
+    log_info "copy SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
+    eval "cp -fv \"${PRIVKEY_FILE}\" \"${TMP_DIR}/id_rsa\" ${SILENT_HOOK}"
+    eval "cp -fv \"${PUBKEY_FILE}\" \"${TMP_DIR}/id_rsa.pub\" ${SILENT_HOOK}"
 
+    log_info "prepare a Dockerfile template: ${TMP_DIR}/Dockerfile.j2"
     cat <<'EOF' > "${TMP_DIR}/Dockerfile.j2"
 FROM {{ IMAGE_ID }}
 
@@ -201,16 +204,18 @@ then groupmod -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 else groupadd -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 fi
 
+# Environment configuration
+RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
+/bin/bash -c 'cp -a -f /var/AzDevOps/* /home/{{ USER_NAME }}/'; \
+/bin/bash -c 'cp -a -f /var/AzDevOps/{.profile,.local,.ssh} /home/{{ USER_NAME }}/'; \
+fi
+
 # Permissions configuration
 RUN usermod -a -G sudo {{ USER_NAME }}
-RUN usermod -aG {{ DGROUP_NAME }} {{ USER_NAME }}
+RUN usermod -a -G {{ DGROUP_NAME }} {{ USER_NAME }}
 RUN echo '{{ USER_NAME }} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/{{ USER_NAME }}
 RUN chmod 0440 /etc/sudoers.d/{{ USER_NAME }}
-
-# Environment configuration
-RUN chown -R '{{ USER_ID }}:{{ GROUP_ID }}' /var/AzDevOps
-RUN ln -s /var/AzDevOps/.local/ /root/.local
-RUN ln -s /var/AzDevOps/.local/ /home/{{ USER_NAME }}/.local
+RUN chown -R '{{ USER_ID }}:{{ GROUP_ID }}' /home/{{ USER_NAME }}
 
 # SSH/PASS configuration
 RUN sed -i -E 's/^#?PermitRootLogin.*$/PermitRootLogin yes/g' /etc/ssh/sshd_config
@@ -223,15 +228,18 @@ ENV HOME=/home/{{ USER_NAME }}
 ENV USER={{ USER_NAME }}
 
 # Passwordless SSH access
-RUN mkdir -p ${HOME}/.ssh
+COPY --chown={{ USER_ID }}:{{ GROUP_ID }} id_rsa id_rsa.pub ${HOME}/.ssh/
 RUN chmod 0700 ${HOME}/.ssh
-RUN echo '{{ SSH_PUBKEY }}' >> ${HOME}/.ssh/authorized_keys
+RUN chmod 0600 ${HOME}/.ssh/id_rsa
+RUN chmod 0644 ${HOME}/.ssh/id_rsa.pub
+RUN cat ${HOME}/.ssh/id_rsa.pub >> ${HOME}/.ssh/authorized_keys
 RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
 
 EOF
 
+    log_info "prepare an environment file: ${TMP_DIR}/data.env"
     cat <<EOF > "${TMP_DIR}/data.env"
 IMAGE_ID=${IMAGE_ID}
 DGROUP_NAME=${HOST_DGNAME}
@@ -242,7 +250,6 @@ GROUP_NAME=${USER}
 USER_NAME=${USER}
 USER_PASS=${USER_PASS}
 ROOT_PASS=${ROOT_PASS}
-SSH_PUBKEY=${SSH_PUBKEY}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
@@ -356,6 +363,10 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
         show_local_container_login
         exit_success "container is already exists: ${CONTAINER_NAME}"
     fi
+fi
+
+if ! j2 -v &> /dev/null; then
+    exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
 fi
 
 pull_sonic_mgmt_docker_image
