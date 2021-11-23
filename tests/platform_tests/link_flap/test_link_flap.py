@@ -29,7 +29,7 @@ LOOP_TIMES_LEVEL_MAP = {
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    return mg_facts["minigraph_port_indices"].keys()
+    return mg_facts["minigraph_ports"].keys()
 
 
 @pytest.mark.platform('physical')
@@ -64,9 +64,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     candidates = []
     for port in port_lists:
-        candidate = build_test_candidates(duthost, fanouthosts, port, normalized_level)
-        if candidate:
-            candidates.append(candidate[0])
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        candidates.append((port, fanout, fanout_port))
 
     for loop_time in range(0, loop_times):
         watch = False
@@ -75,8 +74,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
             watch = True
             check_status = True
 
-        for candidate in candidates:
-            dut_port, fanout, fanout_port = tuple(candidate)
+        for dut_port, fanout, fanout_port in candidates:
             toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
 
     # Record memory status at end
