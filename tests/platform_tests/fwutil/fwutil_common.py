@@ -71,7 +71,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
         logger.info("Waiting on switch to come up....")
         localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=300)
         logger.info("Waiting on critical systems to come online...")
-        wait_until(300, 30, duthost.critical_services_fully_started)
+        wait_until(300, 30, 0, duthost.critical_services_fully_started)
         time.sleep(60)
 
         # Reboot back into original image if neccesary
@@ -84,7 +84,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
             time.sleep(100)
             logger.info("Waiting on switch to come up....")
             localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
-            wait_until(300, 30, duthost.critical_services_fully_started)
+            wait_until(300, 30, 0, duthost.critical_services_fully_started)
             time.sleep(60)
 
 def show_firmware(duthost):
@@ -205,11 +205,13 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     command = "fwutil"
     if basepath is not None:
         command += " install"
+        auto_reboot = False
     else:
         command += " update"
+        auto_reboot = True
 
     if component is None:
-        command += " all"
+        command += " all fw"
     else:
         if component not in paths:
             pytest.skip("No available firmware to install on {}. Skipping".format(component))
@@ -225,19 +227,13 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     if boot is not None:
         command += " --boot={}".format(boot)
-
-    command += " -y"
+        auto_reboot = False
+    else:
+        command += " -y"
 
     logger.info("Running install command: {}".format(command))
     task, res = duthost.command(command, module_ignore_errors=True, module_async=True)
     boot_type = boot if boot else paths[component]["reboot"][0]
-
-    auto_reboot = False
-    for comp in paths.keys():
-        if "install" in paths[comp] and basepath is not None:
-            if paths[comp]["install"].get("auto_reboot", False): auto_reboot = True
-        else:
-            if paths[comp].get("auto_reboot", False): auto_reboot = True
 
     timeout = max([v.get("timeout", TIMEOUT) for k, v in paths.items()])
     pdu_delay = fw["chassis"][chassis].get("power_cycle_delay", 60)
@@ -255,11 +251,11 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     update_needed = deepcopy(fw)
     update_needed["chassis"][chassis]["component"] = {}
     for comp in paths.keys():
-        if fw["chassis"][chassis]["component"][comp][0]["version"] != final_versions["chassis"][chassis]["component"][comp] and not paths[comp].get("upgrade_only", False):
+        if fw["chassis"][chassis]["component"][comp][0]["version"] != final_versions["chassis"][chassis]["component"][comp] and boot in fw["chassis"][chassis]["component"][comp][0]["reboot"] + [None] and not paths[comp].get("upgrade_only", False):
             update_needed["chassis"][chassis]["component"][comp] = fw["chassis"][chassis]["component"][comp]
     if len(update_needed["chassis"][chassis]["component"].keys()) > 0:
         logger.info("Latest firmware not installed after test. Installing....")
-        call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot, os.path.join("/", DEVICES_PATH, duthost.facts['platform']))
+        call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot, os.path.join("/", DEVICES_PATH, duthost.facts['platform']) if basepath is not None else None)
 
     return True
 

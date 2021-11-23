@@ -11,10 +11,6 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
 
-platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
-  skip:
-    reason: "Command not yet merged into sonic-utilites"
-
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration

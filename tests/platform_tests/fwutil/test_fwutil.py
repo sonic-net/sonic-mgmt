@@ -108,12 +108,12 @@ def test_fwutil_update_bad_config(duthost, fw_pkg, random_component):
     assert found_bad_component
 
 
-@pytest.mark.parametrize("reboot_type", ["none", "warm", "fast", "cold", "power off"])
+@pytest.mark.parametrize("reboot_type", ["none", "cold"])
 def test_fwutil_auto(duthost, localhost, pdu_controller, fw_pkg, reboot_type):
     """Tests fwutil update all command ability to properly select firmware for install based on boot type."""
     assert call_fwutil(duthost,
             localhost,
             pdu_controller,
             fw_pkg,
-            reboot=reboot_type)
+            boot=reboot_type)
 
