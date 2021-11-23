@@ -30,14 +30,11 @@ def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
     if 'dualtor' in tbinfo['topo']['name']:
         pytest.skip("Skip running on dualtor testbed")
 
+    asic_type = rand_selected_dut.facts["asic_type"]
+    unsupported_platforms = ["mellanox", "marvell", "barefoot"]
     # Skip ipv6 test on Mellanox platform
-    if "mellanox" == rand_selected_dut.facts["asic_type"] and ip_ver == "ipv6":
-        pytest.skip("Match 'IN_PORTS' in EVERFLOWV6 is not supported on Mellanox platform")
-    # Skip on marvell platform
-    if "marvell" == rand_selected_dut.facts["asic_type"]:
-        pytest.skip("Match 'IN_PORTS' is not supported on Marvell platform")
-    if "barefoot" == rand_selected_dut.facts["asic_type"]:
-        pytest.skip("Match 'IN_PORTS' is not supported on barefoot platform")
+    is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
+    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 def build_candidate_ports(duthost, tbinfo):
     """
