@@ -687,6 +687,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
 
+        if "pkts_num_margin" in qosConfig[pgProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
             testParams=testParams
@@ -735,8 +738,13 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",
             testParams=testParams
