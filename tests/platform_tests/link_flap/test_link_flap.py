@@ -6,7 +6,7 @@ import logging
 import pytest
 import random
 
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes, check_portchannel_status
+from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, check_orch_cpu_utilization
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
