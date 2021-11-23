@@ -357,7 +357,7 @@ class FgEcmpTest(BaseTest):
 
         assert(isinstance(result, test.dataplane.PollFailure))
         test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
-                    % (ports, device_number, result.format()))
+                    % (port, device_number, result.format()))
         return (0, None)
 
 

@@ -1,9 +1,12 @@
 import pytest
-
 import time
 import logging
 import ipaddress
 import json
+import collections
+from tabulate import tabulate
+from tests.common.reboot import reboot
+from multiprocessing.pool import ThreadPool
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -22,6 +25,7 @@ PREFIX_IPV4_LIST = [u'100.50.25.12/32', u'100.50.25.13/32', u'100.50.25.14/32']
 PREFIX_IPV6_LIST = [u'fc:05::/128', u'fc:06::/128', u'fc:07::/128']
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
+WARM_BOOT_TESTING = True
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
 
@@ -173,8 +177,88 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             qlen=1000,
             log_file=log_file)
 
+def hash_view_cli_verification(duthost, prefix_list):
+    header = ["FG NHG Prefix", "Next Hop", "Hash buckets"]
+    table = []
+    mode = ""
+    compressed_ipv6_prefixes = [] 
 
-def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
+    if ":" in prefix_list[0]:
+        mode = "fgnhg_v6" 
+        for ipv6_prefix in prefix_list:
+            subnet = ipv6_prefix.split("/")[1]
+            ipv6_prefix = ipv6_prefix.split("/")[0]
+            ipv6_prefix = unicode(str(ipaddress.IPv6Address(ipv6_prefix)) + "/" + subnet)
+            compressed_ipv6_prefixes.append(ipv6_prefix)
+        prefix_list = compressed_ipv6_prefixes
+    else:
+        mode = "fgnhg_v4" 
+
+    prefix_list = sorted(prefix_list)
+   
+    for prefix in prefix_list:
+        nh_bucket_dict = {}
+        command = 'redis-cli -n 6 HGETALL "FG_ROUTE_TABLE|' + str(prefix) + '"'
+        data = duthost.command(command,module_ignore_errors=True)
+        data = data['stdout'].split('\n')
+        pairs = zip(data[::2], data[1::2]) #pythonic way to derive the nexthop and bank association from the route table
+        for banknh in pairs:
+            nh=str(banknh[1]).split("@")[0]
+            hash_bucket =  str(banknh[0])
+            nh_bucket_dict.setdefault(nh, []).append(hash_bucket)
+        for nh in nh_bucket_dict:
+            unsorted_hb = nh_bucket_dict[nh]
+            sorted_hb =  sorted([int(k) for k in unsorted_hb])
+            sorted_hb = [str(x) for x in sorted_hb]
+            nh_bucket_dict[nh] = sorted_hb
+        nh_bucket_dict = collections.OrderedDict(sorted(nh_bucket_dict.items()))
+        for nhip, val in nh_bucket_dict.items():
+            bank_output = ""
+            displayed_banks = []
+            formatted_banks = (nh_bucket_dict[nhip])
+            for bankid in formatted_banks:
+                if (len(str(bankid)) == 1):
+                    displayed_banks.append(str(bankid) + "  ")
+                if (len(str(bankid)) == 2):
+                    displayed_banks.append(str(bankid) + " ")
+                if (len(str(bankid)) == 3):
+                    displayed_banks.append(str(bankid))
+            for i in range (0, len(displayed_banks), 8):
+                bank_output = bank_output + " ".join(displayed_banks[i:i+8]) + "\n"            
+            table.append([prefix, nhip, bank_output])
+    derived_hash_view = (tabulate(table,header))
+    logger.info ("Derived hash-view")
+    logger.info (derived_hash_view)
+    cli_output = duthost.command('show fg-nhg-hash-view {}'.format(mode), module_ignore_errors = True)
+    cli_hash_view = cli_output['stdout']
+    logger.info ("CLI hash-view")
+    logger.info (cli_hash_view)
+    if (derived_hash_view == cli_hash_view):
+        logger.info ("CLI hash-view output validated!")
+    else:
+        logger.info ("Discrepancy betwen derived hash-view and CLI hash-view")
+    
+def reprogram_ecmp_routes(duthost, prefix_list, ip_to_port, ipcmd):
+    logger.info ("Reprogramming ECMP routes")
+    vtysh_base_cmd = "vtysh -c 'configure terminal'"
+    t_end = time.time() + 60 * 6
+    while time.time() < t_end:
+        for prefix in prefix_list:
+           cmd = vtysh_base_cmd
+           for nexthop in ip_to_port:
+               cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
+           configure_dut(duthost, cmd)
+           logger.info (cmd)
+def hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
+    for dst_ip in dst_ip_list:
+        partial_ptf_runner(ptfhost, 'hash_check_warm_boot', dst_ip, exp_flow_count)    
+
+def continuous_hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count):
+    t_end = time.time() + 60 * 6
+    while time.time() < t_end:
+        hash_check_warm_boot(ptfhost, dst_ip_list, exp_flow_count)         
+       
+def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list, localhost):
 
     # Init base test params
     if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
@@ -207,6 +291,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     time.sleep(3)
 
+    hash_view_cli_verification(duthost, prefix_list)
+
     # Calculate expected flow counts per port to verify in ptf host
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(port_list)
@@ -224,7 +310,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'create_flows', dst_ip, exp_flow_count)
 
-
     ### Hashing verification: Send the same flows again,
     ### and verify packets end up on the same ports for a given flow
     logger.info("Hashing verification: Send the same flows again, "
@@ -233,6 +318,35 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'initial_hash_check', dst_ip, exp_flow_count)
 
+    if WARM_BOOT_TESTING == True:
+        warm_reboot_start_time = time.asctime( time.localtime(time.time()) ) 
+        logger.info ("warm reboot start time is ")
+        logger.info (warm_reboot_start_time)
+
+        #Async Thread for Warm Boot
+        pool = ThreadPool()
+        pool.apply_async(reboot, args = (duthost, localhost, "warm", ))
+
+        #Thread to continuously send packets while warm reboot is ongoing, and validate datapath for Fine Grained ECMP
+        pool1 = ThreadPool()
+        pool1.apply_async(reprogram_ecmp_routes, args = (duthost, prefix_list, ip_to_port, ipcmd, ))
+
+        #Async Thread for Continuously Checking ECMP Routes under Warm Boot condition
+        pool2 = ThreadPool()  
+        pool2.apply_async(continuous_hash_check_warm_boot, args = (ptfhost, dst_ip_list, exp_flow_count, ))
+
+        pool.close()
+        pool.join()
+        pool1.close()
+        pool1.join()
+        pool2.close()
+        pool2.join()
+        
+    for prefix in prefix_list:
+           cmd = vtysh_base_cmd
+           for nexthop in ip_to_port:
+               cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
+           configure_dut(duthost, cmd)
 
     ### Send the same flows again, but unshut the port which was shutdown at the beginning of test
     ### Check if hash buckets rebalanced as expected
@@ -248,7 +362,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     for dst_ip in dst_ip_list:
         partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link)
-
 
     ### Send the same flows again, but withdraw one next-hop before sending the flows, check if hash bucket
     ### rebalanced as expected, and the number of flows received on a link is as expected
@@ -280,7 +393,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if ip == dst_ip: continue
         partial_ptf_runner(ptfhost, 'initial_hash_check', ip, exp_flow_count)
 
-
     ### Send the same flows again, but disable one of the links,
     ### and check flow hash redistribution
     shutdown_link = bank_0_port[2]
@@ -298,7 +410,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     del exp_flow_count[shutdown_link]
 
     partial_ptf_runner(ptfhost, 'withdraw_nh', dst_ip, exp_flow_count, withdraw_nh_port=shutdown_link)
-
 
     ### Send the same flows again, but enable the link we disabled the last time
     ### and check flow hash redistribution
@@ -318,7 +429,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link) 
 
-
     ### Send the same flows again, but enable the next-hop which was down previously
     ### and check flow hash redistribution
     logger.info("Send the same flows again, but enable the next-hop which was down previously "
@@ -337,7 +447,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         exp_flow_count[port] = flows_per_nh
 
     partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port) 
-
 
     ### Simulate route and link flap conditions by toggling the route
     ### and ensure that there is no orch crash and data plane impact
@@ -361,7 +470,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     pytest_assert(int(result["stdout"]) > 0, "Orchagent is not running")
     partial_ptf_runner(ptfhost, 'bank_check', dst_ip, exp_flow_count)
 
-
     ### Send the same flows again, but disable all next-hops in a bank
     ### to test flow redistribution to the other bank
     logger.info("Send the same flows again, but disable all next-hops in a bank "
@@ -382,7 +490,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         exp_flow_count[port] = flows_per_nh
 
     partial_ptf_runner(ptfhost, 'withdraw_bank', dst_ip, exp_flow_count, withdraw_nh_bank=withdraw_nh_bank) 
-
 
     ### Send the same flows again, but enable 1 next-hop in a previously down bank to check 
     ### if flows redistribute back to previously down bank
@@ -408,7 +515,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     logger.info("Completed ...")
 
-
 def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list, cfg_facts):
     logger.info("fg_ecmp_to_regular_ecmp_transitions")
     # Init base test params
@@ -424,7 +530,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     dst_ip_list = []
     for prefix in prefix_list:
         dst_ip_list.append(prefix.split('/')[0])
-
+        
     prefix = prefix_list[0]
     dst_ip = dst_ip_list[0]
 
@@ -514,15 +620,15 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         cleanup(duthost, ptfhost)
 
 
-def test_fg_ecmp(common_setup_teardown, ptfhost):
+def test_fg_ecmp(common_setup_teardown, ptfhost, localhost):
     duthost, cfg_facts, router_mac, net_ports = common_setup_teardown
 
     # IPv4 test
     port_list, ipv4_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, localhost)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, cfg_facts)
 
     # IPv6 test
     port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
-    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST)
+    fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, localhost)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, cfg_facts)
