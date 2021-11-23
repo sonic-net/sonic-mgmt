@@ -666,6 +666,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
         # Skip on broadcom platforms
+        self.testing_acl_table_created = False
         pytest_require(duthost.facts["asic_type"] not in ("broadcom"),
                     "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"]))
         # Skip IPV6 EGRESS test since arp_responder doesn't support yet
@@ -673,6 +674,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
                     "IPV6 EGRESS test not supported")
 
         self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[1])
+        self.testing_acl_table_created = True
         ip_list = self._setup_arp_responder(ptfhost, vlan_setup_info)
         # Populate ARP table on DUT
         cmds = []
@@ -681,7 +683,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         duthost.shell_cmds(cmds=cmds, module_ignore_errors=True)
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
-        if ip_version == IPV4:
+        if self.testing_acl_table_created:
             self._remove_acl_table(duthost, EGRESS, ip_version)
         self._teardown_arp_responder(ptfhost)
     
