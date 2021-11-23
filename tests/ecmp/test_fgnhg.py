@@ -12,6 +12,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
 # Constants
 NUM_NHs = 8
@@ -126,6 +127,37 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
     duthost.shell("sonic-cfggen -j /tmp/neigh.json --write-to-db")
 
 
+def setup_arpresponder(ptfhost, ip_to_port):
+    logger.info("Copy arp_responder to ptfhost")
+    # Stop existing arp responder if running
+    ptfhost.command('supervisorctl stop arp_responder')
+
+    d = defaultdict(list)
+
+    for ip, port in ip_to_port.items():
+        iface = "eth{}".format(port)
+        d[iface].append(ip)
+
+    with open('/tmp/from_t1.json', 'w') as file:
+        json.dump(d, file)
+
+    ptfhost.copy(src='/tmp/from_t1.json', dest='/tmp/from_t1.json')
+
+    extra_vars = {
+            'arp_responder_args': ''
+    }
+
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.template(src='templates/arp_responder.conf.j2', dest='/tmp')
+    ptfhost.command("cp /tmp/arp_responder.conf.j2 /etc/supervisor/conf.d/arp_responder.conf")
+
+    ptfhost.command('supervisorctl reread')
+    ptfhost.command('supervisorctl update')
+
+    logger.info("Start arp_responder")
+    ptfhost.command('supervisorctl start arp_responder')
+
+
 def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports):
     fg_ecmp = {
             "serv_ports": port_list,
@@ -144,8 +176,8 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
 def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip):
     port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip)
     generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port)
+    setup_arpresponder(ptfhost, ip_to_port)
     time.sleep(60)
-    setup_neighbors(duthost, ptfhost, ip_to_port)
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports)
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
@@ -172,6 +204,41 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             params= params,
             qlen=1000,
             log_file=log_file)
+
+
+def validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ip_to_port, prefix_list):
+    logger.info("Validating packet flow of fine grained ecmp without neighbor resolution")
+    # Init base test params
+    if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
+        ipcmd = "ip route"
+    else:
+        ipcmd = "ipv6 route"
+
+    vtysh_base_cmd = "vtysh -c 'configure terminal'"
+    vtysh_base_cmd = duthost.get_vtysh_cmd_for_namespace(vtysh_base_cmd, DEFAULT_NAMESPACE)
+    dst_ip = prefix_list[0].split('/')[0]
+
+    cmd = vtysh_base_cmd
+    for nexthop in ip_to_port:
+        cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix_list[0], nexthop)
+    configure_dut(duthost, cmd)
+
+    # Validate packet flow works
+    partial_ptf_runner(ptfhost, 'verify_packets_received', dst_ip, [])
+
+    # Validate that neigh was resolved as part of packet flow
+    if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
+        show_neigh = duthost.shell("show arp")['stdout']
+    else:
+        show_neigh = duthost.shell("show ndp")['stdout']
+
+    neigh_resolved = False
+
+    for nexthop in ip_to_port:
+        if nexthop in show_neigh:
+            neigh_resolved = True
+            break
+    assert neigh_resolved
 
 
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
@@ -519,10 +586,14 @@ def test_fg_ecmp(common_setup_teardown, ptfhost):
 
     # IPv4 test
     port_list, ipv4_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4)
+    validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ipv4_to_port, PREFIX_IPV4_LIST)
+    setup_neighbors(duthost, ptfhost, ipv4_to_port)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv4_to_port, bank_0_port, bank_1_port, PREFIX_IPV4_LIST, cfg_facts)
 
     # IPv6 test
     port_list, ipv6_to_port, bank_0_port, bank_1_port = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6)
+    validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ipv6_to_port, PREFIX_IPV6_LIST)
+    setup_neighbors(duthost, ptfhost, ipv6_to_port)
     fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST)
     fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports, port_list, ipv6_to_port, bank_0_port, bank_1_port, PREFIX_IPV6_LIST, cfg_facts)
