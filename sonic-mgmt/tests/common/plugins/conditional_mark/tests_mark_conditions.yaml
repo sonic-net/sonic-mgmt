@@ -91,3 +91,15 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
     reason: "test_get_serial is not supported in cisco platform"
     conditions:
        - asic_type=="cisco-8000"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
+  skip:
+    reason: "psu led is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
+  skip:
+    reason: "psu led is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
