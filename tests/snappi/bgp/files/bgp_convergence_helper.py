@@ -232,7 +232,7 @@ def duthost_bgp_config(duthost,
     logger.info(cdf)
     for neighbor, neighbor_info in bgp_neighbors.items():
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
-
+    cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
     with open("/tmp/sconfig_db.json", 'w') as fp:
         json.dump(cdf, fp, indent=4)
     duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
@@ -775,7 +775,7 @@ def get_RIB_IN_capacity(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
             if sum(tx_frate) != sum(rx_frate):
                 raise Exception('Tx Frame rate not equal to Rx Frame rate for {} routes'.format(j))
             else:
