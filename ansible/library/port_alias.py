@@ -118,6 +118,7 @@ class SonicPortAliasMap():
         speed_index = -1
         role_index = -1
         asic_name_index = -1
+        port_index = -1
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
@@ -139,6 +140,8 @@ class SonicPortAliasMap():
                             port_core_portid_index = index
                         if 'numvoq' in text:
                             num_voq_index = index
+                        if 'index' in text:
+                            port_index = index
             else:
                 #added support to parse recycle port
                 if re.match('^Ethernet', line) or re.match('^Recirc', line):
@@ -160,7 +163,7 @@ class SonicPortAliasMap():
                     add_port = False
                     if role == 'Ext' or (role == "Int" and include_internal):
                         add_port = True
-                        aliases.append(alias)
+                        aliases.append((alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
                         portmap[name] = alias
                         aliasmap[alias] = name
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
@@ -294,12 +297,12 @@ def main():
                 sysports.extend(sysport_asic)
 
         # Sort the Interface Name needed in multi-asic
-        aliases.sort(key=lambda x: int(x.split('/')[-1]))
-        module.exit_json(ansible_facts={'port_alias': aliases,
+        aliases.sort(key=lambda x: int(x[1]))
+        module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
-                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k] for k in aliases] if front_panel_asic_ifnames else [],
+                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k[0]] for k in aliases] if front_panel_asic_ifnames else [],
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
     except (IOError, OSError) as e:
