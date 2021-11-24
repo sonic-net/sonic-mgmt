@@ -3,33 +3,49 @@
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
+- name: Check docker repository
+  find:
+    paths: /etc/apt/sources.list.d/
+    patterns: "*docker*"
+  register: docker_repo
+
+- name: Report docker repository exists
+  debug:
+    msg: "Docker repository already exists"
+  when: docker_repo.matched > 0
+
+- name: Report docker repository not exists
+  debug:
+    msg: "Docker repository does not exist"
+  when: docker_repo.matched == 0
+
 - name: Add docker repository for 16.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "16.04"
+  when: host_distribution_version.stdout == "16.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 17.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
     state: present
   become: yes
-  when: host_distribution_version == "17.04"
+  when: host_distribution_version == "17.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 18.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "18.04"
+  when: host_distribution_version.stdout == "18.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 20.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "20.04"
+  when: host_distribution_version.stdout == "20.04" and docker_repo.matched == 0
 
 - name: Install docker-ce
   apt: pkg=docker-ce update_cache=yes

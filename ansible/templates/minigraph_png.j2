@@ -1,5 +1,6 @@
   <PngDec>
     <DeviceInterfaceLinks>
+{% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
@@ -54,27 +55,36 @@
 {% endfor %}
 {% endif %}
 {% endif %}
-{% for asic in asic_topo_config %}
-{% for neigh_asic in  asic_topo_config[asic]['neigh_asic'] %}
-{% for intf in asic_topo_config[asic]['neigh_asic'][neigh_asic]['intfs'][0] | sort %}
+{% if ((asic_topo_config and slot_num is defined and slot_num in asic_topo_config) or (asic_topo_config and slot_num is not defined)) %}
+{% for asic,asic_config in asic_topo_config[slot_num|default('slot0')].items() %}
+{% for neigh_asic in  asic_config['neigh_asic'] %}
+{% for intf in asic_config['neigh_asic'][neigh_asic]['intfs'][0] | sort %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
+{% if switch_type is not defined %}
         <Bandwidth>40000</Bandwidth>
+{% endif %}
         <ChassisInternal>true</ChassisInternal>
         <EndDevice>{{ neigh_asic }}</EndDevice>
         <EndPort>{{ intf }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ asic }}</StartDevice>
-        <StartPort>{{ asic_topo_config[asic]['neigh_asic'][neigh_asic]['asic_intfs'][0][loop.index-1] }}</StartPort>
+        <StartPort>{{ asic_config['neigh_asic'][neigh_asic]['asic_intfs'][0][loop.index-1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
 {% endfor %}
+{% endif %}
 {% for asic_intf in front_panel_asic_ifnames %}
+{% if inventory_hostname not in device_conn or port_alias[loop.index - 1] in device_conn[inventory_hostname] %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
+{% if port_alias[loop.index - 1] in port_speed %}
+        <Bandwidth>{{ port_speed[port_alias[loop.index - 1]] }}</Bandwidth>
+{% else %}
         <Bandwidth>40000</Bandwidth>
+{% endif %}
         <ChassisInternal>true</ChassisInternal>
         <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
         <EndPort>{{ asic_intf }}</EndPort>
@@ -83,7 +93,9 @@
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
+{% endif %}
 {% endfor %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
@@ -100,6 +112,9 @@
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
+{% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
+	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
+{% endif %}
       </Device>
 {% if 'neighbor' in dual_tor_facts %}
 {% set neighbor_hostname = dual_tor_facts['neighbor']['hostname'] %}
@@ -162,7 +177,9 @@
 {% if VM_topo %}
 {% for dev in neighbor_eosvm_mgmt %}
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
-{% if 'T1' in dev %}
+{% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
+{% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
@@ -183,7 +200,9 @@
 {% endif %}
 {% endfor %}
 {% endif %}
-{% for asic in asic_topo_config %}
+{% if num_asics > 1 %}
+{% for asic_index in range(num_asics) %}
+{% set asic_name = "ASIC" + asic_index|string %}
       <Device i:type="Asic">
         <ElementType>Asic</ElementType>
         <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
@@ -206,8 +225,14 @@
           <a:IPPrefix>::/0</a:IPPrefix>
         </ManagementAddressV6>
         <SerialNumber i:nil="true"/>
-        <Hostname>{{ asic }}</Hostname>
+        <Hostname>{{ asic_name }}</Hostname>
         <HwSku>Broadcom-Trident2</HwSku>
+      </Device>
+{% endfor %}
+{% endif %}
+{% for asic in fabric_info %}
+      <Device i:type="Asic">
+        <Hostname>{{ asic['asicname'] }}</Hostname>
       </Device>
 {% endfor %}
     </Devices>

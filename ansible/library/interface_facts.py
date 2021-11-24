@@ -12,13 +12,16 @@ import signal
 import datetime
 import getpass
 import pwd
-import ConfigParser
-import StringIO
 import json
 
 from ansible.module_utils.basic import *
 from collections import defaultdict
-from sonic_py_common import multi_asic
+try:
+    from sonic_py_common import multi_asic
+    NAMESPACE_LIST = multi_asic.get_namespace_list()
+except ImportError:
+    NAMESPACE_LIST = ['']
+
 
 INTF_IP_GET_INFO_SCRIPT = "/tmp/gather_intf_ip_info.py"
 DOCUMENTATION = '''
@@ -87,7 +90,7 @@ def get_default_interfaces(ip_path):
             # v6 routing may result in
             #   RTNETLINK answers: Invalid argument
             continue
-        words = out.split('\n')[0].split()
+        words = out.decode('utf8').split('\n')[0].split()
         # A valid output starts with the queried address on the first line
         if len(words) > 0 and words[0] == command[key][-1]:
             for i in range(len(words) - 1):
@@ -185,7 +188,7 @@ def gather_ip_interface_info():
             interfaces[device]['promisc'] = promisc_mode
 
         def parse_ip_output(output, secondary=False):
-            for line in output.split('\n'):
+            for line in output.decode('utf8').split('\n'):
                 if not line:
                     continue
                 words = line.split()
@@ -281,7 +284,7 @@ def gather_ip_interface_info():
         parse_ip_output(secondary_data, secondary=True)
 
     buffer = {'interfaces':interfaces, 'ips':ips}
-    print json.dumps(buffer)
+    print(json.dumps(buffer))
 
 gather_ip_interface_info()
 """
@@ -313,7 +316,7 @@ def main():
     cmd_prefix = ''
     cmd = '/usr/bin/python {}'.format(INTF_IP_GET_INFO_SCRIPT)
 
-    for namespace in multi_asic.get_namespace_list():
+    for namespace in NAMESPACE_LIST:
         if namespace_passed and namespace != namespace_passed:
             continue
         # If the user passed a namespace parameter invoke that script with the cmd_prefix

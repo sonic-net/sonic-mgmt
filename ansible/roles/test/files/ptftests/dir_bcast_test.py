@@ -58,6 +58,8 @@ class BcastTest(BaseTest):
             self.src_ports = range(1, 25) + range(28, 32)
         if self.test_params['testbed_type'] == 't0-52':
             self.src_ports = range(0, 52)
+        if self.test_params['testbed_type'] == 't0-56':
+            self.src_ports = range(0, 32)
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
@@ -126,7 +128,7 @@ class BcastTest(BaseTest):
         Check if broadcast packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list))
+        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
 
         return
 
@@ -169,7 +171,7 @@ class BcastTest(BaseTest):
         Check if broadcast BOOTP packet is received on all member ports of vlan
         '''
         logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list))
+        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
 
         return
 

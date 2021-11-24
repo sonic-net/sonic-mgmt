@@ -10,11 +10,14 @@ import logging
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
-from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+
+from tests.platform_tests.verify_dut_health import RebootHealthError,\
+    check_services, check_interfaces_and_transceivers, check_neighbors,\
+    verify_no_coredumps, handle_test_error, wait_until_uptime, get_test_report
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -23,27 +26,6 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 30
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
-
-
-def handle_test_error(health_check):
-    def _wrapper(self, *args, **kwargs):
-        try:
-            health_check(self, *args, **kwargs)
-        except ContinuousRebootError as err:
-            # set result to fail
-            logging.error("Health check {} failed with {}".format(health_check.__name__, err.message))
-            self.test_report[health_check.__name__] = err.message
-            self.sub_test_result = False
-            return
-        except Exception as err:
-            traceback.print_exc()
-            logging.error("Health check {} failed with unknown error: {}".format(health_check.__name__, str(err)))
-            self.test_report[health_check.__name__] = "Unkown error"
-            self.sub_test_result = False
-            return
-        # set result to pass
-        self.test_report[health_check.__name__] = True
-    return _wrapper
 
 
 class ContinuousReboot:
@@ -97,14 +79,14 @@ class ContinuousReboot:
         logging.info("Run %s reboot on DUT" % self.reboot_type)
         self.run_reboot_testcase()
         # Wait until uptime reaches allowed value
-        self.wait_until_uptime()
+        wait_until_uptime(self.duthost, self.continuous_reboot_delay)
         # Perform additional post-reboot health-check
-        self.verify_no_coredumps()
+        verify_no_coredumps(self.duthost, self.pre_existing_cores)
         self.verify_image()
-        self.check_services()
+        check_services(self.duthost)
         self.check_reboot_type()
-        self.check_interfaces_and_transceivers()
-        self.check_neighbors(tbinfo)
+        check_interfaces_and_transceivers(self.duthost, self.request)
+        check_neighbors(self.duthost, tbinfo)
         logging.info("Finished reboot test and health checks..")
 
 
@@ -114,26 +96,7 @@ class ContinuousReboot:
         if result is not True:
             # Create a failure report
             error = result.get("stderr")
-            raise ContinuousRebootError("Reboot test failed with error: {}".format(error))
-
-
-    @handle_test_error
-    def check_services(self):
-        """
-        Perform a health check of services
-        """
-        logging.info("Wait until all critical services are fully started")
-
-        logging.info("Check critical service status")
-        if not self.duthost.critical_services_fully_started():
-            raise ContinuousRebootError("dut.critical_services_fully_started is False")
-
-        for service in self.duthost.critical_services:
-            status = self.duthost.get_service_props(service)
-            if status["ActiveState"] != "active":
-                raise ContinuousRebootError("ActiveState of {} is {}, expected: active".format(service, status["ActiveState"]))
-            if status["SubState"] != "running":
-                raise ContinuousRebootError("SubState of {} is {}, expected: running".format(service, status["SubState"]))
+            raise RebootHealthError("Reboot test failed with error: {}".format(error))
 
 
     @handle_test_error
@@ -144,63 +107,7 @@ class ContinuousReboot:
         logging.info("Check reboot cause")
         reboot_cause = get_reboot_cause(self.duthost)
         if reboot_cause != self.reboot_type:
-            raise ContinuousRebootError("Reboot cause {} did not match the trigger {}".format(reboot_cause, self.reboot_type))
-
-
-    @handle_test_error
-    def check_interfaces_and_transceivers(self):
-        """
-        Perform a check of transceivers, LAGs and interfaces status
-        @param dut: The AnsibleHost object of DUT.
-        @param interfaces: DUT's interfaces defined by minigraph
-        """
-        logging.info("Check if all the interfaces are operational")
-        check_interfaces = self.request.getfixturevalue("check_interfaces")
-        results = check_interfaces()
-        failed = [result for result in results if "failed" in result and result["failed"]]
-        if failed:
-            raise ContinuousRebootError("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
-
-        # Skip this step for virtual testbed - KVM testbed has transeivers marked as "Not present"
-        # and the DB returns an "empty array" for "keys TRANSCEIVER_INFO*"
-        if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            return
-
-        logging.info("Check whether transceiver information of all ports are in redis")
-        xcvr_info = self.duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
-        parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-        interfaces = self.conn_graph_facts["device_conn"][self.duthost.hostname]
-        for intf in interfaces:
-            if intf not in parsed_xcvr_info:
-                raise ContinuousRebootError("TRANSCEIVER INFO of {} is not found in DB".format(intf))
-
-
-    @handle_test_error
-    def check_neighbors(self, tbinfo):
-        """
-        Perform a BGP neighborship check.
-        """
-        logging.info("Check BGP neighbors status. Expected state - established")
-        bgp_facts = self.duthost.bgp_facts()['ansible_facts']
-        mg_facts  = self.duthost.get_extended_minigraph_facts(tbinfo)
-
-        for value in bgp_facts['bgp_neighbors'].values():
-            # Verify bgp sessions are established
-            if value['state'] != 'established':
-                raise ContinuousRebootError("BGP session not established")
-            # Verify locat ASNs in bgp sessions
-            if(value['local AS'] != mg_facts['minigraph_bgp_asn']):
-                raise ContinuousRebootError("Local ASNs not found in BGP session.\
-                    Minigraph: {}. Found {}".format(value['local AS'], mg_facts['minigraph_bgp_asn']))
-        for v in mg_facts['minigraph_bgp']:
-            # Compare the bgp neighbors name with minigraph bgp neigbhors name
-            if(v['name'] != bgp_facts['bgp_neighbors'][v['addr'].lower()]['description']):
-                raise ContinuousRebootError("BGP neighbor's name does not match minigraph.\
-                    Minigraph: {}. Found {}".format(v['name'], bgp_facts['bgp_neighbors'][v['addr'].lower()]['description']))
-            # Compare the bgp neighbors ASN with minigraph
-            if(v['asn'] != bgp_facts['bgp_neighbors'][v['addr'].lower()]['remote AS']):
-                raise ContinuousRebootError("BGP neighbor's ASN does not match minigraph.\
-                    Minigraph: {}. Found {}".format(v['asn'], bgp_facts['bgp_neighbors'][v['addr'].lower()]['remote AS']))
+            raise RebootHealthError("Reboot cause {} did not match the trigger {}".format(reboot_cause, self.reboot_type))
 
 
     @handle_test_error
@@ -209,16 +116,8 @@ class ContinuousReboot:
         if self.is_new_image is True:
             # After boot-up, verify that the required image is running on the DUT
             if self.advancedReboot.binaryVersion != self.current_image:
-                raise ContinuousRebootError("Image installation failed.\
+                raise RebootHealthError("Image installation failed.\
                     Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
-
-
-    @handle_test_error
-    def verify_no_coredumps(self):
-        coredumps_count = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
-        if int(coredumps_count) > int(self.pre_existing_cores):
-            raise ContinuousRebootError("Core dumps found. Expected: {} Found: {}".format(self.pre_existing_cores,\
-                coredumps_count))
 
 
     def check_test_params(self):
@@ -374,12 +273,6 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-    def wait_until_uptime(self):
-        logging.info("Wait until DUT uptime reaches {}s".format(self.continuous_reboot_delay))
-        while self.duthost.get_uptime().total_seconds() < self.continuous_reboot_delay:
-            time.sleep(1)
-
-
     def start_continuous_reboot(self, request, duthost, ptfhost, localhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
@@ -404,6 +297,8 @@ class ContinuousReboot:
                 continue
             self.handle_image_installation(count)
             self.reboot_and_check(tbinfo)
+            self.test_report = get_test_report()
+            self.sub_test_result = all([check == True for check in list(self.test_report.values())])
             self.advancedReboot.newSonicImage = None
             self.test_end_time = datetime.now()
             self.create_test_report()
@@ -456,8 +351,3 @@ def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, lo
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()
-
-class ContinuousRebootError(Exception):
-    def __init__(self, message):
-        self.message = message
-        super(ContinuousRebootError, self).__init__(message)

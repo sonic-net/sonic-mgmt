@@ -92,7 +92,7 @@ class OnyxHost(AnsibleHostBase):
         
         # The output should be something like: "Supported speeds:1G 10G 25G 50G"
         speeds = out.split(':')[-1].split()
-        return [x[:-1] + '000' for x in speeds]
+        return list(set([x.split('G')[0] + '000' for x in speeds]))
 
     def set_auto_negotiation_mode(self, interface_name, mode):
         """Set auto negotiation mode for a given interface

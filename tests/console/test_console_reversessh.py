@@ -25,7 +25,7 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{}'.format(ressh_user, dutip))
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(ressh_user, dutip))
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
 
@@ -41,7 +41,7 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
         pytest.fail("Not able to do reverse SSH to remote host via DUT")
 
     pytest_assert(
-        wait_until(10, 1, check_target_line_status, duthost, target_line, "IDLE"),
+        wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
         "Target line {} is busy after exited reverse SSH session".format(target_line))
 
 @pytest.mark.parametrize("target_line", ["1", "2"])
@@ -60,7 +60,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{}'.format(ressh_user, dutip))
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(ressh_user, dutip))
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
 
@@ -79,7 +79,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
 
     # Check the session ended within 5s and the line state is idle
     pytest_assert(
-        wait_until(5, 1, check_target_line_status, duthost, target_line, "IDLE"),
+        wait_until(5, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
         "Target line {} not toggle to IDLE state after force clear command sent")
 
     try:

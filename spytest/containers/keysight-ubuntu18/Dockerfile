@@ -28,12 +28,12 @@ RUN apt -y install snmptrapd
 COPY . /keysight
 WORKDIR /keysight
 
-RUN pip install -r ./spytest.txt
+RUN pip install --no-cache-dir -r ./spytest.txt
 
 # https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.10/IxNetworkAPI9.10.2007.7Linux64.bin.tgz
 RUN bash ./IxNetworkAPI9.10.2007.7Linux64.bin -i silent
 
-RUN pip install -r /opt/ixia/ixnetwork/9.10.2007.7/lib/PythonApi/requirements.txt
+RUN pip install --no-cache-dir -r /opt/ixia/ixnetwork/9.10.2007.7/lib/PythonApi/requirements.txt
 
 ENV SCID_TGEN_PATH=/opt
 ENV SCID_TCL85_BIN=/opt

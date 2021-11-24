@@ -2,8 +2,9 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 
@@ -72,12 +73,12 @@ def fake_storm(request, duthosts, rand_one_dut_hostname):
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
-def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index):
+def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
     """
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces()
+    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
     port_list = []
     for iface in ip_ifaces.keys():
         if iface.startswith("PortChannel"):
@@ -134,7 +135,7 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
-            duthost, mg_facts, test_ports, enum_frontend_asic_index
+            duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
         )
 
     # select a subset of ports from the generated port list
@@ -162,7 +163,6 @@ def setup_pfc_test(
 
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
-
     yield setup_info
 
     logger.info("--- Starting Pfcwd ---")

@@ -39,6 +39,9 @@ snmp_servers: ['10.0.0.9']
 # dhcp relay servers
 dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
 
+# dhcpv6 relay servers
+dhcpv6_servers: ['fc02:2000::1', 'fc02:2000::2', 'fc02:2000::3', 'fc02:2000::4']
+
 # snmp variables
 snmp_rocommunity: public
 snmp_location: testlab

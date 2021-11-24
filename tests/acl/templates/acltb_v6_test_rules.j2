@@ -440,13 +440,14 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "protocol": 58
+                                        "protocol": 58,
+                                        "source-ip-address": "60c0:a800::10/128"
                                     }
                                 },
                                 "icmp": {
                                     "config": {
-                                        "type": "135",
-                                        "code": "0"
+                                        "type": 3,
+                                        "code": 1
                                     }
                                 }
                             },
@@ -458,6 +459,27 @@
                                 },
                                 "config": {
                                     "sequence-id": 30
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 58
+                                    }
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "type": "135",
+                                        "code": "0"
+                                    }
+                                }
+                            },
+                            "31": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 31
                                 },
                                 "ip": {
                                     "config": {

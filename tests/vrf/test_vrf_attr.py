@@ -11,7 +11,9 @@ from test_vrf import vlan_mac      # lgtm[py/unused-import]
 from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # lgtm[py/unused-import]
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # lgtm[py/unused-import]
+
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -41,7 +43,7 @@ class TestVrfAttrSrcMac():
         # -------- Teardown ----------
         extra_vars = { 'router_mac': dut_facts['router_mac'] }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 

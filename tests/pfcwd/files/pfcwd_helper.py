@@ -1,6 +1,9 @@
 import datetime
 import ipaddress
 
+from tests.common import constants
+
+
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
     def __init__(self, mg_facts, neighbors, vlan_nw):
@@ -35,6 +38,8 @@ class TrafficPorts(object):
             self.parse_intf_list()
         elif self.mg_facts['minigraph_portchannels']:
             self.parse_pc_list()
+        elif 'minigraph_vlan_sub_interfaces' in self.mg_facts:
+            self.parse_vlan_sub_interface_list()
         if self.mg_facts['minigraph_vlans']:
             self.test_ports.update(self.parse_vlan_list())
         return self.test_ports
@@ -183,18 +188,86 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_members = self.vlan_info[self.vlan_info.keys()[0]]['members']
+        vlan_details = self.vlan_info.values()[0]
+        vlan_members = vlan_details['members']
+        vlan_type = vlan_details.get('type')
+        vlan_id = vlan_details['vlanid']
+        rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]
+        rx_port_id = self.pfc_wd_rx_port_id if isinstance(self.pfc_wd_rx_port_id, list) else [self.pfc_wd_rx_port_id]
         for item in vlan_members:
             temp_ports[item] = {'test_neighbor_addr': self.vlan_nw,
-                                'rx_port': self.pfc_wd_rx_port,
+                                'rx_port': rx_port,
                                 'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                                 'peer_device': self.neighbors[item]['peerdevice'],
                                 'test_port_id': self.port_idx_info[item],
-                                'rx_port_id': self.pfc_wd_rx_port_id,
+                                'rx_port_id': rx_port_id,
                                 'test_port_type': 'vlan'
                                }
+            if hasattr(self, 'pfc_wd_rx_port_vlan_id'):
+                temp_ports[item]['rx_port_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+            if vlan_type is not None and vlan_type == 'Tagged':
+                temp_ports[item]['test_port_vlan_id'] = vlan_id
 
         return temp_ports
+
+    def parse_vlan_sub_interface_list(self):
+        """Build the port info from the vlan sub-interfaces."""
+        pfc_wd_test_port = None
+        first_pair = False
+        for sub_intf in self.mg_facts['minigraph_vlan_sub_interfaces']:
+            if ipaddress.ip_address(unicode(sub_intf['addr'])).version != 4:
+                continue
+            intf_name, vlan_id = sub_intf['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
+            # first port
+            if not self.pfc_wd_rx_port:
+                self.pfc_wd_rx_port = intf_name
+                self.pfc_wd_rx_port_addr = sub_intf['addr']
+                self.pfc_wd_rx_port_id = self.port_idx_info[self.pfc_wd_rx_port]
+                self.pfc_wd_rx_port_vlan_id = vlan_id
+            elif not pfc_wd_test_port:
+                # second port
+                first_pair = True
+
+            # populate info for all ports except the first one
+            if first_pair or pfc_wd_test_port:
+                pfc_wd_test_port = intf_name
+                pfc_wd_test_port_addr = sub_intf['addr']
+                pfc_wd_test_port_id = self.port_idx_info[pfc_wd_test_port]
+                pfc_wd_test_neighbor_addr = None
+
+                for item in self.bgp_info:
+                    if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+                        continue
+                    if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
+                        self.pfc_wd_rx_neighbor_addr = item['addr']
+                    if item['peer_addr'] == pfc_wd_test_port_addr:
+                        pfc_wd_test_neighbor_addr = item['addr']
+
+                self.test_ports[pfc_wd_test_port] = {'test_neighbor_addr': pfc_wd_test_neighbor_addr,
+                                                     'rx_port': [self.pfc_wd_rx_port],
+                                                     'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                                                     'peer_device': self.neighbors[pfc_wd_test_port]['peerdevice'],
+                                                     'test_port_id': pfc_wd_test_port_id,
+                                                     'rx_port_id': [self.pfc_wd_rx_port_id],
+                                                     'rx_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
+                                                     'test_port_vlan_id': vlan_id,
+                                                     'test_port_type': 'interface'
+                                                    }
+            # populate info for the first port
+            if first_pair:
+                self.test_ports[self.pfc_wd_rx_port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                                                        'rx_port': [pfc_wd_test_port],
+                                                        'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
+                                                        'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                                                        'test_port_id': self.pfc_wd_rx_port_id,
+                                                        'rx_port_id': [pfc_wd_test_port_id],
+                                                        'rx_port_vlan_id': vlan_id,
+                                                        'test_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
+                                                        'test_port_type': 'interface'
+                                                       }
+
+            first_pair = False
+
 
 def set_pfc_timers():
     """

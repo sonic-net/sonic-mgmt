@@ -15,6 +15,7 @@
     Parameters:
         --copp_swap_syncd: Used to install the RPC syncd image before running the tests. Default
             is disabled.
+        --send_rate_limit: Used to set custom server send rate-limit pps. Default is 2000 pps
 
 """
 
@@ -26,7 +27,7 @@ from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
-from tests.common import config_reload
+from tests.common import config_reload, constants
 from tests.common.system_utils import docker
 
 # Module-level fixtures
@@ -34,7 +35,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t1")
+    pytest.mark.topology("t1", "t2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -44,9 +45,13 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "myip",
                                   "peerip",
                                   "nn_target_interface",
-                                  "nn_target_namespace"])
+                                  "nn_target_namespace",
+                                  "send_rate_limit",
+                                  "nn_target_vlanid"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag"]
+_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
+_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
+_SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
@@ -60,14 +65,14 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type):
+    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -79,14 +84,14 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type):
+    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
             Checks that the policer does not enforce a rate limit for protocols
             that do not have any set rate limit.
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -94,8 +99,8 @@ class TestCOPP(object):
                      dut_type)
 
 @pytest.fixture(scope="class")
-def dut_type(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
     dut_type = None
 
@@ -109,7 +114,7 @@ def dut_type(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="class")
 def copp_testbed(
     duthosts,
-    rand_one_dut_hostname,
+    enum_rand_one_per_hwsku_frontend_hostname,
     creds,
     ptfhost,
     tbinfo,
@@ -118,10 +123,10 @@ def copp_testbed(
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS):
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     try:
@@ -133,7 +138,7 @@ def copp_testbed(
         _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -150,7 +155,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
@@ -160,7 +165,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
-              "peerip": test_params.peerip}
+              "peerip": test_params.peerip,
+              "send_rate_limit": test_params.send_rate_limit}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -187,15 +193,22 @@ def _gather_test_params(tbinfo, duthost, request):
     """
 
     swap_syncd = request.config.getoption("--copp_swap_syncd")
+    send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+    # filter out server peer port and only bgp peer ports remain, to support T0 topologies
+    bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
+    # get the port_index_map using the ptf_indicies to support multi DUT topologies
     port_index_map = {
         k: v
-        for k, v in mg_facts["minigraph_port_indices"].items()
-        if k in mg_facts["minigraph_ports"]
+        for k, v in mg_facts["minigraph_ptf_indices"].items()
+        if k in mg_facts["minigraph_ports"] and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
     }
-    nn_target_port = port_index_map[random.choice(port_index_map.keys())]
-    nn_target_interface = copp_utils._map_port_number_to_interface(duthost, nn_target_port)
+    # use randam sonic interface for testing
+    nn_target_interface = random.choice(port_index_map.keys())
+    #get the  ptf port for choosen port
+    nn_target_port = port_index_map[nn_target_interface]
     myip = None
     peerip = None
 
@@ -206,23 +219,33 @@ def _gather_test_params(tbinfo, duthost, request):
             break
 
     nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+    if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+        nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+    else:
+        nn_target_vlanid = None
 
-    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {}".format(nn_target_port, nn_target_interface, nn_target_namespace))
+
+    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}".format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                swap_syncd=swap_syncd,
                                topo=topo,
                                myip=myip,
-                               peerip = peerip,
+                               peerip=peerip,
                                nn_target_interface=nn_target_interface,
-                               nn_target_namespace=nn_target_namespace)
+                               nn_target_namespace=nn_target_namespace,
+                               send_rate_limit=send_rate_limit,
+                               nn_target_vlanid=nn_target_vlanid)
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     """
         Sets up the testbed to run the COPP tests.
     """
+    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+
     logging.info("Set up the PTF for COPP tests")
-    copp_utils.configure_ptf(ptf, test_params.nn_target_port)
+    copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
@@ -245,7 +268,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
-                               test_params.nn_target_namespace, creds)
+                               test_params.nn_target_namespace, test_params.nn_target_vlanid, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """

@@ -4,14 +4,21 @@ import sys
 import time
 import re
 import json
+import math
+from natsort import natsorted
 
 import pytest
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import check_qos_db_fv_reference_with_table
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 profile_format = 'pg_lossless_{}_{}_profile'
 LOSSLESS_PROFILE_PATTERN = 'pg_lossless_([1-9][0-9]*000)_([1-9][0-9]*m)_profile'
@@ -23,6 +30,10 @@ DEFAULT_SHARED_HEADROOM_POOL_ENABLED = False
 DEFAULT_OVER_SUBSCRIBE_RATIO = None
 DEFAULT_SHARED_HEADROOM_POOL_SIZE = None
 DEFAULT_MTU = None
+PORT_TO_TEST = None
+NUMBER_OF_LANES = None
+PORTS_WITH_8LANES = None
+ASIC_TYPE = None
 
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
@@ -30,6 +41,16 @@ TESTPARAM_SHARED_HEADROOM_POOL = None
 TESTPARAM_LOSSY_PG = None
 
 BUFFER_MODEL_DYNAMIC = True
+
+ASIC_TABLE_KEYS_LOADED = False
+CELL_SIZE = None
+PIPELINE_LATENCY = None
+MAC_PHY_DELAY = None
+
+LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
+LOSSLESS_MTU = None
+SMALL_PACKET_PERCENTAGE = None
+
 
 def detect_buffer_model(duthost):
     """Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the module is initialized
@@ -82,8 +103,71 @@ def detect_default_mtu(duthost, port_to_test):
     """
     global DEFAULT_MTU
     if not DEFAULT_MTU:
-        logging.info("Default MTU {}".format(DEFAULT_MTU))
         DEFAULT_MTU = duthost.shell('redis-cli -n 4 hget "PORT|{}" mtu'.format(port_to_test))['stdout']
+        logging.info("Default MTU {}".format(DEFAULT_MTU))
+
+
+def get_asic_table_data_from_db(duthost):
+    """
+    Load CELL_SIZE, PIPELINE_LATENCY and MAC_PHY_DELAY from ASIC_TABLE
+    """
+    # Get cell size from state DB
+    # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'cell_size'
+    asic_keys = duthost.shell('redis-cli -n 6 keys *ASIC_TABLE*')['stdout']
+    cell_size = float(duthost.shell('redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
+
+    # Get PIPELINE_LATENCY from state DB
+    # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'pipeline_latency'
+    pipeline_latency = float(
+        duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
+
+    # Get MAC_PHY_DELAY from state DB
+    # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'mac_phy_delay'
+    mac_phy_delay = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
+
+    return cell_size, pipeline_latency, mac_phy_delay
+
+def detect_asic_table_keys(duthost):
+    """
+    Get CELL_SIZE, PIPELINE_LATENCY and MAC_PHY_DELAY by function get_asic_table_data_from_db
+    """
+    global CELL_SIZE
+    global PIPELINE_LATENCY
+    global MAC_PHY_DELAY
+    global ASIC_TABLE_KEYS_LOADED
+
+    CELL_SIZE, PIPELINE_LATENCY, MAC_PHY_DELAY = get_asic_table_data_from_db(duthost)
+
+    ASIC_TABLE_KEYS_LOADED = True
+
+
+def get_lossless_traffic_pattern_data_from_db(duthost):
+    """
+    Load LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE from LOSSLESS_TRAFFIC_PATTERN table
+    """
+    # Get LOSSLESS_MTU from config DB
+    # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'mtu'
+    lossless_traffic_keys = duthost.shell('redis-cli -n 4 keys LOSSLESS_TRAFFIC_PATTERN*')['stdout']
+    lossless_mtu = float(duthost.shell('redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
+
+    # Get SMALL_PACKET_PERCENTAGE from config DB
+    # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'small_packet_percentage'
+    small_packet_percentage = float(
+        duthost.shell('redis-cli -n 4 hget "{}" "small_packet_percentage"'.format(lossless_traffic_keys))['stdout'])
+
+    return lossless_mtu, small_packet_percentage
+
+
+def detect_lossless_traffic_pattern_keys(duthost):
+    """
+    Get LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE by calling function get_lossless_traffic_pattern_data_from_db
+    """
+    global LOSSLESS_MTU
+    global SMALL_PACKET_PERCENTAGE
+    global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED
+    LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE = get_lossless_traffic_pattern_data_from_db(duthost)
+
+    LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = True
 
 
 def load_lossless_headroom_data(duthost):
@@ -125,13 +209,14 @@ def load_test_parameters(duthost):
     global TESTPARAM_LOSSLESS_PG
     global TESTPARAM_SHARED_HEADROOM_POOL
     global TESTPARAM_LOSSY_PG
+    global ASIC_TYPE
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
         params = json.load(file)
         logging.info("Loaded test parameters {} from {}".format(params, param_file_name))
-        asic_type = duthost.facts['asic_type']
-        vendor_specific_param = params[asic_type]
+        ASIC_TYPE = duthost.facts['asic_type']
+        vendor_specific_param = params[ASIC_TYPE]
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
         TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
@@ -171,6 +256,8 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     if BUFFER_MODEL_DYNAMIC:
         detect_ingress_pool_number(duthost)
         detect_shared_headroom_pool_mode(duthost)
+        detect_asic_table_keys(duthost)
+        detect_lossless_traffic_pattern_keys(duthost)
         load_lossless_headroom_data(duthost)
         load_test_parameters(duthost)
 
@@ -193,13 +280,15 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         configure_shared_headroom_pool(duthost, False)
 
 
-def init_log_analyzer(duthost, marker, expected):
+def init_log_analyzer(duthost, marker, expected, ignored=None):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
     marker = loganalyzer.init()
 
     loganalyzer.load_common_config()
     loganalyzer.expect_regex = []
     loganalyzer.expect_regex.extend(expected)
+    if ignored:
+        loganalyzer.ignore_regex.extend(ignored)
 
     return loganalyzer, marker
 
@@ -234,20 +323,26 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                       current_pool_size + old_pg_num * old_pg_size - new_pg_num * new_pg_size
                           + (old_pg_num * old_pg_xoff - new_pg_num * new_pg_xoff) * over_subscribe_ratio
     """
-    def _fetch_size_difference_for_400g_ports(duthost, conn_graph_facts):
-        """Calculate the difference in buffer pool size caused by 400G ports on Mellanox platform
+    def _fetch_size_difference_for_8lane_ports(duthost, conn_graph_facts):
+        """Calculate the difference in buffer pool size caused by 8-lane ports on Mellanox platform
 
         Args:
             duthost: The duthost object
             conn_graph_facts: The connection graph facts object
         """
+        global PORTS_WITH_8LANES
         hostname = conn_graph_facts['device_conn'].keys()[0]
         ports_info = conn_graph_facts['device_conn'][hostname]
-        ports_400g = [port for port in ports_info.keys() if ports_info[port]['speed'] == '400000']
+        if PORTS_WITH_8LANES is None:
+            PORTS_WITH_8LANES = []
+            for port in ports_info.keys():
+                lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port))['stdout']
+                if len(lanes.split(',')) == 8:
+                    PORTS_WITH_8LANES.append(port)
 
         lossless_pgs = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split()
-        lossless_pgs_400g = [pg for pg in lossless_pgs if pg[16:-4] in ports_400g]
-        return len(lossless_pgs_400g) * 2 * 9216
+        lossless_pgs_8lane = [pg for pg in lossless_pgs if pg[16:-4] in PORTS_WITH_8LANES]
+        return len(lossless_pgs_8lane) * 2 * 9216
 
     logging.debug("Kwargs {}".format(kwargs))
 
@@ -263,7 +358,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                 expected_shp_size = 0
                 expected_pool_size = (original_memory - curr_shp_size * old_ratio)
                 if old_ratio != 0:
-                    expected_pool_size = expected_pool_size - _fetch_size_difference_for_400g_ports(duthost, conn_graph_facts)
+                    expected_pool_size = expected_pool_size - _fetch_size_difference_for_8lane_ports(duthost, conn_graph_facts)
                 expected_pool_size = expected_pool_size / DEFAULT_INGRESS_POOL_NUMBER
             else:
                 expected_shp_size = curr_shp_size * old_ratio / new_ratio
@@ -305,16 +400,12 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
             original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number + adjust_lossy_pg_size
 
-            old_speed = kwargs.get("old_speed")
-            new_speed = kwargs.get("new_speed")
-            if old_speed and new_speed:
-                extra_overhead_400G = 18*1024
-                if old_speed == "400000" and new_speed != "400000":
-                    original_memory += extra_overhead_400G
-                elif old_speed != "400000" and new_speed == "400000":
-                    original_memory -= extra_overhead_400G
-
             if DEFAULT_OVER_SUBSCRIBE_RATIO:
+                private_headroom_str = TESTPARAM_SHARED_HEADROOM_POOL.get("private_pg_headroom") 
+                if private_headroom_str:
+                    private_headroom_number = int(private_headroom_str) 
+                else:
+                    private_headroom_number = 0
                 curr_shp_size = int(kwargs["shp_size"])
                 if old_pg_number:
                     old_xoff = int(kwargs["old_xoff"])
@@ -325,7 +416,14 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                 else:
                     new_xoff = old_xoff
                 original_memory += curr_shp_size
-                expected_shp_size = curr_shp_size + (new_xoff * new_pg_number - old_xoff * old_pg_number) / DEFAULT_OVER_SUBSCRIBE_RATIO
+                shp_size_diff = new_xoff * new_pg_number - old_xoff * old_pg_number
+                if old_pg_number != 0:
+                    original_memory += private_headroom_number
+                    shp_size_diff += private_headroom_number
+                if new_pg_number != 0:
+                    new_reserved += private_headroom_number
+                    shp_size_diff -= private_headroom_number
+                expected_shp_size = curr_shp_size + shp_size_diff / DEFAULT_OVER_SUBSCRIBE_RATIO
                 new_reserved += expected_shp_size
             else:
                 expected_shp_size = None
@@ -388,7 +486,7 @@ def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, in
     else:
         delay = 1
 
-    return wait_until(timeout, delay, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
+    return wait_until(timeout, delay, 0, _ensure_pool_size, duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid)
 
 
 def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
@@ -403,10 +501,14 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
         Whether the expected profile has been found within given time
     """
     def _check_pg_profile(duthost, pg, expected_profile):
-        profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
-        return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
+        if check_qos_db_fv_reference_with_table(duthost) == True:
+            profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
+            return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
+        else:
+            profile = duthost.shell('redis-cli hget {} profile'.format(pg))['stdout']
+            return (profile == expected_profile)
 
-    if wait_until(10, 2, _check_pg_profile, duthost, pg, expected_profile):
+    if wait_until(10, 2, 0, _check_pg_profile, duthost, pg, expected_profile):
         return True
     else:
         if fail_test:
@@ -426,7 +528,7 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
         pfc_enable = duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
         return (expected_pfc_enable_map == pfc_enable)
 
-    pytest_assert(wait_until(10, 2, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
+    pytest_assert(wait_until(10, 2, 0, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
                   "Port {} pfc enable check failed expected: {} got: {}".format(
                       port,
                       expected_pfc_enable_map,
@@ -465,12 +567,13 @@ def _compose_dict_from_cli(fields_list):
     return dict(zip(fields_list[0::2], fields_list[1::2]))
 
 
-def check_buffer_profile_details(duthost, initial_profiles, profile_name, profile_oid, pool_oid):
+def check_buffer_profile_details(duthost, initial_profiles, profile_name, profile_oid, pool_oid, port_to_test):
     """Check buffer profile details.
 
     The following items are tested:
      - Whether the headroom information, like xoff, is correct.
-       This is tested by comparing with standard profile in pg_profile_lookup table
+       For version 202106 and before, this is tested by comparing with standard profile in pg_profile_lookup table
+       For version after 202106, this is tested by comparing with the returned value from function calculate_headroom_data
      - Whether the profile information in APPL_DB matches that in ASIC_DB
 
     Args:
@@ -486,23 +589,38 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     m = re.search(LOSSLESS_PROFILE_PATTERN, profile_name)
     if m:
         # This means it's a dynamic profile
-        speed = m.group(1)
-        cable_length = m.group(2)
-        std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
-        std_profile = std_profiles_for_speed.get(cable_length)
-        if std_profile:
-            # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
-            pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff']
-                          and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
-                          "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
-        else:
-            for std_cable_len, std_profile in std_profiles_for_speed.items():
-                if int(std_cable_len[:-1]) > int(cable_length[:-1]):
-                    pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
-                                  "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
+        if check_qos_db_fv_reference_with_table(duthost) == True:
+            # SONiC version is 202106 and before, compare with standard profile in pg_profile_lookup table
+            speed = m.group(1)
+            cable_length = m.group(2)
+            std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
+            if std_profiles_for_speed:
+                std_profile = std_profiles_for_speed.get(cable_length)
+                if std_profile:
+                    # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                    pytest_assert(profile_appldb['xon'] == std_profile['xon'] and profile_appldb['xoff'] == std_profile['xoff']
+                                  and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                                  "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
                 else:
-                    pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
-                                  "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
+                    for std_cable_len, std_profile in std_profiles_for_speed.items():
+                        if int(std_cable_len[:-1]) > int(cable_length[:-1]):
+                            pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
+                                          "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
+                        else:
+                            pytest_assert(int(std_profile['xoff']) <= int(profile_appldb['xoff']),
+                                          "XOFF of generated profile {} is less than standard profile {} while its cable length is greater".format(profile_appldb, std_profile))
+            else:
+                logging.info("Skip headroom checking because headroom information is not provided for speed {}".format(speed))
+        else:
+            # SONiC version is after 202106, compare with the returned value from function calculate_headroom_data
+            ret, head_room_data = calculate_headroom_data(duthost, port_to_test)
+            if ret:
+                # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                pytest_assert(int(profile_appldb['xon']) == head_room_data['xon'] and int(profile_appldb['xoff']) == head_room_data['xoff']
+                              and (int(profile_appldb['size']) == head_room_data['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                              "Generated profile {} doesn't match the std profile {}".format(profile_appldb, head_room_data))
+            else:
+                logging.info("Skip headroom checking because headroom information is not able to be calculated for speed {}".format(speed))
 
     profiles_in_asicdb = set(duthost.shell('redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
     diff = profiles_in_asicdb - initial_profiles
@@ -533,6 +651,28 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
                            'SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH': sai_threshold_value}
 
     return profile_oid, pool_oid
+
+
+def make_expected_profile_name(speed, cable_length, other_factors=None):
+    """Make the name of an expected profile according to parameters
+
+    Args:
+        speed: The speed of the port (on which the profile is applied)
+        cable_length: The cable length of the port
+        other_factors: Other factors that affects profile name, like mtu, threshold, etc
+                       It can be omitted.
+
+    Return:
+        The name of the profile
+    """
+    expected_profile = 'pg_lossless_{}_{}_'.format(speed, cable_length)
+    if other_factors:
+        expected_profile += '_'.join(other_factors) + '_'
+    if ASIC_TYPE == 'mellanox':
+        if NUMBER_OF_LANES == 8 and speed != '400000':
+            expected_profile += '8lane_'
+    expected_profile += 'profile'
+    return expected_profile
 
 
 @pytest.fixture(params=['50000', '10000'])
@@ -574,7 +714,7 @@ def mtu_to_test(request):
     return request.param
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module", autouse=True)
 def port_to_test(request, duthost):
     """Used to parametrized test cases for port
 
@@ -584,6 +724,11 @@ def port_to_test(request, duthost):
     Return:
         port_to_test
     """
+    global PORT_TO_TEST
+    global NUMBER_OF_LANES
+    if PORT_TO_TEST:
+        return PORT_TO_TEST
+
     dutLagInterfaces = []
     mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     ports = mgFacts['minigraph_ports'].keys()
@@ -593,8 +738,15 @@ def port_to_test(request, duthost):
 
     testPort = set(mgFacts["minigraph_ports"].keys())
     testPort -= set(dutLagInterfaces)
+    pytest_require(len(testPort) > 0, "No port to run test")
 
-    return list(testPort)[0]
+    PORT_TO_TEST = list(testPort)[0]
+    lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
+    NUMBER_OF_LANES = len(lanes.split(','))
+
+    logging.info("Port to test {}, number of lanes {}".format(PORT_TO_TEST, NUMBER_OF_LANES))
+
+    return PORT_TO_TEST
 
 
 @pytest.fixture(params=['3-4', '6'])
@@ -643,9 +795,16 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         cable_len_to_test: To what cable length will the port's be changed
     """
     duthost = duthosts[rand_one_dut_hostname]
+    supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+    if supported_speeds and speed_to_test not in supported_speeds:
+        pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        profile = "BUFFER_PROFILE_TABLE:" + duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
     detect_default_mtu(duthost, port_to_test)
 
     original_pg_size = int(duthost.shell('redis-cli hget "{}" size'.format(profile))['stdout'])
@@ -662,7 +821,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
     if mtu_to_test == DEFAULT_MTU:
         if speed_to_test == original_speed and cable_len_to_test == original_cable_len:
             pytest.skip('Speed, MTU and cable length matches the default value, nothing to test, skip')
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_to_test, cable_len_to_test)
+        expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test)
         if duthost.shell('redis-cli hget BUFFER_PROFILE_TABLE:{}'.format(expected_profile))['stdout']:
             pytest.skip('The buffer profile has existed, most of the checks can not be performed, skip')
 
@@ -681,15 +840,15 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
         # Check whether profile is correct in PG table
         if mtu_to_test != DEFAULT_MTU:
-            expected_profile = 'pg_lossless_{}_{}_mtu{}_profile'.format(speed_to_test, cable_len_to_test, mtu_to_test)
+            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test, ['mtu{}'.format(mtu_to_test)])
             check_profile_removed = True
         else:
-            expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_to_test, cable_len_to_test)
+            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test)
 
         logging.info('[Speed and/or cable-len and/or MTU updated] Checking whether new profile {} has been created and pfc_enable has been updated'.format(expected_profile))
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_pfc_enable(duthost, port_to_test, '3,4')
-        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None)
+        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None, port_to_test)
         logging.info('SAI OID for newly created profile {} ingress lossless pool {}'.format(profile_oid, pool_oid))
 
         # Check whether profile exist
@@ -699,8 +858,6 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                         pool_oid,
                         pool_size = original_pool_size,
                         shp_size = original_shp_size,
-                        old_speed = original_speed,
-                        new_speed = speed_to_test,
                         old_xoff = original_pg_xoff,
                         new_xoff = pg_xoff,
                         old_size = original_pg_size,
@@ -714,8 +871,6 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                         pool_oid,
                         pool_size = original_pool_size,
                         shp_size = original_shp_size,
-                        old_speed = original_speed,
-                        new_speed = speed_to_test,
                         old_xoff = original_pg_xoff,
                         old_size = original_pg_size,
                         new_pg_number = 0)
@@ -734,8 +889,6 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             pool_oid,
                             pool_size = original_pool_size,
                             shp_size = original_shp_size,
-                            old_speed = original_speed,
-                            new_speed = speed_to_test,
                             old_xoff = original_pg_xoff,
                             new_xoff = pg_xoff,
                             old_size = original_pg_size,
@@ -743,7 +896,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             new_pg_number = 1)
 
             check_pfc_enable(duthost, port_to_test, '6')
-            profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid)
+            profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid, port_to_test)
 
             if cable_len_to_test != original_cable_len:
                 logging.info('[Revert the cable length to the default value] Checking whether the profile is updated')
@@ -756,7 +909,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             # Remove old profile on cable length change
             logging.info('[Remove dynamic profile on cable length and/or MTU updated] Checking whether the old profile is removed')
             check_lossless_profile_removed(duthost, expected_profile, profile_oid)
-            expected_profile = 'pg_lossless_{}_{}_profile'.format(speed_to_test, original_cable_len)
+            expected_profile = make_expected_profile_name(speed_to_test, original_cable_len)
             check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
 
             pg_size = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
@@ -765,8 +918,6 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             pool_oid,
                             pool_size = original_pool_size,
                             shp_size = original_shp_size,
-                            old_speed = original_speed,
-                            new_speed = speed_to_test,
                             old_xoff = original_pg_xoff,
                             new_xoff = pg_xoff,
                             old_size = original_pg_size,
@@ -779,8 +930,6 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             pool_oid,
                             pool_size = original_pool_size,
                             shp_size = original_shp_size,
-                            old_speed = original_speed,
-                            new_speed = speed_to_test,
                             old_xoff = original_pg_xoff,
                             new_xoff = pg_xoff,
                             old_size = original_pg_size,
@@ -801,7 +950,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         logging.info('[Add lossless pg with speed and cable length ready]')
         duthost.shell('config interface buffer priority-group lossless add {} 3-4'.format(port_to_test))
 
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len)
+        expected_profile = make_expected_profile_name(original_speed, original_cable_len)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
         check_pfc_enable(duthost, port_to_test, '3,4')
 
@@ -916,7 +1065,12 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+        original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
+
     original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
@@ -944,7 +1098,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), 'headroom-override')
         check_pfc_enable(duthost, port_to_test, '3,4')
-        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", None, None)
+        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", None, None, port_to_test)
 
         check_pool_size(duthost,
                         pool_oid,
@@ -961,7 +1115,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), 'headroom-override')
         check_pfc_enable(duthost, port_to_test, '3,4,6')
-        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", profile_oid, pool_oid)
+        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", profile_oid, pool_oid, port_to_test)
 
         check_pool_size(duthost,
                         pool_oid,
@@ -1033,7 +1187,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         # Return True only if all lossless profiles pass the check
         return True
 
-    pytest_assert(wait_until(20, 2, _check_buffer_profiles_for_shp, duthost, shp_enabled))
+    pytest_assert(wait_until(20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
 def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
@@ -1081,9 +1235,9 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         # The only way to achieve that is to trigger a new buffer profile creation and then fetch the SAI OID from it
         initial_asic_db_profiles = fetch_initial_asic_db(duthost)
         duthost.shell('config interface cable-length {} 10m'.format(port_to_test))
-        expected_profile = 'pg_lossless_{}_10m_profile'.format(original_speed)
+        expected_profile = make_expected_profile_name(original_speed, '10m')
         time.sleep(20)
-        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None)
+        profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None, port_to_test)
         logging.info('Got SAI OID of ingress lossless pool: {}'.format(pool_oid))
         # Restore the cable length
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
@@ -1230,7 +1384,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         # Create profiles
         logging.info('[Preparing]: Create static buffer profile for headroom override')
         duthost.shell(cli_str)
-        headroom_override_profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", None, None)
+        headroom_override_profile_oid, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", None, None, port_to_test)
 
         initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
@@ -1248,9 +1402,9 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         # Update cable length to 15m
         logging.info('[Preparing]: Update cable length')
         duthost.shell('config interface cable-length {} 15m'.format(port_to_test))
-        expected_profile = 'pg_lossless_{}_15m_profile'.format(original_speed)
+        expected_profile = make_expected_profile_name(original_speed, '15m')
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
-        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid)
+        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid, port_to_test)
 
         # Originally, it should be a dynamic PG, update it to override
         logging.info('[Testcase: dynamic headroom => headroom override]')
@@ -1265,10 +1419,10 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         # Update it to non-default dynamic_th
         logging.info('[Testcase: headroom override => dynamically calculated headroom with non-default dynamic_th]')
         duthost.shell(set_command + 'non-default-dynamic_th')
-        expected_nondef_profile = 'pg_lossless_{}_15m_th2_profile'.format(original_speed)
+        expected_nondef_profile = make_expected_profile_name(original_speed, '15m', ['th2'])
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
         # A new profile should be created in ASIC DB
-        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid)
+        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid, port_to_test)
 
         # Update it to dynamic PG
         logging.info('[Testcase: dynamically calculated headroom with non-default dynamic_th => dynamic headroom]')
@@ -1281,7 +1435,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         duthost.shell(set_command + 'non-default-dynamic_th')
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
         # A new profile should be created in ASIC DB
-        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid)
+        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid, port_to_test)
         if pg_to_test == '3-4':
             # The oid can be reused by SAI. So we don't check whether profile_oid is removed.
             check_lossless_profile_removed(duthost, expected_profile)
@@ -1309,7 +1463,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
 
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_len))
         old_profile = expected_profile
-        expected_profile = 'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len)
+        expected_profile = make_expected_profile_name(original_speed, original_cable_len)
         check_pg_profile(duthost, buffer_pg, expected_profile)
         check_lossless_profile_removed(duthost, old_profile, profile_oid)
     finally:
@@ -1348,14 +1502,20 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    raw_lanes_str =  duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
+    list_of_lanes = raw_lanes_str.split(',')
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
-    original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    if check_qos_db_fv_reference_with_table(duthost) == True:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+    else:
+        original_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+        original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
     original_pg_size = duthost.shell('redis-cli hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
 
     new_cable_len = '15m'
 
-    lossy_pg_size = TESTPARAM_LOSSY_PG.get(original_speed)
+    lossy_pg_size = TESTPARAM_LOSSY_PG.get(str(len(list_of_lanes)))
     if not lossy_pg_size:
         lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
         if not lossy_pg_size:
@@ -1379,7 +1539,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
     headroom_override_profile = 'test-profile-headroom-override'
     duthost.shell('config buffer profile add {} --xon {} --xoff {}'.format(headroom_override_profile, param['xon'], param['xoff']))
 
-    _, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, headroom_override_profile, None, None)
+    _, pool_oid = check_buffer_profile_details(duthost, initial_asic_db_profiles, headroom_override_profile, None, None, port_to_test)
 
     """
         Each item is a tuple consisting of:
@@ -1395,7 +1555,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
          False),
         ('Add a PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless add {} 3-4 {}'.format(port_to_test, non_default_dynamic_th_profile),
-         'pg_lossless_{}_{}_th{}_profile'.format(original_speed, original_cable_len, dynamic_th_value),
+         make_expected_profile_name(original_speed, original_cable_len, ['th{}'.format(dynamic_th_value)]),
          False),
         ('Remove the PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
@@ -1411,15 +1571,15 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
          False),
         ('Readd the generic PG when port is administratively down',
          'config interface buffer priority-group lossless add {} 3-4'.format(port_to_test),
-         'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len),
+         make_expected_profile_name(original_speed, original_cable_len),
          False),
         ('Change the cable length when port is administratively down',
          'config interface cable-length {} {}'.format(port_to_test, new_cable_len),
-         'pg_lossless_{}_{}_profile'.format(original_speed, new_cable_len),
+         make_expected_profile_name(original_speed, new_cable_len),
          False),
         ('Restore the cable length when port is administratively down',
          'config interface cable-length {} {}'.format(port_to_test, original_cable_len),
-         'pg_lossless_{}_{}_profile'.format(original_speed, original_cable_len),
+         make_expected_profile_name(original_speed, original_cable_len),
          True)
     ]
 
@@ -1488,6 +1648,129 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
+def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
+    """The test case for auto negotiation enabled ports
+
+    For those ports, the speed which is taken into account for buffer calculating is no longer the configure speed but
+        - The maximum supported speed if advertised-speeds is not configured
+        - The maximum advertised speed otherwise
+
+    Args:
+        port_to_test: Port to run the test
+
+    The flow of the test case:
+        1. Fetch the supported_speeds from STATE_DB. It's exposed by port auto negotiation feature when system starts.
+           Skip the test if it is not exposed.
+        2. Preparing:
+           - Configure the speed to the minimum supported one and the cable length to 15m
+           - This is to enforce there is a new buffer profile created
+        3. Enable the port auto negotiation and then configure the advertised speed list and then disable it
+           - The maximum supported speed should be taken into account for buffer calculation after port auto negotiation enabled
+           - The maximum advertised speed should be taken after it is configured
+           - The configured speed should be taken after the port auto negotiation is disabled
+        4. Enable the port auto negotiation with the advertised speed list configured
+           - The maximum advertised speed should be taken after it is configured
+        5. Add a new PG.
+           - The maximum advertised speed should be taken in this case
+        6. Configure advertised speed as all
+           - The maximum supported speed should be taken into account for buffer calculation
+
+    Note:
+        The buffer pool size is not verified in this test because:
+        - Only the logic to generate effective speed is updated in port auto-negotiation,
+          which will affect only the buffer priority-groups and profiles on the port, which is verified in the test.
+        - The buffer pool size depends on the buffer priority-groups and profiles but not directly on the effective speed.
+          As buffer pool size has been verified in other test cases and checking it will consume more time, we don't repeat it here.
+    """
+    def _get_max_speed_from_list(speed_list_str):
+        speed_list = natsorted(speed_list_str.split(','))
+        return speed_list[-1]
+
+    duthost = duthosts[rand_one_dut_hostname]
+    supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+    if not supported_speeds:
+        pytest.skip('No supported_speeds found for port {}, skip the test'.format(port_to_test))['stdout']
+    original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+    original_cable_length = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+    original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+    if DEFAULT_OVER_SUBSCRIBE_RATIO:
+        original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+    else:
+        original_shp_size = None
+
+    max_supported_speed = _get_max_speed_from_list(supported_speeds)
+    supported_speeds_list = natsorted(supported_speeds.split(','))
+    speed_before_test = supported_speeds_list[0]
+    cable_length_to_test = '15m'
+    advertised_speeds_to_test = ','.join(supported_speeds_list[:-1])
+    max_advertised_speed = _get_max_speed_from_list(advertised_speeds_to_test)
+
+    initial_asic_db_profiles = fetch_initial_asic_db(duthost)
+    expected_profile = make_expected_profile_name(speed_before_test, cable_length_to_test)
+    try:
+        # Preparing: configure the speed to one which is not the maximum speed and the cable length to 15m
+        # This is to enforce there is a new buffer profile created
+        duthost.shell('config interface speed {} {}'.format(port_to_test, speed_before_test))
+        duthost.shell('config interface cable-length {} {}'.format(port_to_test, cable_length_to_test))
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        new_profile_id, pool_id = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, None, port_to_test)
+
+        # As comments at the beginning of the method, we don't check buffer pool size in this test case.
+        # The same for all the following steps.
+
+        # Enable port auto negotiation first and then configure the advertised speed list
+        logging.info('Enable port auto negotiation')
+        duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
+        # Check whether the maximum supported speed is used for creating lossless profile
+        expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
+
+        # Configure advertised speeds
+        logging.info('Update advertised speeds to {}'.format(advertised_speeds_to_test))
+        duthost.shell('config interface advertised-speeds {} {}'.format(port_to_test, advertised_speeds_to_test))
+        # Check whether the maximum advertised speed is used for creating lossless profile
+        expected_profile = make_expected_profile_name(max_advertised_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
+
+        # Disable port auto negotiation
+        logging.info('Disable port auto negotiation')
+        duthost.shell('config interface autoneg {} disabled'.format(port_to_test))
+        expected_profile = make_expected_profile_name(speed_before_test, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
+
+        # Enable port auto negotiation with advertised speed configured
+        logging.info('Reenable port auto negotiation with advertised speeds configured')
+        duthost.shell('config interface autoneg {} enabled'.format(port_to_test))
+        # Check whether the maximum advertised speed is used for creating lossless profile
+        expected_profile = make_expected_profile_name(max_advertised_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
+
+        # Add new PGs. The maximum advertised speed should be used
+        logging.info('Add new PG 6')
+        duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+
+        # Update the advertised speed to all
+        logging.info('Update advertised speeds to all')
+        duthost.shell('config interface advertised-speeds {} all'.format(port_to_test))
+        expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+        check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
+    finally:
+        # Clean up
+        duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_length), module_ignore_errors=True)
+        duthost.shell('config interface speed {} {}'.format(port_to_test, original_speed), module_ignore_errors=True)
+        duthost.shell('config interface advertised-speeds {} all'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface autoneg {} disabled'.format(port_to_test), module_ignore_errors=True)
+        ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
+
+
 @pytest.mark.disable_loganalyzer
 def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
     """The test case for maximum headroom
@@ -1534,8 +1817,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         loganalyzer, marker = init_log_analyzer(duthost,
                                                 'Fetch the longest possible cable length',
                                                 ['Update speed .* and cable length .* for port .* failed, accumulative headroom size exceeds the limit',
-                                                 'Unable to update profile for port .*. Accumulative headroom size exceeds limit',
-                                                 'Failed to process table update',
+                                                 'Unable to update profile for port .*. Accumulative headroom size exceeds limit'],
+                                                ['Failed to process table update',
                                                  'oid is set to null object id on SAI_OBJECT_TYPE_BUFFER_PROFILE',
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
@@ -1543,7 +1826,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         cable_length = 300
         while True:
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
-            expected_profile = 'pg_lossless_{}_{}m_profile'.format(original_speed, cable_length)
+            expected_profile = make_expected_profile_name(original_speed, '{}m'.format(cable_length))
             profile_applied = check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile, False)
             if not profile_applied:
                 break
@@ -1566,7 +1849,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                                                 ['Update speed .* and cable length .* for port .* failed, accumulative headroom size exceeds the limit',
                                                  'Unable to update profile for port .*. Accumulative headroom size exceeds limit'])
 
-        maximum_profile_name = 'pg_lossless_{}_{}m_profile'.format(original_speed, maximum_cable_length)
+        maximum_profile_name = make_expected_profile_name(original_speed, '{}m'.format(maximum_cable_length))
         maximum_profile = _compose_dict_from_cli(duthost.shell('redis-cli hgetall BUFFER_PROFILE_TABLE:{}'.format(maximum_profile_name))['stdout'].split())
 
         # Config the cable length to the longest acceptable value and check the profile
@@ -1647,7 +1930,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         time.sleep(20)
         # And then configure the cable length which causes the accumulative headroom exceed the limit
         duthost.shell('config interface cable-length {} {}m'.format(port_to_test, violating_cable_length))
-        expected_profile = 'pg_lossless_{}_{}m_profile'.format(original_speed, violating_cable_length)
+        expected_profile = make_expected_profile_name(original_speed, '{}m'.format(violating_cable_length))
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
 
         # Disable shared headroom pool
@@ -1696,3 +1979,176 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
         pytest_assert(buffer_model == 'dynamic', 'Got buffer model {} after executing recovering the buffer model to dynamic')
     finally:
         _recovery_to_dynamic_buffer_model(duthost)
+
+
+def calculate_headroom_data(duthost, port_to_test):
+    """
+    This function is intend to calculate the headroom size based on the input port attributes
+    Each vendor should have it's own implementation for the algorithm
+    """
+    if ASIC_TYPE == 'mellanox':
+        return mellanox_calculate_headroom_data(duthost, port_to_test)
+    else:
+        return False, None
+
+
+def mellanox_calculate_headroom_data(duthost, port_to_test):
+    """
+    This function is Mellanox platform specific.
+    It intends to calculate the headroom size based on the input port attributes(speed, cable_length, number of lanes..., etc)
+    This algorithm is the same as the implementation in https://github.com/Azure/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
+    """
+    global ASIC_TABLE_KEYS_LOADED
+    global CELL_SIZE
+    global PIPELINE_LATENCY
+    global MAC_PHY_DELAY
+
+    global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED
+    global LOSSLESS_MTU
+    global SMALL_PACKET_PERCENTAGE
+
+    over_subscribe_ratio = 0
+    peer_response_time = 0
+    port_mtu = 0
+    gearbox_delay = 0
+    is_8lane = False
+    shp_enabled = False
+    use_default_peer_response_time = False
+
+    head_room_data = {}
+
+    # Init pause_quanta_per_speed_dict
+    pause_quanta_per_speed_dict = {400000: 905, 200000: 453, 100000: 394, 50000: 147, 40000: 118, 25000: 80, 10000: 67,
+                                   1000: 2, 100: 1}
+
+    # Get port speed from config DB
+    # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'speed'
+    port_speed_raw = duthost.shell('redis-cli -n 4 hget "PORT|{}" "speed"'.format(port_to_test))['stdout']
+    if port_speed_raw:
+        port_speed = int(port_speed_raw)
+    else:
+        logging.error("failed to get speed from config db for port {}".format(port_to_test))
+        return False, None
+
+    # Get pause_quanta with port speed from pause_quanta_per_speed_dict
+    if port_speed in pause_quanta_per_speed_dict.keys():
+        pause_quanta = pause_quanta_per_speed_dict[port_speed]
+    else:
+        # Get default peer response time from State DB
+        # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-3" "peer_response_time"
+        peer_response_time_keys = duthost.shell('redis-cli -n 6 keys ASIC_TABLE*')['stdout']
+        peer_response_time = float(duthost.shell('redis-cli -n 6 hget "{}" "peer_response_time"'.format(peer_response_time_keys))['stdout'])
+        use_default_peer_response_time = True
+
+    # Get port mtu from config DB
+    # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'mtu'
+    port_mtu_raw = duthost.shell('redis-cli -n 4 hget "PORT|{}" "mtu"'.format(port_to_test))['stdout']
+    if port_mtu_raw:
+        port_mtu = int(port_mtu_raw)
+    else:
+        logging.error("failed to get MTU from config db for port {}".format(port_to_test))
+        return False, None
+
+    # Determine gearbox_delay with platform name, so far only MSN3800 has gear_box installed
+    if duthost.facts["platform"] not in ["x86_64-mlnx_msn3800-r0"]:
+        gearbox_delay = 0
+    else:
+        gearbox_delay_keys = duthost.shell('redis-cli -n 6 keys PERIPHERAL_TABLE*')['stdout']
+        gearbox_delay = float(duthost.shell('redis-cli -n 6 hget "{}" "gearbox_delay"'.format(gearbox_delay_keys))['stdout'])
+
+    # Get cable length from config DB
+    # Command: redis-cli -n 4 hget "CABLE_LENGTH|AZURE"  'Ethernet0'
+    cable_length_keys = duthost.shell('redis-cli -n 4 keys *CABLE_LENGTH*')['stdout']
+    cable_length_raw = duthost.shell('redis-cli -n 4 hget "{}" "{}"'.format(cable_length_keys, port_to_test))['stdout']
+    if cable_length_raw and cable_length_raw.endswith('m'):
+        cable_length = float(cable_length_raw[:-1])
+    else:
+        logging.error("failed to get a valid cable length from config db for port {}".format(port_to_test))
+        return False, None
+
+    logging.info('port_speed = {}, port_mtu = {}, cable_length = {}'.format(port_speed, port_mtu, cable_length))
+
+    # Get port lanes number from config DB
+    # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'lanes'
+    port_lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" "lanes"'.format(port_to_test))['stdout']
+    is_8lane = port_lanes and len(port_lanes.split(',')) == 8
+
+    if not ASIC_TABLE_KEYS_LOADED:
+        CELL_SIZE, PIPELINE_LATENCY, MAC_PHY_DELAY = get_asic_table_data_from_db(duthost)
+
+    if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
+        LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE = get_lossless_traffic_pattern_data_from_db(duthost)
+
+    # Get over_subscribe_ratio from config DB
+    # Command: redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" 'over_subscribe_ratio'
+    default_lossless_param_keys = duthost.shell('redis-cli -n 4 keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'][0]
+    over_subscribe_ratio_raw = duthost.shell(
+        'redis-cli -n 4 hget "{}" "over_subscribe_ratio"'.format(default_lossless_param_keys))['stdout']
+    if over_subscribe_ratio_raw:
+        over_subscribe_ratio = float(over_subscribe_ratio_raw)
+    else:
+        over_subscribe_ratio = None
+
+    shp_size_raw = duthost.shell('redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool", "xoff"')['stdout']
+    if shp_size_raw:
+        shp_size = float(shp_size_raw)
+    else:
+        shp_size = None
+
+    if (shp_size and shp_size != 0) or (over_subscribe_ratio and over_subscribe_ratio != 0):
+        shp_enabled = True
+
+    speed_of_light = 198000000
+    minimal_packet_size = 64
+    cell_occupancy = 0
+    worst_case_factor = 0
+    propagation_delay = 0
+    bytes_on_cable = 0
+    bytes_on_gearbox = 0
+    xoff_value = 0
+    xon_value = 0
+    headroom_size = 0
+    speed_overhead = 0
+
+    if is_8lane:
+        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
+        speed_overhead = port_mtu
+    else:
+        speed_overhead = 0
+
+    if CELL_SIZE > 2 * minimal_packet_size:
+        worst_case_factor = CELL_SIZE / minimal_packet_size
+    else:
+        worst_case_factor = (2 * CELL_SIZE) / (1 + CELL_SIZE)
+
+    cell_occupancy = (100 - SMALL_PACKET_PERCENTAGE + SMALL_PACKET_PERCENTAGE * worst_case_factor) / 100
+
+    if gearbox_delay == 0:
+        bytes_on_gearbox = 0
+    else:
+        bytes_on_gearbox = port_speed * gearbox_delay / (8 * 1024)
+    logging.debug('gearbox_delay = {}, bytes_on_gearbox = {}'.format(gearbox_delay, bytes_on_gearbox))
+
+    if not use_default_peer_response_time:
+        peer_response_time = (float(pause_quanta)) * 512 / (1024 * 8)
+    bytes_on_cable = 2 * (float(cable_length)) * port_speed * 1000000000 / speed_of_light / (8 * 1024)
+    propagation_delay = port_mtu + bytes_on_cable + 2 * bytes_on_gearbox + MAC_PHY_DELAY + peer_response_time * 1024
+
+    # Calculate the xoff and xon and then round up at 1024 bytes
+    xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
+    xoff_value = math.ceil(xoff_value / 1024) * 1024
+    xon_value = PIPELINE_LATENCY
+    xon_value = math.ceil(xon_value / 1024) * 1024
+
+    if shp_enabled:
+        headroom_size = xon_value
+    else:
+        headroom_size = xoff_value + xon_value + speed_overhead
+
+    headroom_size = math.ceil(headroom_size / 1024) * 1024
+
+    head_room_data['size'] = int(headroom_size)
+    head_room_data['xon'] = int(xon_value)
+    head_room_data['xoff'] = int(xoff_value)
+    return True, head_room_data
+

@@ -179,7 +179,7 @@ class BgpModule(object):
                                 value_dict['rcvd'] = int(rcvd)
                                 message_stats[key] = value_dict
                             except Exception as e:
-                                print"NonFatal: line:'{}' should not have matched for sent/rcvd count".format(line)
+                                print("NonFatal: line:'{}' should not have matched for sent/rcvd count".format(line))
 
                         if capabilities:
                             neighbor['capabilities'] = capabilities
@@ -205,7 +205,7 @@ class BgpModule(object):
         statistics['ipv6_admin_down'] = 0
         statistics['ipv6_idle'] = 0
 
-        for neighbor in self.facts['bgp_neighbors'].itervalues():
+        for neighbor in self.facts['bgp_neighbors'].values():
             if neighbor['ip_version'] == 4:
                 statistics['ipv4'] += 1
                 if neighbor['admin'] == 'down':

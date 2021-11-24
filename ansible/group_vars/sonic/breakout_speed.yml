@@ -1,0 +1,6 @@
+breakout_speed:
+  Arista-7050-QX-32S:
+    Ethernet1: 10000
+    Ethernet2: 10000
+    Ethernet3: 10000
+    Ethernet4: 1000

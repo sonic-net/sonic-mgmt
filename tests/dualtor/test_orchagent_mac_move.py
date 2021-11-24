@@ -25,7 +25,7 @@ pytestmark = [
 ]
 
 
-NEW_NEIGHBOR_IPV4_ADDR = "192.168.0.100"
+NEW_NEIGHBOR_IPV4_ADDR = "192.168.0.250"
 NEW_NEIGHBOR_HWADDR = "02:AA:BB:CC:DD:EE"
 
 
@@ -81,6 +81,7 @@ def enable_garp(duthost):
 
 
 def test_mac_move(
+    require_mocked_dualtor,
     announce_new_neighbor, apply_active_state_to_orchagent,
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, set_crm_polling_interval,

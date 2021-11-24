@@ -147,6 +147,7 @@ def config_crm_polling_interval(rand_selected_dut):
 
 
 def test_change_mux_state(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -159,7 +160,7 @@ def test_change_mux_state(
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
-    wait(3, 'extra wait for initial CRMs to be updated')
+    wait(10, 'extra wait for initial CRMs to be updated')
 
     crm_facts1 = dut.get_crm_facts()
     logger.info(json.dumps(crm_facts1, indent=4))
@@ -169,7 +170,7 @@ def test_change_mux_state(
         load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
         load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
-    wait(3, 'extra wait for CRMs to be updated')
+    wait(10, 'extra wait for CRMs to be updated')
 
     crm_facts2 = dut.get_crm_facts()
     logger.info(json.dumps(crm_facts2, indent=4))
@@ -214,6 +215,7 @@ def add_neighbors(dut, neighbors, interface):
 
 
 def test_flap_neighbor_entry_active(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -247,6 +249,7 @@ def test_flap_neighbor_entry_active(
 
 
 def test_flap_neighbor_entry_standby(
+        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,

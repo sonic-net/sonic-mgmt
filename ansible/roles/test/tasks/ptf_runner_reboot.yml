@@ -60,9 +60,8 @@
         - vlan_ports_file=\"/tmp/vlan_interfaces.json\"
         - ports_file=\"/tmp/ports.json\"
         - dut_mac='{{ dut_mac }}'
-        - dut_vlan_ip='192.168.0.1'
         - default_ip_range='192.168.100.0/18'
-        - vlan_ip_range='{{ vlan_ip_range }}'
+        - vlan_ip_range=\"{{ vlan_ip_range }}\"
         - lo_v6_prefix='{{ lo_v6_prefix }}'
         - arista_vms=\"['{{ vm_hosts | list | join("','") }}']\"
         - preboot_files='{{ preboot_files }}'

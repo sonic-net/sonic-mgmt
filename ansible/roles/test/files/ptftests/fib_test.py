@@ -4,7 +4,10 @@ Description:    This file contains the FIB test for SONIC
                 Design is available in https://github.com/Azure/SONiC/wiki/FIB-Scale-Test-Plan
 
 Usage:          Examples of how to use log analyzer
-                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;ipv6=True' --relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log --socket-recv-size 16384
+                ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote \
+                    -t 'setup_info="/root/test_fib_setup_info.json";testbed_mtu=1514;ipv4=True;test_balancing=True;\
+                    ipv6=True' --relax --debug info --socket-recv-size 16384 \
+                    --log-file /tmp/fib_test.FibTest.ipv4.True.ipv6.True.2020-12-22-08:17:05.log
 '''
 
 #---------------------------------------------------------------------
@@ -167,6 +170,7 @@ class FibTest(BaseTest):
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
                 continue
+            logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(src_port, exp_port_list, active_dut_index))
             break
         return src_port, exp_port_list, next_hop
 
@@ -293,7 +297,7 @@ class FibTest(BaseTest):
                     dport))
 
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt,dst_port_list)
+            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:

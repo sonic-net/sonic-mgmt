@@ -4,6 +4,7 @@ import k8s_test_utilities as ku
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.config_reload import config_reload
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -24,9 +25,8 @@ def test_config_reload_no_toggle(duthost, k8scluster):
         k8scluster: shortcut fixture for getting cluster of Kubernetes master hosts
     """
     ku.join_master(duthost, k8scluster.vip) # Assertion within to ensure successful join
-    dut_cmds = ['sudo config save -y',
-                'sudo config reload -y']
-    duthost.shell_cmds(cmds=dut_cmds)
+    duthost.shell('sudo config save -y')
+    config_reload(duthost)
     wait_critical_processes(duthost)
 
     server_connect_exp_status = True
@@ -62,7 +62,7 @@ def test_config_reload_toggle_join(duthost, k8scluster):
     server_connect_status_updated = ku.poll_for_status_change(duthost, server_connect_exp_status)
     pytest_assert(server_connect_status_updated, "Unexpected k8s server connection status after setting disable=true, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
     
-    duthost.shell('sudo config reload -y')
+    config_reload(duthost)
     wait_critical_processes(duthost)
 
     server_connect_exp_status = True
@@ -93,7 +93,7 @@ def test_config_reload_toggle_reset(duthost, k8scluster):
 
     ku.join_master(duthost, k8scluster.vip) 
 
-    duthost.shell('sudo config reload -y')
+    config_reload(duthost)
     wait_critical_processes(duthost)
 
     server_connect_exp_status = False

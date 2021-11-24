@@ -4,6 +4,7 @@ import time
 import logging
 import json
 from collections import namedtuple
+from netaddr import IPAddress
 
 import ptf.mask as mask
 import ptf.packet as packet
@@ -11,6 +12,7 @@ import ptf.testutils as testutils
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from jinja2 import Environment, FileSystemLoader
+from tests.common.config_reload import config_reload
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -142,11 +144,12 @@ def dut_nat_iptables_status(duthost):
     index_prerouting = [i for i in range(0, len(entries)) if "PREROUTING" in entries[i]][0] + 2
     index_input = [i for i in range(0, len(entries)) if "INPUT" in entries[i]][0]
     index_postrouting = [i for i in range(0, len(entries)) if 'POSTROUTING' in entries[i]][0] + 2
+    index_output = [i for i in range(0, len(entries)) if "OUTPUT" in entries[i]][0]
     if any(['DOCKER' in entry for entry in entries]):
         index_docker = [i for i in range(0, len(entries)) if 'DOCKER' in entries[i]][0]
         postrouting = [el for el in entries[index_postrouting:index_docker] if len(el) > 1]
     else:
-        postrouting = [el for el in entries[index_postrouting:] if len(el) > 1]
+        postrouting = [el for el in entries[index_postrouting:index_output] if len(el) > 1]
     prerouting = [el for el in entries[index_prerouting:index_input] if len(el) > 0]
     nat_table_status["prerouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
                                       for el in prerouting]
@@ -476,7 +479,10 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
     if "dut_iface" in setup_info[interface_type]["vrf_conf"][key].keys():
         dut_iface = setup_info[interface_type]["vrf_conf"][key]["dut_iface"]
         pch_ip = setup_info["pch_ips"][dut_iface]
-        duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
+        pch_mask = setup_info["pch_masks"][dut_iface]
+        mask_prefix = IPAddress(pch_mask).netmask_bits()
+
+        duthost.shell("sudo config interface ip remove {} {}/{}".format(dut_iface, pch_ip, mask_prefix))
         duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))
 
 
@@ -607,7 +613,7 @@ def teardown_test_env(testbed, duthost, ptfhost, setup_info, interface_type, reb
     if reboot:
         duthost.command('reboot')
     else:
-        duthost.command('config reload -y')
+        config_reload(duthost)
     # wait for dut become stable
     time.sleep(180)
     # remove ptf interfaces configuration
@@ -1107,6 +1113,11 @@ def get_redis_val(duthost, db, key):
             if output["rc"]:
                 raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
             redis_dict = json.loads(output['stdout'])
+            for table in redis_dict:
+                if 'expireat' in redis_dict[table]:
+                    redis_dict[table].pop('expireat')
+                if 'ttl' in redis_dict[table]:
+                    redis_dict[table].pop('ttl')
             return redis_dict
         except Exception as e:
             return e.__str__()

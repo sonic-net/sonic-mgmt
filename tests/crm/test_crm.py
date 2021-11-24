@@ -23,7 +23,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CRM_POLLING_INTERVAL = 1
-CRM_UPDATE_TIME = 4
+CRM_UPDATE_TIME = 10
 SONIC_RES_UPDATE_TIME = 50
 
 THR_VERIFY_CMDS = OrderedDict([
@@ -258,7 +258,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 kwargs["th_hi"] = used_percent
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif key == "clear_percentage":
-                if used_percent >= 100:
+                if used_percent >= 100 or used_percent < 1:
                     logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped" \
                                .format(kwargs["crm_cli_res"], used_percent))
                     continue

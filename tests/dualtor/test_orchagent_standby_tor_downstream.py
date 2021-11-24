@@ -99,7 +99,8 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
+def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut,
+    tbinfo, require_mocked_dualtor):
     """
     Verify tunnel traffic to active ToR is distributed equally across nexthops, and
     no traffic is forwarded to server from standby ToR
@@ -108,7 +109,8 @@ def test_standby_tor_downstream(ptfhost, rand_selected_dut, rand_unselected_dut,
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
+def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, rand_unselected_dut,
+    require_mocked_dualtor, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is distributed evenly after t1 link is recovered;
     Verify CRM that no new nexthop created
@@ -134,7 +136,8 @@ def test_standby_tor_downstream_t1_link_recovered(ptfhost, rand_selected_dut, ra
     check_tunnel_balance(**params)
 
 
-def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_unselected_dut, verify_crm_nexthop_counter_not_increased, tbinfo):
+def test_standby_tor_downstream_bgp_recovered(ptfhost, rand_selected_dut, rand_unselected_dut,
+    require_mocked_dualtor, verify_crm_nexthop_counter_not_increased, tbinfo):
     """
     Verify traffic is shifted to the active links and no traffic drop observed;
     Verify traffic is distributed evenly after BGP session is recovered;
@@ -177,7 +180,7 @@ def test_standby_tor_downstream_loopback_route_readded(ptfhost, rand_selected_du
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    set_crm_polling_interval,
+    require_mocked_dualtor, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -224,8 +227,8 @@ def test_standby_tor_remove_neighbor_downstream_standby(
 def test_downstream_standby_mux_toggle_active(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    tunnel_traffic_monitor, vmhost, toggle_all_simulator_ports,
-    tor_mux_intfs
+    require_mocked_dualtor, tunnel_traffic_monitor,
+    vmhost, toggle_all_simulator_ports, tor_mux_intfs
     ):
     # set rand_selected_dut as standby and rand_unselected_dut to active tor
     test_params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)

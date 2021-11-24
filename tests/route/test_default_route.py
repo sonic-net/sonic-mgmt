@@ -1,7 +1,10 @@
 import pytest
 import ipaddress
 import logging
+
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -55,7 +58,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_
     asichost = duthost.asic_instance(enum_asic_index)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
-    pytest_assert(rtinfo['nexthops'] > 0, "cannot find ipv6 nexthop for default route")
+    pytest_assert(len(rtinfo['nexthops']) > 0, "cannot find ipv6 nexthop for default route")
     for nh in rtinfo['nexthops']:
         pytest_assert(not nh[0].is_link_local, \
                 "use link local address {} for nexthop".format(nh[0]))

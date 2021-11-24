@@ -34,8 +34,8 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if not ports:
-        logger.info("No ports specified, toggling all minigraph ports")
-        ports = mg_facts["minigraph_ports"].keys()
+        logger.info("No ports specified, toggling all minigraph neighbors ports")
+        ports = mg_facts["minigraph_neighbors"].keys()
 
     if not wait_time_getter:
         wait_time_getter = default_port_toggle_wait_time
@@ -60,7 +60,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
             log_system_resources(duthost, logger)
 
         logger.info("Wait for ports to go down")
-        shutdown_ok = wait_until(port_down_wait_time, 5, lambda: len(__get_down_ports(expect_up=False)) == len(ports))
+        shutdown_ok = wait_until(port_down_wait_time, 5, 0, lambda: len(__get_down_ports(expect_up=False)) == len(ports))
 
         if not shutdown_ok:
             up_ports = __get_down_ports(expect_up=True)
@@ -74,7 +74,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
         duthost.shell_cmds(cmds=cmds_up)
 
         logger.info("Wait for ports to come up")
-        startup_ok = wait_until(port_up_wait_time, 5, lambda: len(__get_down_ports()) == 0)
+        startup_ok = wait_until(port_up_wait_time, 5, 0, lambda: len(__get_down_ports()) == 0)
 
         if not startup_ok:
             down_ports = __get_down_ports()

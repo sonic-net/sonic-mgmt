@@ -22,7 +22,7 @@ def chassis_facts(duthosts, request):
             host_vars = get_host_visible_vars(inv_files, a_host.hostname)
             assert 'slot_num' in host_vars, "Variable 'slot_num' not found in inventory for host {}".format(a_host.hostname)
             slot_num = host_vars['slot_num']
-            a_host.facts['slot_num'] = int(slot_num)
+            a_host.facts['slot_num'] = int(slot_num[len("slot"):])
 
 
 @pytest.fixture(scope="module")
@@ -36,24 +36,6 @@ def all_cfg_facts(duthosts):
     for node in duthosts.nodes:
         results[node.hostname] = node.config_facts(source='persistent', asic_index='all')
     return results
-
-
-@pytest.fixture(scope="module", autouse=True)
-def bgp_redistribute_route_lo(duthosts, all_cfg_facts):
-    for a_host in duthosts.frontend_nodes:
-        for a_asic in a_host.asics:
-            asic_asn = all_cfg_facts[a_host.hostname][a_asic.asic_index]['ansible_facts']['DEVICE_METADATA']['localhost']['bgp_asn']
-
-            send_command = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv4 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            send_command_ipv6 = a_asic.get_docker_cmd(
-                "vtysh -c 'configure terminal' -c 'router bgp " + asic_asn + "' -c 'address-family ipv6 unicast' -c 'no redistribute connected route-map HIDE_INTERNAL' -c 'redistribute connected'",
-                "bgp")
-
-            a_host.command(send_command)
-            a_host.command(send_command_ipv6)
 
 
 @reset_ansible_local_tmp
@@ -85,7 +67,8 @@ def nbr_macs(nbrhosts):
     logger.debug("Get MACS for all neighbor hosts.")
     results = parallel_run(_get_nbr_macs, [nbrhosts], {}, nbrhosts.keys(), timeout=120)
 
-    for res in results:
+    # result is DictProxy. Iterate it by using keys().
+    for res in results.keys():
         logger.info("parallel_results %s = %s", res, results[res])
 
     return results

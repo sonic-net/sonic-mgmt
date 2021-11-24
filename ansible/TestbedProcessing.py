@@ -38,6 +38,7 @@ parser = argparse.ArgumentParser(description="Process testbed.yml file")
 parser.add_argument('-i', help='a file for the testbed processing script', nargs="?", default="testbed-new.yaml")
 parser.add_argument('-basedir', help='base directory to find the files, points to /sonic-mgmt/ansible', default="")
 parser.add_argument('-backupdir', help='backup directory to store files,  points to /sonic-mgmt/ansible/backup',nargs="?", default="backup")
+parser.add_argument('-yaml', help='make lab and veos file in YAML format', action='store_true')
 args = parser.parse_args()
 
 # FILES TO BACKUP
@@ -133,6 +134,7 @@ def makeMain(data, outfile):
         }
     }
     with open(outfile, "w") as toWrite:
+        toWrite.write( "supported_vm_types: [ 'veos', 'ceos', 'vsonic' ]\n" ),
         yaml.dump(dictData, stream=toWrite, default_flow_style=False)
         toWrite.write("# proxy\n")
         yaml.dump(proxy, stream=toWrite, default_flow_style=False)
@@ -164,7 +166,7 @@ generates files/sonic_lab_devices.csv by pulling hostname, managementIP, hwsku, 
 error handling: checks if attribute values are None type or string "None"
 """
 def makeSonicLabDevices(data, outfile):
-    csv_columns = "Hostname,ManagementIp,HwSku,Type"
+    csv_columns = "Hostname,ManagementIp,HwSku,Type,CardType"
     topology = data
     csv_file = outfile
 
@@ -175,8 +177,8 @@ def makeSonicLabDevices(data, outfile):
                 hostname = device
                 managementIP = str(deviceDetails.get("ansible").get("ansible_host"))
                 hwsku = deviceDetails.get("hwsku")
-                devType = deviceDetails.get("device_type")
-
+                devType = deviceDetails.get("device_type") #DevSonic, server, FanoutRoot etc
+                cardType = deviceDetails.get("card_type") #supervisor, Linecard etc
                 # catch empty values
                 if not managementIP:
                     managementIP = ""
@@ -184,8 +186,10 @@ def makeSonicLabDevices(data, outfile):
                     hwsku = ""
                 if not devType:
                     devType = ""
+                if not cardType:
+                    cardType = ""
 
-                row = hostname + "," + managementIP + "," + hwsku + "," + devType
+                row = hostname + "," + managementIP + "," + hwsku + "," + devType + "," + cardType
                 f.write(row + "\n")
     except IOError:
         print("I/O error: makeSonicLabDevices")
@@ -240,6 +244,11 @@ def makeTestbed(data, outfile):
                     ptf = ""
                 if not comment:
                     comment = ""
+                # dut is a list for multi-dut testbed, convert it to string
+                if type(dut) is not str:
+                   dut = dut.__str__()
+                dut = dut.replace(",", ";")
+                dut = dut.replace(" ", "")
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + ptf_ipv6 + ","+ server + "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
@@ -265,6 +274,8 @@ def makeSonicLabLinks(data, outfile):
             for key, item in topology.items():
                 startDevice = key
                 interfacesDetails = item.get("interfaces")
+                if not interfacesDetails:
+                    continue
 
                 for startPort, element in interfacesDetails.items():
                     startPort = startPort
@@ -363,6 +374,7 @@ makeLab(data, veos, devices, outfile)
 """
 def makeLab(data, devices, testbed, outfile):
     deviceGroup = data
+    start_switchid = 0
     with open(outfile, "w") as toWrite:
         for key, value in deviceGroup.items():
             #children section
@@ -378,44 +390,178 @@ def makeLab(data, devices, testbed, outfile):
                 for host in value.get("host"):
                     entry = host
 
+                    if host.lower() in devices:
+                        dev = devices.get(host.lower())
+                    elif host.lower() in testbed:
+                        dev = testbed.get(host.lower())
+                    else:
+                        dev = None
+
                     if "ptf" in key:
                         try: #get ansible host
-                            ansible_host = testbed.get(host).get("ansible").get("ansible_host")
+                            ansible_host = dev.get("ansible").get("ansible_host")
                             entry += "\tansible_host=" + ansible_host.split("/")[0]
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
                         if ansible_host:
                             try: # get ansible ssh username
-                                ansible_ssh_user = testbed.get(host.lower()).get("ansible").get("ansible_ssh_user")
+                                ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
                                 entry += "\tansible_ssh_user=" + ansible_ssh_user
                             except:
                                 print("\t\t" + host + ": ansible_ssh_user not found")
 
                             try: # get ansible ssh pass
-                                ansible_ssh_pass = testbed.get(host.lower()).get("ansible").get("ansible_ssh_pass")
+                                ansible_ssh_pass = dev.get("ansible").get("ansible_ssh_pass")
                                 entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                             except:
                                 print("\t\t" + host + ": ansible_ssh_pass not found")
                     else: #not ptf container
                         try: #get ansible host
-                            ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
+                            ansible_host = dev.get("ansible").get("ansible_host")
                             entry += "\tansible_host=" + ansible_host.split("/")[0]
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
                         if ansible_host:
                             try: # get ansible ssh username
-                                ansible_ssh_user = devices.get(host.lower()).get("ansible").get("ansible_ssh_user")
+                                ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
                                 entry += "\tansible_ssh_user=" + ansible_ssh_user
                             except:
                                 print("\t\t" + host + ": ansible_ssh_user not found")
 
                             try: # get ansible ssh pass
-                                ansible_ssh_pass = devices.get(host.lower()).get("ansible").get("ansible_ssh_pass")
+                                ansible_ssh_pass = dev.get("ansible").get("ansible_ssh_pass")
                                 entry += "\tansible_ssh_pass=" + ansible_ssh_pass
                             except:
                                 print("\t\t" + host + ": ansible_ssh_pass not found")
+                        try: #get hwsku
+                            hwsku = dev.get("hwsku")
+                            if hwsku is not None:
+                               entry += "\thwsku=" + hwsku
+                        except AttributeError:
+                            print("\t\t" + host + ": hwsku not found")
+
+                        try: #get card_type
+                            card_type = dev.get("card_type")
+                            if card_type is not None:
+                               entry += "\tcard_type=" + card_type
+                        except AttributeError:
+                           print("\t\t" + host + ": card_type not found")
+
+                        try: #get num_fabric_asics
+                            num_fabric_asics = dev.get("num_fabric_asics")
+                            if num_fabric_asics is not None:
+                               entry += "\tnum_fabric_asics=" + str( num_fabric_asics )
+                        except AttributeError:
+                            print("\t\t" + host + " num_fabric_asics not found")
+
+                        try: #get num_asics
+                            num_asics = dev.get("num_asics")
+                            if num_asics is not None:
+                               num_asics = int(num_asics)
+                               entry += "\tnum_asics=" + str( num_asics )
+                        except AttributeError:
+                            print("\t\t" + host + " num_asics not found")
+
+                        if card_type != 'supervisor':
+                           entry += "\tstart_switchid=" + str( start_switchid )
+                           if num_asics is not None:
+                              start_switchid += int( num_asics )
+                           else:
+                              start_switchid += 1
+
+                        try: #get frontend_asics
+                            frontend_asics = dev.get("frontend_asics")
+                            if frontend_asics is not None:
+                               entry += "\tfrontend_asics=" + frontend_asics.__str__()
+                        except AttributeError:
+                            print("\t\t" + host + ": frontend_asics not found")
+
+                        try: #get asics_host_ip
+                            asics_host_ip = dev.get("asics_host_ip")
+                            if asics_host_ip is not None:
+                               entry += " \tasics_host_ip=" + str( asics_host_ip )
+                        except AttributeError:
+                            print("\t\t" + host + " asics_host_ip not found")
+
+                        try: #get asics_host_ipv6
+                            asics_host_ipv6 = dev.get("asics_host_ipv6")
+                            if asics_host_ipv6 is not None:
+                               entry += "\tasics_host_ipv6=" + str( asics_host_ipv6 )
+                        except AttributeError:
+                            print("\t\t" + host + " asics_host_ipv6 not found")
+
+                        try: #get switch_type
+                            switch_type = dev.get("switch_type")
+                            if switch_type is not None:
+                                entry += "\tswitch_type=" + str( switch_type )
+                                if switch_type == 'voq' and card_type != 'supervisor':
+                                    if num_asics is None:
+                                        num_asics = 1
+
+                                    # All fields are a list. For single asic the list is of size 1.
+                                    switchids = dev.get("switchids")                       # switchids, single asic example "[4]", 3 asic example "[4,6,8]"
+                                    voq_inband_ip = dev.get("voq_inband_ip")               # voq_inband_ip
+                                    voq_inband_ipv6 = dev.get("voq_inband_ipv6")           # voq_inband_ipv6
+                                    voq_inband_intf = dev.get("voq_inband_intf")           # voq_inband_intf
+                                    voq_inband_type = dev.get("voq_inband_type")           # voq_inband_type
+                                    max_cores = dev.get("max_cores")                       # max cores
+                                    lo4096_ip = dev.get("loopback4096_ip")                 # loopback4096_ip
+                                    lo4096_ipv6 = dev.get("loopback4096_ipv6")             # loopback4096_ipv6
+                                    num_cores_per_asic = dev.get("num_cores_per_asic", 1)  # number of cores per asic - to be used in calculating the switchids, assuming to be the same for all linecards
+
+                                    # Add fields
+                                    if switchids is None:
+                                        switchids = [start_switchid + (asic_id * num_cores_per_asic) for asic_id in range(num_asics)]
+                                    entry += "\tswitchids=" + str(switchids)
+
+                                    if voq_inband_ip is None:
+                                        voq_inband_ip = ["1.1.1.{}/32".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_ip=" + str(voq_inband_ip)
+
+                                    if voq_inband_ipv6 is None:
+                                        voq_inband_ip = ["1111::1:{}/128".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_ipv6=" + str(voq_inband_ip)
+
+                                    if voq_inband_intf is None:
+                                        voq_inband_intf = ["Ethernet-IB{}".format(asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tvoq_inband_intf=" + str(voq_inband_intf)
+
+                                    if voq_inband_type is None:
+                                        voq_inband_type = "port"
+                                    entry += "\tvoq_inband_type=" + voq_inband_type
+
+                                    if max_cores is None:
+                                        max_cores = 48
+                                    entry += "\tmax_cores=" + str(max_cores)
+
+                                    if lo4096_ip is None:
+                                        lo4096_ip = ["8.0.0.{}/32".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tloopback4096_ip=" + lo4096_ip
+
+                                    if lo4096_ipv6 is None:
+                                        lo4096_ipv6 = ["2603:10e2:400::{}/128".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+                                    entry += "\tloopback4096_ipv6=" + lo4096_ipv6
+
+                                    start_switchid += (num_asics * num_cores_per_asic)
+
+                        except AttributeError:
+                            print("\t\t" + host + " switch_type not found")
+
+                        try: #get slot_num
+                            slot_num = dev.get("slot_num")
+                            if slot_num is not None:
+                               entry += "\tslot_num=" + str( slot_num )
+                        except AttributeError:
+                            print("\t\t" + host + " slot_num not found")
+
+                        try: #get os
+                            os = dev.get("os")
+                            if os is not None:
+                               entry += "\tos=" + str( os )
+                        except AttributeError:
+                            print("\t\t" + host + " os not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
@@ -429,6 +575,84 @@ def makeLab(data, devices, testbed, outfile):
                     else:
                         toWrite.write(key2 + "=" + val2 + "\n")
                 toWrite.write("\n")
+
+
+def makeLabYAML(data, devices, testbed, outfile):
+    """
+    Generates /lab file in YAML format based on parsed dictionaries from testbed file.
+
+    Args:
+        data: reads from devices-groups, this helps separate the function into 3 components; sonic, fanout, ptf
+        devices: reads from devices
+        testbed: reads from testbed (to accomodate for PTF container(s))
+        outfile: writes to lab in YAML file format
+
+    """
+    deviceGroup = data
+    result = dict()
+    sonicDict = dict()
+    fanoutDict = dict()
+    ptfDict = dict()
+    dutDict = dict()
+
+    if "sonic" in deviceGroup['lab']['children']:
+        for group in deviceGroup['sonic']['children']:
+            sonicDict[group] = {'vars': {'iface_speed': deviceGroup[group].get("vars").get("iface_speed")}, 'hosts': {}}
+            for dut in deviceGroup[group]['host']:
+                if dut in devices:
+                    dutDict.update({dut:
+                        {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
+                        'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
+                        'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
+                        'hwsku': devices[dut].get("hwsku"),
+                        'snmp_rocommunity': devices[dut].get("snmp_rocommunity"),
+                        'sonic_version': devices[dut].get("sonic_version"),
+                        'sonic_hwsku': devices[dut].get("sonic_hwsku"),
+                        'base_mac': devices[dut].get("base_mac"),
+                        'device_type': devices[dut].get("device_type"),
+                        'ptf_host': devices[dut].get("ptf_host"),
+                        'serial': devices[dut].get("serial"),
+                        'os': devices[dut].get("os"),
+                        'model': devices[dut].get("model")
+                        }
+                    })
+                    sonicDict[group]['hosts'].update(dutDict)
+    if "fanout" in deviceGroup['lab']['children']:
+        for fanout in deviceGroup['fanout']['host']:
+            if fanout in devices:
+                fanoutDict.update({fanout:
+                    {'ansible_host': devices[fanout].get("ansible").get("ansible_host"),
+                    'ansible_ssh_user': devices[fanout].get("ansible").get("ansible_ssh_user"),
+                    'ansible_ssh_pass': devices[fanout].get("ansible").get("ansible_ssh_pass"),
+                    'os': devices[fanout].get("os"),
+                    'device_type': devices[fanout].get("device_type")
+                    }
+                })
+    if 'ptf' in deviceGroup:
+        for ptfhost in deviceGroup['ptf']['host']:
+            if ptfhost in testbed:
+                ptfDict.update({ptfhost:
+                    {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
+                    'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
+                    'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
+                    }
+                })
+    result.update({'all':
+                    {'children':
+                        {'lab':
+                            {'vars': deviceGroup['lab']['vars'],
+                            'children':
+                                {'sonic': {'children': sonicDict},
+                                'fanout': {'hosts': fanoutDict}
+                                }
+                            },
+                        'ptf': {'hosts': ptfDict}
+                        }
+                    }
+    })
+
+    with open(outfile, "w") as toWrite:
+        yaml.dump(result, stream=toWrite, default_flow_style=False)
 
 """
 makeVeos(data, veos, devices, outfile)
@@ -455,8 +679,13 @@ def makeVeos(data, veos, devices, outfile):
                     entry = host
 
                     try:
-                        ansible_host = devices.get(host.lower()).get("ansible").get("ansible_host")
+                        dev = devices.get(host.lower())
+                        ansible_host = dev.get("ansible").get("ansible_host")
                         entry += "\tansible_host=" + ansible_host.split("/")[0]
+                        if dev.get("device_type") == "DevSonic":
+                            entry += "\ttype=" + dev.get("type")
+                            entry += "\thwsku=" + dev.get("hwsku")
+                            entry += "\tcard_type=" + dev.get("card_type")
                     except:
                         try:
                             ansible_host = veos.get(key).get(host).get("ansible_host")
@@ -477,6 +706,57 @@ def makeVeos(data, veos, devices, outfile):
                         toWrite.write(key2 + "=" + val2 + "\n")
                 toWrite.write("\n")
 
+
+def makeVeosYAML(data, veos, devices, outfile):
+    """
+    Generates /veos file in YAML format based on parsed dictionaries from testbed file.
+
+    Args:
+        data: reads from either veos-groups, this helps separate the function into 3 components; vm_host, eos, servers
+        veos: reads from either veos
+        devices: reads from devices
+        outfile: writes to veos in YAML file format
+
+    """
+    group = data
+    result = dict()
+    vmDict = dict()
+    eosDict = dict()
+    serversDict = dict()
+
+    if 'vm_host' in group:
+        for vm_host in group['vm_host']['children']:
+            vmDict.update({vm_host: None})
+            server = group[vm_host]['host'][0]
+            result.update({vm_host:
+                {'hosts':
+                    {server: {'ansible_host': devices[server.lower()].get("ansible").get("ansible_host")}}
+                }
+            })
+    if 'eos' in group:
+        for eos in group['eos']['children']:
+            eosDict.update({eos: None})
+            result.update({eos: {'hosts': veos[eos]}})
+    if 'servers' in group:
+        serversDict.update({'vars': group['servers'].get("vars"), 'children': {}})
+        for server in group['servers']['children']:
+            serversDict['children'].update({server: None})
+            result.update({server: {'children':{group[server]['children'][0]: None,
+                                                group[server]['children'][1]: None},
+                                    'vars': group[server]['vars']
+                                    }
+            })
+    result.update({'all':
+                    {'children':
+                        {'vm_host': {'children': vmDict},
+                        'eos': {'children': eosDict},
+                        'servers': serversDict
+                        }
+                    }
+    })
+
+    with open(outfile, "w") as toWrite:
+        yaml.dump(result, stream=toWrite, default_flow_style=False)
 
 """
 makeHost_var(data)
@@ -564,9 +844,15 @@ def main():
     print("\tCREATING MAIN.YML: " + args.basedir + main_file)
     makeMain(veos, args.basedir + main_file)  # Generate main.yml (MAIN)
     print("\tCREATING LAB FILE: " + args.basedir + lab_file)
-    makeLab(device_groups, devices, testbed, args.basedir + lab_file)  # Generate lab (LAB)
+    if args.yaml:
+        makeLabYAML(device_groups, devices, testbed, args.basedir + lab_file) # Generate lab in YAML file format (LAB)
+    else:
+        makeLab(device_groups, devices, testbed, args.basedir + lab_file)  # Generate lab in INI file format (LAB)
     print("\tCREATING VEOS FILE: " + args.basedir + veos_file)
-    makeVeos(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos (VEOS)
+    if args.yaml:
+        makeVeosYAML(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos in YAML file format(VEOS)
+    else:
+        makeVeos(veos_groups, veos, devices, args.basedir + veos_file)  # Generate veos in INI file format(VEOS)
     print("\tCREATING HOST VARS FILE(S): one or more files generated")
     makeHostVar(host_vars)  # Generate host_vars (HOST_VARS)
     print("UPDATING FILES FROM CONFIG FILE")
