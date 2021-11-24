@@ -98,7 +98,7 @@ drop_packets/drop_packets.py::test_dst_ip_link_local:
     conditions:
       - "asic_type=='cisco-8000'"
 
-drop_packets/drop_packets::test_dst_ip_is_loopback_addr:
+drop_packets/drop_packets.py::test_dst_ip_is_loopback_addr:
   skip:
     reason: "Cisco 8000 platform does not drop DIP loopback packets"
     conditions:
