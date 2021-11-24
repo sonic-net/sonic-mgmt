@@ -446,7 +446,8 @@ class AdvancedReboot:
             "Advanced-reboot failure. Failed cases: {}".format(failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+    def runRebootTestcase(self, prebootList=None, inbootList=None,
+        prebootFiles='peer_dev_info,neigh_port_info'):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
