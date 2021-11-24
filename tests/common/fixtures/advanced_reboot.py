@@ -518,7 +518,8 @@ class AdvancedReboot:
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
             "asic_type": self.duthost.facts["asic_type"],
-            "allow_mac_jumping": self.allowMacJump
+            "allow_mac_jumping": self.allowMacJump,
+            "preboot_files" : self.prebootFiles
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -529,7 +530,6 @@ class AdvancedReboot:
             # presence of routing in reboot operation indicates it is during reboot operation (inboot)
             inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
             params.update({
-                "preboot_files" : self.prebootFiles,
                 "preboot_oper" : prebootOper,
                 "inboot_oper" : inbootOper,
             })
