@@ -10,7 +10,7 @@ PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
 ]
 SWITCH_MODELS = {
-    "x86_64-mlnx_msn2201-r0": {
+    "x86_64-nvidia_sn2201-r0": {
         "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
@@ -23,7 +23,8 @@ SWITCH_MODELS = {
         },
         "psus": {
             "number": 2,
-            "hot_swappable": True
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[0]
         },
         "cpu_pack": {
             "number": 1
