@@ -26,10 +26,15 @@ EVERFLOW_SESSION_NAME = "everflow_session_per_interface"
 logger = logging.getLogger(__file__)
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_on_dualtor_testbed(tbinfo):
+def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
     if 'dualtor' in tbinfo['topo']['name']:
         pytest.skip("Skip running on dualtor testbed")
 
+    asic_type = rand_selected_dut.facts["asic_type"]
+    unsupported_platforms = ["mellanox", "marvell", "barefoot"]
+    # Skip ipv6 test on Mellanox platform
+    is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
+    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 def build_candidate_ports(duthost, tbinfo):
     """
@@ -79,19 +84,15 @@ def apply_mirror_session(rand_selected_dut):
     logger.info("Removing mirror session from DUT")
     BaseEverflowTest.remove_mirror_config(rand_selected_dut, EVERFLOW_SESSION_NAME)
 
+@pytest.fixture(scope='module', params=['ipv4', 'ipv6'])
+def ip_ver(request):
+    return request.param
 
-@pytest.fixture(scope='module', params=['ipv4', 'ipv6'], autouse=True)
-def apply_acl_rule(request, rand_selected_dut, tbinfo, apply_mirror_session):
+@pytest.fixture(scope='module', autouse=True)
+def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     """
     Apply ACL rule for matching input_ports
     """
-    # Skip ipv6 test on Mellanox platform
-    ip_ver = request.param
-    if "mellanox" == rand_selected_dut.facts["asic_type"] and ip_ver == "ipv6":
-        pytest.skip("Match 'IN_PORTS' in EVERFLOWV6 is not supported on Mellanox platform")
-    # Skip on marvell platform
-    if "marvell" == rand_selected_dut.facts["asic_type"]:
-        pytest.skip("Match 'IN_PORTS' is not supported on Marvell platform")
     # Check existence of EVERFLOW
     table_name = EVERFLOW_TABLE_NAME[ip_ver]
     output = rand_selected_dut.shell('show acl table {}'.format(table_name))['stdout_lines']
@@ -180,4 +181,4 @@ def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, t
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
    
-    
+   
