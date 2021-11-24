@@ -62,7 +62,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfad
         loop_times -= 1
         add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
 
-        time.sleep(5)
+        time.sleep(10)
 
         clear_dut_arp_cache(duthost)
         fdb_cleanup(duthost)
