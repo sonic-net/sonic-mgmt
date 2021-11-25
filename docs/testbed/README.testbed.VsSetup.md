@@ -10,7 +10,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
 2. Prepare your environment based on different Ubuntu version, make sure that python and pip are installed
    1. Option : If your host is **Ubuntu 20.04**
-        
+
         ```
         sudo apt install python3 python3-pip
         ```
@@ -271,11 +271,11 @@ In your host run
  3    vlab-01   running
  ```
  Then you can try to login to your dut through the command and get logged in as shown below.
- For more infomation about how to get the DUT IP address, please refer to doc 
+ For more information about how to get the DUT IP address, please refer to doc
  [testbed.Example#access-the-dut](README.testbed.Example.Config.md#access-the-dut)
  ```
 ~$ ssh admin@10.250.0.101
-admin@10.250.0.101's password: 
+admin@10.250.0.101's password:
 Linux vlab-01 4.19.0-12-2-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
 You are on
   ____   ___  _   _ _  ____
