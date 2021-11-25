@@ -66,8 +66,8 @@ def dut_bgp_asn_update_status(duthost, bgp_speaker_asn, dut_asn, Asntype):
     bgpvacstatus = "default"
     if Asntype == "2byte" or Asntype == "4byte":
         logger.info("Updating BGPVac ASN to 4 byte")
-        logger.info("Bgp_speaker_asn =%s", % bgp_speaker_asn)
-        logger.info("T0 ASN = %s", % dut_asn)
+        logger.info("Bgp_speaker_asn =%s" % bgp_speaker_asn)
+        logger.info("T0 ASN = %s" % dut_asn)
         bgpvacstatus = "fourbyte"
     duthost.command("vtysh -c \"conf t\" \
             -c \"router bgp %s\" i\
@@ -99,7 +99,7 @@ def dut_config_change(duthost, dut_4basn):
     logger.info("wait for configuration to be applied")
     time.sleep(40)
     updated_asn=duthost.shell("show ip bgp sum")
-    logger.info("New T0 ASN = %s", % updated_asn)
+    logger.info("New T0 ASN = %s" % updated_asn)
     for item in updated_asn['stdout_lines']:
         if dut_4basn in item:
             return "true"
@@ -174,7 +174,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     else:
         ptf_ports = ["eth%s" % _ for _ in vlan_ports]
     logger.info("vlan_ports: %s" % str(vlan_ports))
-    logger.info("ptf_ports: %s", ptf_ports)
+    logger.info("ptf_ports: %s" % ptf_ports)
 
     # Generate ipv6 nexthops
     vlan_ipv6_entry = mg_facts['minigraph_vlan_interfaces'][1]
