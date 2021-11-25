@@ -49,15 +49,17 @@ We currently support EOS-based or SONiC VMs to simulate neighboring devices in t
 2. Import the cEOS image (it will take several minutes to import, so please be patient!)
 
 ```
-docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M-1
+docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M
 ```
 After imported successfully, you can check it by 'docker images'
 ```
 $ docker images
 REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
-ceosimage                                              4.25.5.1M-1   fa0df4b01467   9 seconds ago   1.62GB
+ceosimage                                              4.25.5.1M     fa0df4b01467   9 seconds ago   1.62GB
 ```
-**Note**: *For time being, the image might be updated, the actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), please download the corresponding version of image and import it to your local docker repository.*
+**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction, 
+please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository. 
+The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
 
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
