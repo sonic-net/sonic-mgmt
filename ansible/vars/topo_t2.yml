@@ -50,7 +50,7 @@ topology:
       vm_offset: 8
     ARISTA18T3:
       vlans:
-        - 0.16@17
+        - 0.16@16
         - 0.17@17
       vm_offset: 9
     ARISTA19T3:
