@@ -1,6 +1,7 @@
 import re
 import logging
 import pprint
+from ptf.mask import Mask
 import ptf.testutils as testutils
 import ptf.packet as scapy
 
@@ -9,6 +10,7 @@ from tests.common.utilities import wait_until
 
 MAC_STR = "000000000000"
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
+FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +108,58 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
                 )
     logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
+
+def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
+    """
+    send arp reply packet
+    :param ptfadapter: PTF adapter object
+    :param source_port: source port
+    :param source_mac: source MAC
+    :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
+    :return:
+    """
+    pkt = testutils.simple_arp_packet(eth_dst=dest_mac,
+                eth_src=source_mac,
+                vlan_vid=vlan_id,
+                vlan_pcp=0,
+                arp_op=2,
+                ip_snd='10.10.1.2',
+                ip_tgt='10.10.1.3',
+                hw_tgt=dest_mac,
+                hw_snd=source_mac,
+                )
+    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+    testutils.send(ptfadapter, source_port, pkt)
+
+def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
+    """
+    send ethernet packet and verify it on dest_port
+    :param ptfadapter: PTF adapter object
+    :param source_port: source port
+    :param source_mac: source MAC
+    :param dest_port: destination port to receive packet on
+    :param dest_mac: destination MAC
+    :param vlan_id: VLAN id
+    :return:
+    """
+    pkt = simple_eth_packet(
+        eth_dst=dest_mac,
+        eth_src=source_mac,
+        vlan_vid=src_vlan
+    )
+    exp_pkt = simple_eth_packet(
+        eth_dst=dest_mac,
+        eth_src=source_mac,
+        vlan_vid=dst_vlan
+    )
+    if dst_vlan:
+        # expect to receive tagged packet:
+        # sonic device might modify the 802.1p field,
+        # need to use Mask to ignore the priority field.
+        exp_pkt = Mask(exp_pkt)
+        exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
+    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
+        source_ports, source_mac, dest_mac, src_vlan, dest_ports))
+    testutils.send(ptfadapter, source_ports[0], pkt)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)

@@ -15,7 +15,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
     pytest.mark.topology('t0', 't0-56-po2vlan'),
@@ -31,68 +32,6 @@ FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
 PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
-
-def simple_eth_packet(
-    pktlen=60,
-    eth_dst="00:01:02:03:04:05",
-    eth_src="00:06:07:08:09:0a",
-    vlan_vid=0,
-    vlan_pcp=0
-):
-    pkt = scapy.Ether(dst=eth_dst, src=eth_src)
-    if vlan_vid or vlan_pcp:
-        pktlen += 4
-        pkt /= scapy.Dot1Q(vlan=vlan_vid, prio=vlan_pcp)
-        pkt[scapy.Dot1Q : 1].type = DEFAULT_FDB_ETHERNET_TYPE
-    else:
-        pkt.type = DEFAULT_FDB_ETHERNET_TYPE
-    pkt = pkt / ("0" * (pktlen - len(pkt)))
-
-    return pkt
-
-def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
-    """
-    send ethernet packet
-    :param ptfadapter: PTF adapter object
-    :param source_port: source port
-    :param source_mac: source MAC
-    :param dest_mac: destination MAC
-    :param vlan_id: VLAN id
-    :return:
-    """
-    pkt = simple_eth_packet(
-        eth_dst=dest_mac,
-        eth_src=source_mac,
-        vlan_vid=vlan_id
-    )
-    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
-    testutils.send(ptfadapter, source_port, pkt)
-
-
-def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
-    """
-    send arp request packet
-    :param ptfadapter: PTF adapter object
-    :param source_port: source port
-    :param source_mac: source MAC
-    :param dest_mac: destination MAC
-    :param vlan_id: VLAN id
-    :return:
-    """
-    pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst=dest_mac,
-                eth_src=source_mac,
-                vlan_vid=vlan_id,
-                vlan_pcp=0,
-                arp_op=1,
-                ip_snd='10.10.1.3',
-                ip_tgt='10.10.1.2',
-                hw_snd=source_mac,
-                hw_tgt='ff:ff:ff:ff:ff:ff',
-                )
-    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
-    testutils.send(ptfadapter, source_port, pkt)
-
 
 def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
@@ -203,31 +142,6 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
     ptfadapter.dataplane.flush()
 
     return fdb
-
-
-def get_fdb_dynamic_mac_count(duthost):
-    res = duthost.command('show mac')
-    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
-    total_mac_count = 0
-    for l in res['stdout_lines']:
-        if "dynamic" in l.lower() and DUMMY_MAC_PREFIX in l.lower():
-            total_mac_count += 1
-    return total_mac_count
-
-
-def fdb_table_has_no_dynamic_macs(duthost):
-    return (get_fdb_dynamic_mac_count(duthost) == 0)
-
-
-def fdb_cleanup(duthosts, rand_one_dut_hostname):
-    """ cleanup FDB before and after test run """
-    duthost = duthosts[rand_one_dut_hostname]
-    if fdb_table_has_no_dynamic_macs(duthost):
-        return
-    else:
-        duthost.command('sonic-clear fdb all')
-        pytest_assert(wait_until(20, 2, 0, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
-
 
 def validate_mac(mac):
     if mac.find(':') != -1:
