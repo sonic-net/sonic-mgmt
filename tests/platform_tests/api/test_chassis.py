@@ -216,6 +216,8 @@ class TestChassisApi(PlatformApiTestBase):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+        # Convert all keys of syseeprom_info_dict into lower case
+        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
@@ -241,6 +243,8 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_SERIAL_NUMBER, serial), "Serial number appears to be incorrect")
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
+        # Ignore case of keys in syseeprom_info
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
@@ -396,7 +400,7 @@ class TestChassisApi(PlatformApiTestBase):
         except:
             pytest.fail("num_sfps is not an integer")
 
-        list_sfps = list(set(physical_port_indices))
+        list_sfps = physical_port_indices
 
         logging.info("Physical port indices = {}".format(list_sfps))
 
@@ -413,7 +417,7 @@ class TestChassisApi(PlatformApiTestBase):
         for i in range(len(list_sfps)):
             index = list_sfps[i]
             sfp = chassis.get_sfp(platform_api_conn, index)
-            self.expect(sfp and sfp == sfp_list[i], "SFP number {} object is incorrect index {}".format(i, index))
+            self.expect(sfp and sfp in sfp_list, "SFP object for PORT{} NOT found".format(index))
         self.assert_expectations()
 
     def test_status_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
@@ -447,19 +451,42 @@ class TestChassisApi(PlatformApiTestBase):
             2: "off"
         }
 
-        for index, led_type in enumerate(LED_COLOR_TYPES):
-            led_type_result = False
-            for color in led_type:
-                result = chassis.set_status_led(platform_api_conn, color)
-                if self.expect(result is not None, "Failed to perform set_status_led"):
-                    led_type_result = result or led_type_result
-                if ((result is None) or (not result)):
-                    continue
-                color_actual = chassis.get_status_led(platform_api_conn)
-                if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                    if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                        self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
-            self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+        led_controllable = True
+        led_supported_colors = []
+        if duthost.facts.get("chassis"):
+            status_led = duthost.facts.get("chassis").get("status_led")
+            if status_led:
+                led_controllable = status_led.get("controllable", True)
+                led_supported_colors = status_led.get("colors")
+
+        if led_controllable:
+            led_type_skipped = 0
+            for index, led_type in enumerate(LED_COLOR_TYPES):
+                if led_supported_colors:
+                    led_type = set(led_type) & set(led_supported_colors)
+                    if not led_type:
+                        logger.warning("test_status_led: Skipping set status_led to {} (No supported colors)".format(LED_COLOR_TYPES_DICT[index]))
+                        led_type_skipped += 1
+                        continue
+
+                led_type_result = False
+                for color in led_type:
+                    result = chassis.set_status_led(platform_api_conn, color)
+                    if self.expect(result is not None, "Failed to perform set_status_led"):
+                        led_type_result = result or led_type_result
+                    if ((result is None) or (not result)):
+                        continue
+                    color_actual = chassis.get_status_led(platform_api_conn)
+                    if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                        if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
+                self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+
+            if led_type_skipped == len(LED_COLOR_TYPES):
+                pytest.skip("skipped as no supported colors for all types")
+
+        else:
+            pytest.skip("skipped as chassis's status led is not controllable")
 
         self.assert_expectations()
 

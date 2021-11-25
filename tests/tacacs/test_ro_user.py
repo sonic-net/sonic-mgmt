@@ -72,7 +72,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
             else:
                 current_attempt += 1
 
-def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
@@ -80,7 +80,7 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
 
     check_output(res, 'test', 'remote_user')
 
-def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs_v6):
+def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs_v6):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     res = ssh_remote_run(localhost, dutip, creds_all_duts[duthost]['tacacs_ro_user'],
@@ -88,7 +88,7 @@ def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, cre
 
     check_output(res, 'test', 'remote_user')
 
-def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars["ansible_host"]
 
@@ -157,7 +157,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
                                           " 'sudo sonic-installer list' is banned")
 
 
-def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, test_tacacs):
+def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

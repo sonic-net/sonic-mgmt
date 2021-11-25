@@ -1,4 +1,14 @@
+{# TODO: tagged port should be supported in future #}
 {% for vlan in minigraph_vlan_interfaces %}
-{{ vlan['subnet'] }} {% for ifname in minigraph_vlans[vlan['attachto']]['members'] %} {{ minigraph_port_indices[ifname] }} {% endfor %}
+{{ vlan['subnet'] }}
+{%- for ifname in minigraph_vlans[vlan['attachto']]['members'] -%}
+{%- if ifname in minigraph_portchannels -%}
+{%- if minigraph_portchannels[ifname]['members'] -%}
+{{ ' ' }}{{ minigraph_port_indices[minigraph_portchannels[ifname]['members'][0]] }}
+{%- endif -%}
+{%- else -%}
+{{ ' ' }}{{ minigraph_port_indices[ifname] }}
+{%- endif -%}
+{%- endfor %}
 
 {% endfor %}

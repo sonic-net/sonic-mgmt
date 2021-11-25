@@ -1,0 +1,57 @@
+slot0:
+    ASIC0:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth0194-ASIC0
+              - Eth0170-ASIC0
+              - Eth0162-ASIC0
+          ASIC1:
+            asic_intfs:
+              - Eth0164-ASIC0
+              - Eth0172-ASIC0
+              - Eth0192-ASIC0
+          ASIC2:
+            asic_intfs:
+              - Eth0126-ASIC0
+              - Eth0144-ASIC0
+              - Eth0152-ASIC0
+          ASIC3:
+            asic_intfs:
+              - Eth0128-ASIC0
+              - Eth0146-ASIC0
+              - Eth0154-ASIC0
+      configuration_properties:
+        common:
+          asic_type: BackEnd
+    ASIC1:
+      topology:
+        NEIGH_ASIC:
+          ASIC0:
+            asic_intfs:
+              - Eth0438-ASIC1
+              - Eth0454-ASIC1
+              - Eth0462-ASIC1
+              - Eth0464-ASIC1
+          ASIC1:
+            asic_intfs:
+              - Eth0440-ASIC1
+              - Eth0456-ASIC1
+              - Eth0466-ASIC1
+              - Eth0468-ASIC1
+          ASIC2:
+            asic_intfs:
+              - Eth0424-ASIC1
+              - Eth0432-ASIC1
+              - Eth0444-ASIC1
+              - Eth0448-ASIC1
+          ASIC3:
+            asic_intfs:
+              - Eth0422-ASIC1
+              - Eth0430-ASIC1
+              - Eth0446-ASIC1
+              - Eth0450-ASIC1
+      configuration_properties:
+        common:
+          asic_type: BackEnd 

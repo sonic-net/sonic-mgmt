@@ -74,6 +74,16 @@ def __gen_mac(id):
     """
     return '00:11:22:33:44:{:02d}'.format(id)
 
+def __gen_pc_mac(id):
+    """
+    Generate a MAC address for a portchannel interface
+
+    Args:
+        id (int): portchannel ID
+    Returns:
+        MAC address (string)
+    """
+    return '11:22:33:44:55:{:02d}'.format(id)
 
 def __valid_ipv4_addr(ip):
     """
@@ -271,6 +281,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     dut_mac = str(duthost.facts['router_mac'])
 
     """ For each port channel """
+    pc_id = 0
     for pc in pc_member:
         phy_intfs = pc_member[pc]
         gw_addr = str(pc_intf[pc]['addr'])
@@ -313,10 +324,17 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         device = config.devices.device(name='Device {}'.format(pc),
                                        container_name=lag.name)[-1]
 
+        ethernet = device.ethernet
+        ethernet.name = 'Ethernet {}'.format(pc)
+        ethernet.mac = __gen_pc_mac(pc_id)
+
         ip_stack = device.ethernet.ipv4
+        ip_stack.name = 'Ipv4 {}'.format(pc)
         ip_stack.address = pc_ip_addr
         ip_stack.prefix = int(prefix)
         ip_stack.gateway = gw_addr
+
+        pc_id = pc_id + 1
 
     return True
 
