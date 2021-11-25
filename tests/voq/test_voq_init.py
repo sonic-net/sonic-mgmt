@@ -307,7 +307,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
 
     # Verify each RIF in config had a corresponding local port RIF in the asicDB.
     for rif in dev_intfs:
-        pytest_assert(rif in rif_ports_in_asicdb, "Interface %s is in configdb.json but not in asicdb" % rif)
+        if rif not in rif_ports_in_asicdb:
+            raise AssertionError("Interface %s is in configdb.json but not in asicdb" % rif)
 
     logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
 
