@@ -9,6 +9,10 @@ from tests.common.dualtor.mux_simulator_control import get_mux_status
 from tests.common.utilities import wait_until
 
 
+pytestmark = [
+    pytest.mark.topology("t0")
+]
+
 logger = logging.getLogger(__name__)
 
 
