@@ -100,10 +100,12 @@ def dut_config_change(duthost, dut_4basn):
     time.sleep(40)
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info("New T0 ASN = %s" % updated_asn)
+    result="false"
     for item in updated_asn['stdout_lines']:
         if dut_4basn in item:
-            return "true"
+            result= "true"
             break
+    return result
 
 def dut_config_reset(duthost, dut_asn_default):
     duthost.shell("sudo cp /etc/sonic/config_db_org.json /etc/sonic/config_db.json")
@@ -114,10 +116,12 @@ def dut_config_reset(duthost, dut_asn_default):
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info(updated_asn)
     logger.info(updated_asn['stdout_lines'])
+    result="false"
     for item in updated_asn['stdout_lines']:
         if str(dut_asn_default) in item:
-            return "true"
+            result="true"
             break
+    return result
 
 @pytest.fixture#(scope="module")
 def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, request):
@@ -228,7 +232,6 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
         bgp_speaker_asn=bgp_speaker_4byteasn
         logger.info("bgpasn={}".format(bgp_speaker_4byteasn))
 
-        bgpvacstatus = "not4byte"
         bgpvacstatus = dut_bgp_asn_update_status(duthost, bgp_speaker_4byteasn, bgp_dut_asn, request.param)
 
         logger.info("bgpvacstatus=%s"%bgpvacstatus)
@@ -382,8 +385,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
 
 
     if (Asntype=="2byte" or Asntype=="4byte"):
-        for ip in speaker_ips:
-            assert bgp_facts['bgp_neighbors'][str(speaker_ips[2].ip)]['accepted prefixes'] == 1
+        assert bgp_facts['bgp_neighbors'][str(speaker_ips[2].ip)]['accepted prefixes'] == 1
     else:
         for ip in speaker_ips:
             assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
@@ -395,9 +397,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
     assert len(rtinfo["nexthops"]) == 2
 
     if (Asntype=="2byte" or Asntype=="4byte"):
-        for i in [0,1]:
-            assert str(rtinfo["nexthops"][0][0]) in nexthops_ip_set
-            assert rtinfo["nexthops"][0][1] == unicode(vlan_if_name)
+        assert str(rtinfo["nexthops"][0][0]) in nexthops_ip_set
+        assert rtinfo["nexthops"][0][1] == unicode(vlan_if_name)
     else:
         for i in [0,1]:
             assert str(rtinfo["nexthops"][i][0]) in nexthops_ip_set
