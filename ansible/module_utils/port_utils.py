@@ -176,6 +176,17 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "et6448m":
         for i in range(0, 52):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "Nokia-IXR7250E-36x400G":
+        if asic_id is not None:
+            asic_offset = int(asic_id) * 18
+            for i in range(0, 18):
+                port_alias_to_name_map["Ethernet%d" % (asic_offset + i)] = "Ethernet%d" % ((asic_offset + i))
+                port_alias_asic_map["Eth%d-ASIC%d" % (i, int(asic_id))] = "Ethernet%d" % ((asic_offset + i))
+        else:
+            for i in range(0, 36):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == 'Nokia-IXR7250E-SUP-10':
+        port_alias_to_name_map = {}
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
