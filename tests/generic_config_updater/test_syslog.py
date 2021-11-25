@@ -7,21 +7,15 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
 
-# This is restricted by sonic-syslog.yang
-SYSLOG_MAX_SERVER=-1
-
 SYSLOG_THRESHOLD=10
 SYSLOG_INTERVAL=1
-
-@pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+# This is restricted by sonic-syslog.yang. Use '-1' to indicate no max is set
+SYSLOG_MAX_SERVER=-1
 
 @pytest.fixture(scope="module")
 def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
@@ -35,15 +29,16 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_tmpfile = generate_tmpfile(duthost)
-    logger.info("config_tmpfile {}".format(config_tmpfile))
-    logger.info("Backing up config_db.json")
+    logger.info("config_tmpfile {} Backing up config_db.json".format(config_tmpfile))
     duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
 
     # Cleanup syslog server config
     syslog_servers = cfg_facts.get('SYSLOG_SERVER', {})
     for syslog_server in syslog_servers:
-        duthost.shell("sudo config syslog del {}".format(syslog_server),
+        del_syslog_server = duthost.shell("sudo config syslog del {}".format(syslog_server),
             module_ignore_errors=True)
+        pytest_assert(not del_syslog_server['rc'],
+            "syslog server '{}' is not deleted successfully".format(syslog_server))
 
     yield
 

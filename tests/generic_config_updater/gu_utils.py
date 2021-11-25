@@ -31,12 +31,12 @@ def expect_op_success(duthost, output):
         "Please check if json file is validate"
     )
 
-def expect_op_success_and_reset_check(duthost, output, service_name, threshold, interval, delay):
-    '''Add contianer reset check after op success
-    '''
+def expect_op_success_and_reset_check(duthost, output, service_name, timeout, interval, delay):
+    """Add contianer reset check after op success
+    """
     expect_op_success(duthost, output)
     if start_limit_hit(duthost, service_name):
-        reset_start_limit_hit(duthost, service_name, threshold, interval, delay)
+        reset_start_limit_hit(duthost, service_name, timeout, interval, delay)
 
 def expect_res_success(duthost, output, expected_content_list, unexpected_content_list):
     for expected_content in expected_content_list:
@@ -73,7 +73,7 @@ def start_limit_hit(duthost, service_name):
 
     return False
 
-def reset_start_limit_hit(duthost, service_name, threshold, interval, delay):
+def reset_start_limit_hit(duthost, service_name, timeout, interval, delay):
     """Reset service if hit start-limit-hit
     """
     logger.info("Reset service '{}' due to start-limit-hit".format(service_name))
@@ -93,7 +93,7 @@ def reset_start_limit_hit(duthost, service_name, threshold, interval, delay):
     if not service_name in CONTAINER_SERVICES_LIST:
         return
 
-    reset_service = wait_until(threshold,
+    reset_service = wait_until(timeout,
                         interval,
                         delay,
                         duthost.is_service_fully_started,
