@@ -8,7 +8,7 @@ import logging
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, skip_release
 
 from log_messages import *
 
@@ -259,6 +259,26 @@ def config(request):
     """
     return request.getfixturevalue(request.param)
 
+@pytest.fixture
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is older than 202112
+    Args:
+        duthost: Hostname of DUT.
+    Returns:
+        None.
+    """
+    skip_release(duthost, ["201811", "201911", "202012", "202106"])
+
+@pytest.fixture
+def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Setup TACACS/Radius password
+    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost]['tacacs_passkey'])
+    duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost]['radius_passkey'])
+    yield
+    # Remove TACACS/Radius password
+    duthost.shell("sudo config tacacs default passkey")
+    duthost.shell("sudo config radius default passkey")
 
 def execute_command(duthost, since):
     """
@@ -422,11 +442,12 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
 
     return cmd_not_found
 
-def check_secret_removed(duthost, command):
-    res = ptfhost.shell(command)
+def check_no_result(duthost, command):
+    res = duthost.shell(command)
     logger.info(command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) == 0)
+    pytest_assert(len(res["stderr_lines"]) == 0)
 
 def test_techsupport_commands(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
@@ -464,7 +485,7 @@ def test_techsupport_commands(
     pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
 
 def test_secret_removed_from_show_techsupport(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
+    duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_image_version, setup_password
 ):
     """
     This test checks following secrets been removed from show techsupport result:
@@ -474,43 +495,52 @@ def test_secret_removed_from_show_techsupport(
         /etc/shadow, which includes the hash of local/domain users' password
         /etc/sonic/*.certs, which are Azure internal used certificates
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    tacacs_passkey = creds_all_duts[duthost]['tacacs_passkey']
+    radius_passkey = creds_all_duts[duthost]['radius_passkey']
+    snmp_rocommunity = creds_all_duts[duthost]['snmp_rocommunity']
 
     # generate a new dump file
     duthost.shell('sudo rm -rf /var/dump/sonic_dump_*')
     duthost.shell('sudo show techsupport')
-    dump_file = duthost.shell('sudo ls /var/dump/sonic_dump_* | tail -1')['stdout']
+    dump_file_path = duthost.shell('sudo ls /var/dump/sonic_dump_* | tail -1')['stdout']
+    dump_file_name = dump_file_path.replace("/var/dump/", "")
 
     # extract for next step check
-    ptfhost.shell("sudo tar -xf {0}".format(dump_file))
-    dump_extract_path="./{0}".format(dump_file.replace(".tar.gz", ""))
+    duthost.shell("sudo tar -xf {0}".format(dump_file_path))
+    dump_extract_path="./{0}".format(dump_file_name.replace(".tar.gz", ""))
     
     # check Tacacs key
-    sed_command = "sed -nE '/(secret=)([^,|\S]*)(.*)/P' {0}/etc/tacplus_nss.conf".format(dump_extract_path)
-    check_secret_removed(sed_command)
+    sed_command = "sed -nE '/secret={0}/P' {1}/etc/tacplus_nss.conf".format(tacacs_passkey, dump_extract_path)
+    check_no_result(duthost, sed_command)
 
-    sed_command = "sed -nE '/(secret=)(\S*)/P' {0}/etc/pam.d/common-auth-sonic".format(dump_extract_path)
-    check_secret_removed(sed_command)
+    sed_command = "sed -nE '/secret={0}/P' {1}/etc/pam.d/common-auth-sonic".format(radius_passkey, dump_extract_path)
+    check_no_result(duthost, sed_command)
     
     # check Radius key
-    sed_command = "sed -nE '/(secret=)([^,|\S]*)(.*)/P' {0}/etc/radius_nss.conf".format(dump_extract_path)
-    check_secret_removed(sed_command)
+    sed_command = "sed -nE '/secret={0}/P' {1}/etc/radius_nss.conf".format(radius_passkey, dump_extract_path)
+    check_no_result(duthost, sed_command)
 
-    sed_command = "sed -nE '/^([^#]\S*\s*)(\S*)/P' {0}/etc/pam_radius_auth.conf".format(dump_extract_path)
-    check_secret_removed(sed_command)
+    sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.conf".format(radius_passkey, dump_extract_path)
+    check_no_result(duthost, sed_command)
     
-    # Check radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
-    list_command = "ls {0}/etc/pam_radius_auth.d/ | grep *.conf".format(dump_extract_path)
-    config_file_list = ptfhost.shell(list_command)["stdout_lines"]
-    for config_file in config_file_list():
+    # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
+    list_command = "ls {0}/etc/pam_radius_auth.d/ | grep *.conf || true".format(dump_extract_path)
+    config_file_list = duthost.shell(list_command)["stdout_lines"]
+    for config_file in config_file_list:
         logger.info(config_file)
-        sed_command = "sed -nE '/^([^#]\S*\s*)(\S*)/P' {0}/etc/pam_radius_auth.d/{1}".format(dump_extract_path, config_file)
-        check_secret_removed(sed_command)
+        sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{1}".format(radius_passkey, dump_extract_path, config_file)
+        check_no_result(duthost, sed_command)
     
-    # check snmp community string
-    sed_command = "sed -nE '/(\s*snmp_\S*community\s*:\s*)(\S*)/P' {0}/etc/sonic/snmp.yml".format(dump_extract_path)
-    check_secret_removed(sed_command)
+    # check snmp community string not exist
+    sed_command = "sed -nE '/\s*snmp_rocommunity\s*:\s{0}/P' {1}/etc/sonic/snmp.yml".format(snmp_rocommunity, dump_extract_path)
+    check_no_result(duthost, sed_command)
     
-    # check /etc/shadow
+    # check /etc/shadow not exist
+    ls_command = "ls {0}/etc/ | grep shadow || true".format(dump_extract_path)
+    check_no_result(duthost, ls_command)
     
-    # check /etc/sonic/*.certs
+    # check /etc/sonic/*.certs not exist
+    ls_command = "ls {0}/etc/sonic/ | grep certs || true".format(dump_extract_path)
+    check_no_result(duthost, ls_command)
