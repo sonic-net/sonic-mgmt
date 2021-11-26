@@ -1,8 +1,6 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
-from collections import defaultdict
 import logging
 import time
-import ptf
 import pytest
 
 import ptf.testutils as testutils

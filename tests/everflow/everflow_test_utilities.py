@@ -6,7 +6,6 @@ import random
 import time
 import ipaddr
 import binascii
-import ptf
 import pytest
 import yaml
 
