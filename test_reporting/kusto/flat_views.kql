@@ -5,8 +5,8 @@
 {
     TestReportMetadata
     | join kind=innerunique TestReportSummary on ReportId
-    | project Timestamp, OSVersion, HardwareSku, TotalCasesRun, Successes=(TotalCasesRun - Failures - Skipped),
-              Failures, Errors, Skipped, TestbedName, TrackingId, TotalRuntime,
+    | project Timestamp, OSVersion, HardwareSku, TotalCasesRun, Successes=(TotalCasesRun - Failures - Skipped - Xfails),
+              Failures, Errors, Skipped, Xfails, TestbedName, TrackingId, TotalRuntime,
               AsicType, Platform, Topology, ReportId, UploadTimestamp
     | sort by Timestamp desc
 }

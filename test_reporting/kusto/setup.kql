@@ -55,13 +55,14 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestReportSummary (ReportId: string, TotalCasesRun: int, Failures: int,
-                                 Errors: int, Skipped: int, TotalRuntime: double)
+                                 Errors: int, Skipped: int, Xfails: int, TotalRuntime: double)
 
 .create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' '[{"column":"ReportId","Properties":{"path":"$.id"}},
                                                                                 {"column":"TotalCasesRun","Properties":{"path":"$.tests"}},
                                                                                 {"column":"Failures","Properties":{"path":"$.failures"}},
                                                                                 {"column":"Errors","Properties":{"path":"$.errors"}},
                                                                                 {"column":"Skipped","Properties":{"path":"$.skipped"}},
+                                                                                {"column":"Xfails","Properties":{"path":"$.xfails"}},
                                                                                 {"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
 
 ###############################################################################
