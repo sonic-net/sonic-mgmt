@@ -79,7 +79,11 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
     # Get max version of python.
     python_with_version = duthost.shell('ls /usr/bin/ | grep python[0-9]\\\\.[0-9]*$ | tail -1')['stdout']
-    ptfhost.shell("sed -i 's/python/{0}/g' /etc/tacacs+/tac_plus.conf".format(python_with_version))
+    ptfhost.shell("sed -i 's/python/{0}/g' /etc/tacacs+/tac_plus.conf".format(python_with_version
+
+    # Get max version of ld lib.
+    ld_with_version = duthost.shell('ls /lib/x86_64-linux-gnu/ | grep ld-[0-9\.]*\.so | tail -1')['stdout']
+    ptfhost.shell("sed -i 's/ld-version.so/{0}/g' /etc/tacacs+/tac_plus.conf".format(ld_with_version))
     
     ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
     check_all_services_status(ptfhost)
