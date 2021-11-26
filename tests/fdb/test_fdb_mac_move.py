@@ -10,7 +10,7 @@ BASE_MAC_ADDRESS = "02:11:22:{:02x}:00:00"
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 1,
-    'basic': 2,
+    'basic': 10,
     'confident': 50,
     'thorough': 100,
     'diagnose': 200
@@ -51,7 +51,7 @@ def get_fdb_dict(duthost, ptfadapter, vlan_table):
         for i in range(dummay_mac_count):
             mac_address = IntToMac(MacToInt(base_mac) + i)
             dummy_macs.append(mac_address)
-        fdb[port_index].update(dummy_macs)
+        fdb[port_index] = dummy_macs
     return fdb
 
 
