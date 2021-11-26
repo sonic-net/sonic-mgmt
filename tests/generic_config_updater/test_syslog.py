@@ -16,6 +16,9 @@ SYSLOG_THRESHOLD=10
 SYSLOG_INTERVAL=1
 # This is restricted by sonic-syslog.yang. Use '-1' to indicate no max is set
 SYSLOG_MAX_SERVER=-1
+# The max server test only support SYSLOG_MAX_SERVER that is equal or lower than 254.
+# Will modify if change in future
+SYSLOG_TEST_MAX_UPPER_LIMIT=254
 
 @pytest.fixture(scope="module")
 def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
@@ -206,8 +209,8 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
     ...
     [10.0.0.SYSLOG_MAX_SERVER]
     """
-    if SYSLOG_MAX_SERVER == -1:
-        pytest.skip("SYSLOG_MAX_SERVER is not set")
+    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
+        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
 
     syslog_servers = ["10.0.0.{}".format(i) for i in range(1, SYSLOG_MAX_SERVER+1)]
 
@@ -242,13 +245,13 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
 def test_syslog_server_tc6_exceed_max(duthost, setup_env):
     """ Exceed syslog server maximum test
     """
-    if SYSLOG_MAX_SERVER == -1:
-        pytest.skip("SYSLOG_MAX_SERVER is not set")
+    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
+        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
 
     json_patch = [
         {
             "op": "add",
-            "path": "/SYSLOG_SERVER/10.0.0.20",
+            "path": "/SYSLOG_SERVER/10.0.0.{}".format(SYSLOG_MAX_SERVER+1),
             "value": {}
         }
     ]
