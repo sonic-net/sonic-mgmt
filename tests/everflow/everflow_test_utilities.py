@@ -63,6 +63,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     # Gather test facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
+    acl_capability_facts = duthost.acl_capabilities_facts()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     # TODO: The ACL tests do something really similar, I imagine we could refactor this bit.
@@ -92,6 +93,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
          
 
     switch_capabilities = switch_capability_facts["switch_capabilities"]["switch"]
+    acl_capabilities = acl_capability_facts["acl_capabilities"]
 
     test_mirror_v4 = switch_capabilities["MIRROR"] == "true"
     test_mirror_v6 = switch_capabilities["MIRRORV6"] == "true"
@@ -105,10 +107,10 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         test_egress_mirror_on_egress_acl = False
         test_egress_mirror_on_ingress_acl = False
     else:
-        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
-        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
-        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
-        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
+        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
+        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
 
     # Collects a list of interfaces, their port number for PTF, and the LAGs they are members of,
     # if applicable.
