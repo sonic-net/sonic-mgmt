@@ -9,7 +9,6 @@ import time
 
 from ansible.module_utils.basic import *
 
-
 DOCUMENTATION = '''
 module:  announce_routes
 short_description: announce routes to exabgp processes running in PTF container
@@ -24,6 +23,14 @@ Options:
     - option-name: ptf_ip
       description: PTF container management IP address
       required: True
+      
+    - option-name: action
+      description: announce or withdraw routes
+      required: False
+      
+    - option-name: path
+      description: to figure out the path of topo_{}.yml 
+      required: False
 '''
 
 EXAMPLES = '''
@@ -51,6 +58,7 @@ TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
 
+
 def wait_for_http(host_ip, http_port, timeout=10):
     """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
     started = False
@@ -60,8 +68,9 @@ def wait_for_http(host_ip, http_port, timeout=10):
             started = True
         tries += 1
         time.sleep(1)
-    
+
     return started
+
 
 def get_topo_type(topo_name):
     pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
@@ -75,8 +84,8 @@ def get_topo_type(topo_name):
     return topo_type
 
 
-def read_topo(topo_name):
-    topo_file_path = os.path.join(TOPO_FILE_FOLDER, TOPO_FILENAME_TEMPLATE.format(topo_name))
+def read_topo(topo_name, path):
+    topo_file_path = os.path.join(path, TOPO_FILE_FOLDER, TOPO_FILENAME_TEMPLATE.format(topo_name))
     try:
         with open(topo_file_path) as f:
             return yaml.safe_load(f)
@@ -84,34 +93,37 @@ def read_topo(topo_name):
         return {}
 
 
-def announce_routes(ptf_ip, port, routes):
+def change_routes(action, ptf_ip, port, routes):
     messages = []
     for prefix, nexthop, aspath in routes:
         if aspath:
-            messages.append("announce route {} next-hop {} as-path [ {} ]".format(prefix, nexthop, aspath))
+            messages.append("{} route {} next-hop {} as-path [ {} ]".format(action, prefix, nexthop, aspath))
         else:
-            messages.append("announce route {} next-hop {}".format(prefix, nexthop))
-
+            messages.append("{} route {} next-hop {}".format(action, prefix, nexthop))
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = { "commands": ";".join(messages) }
     r = requests.post(url, data=data, timeout=90)
     assert r.status_code == 200
 
+
 # AS path from Leaf router for T0 topology
 def get_leaf_uplink_as_path(spine_asn):
     default_route_as_path = "6666 6667"
     return "{} {}".format(spine_asn, default_route_as_path)
+
 
 # AS path from Spine router for T1 topology
 def get_spine_uplink_as_path():
     default_route_as_path = "6666 6667"
     return "{}".format(default_route_as_path)
 
+
 # AS path from Core router for T2 topology
 def get_core_uplink_as_path():
     default_route_as_path = "6666 6667"
     return "{}".format(default_route_as_path)
+
 
 # Get AS path to append to uplink routers AS for routes being advertised by this uplink router.
 def get_uplink_router_as_path(uplink_router_type, spine_asn):
@@ -129,7 +141,7 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
 def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     spine_asn, leaf_asn_start, tor_asn_start, nexthop,
                     nexthop_v6, tor_subnet_size, max_tor_subnet_number, topo,
-                    router_type = "leaf", tor_index=None, set_num=None,
+                    router_type="leaf", tor_index=None, set_num=None,
                     no_default_route=False, core_ra_asn=CORE_RA_ASN):
     routes = []
     if not no_default_route and router_type != "tor":
@@ -189,9 +201,9 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     elif tor != tor_index:
                         continue
 
-                suffix = ( (podset * tor_number * max_tor_subnet_number * tor_subnet_size) + \
-                      (tor * max_tor_subnet_number * tor_subnet_size) + \
-                      (subnet * tor_subnet_size) )
+                suffix = ((podset * tor_number * max_tor_subnet_number * tor_subnet_size) + \
+                          (tor * max_tor_subnet_number * tor_subnet_size) + \
+                          (subnet * tor_subnet_size))
                 octet2 = (168 + (suffix / (256 ** 2)))
                 octet1 = (192 + (octet2 / 256))
                 octet2 = (octet2 % 256)
@@ -203,7 +215,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                 prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octet1, octet2, octet3, octet4)
 
                 leaf_asn = leaf_asn_start + podset
-                tor_asn  = tor_asn_start + tor
+                tor_asn = tor_asn_start + tor
 
                 aspath = None
                 if router_type == "core":
@@ -227,8 +239,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
     return routes
 
 
-def fib_t0(topo, ptf_ip, no_default_route=False):
-
+def fib_t0(topo, ptf_ip, no_default_route=False, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -256,12 +267,11 @@ def fib_t0(topo, ptf_ip, no_default_route=False):
                                     nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
                                     no_default_route=no_default_route)
 
-        announce_routes(ptf_ip, port, routes_v4)
-        announce_routes(ptf_ip, port6, routes_v6)
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_t1_lag(topo, ptf_ip, no_default_route=False):
-
+def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -297,14 +307,14 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False):
                                         None, leaf_asn_start, tor_asn_start,
                                         nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t1",
                                         router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
-            announce_routes(ptf_ip, port, routes_v4)
-            announce_routes(ptf_ip, port6, routes_v6)
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
 
         if 'vips' in v:
             routes_vips = []
             for prefix in v["vips"]["ipv4"]["prefixes"]:
                 routes_vips.append((prefix, nhipv4, v["vips"]["ipv4"]["asn"]))
-            announce_routes(ptf_ip, port, routes_vips)
+            change_routes(action, ptf_ip, port, routes_vips)
 
 
 """
@@ -336,8 +346,9 @@ We would have the following distribution:
    - 193.177.xx.xx - 194.55.xx.xx (4K routes) from all 24 T3 VM's on linecard1 (VM1-VM24)
    - default route from all 24 T3 VM's on linecard1 (VM1-VM24)
 """
-def fib_t2_lag(topo, ptf_ip):
 
+
+def fib_t2_lag(topo, ptf_ip, action="announce"):
     vms = topo['topology']['VMs']
     # T1 VMs per linecard(asic) - key is the dut index, and value is a list of T1 VMs
     t1_vms = {}
@@ -356,10 +367,11 @@ def fib_t2_lag(topo, ptf_ip):
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
-    generate_t2_routes(t1_vms, topo, ptf_ip)
-    generate_t2_routes(t3_vms, topo, ptf_ip)
+    generate_t2_routes(t1_vms, topo, ptf_ip, action="announce")
+    generate_t2_routes(t3_vms, topo, ptf_ip, action="announce")
 
-def generate_t2_routes(dut_vm_dict, topo, ptf_ip):
+
+def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
@@ -413,29 +425,32 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip):
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
                                             router_type=router_type, tor_index=tor_index, set_num=set_num,
                                             core_ra_asn=core_ra_asn)
-                announce_routes(ptf_ip, port, routes_v4)
-                announce_routes(ptf_ip, port6, routes_v6)
+                change_routes(action, ptf_ip, port, routes_v4)
+                change_routes(action, ptf_ip, port6, routes_v6)
 
                 if 'vips' in vms_config[a_vm]:
                     routes_vips = []
                     for prefix in vms_config[a_vm]["vips"]["ipv4"]["prefixes"]:
                         routes_vips.append((prefix, nhipv4, vms_config[a_vm]["vips"]["ipv4"]["asn"]))
-                    announce_routes(ptf_ip, port, routes_vips)
+                    change_routes(action, ptf_ip, port, routes_vips)
 
 
 def main():
-
     module = AnsibleModule(
         argument_spec=dict(
             topo_name=dict(required=True, type='str'),
-            ptf_ip=dict(required=True, type='str')
+            ptf_ip=dict(required=True, type='str'),
+            action=dict(required=False, type='str', default='announce', choices=["announce", "withdraw"]),
+            path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
 
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
+    action = module.params['action']
+    path = module.params['path']
 
-    topo = read_topo(topo_name)
+    topo = read_topo(topo_name, path)
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
 
@@ -445,19 +460,19 @@ def main():
 
     try:
         if topo_type == "t0":
-            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend)
+            fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1":
-            fib_t1_lag(topo, ptf_ip, no_default_route=is_storage_backend)
+            fib_t1_lag(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t2":
-            fib_t2_lag(topo, ptf_ip)
+            fib_t2_lag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         else:
             module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
     except Exception as e:
-        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}'\
-            .format(topo_name, topo_type, repr(e)))
+        module.fail_json(msg='Announcing routes failed, topo_name={}, topo_type={}, exception={}' \
+                         .format(topo_name, topo_type, repr(e)))
 
 
 if __name__ == '__main__':
