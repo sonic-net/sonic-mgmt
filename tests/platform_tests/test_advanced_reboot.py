@@ -124,8 +124,7 @@ def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -162,8 +161,7 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health,
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -184,8 +182,7 @@ def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot, verify_dut_h
     ]
 
     advancedReboot.runRebootTestcase(
-        inbootList=inbootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        inbootList=inbootList
     )
 
 
@@ -204,8 +201,7 @@ def test_warm_reboot_sad_bgp(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -236,8 +232,7 @@ def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_hea
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -256,8 +251,7 @@ def test_warm_reboot_sad_lag(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -276,6 +270,5 @@ def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot, verify_dut_heal
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
