@@ -11,6 +11,7 @@ import pytest
 @pytest.mark.parametrize('convergence_test_iterations', [1])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
+@pytest.mark.parametrize('port_speed',['speed_100_gbps'])
 def test_rib_in_convergence(cvg_api,
                             duthost,
                             tgen_ports,
@@ -19,7 +20,8 @@ def test_rib_in_convergence(cvg_api,
                             multipath,
                             convergence_test_iterations,
                             number_of_routes,
-                            route_type,):
+                            route_type,
+                            port_speed,):
 
     """
     Topo:
@@ -50,6 +52,7 @@ def test_rib_in_convergence(cvg_api,
         convergence_test_iterations: number of iterations the link failure test has to be run for a port
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     #convergence_test_iterations, multipath, number_of_routes and route_type parameters can be modified as per user preference
     run_rib_in_convergence_test(cvg_api,
@@ -58,4 +61,5 @@ def test_rib_in_convergence(cvg_api,
                                 convergence_test_iterations,
                                 multipath,
                                 number_of_routes,
-                                route_type,)
+                                route_type,
+                                port_speed,)

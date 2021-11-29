@@ -5,7 +5,8 @@ import json
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
-TIMEOUT = 40
+DUT_AS_NUM = 65100
+TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
 
@@ -15,7 +16,8 @@ def run_bgp_local_link_failover_test(cvg_api,
                                      iteration,
                                      multipath,
                                      number_of_routes,
-                                     route_type,):
+                                     route_type,
+                                     port_speed,):
     """
     Run Local link failover test
 
@@ -27,19 +29,22 @@ def run_bgp_local_link_failover_test(cvg_api,
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,)
+                       port_count,
+                       route_type,)
 
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,)
+                                        route_type,
+                                        port_speed,)
 
     """
         Run the convergence test by flapping all the rx
@@ -62,7 +67,8 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                       iteration,
                                       multipath,
                                       number_of_routes,
-                                      route_type,):
+                                      route_type,
+                                      port_speed,):
     """
     Run Remote link failover test
 
@@ -73,18 +79,21 @@ def run_bgp_remote_link_failover_test(cvg_api,
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,)
+                       port_count,
+                       route_type,)
 
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,)
+                                        route_type,
+                                        port_speed,)
 
     """
         Run the convergence test by withdrawing all the route ranges
@@ -108,7 +117,8 @@ def run_rib_in_convergence_test(cvg_api,
                                 iteration,
                                 multipath,
                                 number_of_routes,
-                                route_type,):
+                                route_type,
+                                port_speed,):
     """
     Run RIB-IN Convergence test
 
@@ -120,19 +130,22 @@ def run_rib_in_convergence_test(cvg_api,
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,)
+                       port_count,
+                       route_type,)
 
     """  Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,) 
+                                        route_type,
+                                        port_speed,) 
 
     """
         Run the convergence test by withdrawing all routes at once and
@@ -165,15 +178,17 @@ def run_RIB_IN_capacity_test(cvg_api,
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
-        start_value:
-        step_value:
+        start_value: start value of number of routes
+        step_value: step value of routes to be incremented at every iteration
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
     duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,)
+                       port_count,
+                       route_type,)
 
 
     """ Run the RIB-IN capacity test by increasig the route count step by step """
@@ -181,7 +196,8 @@ def run_RIB_IN_capacity_test(cvg_api,
                         multipath,
                         start_value,
                         step_value,
-                        route_type,)
+                        route_type,
+                        port_speed,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
@@ -189,7 +205,8 @@ def run_RIB_IN_capacity_test(cvg_api,
 
 def duthost_bgp_config(duthost,
                        tgen_ports,
-                       port_count,):
+                       port_count,
+                       route_type,):
     """
     Configures BGP on the DUT with N-1 ecmp
 
@@ -198,6 +215,7 @@ def duthost_bgp_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count:multipath + 1
         multipath: ECMP value for BGP config
+        route_type: IPv4 or IPv6 routes
     """
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
@@ -222,31 +240,52 @@ def duthost_bgp_config(duthost,
         portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
         logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
         duthost.shell(portchannel_config)
-    logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = dict()
-    for i in range(1, port_count):
-        bgp_neighbors[tgen_ports[i]['ipv6']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[i]['peer_ipv6'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
-        bgp_neighbors[tgen_ports[i]['ip']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[i]['peer_ip'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
-
-    cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    logger.info(cdf)
-    for neighbor, neighbor_info in bgp_neighbors.items():
-        cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
-    cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
-    with open("/tmp/sconfig_db.json", 'w') as fp:
-        json.dump(cdf, fp, indent=4)
-    duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
-    cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
-    duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json","/etc/sonic/config_db.json"))
-    logger.info('Reloading config to apply BGP config')
-    duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT,"For Config to reload \n")
+    bgp_config = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp %s' "
+        "-c 'no bgp ebgp-requires-policy' "
+        "-c 'bgp bestpath as-path multipath-relax' "
+        "-c 'maximum-paths %s' "
+        "-c 'exit' "
+    )
+    bgp_config %= (DUT_AS_NUM, port_count-1)
+    duthost.shell(bgp_config)
+    if route_type == 'IPv4':
+        for i in range(1, port_count):
+            bgp_config_neighbor = (
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'router bgp %s' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv4 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'exit' "
+            )
+            bgp_config_neighbor %= (DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'])
+            logger.info('Configuring BGP v4 Neighbor %s' % tgen_ports[i]['ip'])
+            duthost.shell(bgp_config_neighbor)
+    else:
+        for i in range(1, port_count):
+            bgp_config_neighbor = (
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'router bgp %s' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv6 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'exit' "
+            )
+            bgp_config_neighbor %= (DUT_AS_NUM, tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
+            logger.info('Configuring BGP v6 Neighbor %s' % tgen_ports[i]['ipv6'])
+            duthost.shell(bgp_config_neighbor)
 
 
 def __tgen_bgp_config(cvg_api,
                       port_count,
                       number_of_routes,
-                      route_type,):
+                      route_type,
+                      port_speed,):
     """
     Creating  BGP config on TGEN
 
@@ -255,6 +294,7 @@ def __tgen_bgp_config(cvg_api,
         port_count: multipath + 1
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
     """
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
@@ -280,7 +320,7 @@ def __tgen_bgp_config(cvg_api,
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = True
     layer1.auto_negotiation.link_training = False
-    layer1.speed = "speed_100_gbps"
+    layer1.speed = port_speed
     layer1.auto_negotiate = False
 
     def create_v4_topo():
@@ -636,7 +676,8 @@ def get_RIB_IN_capacity(cvg_api,
                         multipath,
                         start_value,
                         step_value,
-                        route_type,):
+                        route_type,
+                        port_speed,):
     """
     Args:
         cvg_api (pytest fixture): snappi API
@@ -645,7 +686,7 @@ def get_RIB_IN_capacity(cvg_api,
         start_value:  Start value of the number of BGP routes
         step_value: Step value of the number of BGP routes to be incremented
         route_type: IPv4 or IPv6 routes
-
+        port_speed: speed of the port used in test
     """
     def tgen_capacity(routes):
         conv_config = cvg_api.convergence_config()
@@ -673,7 +714,7 @@ def get_RIB_IN_capacity(cvg_api,
         layer1.ieee_media_defaults = False
         layer1.auto_negotiation.rs_fec = True
         layer1.auto_negotiation.link_training = False
-        layer1.speed = "speed_100_gbps"
+        layer1.speed = port_speed
         layer1.auto_negotiate = False
 
         def create_v4_topo():
