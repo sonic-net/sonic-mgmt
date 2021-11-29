@@ -13,7 +13,7 @@ import re
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
