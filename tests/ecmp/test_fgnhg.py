@@ -26,6 +26,9 @@ USE_INNER_HASHING = False
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
 
+VXLAN_PORT = 13330
+DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
+
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.asic('mellanox'),
@@ -166,7 +169,8 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
             "dut_mac": router_mac,
             "net_ports": net_ports,
             "inner_hashing": USE_INNER_HASHING,
-            "num_flows": NUM_FLOWS 
+            "num_flows": NUM_FLOWS,
+            "vxlan_port": VXLAN_PORT
     }
 
     logger.info("fg_ecmp config sent to PTF: " + str(fg_ecmp))
@@ -180,6 +184,21 @@ def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_i
     time.sleep(60)
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports)
     return port_list, ip_to_port, bank_0_port, bank_1_port
+
+
+def configure_switch_vxlan_cfg(duthost):
+    vxlan_switch_config = [{
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": VXLAN_PORT
+        },
+        "OP": "SET"
+    }]
+
+    logger.info("Copying vxlan.switch.json with data: " + str(vxlan_switch_config))
+
+    duthost.copy(content=json.dumps(vxlan_switch_config, indent=4), dest=DUT_VXLAN_PORT_JSON_FILE)
+    duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON_FILE))
+    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
 
 
 def configure_dut(duthost, cmd):
@@ -575,6 +594,9 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         for name, val in mg_facts['minigraph_portchannels'].items():
             members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
+        if USE_INNER_HASHING is True:
+            configure_switch_vxlan_cfg(duthost)
+
         yield duthost, cfg_facts, router_mac, net_ports 
 
     finally:
