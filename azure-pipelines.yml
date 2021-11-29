@@ -1,62 +1,61 @@
-name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
 
-trigger: none
-pr: none
+pr:
+- master
 
-schedules:
-  - cron: "0 4 2-30/2 * 0-5"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
-variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
-
-parameters:
-  - name: TESTBED_NAME
-    type: string
-    default: vms24-t0-3800-azd
-    displayName: "Testbed Name"
-
-    # Upgrade parameters
-  - name: IMAGE_URL
-    type: string
-    default: " "
-    displayName: "Image URL"
-
-  # Test Parameters
-  - name: PY_SAITHRIFT_URL
-    type: string
-    default: " "
-    displayName: "py_saithrift URL"
-
-
-  # Testbed specific, to skip and/or include directories
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-I "platform_tests"'
-    displayName: Testbed specific
-
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "platform_tests/test_reboot.py::test_fast_reboot, \
-              platform_tests/test_advanced_reboot.py::test_fast_reboot, \
-              platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"
-
-  - name: NIGHTLY_TEST_TIMEOUT
-    type: number
-    default: 1380    # minutes, totally 23 hours
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-  - template: ../templates/nightly_test.yml
-    parameters:
-      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+- stage: Test
 
+  variables:
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.csv
+
+  jobs:
+  - job:
+    pool: sonictest
+    displayName: "kvmtest-t0"
+    timeoutInMinutes: 330
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0
+        vmtype: ceos
+
+  - job:
+    pool: sonictest-t1-lag
+    displayName: "kvmtest-t1-lag"
+    timeoutInMinutes: 240
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-03
+        tbname: vms-kvm-t1-lag
+        ptf_name: ptf_vms6-2
+        tbtype: t1-lag
+        vmtype: ceos
+
+  - job:
+    pool: sonictest-sonic-t0
+    displayName: "kvmtest-t0-sonic"
+    timeoutInMinutes: 240
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0-sonic
+        vmtype: vsonic
