@@ -438,5 +438,41 @@ class TestSubPorts(object):
                                             ip_dst=sub_ports[sub_port]['neighbor_ip'],
                                             ip_tunnel=sub_ports[src_port]['ip'],
                                             pkt_action='fwd',
-                                            type_of_traffic=['decap',],
+                                            type_of_traffic='decap',
                                             ttl=63)
+
+
+    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter, apply_balancing_config):
+        """
+        Validates load-balancing when sub-port is part of ECMP
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Setup static routes to the network by different sub-ports on the DUT.
+            4.) Create packets with different source ip addresses.
+            5.) Send packets.
+            6.) Verify that sub-port gets received packets on the PTF.
+            7.) Verify load-balancing by using number of packets on different sub-ports.
+            8.) Remove static routes from DUT.
+            9.) Clear configuration of sub-ports on the DUT.
+            10.) Clear configuration of sub-ports on the PTF.
+        Pass Criteria:
+            1.) PTF sub-ports get received packet.
+            2.) Balancing range between sub-ports is less than 25%.
+        """
+        new_sub_ports = apply_balancing_config['new_sub_ports']
+        sub_ports = apply_balancing_config['sub_ports']
+        src_ports = apply_balancing_config['src_ports']
+        src_port = random.choice(src_ports)
+
+        for ports, subnet in new_sub_ports:
+            ip_dst = [str(ip) for ip in subnet.hosts()][0]
+            dst_ports = [sub_ports[sub_port]['neighbor_port'] for sub_port in ports]
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfhost=ptfhost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=src_port,
+                                        dst_port=dst_ports,
+                                        ip_dst=ip_dst,
+                                        type_of_traffic='balancing',
+                                        ttl=63)

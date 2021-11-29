@@ -1,6 +1,6 @@
 # Sub-port interfaces Test Plan
 
-## Rev 0.3
+## Rev 0.6
 
 - [Revision](#revision)
 - [Overview](#overview)
@@ -17,6 +17,7 @@
   - [test_routing_between_sub_ports](#Test-case-test_routing_between_sub_ports)
   - [test_routing_between_sub_ports_and_port](#Test-case-test_routing_between_sub_ports_and_port)
   - [test_tunneling_between_sub_ports](#Test-case-test_tunneling_between_sub_ports)
+  - [test_balancing_sub_ports](#Test-case-test_balancing_sub_ports)
 
 ## Revision
 
@@ -27,6 +28,7 @@
 | 0.3 |  03/18/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 | 0.4 |  06/09/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 | 0.5 |  07/12/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
+| 0.6 |  10/22/2021 | Intel: Oleksandr Kozodoi |          New test cases           |
 
 
 ## Overview
@@ -498,5 +500,58 @@ Example the customized testbed with applied T0 topo for test_tunneling_between_s
 - Clear configuration of sub-ports on the PTF.
 
 ### Test teardown
+- reload_dut_config function: reload DUT configuration
+- reload_ptf_config function: remove all sub-ports configuration
+
+## Test case test_balancing_sub_ports
+
+### Test objective
+
+Validates load-balancing when sub-port is part of ECMP
+
+### Test set up
+- apply_config_on_the_dut fixture(scope="function"): enable and configures sub-port interfaces on the DUT
+- apply_config_on_the_ptf fixture(scope="function"): enable and configures sub-port interfaces on the PTF
+- apply_balancing_config fixture(scope="function"): setup balancing configuration on the DUT
+
+Example the customized testbed with applied T0 topo for test_balancing_sub_ports test case:
+```
+              VM    VM    VM    VM
+              []    []    []    []
+       _______[]____[]____[]____[]________________
+  ╔═══|══════════════════════╦════╦════╦════╗     |
+  ║   |   _________    DUT  _║____║____║____║__   |
+  ║   |  [Ethernet4]       [ ║  Ethernet8   ║  ]  |
+  ║   |__[_________]_______[.10__.20__.30__.40_]__|
+  ║      [         ]       [ ║|   ║|   ║|   ║| ]
+  ║      [         ]       [ ║|   ║|   ║|   ║| ]
+  ║      [         ]       [ ║|   ║|   ║|   ║| ]
+  ║    __[_________]_______[_║|___║|___║|___║|_]__
+  ║   |  [         ]       [.10  .20  .30  .40 ]  |
+  ╚═══|═>[__eth1___]       [_║____║eth2║____║__]  |
+      |                      ║    ║    ║    ║     |
+      |                PTF   ║    ║    ║    ║     |
+      |                      ║    ║    ║    ║     |
+      |______________________║____║____║____║_____|
+                             ║    ║    ║    ║
+                             ║    ║    ║    ║
+                             V    V    V    V
+                           ┌──────────────────┐
+                           │    1.1.1.0/30    │
+                           └──────────────────┘
+```
+### Test steps
+- Setup configuration of sub-ports on the DUT.
+- Setup configuration of sub-ports on the PTF.
+- Setup static routes to the network by different sub-ports on the DUT.
+- Create packets with different source ip addresses.
+- Send packets.
+- Verify that sub-port gets received packets on the PTF.
+- Verify load-balancing by using number of packets on different sub-ports.
+- Remove static routes from DUT.
+- Clear configuration of sub-ports on the DUT.
+- Clear configuration of sub-ports on the PTF.
+### Test teardown
+
 - reload_dut_config function: reload DUT configuration
 - reload_ptf_config function: remove all sub-ports configuration
