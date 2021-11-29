@@ -7,5 +7,6 @@
     # Private graph files
     - starlab_connection_graph.xml
     - spytest_connection_graph.xml
+    - str3test_connection_graph.xml
     - svctest_connection_graph.xml
     - ixia_connection_graph.xml

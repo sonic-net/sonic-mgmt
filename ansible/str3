@@ -1,0 +1,32 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+        acs-repo.corp.microsoft.com:
+    str3:
+      children:
+        sonic:
+        fanout:
+        server:
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+
+    pdu:
+      hosts:
+        pdu-118:
+          ansible_host: 10.3.155.118
+          protocol: snmp
+        pdu-122:
+          ansible_host: 10.3.155.122
+          protocol: snmp
+        pdu-123:
+          ansible_host: 10.3.155.123
+          protocol: snmp
+
+server:
+  hosts:
+    str3-acs-serv-61:
+      ansible_host: 10.64.246.96

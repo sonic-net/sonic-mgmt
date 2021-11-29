@@ -1,0 +1,10 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+    </Devices>
+    <DeviceInterfaceLinks>    
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+  </DataPlaneGraph>
+</LabConnectionGraph>

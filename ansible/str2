@@ -1049,8 +1049,6 @@ server:
   hosts:
     str2-acs-serv-16:
       ansible_host: 10.64.246.95
-    str2-acs-serv-17:
-      ansible_host: 10.64.246.96
     str2-acs-serv-18:
       ansible_host: 10.64.246.97
     str2-acs-serv-19:

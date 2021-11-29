@@ -169,7 +169,6 @@ pdu-123,1,str2-8102-04,PSU2
 pdu-120,36,str2-dx010-acs-2,PSU1
 pdu-119,36,str2-dx010-acs-2,PSU2
 pdu-117,7,str2-acs-serv-16,PSU1
-pdu-118,9,str2-acs-serv-17,PSU1
 pdu-117,12,str2-acs-serv-18,PSU1
 pdu-117,14,str2-acs-serv-19,PSU1
 pdu-118,17,str2-acs-serv-20,PSU1

@@ -1,0 +1,7 @@
+Hostname,ManagementIp,HwSku,Type,Protocol
+str3-7260cx3-acs-root03,10.3.147.69/23,Arista-7260CX3-64,FanoutRoot,
+str3-acs-serv-61,10.64.246.96/23,TestServ,Server,
+pdu-118,10.3.155.118,Sentry,Pdu,snmp
+pdu-122,10.3.155.122,Sentry,Pdu,snmp
+pdu-123,10.3.155.123,Sentry,Pdu,snmp
+console-197,10.3.145.197,Cisco,ConsoleServer,ssh

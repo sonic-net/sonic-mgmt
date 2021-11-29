@@ -1,0 +1,2 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
+str3-7260cx3-acs-root03,Ethernet1/1,str3-acs-serv-61,enp59s0f1,100000,,Trunk

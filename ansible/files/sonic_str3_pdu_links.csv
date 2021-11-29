@@ -1,0 +1,4 @@
+StartDevice,StartPort,EndDevice,EndPort
+pdu-122,44,str3-7260cx3-acs-root03,PSU1
+pdu-123,44,str3-7260cx3-acs-root03,PSU2
+pdu-118,9,str3-acs-serv-61,PSU1

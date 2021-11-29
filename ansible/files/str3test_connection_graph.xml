@@ -1,0 +1,39 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="str3-7260cx3-acs-root03" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
+      <Device Hostname="str3-acs-serv-61" HwSku="TestServ" Type="Server"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-61" EndPort="enp59s0f1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet1/1"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="str3-7260cx3-acs-root03">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.69/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-7260cx3-acs-root03">
+      <InterfaceVlan mode="Trunk" portname="Ethernet1/1" vlanids=""/>
+    </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-acs-serv-61">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.96/23"/>
+    </DevicesL3Info>
+  </DataPlaneGraph>
+  <ConsoleGraphDeclaration>
+    <DevicesConsoleInfo>
+      <DeviceConsoleInfo Hostname="console-197" HwSku="Cisco" ManagementIp="10.3.145.197" Protocol="ssh" Type="ConsoleServer"/>
+    </DevicesConsoleInfo>
+  </ConsoleGraphDeclaration>
+  <PowerControlGraphDeclaration>
+    <DevicesPowerControlInfo>
+      <DevicePowerControlInfo Hostname="pdu-118" HwSku="Sentry" ManagementIp="10.3.155.118" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry" ManagementIp="10.3.155.123" Protocol="snmp" Type="Pdu"/>
+    </DevicesPowerControlInfo>
+    <PowerControlLinksInfo>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU1" StartDevice="pdu-122" StartPort="44"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU2" StartDevice="pdu-123" StartPort="44"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-61" EndPort="PSU1" StartDevice="pdu-118" StartPort="9"/>
+    </PowerControlLinksInfo>
+  </PowerControlGraphDeclaration>
+</LabConnectionGraph>
