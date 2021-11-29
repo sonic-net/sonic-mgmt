@@ -1,0 +1,112 @@
+trigger: none
+pr: none
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  displayName: "Testbed Name"
+
+- name: UPGRADE_TYPE
+  type: string
+  displayName: "Type of upgrade"
+  default: warm
+  values:
+  - warm
+  - fast
+  - cold
+  - warm,fast
+  - warm,fast,cold
+
+- name: METADATA_UPGRADE_PATH
+  default: true
+  type: boolean
+
+- name: TEST_TCAM_HOLE
+  default: false
+  type: boolean
+
+- name: FROM_IMAGE_LIST
+  type: string
+  displayName: "All base image numbers (space separated)"
+- name: FROM_IMAGE_URL
+  displayName: "Base image location"
+  type: string
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_PUBLIC)
+
+- name: TO_IMAGE_LIST
+  type: string
+  displayName: "All target image numbers (space separated)"
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_PUBLIC)
+
+stages:
+- stage: SONiCMetadataPreTest
+  jobs:
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Unit Test"
+    timeoutInMinutes: 100
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_unit_test.yml
+
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Linter Test"
+    timeoutInMinutes: 100
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_linter.yml
+
+- template: metadata_upgrade_template.yml
+  parameters:
+    TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+    UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+    FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+    FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+    TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+    TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}

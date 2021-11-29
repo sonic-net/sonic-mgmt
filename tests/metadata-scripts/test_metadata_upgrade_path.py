@@ -36,6 +36,23 @@ def upgrade_path_lists(request, upgrade_type_params):
         pytest.skip("base_image_list or target_image_list is empty")
     return upgrade_type_params, from_list, to_list, restore_to_image
 
+
+@pytest.fixture
+def skip_cancelled_case(request, upgrade_type_params):
+    if "test_cancelled_upgrade_path" in request.node.name\
+        and upgrade_type_params not in ["warm", "fast"]:
+        pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
+
+
+def pytest_generate_tests(metafunc):
+  upgrade_types = metafunc.config.getoption("upgrade_type")
+  upgrade_types = upgrade_types.split(",")
+
+  if "upgrade_type_params" in metafunc.fixturenames:
+      params = upgrade_types
+      metafunc.parametrize("upgrade_type_params", params, scope="module")
+
+
 @pytest.fixture
 def skip_cancelled_case(request, upgrade_type_params):
     if "test_cancelled_upgrade_path" in request.node.name\

@@ -68,7 +68,6 @@ steps:
       echo =================== Upgrading from $from_image =====================
       for to_image in $TO_IMAGE_LIST; do
         echo ======== Upgrading to $to_image ========
-        echo ==== TYPE $type ====
         from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
         to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
         if [[ $from_image == *"latest"* ]]; then
@@ -101,7 +100,6 @@ steps:
     fi
   env:
     INVENTORY_NAME: $(INVENTORY_NAME)
-
   displayName: UpgradeSonic
 - script: |
     sleep 180
