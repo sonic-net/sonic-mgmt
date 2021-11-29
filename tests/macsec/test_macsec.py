@@ -1,10 +1,12 @@
 from tests.common.helpers.assertions import pytest_assert
+
 import logging
 import time
 import ast
 import struct
 import re
 import binascii
+import sys
 
 import pytest
 import ptf.testutils as testutils
@@ -91,7 +93,7 @@ def setup(duthost, ctrl_links, unctrl_links, profile_name, default_priority, cip
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy)
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
-    time.sleep(60)
+    time.sleep(300)
     yield
     if request.session.testsfailed > 0:
         return
@@ -448,40 +450,40 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     pytest.fail(fail_message)
 
 
-class TestDataPlane():
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        down_port, down_link = downstream_links.items()[0]
-        for ctrl_port in ctrl_links.keys():
-            up_link = upstream_links[ctrl_port]
-            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-            payload = "{} -> {}".format(down_link["name"], up_link["name"])
-            logging.info(payload)
-            pkt = create_pkt(
-                dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
-            exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt)
-            nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-            testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
-            macsec_attr = get_macsec_attr(duthost, ctrl_port)
-            check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
-                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
+# class TestDataPlane():
+#     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+#         down_port, down_link = downstream_links.items()[0]
+#         for ctrl_port in ctrl_links.keys():
+#             up_link = upstream_links[ctrl_port]
+#             dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+#             payload = "{} -> {}".format(down_link["name"], up_link["name"])
+#             logging.info(payload)
+#             pkt = create_pkt(
+#                 dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+#             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+#             testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt)
+#             nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+#             testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+#                 nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
+#             macsec_attr = get_macsec_attr(duthost, ctrl_port)
+#             check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
+#                              ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        for ctrl_port in ctrl_links.keys():
-            for up_port, up_link in upstream_links.items():
-                if up_port == ctrl_port:
-                    continue
-                ctrl_link = upstream_links[ctrl_port]
-                dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-                payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
-                logging.info(payload)
-                pkt = create_pkt(
-                    dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
-                nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-                testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt)
-                exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-                nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
-                testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                    nbr_device_numbers[up_link["name"]], nbr_up_port_id))
+#     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+#         for ctrl_port in ctrl_links.keys():
+#             for up_port, up_link in upstream_links.items():
+#                 if up_port == ctrl_port:
+#                     continue
+#                 ctrl_link = upstream_links[ctrl_port]
+#                 dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+#                 payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
+#                 logging.info(payload)
+#                 pkt = create_pkt(
+#                     dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
+#                 nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+#                 testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt)
+#                 exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+#                 nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
+#                 testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+#                     nbr_device_numbers[up_link["name"]], nbr_up_port_id))
 
