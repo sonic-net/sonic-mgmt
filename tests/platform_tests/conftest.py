@@ -330,7 +330,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
     duthost = duthosts[rand_one_dut_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "warm" in test_name or\
+        ("continuous" in test_name and request.config.getoption("--reboot_type") == "warm"):
         reboot_type = "warm"
     elif "fast" in test_name:
         reboot_type = "fast"

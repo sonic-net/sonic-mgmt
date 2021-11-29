@@ -326,7 +326,7 @@ class ContinuousReboot:
 
 
 @pytest.mark.device_type('vs')
-def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds, advanceboot_loganalyzer):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
