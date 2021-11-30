@@ -352,7 +352,7 @@ stages:
                     mv $reboot_result $result_target || true
                 done
 
-                report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
+                report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
             condition: always()
