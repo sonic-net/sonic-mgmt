@@ -322,7 +322,7 @@ The below example diagram shows VLAN interfaces created for two testbeds. Each o
 
 After the VLAN interfaces are created, the playbook will run other steps to create PTF docker and bind them together.
 
-Below is the diagram of of a bond t0 topology. Here the t0 topology means topology variation **t0**, not the general T0 topology type. Other t0 variations have different number of DUT ports or number of VMs.
+Below is the diagram of a bond t0 topology. Here the t0 topology means topology variation **t0**, not the general T0 topology type. Other t0 variations have different number of DUT ports or number of VMs.
 
 ![](./img/testbed-t0-internal.png)
 
