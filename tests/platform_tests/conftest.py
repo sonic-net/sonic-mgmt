@@ -389,7 +389,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         result_summary = get_report_summary(analyze_result, reboot_type)
         logging.info(json.dumps(analyze_result, indent=4))
         logging.info(json.dumps(result_summary, indent=4))
-        if not isinstance(reboot_oper, str):
+        if reboot_oper and not isinstance(reboot_oper, str):
             reboot_oper = type(reboot_oper).__name__
         if reboot_oper:
             report_file_name = request.node.name + "_" + reboot_oper + "_report.json"
