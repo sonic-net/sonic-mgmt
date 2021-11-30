@@ -85,7 +85,8 @@ stages:
 - stage: SONiCMetadataPreTest
   jobs:
   - job:
-    pool: nightly
+    pool: nightly2
+    container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
     displayName: "SONiC Metadata Unit Test"
     timeoutInMinutes: 100
     steps:
@@ -94,7 +95,8 @@ stages:
     - template: step_metadata_unit_test.yml
 
   - job:
-    pool: nightly
+    pool: nightly2
+    container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
     displayName: "SONiC Metadata Linter Test"
     timeoutInMinutes: 100
     steps:

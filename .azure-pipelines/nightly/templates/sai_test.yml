@@ -6,7 +6,7 @@ parameters:
     type: string
     default: v1.7
     displayName: "SAI Branch Name"
-  
+
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
@@ -39,12 +39,12 @@ parameters:
     displayName: "Lock Testbed"
     type: boolean
     default: true
-  
+
   - name: UPDATE_IMAGE
     displayName: "Update Image"
     type: boolean
     default: false
-  
+
   - name: CHANGE_TOPO
     displayName: "Deploy non-topo"
     type: boolean
@@ -54,7 +54,7 @@ parameters:
     displayName: "Recover Topo"
     type: boolean
     default: true
-  
+
   - name: RUN_TEST
     displayName: "Run Test"
     type: boolean
@@ -64,7 +64,7 @@ parameters:
   - name: PY_SAITHRIFT_URL
     type: string
     default: ""
-  
+
   - name: TESTBED_LOCK_HOUR
     type: string
     default: "6"
@@ -96,7 +96,7 @@ parameters:
   - name: SAI_TESTREPORT_PATH
     type: string
     default: "tests/sai_qualify/reports"
-  
+
   #SAI test report path, relative to SAI_REPO_PATH
   - name: SAI_TEST_PATH
     type: string
@@ -111,19 +111,20 @@ parameters:
   - name: SAI_TEST_ENDPOINT
     type: string
     default: "tests"
-  
+
   - name: SAI_PYTEST_ENDPOINT
     type: string
     default: sai_qualify/sai_infra.py::test_sai_from_ptf
 
-  
+
 stages:
 
   - stage: Test
     jobs:
 
       - job: SAITest
-        pool: nightly
+        pool: nightly2
+        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
         timeoutInMinutes: ${{ parameters.SAI_TEST_TIMEOUT }}
         variables:
           - group: TBSHARE_SECRETS
@@ -245,7 +246,7 @@ stages:
                 set -x
 
                 python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
-              
+
                 cat ./ansible/testbed_sai.yaml
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -262,7 +263,7 @@ stages:
                 set -x
 
                 cd ansible
-                ./testbed-cli.sh -t $SAI_TESTBED_FILE add-topo $TESTBED_NAME password.txt 
+                ./testbed-cli.sh -t $SAI_TESTBED_FILE add-topo $TESTBED_NAME password.txt
                 sleep 60
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -337,7 +338,7 @@ stages:
                 fi
 
                 BASE_PATH=`pwd`
-                LOG_LEVEL=info    
+                LOG_LEVEL=info
 
                 INVT=$BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos
                 MPATH=$BASE_PATH/ansible
@@ -352,7 +353,7 @@ stages:
                 --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
                 --py_saithrift_url=${PY_SAITHRIFT_URL} \
                 ${CONFIG_PARAMS}"
-                
+
 
                 rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
                 mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
@@ -389,8 +390,8 @@ stages:
                 tar -zxvf result.tar.gz
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)                
-  
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+
 
           - task: PythonScript@0
             displayName: Publish SAI test results and generate builder id
@@ -402,13 +403,13 @@ stages:
                 import os, imp, sys, datetime
 
                 sai_test_report_path = '{}/{}'.format(os.environ.get('BASH_WORKING_FOLDER'), os.environ.get('SAI_TESTREPORT_PATH'))
-                
+
                 for filename in os.listdir(sai_test_report_path):
-                  if filename.endswith(".xml"): 
-                      print('##vso[results.publish type=JUnit;mergeResults=false;publishRunAttachments=true;resultFiles={}/{};failTaskOnFailedTests=false;]'.format(sai_test_report_path, filename))    
+                  if filename.endswith(".xml"):
+                      print('##vso[results.publish type=JUnit;mergeResults=false;publishRunAttachments=true;resultFiles={}/{};failTaskOnFailedTests=false;]'.format(sai_test_report_path, filename))
                       continue
                   else:
-                      continue    
+                      continue
 
                 timestamp = datetime.datetime.now().strftime("%Y%m%d")
                 # TODO: Getting info should not depend on AZP, later this logging command will be removed
@@ -424,7 +425,7 @@ stages:
 
                 print("##vso[build.updatebuildnumber]{0}".format(builder_id))
             env:
-              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}   
+              SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               OS_VERSION: ${{ variables.OS_VERSION }}
@@ -495,7 +496,7 @@ stages:
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
             condition:  and(always(), ${{ parameters.LOCK_TESTBED }} )
             displayName: Release Testbed
-          
+
           - task: Bash@3
             displayName: Upload Test Results
             condition: ${{ parameters.RUN_TEST }}
@@ -507,7 +508,7 @@ stages:
                 echo "Activate python3 virtual environment"
                 source /var/AzDevOps/env-python3/bin/activate
                 mv ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-                
+
                 cd ${BASH_WORKING_FOLDER}/test_reporting
                 pip3 install -r requirements.txt
 

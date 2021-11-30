@@ -14,7 +14,8 @@ stages:
   - stage: AnnounceRoutes
     jobs:
       - job: AnnounceRoutes
-        pool: nightly
+        pool: nightly2
+        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
         timeoutInMinutes: 30
         variables:
           - name: skipComponentGovernanceDetection

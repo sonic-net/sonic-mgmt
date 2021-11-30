@@ -37,7 +37,8 @@ stages:
   - stage: Recover
     jobs:
       - job: RecoverServer
-        pool: nightly
+        pool: nightly2
+        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
         timeoutInMinutes: 720
         variables:
           - name: skipComponentGovernanceDetection

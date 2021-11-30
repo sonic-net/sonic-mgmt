@@ -64,7 +64,8 @@ stages:
   - stage: RedeployTopology
     jobs:
       - job: RedeployTopology
-        pool: nightly
+        pool: nightly2
+        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
         timeoutInMinutes: 120
         variables:
           skipComponentGovernanceDetection: true

@@ -17,7 +17,8 @@ stages:
   - stage: TestbedHealthPolling
     jobs:
       - job: TestbedHealthPolling
-        pool: nightly
+        pool: nightly2
+        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
         timeoutInMinutes: 30
         variables:
           - group: KUSTO_SECRETS
