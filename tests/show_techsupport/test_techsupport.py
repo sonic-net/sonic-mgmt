@@ -538,7 +538,7 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, sed_command)
     
     # check /etc/shadow not exist
-    ls_command = "ls {0}/etc/ | grep shadow || true".format(dump_extract_path)
+    ls_command = "ls {0}/etc/ | grep -xw shadow || true".format(dump_extract_path)
     check_no_result(duthost, ls_command)
     
     # check *.cer *.crt *.pem *.key not exist in dump files
