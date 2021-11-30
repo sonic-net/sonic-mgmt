@@ -65,11 +65,9 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
     If for some reason SAI is not adhering to this requirement, any MAC learn events
     generated during warm reboot will cause META checker failure resulting to Orchagent crash.
     '''
-    marker, post_reboot_analysis = advanceboot_loganalyzer
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True,\
         advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
-    post_reboot_analysis(marker)
 
 
 ### Testcases to verify abruptly failed reboot procedure ###
