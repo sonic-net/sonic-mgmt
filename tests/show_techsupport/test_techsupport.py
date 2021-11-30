@@ -446,6 +446,7 @@ def check_no_result(duthost, command):
     res = duthost.shell(command)
     logger.info(command)
     logger.info(res["stdout_lines"])
+    pytest_assert(res["rc"] == 0)
     pytest_assert(len(res["stdout_lines"]) == 0)
     pytest_assert(len(res["stderr_lines"]) == 0)
 
@@ -501,14 +502,13 @@ def test_secret_removed_from_show_techsupport(
     radius_passkey = creds_all_duts[duthost]['radius_passkey']
     snmp_rocommunity = creds_all_duts[duthost]['snmp_rocommunity']
 
-    # generate a new dump file
-    duthost.shell('sudo rm -rf /var/dump/sonic_dump_*')
-    duthost.shell('sudo show techsupport')
-    dump_file_path = duthost.shell('sudo ls /var/dump/sonic_dump_* | tail -1')['stdout']
+    # generate a new dump file. and find latest dump file with ls -t
+    duthost.shell('show techsupport')
+    dump_file_path = duthost.shell('ls -t /var/dump/sonic_dump_* | tail -1')['stdout']
     dump_file_name = dump_file_path.replace("/var/dump/", "")
 
     # extract for next step check
-    duthost.shell("sudo tar -xf {0}".format(dump_file_path))
+    duthost.shell("tar -xf {0}".format(dump_file_path))
     dump_extract_path="./{0}".format(dump_file_name.replace(".tar.gz", ""))
     
     # check Tacacs key
@@ -541,6 +541,6 @@ def test_secret_removed_from_show_techsupport(
     ls_command = "ls {0}/etc/ | grep shadow || true".format(dump_extract_path)
     check_no_result(duthost, ls_command)
     
-    # check /etc/sonic/*.certs not exist
-    ls_command = "ls {0}/etc/sonic/ | grep certs || true".format(dump_extract_path)
-    check_no_result(duthost, ls_command)
+    # check *.cer *.crt *.pem *.key not exist in dump files
+    find_command = "find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)".format(dump_extract_path)
+    check_no_result(duthost, find_command)
