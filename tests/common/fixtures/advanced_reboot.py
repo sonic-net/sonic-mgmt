@@ -443,19 +443,22 @@ class AdvancedReboot:
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
-                pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
-                marker = pre_reboot_analysis()
+                if self.advanceboot_loganalyzer:
+                    pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
+                    marker = pre_reboot_analysis()
                 self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
             except Exception:
                 failed_list.append(rebootOper)
+                raise Exception
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-                post_reboot_analysis(marker, reboot_oper=rebootOper)
+                if self.advanceboot_loganalyzer:
+                    post_reboot_analysis(marker, reboot_oper=rebootOper)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         pytest_assert(len(failed_list) == 0,\
