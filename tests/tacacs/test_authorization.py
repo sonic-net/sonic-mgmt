@@ -58,7 +58,7 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_dut
 def local_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    with SSHClient() as ssh_client:
+    with paramiko.SSHClient() as ssh_client:
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         yield ssh_client
 
