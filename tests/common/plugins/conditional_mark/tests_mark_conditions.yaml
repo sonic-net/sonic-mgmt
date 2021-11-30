@@ -7,6 +7,30 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
+  #Fan tray serial numbers cannot be retrieved through software in cisco platform
+  #there is no fan tray idprom
+  skip:
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
