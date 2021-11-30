@@ -63,7 +63,8 @@ parameters:
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded \
               platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded \
               platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json \
-              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json"
+              platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json \
+              platform_tests/test_advanced_reboot"
     displayName: "Skip Scripts"
 
   # Testbed specific, to skip and/or include directories
