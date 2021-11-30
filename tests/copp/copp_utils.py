@@ -5,11 +5,13 @@
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
 import re
+import logging
 
 DEFAULT_NN_TARGET_PORT = 3
 
 _REMOVE_IP_SCRIPT = "scripts/remove_ip.sh"
 _ADD_IP_SCRIPT = "scripts/add_ip.sh"
+_ADD_IP_BACKEND_SCRIPT = "scripts/add_ip_backend.sh"
 _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
 
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
@@ -19,6 +21,8 @@ _TEMP_COPP_CONFIG = "/tmp/copp_config.json"
 _TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
 _COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
 _SWSS_COPP_TEMPLATE = ":" + _COPP_TEMPLATE_PATH
+_DEFAULT_COPP_TEMPLATE = "/usr/share/sonic/templates/copp_cfg.j2"
+_BASE_COPP_TEMPLATE = "/tmp/copp_cfg_base.j2"
 
 _PTF_NN_TEMPLATE = "templates/ptf_nn_agent.conf.ptf.j2"
 _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
@@ -47,6 +51,7 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         dut.command("docker cp {} {}".format(swss_docker_name + _APP_DB_COPP_CONFIG, _BASE_COPP_CONFIG))
         config_format = "app_db"
     else:
+        dut.command("cp {} {}".format(_DEFAULT_COPP_TEMPLATE, _BASE_COPP_TEMPLATE))
         dut.command("cp {} {}".format(_CONFIG_DB_COPP_CONFIG, _BASE_COPP_CONFIG))
         config_format = "config_db"
 
@@ -67,7 +72,7 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
         dut.command("docker cp {} {}".format(swss_docker_name + _SWSS_COPP_TEMPLATE, _TEMP_COPP_TEMPLATE))
         dut.command("docker cp {} {}".format(_TEMP_COPP_CONFIG, swss_docker_name + _SWSS_COPP_TEMPLATE))
     else:
-        dut.command("cp {} {}".format(_TEMP_COPP_CONFIG, _CONFIG_DB_COPP_CONFIG))
+        dut.command("cp {} {}".format(_TEMP_COPP_CONFIG, _DEFAULT_COPP_TEMPLATE))
 
 def restore_policer(dut, nn_target_namespace):
     """
@@ -87,21 +92,32 @@ def restore_policer(dut, nn_target_namespace):
         dut.command("docker cp {} {}".format(_BASE_COPP_CONFIG, swss_docker_name + _APP_DB_COPP_CONFIG))
         dut.command("docker cp {} {}".format(_TEMP_COPP_TEMPLATE, swss_docker_name + _SWSS_COPP_TEMPLATE))
     else:
-        dut.command("cp {} {}".format(_BASE_COPP_CONFIG, _CONFIG_DB_COPP_CONFIG))
+        dut.command("cp {} {}".format(_BASE_COPP_TEMPLATE, _DEFAULT_COPP_TEMPLATE))
 
-def configure_ptf(ptf, nn_target_port):
+
+def configure_ptf(ptf, test_params, is_backend_topology=False):
     """
         Configures the PTF to run the NN agent on the specified port.
 
         Args:
             ptf (PTFHost): The target PTF.
-            nn_target_port (int): The port to run NN agent on.
+            test_params (_COPPTestParameters): test parameters set.
+            is_backend_topology (bool): Whether it's a backend topology testbed.
     """
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
-    ptf.script(cmd=_ADD_IP_SCRIPT)
+    if is_backend_topology:
+        ip_command = "ip address add %s/31 dev \"eth%s.%s\"" % (test_params.myip, test_params.nn_target_port, test_params.nn_target_vlanid)
+    else:
+        ip_command = "ip address add %s/31 dev eth%s" % (test_params.myip, test_params.nn_target_port)
 
-    facts = {"nn_target_port": nn_target_port}
+    logging.debug("ip_command is: %s" % ip_command)
+    ptf.command(ip_command)
+
+    facts = {
+        "nn_target_port": test_params.nn_target_port,
+        "nn_target_vlanid": test_params.nn_target_vlanid
+    }
     ptf.host.options["variable_manager"].extra_vars.update(facts)
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
@@ -117,14 +133,17 @@ def restore_ptf(ptf):
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
 
-    facts = {"nn_target_port": DEFAULT_NN_TARGET_PORT}
+    facts = {
+        "nn_target_port": DEFAULT_NN_TARGET_PORT,
+        "nn_target_vlanid": None
+    }
     ptf.host.options["variable_manager"].extra_vars.update(facts)
 
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
 
-def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespace, creds):
+def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid, creds):
     """
         Configures syncd to run the NN agent on the specified port.
 
@@ -137,10 +156,15 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
             nn_target_port (int): The port to run NN agent on.
             nn_target_interface (str): The Interface remote NN agents listen to
             nn_target_namespace (str): The namespace remote NN agents listens
+            nn_target_vlanid (str): The vlan id of the port to run NN agent on
             creds (dict): Credential information according to the dut inventory
     """
 
-    facts = {"nn_target_port": nn_target_port, "nn_target_interface": nn_target_interface}
+    facts = {
+        "nn_target_port": nn_target_port,
+        "nn_target_interface": nn_target_interface,
+        "nn_target_vlanid": nn_target_vlanid
+    }
     dut.host.options["variable_manager"].extra_vars.update(facts)
 
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
@@ -184,7 +208,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                 rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
-                && apt-get install -y python-pip build-essential libssl-dev python-dev python-setuptools wget cmake \
+                && apt-get install -y python-pip build-essential libssl-dev libffi-dev python-dev python-setuptools wget cmake \
                 && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
                 && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
                 && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \

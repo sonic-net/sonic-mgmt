@@ -24,6 +24,7 @@ import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
@@ -43,6 +44,20 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 MOCK_DEST_IP = "2.2.2.2"
 LINK_LOCAL_IP = "169.254.0.1"
 
+# For dualtor
+@pytest.fixture(scope='module')
+def vlan_mac(duthost):
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dut_vlan_mac = None
+    for vlan in config_facts.get('VLAN', {}).values():
+        if 'mac' in vlan:
+            logging.debug('Found VLAN mac')
+            dut_vlan_mac = vlan['mac']
+            break
+    if not dut_vlan_mac:
+        logging.debug('No VLAN mac, use default router_mac')
+        dut_vlan_mac = duthost.facts['router_mac']
+    return dut_vlan_mac
 
 def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     """ Generate FDB config file to apply it using 'swssconfig' tool.
@@ -109,7 +124,7 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
     pytest_assert(fdb_count == 1, "FDB entry doesn't exist for {}, fdb_count is {}".format(dst_mac, fdb_count))
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, mock_server,
+def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, mock_server,
                             send_dropped_traffic, drop_reason, generate_dropped_packet, tbinfo):
     """
     Verifies counters that check for a neighbor link being down.
@@ -437,10 +452,11 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
 
 @pytest.fixture
-def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params):
+def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vlan_mac):
 
     def _get_simple_ip_packet(rx_port, src_ip, dst_ip):
-        dst_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+        dst_mac = vlan_mac if rx_port in testbed_params["vlan_ports"] \
+            else duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
         src_mac = "DE:AD:BE:EF:12:34"
         # send tagged packet for t0-backend whose vlan mode is tagged
         enable_vlan = rx_port in testbed_params["vlan_ports"] and testbed_params["vlan_interface"]["type"] == "tagged"
