@@ -519,3 +519,15 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
     conditions:
       - "asic_type=='cisco-8000'"
+      
+drop_packets/test_drop_counters.py::test_dst_ip_link_local:
+  skip:
+    reason: "Cisco 8000 platform does not drop DIP linklocal packets"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
+drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
+  skip:
+    reason: "Cisco 8000 platform does not drop DIP loopback packets"
+    conditions:
+      - "asic_type=='cisco-8000'"
