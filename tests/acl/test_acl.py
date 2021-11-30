@@ -20,8 +20,6 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
-from tests.conftest import duthost
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
 
 logger = logging.getLogger(__name__)
@@ -264,7 +262,8 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     def populate_arp_table():
         duthost.command("sonic-clear fdb all")
         duthost.command("sonic-clear arp")
-
+        # Wait some time to ensure the async call of clear is completed
+        time.sleep(20)
         for addr in addr_list:
             duthost.command("ping {} -c 3".format(addr), module_ignore_errors=True)
 
@@ -940,6 +939,9 @@ class TestAclWithReboot(TestBasicAcl):
         """
         dut.command("config save -y")
         reboot(dut, localhost, wait=240)
+        # We need some additional delay on e1031
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+            time.sleep(240)
         populate_vlan_arp_entries()
 
 

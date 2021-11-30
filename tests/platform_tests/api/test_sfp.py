@@ -177,6 +177,12 @@ class TestSfpApi(PlatformApiTestBase):
             return False
         return True
 
+    def is_xcvr_support_power_override(self, xcvr_info_dict):
+        """Returns True if transceiver supports power override, False if not supported"""
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        is_valid_xcvr_type = "QSFP" in xcvr_type and xcvr_type != "QSFP-DD"
+        return self.is_xcvr_optical(xcvr_info_dict) and is_valid_xcvr_type
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -523,7 +529,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_optical(info_dict):
+            if not self.is_xcvr_support_power_override(info_dict):
                 logger.warning("test_power_override: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
