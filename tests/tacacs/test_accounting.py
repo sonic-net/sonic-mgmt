@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def cleanup_tacacs_log(ptfhost, rw_user_client):
     try:
         ptfhost.command('rm /var/log/tac_plus.acct')
-    except RunAnsibleModuleFail as e:
+    except RunAnsibleModuleFail:
         logger.info("/var/log/tac_plus.acct does not exist.")
 
     res = ptfhost.command('touch /var/log/tac_plus.acct')
@@ -29,6 +29,11 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
 
 def check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, command):
     username = creds_all_duts[duthost]['tacacs_rw_user']
+    """
+        Find logs run by tacacs_rw_user from tac_plus.acct:
+            Find logs match following format: "tacacs_rw_user ... cmd=command"
+            Print matched logs with /P command.
+    """
     sed_command = "sed -nE '/	{0}	.*	cmd=.*{1}/P' /var/log/tac_plus.acct".format(username, command)
     res = ptfhost.command(sed_command)
     logger.info(sed_command)
@@ -37,6 +42,11 @@ def check_tacacs_server_log_exist(ptfhost, duthost, creds_all_duts, command):
 
 def check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts):
     username = creds_all_duts[duthost]['tacacs_rw_user']
+    """
+        Find logs not run by tacacs_rw_user from tac_plus.acct:
+            Remove all tacacs_rw_user's log with /D command.
+            Print logs not removed by /D command, which are not run by tacacs_rw_user.
+    """
     sed_command = "sed -nE '/	{0}	/D;/.*/P' /var/log/tac_plus.acct".format(username)
     res = ptfhost.command(sed_command)
     logger.info(sed_command)
@@ -45,6 +55,11 @@ def check_tacacs_server_no_other_user_log(ptfhost, duthost, creds_all_duts):
 
 def check_local_log_exist(rw_user_client, duthost, creds_all_duts, command):
     username = creds_all_duts[duthost]['tacacs_rw_user']
+    """
+        Find logs run by tacacs_rw_user from syslog:
+            Find logs match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
+            Print matched logs with /P command.
+    """
     sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},.*, command: .*{1},/P' /var/log/syslog".format(username, command)
     exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)
@@ -54,6 +69,12 @@ def check_local_log_exist(rw_user_client, duthost, creds_all_duts, command):
 
 def check_local_no_other_user_log(rw_user_client, duthost, creds_all_duts):
     username = creds_all_duts[duthost]['tacacs_rw_user']
+    """
+        Find logs not run by tacacs_rw_user from syslog:
+            Remove all tacacs_rw_user's log with /D command, which will match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user"
+            Find all other user's log, which will match following format: "INFO audisp-tacplus: Accounting: user:" 
+            Print matched logs with /P command, which are not run by tacacs_rw_user.
+    """
     sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P' /var/log/syslog".format(username)
     exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)

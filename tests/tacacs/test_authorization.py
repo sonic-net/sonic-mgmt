@@ -51,19 +51,16 @@ def check_ssh_output(res, exp_val):
 def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    ssh_client = ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'],
-                         creds_all_duts[duthost]['tacacs_authorization_user_passwd'])
-    yield ssh_client
-    ssh_client.close()
+    with ssh_connect_remote(dutip, creds_all_duts[duthost]['tacacs_authorization_user'], creds_all_duts[duthost]['tacacs_authorization_user_passwd']) as ssh_client:
+        yield ssh_client
 
 @pytest.fixture
 def local_user_client(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    yield ssh_client
-    ssh_client.close()
+    with SSHClient() as ssh_client:
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        yield ssh_client
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
