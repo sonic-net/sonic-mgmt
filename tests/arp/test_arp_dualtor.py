@@ -166,8 +166,9 @@ def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     """
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
-    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, ptf_intf_name = ip_and_intf_info
-    ptf_intf_index = int(ptf_intf_name.replace('eth', ''))
+
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index  = ip_and_intf_info
+
     ip_version, outgoing_packet, expected_packet = packets_for_test
 
     if ip_version == 'v4':

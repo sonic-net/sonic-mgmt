@@ -299,6 +299,8 @@ def pytest_collection_modifyitems(session, config, items):
                     if mark_name == 'xfail':
                         strict = mark_details.get('strict', False)
                         mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
+                        # To generate xfail property in the report xml file
+                        item.user_properties.append(('xfail', strict))
                     else:
                         mark = getattr(pytest.mark, mark_name)(reason=reason)
 
