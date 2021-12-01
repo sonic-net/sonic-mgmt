@@ -7,7 +7,7 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -28,10 +28,8 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
     duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
 
     # Cleanup acl config
-    duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|*" | xargs sonic-db-cli CONFIG_DB del',
-        module_ignore_errors=True)
-    duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_TABLE|*" | xargs sonic-db-cli CONFIG_DB del',
-        module_ignore_errors=True)
+    duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|*" | xargs --no-run-if-empty sonic-db-cli CONFIG_DB del')
+    duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_TABLE|*" | xargs --no-run-if-empty sonic-db-cli CONFIG_DB del')
 
     yield
 
@@ -47,7 +45,7 @@ def expect_res_success_acl_table(duthost, expected_content_list, unexpected_cont
     """
     cmds = "show acl table"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -56,7 +54,7 @@ def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_conte
     """
     cmds = "sudo iptables -S"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
