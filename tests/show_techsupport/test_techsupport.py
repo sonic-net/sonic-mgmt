@@ -494,7 +494,7 @@ def test_secret_removed_from_show_techsupport(
         Radius key
         snmp community string
         /etc/shadow, which includes the hash of local/domain users' password
-        /etc/sonic/*.certs, which are Azure internal used certificates
+        Certificate files: *.cer *.crt *.pem *.key
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -526,10 +526,10 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, sed_command)
     
     # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
-    list_command = "ls {0}/etc/pam_radius_auth.d/ | grep *.conf || true".format(dump_extract_path)
+    list_command = "ls {0}/etc/pam_radius_auth.d/*.conf || true".format(dump_extract_path)
     config_file_list = duthost.shell(list_command)["stdout_lines"]
     for config_file in config_file_list:
-        logger.info(config_file)
+        logger.warning(config_file)
         sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{1}".format(radius_passkey, dump_extract_path, config_file)
         check_no_result(duthost, sed_command)
     
@@ -538,8 +538,8 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, sed_command)
     
     # check /etc/shadow not exist
-    ls_command = "ls {0}/etc/ | grep -xw shadow || true".format(dump_extract_path)
-    check_no_result(duthost, ls_command)
+    test_command = "test -f {0}/etc/shadow && echo \"/etc/shadow exist\" || true".format(dump_extract_path)
+    check_no_result(duthost, test_command)
     
     # check *.cer *.crt *.pem *.key not exist in dump files
     find_command = "find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)".format(dump_extract_path)
