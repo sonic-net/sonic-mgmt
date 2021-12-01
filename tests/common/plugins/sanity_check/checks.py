@@ -203,7 +203,7 @@ def check_bgp(duthosts):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                if a_asic_neighbors is not None:
+                if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in a_asic_neighbors.items()
                                       if v['state'] != 'established']
                     if down_neighbors:
