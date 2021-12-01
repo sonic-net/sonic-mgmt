@@ -12,13 +12,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-SYSLOG_THRESHOLD=10
-SYSLOG_INTERVAL=1
+SYSLOG_TIMEOUT              = 10
+SYSLOG_INTERVAL             = 1
 # This is restricted by sonic-syslog.yang. Use '-1' to indicate no max is set
-SYSLOG_MAX_SERVER=-1
+SYSLOG_MAX_SERVER           = -1
 # The max server test only support SYSLOG_MAX_SERVER that is equal or lower than 254.
-# Will modify if change in future
-SYSLOG_TEST_MAX_UPPER_LIMIT=254
+SYSLOG_TEST_MAX_UPPER_LIMIT = 254
 
 @pytest.fixture(scope="module")
 def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
@@ -88,7 +87,7 @@ def test_syslog_server_tc1_add_init(duthost, setup_env, op,
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_THRESHOLD, SYSLOG_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
     expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
     expect_res_success_syslog(duthost, expected_content_list, [])
@@ -126,7 +125,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, setup_env, op,
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_THRESHOLD, SYSLOG_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
     expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
     expect_res_success_syslog(duthost, expected_content_list, [])
@@ -191,7 +190,7 @@ def test_syslog_server_tc4_remove(duthost, setup_env, op,
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_THRESHOLD, SYSLOG_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
     unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
     expect_res_success_syslog(duthost, [], unexpected_content_list)
@@ -228,7 +227,7 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_THRESHOLD, SYSLOG_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
     status = duthost.get_service_props('rsyslog-config')["ActiveState"]
     logger.info("rsyslog-config status {}".format(status))

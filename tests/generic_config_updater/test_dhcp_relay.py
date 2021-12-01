@@ -14,8 +14,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-DHCP_RELAY_THRESHOLD=120
-DHCP_RELAY_INTERVAL=10
+DHCP_RELAY_TIMEOUT   = 120
+DHCP_RELAY_INTERVAL  = 10
 
 @pytest.fixture(scope="module")
 def vlan_intfs_dict(utils_vlan_intfs_dict_orig):
@@ -175,7 +175,7 @@ def ensure_dhcp_server_up(duthost):
         return 'RUNNING' in output['stdout']
 
     pytest_assert(
-        wait_until(DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0, _dhcp_server_up),
+        wait_until(DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0, _dhcp_server_up),
         "The dhcp relay server is not running"
     )
 
@@ -224,7 +224,7 @@ def test_dhcp_relay_tc1_apply_empty(duthost, setup_vlan, init_dhcp_server_config
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=dhcp_apply_empty_json, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0)
     pytest_assert(
         duthost.is_service_fully_started('dhcp_relay'),
         "dhcp_relay service is not running"
@@ -324,7 +324,7 @@ def test_dhcp_relay_tc5_rm(duthost, setup_vlan, init_dhcp_server_config, vlan_in
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=dhcp_rm_json, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0)
     pytest_assert(
         duthost.is_service_fully_started('dhcp_relay'),
         "dhcp_relay service is not running"
@@ -367,7 +367,7 @@ def test_dhcp_relay_tc6_add(duthost, setup_vlan, init_dhcp_server_config, vlan_i
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=dhcp_add_json, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0)
     pytest_assert(
         duthost.is_service_fully_started('dhcp_relay'),
         "dhcp_relay service is not running"
@@ -414,7 +414,7 @@ def test_dhcp_relay_tc7_add_rm(duthost, setup_vlan, init_dhcp_server_config, vla
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=dhcp_add_rm_json, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0)
     pytest_assert(
         duthost.is_service_fully_started('dhcp_relay'),
         "dhcp_relay service is not running"
@@ -459,7 +459,7 @@ def test_dhcp_relay_tc7_replace(duthost, setup_vlan, init_dhcp_server_config, vl
     logger.info("tmpfile {}".format(tmpfile))
 
     output = apply_patch(duthost, json_data=dhcp_replace_json, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_THRESHOLD, DHCP_RELAY_INTERVAL, 0)
+    expect_op_success_and_reset_check(duthost, output, 'dhcp_relay', DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0)
     pytest_assert(
         duthost.is_service_fully_started('dhcp_relay'),
         "dhcp_relay service is not running"
