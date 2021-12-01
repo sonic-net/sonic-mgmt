@@ -66,7 +66,7 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
     """
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     duthost = rand_selected_dut
-    ptf_intf_ipv4_addr, _, _, _ = ip_and_intf_info
+    ptf_intf_ipv4_addr = ip_and_intf_info[0]
 
     arp_request_ip = increment_ipv4_addr(ptf_intf_ipv4_addr)
     arp_src_mac = '00:00:07:08:09:0a'
@@ -109,8 +109,7 @@ def generate_link_local_addr(mac):
 @pytest.fixture(params=['v4', 'v6'])
 def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
-    src_addr_v4, _, src_addr_v6, ptf_intf = ip_and_intf_info
-    ptf_intf_index = int(ptf_intf.replace('eth', ''))
+    src_addr_v4, _, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
@@ -178,4 +177,4 @@ def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_
 
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
-    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index)
+    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)

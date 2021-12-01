@@ -204,12 +204,14 @@ def garp_enabled(rand_selected_dut, config_facts):
                 logger.info("GARP disabled for {}".format(vlan))
 
 @pytest.fixture(scope='module')
-def ip_and_intf_info(config_facts, intfs_for_test):
+def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     """
     Calculate IP addresses and interface to use for test
     """
+    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+
     _, _, intf1_index, _, = intfs_for_test
-    ptf_intf_name = "eth{}".format(intf1_index)
+    ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
     vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
@@ -241,4 +243,4 @@ def ip_and_intf_info(config_facts, intfs_for_test):
 
     logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
 
-    return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name
+    return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index
