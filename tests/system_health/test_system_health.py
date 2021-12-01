@@ -6,7 +6,7 @@ import random
 import time
 from pkg_resources import parse_version
 from tests.common import config_reload
-from tests.common.utilities import wait_until
+from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
 from device_mocker import device_mocker_factory
@@ -98,6 +98,7 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.mark.disable_loganalyzer
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release(duthost, ["201811", "201911", "202012", "202106"])
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
