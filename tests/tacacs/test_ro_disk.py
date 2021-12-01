@@ -29,7 +29,7 @@ def check_disk_ro(duthost):
 def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
-    assert wait_until(30, 2, check_disk_ro, duthost), "disk not in ro state"
+    assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -99,14 +99,14 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
 
         logger.debug("user={}".format(ro_user))
 
-        assert wait_until(600, 20, chk_ssh_remote_run, localhost, dutip,
+        assert wait_until(600, 20, 0, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
 
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
-        assert wait_until(600, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(600, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
 

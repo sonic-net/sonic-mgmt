@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
+TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
+TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
 
 def pytest_runtest_setup(item):
@@ -63,9 +65,20 @@ def prepare_ptf(ptfhost, duthost, tbinfo):
     ptfhost.copy(src=TMP_PORTS_FILE,
                  dest=TMP_PORTS_FILE)
 
+    with open(TMP_PEER_INFO_FILE, "w") as file:
+        file.write(json.dumps(mg_facts['minigraph_devices']))
+    ptfhost.copy(src=TMP_PEER_INFO_FILE,
+                 dest=TMP_PEER_INFO_FILE)
+
+    with open(TMP_PEER_PORT_INFO_FILE, "w") as file:
+        file.write(json.dumps(mg_facts['minigraph_neighbors']))
+    ptfhost.copy(src=TMP_PEER_PORT_INFO_FILE,
+                 dest=TMP_PEER_PORT_INFO_FILE)
+
     arp_responder_conf = Template(open("../ansible/roles/test/templates/arp_responder.conf.j2").read())
     ptfhost.copy(content=arp_responder_conf.render(arp_responder_args="-e"),
                  dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest="/root/ptftests/advanced_reboot_sniffer.py")
 
     ptfhost.shell("supervisorctl reread")
     ptfhost.shell("supervisorctl update")
@@ -206,6 +219,7 @@ def ptf_params(duthosts, rand_one_dut_hostname, creds, tbinfo):
         "lo_v6_prefix": lo_v6_prefix,
         "arista_vms": vm_hosts,
         "setup_fdb_before_test": True,
-        "target_version": "Unknown"
+        "target_version": "Unknown",
+        "preboot_files" : "peer_dev_info,neigh_port_info"
     }
     return ptf_params

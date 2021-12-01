@@ -11,6 +11,7 @@ from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareT
 from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
+REBOOT_CASE_TIMEOUT = 1800
 
 class AdvancedReboot:
     '''
@@ -73,6 +75,7 @@ class AdvancedReboot:
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
+        self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -329,7 +332,7 @@ class AdvancedReboot:
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
-
+        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest="/root/ptftests/advanced_reboot_sniffer.py")
         # Replace fast-reboot script
         if self.replaceFastRebootScript:
             logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
@@ -422,24 +425,29 @@ class AdvancedReboot:
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
+        result = True
+        failed_list = list()
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
                 self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
+            except Exception:
+                failed_list.append(rebootOper)
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-            if not result:
-                return result
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
+        pytest_assert(len(failed_list) == 0,\
+            "Advanced-reboot failure. Failed cases: {}".format(failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+    def runRebootTestcase(self, prebootList=None, inbootList=None,
+        prebootFiles='peer_dev_info,neigh_port_info'):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
@@ -510,7 +518,9 @@ class AdvancedReboot:
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
-            "asic_type": self.duthost.facts["asic_type"]
+            "asic_type": self.duthost.facts["asic_type"],
+            "allow_mac_jumping": self.allowMacJump,
+            "preboot_files" : self.prebootFiles
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -521,7 +531,6 @@ class AdvancedReboot:
             # presence of routing in reboot operation indicates it is during reboot operation (inboot)
             inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
             params.update({
-                "preboot_files" : self.prebootFiles,
                 "preboot_oper" : prebootOper,
                 "inboot_oper" : inbootOper,
             })
@@ -540,8 +549,10 @@ class AdvancedReboot:
             platform="remote",
             params=params,
             log_file=u'/tmp/advanced-reboot.ReloadTest.log',
-            module_ignore_errors=self.moduleIgnoreErrors
+            module_ignore_errors=self.moduleIgnoreErrors,
+            timeout=REBOOT_CASE_TIMEOUT
         )
+
         return result
 
     def __restorePrevImage(self):

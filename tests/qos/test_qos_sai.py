@@ -687,6 +687,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[pgProfile].keys():
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
 
+        if "pkts_num_margin" in qosConfig[pgProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
             testParams=testParams
@@ -735,8 +738,13 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "pkts_num_egr_mem" in qosConfig.keys():
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",
             testParams=testParams
@@ -930,7 +938,7 @@ class TestQosSaiMasic(QosSaiBaseMasic):
             # ensure the test destination IP has a path to backend ASIC
             pytest_assert(
                 wait_until(
-                    30, 1, self.check_v4route_backend_nhop, duthost,
+                    30, 1, 0, self.check_v4route_backend_nhop, duthost,
                     test_params["src_asic"], test_params["dst_port_ip"]
                 ),
                 "Route {} doesn't have backend ASIC nexthop on ASIC {}".format(

@@ -113,6 +113,25 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     return candidates
 
 
+def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
+    """
+    Check portchannel status on the DUT.
+
+    Args:
+        dut: DUT host object
+        dut_port_channel: Portchannel of DUT
+        exp_state: State of DUT's port ('up' or 'down')
+        verbose: Logging port state.
+
+    Returns:
+        Bool value which confirm port state
+    """
+    status = __get_dut_if_status(dut, dut_port_channel)[dut_port_channel]
+    if verbose:
+        logger.debug("Portchannel status : %s", status)
+    return status['oper_state'] == exp_state
+
+
 def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     """
     Toggle one link on the fanout.
@@ -133,7 +152,7 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
     need_recovery = True
     try:
         fanout.shutdown(fanout_port)
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
         if watch:
             time.sleep(1)
@@ -142,11 +161,11 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
         logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
         fanout.no_shutdown(fanout_port)
         need_recovery = False
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+        pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
-            wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True)
+            wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True)
 
 
 def watch_system_status(dut):

@@ -24,6 +24,9 @@ WD_ACTION_MSG_PFX = { "dontcare": "Verify PFCWD detection when queue buffer is n
                       "forward": "Verify proper function of forward action"
                     }
 MMU_ACTIONS = ['change', 'noop', 'restore', 'noop']
+DB_SEPARATORS = {'0': ':', '4': '|'}
+BF_PROFILE = "BUFFER_PROFILE|{}"
+BF_PROFILE_TABLE = "BUFFER_PROFILE_TABLE:{}"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -128,10 +131,11 @@ class PfcCmd(object):
             db = "0"
         else:
             db = "4"
+        table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
         asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", db, "HSET", profile, "dynamic_th", value
+                "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
             ]
         )
 
@@ -162,11 +166,15 @@ class PfcCmd(object):
                 "redis-cli", "-n", db, "HGET",
                 pg_pattern.format(port), "profile"
             ]
-        )[0].encode("utf-8")[1:-1]
+        )[0].encode("utf-8")
+
+        if BF_PROFILE[:-2] in pg_profile or BF_PROFILE_TABLE[:-2] in pg_profile:
+            pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
+        table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
         alpha = asic.run_redis_cmd(
             argv = [
-                "redis-cli", "-n", db, "HGET", pg_profile, "dynamic_th"
+                "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
             ]
         )[0].encode("utf-8")
 

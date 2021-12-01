@@ -48,6 +48,25 @@ def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
     advancedReboot.runRebootTestcase()
 
 
+def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
+    '''
+    Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
+    all VLAN ports.
+    Part of the warm reboot handling is to ensure there are no MAC events reported
+    while warm reboot is in progress. So at the beginning of warm reboot SONIC
+    instructs SAI to disable MAC learning on all the ports.
+    When the warm reboot completes, SAI is communicated again for each port to enable
+    MAC learning. To ensure that this is properly handled by SAI, this test case
+    purposely generates new MAC learn events or MAC move events during warm reboot
+    and the expected results is to only see those MAC move events after warm reboot competed.
+    If for some reason SAI is not adhering to this requirement, any MAC learn events
+    generated during warm reboot will cause META checker failure resulting to Orchagent crash.
+    '''
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True)
+    advancedReboot.runRebootTestcase()
+
+
 ### Testcases to verify abruptly failed reboot procedure ###
 def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_health,
     get_advanced_reboot):
@@ -105,8 +124,7 @@ def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -143,8 +161,7 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health,
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -165,8 +182,7 @@ def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot, verify_dut_h
     ]
 
     advancedReboot.runRebootTestcase(
-        inbootList=inbootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        inbootList=inbootList
     )
 
 
@@ -185,8 +201,7 @@ def test_warm_reboot_sad_bgp(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -217,8 +232,7 @@ def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_hea
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -237,8 +251,7 @@ def test_warm_reboot_sad_lag(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
@@ -257,6 +270,5 @@ def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot, verify_dut_heal
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )

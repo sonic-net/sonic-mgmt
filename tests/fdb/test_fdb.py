@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
 
 pytestmark = [
     pytest.mark.topology('t0', 't0-56-po2vlan'),
@@ -226,7 +226,7 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
         return
     else:
         duthost.command('sonic-clear fdb all')
-        pytest_assert(wait_until(20, 2, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
+        pytest_assert(wait_until(20, 2, 0, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
 
 
 def validate_mac(mac):
@@ -250,7 +250,8 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
 
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor, record_mux_status):
+def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)

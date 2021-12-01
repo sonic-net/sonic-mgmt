@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 class TestbedInfo(object):
     """Parse the testbed file used to describe whole testbed info."""
 
-    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
-    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
+    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name',
+                                 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
+                                  'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
+    TOPOLOGY_FILEPATH = "../../ansible/vars/"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -115,7 +118,8 @@ class TestbedInfo(object):
                 tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
                 self.testbed_topo[tb["conf-name"]] = tb
 
-    def dump_testbeds_to_yaml(self):
+
+    def dump_testbeds_to_yaml(self, args=""):
 
         def none_representer(dumper, _):
             return dumper.represent_scalar("tag:yaml.org,2002:null", "")
@@ -151,57 +155,111 @@ class TestbedInfo(object):
                     yaml.Dumper.write_line_break(self)
 
         testbed_data = []
-        for tb_name, tb_dict in self.testbed_topo.items():
-            ptf_ip, ptf_ipv6 = None, None
-            if tb_dict["ptf_ip"]:
-                ptf_ip = self._ip_mask_to_cidr(tb_dict["ptf_ip"],
-                                               tb_dict["ptf_netmask"])
-            if tb_dict["ptf_ipv6"]:
-                ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
-                                                 tb_dict["ptf_netmask_v6"])
+        if args and len(args.sai) > 0:
+            #Generate the specific testbed info for SAI test bed set up
+            sai_ptf_image = args.sai_test_ptf
 
-            if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
-                tb_dict_fields = [
-                    tb_name,
-                    tb_dict["group-name"],
-                    tb_dict["topo"],
-                    tb_dict["ptf_image_name"],
-                    tb_dict["ptf"],
-                    ptf_ip,
-                    ptf_ipv6,
-                    tb_dict["server"],
-                    tb_dict["vm_base"] or None,
-                    tb_dict["duts"],
-                    tb_dict["comment"]
-                ]
-            elif len(self.testbed_fields) == len(self.TESTBED_FIELDS_RECOMMENDED):
-                tb_dict_fields = [
-                    tb_name,
-                    tb_dict["group-name"],
-                    tb_dict["topo"],
-                    tb_dict["ptf_image_name"],
-                    tb_dict["ptf"],
-                    ptf_ip,
-                    ptf_ipv6,
-                    tb_dict["server"],
-                    tb_dict["vm_base"] or None,
-                    tb_dict["duts"],
-                    tb_dict["inv_name"],
-                    tb_dict["auto_recover"],
-                    tb_dict["comment"]
-                ]
+            tb_dict = self.testbed_topo[args.sai_testbed_name]
+            tb_dict_fields = self._generate_sai_testbed(tb_dict, args.sai_testbed_name, sai_ptf_image)
             testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
             testbed = OrderedDict(testbed_mapping)
             testbed_data.append(testbed)
+            print("Finished SAI testbed info generating.")
+        else:
+            #Generate all test bed infos
+            for tb_name, tb_dict in self.testbed_topo.items():
+                tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)                
+                testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
+                testbed = OrderedDict(testbed_mapping)
+                testbed_data.append(testbed)
+            print("Finished testbed info generating.")
 
         # dump blank instead of 'null' for None
         IncIndentDumper.add_representer(type(None), none_representer)
         # dump testbed fields in the order same as csv
         IncIndentDumper.add_representer(OrderedDict, ordereddict_representer)
 
-        with open(self.testbed_yamlfile, "w") as yamlfile:
+        testbed_file_name = ""
+        if args and len(args.sai) > 0:
+            testbed_file_name = args.sai
+        else:
+            testbed_file_name = self.testbed_yamlfile
+
+        with open(testbed_file_name, "w") as yamlfile:
             yaml.dump(testbed_data, yamlfile,
                       explicit_start=True, Dumper=IncIndentDumper)
+
+
+    def _generate_testbed_fields(self, tb_dict, tb_name):
+        tb_topo = tb_dict["topo"]
+        tb_ptf_image_name = tb_dict["ptf_image_name"]
+        return self._generate_testbed_fields_from_info(tb_dict, tb_name, tb_topo, tb_ptf_image_name)
+
+
+    def _generate_testbed_fields_from_info(self, tb_dict, tb_name, tb_topo, tb_ptf_image_name):
+        ptf_ip, ptf_ipv6 = None, None
+        if tb_dict["ptf_ip"]:
+            ptf_ip = self._ip_mask_to_cidr(tb_dict["ptf_ip"],
+                                            tb_dict["ptf_netmask"])
+        if tb_dict["ptf_ipv6"]:
+            ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
+                                                tb_dict["ptf_netmask_v6"])
+
+        if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
+            tb_dict_fields = [
+                tb_name,
+                tb_dict["group-name"],
+                tb_topo,
+                tb_ptf_image_name,
+                tb_dict["ptf"],
+                ptf_ip,
+                ptf_ipv6,
+                tb_dict["server"],
+                tb_dict["vm_base"] or None,
+                tb_dict["duts"],
+                tb_dict["comment"]
+            ]
+        elif len(self.testbed_fields) == len(self.TESTBED_FIELDS_RECOMMENDED):
+            tb_dict_fields = [
+                tb_name,
+                tb_dict["group-name"],
+                tb_topo,
+                tb_ptf_image_name,
+                tb_dict["ptf"],
+                ptf_ip,
+                ptf_ipv6,
+                tb_dict["server"],
+                tb_dict["vm_base"] or None,
+                tb_dict["duts"],
+                tb_dict["inv_name"],
+                tb_dict["auto_recover"],
+                tb_dict["comment"]
+            ] 
+        return tb_dict_fields
+
+
+    def _generate_sai_testbed(self, tb_dict, tb_name, sai_ptf_image):
+        #Compatiable with generating from yaml, self.testbed_fields only set in csv
+        #Set self.testbed_fields
+        if not hasattr(self, 'testbed_fields'):
+            self.testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
+
+        sai_topo = self._generate_sai_ptf_topo(tb_dict)
+        tb_dict_fields = self._generate_testbed_fields_from_info(tb_dict, tb_name, sai_topo, sai_ptf_image)        
+
+        return tb_dict_fields
+  
+
+    def _generate_sai_ptf_topo(self, tb_dict):
+        ports_count = len(tb_dict["topo"]["ptf_dut_intf_map"])
+
+        if ports_count < 64:
+            sai_topo = "ptf32"
+        else:
+            sai_topo = "ptf64"
+        
+        return sai_topo
+
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor)')
@@ -308,7 +366,7 @@ class TestbedInfo(object):
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
-            topo_dir = os.path.join(os.path.dirname(__file__), "../../ansible/vars/")
+            topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
             topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
             with open(topo_file, 'r') as fh:
                 tb['topo']['properties'] = yaml.safe_load(fh)
@@ -332,8 +390,17 @@ if __name__ == "__main__":
 
     parser.add_argument("--print-data", help="print testbed", action="store_true")
 
+    #SAI testbed param
+    parser.add_argument("-n", "--testbed", dest="sai_testbed_name", help="sai testbed name")
+    parser.add_argument("-s", "--sai", dest="sai", help="generate sai testbed file", default="")
+    parser.add_argument("-p", "--ptf", dest="sai_test_ptf", help="SAI test ptf image", default="docker-ptf")
+
     args = parser.parse_args()
     testbedfile = args.testbed_csvfile or args.testbed_yamlfile
     tbinfo = TestbedInfo(testbedfile)
+
     if args.print_data:
         print(json.dumps(tbinfo.testbed_topo, indent=4))
+
+    if len(args.sai) > 0:
+        tbinfo.dump_testbeds_to_yaml(args)
