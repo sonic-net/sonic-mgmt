@@ -49,14 +49,14 @@ user = {{ tacacs_authorization_user }} {
         deny   tacacs
         permit .*
     }
-    cmd = python_target_path {
+    cmd = /usr/bin/python {
         deny .*
     }
     cmd = /usr/bin/find {
         deny   -exec
         permit .*
     }
-    cmd = ld_target_path {
+    cmd = /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 {
         deny .*
     }
     cmd = /usr/bin/dash {

@@ -59,6 +59,17 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
     # setup local user
     setup_local_user(duthost, creds_all_duts)
 
+def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path):
+    """
+        Fix symbolic link in tacacs config
+        Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
+    """
+    read_link_command = "readlink -f {0}".format(symbolic_link_path)
+    target_path = duthost.shell(read_link_command)['stdout']
+    # Escape path string, will use it as regex in sed command. 
+    link_path_regex = re.escape(symbolic_link_path)
+    target_path_regex = re.escape(target_path)
+    ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
 
 def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     """setup tacacs server"""
@@ -78,18 +89,11 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
 
-    # Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
     # Find 'python' command symbolic link target, and fix the tac_plus config file
-    python_target_path = duthost.shell('readlink -f /usr/bin/python')['stdout']
-    # Escape target path string, will use it as regex in sed command. 
-    python_target_path = re.escape(python_target_path)
-    ptfhost.shell("sed -i 's/python_target_path/{0}/g' /etc/tacacs+/tac_plus.conf".format(python_target_path))
+    fix_symbolic_link_in_config(duthost, ptfhost, "/usr/bin/python")
 
     # Find ld lib symbolic link target, and fix the tac_plus config file
-    ld_target_path = duthost.shell('readlink -f /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2')['stdout']
-    # Escape target path string, will use it as regex in sed command. 
-    ld_target_path = re.escape(ld_target_path)
-    ptfhost.shell("sed -i 's/ld_target_path/{0}/g' /etc/tacacs+/tac_plus.conf".format(ld_target_path))
+    fix_symbolic_link_in_config(duthost, ptfhost, "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2")
     
     ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
     check_all_services_status(ptfhost)
