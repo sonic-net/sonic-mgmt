@@ -46,6 +46,24 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
 
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
+   skip:
+     reason: "On Cisco 8000 platform, fans do not have their own leds."
+     conditions:
+       - "asic_type=='cisco-8000'"
+
+ platform_tests/api/test_psu.py::TestPsuApi::test_led:
+   skip:
+     reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
+     conditions:
+       - "asic_type=='cisco-8000'"
+
+ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
+   skip:
+     reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
+     conditions:
+       - "asic_type=='cisco-8000'"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
