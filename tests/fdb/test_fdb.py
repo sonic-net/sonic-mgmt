@@ -28,7 +28,7 @@ DUMMY_MAC_COUNT = 10
 DUMMY_MAC_COUNT_SLIM = 2
 FDB_POPULATE_SLEEP_TIMEOUT = 2
 FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
-FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
+FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 20
 PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
@@ -160,10 +160,7 @@ def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, sr
     logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
         source_ports, source_mac, dest_mac, src_vlan, dest_ports))
     testutils.send(ptfadapter, source_ports[0], pkt)
-    if len(dest_ports) == 1:
-        testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
-    else:
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
