@@ -5,6 +5,12 @@ cacl/test_cacl_application.py::test_cacl_application:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
+  skip:
+    reason: "Not supported on backend"
+    conditions:
+      - "topo_name in ['t1-backend', 't0-backend']"
+
 dhcp_relay/test_dhcpv6_relay.py:
   xfail:
     reason: "Generic internal image feature missing"
@@ -728,6 +734,13 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+platform_tests/cli/test_show_platform::test_show_platform_ssdhealth:
+  xfail:
+    strict: True
+    reason: "Image issue on 7050qx platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050_qx32s']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
