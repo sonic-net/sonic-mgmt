@@ -476,8 +476,15 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
 
                 # Add port name to fanout port mapping port if dut_port is alias.
                 if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
-                    fanout.add_port_map(encode_dut_port_name(
-                       dut_host, mg_facts['minigraph_port_alias_to_name_map'][dut_port]), fanout_port)
+                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                    # it happens when an interface has the same name with another alias, for example:
+                    # Interface     Alias
+                    # --------------------
+                    # Ethernet108   Ethernet32
+                    # Ethernet32    Ethernet13/1
+                    if mapped_port not in value.keys():
+                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
