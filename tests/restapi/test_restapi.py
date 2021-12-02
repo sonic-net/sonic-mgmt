@@ -348,6 +348,13 @@ def test_data_path_sad(construct_url, vlan_members):
         r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-2', params)
         pytest_assert(r.status_code == 409)
 
+    # Create new VNET with existing VNID
+    params = '{"vnid": 7036001}'
+    logger.info("Creation of VNET vnet-guid-3 with vnid: 7036001")
+    for i in range(5):
+        r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-3', params)
+        pytest_assert(r.status_code == 409)
+
     # Create VLAN
     params = '{"vnet_id": "vnet-guid-2", "ip_prefix": "100.0.10.1/24"}'
     logger.info("Creating VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2")
@@ -636,7 +643,6 @@ def test_create_interface(construct_url, vlan_members):
     logger.info(r.json())
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
 
-
 def test_create_interface_sad(construct_url, vlan_members):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
@@ -732,6 +738,12 @@ def test_create_interface_sad(construct_url, vlan_members):
         r = restapi.post_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
         pytest_assert(r.status_code == 409)
 
+    # Delete VLAN before VLAN deleting neigbor and member
+    params = '{}'
+    logger.info("Deleting VLAN 4000 before deleting VLAN neigbor and member")
+    r = restapi.delete_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 409)
+
     # Delete Neighbor
     params = '{}'
     logger.info("Deleting neighbor 40.0.0.4 from VLAN 4000")
@@ -750,6 +762,12 @@ def test_create_interface_sad(construct_url, vlan_members):
     for i in range(5):
         r = restapi.delete_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
         pytest_assert(r.status_code == 404)
+
+    # Delete VLAN before deleting member
+    params = '{}'
+    logger.info("Deleting VLAN 4000 before deleting VLAN member")
+    r = restapi.delete_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 409)
 
     # Delete VLAN member
     params = '{}'
