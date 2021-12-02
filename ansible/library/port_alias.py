@@ -68,6 +68,12 @@ class SonicPortAliasMap():
 
     def get_platform_type(self):
         if not os.path.exists(MACHINE_CONF):
+            if self.hwsku == 'Nokia-IXR7250E-36x400G' or self.hwsku == 'Nokia-IXR7250E-36x100G':
+                return 'x86_64-nokia_ixr7250e_36x400g-r0'
+            if self.hwsku == 'Nokia-IXR7250E-60x100G':
+                return 'x86_64-nokia_ixr7250e_60x100g-r0'
+            if self.hwsku == 'Nokia-IXR7250E-SUP-10' or self.hwsku == 'Nokia-IXR7250E-SUP-10-r0':
+                return 'x86_64-nokia_ixr7250e_sup-r0'
             return KVM_PLATFORM
         with open(MACHINE_CONF) as machine_conf:
             for line in machine_conf:
@@ -87,7 +93,11 @@ class SonicPortAliasMap():
         elif slotid is None or slotid == '':
             portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
         else:
-            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(slotid), str(asic_id), PORTMAP_FILE)
+            if 'Nokia' in self.hwsku:
+                portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
+            else:
+                portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(slotid), str(asic_id), PORTMAP_FILE)
+
         if os.path.exists(portconfig):
             return portconfig
         return None
