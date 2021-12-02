@@ -25,12 +25,25 @@ pytestmark = [
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
+DUMMY_MAC_COUNT_SLIM = 2
 FDB_POPULATE_SLEEP_TIMEOUT = 2
 FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
-FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
+FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 20
 PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope="module")
+def get_dummay_mac_count(tbinfo):
+    # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
+    REQUIRED_TOPO = ["t0-116"]
+    if tbinfo["topo"]["name"] in REQUIRED_TOPO:
+        # To reduce the case running time
+        logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))
+        return DUMMY_MAC_COUNT_SLIM
+    else:
+        logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT, tbinfo["topo"]["name"]))
+        return DUMMY_MAC_COUNT
 
 def simple_eth_packet(
     pktlen=60,
@@ -151,7 +164,7 @@ def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, sr
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
-def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
+def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
     """
     :param ptfadapter: PTF adapter object
     :param vlan_table: VLAN table map: VLAN subnet -> list of VLAN members
@@ -183,7 +196,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type):
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
             # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
             dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
-                          for i in range(DUMMY_MAC_COUNT)]
+                          for i in range(dummy_mac_count)]
 
             for dummy_mac in dummy_macs:
                 if pkt_type == "ethernet":
@@ -251,7 +264,7 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status):
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -272,6 +285,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 
+    configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
@@ -306,7 +320,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
 
-    fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type)
+    fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
         for src, dst in itertools.combinations(vlan_table[vlan], 2):
             if 'port_index' not in src or 'tagging_mode' not in src:
@@ -350,4 +364,4 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     assert vlan_member_count > 0
 
     # Verify that the number of dummy MAC entries is expected
-    assert dummy_mac_count == DUMMY_MAC_COUNT * vlan_member_count
+    assert dummy_mac_count == configured_dummay_mac_count * vlan_member_count
