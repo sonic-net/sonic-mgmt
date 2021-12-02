@@ -2,7 +2,6 @@ import contextlib
 import logging
 import pytest
 import random
-import pdb
 
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
