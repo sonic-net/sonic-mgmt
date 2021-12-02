@@ -67,7 +67,8 @@ parameters:
               platform_tests/test_advanced_reboot.py::test_warm_reboot_multi_sad \
               platform_tests/test_advanced_reboot.py::test_warm_reboot_multi_sad_inboot \
               platform_tests/test_advanced_reboot.py::test_warm_reboot \
-              platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump"
+              platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump \
+              platform_tests/test_reboot.py::test_warm_reboot"
     displayName: "Skip Scripts"
 
   # Testbed specific, to skip and/or include directories
