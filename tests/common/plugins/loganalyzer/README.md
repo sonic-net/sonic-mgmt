@@ -132,4 +132,16 @@ loganalyzer.init() - can be called several times without calling "loganalyzer.an
     # PERFORM TEST CASE STEPS ...
     # Verify that expected error messages WERE FOUND in DUT syslog. Exception will be raised if in DUT syslog will NOT be found messages which fits to "kernel:.*Oops" regular expression
     loganalyzer.run_cmd(ans_host.command, "echo '---------- kernel: says Oops --------------' >> /var/log/syslog")
+
+    # Example 9
+    # Create loganalyzer and asking to wait for all expected events before proceeding.
+    # This is essentially a wait_until in loganalyzer.
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name), wait_expected_events=True, wait_timeout=180, wait_interval=15)
+
+    # Add specific EXPECTED regular expression
+    loganalyzer.expect_regex.append("kernel:.*Oops")
+
+    # Wait until all expected events are collected
+    with loganalyzer:
+        # PERFORM TEST CASE STEPS ...
 ```
