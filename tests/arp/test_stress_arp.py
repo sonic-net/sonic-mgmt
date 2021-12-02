@@ -150,5 +150,6 @@ def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, ge
 
         time.sleep(5)
         clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
         time.sleep(5)
 
