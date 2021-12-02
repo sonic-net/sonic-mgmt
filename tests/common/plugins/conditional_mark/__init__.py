@@ -61,6 +61,7 @@ def load_conditions(session):
             return yaml.safe_load(f)
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_file, repr(e)), exc_info=True)
+        pytest.fail('Loading conditions file "{}" failed. Possibly invalid yaml file.'.format(conditions_file))
 
     return None
 
