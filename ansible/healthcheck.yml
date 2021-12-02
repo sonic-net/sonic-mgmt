@@ -1,0 +1,38 @@
+# Example:
+#   ansible-playbook -i ./westford_hw_inventory ./healthcheck.yml -l ixr_7250_x_pizza1  -e sonic_user=carl
+
+---
+- hosts: sonic
+  gather_facts: no
+  tasks:
+    - set_fact:
+        real_ansible_host: "{{ ansible_ssh_host }}"
+
+    - name: find initial pause time of all hosts
+      set_fact:
+        initial_pause_time_hosts: "{{ initial_pause_time_hosts|default([])}} + [{{  hostvars[item]['initial_pause_time'] }}]"
+      when: hostvars[item]['initial_pause_time'] is defined
+      loop: "{{ ansible_play_batch }}"
+
+    - set_fact: initial_pause_time_max={{ initial_pause_time_hosts | max }}
+
+    - name: find recheck pause time of all hosts
+      set_fact:
+        recheck_time_hosts: "{{ recheck_time_hosts|default([])}} + [{{  hostvars[item]['pause_mins_before_recheck'] }}]"
+      when: hostvars[item]['pause_mins_before_recheck'] is defined
+      loop: "{{ ansible_play_batch }}"
+
+    - set_fact: recheck_time_max={{ recheck_time_hosts | max }}
+
+    - name: Pause for {{initial_pause_time_max}} minutes before checking
+      pause: minutes={{initial_pause_time_max}}
+      when: initial_pause_time is defined
+        
+    - name: Initial health check
+      include: sonic_hw_healthcheck.yml
+
+    - name: Pause for {{recheck_time_max}} minutes before re-checking
+      pause: minutes={{recheck_time_max}}
+      
+    - name: Re-check health after {{pause_mins_before_recheck}} minutes
+      include: sonic_hw_healthcheck.yml

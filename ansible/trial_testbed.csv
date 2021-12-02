@@ -1,0 +1,5 @@
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+
+# trial IXRE-chassis
+ixre-chassis1-t2-min,vms_1,t2_ixre_chassis1_min,docker-ptf,ptf_vms_1,10.250.0.188/24,,server_10,VM0100,[nokia-egl-board1;nokia-egl-board2;nokia-sup-chassis1],t2_trial_lab,False,Testbed for msft trial chassis1 with min ports
+ixre-chassis1-t2,vms_1,t2_ixre_chassis1,docker-ptf,ptf_vms_1,10.250.0.188/24,,server_10,VM0100,[nokia-egl-board1;nokia-egl-board2;nokia-sup-chassis1],False,t2_trial_lab,Testbed for msft trial chassis1 with all ports

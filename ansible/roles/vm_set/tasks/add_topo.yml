@@ -156,7 +156,7 @@
     docker_container:
       name: ptf_{{ vm_set_name }}
       image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      pull: no
       state: started
       restart: no
       network_mode: none

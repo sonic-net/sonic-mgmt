@@ -1,10 +1,5 @@
 ---
-ansible_user: use_own_value
-ansible_password: use_own_value
-ansible_become_password: use_own_value
+ansible_user: ansible
+ansible_password: 123
+ansible_become_password: 123
 
-# Use the following username/password variables to login to vm hosts
-# instead of the default variables (defined above).
-vm_host_user: use_own_value
-vm_host_password: use_own_value
-vm_host_become_password: use_own_value

@@ -1,0 +1,115 @@
+all:
+  children:
+    lab:
+      vars:
+        mgmt_subnet_mask_length: 24
+      children:
+        sonic:
+          children:
+            sonic_nokia_lc_400G:
+            sonic_nokia_sup:
+    ptf:
+      hosts:
+        ptf_vms_1:
+          ansible_host: 10.250.0.188
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
+
+sonic_nokia_lc_400G:
+  vars:
+    sonic_hwsku: Nokia-IXR7250E-36x400G
+    hwsku: Nokia-IXR7250E-36x400G
+    sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+    model: "3HE12578AARA01"
+    num_asics: 2
+    frontend_asics: [0,1]
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+  hosts:
+    nokia-egl-board1:
+      ansible_host: 135.121.52.162
+      slot_num: 1
+      serial: 19688-0038
+      base_mac: 40:7C:7D:BB:26:0B
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      syseeprom_info:
+        '0xFE': '0x7412F0DE'
+        '0x22': '3HE12578AARA01'
+        '0x23': '19688-0038'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:0B'
+        '0x2A': '2'
+    nokia-egl-board2:
+      ansible_host: 135.121.52.166
+      slot_num: 2
+      serial: 19688-0041
+      base_mac: 40:7C:7D:BB:26:1D
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      syseeprom_info:
+        '0xFE': '0x72DB8BCE'
+        '0x23': '19688-0041'
+        '0x22': '3HE12578AARA01'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:1D'
+        '0x2A': '2'
+
+sonic_nokia_sup:
+  vars:
+    sonic_hw_platform: x86_64-nokia_ixr7250e_sup-r0
+    sonic_hwsku: Nokia-IXR7250E-SUP-10
+    hwsku: Nokia-IXR7250E-SUP-10
+    model: "N/A"
+    slot_num: 16
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+  hosts:
+    nokia-sup-chassis1:
+      ansible_host: 135.121.52.111
+      serial: "NS212610052"
+      base_mac: 20:F4:4F:27:A9:62
+      syseeprom_info:
+        '0xFE': '0x9BE03141'
+        '0x23': 'NS212610052'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A9:62'
+        '0x25': '20210714'
+        '0x26': '56'
+        '0x2A': '5'
+      skip_modules:
+        line-cards:
+          - LINE-CARD1
+          - LINE-CARD4
+          - LINE-CARD5
+          - LINE-CARD6
+          - LINE-CARD7
+        fabric-cards:
+          - FABRIC-CARD0
+          - FABRIC-CARD1
+          - FABRIC-CARD4
+          - FABRIC-CARD5
+          - FABRIC-CARD7
+
+        psus:
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU10
+          - PSU11
+          - PSU12

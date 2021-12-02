@@ -1,4 +1,5 @@
 ansible_ssh_user: admin
+ansible_ssh_pass: 123
 ansible_connection: multi_passwd_ssh
 ansible_altpassword: YourPaSsWoRd
 

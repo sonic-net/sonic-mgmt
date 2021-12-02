@@ -1,0 +1,2553 @@
+all:
+  children:
+    lab:
+      vars:
+        sonic_version: v2
+        asic_type: broadcom
+        ansible_ssh_pass: IosonIc123#
+        mgmt_subnet_mask_length: 21
+      children:
+         sonic:
+           children:
+             sonic_hurricane:
+             sonic_7250_x_pizza:
+             sonic_7220_D3_pizza:
+             sonic_7220_D1_pizza:
+             sonic_ixs_7215_pizza:
+             sonic_minion:
+             ixr-hr-chassis1:
+             minion_chassis:
+             sonic_vodka:
+             sonic_egl:
+             sonic_egl_100G:
+             sonic_fal:
+             sonic_sup:
+             sonic_sup_r0:	     
+             sonic_cpm:
+         fanout:
+           hosts:
+              sasx_7210_1:
+                ansible_host: 152.148.150.11
+                ansible_ssh_user: admin
+                ansible_ssh_pass: admin
+                hwsku: Nokia-7210-SASX
+                os: timos
+              sasx_7210_2:
+                ansible_host: 152.148.150.37
+                ansible_ssh_user: admin
+                ansible_ssh_pass: admin
+                hwsku: Nokia-7210-SASX
+                os: timos
+              ixr7220D3pizza2:
+                ansible_host: 152.148.150.22
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixr7220D3pizza3:
+                ansible_host: 152.148.146.148
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixr7220D3pizza4:
+                ansible_host: 152.148.146.149
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixr7220D3pizza5:
+                ansible_host: 152.148.150.221
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixr7220D3pizza6:
+                ansible_host: 152.148.150.222
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixr7220D3pizza7:
+                ansible_host: 152.148.150.223
+                hwsku: Nokia-7220-D3
+                os: sonic
+              ixs-7215-discovery:
+                ansible_host: 152.148.150.69
+                ansible_ssh_user: admin
+                ansible_ssh_pass: YourPaSsWoRd
+                hwsku: Nokia-7215
+                os: sonic
+              ixs-7215-pizza6:
+                ansible_host: 152.148.150.106
+                ansible_ssh_user: admin
+                ansible_ssh_pass: password
+                hwsku: Nokia-7215
+                os: sonic
+              ixs-7215-endeavor:
+                ansible_host: 152.148.150.109
+                ansible_ssh_user: admin
+                ansible_ssh_pass: YourPaSsWoRd
+                hwsku: Nokia-7215
+                os: sonic
+              falcon-heavy:
+                ansible_host: 152.148.151.169
+                hwsku: Nokia-7220-H3
+                ansible_ssh_user: admin
+                ansible_ssh_pass: 123
+                os: sonic
+              starship:
+                ansible_host: 152.148.150.70
+                hwsku: Nokia-7220-H3
+                ansible_ssh_user: admin
+                ansible_ssh_pass: 123
+                os: sonic
+              blue-origin:
+                ansible_host: 152.148.151.233
+                hwsku: Nokia-7220-H3
+                os: sonic
+              falcon-9:
+                ansible_host: 152.148.151.234
+                hwsku: Nokia-7220-H3
+                ansible_ssh_user: admin
+                ansible_ssh_pass: 123
+                os: sonic
+              falcon-10:
+                ansible_host: 152.148.151.235
+                hwsku: Nokia-7220-H3
+                ansible_ssh_user: admin
+                ansible_ssh_pass: 123
+                os: sonic
+              falcon-11:
+                ansible_host: 152.148.151.236
+                hwsku: Nokia-7220-H3
+                ansible_ssh_user: admin
+                ansible_ssh_pass: 123
+                os: sonic
+         ptf:
+           hosts:
+             ptf_vms4:
+               ansible_host: 10.255.0.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: ansible
+             ptf_vms_1:
+               ansible_host: 10.250.1.253
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_2:
+               ansible_host: 10.250.2.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_7:
+               ansible_host: 10.250.7.102
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_12:
+               ansible_host: 10.250.12.253
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+               mgmt_net_addr: 152.148.151.135/21
+             ptf_vms_15:
+                 ansible_host: 10.250.15.188
+                 ansible_ssh_user: root
+                 ansible_ssh_pass: root
+                 mgmt_net_addr: 152.148.151.125/21
+             ptf-01:
+               ansible_host: 10.250.0.102
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf-02:
+               ansible_host: 10.250.0.106
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf-03:
+               ansible_host: 10.250.0.108
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf-04:
+               ansible_host: 10.250.0.109
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_4:
+               ansible_host: 10.250.4.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_3:
+               ansible_host: 10.250.3.102
+               ansible_hostv6: fec0::ffff:afa:3
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_5:
+               ansible_host: 10.250.5.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_6:
+               ansible_host: 10.250.6.253
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_8:
+               ansible_host: 10.250.8.253
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_9:
+               ansible_host: 10.250.9.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_10:
+               ansible_host: 10.250.10.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_11:
+               ansible_host: 10.250.11.188
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+               mgmt_net_addr: 152.148.151.145/21
+             ptf_vms13-1:
+               ansible_host: 10.250.13.10
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+             ptf_vms_14:
+               ansible_host: 10.250.14.253
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+               mgmt_net_addr: 152.148.151.158/21
+             ptf_vms_s:
+               ansible_host: 10.250.0.188
+               ansible_hostv6: fec0::ffff:afa:2
+               ansible_ssh_user: root
+               ansible_ssh_pass: root
+           vars:
+             ansible_user: root
+             ansible_password: root
+
+# need this mapping for healthcheck.yml to work
+ixre-chassis7:
+  hosts:
+    ixre-egl-board25:
+    ixre-egl-board26:
+    ixre-cpm-chassis7:
+
+ixre-chassis8:
+  hosts:
+    ixre-egl-board3:
+    ixre-egl-board4:
+    ixre-cpm-chassis8:
+
+ixre-chassis9:
+  hosts:
+    ixre-egl-board1:
+    ixre-egl-board5:
+    ixre-cpm-chassis9:
+
+ixre-chassis10:
+  hosts:
+    ixre-egl-board27:
+    ixre-egl-board28:
+    ixre-cpm-chassis10:
+
+ixre-chassis12:
+  hosts:
+    ixre-egl-board9:
+    ixre-egl-board10:
+
+ixre-chassis11:
+  hosts:
+    ixre-cpm-chassis11:
+    ixre-egl-board15:
+    ixre-egl-board7:
+
+ixre-chassis14:
+  hosts:
+    ixre-egl-board29:
+    ixre-egl-board30:
+    ixre-cpm-chassis14:
+
+ixre-chassis15:
+  hosts:
+    ixre-egl-board40:
+    ixre-egl-board41:
+    ixre-cpm-chassis15:
+
+sonic_fal:
+  vars:
+    sonic_hwsku: Nokia-IXR7250E-60x100G
+    hwsku: Nokia-IXR7250E-60x100G
+    sonic_hw_platform: x86_64-nokia_ixr7250e_60x100g-r0
+    initial_pause_time: 3
+    pause_mins_before_recheck: 2
+    num_asics: 1
+    voq_inband_intf: [Ethernet-IB0]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+  hosts:
+    ixre-fal-board1:
+      ansible_host: 152.148.151.117
+      console_ip: 152.148.150.78
+      console_port: 2017
+      slot_num: slot7
+      model: "N/A"
+      serial: FAL1-01-007
+      base_mac: 40:7C:7D:BB:25:E5
+      switchids: [36]
+      voq_inband_ip: [3.3.3.36/32]
+      voq_inband_ipv6: [3333::3:36/128]
+      loopback4096_ip: [8.0.0.36/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128]
+      syseeprom_info:
+        '0xFE': '0x40F06EAB'
+        '0x23': 'FAL1-01-007'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:E5'
+        '0x2A': '2'
+    ixre-fal-board2:
+      ansible_host: 152.148.151.128
+      console_ip: 152.148.150.78
+      console_port: 2018
+      slot_num: slot7
+      model: "N/A"
+      serial: FAL1-01-010
+      base_mac: 40:7C:7D:BB:25:E9
+      switchids: [42]
+      voq_inband_ip: [3.3.3.42/32]
+      voq_inband_ipv6: [3333::3:42/128]
+      loopback4096_ip: [8.0.0.42/32]
+      loopback4096_ipv6: [2603:10e2:400::42/128]
+      syseeprom_info:
+        '0xFE': '0xE707DE5E'
+        '0x23': 'FAL1-01-010'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:E9'
+        '0x2A': '2'
+    ixre-fal-board3:
+      ansible_host: 152.148.151.113
+      console_ip: 152.148.150.78
+      console_port: 2002
+      slot_num: slot3
+      model: "N/A"
+      serial: FAL1-01-008
+      base_mac: 40:7C:7D:BB:25:E1
+      switchids: [12]
+      voq_inband_ip: [3.3.3.12/32]
+      voq_inband_ipv6: [3333::3:12/128]
+      loopback4096_ip: [8.0.0.12/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128]
+      syseeprom_info:
+        '0xFE': '0x65F2B71C'
+        '0x23': 'FAL1-01-008'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:E1'
+        '0x2A': '2'
+    ixre-fal-board7:
+      ansible_host: 152.148.151.137
+      console_ip: 152.148.150.78
+      console_port: 2019
+      slot_num: slot7
+      model: "N/A"
+      serial: FAL1-01-028
+      base_mac: 40:7C:7D:BB:25:D9
+      switchids: [36]
+      voq_inband_ip: [3.3.3.36/32]
+      voq_inband_ipv6: [3333::3:36/128]
+      loopback4096_ip: [8.0.0.36/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128]
+      syseeprom_info:
+        '0xFE': '0x26AD1510'
+        '0x23': 'FAL1-01-028'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:D9'
+        '0x2A': '2'
+    ixre-fal-board8:
+      ansible_host: 152.148.151.135
+      console_ip: 152.148.150.78
+      console_port: 2006
+      slot_num: slot5
+      model: "N/A"
+      serial: FAL1-01-027
+      base_mac: 40:7C:7D:BB:25:D7
+      switchids: [22]
+      voq_inband_ip: [3.3.3.22/32]
+      voq_inband_ipv6: [3333::3:22/128]
+      loopback4096_ip: [8.0.0.22/32]
+      loopback4096_ipv6: [2603:10e2:400::22/128]
+      syseeprom_info:
+        '0xFE': '0xD87EF5E6'
+        '0x23': 'FAL1-01-027'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:D7'
+        '0x2A': '2'
+    ixre-fal-board9:
+      ansible_host: 152.148.151.146
+      console_ip: 152.148.150.78
+      console_port: 2009
+      slot_num: 6
+      model: "N/A"
+      serial: FAL1-01-061
+      base_mac: 40:7C:7D:BB:26:F3
+      switchids: [30]
+      voq_inband_ip: [3.3.3.30/32]
+      voq_inband_ipv6: [3333::3:30/128]
+      loopback4096_ip: [8.0.0.30/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128]
+      syseeprom_info:
+        '0xFE': '0x3E9A1B7E'
+        '0x23': 'FAL1-01-061'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:F3'
+        '0x2A': '2'
+    ixre-fal-board10:
+      ansible_host: 152.148.151.144
+      console_ip: 152.148.150.78
+      console_port: 2022
+      slot_num: slot4
+      model: "N/A"
+      serial: FAL1-01-055
+      base_mac: 40:7C:7D:BB:26:ED
+      switchids: [18]
+      voq_inband_ip: [3.3.3.18/32]
+      voq_inband_ipv6: [3333::3:18/128]
+      loopback4096_ip: [8.0.0.18/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128]
+      syseeprom_info:
+        '0xFE': '0x2A2C876D'
+        '0x23': 'FAL1-01-055'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:ED'
+        '0x2A': '2'
+    ixre-fal-board4:
+      ansible_host: 152.148.151.178
+      console_ip: 152.148.150.78
+      console_port: 2020
+      slot_num: slot4
+      model: "N/A"
+      serial: FAL1-01-014
+      base_mac: 40:7c:7d:bb:25:db
+      switchids: [18]
+      voq_inband_ip: [3.3.3.18/32]
+      voq_inband_ipv6: [3333::3:18/128]
+      loopback4096_ip: [8.0.0.18/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128]
+      syseeprom_info:
+        '0xFE': '0x72550513'
+        '0x23': 'FAL1-01-014'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:DB'
+        '0x2A': '2'
+    ixre-fal-board5:
+      ansible_host: 152.148.151.154
+      console_ip: 152.148.150.78
+      console_port: 2020
+      slot_num: slot4
+      model: "N/A"
+      serial: FAL1-01-023
+      base_mac: 40:7c:7d:bb:26:55
+      switchids: [18]
+      voq_inband_ip: [3.3.3.18/32]
+      voq_inband_ipv6: [3333::3:18/128]
+      loopback4096_ip: [8.0.0.18/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128]
+      syseeprom_info:
+        '0xFE': '0xDB1B5BCD'
+        '0x23': 'FAL1-01-023'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:55'
+        '0x2A': '2'
+    ixre-fal-board6:
+      ansible_host: 152.148.151.155
+      console_ip: 152.148.150.78
+      console_port: 2016
+      slot_num: slot5
+      model: "N/A"
+      serial: FAL1-01-026
+      base_mac: 40:7c:7d:bb:25:CB
+      switchids: [24]
+      voq_inband_ip: [3.3.3.24/32]
+      voq_inband_ipv6: [3333::3:24/128]
+      loopback4096_ip: [8.0.0.24/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128]
+      syseeprom_info:
+        '0xFE': '0xEE426E99'
+        '0x23': 'FAL1-01-026'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:CB'
+        '0x2A': '2'
+
+    ixre-fal-board11:
+      ansible_host: 152.148.151.161
+      console_ip: 152.148.150.16
+      console_port: 2001
+      slot_num: slot1
+      model: "N/A"
+      serial: FAL1-01-057
+      base_mac: A4:7B:2C:CF:42:23
+      switchids: [0]
+      voq_inband_ip: [3.3.3.1/32]
+      voq_inband_ipv6: [3333::3:1/128]
+      loopback4096_ip: [8.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128]
+      syseeprom_info:
+        '0xFE': '0xD95084F4'
+        '0x23': 'FAL1-01-057'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:CF:42:23'
+        '0x2A': '2'
+
+    ixre-fal-board12:
+      ansible_host: 152.148.151.162
+      console_ip: 152.148.150.16
+      console_port: 2002
+      slot_num: slot2
+      model: "N/A"
+      serial: FAL1-01-056
+      base_mac: 40:7C:7D:BB:26:C3
+      switchids: [6]
+      voq_inband_ip: [3.3.3.6/32]
+      voq_inband_ipv6: [3333::3:6/128]
+      loopback4096_ip: [8.0.0.6/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128]
+      syseeprom_info:
+        '0xFE': '0xABB813AD'
+        '0x23': 'FAL1-01-056'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:C3'
+        '0x2A': '2'
+
+    ixre-fal-board13:
+      ansible_host: 152.148.151.164
+      console_ip: 152.148.150.16
+      console_port: 2004
+      slot_num: slot4
+      model: "N/A"
+      serial: FAL1-01-053
+      base_mac: 40:7C:7D:BB:27:0F
+      switchids: [18]
+      voq_inband_ip: [3.3.3.18/32]
+      voq_inband_ipv6: [3333::3:18/128]
+      loopback4096_ip: [8.0.0.18/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128]
+      syseeprom_info:
+        '0xFE': '0xA3FDDF47'
+        '0x23': 'FAL1-01-053'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:C3'
+        '0x2A': '2'
+
+    ixre-fal-board14:
+      ansible_host: 152.148.151.170
+      console_ip: 152.148.150.16
+      console_port: 2005
+      slot_num: slot5
+      model: "N/A"
+      serial: FAL1-01-054
+      base_mac: 40:7C:7D:BB:26:BF
+      switchids: [24]
+      voq_inband_ip: [3.3.3.24/32]
+      voq_inband_ipv6: [3333::3:24/128]
+      loopback4096_ip: [8.0.0.24/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128]
+      syseeprom_info:
+        '0xFE': '0xC32E84DD'
+        '0x23': 'FAL1-01-054'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:BF'
+        '0x2A': '2'
+
+    ixre-fal-board15:
+      ansible_host: 152.148.151.166
+      console_ip: 152.148.150.16
+      console_port: 2006
+      slot_num: slot6
+      model: "N/A"
+      serial: FAL1-01-060
+      base_mac: 40:7C:7D:BB:26:CF
+      switchids: [30]
+      voq_inband_ip: [3.3.3.30/32]
+      voq_inband_ipv6: [3333::3:30/128]
+      loopback4096_ip: [8.0.0.30/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128]
+      syseeprom_info:
+        '0xFE': '0x32145DD3'
+        '0x23': 'FAL1-01-060'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:CF'
+        '0x2A': '2'
+
+    ixre-fal-board16:
+      ansible_host: 152.148.151.167
+      console_ip: 152.148.150.16
+      console_port: 2007
+      slot_num: slot7
+      model: "N/A"
+      serial: FAL1-01-059
+      base_mac: 40:7C:7D:BB:26:DD
+      switchids: [36]
+      voq_inband_ip: [3.3.3.36/32]
+      voq_inband_ipv6: [3333::3:36/128]
+      loopback4096_ip: [8.0.0.36/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128]
+      syseeprom_info:
+        '0xFE': '0x48329DB2'
+        '0x23': 'FAL1-01-059'
+        '0x21': 'Nokia-IXR7250E-60x100G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:DD'
+        '0x2A': '2'
+
+    ixre-fal-slot1:
+      ansible_host: 152.148.201.111
+      slot_num: slot1
+      switchids: [0]
+      voq_inband_ip: [3.3.3.1/32]
+      voq_inband_ipv6: [3333::3:1/128]
+      loopback4096_ip: [8.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128]
+    ixre-fal-slot2:
+      ansible_host: 152.148.201.112
+      slot_num: slot23
+      switchids: [6]
+      voq_inband_ip: [3.3.3.6/32]
+      voq_inband_ipv6: [3333::3:6/128]
+      loopback4096_ip: [8.0.0.6/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128]
+    ixre-fal-slot3:
+      ansible_host: 152.148.201.113
+      slot_num: slot3
+      switchids: [12]
+      voq_inband_ip: [3.3.3.12/32]
+      voq_inband_ipv6: [3333::3:12/128]
+      loopback4096_ip: [8.0.0.12/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128]
+    ixre-fal-slot4:
+      ansible_host: 152.148.201.114
+      slot_num: slot4
+      switchids: [18]
+      voq_inband_ip: [3.3.3.18/32]
+      voq_inband_ipv6: [3333::3:18/128]
+      loopback4096_ip: [8.0.0.18/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128]
+    ixre-fal-slot5:
+      ansible_host: 152.148.201.115
+      slot_num: slot5
+      switchids: [24]
+      voq_inband_ip: [3.3.3.24/32]
+      voq_inband_ipv6: [3333::3:24/128]
+      loopback4096_ip: [8.0.0.24/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128]
+    ixre-fal-slot6:
+      ansible_host: 152.148.201.116
+      slot_num: slot6
+      switchids: [30]
+      voq_inband_ip: [3.3.3.30/32]
+      voq_inband_ipv6: [3333::3:30/128]
+      loopback4096_ip: [8.0.0.30/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128]
+    ixre-fal-slot7:
+      ansible_host: 152.148.201.117
+      slot_num: slot7
+      switchids: [36]
+      voq_inband_ip: [3.3.3.36/32]
+      voq_inband_ipv6: [3333::3:36/128]
+      loopback4096_ip: [8.0.0.36/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128]
+    ixre-fal-slot8:
+      ansible_host: 152.148.201.118
+      slot_num: slot8
+      switchids: [42]
+      voq_inband_ip: [3.3.3.42/32]
+      voq_inband_ipv6: [3333::3:42/128]
+      loopback4096_ip: [8.0.0.42/32]
+      loopback4096_ipv6: [2603:10e2:400::42/128]
+
+sonic_egl_100G:
+  vars:
+    sonic_hwsku: Nokia-IXR7250E-36x100G
+    hwsku: Nokia-IXR7250E-36x100G
+    sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+    initial_pause_time: 3
+    pause_mins_before_recheck: 2
+    model: "N/A"
+    num_asics: 2
+    frontend_asics: [0,1]
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+    plt_reboot_dict:
+       cold:
+          timeout: 240
+          wait: 300
+  hosts:
+    ixre-egl-board1:
+      ansible_host: 152.148.190.21
+      mgmt_subnet_mask_length: 24
+      console_ip: 152.148.150.78
+      console_port: 2001
+      test_resource_name: imm1
+      slot_num: slot1
+      serial: EAG2-02-019
+      base_mac: 40:7C:7D:BB:25:B1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      syseeprom_info:
+        '0xFE': '0x509863E9'
+        '0x23': 'EAG2-04-210'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:3B'
+        '0x2A': '2'
+    ixre-egl-board5:
+      ansible_host: 152.148.190.22
+      mgmt_subnet_mask_length: 24
+      console_ip: 152.148.150.78
+      console_port: 2005
+      test_resource_name: imm1
+      slot_num: slot3
+      serial: EAG2-02-011
+      base_mac: 40:7C:7D:BB:25:97
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.16/32,3.3.3.17/32]
+      voq_inband_ipv6: [3333::3:10/128,3333::3:11/128]
+      loopback4096_ip: [8.0.0.16/32,8.0.0.17/32]
+      loopback4096_ipv6: [2603:10e2:400::10/128,2603:10e2:400::11/128]
+      syseeprom_info:
+        '0xFE': '0xE83D48C5'
+        '0x23': 'EAG2-02-011'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:97'
+        '0x2A': '2'
+    ixre-egl-board25:
+      ansible_host: 152.148.151.114
+      console_ip: 152.148.150.78
+      console_port: 2014
+      slot_num: slot1
+      serial: EAG2-02-051
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      syseeprom_info:
+        '0xFE': '0xEBC9924C'
+        '0x23': 'EAG2-02-040'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:13'
+        '0x2A': '2'
+    ixre-egl-board26:
+      ansible_host: 152.148.151.116
+      console_ip: 152.148.150.78
+      console_port: 2027
+      slot_num: slot2
+      serial: EAG2-02-142
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      syseeprom_info:
+        '0xFE': '0x1D707CA2'
+        '0x23': 'EAG2-02-142'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:27:6B'
+        '0x2A': '2'
+    ixre-egl-board27:
+      ansible_host: 152.148.151.142
+      console_ip: 152.148.150.78
+      console_port: 2029
+      slot_num: slot2
+      serial: EAG2-02-023
+      base_mac: 40:7C:7D:BB:25:AB
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      syseeprom_info:
+        '0xFE': '0xDC06D0E3'
+        '0x23': 'EAG2-02-023'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:AB'
+        '0x2A': '2'
+    ixre-egl-board28:
+      ansible_host: 152.148.151.143
+      console_ip: 152.148.150.78
+      console_port: 2007
+      slot_num: slot3
+      serial: EAG2-02-016
+      base_mac: 40:7C:7D:BB:25:9D
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.12/32,3.3.3.14/32]
+      voq_inband_ipv6: [3333::3:12/128,3333::3:14/128]
+      loopback4096_ip: [8.0.0.12/32,8.0.0.14/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128,2603:10e2:400::14/128]
+      syseeprom_info:
+        '0xFE': '0xA8ED7E9E'
+        '0x23': 'EAG2-02-016'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:9D'
+        '0x2A': '2'
+    ixre-egl-board29:
+      ansible_host: 152.148.151.181
+      console_ip:  152.148.150.16
+      console_port: 2021
+      slot_num: slot1
+      serial: EAG2-02-151
+      base_mac: 40:7C:7D:BB:27:71
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      syseeprom_info:
+        '0xFE': '0x3A1CE8E6'
+        '0x23': 'EAG2-02-151'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:27:71'
+        '0x2A': '2'
+    ixre-egl-board30:
+      ansible_host: 152.148.151.183
+      console_ip:  152.148.150.16
+      console_port: 2022
+      slot_num: slot3
+      serial: EAG2-02-147
+      base_mac: 40:7C:7D:BB:27:6D
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.12/32,3.3.3.14/32]
+      voq_inband_ipv6: [3333::3:12/128,3333::3:14/128]
+      loopback4096_ip: [8.0.0.12/32,8.0.0.14/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128,2603:10e2:400::14/128]
+      syseeprom_info:
+        '0xFE': '0x3949ED12'
+        '0x23': 'EAG2-02-147'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:27:6D'
+        '0x2A': '2'
+    ixre-egl-board31:
+      ansible_host: 152.148.151.171
+      slot_num: slot1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+    ixre-egl-board32:
+      ansible_host: 152.148.151.172
+      slot_num: slot2
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+    ixre-egl-board33:
+      ansible_host: 152.148.151.173
+      slot_num: slot3
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.12/32,3.3.3.14/32]
+      voq_inband_ipv6: [3333::3:12/128,3333::3:14/128]
+      loopback4096_ip: [8.0.0.12/32,8.0.0.14/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128,2603:10e2:400::14/128]
+    ixre-egl-board34:
+      ansible_host: 152.148.151.174
+      slot_num: slot4
+      switchids: [18,20]
+      voq_inband_ip: [3.3.3.18/32,3.3.3.20/32]
+      voq_inband_ipv6: [3333::3:18/128,3333::3:20/128]
+      loopback4096_ip: [8.0.0.18/32,8.0.0.20/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128,2603:10e2:400::20/128]
+    ixre-egl-board35:
+      ansible_host: 152.148.151.175
+      slot_num: slot5
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.24/32,3.3.3.26/32]
+      voq_inband_ipv6: [3333::3:24/128,3333::3:26/128]
+      loopback4096_ip: [8.0.0.24/32,8.0.0.26/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128,2603:10e2:400::26/128]
+    ixre-egl-board36:
+      ansible_host: 152.148.151.176
+      slot_num: slot6
+      switchids: [30,32]
+      voq_inband_ip: [3.3.3.30/32,3.3.3.32/32]
+      voq_inband_ipv6: [3333::3:30/128,3333::3:32/128]
+      loopback4096_ip: [8.0.0.30/32,8.0.0.32/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128,2603:10e2:400::32/128]
+    ixre-egl-board37:
+      ansible_host: 152.148.151.177
+      slot_num: slot7
+      switchids: [36,38]
+      voq_inband_ip: [3.3.3.36/32,3.3.3.38/32]
+      voq_inband_ipv6: [3333::3:36/128,3333::3:38/128]
+      loopback4096_ip: [8.0.0.36/32,8.0.0.38/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128,2603:10e2:400::38/128]
+    ixre-egl-board38:
+      ansible_host: 152.148.151.178
+      slot_num: slot8
+      switchids: [42,44]
+      voq_inband_ip: [3.3.3.42/32,3.3.3.44/32]
+      voq_inband_ipv6: [3333::3:42/128,3333::3:44/128]
+      loopback4096_ip: [8.0.0.42/32,8.0.0.44/32]
+      loopback4096_ipv6: [2603:10e2:400::42/128,2603:10e2:400::44/128]
+
+sonic_egl:
+  vars:
+    sonic_hwsku: Nokia-IXR7250E-36x400G
+    hwsku: Nokia-IXR7250E-36x400G
+    sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
+    initial_pause_time: 3
+    pause_mins_before_recheck: 2
+    model: "N/A"
+    num_asics: 2
+    frontend_asics: [0,1]
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+    plt_reboot_dict:
+      cold:
+        timeout: 240
+        wait: 300
+  hosts:
+    ixre-egl-slot1:
+      ansible_host: 152.148.161.111
+      slot_num: slot1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+    ixre-egl-slot2:
+      ansible_host: 152.148.161.112
+      slot_num: slot2
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+    ixre-egl-slot3:
+      ansible_host: 152.148.161.113
+      slot_num: slot3
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.12/32,3.3.3.14/32]
+      voq_inband_ipv6: [3333::3:12/128,3333::3:14/128]
+      loopback4096_ip: [8.0.0.12/32,8.0.0.14/32]
+      loopback4096_ipv6: [2603:10e2:400::12/128,2603:10e2:400::14/128]
+    ixre-egl-slot4:
+      ansible_host: 152.148.161.114
+      slot_num: slot4
+      switchids: [18,20]
+      voq_inband_ip: [3.3.3.18/32,3.3.3.20/32]
+      voq_inband_ipv6: [3333::3:18/128,3333::3:20/128]
+      loopback4096_ip: [8.0.0.18/32,8.0.0.20/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128,2603:10e2:400::20/128]
+    ixre-egl-slot5:
+      ansible_host: 152.148.161.115
+      slot_num: slot5
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.24/32,3.3.3.26/32]
+      voq_inband_ipv6: [3333::3:24/128,3333::3:26/128]
+      loopback4096_ip: [8.0.0.24/32,8.0.0.26/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128,2603:10e2:400::26/128]
+    ixre-egl-slot6:
+      ansible_host: 152.148.161.116
+      slot_num: slot6
+      switchids: [30,32]
+      voq_inband_ip: [3.3.3.30/32,3.3.3.32/32]
+      voq_inband_ipv6: [3333::3:30/128,3333::3:32/128]
+      loopback4096_ip: [8.0.0.30/32,8.0.0.32/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128,2603:10e2:400::32/128]
+    ixre-egl-slot7:
+      ansible_host: 152.148.161.117
+      slot_num: slot7
+      switchids: [36,38]
+      voq_inband_ip: [3.3.3.36/32,3.3.3.38/32]
+      voq_inband_ipv6: [3333::3:36/128,3333::3:38/128]
+      loopback4096_ip: [8.0.0.36/32,8.0.0.38/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128,2603:10e2:400::38/128]
+    ixre-egl-slot8:
+      ansible_host: 152.148.161.118
+      slot_num: slot8
+      switchids: [42,44]
+      voq_inband_ip: [3.3.3.42/32,3.3.3.44/32]
+      voq_inband_ipv6: [3333::3:42/128,3333::3:44/128]
+      loopback4096_ip: [8.0.0.42/32,8.0.0.44/32]
+      loopback4096_ipv6: [2603:10e2:400::42/128,2603:10e2:400::44/128]
+    ixre-egl-board2:
+      ansible_host: 152.148.151.113
+      console_ip: 152.148.150.78
+      console_port: 2002
+      test_resource_name: imm1
+      slot_num: slot3
+      serial: EAG2-02-023
+      base_mac: 40:7C:7D:BB:25:AB
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.3/32,3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:3/128,3333::3:4/128]
+      loopback4096_ip: [8.0.0.3/32,8.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      syseeprom_info:
+        '0xFE': '0xDC06D0E3'
+        '0x23': 'EAG2-02-023'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:AB'
+        '0x2A': '2'
+    ixre-egl-board3:
+      ansible_host: 152.148.151.122
+      console_ip: 152.148.150.78
+      console_port: 2004
+      test_resource_name: imm1
+      slot_num: slot2
+      serial: EAG2-02-020
+      base_mac: 40:7C:7D:BB:25:9F
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.4/32,3.3.3.5/32]
+      voq_inband_ipv6: [3333::3:4/128,3333::3:5/128]
+      loopback4096_ip: [8.0.0.4/32,8.0.0.5/32]
+      loopback4096_ipv6: [2603:10e2:400::4/128,2603:10e2:400::5/128]
+      dac_sfps: ['Ethernet5', 'Ethernet6']
+      syseeprom_info:
+        '0xFE': '0x9B1A138B'
+        '0x23': 'EAG2-02-020'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:9F'
+        '0x2A': '2'
+    ixre-egl-board4:
+      ansible_host: 152.148.151.124
+      console_ip: 152.148.150.78
+      console_port: 2003
+      test_resource_name: imm1
+      slot_num: slot4
+      serial: EAG2-02-028
+      base_mac: 40:7C:7D:BB:25:B5
+      switchids: [18,20]
+      voq_inband_ip: [3.3.3.10/32,3.3.3.11/32]
+      voq_inband_ipv6: [3333::3:10/128,3333::3:11/128]
+      loopback4096_ip: [8.0.0.10/32,8.0.0.11/32]
+      loopback4096_ipv6: [2603:10e2:400::a/128,2603:10e2:400::b/128]
+      syseeprom_info:
+        '0xFE': '0xB5F03B9F'
+        '0x23': 'EAG2-02-028'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:B5'
+        '0x2A': '2'
+    ixre-egl-board6:
+      ansible_host: 152.148.151.135
+      console_ip: 152.148.150.78
+      console_port: 2008
+      test_resource_name: imm1
+      slot_num: slot5
+      serial: EAG2-02-032
+      base_mac: 40:7C:7D:BB:25:FF
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.22/32,3.3.3.23/32]
+      voq_inband_ipv6: [3333::3:16/128,3333::3:17/128]
+      loopback4096_ip: [8.0.0.22/32,8.0.0.23/32]
+      loopback4096_ipv6: [2603:10e2:400::16/128,2603:10e2:400::17/128]
+      syseeprom_info:
+        '0xFE': '0xD22355FD'
+        '0x23': 'EAG2-02-032'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:FF'
+        '0x2A': '2'
+    ixre-egl-board7:
+      ansible_host: 152.148.151.141
+      console_ip: 152.148.150.78
+      console_port: 2016
+      test_resource_name: imm1
+      slot_num: slot5
+      serial: EAG2-02-039
+      base_mac: 40:7C:7D:BB:26:11
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.22/32,3.3.3.23/32]
+      voq_inband_ipv6: [3333::3:16/128,3333::3:17/128]
+      loopback4096_ip: [8.0.0.22/32,8.0.0.23/32]
+      loopback4096_ipv6: [2603:10e2:400::16/128,2603:10e2:400::17/128]
+      plt_reboot_dict:
+        cold:
+          timeout: 240
+          wait: 420
+      syseeprom_info:
+        '0xFE': '0x58877043'
+        '0x23': 'EAG2-02-039'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:11'
+        '0x2A': '2'
+    ixre-egl-board8:
+      ansible_host: 152.148.151.146
+      console_ip: 152.148.150.78
+      console_port: 2008
+      test_resource_name: imm1
+      slot_num: slot5
+      serial: EAG2-02-029
+      base_mac: 40:7C:7D:BB:25:F9
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.22/32,3.3.3.23/32]
+      voq_inband_ipv6: [3333::3:16/128,3333::3:17/128]
+      loopback4096_ip: [8.0.0.22/32,8.0.0.23/32]
+      loopback4096_ipv6: [2603:10e2:400::16/128,2603:10e2:400::17/128]
+      syseeprom_info:
+        '0xFE': '0xEBF075AD'
+        '0x23': 'EAG2-02-029'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:F9'
+        '0x2A': '2'
+    ixre-egl-board9:
+      ansible_host: 152.148.151.165
+      console_ip: 152.148.150.16
+      console_port: 2003
+      slot_num: slot3
+      serial: EAG2-02-045
+      base_mac: 40:7C:7D:BB:26:21
+      switchids: [12,14]
+      voq_inband_ip: [3.3.3.12/32,3.3.3.13/32]
+      voq_inband_ipv6: [3333::3:c/128,3333::3:d/128]
+      loopback4096_ip: [8.0.0.12/32,8.0.0.13/32]
+      loopback4096_ipv6: [2603:10e2:400::c/128,2603:10e2:400::d/128]
+      syseeprom_info:
+        '0xFE': '0xC76092E9'
+        '0x23': 'EAG2-02-045'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:21'
+        '0x2A': '2'
+    ixre-egl-board10:
+      ansible_host: 152.148.151.168
+      console_ip: 152.148.150.16
+      console_port: 2008
+      slot_num: slot8
+      serial: EAG2-02-050
+      base_mac: 40:7C:7D:BB:26:39
+      switchids: [42,44]
+      voq_inband_ip: [3.3.3.42/32,3.3.3.43/32]
+      voq_inband_ipv6: [3333::3:2a/128,3333::3:2b/128]
+      loopback4096_ip: [8.0.0.42/32,8.0.0.43/32]
+      loopback4096_ipv6: [2603:10e2:400::2a/128,2603:10e2:400::2b/128]
+      syseeprom_info:
+        '0xFE': '0xA4C2E74E'
+        '0x23': 'EAG2-02-050'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:39'
+        '0x2A': '2'
+    ixre-egl-board15:
+      ansible_host: 152.148.151.152
+      console_ip: 152.148.150.78
+      console_port: 2015
+      slot_num: slot2
+      serial: EAG2-02-043
+      base_mac: 40:7C:7D:BB:26:37
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      plt_reboot_dict:
+        cold:
+          timeout: 240
+          wait: 420
+      syseeprom_info:
+        '0xFE': '0xB18C3FCD'
+        '0x23': 'EAG2-02-043'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:37'
+        '0x2A': '2'
+    ixre-egl-board16:
+      ansible_host: 152.148.151.155
+      console_ip: 152.148.150.78
+      console_port: 2016
+      slot_num: slot5
+      serial: EAG2-02-050
+      base_mac: 40:7C:7D:BB:25:9D
+      switchids: [24,26]
+      voq_inband_ip: [3.3.3.22/32,3.3.3.23/32]
+      voq_inband_ipv6: [3333::3:16/128,3333::3:17/128]
+      loopback4096_ip: [8.0.0.22/32,8.0.0.23/32]
+      loopback4096_ipv6: [2603:10e2:400::16/128,2603:10e2:400::17/128]
+      syseeprom_info:
+        '0xFE': '0xA4C2E74E'
+        '0x23': 'EAG2-02-050'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:25:9D'
+        '0x2A': '2'
+    ixre-egl-board17:
+      ansible_host: 152.148.150.97
+      console_ip: 152.148.150.16
+      console_port: 2001
+      slot_num: slot1
+      serial: EAG2-04-210
+      base_mac: A4:7B:2C:E5:94:3B
+      switchids: [0, 2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      syseeprom_info:
+        '0xFE': '0x509863E9'
+        '0x23': 'EAG2-04-210'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:3B'
+        '0x2A': '2'
+    ixre-egl-board18:
+      ansible_host: 152.148.151.162
+      console_ip: 152.148.150.16
+      console_port: 2002
+      slot_num: slot2
+      serial: EAG2-04-202
+      base_mac: A4:7B:2C:E5:94:3F
+      switchids: [6, 8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [8.0.0.6/32,8.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      syseeprom_info:
+        '0xFE': '0x27FC59C3'
+        '0x23': 'EAG2-04-202'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:3F'
+        '0x2A': '2'
+    ixre-egl-board19:
+      ansible_host: 152.148.151.164
+      console_ip: 152.148.150.16
+      console_port: 2004
+      slot_num: slot4
+      serial: EAG2-04-211
+      base_mac: A4:7B:2C:E5:94:35
+      switchids: [18, 20]
+      voq_inband_ip: [3.3.3.18/32,3.3.3.20/32]
+      voq_inband_ipv6: [3333::3:18/128,3333::3:20/128]
+      loopback4096_ip: [8.0.0.18/32,8.0.0.20/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128,2603:10e2:400::20/128]
+      syseeprom_info:
+        '0xFE': '0x43389B6A'
+        '0x23': 'EAG2-04-211'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:35'
+        '0x2A': '2'
+    ixre-egl-board20:
+      ansible_host: 152.148.151.170
+      console_ip: 152.148.150.16
+      console_port: 2005
+      slot_num: slot5
+      serial: EAG2-04-198
+      base_mac: A4:7B:2C:E5:94:1D
+      switchids: [24, 26]
+      voq_inband_ip: [3.3.3.24/32,3.3.3.26/32]
+      voq_inband_ipv6: [3333::3:24/128,3333::3:26/128]
+      loopback4096_ip: [8.0.0.24/32,8.0.0.26/32]
+      loopback4096_ipv6: [2603:10e2:400::24/128,2603:10e2:400::26/128]
+      syseeprom_info:
+        '0xFE': '0xCC65A148'
+        '0x23': 'EAG2-04-198'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:1D'
+        '0x2A': '2'
+    ixre-egl-board21:
+      ansible_host: 152.148.151.166
+      console_ip: 152.148.150.16
+      console_port: 2006
+      slot_num: slot6
+      serial: EAG2-04-212
+      base_mac: A4:7B:2C:E5:94:19
+      switchids: [30, 32]
+      voq_inband_ip: [3.3.3.30/32,3.3.3.32/32]
+      voq_inband_ipv6: [3333::3:30/128,3333::3:32/128]
+      loopback4096_ip: [8.0.0.30/32,8.0.0.32/32]
+      loopback4096_ipv6: [2603:10e2:400::30/128,2603:10e2:400::32/128]
+      syseeprom_info:
+        '0xFE': '0xFA6902BF'
+        '0x23': 'EAG2-04-212'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:19'
+        '0x2A': '2'
+    ixre-egl-board22:
+      ansible_host: 152.148.151.167
+      console_ip: 152.148.150.16
+      console_port: 2007
+      slot_num: slot7
+      serial: EAG2-04-213
+      base_mac: A4:7B:2C:E5:94:13
+      switchids: [36, 38]
+      voq_inband_ip: [3.3.3.36/32,3.3.3.38/32]
+      voq_inband_ipv6: [3333::3:36/128,3333::3:38/128]
+      loopback4096_ip: [8.0.0.36/32,8.0.0.38/32]
+      loopback4096_ipv6: [2603:10e2:400::36/128,2603:10e2:400::38/128]
+      syseeprom_info:
+        '0xFE': '0x9843E016'
+        '0x23': 'EAG2-04-213'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': 'A4:7B:2C:E5:94:13'
+        '0x2A': '2'
+    ixre-egl-board40:
+      ansible_host: 152.148.151.191
+      slot_num: slot1
+      switchids: [ 0,2 ]
+      voq_inband_ip: [ 3.3.3.1/32,3.3.3.2/32 ]
+      voq_inband_ipv6: [ 3333::3:1/128,3333::3:2/128 ]
+      loopback4096_ip: [ 8.0.0.1/32,8.0.0.2/32 ]
+      loopback4096_ipv6: [ 2603:10e2:400::1/128,2603:10e2:400::2/128 ]
+      serial: EAG2-02-052
+      base_mac: 40:7C:7D:BB:26:15
+      syseeprom_info:
+        '0xFE': '0xA468A573'
+        '0x23': 'EAG2-02-052'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:26:15'
+        '0x2A': '2'
+    ixre-egl-board41:
+      ansible_host: 152.148.151.194
+      slot_num: slot4
+      switchids: [18,20]
+      voq_inband_ip: [3.3.3.18/32,3.3.3.20/32]
+      voq_inband_ipv6: [3333::3:18/128,3333::3:20/128]
+      loopback4096_ip: [8.0.0.18/32,8.0.0.20/32]
+      loopback4096_ipv6: [2603:10e2:400::18/128,2603:10e2:400::20/128]
+      serial: EAG2-02-143
+      base_mac: 40:7C:7D:BB:27:21
+      syseeprom_info:
+        '0xFE': '0x98B255FA'
+        '0x23': 'EAG2-02-143'
+        '0x21': 'Nokia-IXR7250E-36x400G'
+        '0x26': '56'
+        '0x24': '40:7C:7D:BB:27:21'
+        '0x2e': '1'
+        '0x2A': '2'
+
+sonic_vodka:
+  vars:
+    sonic_hwsku: Nokia-IXR7250-32x100G-4x400G
+    hwsku: Nokia-IXR7250-32x100G-4x400G
+    sonic_hw_platform: x86_64-nokia_ixr7250_32x100g_4x400g-r0
+    initial_pause_time: 5
+    pause_mins_before_recheck: 6
+    num_asics: 1
+    frontend_asics: [0]
+    voq_inband_intf: [Ethernet-IB0]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+  hosts:
+    ixr-vdk-board1:
+      ansible_host: 152.148.150.138
+      console_ip: 152.148.146.176
+      console_port: 2005
+      test_resource_name: imm1
+      slot_num: slot8
+      model: 3HE12522AARA01
+      serial: NS194710241
+      base_mac: 40:55:82:A1:FA:4F
+      switchids: [42]
+      voq_inband_ip: [3.3.3.22/32]
+      voq_inband_ipv6: [3333::3:22/128]
+      loopback4096_ip: [8.0.0.22/32]
+      loopback4096_ipv6: [2603:10e2:400::22/128]
+      syseeprom_info:
+        '0xFE': '0xF6E7299E'
+        '0x22': '3HE12522AARA01'
+        '0x23': 'NS194710241'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '40:55:82:A1:FA:4F'
+        '0x25': '01132020'
+        '0x2E': '1'
+        '0x2A': '2'
+    ixr-vdk-board2:
+      ansible_host: 152.148.150.132
+      console_ip: 152.148.146.176
+      console_port: 2028
+      test_resource_name: imm2
+      slot_num: slot2
+      model: 3HE12522AARA01
+      serial: NS194910228
+      base_mac: 40:55:82:A1:FA:B9
+      switchids: [6]
+      voq_inband_ip: [3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:4/128]
+      loopback4096_ip: [8.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::4/128]
+      syseeprom_info:
+        '0xFE': '0x5F3F689B'
+        '0x22': '3HE12522AARA01'
+        '0x23': 'NS194910228'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '40:55:82:A1:FA:B9'
+        '0x25': '02042020'
+        '0x2A': '2'
+    ixr-vdk-board3:
+      ansible_host: 152.148.150.148
+      console_ip: 152.148.150.16
+      console_port: 2028
+      test_resource_name: imm3
+      slot_num: slot8
+      model: "N/A"
+      serial: NS193710031
+      base_mac: 24:21:24:05:81:51
+      switchids: [42]
+      voq_inband_ip: [3.3.3.22/32]
+      voq_inband_ipv6: [3333::3:22/128]
+      loopback4096_ip: [8.0.0.22/32]
+      loopback4096_ipv6: [2603:10e2:400::22/128]
+      syseeprom_info:
+        '0xFE': '0xF1A2435B'
+        '0x23': 'NS193710031'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:51'
+        '0x25': '20191001'
+        '0x2A': '2'
+    ixr-vdk-board4:
+      ansible_host: 152.148.150.147
+      console_ip: 152.148.150.16
+      console_port: 2027
+      test_resource_name: imm2
+      slot_num: slot7
+      model: "N/A"
+      serial: NS193410069
+      base_mac: 14:7B:AC:3A:C9:7F
+      switchids: [36]
+      voq_inband_ip: [3.3.3.19/32]
+      voq_inband_ipv6: [3333::3:19/128]
+      loopback4096_ip: [8.0.0.19/32]
+      loopback4096_ipv6: [2603:10e2:400::19/128]
+      syseeprom_info:
+        '0xFE': '0xD1DA25EA'
+        '0x23': 'NS193410069'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '14:7B:AC:3A:C9:7F'
+        '0x25': '20190828'
+        '0x2A': '2'
+    ixr-vdk-board5:
+      ansible_host: 152.148.150.122
+      console_ip: 152.148.146.176
+      console_port: 2021
+      test_resource_name: imm1
+      slot_num: slot2
+      model: 3HE12522AARA01
+      serial: NS194910236
+      base_mac: 40:55:82:A1:FA:C5
+      switchids: [6]
+      voq_inband_ip: [3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:4/128]
+      loopback4096_ip: [8.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::4/128]
+      syseeprom_info:
+        '0xFE': '0xABE5FE08'
+        '0x22': '3HE12522AARA01'
+        '0x23': 'NS194910236'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '40:55:82:A1:FA:C5'
+        '0x25': '02042020'
+        '0x2A': '2'
+    ixr-vdk-board6:
+      ansible_host: 152.148.150.124
+      console_ip: 152.148.146.176
+      console_port: 2003
+      test_resource_name: imm2
+      slot_num: slot4
+      model: 3HE12522AARA01
+      serial: NS194910176
+      base_mac: 40:55:82:A1:FB:21
+      switchids: [18]
+      voq_inband_ip: [3.3.3.10/32]
+      voq_inband_ipv6: [3333::3:10/128]
+      loopback4096_ip: [8.0.0.10/32]
+      loopback4096_ipv6: [2603:10e2:400::10/128]
+      syseeprom_info:
+        '0xFE': '0x4F167C2E'
+        '0x22': '3HE12522AARA01'
+        '0x23': 'NS194910176'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '40:55:82:A1:FB:21'
+        '0x25': '02042020'
+        '0x2A': '2'
+    ixr-vdk-board7:
+      ansible_host: 152.148.150.141
+      console_ip: 152.148.150.16
+      console_port: 2021
+      test_resource_name: imm1
+      slot_num: slot1
+      model: "N/A"
+      serial: NS193410048
+      base_mac: 14:7B:AC:3A:C9:55
+      switchids: [0]
+      voq_inband_ip: [3.3.3.1/32]
+      voq_inband_ipv6: [3333::3:1/128]
+      loopback4096_ip: [8.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128]
+      syseeprom_info:
+        '0xFE': '0x6E1322B5'
+        '0x23': 'NS193410048'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '14:7B:AC:3A:C9:55'
+        '0x25': '20190909'
+        '0x2A': '2'
+    ixr-vdk-board8:
+      ansible_host: 152.148.150.161
+      type: imm
+      num_asics: 1
+      slot_num: slot1
+      test_resource_name: imm1
+      model: "N/A"
+      serial: NS193910033
+      base_mac: 14:7B:AC:3A:CA:35
+      switchids: [0]
+      voq_inband_ip: [3.3.3.1/32]
+      voq_inband_ipv6: [3333::3:1/128]
+      loopback4096_ip: [8.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128]
+      syseeprom_info:
+        '0x21': Nokia-IXR7250-32x100G-4x400G
+        '0x23': NS193910033
+        '0x24': 14:7B:AC:3A:CA:35
+        '0x25': 20191021
+        '0x26': '56'
+        '0x2A': '2'
+        '0xFE': '0x3FEFBAEF'
+    ixr-vdk-board9:
+      ansible_host: 152.148.150.163
+      type: imm
+      num_asics: 1
+      slot_num: slot3
+      test_resource_name: imm2
+      model: 3HE12522AARA01
+      serial: NS194910227
+      base_mac: 40:55:82:A1:FB:43
+      switchids: [12]
+      voq_inband_ip: [3.3.3.7/32]
+      voq_inband_ipv6: [3333::3:7/128]
+      loopback4096_ip: [8.0.0.7/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128]
+      syseeprom_info:
+        '0x21': Nokia-IXR7250-32x100G-4x400G
+        '0x22': 3HE12522AARA01
+        '0x23': NS194910227
+        '0x24': 40:55:82:A1:FB:43
+        '0x25': 02032020
+        '0x26': '56'
+        '0x2A': '2'
+        '0xFE': '0xA3B70832'
+    ixr-vdk-board10:
+      ansible_host: 152.148.150.156
+      console_ip: 152.148.150.16
+      console_port: 2022
+      test_resource_name: imm1
+      slot_num: slot6
+      model: "N/A"
+      serial: NS193910016
+      base_mac: 14:7B:AC:3A:CA:15
+      switchids: [30]
+      voq_inband_ip: [3.3.3.16/32]
+      voq_inband_ipv6: [3333::3:16/128]
+      loopback4096_ip: [8.0.0.16/32]
+      loopback4096_ipv6: [2603:10e2:400::16/128]
+      syseeprom_info:
+        '0xFE': '0x97D33FAA'
+        '0x23': 'NS193910016'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '14:7B:AC:3A:CA:15'
+        '0x25': '20191004'
+        '0x2A': '2'
+    ixr-vdk-board11:
+      ansible_host: 152.148.150.154
+      console_ip: 152.148.150.16
+      console_port: 2024
+      test_resource_name: imm2
+      slot_num: slot4
+      model: "N/A"
+      serial: NS193910030
+      base_mac: 14:7B:AC:3A:CA:09
+      switchids: [18]
+      voq_inband_ip: [3.3.3.10/32]
+      voq_inband_ipv6: [3333::3:10/128]
+      loopback4096_ip: [8.0.0.10/32]
+      loopback4096_ipv6: [2603:10e2:400::10/128]
+      syseeprom_info:
+        '0xFE': '0x1C747CC1'
+        '0x23': 'NS193910030'
+        '0x21': 'Nokia-IXR7250-32x100G-4x400G'
+        '0x26': '56'
+        '0x24': '14:7B:AC:3A:CA:09'
+        '0x25': '20191016'
+        '0x2A': '2'
+    ixr-vdk-board12:
+      ansible_host: 152.148.150.158
+      console_ip: 152.148.150.16
+      console_port: 2014
+      test_resource_name: imm2
+      slot_num: slot8
+      serial: NS19371000
+      model: "N/A"
+      base_mac: 14:7B:AC:3A:C9:97
+      syseeprom_info:
+        '0xFE': '0x7690A2F'
+        '0x23': 'NS19371000'
+        '0x21': 'ixr7250-32x100g-4x400g'
+        '0x26': '56'
+        '0x24': '14:7B:AC:3A:C9:97'
+        '0x25':  '20190925'
+        '0x2A': '2'
+
+sonic_minion:
+  vars:
+    sonic_hwsku: Nokia-IXR7250-36x400G
+    hwsku: Nokia-IXR7250-36x400G
+    sonic_hw_platform: x86_64-nokia_ixr7250-r0
+    is_sim: true
+  hosts:
+    minion_linecard:
+      ansible_host: 172.17.0.100
+      num_asics: 3
+    minion_chassis_imm1:
+      ansible_host: 172.17.0.200
+      num_asics: 3
+    minion_chassis_imm2:
+      ansible_host: 172.17.0.201
+      num_asics: 3
+    minion_chassis_cpm:
+      ansible_host: 172.17.0.202
+      sonic_hwsku: CPM
+      num_asics: 1
+      card_type: supervisor
+
+sonic_sup:
+  vars:
+    sonic_hw_platform: x86_64-nokia_ixr7250e_sup-r0
+    sonic_hwsku: Nokia-IXR7250E-SUP-10
+    hwsku: Nokia-IXR7250E-SUP-10
+    initial_pause_time: 4
+    pause_mins_before_recheck: 3
+    slot_num: slot16
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    plt_reboot_dict:
+      cold:
+        timeout: 240
+        wait: 300
+  hosts:
+    ixre-cpm-chassis7:
+      ansible_host: 152.148.151.222
+      console_ip: 152.148.150.16
+      console_port: 2026
+      asics_present: [12,13]
+      skip_modules:
+        line-cards:
+          - LINE-CARD1
+          - LINE-CARD3
+          - LINE-CARD4
+          - LINE-CARD5
+          - LINE-CARD7
+        fabric-cards:
+          - FABRIC-CARD0
+          - FABRIC-CARD1
+          - FABRIC-CARD2
+          - FABRIC-CARD3
+          - FABRIC-CARD4
+          - FABRIC-CARD5
+          - FABRIC-CARD7
+        psus:
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+      model: "N/A"
+      serial: "NS220910105"
+      base_mac: 20:F4:4F:27:AF:89
+      syseeprom_info:
+        '0xFE': '0x3E9FA222'
+        '0x23': 'NS220910105'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:AF:89'
+        '0x25': '20220314'
+        '0x26': '56'
+        '0x2A': '5'
+        '0x22': '3HE16996AA0101'
+    ixre-cpm-chassis8:
+      ansible_host: 152.148.151.221
+      console_ip: 152.148.150.16
+      console_port: 2031
+      asics_present: [12,13]
+      skip_modules:
+        line-cards:
+          - LINE-CARD0
+          - LINE-CARD2
+          - LINE-CARD4
+          - LINE-CARD5
+          - LINE-CARD6
+          - LINE-CARD7
+        fabric-cards:
+          - FABRIC-CARD0
+          - FABRIC-CARD1
+          - FABRIC-CARD2
+          - FABRIC-CARD3
+          - FABRIC-CARD4
+          - FABRIC-CARD5
+          - FABRIC-CARD7
+        psus:
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+        thermals:
+          - sfm1_1(fan)
+          - sfm1_2
+          - sfm1_3
+          - sfm1_4(fan
+          - sfm1_5(fan)
+          - sfm2_1(fan)
+          - sfm2_2
+          - sfm2_3
+          - sfm2_4(fan
+          - sfm2_5(fan)
+          - sfm3_1(fan)
+          - sfm3_2
+          - sfm3_3
+          - sfm3_4(fan
+          - sfm3_5(fan)
+          - sfm4_1(fan)
+          - sfm4_2
+          - sfm4_3
+          - sfm4_4(fan
+          - sfm4_5(fan)
+          - sfm5_1(fan)
+          - sfm5_2
+          - sfm5_3
+          - sfm5_4(fan
+          - sfm5_5(fan)
+          - sfm6_1(fan)
+          - sfm6_2
+          - sfm6_3
+          - sfm6_4(fan
+          - sfm6_5(fan)
+          - sfm8_1(fan)
+          - sfm8_2
+          - sfm8_3
+          - sfm8_4(fan
+          - sfm8_5(fan)
+      model: "3HE16996AA0101"
+      serial: "NS220910102"
+      base_mac: 20:F4:4F:27:AF:CF
+      syseeprom_info:
+        '0xFE': '0x9306CD38'
+        '0x23': 'NS220910102'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:AF:CF'
+        '0x25': '20220314'
+        '0x26': '56'
+        '0x22': '3HE16996AA0101'
+        '0x2A': '5'
+    ixre-cpm-chassis13:
+      ansible_host: 152.148.150.94
+      console_ip: 152.148.150.16
+      console_port: 2019
+      model: "N/A"
+      serial: "NS214510154"
+      base_mac: 20:F4:4F:27:AF:34
+      syseeprom_info:
+        '0xFE': '0x149273DC'
+        '0x23': 'NS214510154'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x22': '3HE16996AARA01'
+        '0x24': '20:F4:4F:27:AF:34'
+        '0x25': '02042022'
+        '0x26': '56'
+        '0x2A': '5'
+    ixre-cpm-chassis14:
+      ansible_host: 152.148.151.189
+      console_ip: 152.148.150.16
+      console_port: 2010
+      model: "N/A"
+      serial: "01211800004"
+      base_mac: 20:F4:4F:27:A9:0D
+      syseeprom_info:
+        '0xFE': '0x813D072D'
+        '0x23': '01211800004'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A9:0D'
+        '0x25': '20210517'
+        '0x26': '56'
+        '0x2A': '5'
+    ixre-cpm-chassis15:
+      ansible_host: 152.148.151.199
+      console_ip: 152.148.150.16
+      console_port: 2025
+      model: "N/A"
+      serial: "NS220910113"
+      base_mac: 20:F4:4F:27:AF:BB
+      syseeprom_info:
+        '0xFE': '0x1303F2C4'
+        '0x23': 'NS220910113'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:AF:BB'
+        '0x25': '20220314'
+        '0x26': '56'
+        '0x22': '3HE16996AARA01'
+        '0x2A': '5'
+    ixre-cpm-chassis9:
+      ansible_host: 152.148.151.226
+      console_ip: 152.148.150.78
+      console_port: 2025
+      model: "N/A"
+      asics_present: [4,5,10,11]
+      initial_pause_time: 6
+      skip_modules:
+        line-cards:
+          - LINE-CARD1
+          - LINE-CARD3
+          - LINE-CARD4
+          - LINE-CARD5
+          - LINE-CARD6
+          - LINE-CARD7
+        fabric-cards:
+          - FABRIC-CARD0
+          - FABRIC-CARD1
+          - FABRIC-CARD3
+          - FABRIC-CARD4
+          - FABRIC-CARD6
+          - FABRIC-CARD7
+        psus:
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+        thermals:
+          - sfm1_1(fan)
+          - sfm1_2
+          - sfm1_3
+          - sfm1_4(fan
+          - sfm1_5(fan)
+          - sfm2_1(fan)
+          - sfm2_2
+          - sfm2_3
+          - sfm2_4(fan
+          - sfm2_5(fan)
+          - sfm4_1(fan)
+          - sfm4_2
+          - sfm4_3
+          - sfm4_4(fan
+          - sfm4_5(fan)
+          - sfm5_1(fan)
+          - sfm5_2
+          - sfm5_3
+          - sfm5_4(fan
+          - sfm5_5(fan)
+          - sfm7_1(fan)
+          - sfm7_2
+          - sfm7_3
+          - sfm7_4(fan
+          - sfm7_5(fan)
+          - sfm8_1(fan)
+          - sfm8_2
+          - sfm8_3
+          - sfm8_4(fan
+          - sfm8_5(fan)
+      serial: "NS212610038"
+      base_mac: 20:F4:4F:27:A9:B2
+      syseeprom_info:
+        '0xFE': '0xDE0FDEBC'
+        '0x23': 'NS212610038'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A9:B2'
+        '0x25': '20210714'
+        '0x26': '56'
+        '0x2A': '5'
+
+sonic_sup_r0:
+  vars:
+    sonic_hw_platform: x86_64-nokia_ixr7250e_sup-r0
+    sonic_hwsku: Nokia-IXR7250E-SUP-10-r0
+    hwsku: Nokia-IXR7250E-SUP-10-r0
+    initial_pause_time: 5
+    pause_mins_before_recheck: 3
+    slot_num: slot16
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    num_thermal_sensors_per_fabric_card: 5
+    plt_reboot_dict:
+      cold:
+        timeout: 240
+        wait: 300
+  hosts:
+    ixre-cpm-chassis12:
+      ansible_host: 152.148.150.85
+      console_ip: 152.148.150.16
+      console_port: 2009
+      model: "N/A"	  
+      serial: "01211000100"
+      base_mac: 20:F4:4F:27:A8:63
+      syseeprom_info:
+        '0xFE': '0x7CB08DC1'
+        '0x23': '01211000100'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A8:63'
+        '0x25': '20210323'
+        '0x26': '56'
+        '0x2A': '5'
+    ixre-cpm-chassis10:
+      initial_pause_time: 8
+      ansible_host: 152.148.150.90
+      console_ip: 152.148.150.78
+      console_port: 2026
+      asics_present: [0,1,2,3,4,5]
+      skip_modules:
+        line-cards:
+          - LINE-CARD0
+          - LINE-CARD3
+          - LINE-CARD4
+          - LINE-CARD5
+          - LINE-CARD6
+          - LINE-CARD7
+        fabric-cards:
+          - FABRIC-CARD3
+          - FABRIC-CARD4
+          - FABRIC-CARD5
+          - FABRIC-CARD6
+          - FABRIC-CARD7
+        psus:
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+        thermals:
+          - sfm4_1(fan)
+          - sfm4_2
+          - sfm4_3
+          - sfm4_4(fan
+          - sfm4_5(fan)
+          - sfm5_1(fan)
+          - sfm5_2
+          - sfm5_3
+          - sfm5_4(fan
+          - sfm5_5(fan)
+          - sfm6_1(fan)
+          - sfm6_2
+          - sfm6_3
+          - sfm6_4(fan
+          - sfm6_5(fan)
+          - sfm7_1(fan)
+          - sfm7_2
+          - sfm7_3
+          - sfm7_4(fan
+          - sfm7_5(fan)
+          - sfm8_1(fan)
+          - sfm8_2
+          - sfm8_3
+          - sfm8_4(fan
+          - sfm8_5(fan)
+      model: "N/A"
+      serial: "01211800009"
+      base_mac: 20:F4:4F:27:A9:EA
+      syseeprom_info:
+        '0xFE': '0xD148E073'
+        '0x23': '01211800009'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A9:EA'
+        '0x25': '20210517'
+        '0x26': '56'
+        '0x2A': '5'
+    ixre-cpm-chassis11:
+      initial_pause_time: 5
+      pause_mins_before_recheck: 10 
+      ansible_host: 152.148.151.224
+      console_ip: 152.148.150.78
+      console_port: 2028
+      plt_reboot_dict:
+        cold:
+          timeout: 240
+          wait: 420
+      skip_modules:
+        line-cards:
+          - LINE-CARD0
+          - LINE-CARD2
+          - LINE-CARD3
+          - LINE-CARD5
+          - LINE-CARD6
+          - LINE-CARD7
+        psus:
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+      model: "N/A"
+      serial: "01211200052"
+      base_mac: '20:F4:4F:27:A8:9F'
+      syseeprom_info:
+        '0xFE': '0xF7F11A0C'
+        '0x23': '01211200052'
+        '0x21': 'Nokia-IXR7250E-SUP-10'
+        '0x24': '20:F4:4F:27:A8:9F'
+        '0x25': '20210409'
+        '0x26': '56'
+        '0x2A': '5'
+    ixre-cpm-egl-full-chassis:
+      ansible_host: 152.148.161.119
+    ixre-cpm-fal-full-chassis:
+      ansible_host: 152.148.171.119
+
+
+sonic_cpm:
+  vars:
+    sonic_hw_platform: x86_64-nokia_ixr7250_cpm-r0
+    initial_pause_time: 5
+    pause_mins_before_recheck: 6
+    num_asics: 1
+    card_type: supervisor
+  hosts:
+    ixr-cpm2-chassis1:
+      sonic_hwsku: Nokia-IXR7250-SUP-6
+      hwsku: Nokia-IXR7250-SUP-6
+      slot_num: slot16
+      ansible_host: 152.148.151.193
+      console_ip: 152.148.146.176
+      console_port: 2012
+      skip_modules:
+        fabric-cards:
+          - FABRIC-CARD4
+          - FABRIC-CARD5
+        psus:
+          - PSU4
+          - PSU5
+          - PSU6
+      model: "N/A"
+      serial: "SD-R02-36"
+      base_mac: 14:7B:AC:87:BA:C2
+      syseeprom_info:
+        '0xFE': '0x5C89FC14'
+        '0x23': 'SD-R02-36'
+        '0x21': 'Nokia-IXR7250-SUP-6'
+        '0x24': '14:7B:AC:87:BA:C2'
+        '0x2A': '5'
+    ixr-cpm2-chassis2:
+      sonic_hwsku: Nokia-IXR7250-SUP-6
+      hwsku: Nokia-IXR7250-SUP-6
+      slot_num: slot16
+      ansible_host: 152.148.150.49
+      console_ip: 152.148.146.176
+      console_port: 2011
+      model: 3HE12458AARA01
+      serial: NS194610068
+      base_mac: 14:7B:AC:B5:60:C0
+      syseeprom_info:
+        '0xFE': '0x2795B656'
+        '0x22': '3HE12458AARA01'
+        '0x23': 'NS194610068'
+        '0x21': 'Nokia-IXR7250-SUP-6'
+        '0x26': '56'
+        '0x24': '14:7B:AC:B5:60:C0'
+        '0x25': '03062020'
+        '0x2A': '5'
+    ixr-cpm2-chassis3:
+      sonic_hwsku: Nokia-IXR7250-SUP-10
+      hwsku: Nokia-IXR7250-SUP-10
+      slot_num: slot16
+      ansible_host: 152.148.150.26
+      console_ip: 152.148.146.176
+      console_port: 2013
+      model: 3HE12458AARA01
+      serial: NS201010007
+      base_mac: 68:AB:09:A3:ED:3E
+      syseeprom_info:
+        '0xFE': '0xD3C300FD'
+        '0x22': '3HE12458AARA01'
+        '0x23': 'NS201010007'
+        '0x21': 'Nokia-IXR7250-SUP-10'
+        '0x26': '56'
+        '0x24': '68:AB:09:A3:ED:3E'
+        '0x25': '03092020'
+        '0x2A': '5'
+    ixr-cpm2-chassis4:
+      sonic_hwsku: Nokia-IXR7250-SUP-10
+      hwsku: Nokia-IXR7250-SUP-10
+      slot_num: slot16
+      ansible_host: 152.148.150.47
+      console_ip: 152.148.150.16
+      console_port: 2005
+      model: 3HE12458AA0401
+      serial: "NS193410077"
+      base_mac: 14:7B:AC:B5:60:2F
+      syseeprom_info:
+        '0xFE': '0x1D7E0B64'
+        '0x22': '3HE12458AA0401'
+        '0x23': 'NS193410077'
+        '0x21': 'Nokia-IXR7250-SUP-10'
+        '0x26': '56'
+        '0x24': '14:7B:AC:B5:60:2F'
+        '0x2A': '5'
+      skip_modules:
+        line-cards:
+          - LINE-CARD1
+          - LINE-CARD2
+          - LINE-CARD3
+          - LINE-CARD4
+          - LINE-CARD5
+        fabric-cards:
+          - FABRIC-CARD0
+          - FABRIC-CARD1
+          - FABRIC-CARD3
+          - FABRIC-CARD5
+        psus:
+          - PSU1
+          - PSU2
+          - PSU3
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+    ixr-cpm2-chassis5:
+      sonic_hwsku: Nokia-IXR7250-SUP-10
+      hwsku: Nokia-IXR7250-SUP-10
+      slot_num: slot16
+      ansible_host: 152.148.150.75
+      console_ip: 152.148.150.16
+      console_port: 2007
+      model: 3HE12458AA0401
+      serial: NS193410083
+      base_mac: 14:7B:AC:B6:60:93
+      skip_modules:
+        'line-cards':
+          - LINE-CARD0
+          - LINE-CARD1
+          - LINE-CARD2
+          - LINE-CARD4
+        'psus':
+          - PSU4
+          - PSU5
+          - PSU6
+          - PSU7
+          - PSU8
+          - PSU9
+          - PSU10
+          - PSU11
+          - PSU12
+      syseeprom_info:
+        '0xFE': '0x87F0681A'
+        '0x22': '3HE12458AA0401'
+        '0x23': 'NS193410083'
+        '0x21': 'Nokia-IXR7250-SUP-10'
+        '0x26': '56'
+        '0x24': '14:7B:AC:B6:60:93'
+        '0x2A': '5'
+    ixr-cpm2-chassis6:
+      sonic_hwsku: Nokia-IXR7250-SUP-6
+      hwsku: Nokia-IXR7250-SUP-6
+      slot_num: slot16
+      ansible_host: 152.148.151.199
+      console_ip: 152.148.150.16
+      console_port: 2006
+      model: 3HE12458AA0401
+      serial: NS193410094
+      base_mac: 14:7B:AC:B5:60:25
+      syseeprom_info:
+        '0xFE': '0x78076DB2'
+        '0x22': '3HE12458AA0401'
+        '0x23': 'NS193410094'
+        '0x21': 'Nokia-IXR7250-SUP-6'
+        '0x26': '56'
+        '0x24': '14:7B:AC:B5:60:25'
+        '0x2A': '5'
+
+sonic_hurricane:
+  vars:
+    hwsku: Nokia-IXR7250-36x400G
+    sonic_hw_platform: x86_64-nokia_ixr7250-r0
+    initial_pause_time: 5
+    pause_mins_before_recheck: 2
+    num_asics: 3
+    frontend_asics: [0,1,2]
+    voq_inband_intf: [Ethernet-IB0, Ethernet-IB1, Ethernet-IB2]
+    voq_inband_type: port
+    max_cores: 48
+    switch_type: voq
+  hosts:
+    ixr-hr-board1:
+      ansible_host: 152.148.146.141
+      console_ip: 152.148.146.176
+      console_port: 2010
+      test_resource_name: imm1
+      slot_num: slot2
+      hwsku: Nokia-IXR7250-36x100G
+      sonic_hwsku: Nokia-IXR7250-36x100G
+      model: "N/A"
+      serial: HUR03-038
+      base_mac: 24:21:24:05:81:F7
+      switchids: [6,8,10]
+      voq_inband_ip: [3.3.3.4/32,3.3.3.5/32,3.3.3.6/32]
+      voq_inband_ipv6: [3333::3:4/128,3333::3:5/128,3333::3:6/128]
+      loopback4096_ip: [8.0.0.4/32,8.0.0.5/32,8.0.0.6/32]
+      loopback4096_ipv6: [2603:10e2:400::4/128,2603:10e2:400::5/128,2603:10e2:400::6/128]
+      syseeprom_info:
+        '0xFE': '0xB9684DD9'
+        '0x23': 'HUR03-038'
+        '0x21': 'Nokia-IXR7250-36x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:F7'
+        '0x25': '20190906'
+        '0x2A': '2'
+    ixr-hr-board2:
+      ansible_host: 152.148.146.142
+      console_ip: 152.148.146.176
+      console_port: 2007
+      test_resource_name: imm1
+      sonic_hwsku: Nokia-IXR7250-36x400G
+      model: "N/A"
+      serial: HUR03-037
+      base_mac: 24:21:24:05:81:ED
+      switchids: [12,14,16]
+      voq_inband_ip: [3.3.3.7/32,3.3.3.8/32,3.3.3.9/32]
+      voq_inband_ipv6: [3333::3:7/128,3333::3:8/128,3333::3:9/128]
+      loopback4096_ip: [8.0.0.7/32,8.0.0.8/32,8.0.0.9/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128,2603:10e2:400::9/128]
+      syseeprom_info:
+        '0xFE': '0xB70C3983'
+        '0x23': 'HUR03-037'
+        '0x21': 'Nokia-IXR7250-36x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:ED'
+        '0x2A': '2'
+    ixr-hr-board3:
+      ansible_host: 152.148.146.143
+      console_ip: 152.148.146.176
+      console_port: 2004
+      test_resource_name: imm2
+      slot_num: slot4
+      hwsku: Nokia-IXR7250-36x100G
+      sonic_hwsku: Nokia-IXR7250-36x100G
+      model: "N/A"
+      serial: HUR02-019
+      base_mac: 24:21:24:05:81:97
+      switchids: [18,20,22]
+      voq_inband_ip: [3.3.3.10/32,3.3.3.11/32,3.3.3.12/32]
+      voq_inband_ipv6: [3333::4:10/128,3333::3:11/128,3333::3:12/128]
+      loopback4096_ip: [8.0.0.10/32,8.0.0.11/32,8.0.0.12/32]
+      loopback4096_ipv6: [2603:10e2:400::10/128,2603:10e2:400::11/128,2603:10e2:400::12/128]
+      syseeprom_info:
+        '0xFE': '0xC2BD84A4'
+        '0x23': 'HUR02-019'
+        '0x21': 'Nokia-IXR7250-36x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:97'
+        '0x2A': '2'
+    ixr-hr-board4:
+      ansible_host: 152.148.146.144
+      console_ip: 152.148.146.176
+      console_port: 2016
+      test_resource_name: imm1
+      sonic_hwsku: Nokia-IXR7250-36x400G
+      model: "N/A"
+      serial: HUR02-023
+      base_mac: 24:21:24:05:81:95
+      syseeprom_info:
+        '0xFE': '0x0E59DBB9'
+        '0x23': 'HUR02-023'
+        '0x21': 'Nokia-IXR7250-36x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:95'
+        '0x2A': '2'
+    ixr-hr-board5:
+      ansible_host: 152.148.150.27
+      console_ip: 152.148.146.176
+      console_port: 2019
+      test_resource_name: imm1
+      sonic_hwsku: Nokia-IXR7250-36x400G
+      model: "N/A"
+      serial: HUR02-021
+      base_mac: 24:21:24:05:81:9F
+      syseeprom_info:
+        '0xFE': '0xDFC873F0'
+        '0x23': 'HUR02-021'
+        '0x21': 'Nokia-IXR7250E-36x100G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:9F'
+        '0x2A': '2'
+    ixr-hr-board6:
+      ansible_host: 152.148.150.28
+      console_ip: 152.148.146.176
+      console_port: 2006
+      test_resource_name: imm1
+      sonic_hwsku: Nokia-IXR7250-36x400G
+      model: "N/A"
+      serial: HUR02-022
+      base_mac: 24:21:24:05:81:AB
+      switchids: [0,2,4]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32,3.3.3.3/32]
+      voq_inband_ipv6: [3333::4:1/128,3333::3:2/128,3333::3:3/128]
+      loopback4096_ip: [8.0.0.1/32,8.0.0.2/32,8.0.0.3/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128,2603:10e2:400::3/128]
+      syseeprom_info:
+        '0xFE': '0xFCFC843F'
+        '0x23': 'HUR02-022'
+        '0x21': 'Nokia-IXR7250-36x400G'
+        '0x26': '56'
+        '0x24': '24:21:24:05:81:AB'
+        '0x2A': '2'
+
+sonic_7220_D1_pizza:
+  vars:
+    sonic_hwsku: Nokia-7220-D1
+    sonic_hw_platform: x86_64-nokia_ixr7220_d1-r0
+  hosts:
+    ixr_7220_D1_pizza3:
+      ansible_host: 152.148.151.159
+      console_ip: 152.148.146.176
+      console_port: 2008
+
+
+sonic_ixs_7215_pizza:
+  vars:
+    sonic_hwsku: Nokia-7215
+    hwsku: Nokia-7215
+    sonic_hw_platform: armhf-nokia_ixs7215_52x-r0
+    mgmt_port: Ethernet47
+    initial_pause_time: 3
+    pause_mins_before_recheck: 3
+    ansible_ssh_pass: YourPaSsWoRd
+    test_resource_name: imm1
+  hosts:
+    ixs-7215-pizza3:
+      ansible_host: 152.148.150.30
+      asic_type: marvell
+      serial: SM0-PIZZA4
+      base_mac: 50:e0:ef:51:27:91
+      console_ip: 152.148.146.176
+      console_port: 2018
+      port:
+      syseeprom_info:
+        '0x28': 'x86_64-nokia_ixr7215_t1-r0'
+        '0x29': '2020.31'
+        '0x23': 'NK203110020'
+        '0x21': 'Nokia-IXS7215-A38X'
+        '0x22': '3HE16794AARA01'
+        '0x24': '50:E0:EF:51:27:91'
+        '0x25': '08/24/2020 16:25:29'
+        '0x2A': '64'
+        '0xFE': '0xFA146A7B'
+    ixs-7215-pizza4:
+      ansible_host: 152.148.150.202
+      console_ip: 152.148.146.176
+      console_port: 2026
+      asic_type: marvell
+      serial: NK205210096
+      base_mac: 50:E0:EF:7A:F4:D1
+      model: 3HE16794AARA01
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210096"
+        "0x24": "50:E0:EF:7A:F4:D1"
+        "0x25": "12/30/2020 08:46:36"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0xE89A31FC"
+    ixs-7215-pizza5:
+      ansible_host: 152.148.150.105
+      console_ip: 152.148.146.176
+      console_port: 2008
+      asic_type: marvell
+      serial: NK205210102
+      base_mac: 50:E0:EF:7A:F6:51
+      model: 3HE16794AARA01
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210102"
+        "0x24": "50:E0:EF:7A:F6:51"
+        "0x25": "12/30/2020 11:00:43"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x1CCFD42E"
+    ixs-7215-pizza7:
+      ansible_host: 152.148.150.203
+      console_ip: 152.148.150.16
+      console_port: 2017
+      asic_type: marvell
+      serial: NK205210072
+      base_mac: 50:E0:EF:7A:EE:D1
+      model: 3HE16794AARA01
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210072"
+        "0x24": "50:E0:EF:7A:EE:D1"
+        "0x25": "12/29/2020 19:14:30"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0xBB1B8AC6"
+    columbia:
+      ansible_host: 152.148.150.204
+      console_ip: 152.148.160.157
+      console_port: 2032
+      asic_type: marvell
+      serial: "NK205210094"
+      base_mac: 50:E0:EF:7A:F4:51
+      model: 3HE16794AARA01
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210094"
+        "0x24": "50:E0:EF:7A:F4:51"
+        "0x25": "12/30/2020 10:10:26"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x242F6373"
+    challenger:
+      ansible_host: 152.148.151.157
+      console_ip: 152.148.150.16
+      console_port: 2029
+      asic_type: marvell
+      serial: NK203110025
+      base_mac: 50:E0:EF:51:28:D1
+      model: 3HE16794AARA01    
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK203110025"
+        "0x24": "50:E0:EF:51:28:D1"
+        "0x25": "08/25/2020 09:03:08"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x87247302"
+    atlantis:
+      ansible_host: 152.148.151.164
+      console_ip: 152.148.150.16
+      console_port: 2030
+      asic_type: marvell
+      serial: NK203110022
+      base_mac: 50:E0:EF:51:28:11
+      model: 3HE16794AARA01    
+      syseeprom_info:
+        "0xFE": '0xEB8A2EE5'
+        "0x28": 'armhf-nokia_ixs7215_52x-r0'
+        "0x22": '3HE16794AARA01'
+        "0x23": 'NK203110022'
+        "0x21": '7215 IXS-T1'
+        "0x29": '2019.11-onie_version-nokia_ixs7215_52x-v1.4'
+        "0x24": '50:E0:EF:51:28:D1'
+        "0x25": '08/24/2020 17:01:39'
+        "0x2A": '64'
+    endeavor:
+      ansible_host: 152.148.150.72
+      console_ip: 152.148.146.176
+      console_port: 2029
+      syseeprom_info:
+        "0xFE": '0xCD73257B'
+        "0x28": 'x86_64-nokia_ixr7215_t1-r0'
+        "0x22": '3HE16794AARA01'
+        "0x23": 'NK203110018'
+        "0x21": 'Nokia-IXS7215-A38X'
+        "0x29": '2020.31'
+        "0x24": '50:E0:EF:51:27:11'
+        "0x25": '08/24/2020 16:01:21'
+        "0x2A": '64'
+    discovery:
+      ansible_host: 152.148.150.69
+      console_ip: 152.148.146.176
+      console_port: 2032
+
+sonic_7220_D3_pizza:
+  vars:
+    sonic_hwsku: Nokia-7220-D3
+    sonic_hw_platform: x86_64-nokia_ixr7220_d3-r0
+    initial_pause_time: 3
+    pause_mins_before_recheck: 5
+  hosts:
+    ixr_7220_D3_pizza4:
+      ansible_host: 152.148.146.149
+      console_ip: 152.148.146.176
+      console_port: 2017
+      syseeprom_info:
+        "0xFE": '0x0E8B69BB'
+        "0x28": 'x86_64-nokia_ixr7220_d3-r0'
+        "0x22": '3HE15575AA'
+        "0x23": 'NS1947T0038'
+        "0x21": '7240 IXR-D3'
+        "0x29": '2019.02'
+        "0x24": '50:E0:EF:2F:40:D1'
+        "0x25": '11/26/2019 12:52:27'
+        "0x2A": '128'
+

@@ -5,6 +5,7 @@ import logging
 import getpass
 import random
 import re
+import sys
 
 import pytest
 import yaml
@@ -29,6 +30,8 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_ses
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
+from tests.common.platform.device_utils import fanout_switch_port_lookup
+import time
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
@@ -44,6 +47,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
+from tests.common.helpers.platform_api import chassis
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
@@ -58,6 +62,11 @@ from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
+
+BASE_DIR = os.getcwd()
+PARENT_PATH = os.path.abspath(os.path.join(BASE_DIR, os.pardir))
+FILENAME_1 = '/usr/lib/python3/dist-packages/platform_ndk/platform_ndk_pb2.py'
+FILENAME_2 = '/usr/lib/python3/dist-packages/platform_ndk/platform_ndk_pb2_grpc.py'
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -162,6 +171,11 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
+       
+    #############################  
+    # NDK options             #
+    ############################
+    parser.addoption("--ndk_image_url", action="store", default=None, type=str)
 
     ############################
     #   macsec options         #
@@ -1466,7 +1480,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     yield host
     host.disconnect()
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope='session', autouse=True)
 def cleanup_cache_for_session(request):
     """
     This fixture allows developers to cleanup the cached data for all DUTs in the testbed before test.
@@ -1482,8 +1497,8 @@ def cleanup_cache_for_session(request):
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
-    inv_data = get_host_visible_vars(inv_files, a_dut)
-    if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
+        inv_data = get_host_visible_vars(inv_files, a_dut)
+        if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
             for asic_id in range(inv_data['num_asics']):
                 cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
 
@@ -1681,9 +1696,11 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         "hwsku": mgFacts["minigraph_hwsku"],
         "basicParams": {
             "router_mac": duthost.facts["router_mac"],
-            "server": duthost.host.options['inventory_manager'].get_host(
-                        duthost.hostname
-                    ).vars['ansible_host'],
+            # for our lab network use ip in ptf subnet as server ip
+            # "server": duthost.host.options['inventory_manager'].get_host(
+            #             duthost.hostname
+            #         ).vars['ansible_host'],
+            "server" : duthost.facts['dut_ip_ptfnet_add'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
             "sonic_version": duthost.os_version,
@@ -2094,3 +2111,403 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None)
 # HACK: testutils.verify_packets_any to workaround code bug
 # TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
+
+def get_link_status_on_dut(tbinfo, duthosts, fanouthosts):
+    fanouts_intf_status = {}
+    duts_intf_status = {}
+    duts_ports = {}
+    # Assuming fanouts our sonic as well.
+    for _, a_fanout in fanouthosts.items():
+        fanouts_intf_status[a_fanout.hostname] = a_fanout.host.show_interface(command="status")["ansible_facts"]['int_status']
+    for a_dut in duthosts.frontend_nodes:
+        mg_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+        ports = mg_facts["minigraph_neighbors"].keys()
+        duts_ports[a_dut.hostname] = ports
+        duts_intf_status[a_dut.hostname] = a_dut.show_interface(command="status", up_ports=ports)["ansible_facts"]['int_status']
+    return fanouts_intf_status, duts_intf_status, duts_ports
+
+
+def check_link_status(duthosts):
+    logger.info("Getting FEC Uncorrectable Counter on different ASICs on each host")
+    for a_dut in duthosts.frontend_nodes:
+        for asic in a_dut.frontend_asics:
+            count = 0
+            logger.info("FEC Uncorrectable Counter on asic {}".format(asic.asic_index))
+            a_dut.shell("bcmcmd -n {} \"phy fecstat counters eth1-eth18\"")
+            counters = a_dut.shell(
+                "bcmcmd -n {} \"phy fecstat counters eth1-eth18\" | grep \"FEC Uncorrectable Counter\"".format(
+                    asic.asic_index) + " | awk '{print $7, $9, $11}'")["stdout_lines"]
+
+            for i in range(1, 19):
+                port_stat = counters[i].split(" ")
+                if port_stat[0].isnumeric() or port_stat[1].isnumeric() or port_stat[2].strip('/s').isnumeric():
+                    count += 1
+                    logger.info(
+                        "asic={}, eth{}, total={}, last={}, rate={}".format(asic.asic_index, i, port_stat[0],
+                                                                            port_stat[1],
+                                                                            port_stat[2].strip('/s')))
+            if count == 0:
+                logger.info("Could not find a non zero entry on asic {}".format(asic.asic_index))
+
+
+def clear_console(console_ip, console_port):
+    port = console_port - 2000
+    tn = pexpect.spawn('telnet' + ' ' + console_ip)
+    tn.expect([">"])
+    tn.write("enable\r\n".encode('utf-8'))
+    tn.expect(["#"])
+    tn.write(("tunnel " + str(port) + "\r\n").encode('utf-8'))
+    tn.expect(["#"])
+    tn.write("accept\r\n".encode('utf-8'))
+    tn.expect(["#"])
+    tn.write("kill connection\r\n".encode('utf-8'))
+    tn.expect(["#"])
+    tn.close()
+
+
+def login_sonic_over_console(tn, hostname, mgmt_password):
+    tn.sendline("")
+    prompts = ["admin@", "ONIE:/ #", "Password:", "(?<!Last) login:", "root@", "sonic#", "localhost#", hostname + "#"]
+    idx = tn.expect(prompts)
+    while idx != 0 and idx != 1:
+        if idx == 2:
+            # We got password prompt
+            tn.sendline(mgmt_password)
+
+        elif idx == 3:
+            # We got login prompt
+            tn.sendline('admin')
+
+        else:
+            # We got root@ as prompt, lets send exit
+            tn.sendline('exit')
+
+        idx = tn.expect(prompts)
+
+    return idx
+
+
+@pytest.fixture(scope="session", autouse=True)
+def collect_console(duthosts, request):
+    if request.config.getoption("--capture_console"):
+        marker = request.config.getoption("-m")
+        if not marker:
+            marker = "test"
+        logging.info("Inside collect_console")
+        tn_dir = dict()
+        console_log_files = list()
+        for dut_host in duthosts:
+            log_file = request.config.getoption("--log-file")
+            log_dir = os.path.dirname(log_file)
+            file_name = '{}/console_log_{}_{}.txt'.format(log_dir, marker, dut_host.hostname)
+
+            duthost_var = dut_host.host.options["inventory_manager"]
+            duthost_va = duthost_var.get_host(dut_host.hostname)
+            duthost_vars = duthost_va.get_vars()
+            if 'console_ip' not in duthost_vars:
+                continue
+            if 'console_port' not in duthost_vars:
+                continue
+
+            console_ip = duthost_vars['console_ip']
+            console_port = duthost_vars['console_port']
+            mgmt_password = "123"
+            if 'ansible_ssh_pass' in duthost_vars:
+                mgmt_password = duthost_vars['ansible_ssh_pass']
+                logging.info("Using mgmt password '{}' as defined in inventory for capturing console on '{}'".format(mgmt_password, dut_host.hostname))
+
+            clear_console(console_ip, console_port)
+
+            tn = pexpect.spawn('/usr/bin/telnet ' + console_ip + ' ' + str(console_port))  # type: spawn
+            tn_obj = 'tn_{}'.format(dut_host.hostname)
+            tn_dir[tn_obj] = tn
+            console_log_files.append(file_name)
+            logging.info("Telnet from {} console '{}:{}' -  log will be at {}".format(dut_host.hostname, console_ip, console_port, file_name))
+            tn.logfile = open(file_name, 'w')
+            login_sonic_over_console(tn, dut_host.hostname, mgmt_password)
+    yield
+    if request.config.getoption("--capture_console"):
+        logging.info("Collecting telnet console logs is done")
+        for key, tn in tn_dir.items():
+            logging.info("telnet object status is: {}".format(tn.isalive()))
+            prompts = ["admin@", "ONIE:/ #", "Password:", "(?<!Last) login:", "root@", "sonic#", "localhost#", dut_host.hostname + "#"]
+            tn.sendline("")
+            tn.expect(prompts)
+            tn.logfile.close()
+            tn.close()
+        analyze_console_logs(console_log_files)
+
+def analyze_console_logs(console_log_files):
+    # Analyze console logs, fails testcase if some error is found
+    logging.info('Analyzing Console logs for all duts.')
+    analyzer = ConsoleLogAnalyzer(console_log_files)
+    analyzer.load_common_config()
+    analyzer.analyze('console_logs')
+    logging.info('Analyzing console logs is done.')
+
+
+def check_midplane_connectivity(duthosts, pkt_size=2000, pkt_count=1000):
+    ''' Method to check the midplane connectivity by pinging the midplane IP'''
+    logging.info("Checking midplane connectivity by pinging to midplane IP")
+    for duthost in duthosts.frontend_nodes:
+        output = duthost.command("grep chassis_db_address /usr/share/sonic/device/{}/chassisdb.conf".format(duthost.facts['platform']))
+        midplane_ip = output['stdout'].split("=")[1]
+        cmd = "sudo ping {} -f -s {} -c {}".format(midplane_ip, pkt_size, pkt_count)
+        output = duthost.shell(cmd)
+        if "0% packet loss" not in output['stdout_lines'][-2]:
+            logging.warning("Did not find 0 percent packet loss: %s" % output['stdout_lines'][-2:])
+            raise AssertionError("ping to midplane ip {} failed".format(midplane_ip))
+        else:
+            logging.info("Midplane Connectivity verified. Ping to midplane IP {} successful".format(midplane_ip))
+
+
+@pytest.fixture(scope="module")
+def verify_midplane_connectivity(duthosts, epic_cli_setup, request, localhost):
+    '''Fixture to implement check_midplane connectivity'''
+    check_cpu_util_on_supervisor(duthosts)
+    yield
+    check_cpu_util_on_supervisor(duthosts)
+    check_midplane_connectivity(duthosts)
+    verify_midplane_bw(duthosts)
+    ssh_check(duthosts,request, localhost)
+
+
+@pytest.fixture(scope="session")
+def epic_cli_setup(duthosts):
+    for duthost in duthosts:
+        output = duthost.stat(path="./epic-cli")
+        if not output['stat']['exists'] == True:
+            cmd = "curl -O http://152.148.153.8/files/diag/apps/epic-cli"
+            duthost.shell(cmd)
+            cmd = "curl -O http://152.148.153.8/files/diag/apps/tcping"
+            duthost.shell(cmd)
+            cmd = "chmod 777 epic-cli"
+            duthost.shell(cmd)
+        else:
+            logging.info("epic-cli is installed already")
+        if duthost in duthosts.supervisor_nodes:
+            cmd = "curl -O http://152.148.153.8/files/diag/apps/epic-utils-1.0.0-1.x86_64.deb"
+            duthost.shell(cmd)
+            cmd = "sudo dpkg -i epic-utils-1.0.0-1.x86_64.deb"
+            duthost.shell(cmd)
+
+
+def check_cpu_util_on_supervisor(duthosts):
+    #CPU Utilization check on Supervisor card
+    for duthost in duthosts:
+        if duthost in duthosts.supervisor_nodes:
+            logging.info("Checking CPU Utilization on Supervisor card")
+            cmd = "show processes cpu"
+            output = duthost.shell(cmd)
+            op = output['stdout_lines'][2]
+            cpu_usage= re.search(r"(\d+\.\d+) us", op).group(1)
+            if float(cpu_usage) <= 15.0:
+                logging.info("CPU on Supervisor card is stable, {}% utilization".format(cpu_usage))
+            else:
+                logging.warning("CPU Utilization on supervisor card NOT stable, {}% utilization".format(cpu_usage))
+
+
+def verify_midplane_bw(duthosts):
+    start_midplane_bw_server(duthosts)
+    time.sleep(10)
+    try:
+        for duthost in duthosts.supervisor_nodes:
+            cmd = "sudo systemctl status midplane-bw-server.service"
+            output = duthost.shell(cmd)
+            output_ns = duthost.shell("sudo netstat -anp | grep 8888")
+            for i in range(len(output_ns['stdout_lines'])):
+                if output_ns['stdout_lines'] != None and "midplane-bw" in output_ns['stdout_lines'][i]:
+                    logging.info("midplane bw server running successfully")
+                    break
+                else:
+                    cmd = "cat /var/log/midplane-server.log"
+                    output1 = duthost.shell(cmd)
+                    cmd = "cat /tmp/epic_get_hwsku6.json"
+                    output2 = duthost.shell(cmd)
+                    raise AssertionError("midplane bw server not started ")
+
+        for duthost in duthosts.frontend_nodes:
+            output = duthost.command("grep chassis_db_address /usr/share/sonic/device/{}/chassisdb.conf".format(duthost.facts['platform']))
+            midplane_ip = output['stdout'].split("=")[1]
+            cmd = "sudo ./epic-cli -eip 127.0.0.1:50057 -c \"stream::midplane-bw -hosts {}\"".format(midplane_ip)
+            output = duthost.shell(cmd)
+            value_read = re.search(r"aggregate reading: (\d+) Mbps", output['stderr_lines'][-2]).group(1)
+            value_write = re.search(r"aggregate writing: (\d+) Mbps", output['stderr_lines'][-1]).group(1)
+            if int(value_read) and int(value_write) >= 2000:
+                logging.info("midplane bw is optimal (>2000Mbps): aggregate reading bw: {}, aggregate writing bw: {}".format(value_read, value_write))
+            else:
+                logging.warning("midplane bw connectivity check failed due to insufficient Bandwidth")
+                raise AssertionError("midplane bw is not optimal: aggregate reading bw: {}, aggregate writing bw: {}".format(value_read, value_write))
+    finally:
+        stop_midplane_bw_server(duthosts)
+
+
+def start_midplane_bw_server(duthosts):
+    logging.info("Starting midplane bw server on supervisor card")
+    for duthost in duthosts.supervisor_nodes:
+        cmd = "sudo ln -sf /opt/srlinux/epic-cli/epic-cli /opt/srlinux/epic-cli/midplane-bw-server"
+        duthost.shell(cmd)
+        cmd = "sudo systemctl enable /opt/srlinux/epic-cli/midplane-bw-server.service"
+        duthost.shell(cmd)
+        cmd = "sudo systemctl start midplane-bw-server.service"
+        duthost.shell(cmd)
+
+
+def stop_midplane_bw_server(duthosts):
+    for duthost in duthosts.supervisor_nodes:
+        logging.info("Stopping midplane bw server")
+        cmd = "sudo systemctl stop midplane-bw-server.service"
+        output = duthost.shell(cmd, module_ignore_errors=True)
+        cmd = "sudo systemctl status midplane-bw-server.service"
+        output = duthost.shell(cmd, module_ignore_errors=True)
+        if "Active: failed" in output['stdout_lines'][2]:
+            if "Stopped Midplane Bandwidth Server Service." in output['stdout_lines'][len(output['stdout_lines'])-1]:
+                logging.info("midplane-bw-server service is stopped successfully")
+        else:
+            cmd = "cat /var/log/midplane-server.log"
+            output1 = duthost.shell(cmd)
+            cmd = "cat /tmp/epic_get_hwsku6.json"
+            output2 = duthost.shell(cmd)
+            logging.info("Failed to stop epic-cli midplane-bw-server")
+
+def ethmgr_slot_port_mapping(duthosts, request):
+    '''
+    Map DUT's Slot to Port using epic-cli::ethmgr
+    '''
+    inv_files = get_inventory_files(request)
+    for sup_duthost in duthosts.supervisor_nodes:
+        cmd = "sudo ./epic-cli -eip 127.0.0.1:60070 -service ethmgr -c \"ethmgr::show-portmap\""
+        output = sup_duthost.shell(cmd)
+        result = "\n".join(output['stdout'].split("\n")[1:])
+        port_map_entry = json.loads(result)
+        slot_to_port = {}
+    for duthost in duthosts.frontend_nodes:
+        host_vars = get_host_visible_vars(inv_files, duthost.hostname)
+        slot_num = host_vars['slot_num']
+        slot = int(slot_num[len("slot"):])
+        for i in range (len(port_map_entry['PortMapEntry'])):
+            if (port_map_entry['PortMapEntry'][i]['Slot']).isnumeric():
+                if int(port_map_entry['PortMapEntry'][i]['Slot']) == slot:
+                    slot_to_port[duthost.hostname] = port_map_entry['PortMapEntry'][i]
+                    break
+    return slot_to_port
+
+def ethmgr_counter_clear(duthosts):
+    for duthost in duthosts.supervisor_nodes:
+        cmd = "sudo ./epic-cli -eip 127.0.0.1:60070 -service ethmgr -c \"ethmgr::clear-stats\""
+        output = duthost.shell(cmd)
+
+
+def ssh_dut(duthosts, inv_files, localhost):
+    '''
+    SSH from testbed to DUT
+    '''
+    for duthost in duthosts.frontend_nodes:
+        host_vars = get_host_visible_vars(inv_files, duthost.hostname)
+        sonic_user = host_vars['sonicadmin_user']
+        password = host_vars['sonicadmin_password']
+        local_command = "sshpass -p {} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {}@{}".format(
+            password, sonic_user, duthost.mgmt_ip)
+        localhost.command(local_command)
+
+def ssh_check(duthosts,request, localhost):
+    '''
+    SSH to Lincard DUT n times from testbed and check counters for DUT using epic-cli on supervisor card to verify SSH successful
+    '''
+    inv_files = get_inventory_files(request)
+    slot_Port_Map = ethmgr_slot_port_mapping(duthosts,request)
+    ethmgr_counter_clear(duthosts)
+    for i in range(5):
+        ssh_dut(duthosts, inv_files, localhost)
+        for sup_duthost in duthosts.supervisor_nodes:
+            for duthost in duthosts.frontend_nodes:
+                cmd = "sudo ./epic-cli -eip 127.0.0.1:60070 -service ethmgr -c \"show statistics {}\" | egrep -e snmpBcmRxDot3LengthMismatches -e snmpBcmCustomReceive0 -e \"Statistics for Unit 0\"".format(slot_Port_Map[duthost.hostname]['Port'])
+                output1 = sup_duthost.shell(cmd)
+                if len(output1['stdout_lines']) <= 1:
+                    logging.info("Counter value = 0, SSH to {} successful".format(duthost.hostname))
+                else:
+                    ctr = re.search(r"(\d+)", output1['stdout_lines'][1]).group(1)
+                    raise AssertionError("Counter value ={} SSH to {} failed".format(ctr, duthost.hostname))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_ndk_pass(duthosts):
+    for duthost in duthosts:
+        duthost.shell("sudo echo 's3cur3Ndk$!' > /tmp/pass")
+
+
+def add_route_to_ptf_setup(duthosts, tbinfo, request):
+    # Add 10.250.x.23<slot#>/24 address to eth0 - x is the testbed server. So for CH11 - this would 10.250.14.23<slot#>
+    # For sup, slot# would be 9
+
+    net_bytes = tbinfo['ptf_ip'].split(".")
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            dut_addr = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[2] + ".239/24"
+            duthost.facts['dut_ip_ptfnet_add'] = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[2] + ".239"
+        else:
+            inv_files = get_inventory_files(request)
+            host_vars = get_host_visible_vars(inv_files, duthost.hostname)
+            slot_num = host_vars['slot_num'].split('slot')[1]
+            dut_addr = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[2] + ".23" + slot_num + "/24"
+            duthost.facts['dut_ip_ptfnet_add'] = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[
+                2] + ".23" + slot_num
+
+        output = duthost.shell("sudo ip addr show dev eth0")
+        if dut_addr not in output['stdout']:
+            logger.info("Adding {} to eth0 interface on {}".format(dut_addr, duthost.hostname))
+            duthost.shell("sudo ip addr add {} dev eth0".format(dut_addr))
+
+def add_route_to_ptf_cleanup(duthosts, tbinfo, request):
+    for duthost in duthosts:
+        dut_addr = duthost.facts['dut_ip_ptfnet_add']
+        logger.info("Deleting {} to eth0 interface on {}".format(dut_addr, duthost.hostname))
+        output = duthost.shell("sudo ip addr show eth0")
+        if dut_addr in output['stdout']:
+            duthost.shell("sudo ip addr del {} dev eth0".format(dut_addr))
+        else:
+            logging.info("address {} not found".format(dut_addr))
+
+@pytest.fixture(scope='module')
+def add_route_to_ptf(duthosts, tbinfo, request):
+    add_route_to_ptf_setup(duthosts, tbinfo, request)
+    yield
+    add_route_to_ptf_cleanup(duthosts, tbinfo, request)
+
+@pytest.fixture(scope='module')
+def add_mgmt_net_addr_to_ptf(ptfhost,tbinfo,request):
+    ptf_name=tbinfo['ptf']
+    ptf_vars=get_host_data(request,ptf_name)
+    ptf_mgmt_ip=ptf_vars['mgmt_net_addr']
+    logger.info("Adding {} to mgmt interface on {}".format(ptf_mgmt_ip,ptfhost.hostname))
+    ptfhost.shell("ip addr add {} dev mgmt".format(ptf_mgmt_ip))
+    yield ptf_mgmt_ip
+    output=ptfhost.shell("ip addr show mgmt")
+    if ptf_mgmt_ip in output['stdout']:
+        ptfhost.shell("ip addr del {} dev mgmt".format(ptf_mgmt_ip))
+
+@pytest.fixture(scope="session", autouse=True)
+def get_latest_protobuff_from_dut(duthosts, localhost):
+    """Gets latest protobuff from dut as it is tied to build"""
+    logging.info('Copying latest proto buff file from dut to local host')
+    path = os.path.join(PARENT_PATH, 'platform_ndk')
+    localhost.shell('sshpass -p 123 scp -o  StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q admin@{}:{} {}'
+                    .format(duthosts.nodes[0].mgmt_ip, FILENAME_1, path))
+    localhost.shell('sshpass -p 123 scp -o  StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q admin@{}:{} {}'
+                    .format(duthosts[0].mgmt_ip, FILENAME_2, path))
+
+@pytest.fixture(scope="package", autouse=True)
+def unset_proxy():
+    http_proxy = None
+    https_proxy = None
+    if 'http_proxy' in os.environ:
+        http_proxy = os.environ['http_proxy']
+        del os.environ['http_proxy']
+    if 'https_proxy' in os.environ:
+        https_proxy = os.environ['https_proxy']
+        del os.environ['https_proxy']
+    yield
+    if http_proxy:
+        os.environ['http_proxy'] = http_proxy
+    if https_proxy:
+        os.environ['https_proxy'] = http_proxy

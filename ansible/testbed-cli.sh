@@ -305,9 +305,9 @@ function add_topo
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6"  -e netns_mgmt_ip="$netns_mgmt_ip" \
         $ansible_options $@
 
-  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
-  fi
+  #if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+  #  ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  #fi
 
   # Delete the obsoleted arp entry for the PTF IP
   ip neighbor flush $ptf_ip || true

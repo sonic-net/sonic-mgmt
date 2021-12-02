@@ -171,6 +171,7 @@ function setup_test_options()
                       --showlocals \
                       --assert plain \
                       --show-capture no \
+                      --self-contained-html \
                       -rav"
 
     if [[ x"${AUTO_RECOVER}" == x"True" ]]; then
@@ -185,9 +186,9 @@ function setup_test_options()
         fi
     done
 
-    if [[ -d ${LOG_PATH} ]]; then
-        rm -rf ${LOG_PATH}
-    fi
+    #if [[ -d ${LOG_PATH} ]]; then
+    #    rm -rf ${LOG_PATH}
+    #fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         PRET_LOGGING_OPTIONS=""
@@ -198,7 +199,8 @@ function setup_test_options()
 
         PRET_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/pretest.xml --log-file=${LOG_PATH}/pretest.log"
         POST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/posttest.xml --log-file=${LOG_PATH}/posttest.log"
-        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --log-file=${LOG_PATH}/test.log"
+        # need test_console.txt for regress db don't change to .log
+        TEST_LOGGING_OPTIONS="--junit-xml=${LOG_PATH}/tr.xml --html=${LOG_PATH}/results.html --log-file=${LOG_PATH}/test_console.txt"
     fi
     UTIL_TOPOLOGY_OPTIONS="--topology util"
     if [[ -z ${TOPOLOGY} ]]; then
@@ -297,7 +299,7 @@ function run_individual_tests()
             if [[ ${test_dir} != "." ]]; then
                 mkdir -p ${LOG_PATH}/${test_dir}
             fi
-            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
+            TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --html=${LOG_PATH}/${test_dir}/${test_name}.html --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
         echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}

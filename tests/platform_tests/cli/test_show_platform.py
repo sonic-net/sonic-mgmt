@@ -40,6 +40,7 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
     dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
     yield dut_vars
 
+@pytest.mark.express
 def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
     """
     @summary: Verify output of `show platform summary`
@@ -89,7 +90,7 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() is None)),
                   "Unexpected value of fields, actual={}, expected={} on host '{}'".format(actual_fields_values, expected_fields_values, duthost.hostname))
 
-
+@pytest.mark.express
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
     """
     @summary: Verify output of `show platform syseeprom`
@@ -195,7 +196,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
                 line_regexp = re.sub(r'\s+', '\s+', line)
                 pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
 
-
+@pytest.mark.express
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus`
@@ -287,6 +288,7 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
 
     return fans
 
+@pytest.mark.express
 def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform fan`
@@ -323,6 +325,7 @@ def verify_show_platform_temperature_output(raw_output_lines, hostname):
         pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns on '{}'".format(NUM_EXPECTED_COLS, hostname))
 
 
+@pytest.mark.express
 def test_show_platform_temperature(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Verify output of `show platform temperature`
@@ -336,7 +339,7 @@ def test_show_platform_temperature(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # TODO: Test values against platform-specific expected data
 
-
+@pytest.mark.express
 def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform ssdhealth`
@@ -377,6 +380,7 @@ def verify_show_platform_firmware_status_output(raw_output_lines, hostname):
     pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns on '{}'".format(NUM_EXPECTED_COLS, hostname))
 
 
+@pytest.mark.express
 def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Verify output of `show platform firmware status`

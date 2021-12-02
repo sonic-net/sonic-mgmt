@@ -5,6 +5,7 @@ from tests.common.devices.onyx import OnyxHost
 from tests.common.devices.ixia import IxiaHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.aos import AosHost
+from tests.common.devices.timos import TimosHost
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,9 @@ class FanoutHost(object):
         elif os == 'aos':
             self.os = os
             self.host = AosHost(ansible_adhoc, hostname, user, passwd)
+        elif os == 'timos':
+            self.os = os
+            self.host = TimosHost(ansible_adhoc, hostname, user, passwd)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'

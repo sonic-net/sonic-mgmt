@@ -1,0 +1,4545 @@
+topology:
+  dut_num: 8
+  VMs:
+    ARISTA01T3:
+      vlans:
+        - 0.0@0
+      vm_offset: 0
+    ARISTA02T3:
+      vlans:
+        - 0.1@1
+      vm_offset: 1
+    ARISTA03T3:
+      vlans:
+        - 0.2@2
+      vm_offset: 2
+    ARISTA04T3:
+      vlans:
+        - 0.3@3
+      vm_offset: 3
+    ARISTA05T3:
+      vlans:
+        - 0.4@4
+      vm_offset: 4
+    ARISTA06T3:
+      vlans:
+        - 0.5@5
+      vm_offset: 5
+    ARISTA07T3:
+      vlans:
+        - 0.6@6
+      vm_offset: 6
+    ARISTA08T3:
+      vlans:
+        - 0.7@7
+      vm_offset: 7
+    ARISTA09T3:
+      vlans:
+        - 0.8@8
+      vm_offset: 8
+    ARISTA10T3:
+      vlans:
+        - 0.9@9
+      vm_offset: 9
+    ARISTA11T3:
+      vlans:
+        - 0.10@10
+      vm_offset: 10
+    ARISTA12T3:
+      vlans:
+        - 0.11@11
+      vm_offset: 11
+    ARISTA13T3:
+      vlans:
+        - 0.12@12
+      vm_offset: 12
+    ARISTA14T3:
+      vlans:
+        - 0.13@13
+      vm_offset: 13
+    ARISTA15T3:
+      vlans:
+        - 0.14@14
+      vm_offset: 14
+    ARISTA16T3:
+      vlans:
+        - 0.15@15
+      vm_offset: 15
+    ARISTA17T3:
+      vlans:
+        - 0.16@16
+      vm_offset: 16
+    ARISTA18T3:
+      vlans:
+        - 0.17@17
+      vm_offset: 17
+    ARISTA19T3:
+      vlans:
+        - 0.18@18
+      vm_offset: 18
+    ARISTA20T3:
+      vlans:
+        - 0.19@19
+      vm_offset: 19
+    ARISTA21T3:
+      vlans:
+        - 0.20@20
+      vm_offset: 20
+    ARISTA22T3:
+      vlans:
+        - 0.21@21
+      vm_offset: 21
+    ARISTA23T3:
+      vlans:
+        - 0.22@22
+      vm_offset: 22
+    ARISTA24T3:
+      vlans:
+        - 0.23@23
+      vm_offset: 23
+    ARISTA25T3:
+      vlans:
+        - 0.24@24
+      vm_offset: 24
+    ARISTA26T3:
+      vlans:
+        - 0.25@25
+      vm_offset: 25
+    ARISTA27T3:
+      vlans:
+        - 0.26@26
+      vm_offset: 26
+    ARISTA28T3:
+      vlans:
+        - 0.27@27
+      vm_offset: 27
+    ARISTA29T3:
+      vlans:
+        - 0.28@28
+      vm_offset: 28
+    ARISTA30T3:
+      vlans:
+        - 0.29@29
+      vm_offset: 29
+    ARISTA31T3:
+      vlans:
+        - 0.30@30
+      vm_offset: 30
+    ARISTA32T3:
+      vlans:
+        - 0.31@31
+      vm_offset: 31
+    ARISTA33T3:
+      vlans:
+        - 0.32@32
+      vm_offset: 32
+    ARISTA34T3:
+      vlans:
+        - 0.33@33
+      vm_offset: 33
+    ARISTA35T3:
+      vlans:
+        - 0.34@34
+      vm_offset: 34
+    ARISTA36T3:
+      vlans:
+        - 0.35@35
+      vm_offset: 35
+    ARISTA01T1:
+      vlans:
+        - 1.0@36
+      vm_offset: 36
+    ARISTA02T1:
+      vlans:
+        - 1.1@37
+      vm_offset: 37
+    ARISTA03T1:
+      vlans:
+        - 1.2@38
+      vm_offset: 38
+    ARISTA04T1:
+      vlans:
+        - 1.3@39
+      vm_offset: 39
+    ARISTA05T1:
+      vlans:
+        - 1.4@40
+      vm_offset: 40
+    ARISTA06T1:
+      vlans:
+        - 1.5@41
+      vm_offset: 41
+    ARISTA07T1:
+      vlans:
+        - 1.6@42
+      vm_offset: 42
+    ARISTA08T1:
+      vlans:
+        - 1.7@43
+      vm_offset: 43
+    ARISTA09T1:
+      vlans:
+        - 1.8@44
+      vm_offset: 44
+    ARISTA10T1:
+      vlans:
+        - 1.9@45
+      vm_offset: 45
+    ARISTA11T1:
+      vlans:
+        - 1.10@46
+      vm_offset: 46
+    ARISTA12T1:
+      vlans:
+        - 1.11@47
+      vm_offset: 47
+    ARISTA13T1:
+      vlans:
+        - 1.12@48
+      vm_offset: 48
+    ARISTA14T1:
+      vlans:
+        - 1.13@49
+      vm_offset: 49
+    ARISTA15T1:
+      vlans:
+        - 1.14@50
+      vm_offset: 50
+    ARISTA16T1:
+      vlans:
+        - 1.15@51
+      vm_offset: 51
+    ARISTA17T1:
+      vlans:
+        - 1.16@52
+      vm_offset: 52
+    ARISTA18T1:
+      vlans:
+        - 1.17@53
+      vm_offset: 53
+    ARISTA19T1:
+      vlans:
+        - 2.0@72
+      vm_offset: 72
+    ARISTA20T1:
+      vlans:
+        - 2.1@73
+      vm_offset: 73
+    ARISTA21T1:
+      vlans:
+        - 2.2@74
+      vm_offset: 74
+    ARISTA22T1:
+      vlans:
+        - 2.3@75
+      vm_offset: 75
+    ARISTA23T1:
+      vlans:
+        - 2.4@76
+      vm_offset: 76
+    ARISTA24T1:
+      vlans:
+        - 2.5@77
+      vm_offset: 77
+    ARISTA25T1:
+      vlans:
+        - 2.6@78
+      vm_offset: 78
+    ARISTA26T1:
+      vlans:
+        - 2.7@79
+      vm_offset: 79
+    ARISTA27T1:
+      vlans:
+        - 2.8@80
+      vm_offset: 80
+    ARISTA28T1:
+      vlans:
+        - 2.9@81
+      vm_offset: 81
+    ARISTA29T1:
+      vlans:
+        - 2.10@82
+      vm_offset: 82
+    ARISTA30T1:
+      vlans:
+        - 2.11@83
+      vm_offset: 83
+    ARISTA31T1:
+      vlans:
+        - 2.12@84
+      vm_offset: 84
+    ARISTA32T1:
+      vlans:
+        - 2.13@85
+      vm_offset: 85
+    ARISTA33T1:
+      vlans:
+        - 2.14@86
+      vm_offset: 86
+    ARISTA34T1:
+      vlans:
+        - 2.15@87
+      vm_offset: 87
+    ARISTA35T1:
+      vlans:
+        - 2.16@88
+      vm_offset: 88
+    ARISTA36T1:
+      vlans:
+        - 2.17@89
+      vm_offset: 89
+    ARISTA37T1:
+      vlans:
+        - 3.0@108
+      vm_offset: 108
+    ARISTA38T1:
+      vlans:
+        - 3.1@109
+      vm_offset: 109
+    ARISTA39T1:
+      vlans:
+        - 3.2@110
+      vm_offset: 110
+    ARISTA40T1:
+      vlans:
+        - 3.3@111
+      vm_offset: 111
+    ARISTA41T1:
+      vlans:
+        - 3.4@112
+      vm_offset: 112
+    ARISTA42T1:
+      vlans:
+        - 3.5@113
+      vm_offset: 113
+    ARISTA43T1:
+      vlans:
+        - 3.6@114
+      vm_offset: 114
+    ARISTA44T1:
+      vlans:
+        - 3.7@115
+      vm_offset: 115
+    ARISTA45T1:
+      vlans:
+        - 3.8@116
+      vm_offset: 116
+    ARISTA46T1:
+      vlans:
+        - 3.9@117
+      vm_offset: 117
+    ARISTA47T1:
+      vlans:
+        - 3.10@118
+      vm_offset: 118
+    ARISTA48T1:
+      vlans:
+        - 3.11@119
+      vm_offset: 119
+    ARISTA49T1:
+      vlans:
+        - 3.12@120
+      vm_offset: 120
+    ARISTA50T1:
+      vlans:
+        - 3.13@121
+      vm_offset: 121
+    ARISTA51T1:
+      vlans:
+        - 3.14@122
+      vm_offset: 122
+    ARISTA52T1:
+      vlans:
+        - 3.15@123
+      vm_offset: 123
+    ARISTA53T1:
+      vlans:
+        - 3.16@124
+      vm_offset: 124
+    ARISTA54T1:
+      vlans:
+        - 3.17@125
+      vm_offset: 125
+    ARISTA55T1:
+      vlans:
+        - 4.0@144
+      vm_offset: 144
+    ARISTA56T1:
+      vlans:
+        - 4.1@145
+      vm_offset: 145
+    ARISTA57T1:
+      vlans:
+        - 4.2@146
+      vm_offset: 146
+    ARISTA58T1:
+      vlans:
+        - 4.3@147
+      vm_offset: 147
+    ARISTA59T1:
+      vlans:
+        - 4.4@148
+      vm_offset: 148
+    ARISTA60T1:
+      vlans:
+        - 4.5@149
+      vm_offset: 149
+    ARISTA61T1:
+      vlans:
+        - 4.6@150
+      vm_offset: 150
+    ARISTA62T1:
+      vlans:
+        - 4.7@151
+      vm_offset: 151
+    ARISTA63T1:
+      vlans:
+        - 4.8@152
+      vm_offset: 152
+    ARISTA64T1:
+      vlans:
+        - 4.9@153
+      vm_offset: 153
+    ARISTA65T1:
+      vlans:
+        - 4.10@154
+      vm_offset: 154
+    ARISTA66T1:
+      vlans:
+        - 4.11@155
+      vm_offset: 155
+    ARISTA67T1:
+      vlans:
+        - 4.12@156
+      vm_offset: 156
+    ARISTA68T1:
+      vlans:
+        - 4.13@157
+      vm_offset: 157
+    ARISTA69T1:
+      vlans:
+        - 4.14@158
+      vm_offset: 158
+    ARISTA70T1:
+      vlans:
+        - 4.15@159
+      vm_offset: 159
+    ARISTA71T1:
+      vlans:
+        - 4.16@160
+      vm_offset: 160
+    ARISTA72T1:
+      vlans:
+        - 4.17@161
+      vm_offset: 161
+    ARISTA73T1:
+      vlans:
+        - 5.0@180
+      vm_offset: 180
+    ARISTA74T1:
+      vlans:
+        - 5.1@181
+      vm_offset: 181
+    ARISTA75T1:
+      vlans:
+        - 5.2@182
+      vm_offset: 182
+    ARISTA76T1:
+      vlans:
+        - 5.3@183
+      vm_offset: 183
+    ARISTA77T1:
+      vlans:
+        - 5.4@184
+      vm_offset: 184
+    ARISTA78T1:
+      vlans:
+        - 5.5@185
+      vm_offset: 185
+    ARISTA79T1:
+      vlans:
+        - 5.6@186
+      vm_offset: 186
+    ARISTA80T1:
+      vlans:
+        - 5.7@187
+      vm_offset: 187
+    ARISTA81T1:
+      vlans:
+        - 5.8@188
+      vm_offset: 188
+    ARISTA82T1:
+      vlans:
+        - 5.9@189
+      vm_offset: 189
+    ARISTA83T1:
+      vlans:
+        - 5.10@190
+      vm_offset: 190
+    ARISTA84T1:
+      vlans:
+        - 5.11@191
+      vm_offset: 191
+    ARISTA85T1:
+      vlans:
+        - 5.12@192
+      vm_offset: 192
+    ARISTA86T1:
+      vlans:
+        - 5.13@193
+      vm_offset: 193
+    ARISTA87T1:
+      vlans:
+        - 5.14@194
+      vm_offset: 194
+    ARISTA88T1:
+      vlans:
+        - 5.15@195
+      vm_offset: 195
+    ARISTA89T1:
+      vlans:
+        - 5.16@196
+      vm_offset: 196
+    ARISTA90T1:
+      vlans:
+        - 5.17@197
+      vm_offset: 197
+    ARISTA91T1:
+      vlans:
+        - 6.0@216
+      vm_offset: 216
+    ARISTA92T1:
+      vlans:
+        - 6.1@217
+      vm_offset: 217
+    ARISTA93T1:
+      vlans:
+        - 6.2@218
+      vm_offset: 218
+    ARISTA94T1:
+      vlans:
+        - 6.3@219
+      vm_offset: 219
+    ARISTA95T1:
+      vlans:
+        - 6.4@220
+      vm_offset: 220
+    ARISTA96T1:
+      vlans:
+        - 6.5@221
+      vm_offset: 221
+    ARISTA97T1:
+      vlans:
+        - 6.6@222
+      vm_offset: 222
+    ARISTA98T1:
+      vlans:
+        - 6.7@223
+      vm_offset: 223
+    ARISTA99T1:
+      vlans:
+        - 6.8@224
+      vm_offset: 224
+    ARISTA100T1:
+      vlans:
+        - 6.9@225
+      vm_offset: 225
+    ARISTA101T1:
+      vlans:
+        - 6.10@226
+      vm_offset: 226
+    ARISTA102T1:
+      vlans:
+        - 6.11@227
+      vm_offset: 227
+    ARISTA103T1:
+      vlans:
+        - 6.12@228
+      vm_offset: 228
+    ARISTA104T1:
+      vlans:
+        - 6.13@229
+      vm_offset: 229
+    ARISTA105T1:
+      vlans:
+        - 6.14@230
+      vm_offset: 230
+    ARISTA106T1:
+      vlans:
+        - 6.15@231
+      vm_offset: 231
+    ARISTA107T1:
+      vlans:
+        - 6.16@232
+      vm_offset: 232
+    ARISTA108T1:
+      vlans:
+        - 6.17@233
+      vm_offset: 233
+    ARISTA109T1:
+      vlans:
+        - 7.0@252
+      vm_offset: 252
+    ARISTA110T1:
+      vlans:
+        - 7.1@253
+      vm_offset: 253
+    ARISTA111T1:
+      vlans:
+        - 7.2@254
+      vm_offset: 254
+    ARISTA112T1:
+      vlans:
+        - 7.3@255
+      vm_offset: 255
+    ARISTA113T1:
+      vlans:
+        - 7.4@256
+      vm_offset: 256
+    ARISTA114T1:
+      vlans:
+        - 7.5@257
+      vm_offset: 257
+    ARISTA115T1:
+      vlans:
+        - 7.6@258
+      vm_offset: 258
+    ARISTA116T1:
+      vlans:
+        - 7.7@259
+      vm_offset: 259
+    ARISTA117T1:
+      vlans:
+        - 7.8@260
+      vm_offset: 260
+    ARISTA118T1:
+      vlans:
+        - 7.9@261
+      vm_offset: 261
+    ARISTA119T1:
+      vlans:
+        - 7.10@262
+      vm_offset: 262
+    ARISTA120T1:
+      vlans:
+        - 7.11@263
+      vm_offset: 263
+    ARISTA121T1:
+      vlans:
+        - 7.12@264
+      vm_offset: 264
+    ARISTA122T1:
+      vlans:
+        - 7.13@265
+      vm_offset: 265
+    ARISTA123T1:
+      vlans:
+        - 7.14@266
+      vm_offset: 266
+    ARISTA124T1:
+      vlans:
+        - 7.15@267
+      vm_offset: 267
+    ARISTA125T1:
+      vlans:
+        - 7.16@268
+      vm_offset: 268
+    ARISTA126T1:
+      vlans:
+        - 7.17@269
+      vm_offset: 269
+    ARISTA127T1:
+      vlans:
+        - 7.18@270
+      vm_offset: 270
+    ARISTA128T1:
+      vlans:
+        - 7.19@271
+      vm_offset: 271
+    ARISTA129T1:
+      vlans:
+        - 7.20@272
+      vm_offset: 272
+    ARISTA130T1:
+      vlans:
+        - 7.21@273
+      vm_offset: 273
+    ARISTA131T1:
+      vlans:
+        - 7.22@274
+      vm_offset: 274
+    ARISTA132T1:
+      vlans:
+        - 7.23@275
+      vm_offset: 275
+    ARISTA133T1:
+      vlans:
+        - 7.24@276
+      vm_offset: 276
+    ARISTA134T1:
+      vlans:
+        - 7.25@277
+      vm_offset: 277
+    ARISTA135T1:
+      vlans:
+        - 7.26@278
+      vm_offset: 278
+    ARISTA136T1:
+      vlans:
+        - 7.27@279
+      vm_offset: 279
+    ARISTA137T1:
+      vlans:
+        - 7.28@280
+      vm_offset: 280
+    ARISTA138T1:
+      vlans:
+        - 7.29@281
+      vm_offset: 281
+    ARISTA139T1:
+      vlans:
+        - 7.30@282
+      vm_offset: 282
+    ARISTA140T1:
+      vlans:
+        - 7.31@283
+      vm_offset: 283
+    ARISTA141T1:
+      vlans:
+        - 7.32@284
+      vm_offset: 284
+    ARISTA142T1:
+      vlans:
+        - 7.33@285
+      vm_offset: 285
+    ARISTA143T1:
+      vlans:
+        - 7.34@286
+      vm_offset: 286
+    ARISTA144T1:
+      vlans:
+        - 7.35@287
+      vm_offset: 287
+
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+        - 10.1.0.2/32
+        - 10.1.0.3/32
+        - 10.1.0.4/32
+        - 10.1.0.5/32
+        - 10.1.0.6/32
+        - 10.1.0.7/32
+        - 10.1.0.8/32
+      ipv6:
+        - FC00:10::1/128
+        - FC00:11::1/128
+        - FC00:12::1/128
+        - FC00:13::1/128
+        - FC00:14::1/128
+        - FC00:15::1/128
+        - FC00:16::1/128
+        - FC00:17::1/128
+
+
+configuration_properties:
+  common:
+    podset_number: 50
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 65100
+    dut_type: Spine
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  ARISTA01T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.0
+          - fc00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        ipv4: 10.0.0.1/31
+        ipv6: fc00::2/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+  ARISTA02T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.2
+          - fc00::5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
+      Ethernet1:
+        ipv4: 10.0.0.3/31
+        ipv6: fc00::6/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::4/64
+  ARISTA03T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.4
+          - fc00::9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        ipv4: 10.0.0.5/31
+        ipv6: fc00::a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::6/64
+  ARISTA04T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.6
+          - fc00::d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
+      Ethernet1:
+        ipv4: 10.0.0.7/31
+        ipv6: fc00::e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::8/64
+  ARISTA05T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.8
+          - fc00::11
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.5/32
+        ipv6: 2064:100::5/128
+      Ethernet1:
+        ipv4: 10.0.0.9/31
+        ipv6: fc00::12/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.5/24
+      ipv6: fc0a::a/64
+  ARISTA06T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.10
+          - fc00::15
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
+      Ethernet1:
+        ipv4: 10.0.0.11/31
+        ipv6: fc00::16/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::c/64
+  ARISTA07T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.12
+          - fc00::19
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.7/32
+        ipv6: 2064:100::7/128
+      Ethernet1:
+        ipv4: 10.0.0.13/31
+        ipv6: fc00::1a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.7/24
+      ipv6: fc0a::e/64
+  ARISTA08T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.14
+          - fc00::1d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.8/32
+        ipv6: 2064:100::8/128
+      Ethernet1:
+        ipv4: 10.0.0.15/31
+        ipv6: fc00::1e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.8/24
+      ipv6: fc0a::10/64
+  ARISTA09T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.16
+          - fc00::21
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.9/32
+        ipv6: 2064:100::9/128
+      Ethernet1:
+        ipv4: 10.0.0.17/31
+        ipv6: fc00::22/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.9/24
+      ipv6: fc0a::12/64
+  ARISTA10T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.18
+          - fc00::25
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.10/32
+        ipv6: 2064:100::a/128
+      Ethernet1:
+        ipv4: 10.0.0.19/31
+        ipv6: fc00::26/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.10/24
+      ipv6: fc0a::14/64
+  ARISTA11T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.20
+          - fc00::29
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.11/32
+        ipv6: 2064:100::b/128
+      Ethernet1:
+        ipv4: 10.0.0.21/31
+        ipv6: fc00::2a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.11/24
+      ipv6: fc0a::16/64
+  ARISTA12T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.22
+          - fc00::2d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.12/32
+        ipv6: 2064:100::c/128
+      Ethernet1:
+        ipv4: 10.0.0.23/31
+        ipv6: fc00::2e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.12/24
+      ipv6: fc0a::18/64
+  ARISTA13T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.24
+          - fc00::31
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.13/32
+        ipv6: 2064:100::d/128
+      Ethernet1:
+        ipv4: 10.0.0.25/31
+        ipv6: fc00::32/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.13/24
+      ipv6: fc0a::1a/64
+  ARISTA14T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.26
+          - fc00::35
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.14/32
+        ipv6: 2064:100::e/128
+      Ethernet1:
+        ipv4: 10.0.0.27/31
+        ipv6: fc00::36/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.14/24
+      ipv6: fc0a::1c/64
+  ARISTA15T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.28
+          - fc00::39
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.15/32
+        ipv6: 2064:100::f/128
+      Ethernet1:
+        ipv4: 10.0.0.29/31
+        ipv6: fc00::3a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.15/24
+      ipv6: fc0a::1e/64
+  ARISTA16T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.30
+          - fc00::3d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.16/32
+        ipv6: 2064:100::10/128
+      Ethernet1:
+        ipv4: 10.0.0.31/31
+        ipv6: fc00::3e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.16/24
+      ipv6: fc0a::20/64
+  ARISTA17T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.32
+          - fc00::41
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.17/32
+        ipv6: 2064:100::11/128
+      Ethernet1:
+        ipv4: 10.0.0.33/31
+        ipv6: fc00::42/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.17/24
+      ipv6: fc0a::22/64
+  ARISTA18T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.34
+          - fc00::45
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.18/32
+        ipv6: 2064:100::12/128
+      Ethernet1:
+        ipv4: 10.0.0.35/31
+        ipv6: fc00::46/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.18/24
+      ipv6: fc0a::24/64
+  ARISTA19T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.36
+          - fc00::49
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.19/32
+        ipv6: 2064:100::13/128
+      Ethernet1:
+        ipv4: 10.0.0.37/31
+        ipv6: fc00::4a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.19/24
+      ipv6: fc0a::26/64
+  ARISTA20T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.38
+          - fc00::4d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.20/32
+        ipv6: 2064:100::14/128
+      Ethernet1:
+        ipv4: 10.0.0.39/31
+        ipv6: fc00::4e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.20/24
+      ipv6: fc0a::28/64
+  ARISTA21T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.40
+          - fc00::51
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.21/32
+        ipv6: 2064:100::15/128
+      Ethernet1:
+        ipv4: 10.0.0.41/31
+        ipv6: fc00::52/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.21/24
+      ipv6: fc0a::2a/64
+  ARISTA22T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.42
+          - fc00::55
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.22/32
+        ipv6: 2064:100::16/128
+      Ethernet1:
+        ipv4: 10.0.0.43/31
+        ipv6: fc00::56/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.22/24
+      ipv6: fc0a::2c/64
+  ARISTA23T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.44
+          - fc00::59
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.23/32
+        ipv6: 2064:100::17/128
+      Ethernet1:
+        ipv4: 10.0.0.45/31
+        ipv6: fc00::5a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.23/24
+      ipv6: fc0a::2e/64
+  ARISTA24T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.46
+          - fc00::5d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.24/32
+        ipv6: 2064:100::18/128
+      Ethernet1:
+        ipv4: 10.0.0.47/31
+        ipv6: fc00::5e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.24/24
+      ipv6: fc0a::30/64
+  ARISTA25T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.48
+          - fc00::61
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.25/32
+        ipv6: 2064:100::19/128
+      Ethernet1:
+        ipv4: 10.0.0.49/31
+        ipv6: fc00::62/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.25/24
+      ipv6: fc0a::32/64
+  ARISTA26T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.50
+          - fc00::65
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.26/32
+        ipv6: 2064:100::1a/128
+      Ethernet1:
+        ipv4: 10.0.0.51/31
+        ipv6: fc00::66/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.26/24
+      ipv6: fc0a::34/64
+  ARISTA27T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.52
+          - fc00::69
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.27/32
+        ipv6: 2064:100::1b/128
+      Ethernet1:
+        ipv4: 10.0.0.53/31
+        ipv6: fc00::6a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.27/24
+      ipv6: fc0a::36/64
+  ARISTA28T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.54
+          - fc00::6d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.28/32
+        ipv6: 2064:100::1c/128
+      Ethernet1:
+        ipv4: 10.0.0.55/31
+        ipv6: fc00::6e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.28/24
+      ipv6: fc0a::38/64
+  ARISTA29T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.56
+          - fc00::71
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.29/32
+        ipv6: 2064:100::1d/128
+      Ethernet1:
+        ipv4: 10.0.0.57/31
+        ipv6: fc00::72/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::3a/64
+  ARISTA30T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.58
+          - fc00::75
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.30/32
+        ipv6: 2064:100::1e/128
+      Ethernet1:
+        ipv4: 10.0.0.59/31
+        ipv6: fc00::76/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.30/24
+      ipv6: fc0a::3c/64
+  ARISTA31T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.60
+          - fc00::79
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.31/32
+        ipv6: 2064:100::1f/128
+      Ethernet1:
+        ipv4: 10.0.0.61/31
+        ipv6: fc00::7a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.31/24
+      ipv6: fc0a::3e/64
+  ARISTA32T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.62
+          - fc00::7d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.32/32
+        ipv6: 2064:100::20/128
+      Ethernet1:
+        ipv4: 10.0.0.63/31
+        ipv6: fc00::7e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.32/24
+      ipv6: fc0a::40/64
+  ARISTA33T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.64
+          - fc00::81
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.33/32
+        ipv6: 2064:100::21/128
+      Ethernet1:
+        ipv4: 10.0.0.65/31
+        ipv6: fc00::82/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::42/64
+  ARISTA34T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.66
+          - fc00::85
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.34/32
+        ipv6: 2064:100::22/128
+      Ethernet1:
+        ipv4: 10.0.0.67/31
+        ipv6: fc00::86/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.34/24
+      ipv6: fc0a::44/64
+  ARISTA35T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.68
+          - fc00::89
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.35/32
+        ipv6: 2064:100::23/128
+      Ethernet1:
+        ipv4: 10.0.0.69/31
+        ipv6: fc00::8a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.35/24
+      ipv6: fc0a::46/64
+  ARISTA36T3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.70
+          - fc00::8d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.36/32
+        ipv6: 2064:100::24/128
+      Ethernet1:
+        ipv4: 10.0.0.71/31
+        ipv6: fc00::8e/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.36/24
+      ipv6: fc0a::48/64
+  ARISTA01T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65000
+      peers:
+        65100:
+          - 10.0.0.72
+          - fc00::91
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.37/32
+        ipv6: 2064:100::25/128
+      Ethernet1:
+        ipv4: 10.0.0.73/31
+        ipv6: fc00::92/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.37/24
+      ipv6: fc0a::4a/64
+  ARISTA02T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65001
+      peers:
+        65100:
+          - 10.0.0.74
+          - fc00::95
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.38/32
+        ipv6: 2064:100::26/128
+      Ethernet1:
+        ipv4: 10.0.0.75/31
+        ipv6: fc00::96/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.38/24
+      ipv6: fc0a::4c/64
+  ARISTA03T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65002
+      peers:
+        65100:
+          - 10.0.0.76
+          - fc00::99
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.39/32
+        ipv6: 2064:100::27/128
+      Ethernet1:
+        ipv4: 10.0.0.77/31
+        ipv6: fc00::9a/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.39/24
+      ipv6: fc0a::4e/64
+  ARISTA04T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65003
+      peers:
+        65100:
+          - 10.0.0.78
+          - fc00::9d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.40/32
+        ipv6: 2064:100::28/128
+      Ethernet1:
+        ipv4: 10.0.0.79/31
+        ipv6: fc00::9e/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.40/24
+      ipv6: fc0a::50/64
+  ARISTA05T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65004
+      peers:
+        65100:
+          - 10.0.0.80
+          - fc00::a1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.41/32
+        ipv6: 2064:100::29/128
+      Ethernet1:
+        ipv4: 10.0.0.81/31
+        ipv6: fc00::a2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.41/24
+      ipv6: fc0a::52/64
+  ARISTA06T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65005
+      peers:
+        65100:
+          - 10.0.0.82
+          - fc00::a5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.42/32
+        ipv6: 2064:100::2a/128
+      Ethernet1:
+        ipv4: 10.0.0.83/31
+        ipv6: fc00::a6/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.42/24
+      ipv6: fc0a::54/64
+  ARISTA07T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65006
+      peers:
+        65100:
+          - 10.0.0.84
+          - fc00::a9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.43/32
+        ipv6: 2064:100::2b/128
+      Ethernet1:
+        ipv4: 10.0.0.85/31
+        ipv6: fc00::aa/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.43/24
+      ipv6: fc0a::56/64
+  ARISTA08T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65007
+      peers:
+        65100:
+          - 10.0.0.86
+          - fc00::ad
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.44/32
+        ipv6: 2064:100::2c/128
+      Ethernet1:
+        ipv4: 10.0.0.87/31
+        ipv6: fc00::ae/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.44/24
+      ipv6: fc0a::58/64
+  ARISTA09T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65008
+      peers:
+        65100:
+          - 10.0.0.88
+          - fc00::b1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.45/32
+        ipv6: 2064:100::2d/128
+      Ethernet1:
+        ipv4: 10.0.0.89/31
+        ipv6: fc00::b2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.45/24
+      ipv6: fc0a::5a/64
+  ARISTA10T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65009
+      peers:
+        65100:
+          - 10.0.0.90
+          - fc00::b5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.46/32
+        ipv6: 2064:100::2e/128
+      Ethernet1:
+        ipv4: 10.0.0.91/31
+        ipv6: fc00::b6/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.46/24
+      ipv6: fc0a::5c/64
+  ARISTA11T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65010
+      peers:
+        65100:
+          - 10.0.0.92
+          - fc00::b9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.47/32
+        ipv6: 2064:100::2f/128
+      Ethernet1:
+        ipv4: 10.0.0.93/31
+        ipv6: fc00::ba/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.47/24
+      ipv6: fc0a::5e/64
+  ARISTA12T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65011
+      peers:
+        65100:
+          - 10.0.0.94
+          - fc00::bd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.48/32
+        ipv6: 2064:100::30/128
+      Ethernet1:
+        ipv4: 10.0.0.95/31
+        ipv6: fc00::be/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.48/24
+      ipv6: fc0a::60/64
+  ARISTA13T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65012
+      peers:
+        65100:
+          - 10.0.0.96
+          - fc00::c1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.49/32
+        ipv6: 2064:100::31/128
+      Ethernet1:
+        ipv4: 10.0.0.97/31
+        ipv6: fc00::c2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.49/24
+      ipv6: fc0a::62/64
+  ARISTA14T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65013
+      peers:
+        65100:
+          - 10.0.0.98
+          - fc00::c5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.50/32
+        ipv6: 2064:100::32/128
+      Ethernet1:
+        ipv4: 10.0.0.99/31
+        ipv6: fc00::c6/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.50/24
+      ipv6: fc0a::64/64
+  ARISTA15T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65014
+      peers:
+        65100:
+          - 10.0.0.100
+          - fc00::c9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.51/32
+        ipv6: 2064:100::33/128
+      Ethernet1:
+        ipv4: 10.0.0.101/31
+        ipv6: fc00::ca/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.51/24
+      ipv6: fc0a::66/64
+  ARISTA16T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65015
+      peers:
+        65100:
+          - 10.0.0.102
+          - fc00::cd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.52/32
+        ipv6: 2064:100::34/128
+      Ethernet1:
+        ipv4: 10.0.0.103/31
+        ipv6: fc00::ce/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.52/24
+      ipv6: fc0a::68/64
+  ARISTA17T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65016
+      peers:
+        65100:
+          - 10.0.0.104
+          - fc00::d1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.53/32
+        ipv6: 2064:100::35/128
+      Ethernet1:
+        ipv4: 10.0.0.105/31
+        ipv6: fc00::d2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.53/24
+      ipv6: fc0a::6a/64
+  ARISTA18T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65017
+      peers:
+        65100:
+          - 10.0.0.106
+          - fc00::d5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.54/32
+        ipv6: 2064:100::36/128
+      Ethernet1:
+        ipv4: 10.0.0.107/31
+        ipv6: fc00::d6/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.54/24
+      ipv6: fc0a::6c/64
+  ARISTA19T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65036
+      peers:
+        65100:
+          - 10.0.0.144
+          - fc00::121
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.73/32
+        ipv6: 2064:100::49/128
+      Ethernet1:
+        ipv4: 10.0.0.145/31
+        ipv6: fc00::122/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.73/24
+      ipv6: fc0a::92/64
+  ARISTA20T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65037
+      peers:
+        65100:
+          - 10.0.0.146
+          - fc00::125
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.74/32
+        ipv6: 2064:100::4a/128
+      Ethernet1:
+        ipv4: 10.0.0.147/31
+        ipv6: fc00::126/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.74/24
+      ipv6: fc0a::94/64
+  ARISTA21T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65038
+      peers:
+        65100:
+          - 10.0.0.148
+          - fc00::129
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.75/32
+        ipv6: 2064:100::4b/128
+      Ethernet1:
+        ipv4: 10.0.0.149/31
+        ipv6: fc00::12a/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.75/24
+      ipv6: fc0a::96/64
+  ARISTA22T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65039
+      peers:
+        65100:
+          - 10.0.0.150
+          - fc00::12d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.76/32
+        ipv6: 2064:100::4c/128
+      Ethernet1:
+        ipv4: 10.0.0.151/31
+        ipv6: fc00::12e/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.76/24
+      ipv6: fc0a::98/64
+  ARISTA23T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65040
+      peers:
+        65100:
+          - 10.0.0.152
+          - fc00::131
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.77/32
+        ipv6: 2064:100::4d/128
+      Ethernet1:
+        ipv4: 10.0.0.153/31
+        ipv6: fc00::132/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.77/24
+      ipv6: fc0a::9a/64
+  ARISTA24T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65041
+      peers:
+        65100:
+          - 10.0.0.154
+          - fc00::135
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.78/32
+        ipv6: 2064:100::4e/128
+      Ethernet1:
+        ipv4: 10.0.0.155/31
+        ipv6: fc00::136/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.78/24
+      ipv6: fc0a::9c/64
+  ARISTA25T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65042
+      peers:
+        65100:
+          - 10.0.0.156
+          - fc00::139
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.79/32
+        ipv6: 2064:100::4f/128
+      Ethernet1:
+        ipv4: 10.0.0.157/31
+        ipv6: fc00::13a/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.79/24
+      ipv6: fc0a::9e/64
+  ARISTA26T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65043
+      peers:
+        65100:
+          - 10.0.0.158
+          - fc00::13d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.80/32
+        ipv6: 2064:100::50/128
+      Ethernet1:
+        ipv4: 10.0.0.159/31
+        ipv6: fc00::13e/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.80/24
+      ipv6: fc0a::a0/64
+  ARISTA27T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65044
+      peers:
+        65100:
+          - 10.0.0.160
+          - fc00::141
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.81/32
+        ipv6: 2064:100::51/128
+      Ethernet1:
+        ipv4: 10.0.0.161/31
+        ipv6: fc00::142/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.81/24
+      ipv6: fc0a::a2/64
+  ARISTA28T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65045
+      peers:
+        65100:
+          - 10.0.0.162
+          - fc00::145
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.82/32
+        ipv6: 2064:100::52/128
+      Ethernet1:
+        ipv4: 10.0.0.163/31
+        ipv6: fc00::146/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.82/24
+      ipv6: fc0a::a4/64
+  ARISTA29T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65046
+      peers:
+        65100:
+          - 10.0.0.164
+          - fc00::149
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.83/32
+        ipv6: 2064:100::53/128
+      Ethernet1:
+        ipv4: 10.0.0.165/31
+        ipv6: fc00::14a/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.83/24
+      ipv6: fc0a::a6/64
+  ARISTA30T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65047
+      peers:
+        65100:
+          - 10.0.0.166
+          - fc00::14d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.84/32
+        ipv6: 2064:100::54/128
+      Ethernet1:
+        ipv4: 10.0.0.167/31
+        ipv6: fc00::14e/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.84/24
+      ipv6: fc0a::a8/64
+  ARISTA31T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65048
+      peers:
+        65100:
+          - 10.0.0.168
+          - fc00::151
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.85/32
+        ipv6: 2064:100::55/128
+      Ethernet1:
+        ipv4: 10.0.0.169/31
+        ipv6: fc00::152/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.85/24
+      ipv6: fc0a::aa/64
+  ARISTA32T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65049
+      peers:
+        65100:
+          - 10.0.0.170
+          - fc00::155
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.86/32
+        ipv6: 2064:100::56/128
+      Ethernet1:
+        ipv4: 10.0.0.171/31
+        ipv6: fc00::156/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.86/24
+      ipv6: fc0a::ac/64
+  ARISTA33T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65050
+      peers:
+        65100:
+          - 10.0.0.172
+          - fc00::159
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.87/32
+        ipv6: 2064:100::57/128
+      Ethernet1:
+        ipv4: 10.0.0.173/31
+        ipv6: fc00::15a/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.87/24
+      ipv6: fc0a::ae/64
+  ARISTA34T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65051
+      peers:
+        65100:
+          - 10.0.0.174
+          - fc00::15d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.88/32
+        ipv6: 2064:100::58/128
+      Ethernet1:
+        ipv4: 10.0.0.175/31
+        ipv6: fc00::15e/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.88/24
+      ipv6: fc0a::b0/64
+  ARISTA35T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65052
+      peers:
+        65100:
+          - 10.0.0.176
+          - fc00::161
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.89/32
+        ipv6: 2064:100::59/128
+      Ethernet1:
+        ipv4: 10.0.0.177/31
+        ipv6: fc00::162/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.89/24
+      ipv6: fc0a::b2/64
+  ARISTA36T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65053
+      peers:
+        65100:
+          - 10.0.0.178
+          - fc00::165
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.90/32
+        ipv6: 2064:100::5a/128
+      Ethernet1:
+        ipv4: 10.0.0.179/31
+        ipv6: fc00::166/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.90/24
+      ipv6: fc0a::b4/64
+  ARISTA37T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65072
+      peers:
+        65100:
+          - 10.0.0.216
+          - fc00::1b1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.109/32
+        ipv6: 2064:100::6d/128
+      Ethernet1:
+        ipv4: 10.0.0.217/31
+        ipv6: fc00::1b2/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.109/24
+      ipv6: fc0a::da/64
+  ARISTA38T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65073
+      peers:
+        65100:
+          - 10.0.0.218
+          - fc00::1b5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.110/32
+        ipv6: 2064:100::6e/128
+      Ethernet1:
+        ipv4: 10.0.0.219/31
+        ipv6: fc00::1b6/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.110/24
+      ipv6: fc0a::dc/64
+  ARISTA39T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65074
+      peers:
+        65100:
+          - 10.0.0.220
+          - fc00::1b9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.111/32
+        ipv6: 2064:100::6f/128
+      Ethernet1:
+        ipv4: 10.0.0.221/31
+        ipv6: fc00::1ba/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.111/24
+      ipv6: fc0a::de/64
+  ARISTA40T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65075
+      peers:
+        65100:
+          - 10.0.0.222
+          - fc00::1bd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.112/32
+        ipv6: 2064:100::70/128
+      Ethernet1:
+        ipv4: 10.0.0.223/31
+        ipv6: fc00::1be/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.112/24
+      ipv6: fc0a::e0/64
+  ARISTA41T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65076
+      peers:
+        65100:
+          - 10.0.0.224
+          - fc00::1c1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.113/32
+        ipv6: 2064:100::71/128
+      Ethernet1:
+        ipv4: 10.0.0.225/31
+        ipv6: fc00::1c2/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.113/24
+      ipv6: fc0a::e2/64
+  ARISTA42T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65077
+      peers:
+        65100:
+          - 10.0.0.226
+          - fc00::1c5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.114/32
+        ipv6: 2064:100::72/128
+      Ethernet1:
+        ipv4: 10.0.0.227/31
+        ipv6: fc00::1c6/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.114/24
+      ipv6: fc0a::e4/64
+  ARISTA43T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65078
+      peers:
+        65100:
+          - 10.0.0.228
+          - fc00::1c9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.115/32
+        ipv6: 2064:100::73/128
+      Ethernet1:
+        ipv4: 10.0.0.229/31
+        ipv6: fc00::1ca/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.115/24
+      ipv6: fc0a::e6/64
+  ARISTA44T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65079
+      peers:
+        65100:
+          - 10.0.0.230
+          - fc00::1cd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.116/32
+        ipv6: 2064:100::74/128
+      Ethernet1:
+        ipv4: 10.0.0.231/31
+        ipv6: fc00::1ce/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.116/24
+      ipv6: fc0a::e8/64
+  ARISTA45T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65080
+      peers:
+        65100:
+          - 10.0.0.232
+          - fc00::1d1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.117/32
+        ipv6: 2064:100::75/128
+      Ethernet1:
+        ipv4: 10.0.0.233/31
+        ipv6: fc00::1d2/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.117/24
+      ipv6: fc0a::ea/64
+  ARISTA46T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65081
+      peers:
+        65100:
+          - 10.0.0.234
+          - fc00::1d5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.118/32
+        ipv6: 2064:100::76/128
+      Ethernet1:
+        ipv4: 10.0.0.235/31
+        ipv6: fc00::1d6/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.118/24
+      ipv6: fc0a::ec/64
+  ARISTA47T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65082
+      peers:
+        65100:
+          - 10.0.0.236
+          - fc00::1d9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.119/32
+        ipv6: 2064:100::77/128
+      Ethernet1:
+        ipv4: 10.0.0.237/31
+        ipv6: fc00::1da/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.119/24
+      ipv6: fc0a::ee/64
+  ARISTA48T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65083
+      peers:
+        65100:
+          - 10.0.0.238
+          - fc00::1dd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.120/32
+        ipv6: 2064:100::78/128
+      Ethernet1:
+        ipv4: 10.0.0.239/31
+        ipv6: fc00::1de/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.120/24
+      ipv6: fc0a::f0/64
+  ARISTA49T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65084
+      peers:
+        65100:
+          - 10.0.0.240
+          - fc00::1e1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.121/32
+        ipv6: 2064:100::79/128
+      Ethernet1:
+        ipv4: 10.0.0.241/31
+        ipv6: fc00::1e2/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.121/24
+      ipv6: fc0a::f2/64
+  ARISTA50T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65085
+      peers:
+        65100:
+          - 10.0.0.242
+          - fc00::1e5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.122/32
+        ipv6: 2064:100::7a/128
+      Ethernet1:
+        ipv4: 10.0.0.243/31
+        ipv6: fc00::1e6/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.122/24
+      ipv6: fc0a::f4/64
+  ARISTA51T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65086
+      peers:
+        65100:
+          - 10.0.0.244
+          - fc00::1e9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.123/32
+        ipv6: 2064:100::7b/128
+      Ethernet1:
+        ipv4: 10.0.0.245/31
+        ipv6: fc00::1ea/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.123/24
+      ipv6: fc0a::f6/64
+  ARISTA52T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65087
+      peers:
+        65100:
+          - 10.0.0.246
+          - fc00::1ed
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.124/32
+        ipv6: 2064:100::7c/128
+      Ethernet1:
+        ipv4: 10.0.0.247/31
+        ipv6: fc00::1ee/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.124/24
+      ipv6: fc0a::f8/64
+  ARISTA53T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65088
+      peers:
+        65100:
+          - 10.0.0.248
+          - fc00::1f1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.125/32
+        ipv6: 2064:100::7d/128
+      Ethernet1:
+        ipv4: 10.0.0.249/31
+        ipv6: fc00::1f2/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.125/24
+      ipv6: fc0a::fa/64
+  ARISTA54T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65089
+      peers:
+        65100:
+          - 10.0.0.250
+          - fc00::1f5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.126/32
+        ipv6: 2064:100::7e/128
+      Ethernet1:
+        ipv4: 10.0.0.251/31
+        ipv6: fc00::1f6/126
+        dut_index: 3
+    bp_interface:
+      ipv4: 10.10.246.126/24
+      ipv6: fc0a::fc/64
+  ARISTA55T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65108
+      peers:
+        65100:
+          - 10.0.1.32
+          - fc00::241
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.145/32
+        ipv6: 2064:100::91/128
+      Ethernet1:
+        ipv4: 10.0.1.33/31
+        ipv6: fc00::242/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.145/24
+      ipv6: fc0a::122/64
+  ARISTA56T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65109
+      peers:
+        65100:
+          - 10.0.1.34
+          - fc00::245
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.146/32
+        ipv6: 2064:100::92/128
+      Ethernet1:
+        ipv4: 10.0.1.35/31
+        ipv6: fc00::246/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.146/24
+      ipv6: fc0a::124/64
+  ARISTA57T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65110
+      peers:
+        65100:
+          - 10.0.1.36
+          - fc00::249
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.147/32
+        ipv6: 2064:100::93/128
+      Ethernet1:
+        ipv4: 10.0.1.37/31
+        ipv6: fc00::24a/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.147/24
+      ipv6: fc0a::126/64
+  ARISTA58T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65111
+      peers:
+        65100:
+          - 10.0.1.38
+          - fc00::24d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.148/32
+        ipv6: 2064:100::94/128
+      Ethernet1:
+        ipv4: 10.0.1.39/31
+        ipv6: fc00::24e/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.148/24
+      ipv6: fc0a::128/64
+  ARISTA59T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65112
+      peers:
+        65100:
+          - 10.0.1.40
+          - fc00::251
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.149/32
+        ipv6: 2064:100::95/128
+      Ethernet1:
+        ipv4: 10.0.1.41/31
+        ipv6: fc00::252/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.149/24
+      ipv6: fc0a::12a/64
+  ARISTA60T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65113
+      peers:
+        65100:
+          - 10.0.1.42
+          - fc00::255
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.150/32
+        ipv6: 2064:100::96/128
+      Ethernet1:
+        ipv4: 10.0.1.43/31
+        ipv6: fc00::256/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.150/24
+      ipv6: fc0a::12c/64
+  ARISTA61T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65114
+      peers:
+        65100:
+          - 10.0.1.44
+          - fc00::259
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.151/32
+        ipv6: 2064:100::97/128
+      Ethernet1:
+        ipv4: 10.0.1.45/31
+        ipv6: fc00::25a/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.151/24
+      ipv6: fc0a::12e/64
+  ARISTA62T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65115
+      peers:
+        65100:
+          - 10.0.1.46
+          - fc00::25d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.152/32
+        ipv6: 2064:100::98/128
+      Ethernet1:
+        ipv4: 10.0.1.47/31
+        ipv6: fc00::25e/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.152/24
+      ipv6: fc0a::130/64
+  ARISTA63T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65116
+      peers:
+        65100:
+          - 10.0.1.48
+          - fc00::261
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.153/32
+        ipv6: 2064:100::99/128
+      Ethernet1:
+        ipv4: 10.0.1.49/31
+        ipv6: fc00::262/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.153/24
+      ipv6: fc0a::132/64
+  ARISTA64T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65117
+      peers:
+        65100:
+          - 10.0.1.50
+          - fc00::265
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.154/32
+        ipv6: 2064:100::9a/128
+      Ethernet1:
+        ipv4: 10.0.1.51/31
+        ipv6: fc00::266/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.154/24
+      ipv6: fc0a::134/64
+  ARISTA65T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65118
+      peers:
+        65100:
+          - 10.0.1.52
+          - fc00::269
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.155/32
+        ipv6: 2064:100::9b/128
+      Ethernet1:
+        ipv4: 10.0.1.53/31
+        ipv6: fc00::26a/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.155/24
+      ipv6: fc0a::136/64
+  ARISTA66T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65119
+      peers:
+        65100:
+          - 10.0.1.54
+          - fc00::26d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.156/32
+        ipv6: 2064:100::9c/128
+      Ethernet1:
+        ipv4: 10.0.1.55/31
+        ipv6: fc00::26e/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.156/24
+      ipv6: fc0a::138/64
+  ARISTA67T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65120
+      peers:
+        65100:
+          - 10.0.1.56
+          - fc00::271
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.157/32
+        ipv6: 2064:100::9d/128
+      Ethernet1:
+        ipv4: 10.0.1.57/31
+        ipv6: fc00::272/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.157/24
+      ipv6: fc0a::13a/64
+  ARISTA68T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65121
+      peers:
+        65100:
+          - 10.0.1.58
+          - fc00::275
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.158/32
+        ipv6: 2064:100::9e/128
+      Ethernet1:
+        ipv4: 10.0.1.59/31
+        ipv6: fc00::276/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.158/24
+      ipv6: fc0a::13c/64
+  ARISTA69T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65122
+      peers:
+        65100:
+          - 10.0.1.60
+          - fc00::279
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.159/32
+        ipv6: 2064:100::9f/128
+      Ethernet1:
+        ipv4: 10.0.1.61/31
+        ipv6: fc00::27a/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.159/24
+      ipv6: fc0a::13e/64
+  ARISTA70T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65123
+      peers:
+        65100:
+          - 10.0.1.62
+          - fc00::27d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.160/32
+        ipv6: 2064:100::a0/128
+      Ethernet1:
+        ipv4: 10.0.1.63/31
+        ipv6: fc00::27e/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.160/24
+      ipv6: fc0a::140/64
+  ARISTA71T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65124
+      peers:
+        65100:
+          - 10.0.1.64
+          - fc00::281
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.161/32
+        ipv6: 2064:100::a1/128
+      Ethernet1:
+        ipv4: 10.0.1.65/31
+        ipv6: fc00::282/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.161/24
+      ipv6: fc0a::142/64
+  ARISTA72T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65125
+      peers:
+        65100:
+          - 10.0.1.66
+          - fc00::285
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.162/32
+        ipv6: 2064:100::a2/128
+      Ethernet1:
+        ipv4: 10.0.1.67/31
+        ipv6: fc00::286/126
+        dut_index: 4
+    bp_interface:
+      ipv4: 10.10.246.162/24
+      ipv6: fc0a::144/64
+  ARISTA73T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65144
+      peers:
+        65100:
+          - 10.0.1.104
+          - fc00::2d1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.181/32
+        ipv6: 2064:100::b5/128
+      Ethernet1:
+        ipv4: 10.0.1.105/31
+        ipv6: fc00::2d2/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.181/24
+      ipv6: fc0a::16a/64
+  ARISTA74T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65145
+      peers:
+        65100:
+          - 10.0.1.106
+          - fc00::2d5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.182/32
+        ipv6: 2064:100::b6/128
+      Ethernet1:
+        ipv4: 10.0.1.107/31
+        ipv6: fc00::2d6/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.182/24
+      ipv6: fc0a::16c/64
+  ARISTA75T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65146
+      peers:
+        65100:
+          - 10.0.1.108
+          - fc00::2d9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.183/32
+        ipv6: 2064:100::b7/128
+      Ethernet1:
+        ipv4: 10.0.1.109/31
+        ipv6: fc00::2da/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.183/24
+      ipv6: fc0a::16e/64
+  ARISTA76T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65147
+      peers:
+        65100:
+          - 10.0.1.110
+          - fc00::2dd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.184/32
+        ipv6: 2064:100::b8/128
+      Ethernet1:
+        ipv4: 10.0.1.111/31
+        ipv6: fc00::2de/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.184/24
+      ipv6: fc0a::170/64
+  ARISTA77T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65148
+      peers:
+        65100:
+          - 10.0.1.112
+          - fc00::2e1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.185/32
+        ipv6: 2064:100::b9/128
+      Ethernet1:
+        ipv4: 10.0.1.113/31
+        ipv6: fc00::2e2/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.185/24
+      ipv6: fc0a::172/64
+  ARISTA78T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65149
+      peers:
+        65100:
+          - 10.0.1.114
+          - fc00::2e5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.186/32
+        ipv6: 2064:100::ba/128
+      Ethernet1:
+        ipv4: 10.0.1.115/31
+        ipv6: fc00::2e6/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.186/24
+      ipv6: fc0a::174/64
+  ARISTA79T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65150
+      peers:
+        65100:
+          - 10.0.1.116
+          - fc00::2e9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.187/32
+        ipv6: 2064:100::bb/128
+      Ethernet1:
+        ipv4: 10.0.1.117/31
+        ipv6: fc00::2ea/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.187/24
+      ipv6: fc0a::176/64
+  ARISTA80T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65151
+      peers:
+        65100:
+          - 10.0.1.118
+          - fc00::2ed
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.188/32
+        ipv6: 2064:100::bc/128
+      Ethernet1:
+        ipv4: 10.0.1.119/31
+        ipv6: fc00::2ee/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.188/24
+      ipv6: fc0a::178/64
+  ARISTA81T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65152
+      peers:
+        65100:
+          - 10.0.1.120
+          - fc00::2f1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.189/32
+        ipv6: 2064:100::bd/128
+      Ethernet1:
+        ipv4: 10.0.1.121/31
+        ipv6: fc00::2f2/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.189/24
+      ipv6: fc0a::17a/64
+  ARISTA82T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65153
+      peers:
+        65100:
+          - 10.0.1.122
+          - fc00::2f5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.190/32
+        ipv6: 2064:100::be/128
+      Ethernet1:
+        ipv4: 10.0.1.123/31
+        ipv6: fc00::2f6/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.190/24
+      ipv6: fc0a::17c/64
+  ARISTA83T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65154
+      peers:
+        65100:
+          - 10.0.1.124
+          - fc00::2f9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.191/32
+        ipv6: 2064:100::bf/128
+      Ethernet1:
+        ipv4: 10.0.1.125/31
+        ipv6: fc00::2fa/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.191/24
+      ipv6: fc0a::17e/64
+  ARISTA84T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65155
+      peers:
+        65100:
+          - 10.0.1.126
+          - fc00::2fd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.192/32
+        ipv6: 2064:100::c0/128
+      Ethernet1:
+        ipv4: 10.0.1.127/31
+        ipv6: fc00::2fe/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.192/24
+      ipv6: fc0a::180/64
+  ARISTA85T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65156
+      peers:
+        65100:
+          - 10.0.1.128
+          - fc00::301
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.193/32
+        ipv6: 2064:100::c1/128
+      Ethernet1:
+        ipv4: 10.0.1.129/31
+        ipv6: fc00::302/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.193/24
+      ipv6: fc0a::182/64
+  ARISTA86T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65157
+      peers:
+        65100:
+          - 10.0.1.130
+          - fc00::305
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.194/32
+        ipv6: 2064:100::c2/128
+      Ethernet1:
+        ipv4: 10.0.1.131/31
+        ipv6: fc00::306/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.194/24
+      ipv6: fc0a::184/64
+  ARISTA87T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65158
+      peers:
+        65100:
+          - 10.0.1.132
+          - fc00::309
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.195/32
+        ipv6: 2064:100::c3/128
+      Ethernet1:
+        ipv4: 10.0.1.133/31
+        ipv6: fc00::30a/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.195/24
+      ipv6: fc0a::186/64
+  ARISTA88T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65159
+      peers:
+        65100:
+          - 10.0.1.134
+          - fc00::30d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.196/32
+        ipv6: 2064:100::c4/128
+      Ethernet1:
+        ipv4: 10.0.1.135/31
+        ipv6: fc00::30e/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.196/24
+      ipv6: fc0a::188/64
+  ARISTA89T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65160
+      peers:
+        65100:
+          - 10.0.1.136
+          - fc00::311
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.197/32
+        ipv6: 2064:100::c5/128
+      Ethernet1:
+        ipv4: 10.0.1.137/31
+        ipv6: fc00::312/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.197/24
+      ipv6: fc0a::18a/64
+  ARISTA90T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65161
+      peers:
+        65100:
+          - 10.0.1.138
+          - fc00::315
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.198/32
+        ipv6: 2064:100::c6/128
+      Ethernet1:
+        ipv4: 10.0.1.139/31
+        ipv6: fc00::316/126
+        dut_index: 5
+    bp_interface:
+      ipv4: 10.10.246.198/24
+      ipv6: fc0a::18c/64
+  ARISTA91T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65180
+      peers:
+        65100:
+          - 10.0.1.176
+          - fc00::361
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.217/32
+        ipv6: 2064:100::d9/128
+      Ethernet1:
+        ipv4: 10.0.1.177/31
+        ipv6: fc00::362/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.217/24
+      ipv6: fc0a::1b2/64
+  ARISTA92T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65181
+      peers:
+        65100:
+          - 10.0.1.178
+          - fc00::365
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.218/32
+        ipv6: 2064:100::da/128
+      Ethernet1:
+        ipv4: 10.0.1.179/31
+        ipv6: fc00::366/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.218/24
+      ipv6: fc0a::1b4/64
+  ARISTA93T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65182
+      peers:
+        65100:
+          - 10.0.1.180
+          - fc00::369
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.219/32
+        ipv6: 2064:100::db/128
+      Ethernet1:
+        ipv4: 10.0.1.181/31
+        ipv6: fc00::36a/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.219/24
+      ipv6: fc0a::1b6/64
+  ARISTA94T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65183
+      peers:
+        65100:
+          - 10.0.1.182
+          - fc00::36d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.220/32
+        ipv6: 2064:100::dc/128
+      Ethernet1:
+        ipv4: 10.0.1.183/31
+        ipv6: fc00::36e/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.220/24
+      ipv6: fc0a::1b8/64
+  ARISTA95T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65184
+      peers:
+        65100:
+          - 10.0.1.184
+          - fc00::371
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.221/32
+        ipv6: 2064:100::dd/128
+      Ethernet1:
+        ipv4: 10.0.1.185/31
+        ipv6: fc00::372/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.221/24
+      ipv6: fc0a::1ba/64
+  ARISTA96T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65185
+      peers:
+        65100:
+          - 10.0.1.186
+          - fc00::375
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.222/32
+        ipv6: 2064:100::de/128
+      Ethernet1:
+        ipv4: 10.0.1.187/31
+        ipv6: fc00::376/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.222/24
+      ipv6: fc0a::1bc/64
+  ARISTA97T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65186
+      peers:
+        65100:
+          - 10.0.1.188
+          - fc00::379
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.223/32
+        ipv6: 2064:100::df/128
+      Ethernet1:
+        ipv4: 10.0.1.189/31
+        ipv6: fc00::37a/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.223/24
+      ipv6: fc0a::1be/64
+  ARISTA98T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65187
+      peers:
+        65100:
+          - 10.0.1.190
+          - fc00::37d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.224/32
+        ipv6: 2064:100::e0/128
+      Ethernet1:
+        ipv4: 10.0.1.191/31
+        ipv6: fc00::37e/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.224/24
+      ipv6: fc0a::1c0/64
+  ARISTA99T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65188
+      peers:
+        65100:
+          - 10.0.1.192
+          - fc00::381
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.225/32
+        ipv6: 2064:100::e1/128
+      Ethernet1:
+        ipv4: 10.0.1.193/31
+        ipv6: fc00::382/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.225/24
+      ipv6: fc0a::1c2/64
+  ARISTA100T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65189
+      peers:
+        65100:
+          - 10.0.1.194
+          - fc00::385
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.226/32
+        ipv6: 2064:100::e2/128
+      Ethernet1:
+        ipv4: 10.0.1.195/31
+        ipv6: fc00::386/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.226/24
+      ipv6: fc0a::1c4/64
+  ARISTA101T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65190
+      peers:
+        65100:
+          - 10.0.1.196
+          - fc00::389
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.227/32
+        ipv6: 2064:100::e3/128
+      Ethernet1:
+        ipv4: 10.0.1.197/31
+        ipv6: fc00::38a/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.227/24
+      ipv6: fc0a::1c6/64
+  ARISTA102T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65191
+      peers:
+        65100:
+          - 10.0.1.198
+          - fc00::38d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.228/32
+        ipv6: 2064:100::e4/128
+      Ethernet1:
+        ipv4: 10.0.1.199/31
+        ipv6: fc00::38e/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.228/24
+      ipv6: fc0a::1c8/64
+  ARISTA103T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65192
+      peers:
+        65100:
+          - 10.0.1.200
+          - fc00::391
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.229/32
+        ipv6: 2064:100::e5/128
+      Ethernet1:
+        ipv4: 10.0.1.201/31
+        ipv6: fc00::392/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.229/24
+      ipv6: fc0a::1ca/64
+  ARISTA104T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65193
+      peers:
+        65100:
+          - 10.0.1.202
+          - fc00::395
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.230/32
+        ipv6: 2064:100::e6/128
+      Ethernet1:
+        ipv4: 10.0.1.203/31
+        ipv6: fc00::396/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.230/24
+      ipv6: fc0a::1cc/64
+  ARISTA105T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65194
+      peers:
+        65100:
+          - 10.0.1.204
+          - fc00::399
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.231/32
+        ipv6: 2064:100::e7/128
+      Ethernet1:
+        ipv4: 10.0.1.205/31
+        ipv6: fc00::39a/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.231/24
+      ipv6: fc0a::1ce/64
+  ARISTA106T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65195
+      peers:
+        65100:
+          - 10.0.1.206
+          - fc00::39d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.232/32
+        ipv6: 2064:100::e8/128
+      Ethernet1:
+        ipv4: 10.0.1.207/31
+        ipv6: fc00::39e/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.232/24
+      ipv6: fc0a::1d0/64
+  ARISTA107T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65196
+      peers:
+        65100:
+          - 10.0.1.208
+          - fc00::3a1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.233/32
+        ipv6: 2064:100::e9/128
+      Ethernet1:
+        ipv4: 10.0.1.209/31
+        ipv6: fc00::3a2/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.233/24
+      ipv6: fc0a::1d2/64
+  ARISTA108T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65197
+      peers:
+        65100:
+          - 10.0.1.210
+          - fc00::3a5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.234/32
+        ipv6: 2064:100::ea/128
+      Ethernet1:
+        ipv4: 10.0.1.211/31
+        ipv6: fc00::3a6/126
+        dut_index: 6
+    bp_interface:
+      ipv4: 10.10.246.234/24
+      ipv6: fc0a::1d4/64
+  ARISTA109T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65216
+      peers:
+        65100:
+          - 10.0.1.248
+          - fc00::3f1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.253/32
+        ipv6: 2064:100::fd/128
+      Ethernet1:
+        ipv4: 10.0.1.249/31
+        ipv6: fc00::3f2/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.246.253/24
+      ipv6: fc0a::1fa/64
+  ARISTA110T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65217
+      peers:
+        65100:
+          - 10.0.1.250
+          - fc00::3f5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.254/32
+        ipv6: 2064:100::fe/128
+      Ethernet1:
+        ipv4: 10.0.1.251/31
+        ipv6: fc00::3f6/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.246.254/24
+      ipv6: fc0a::1fc/64
+  ARISTA111T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65218
+      peers:
+        65100:
+          - 10.0.1.252
+          - fc00::3f9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.255/32
+        ipv6: 2064:100::ff/128
+      Ethernet1:
+        ipv4: 10.0.1.253/31
+        ipv6: fc00::3fa/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.246.255/24
+      ipv6: fc0a::1fe/64
+  ARISTA112T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65219
+      peers:
+        65100:
+          - 10.0.1.254
+          - fc00::3fd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.0/32
+        ipv6: 2064:100::100/128
+      Ethernet1:
+        ipv4: 10.0.1.255/31
+        ipv6: fc00::3fe/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.0/24
+      ipv6: fc0a::200/64
+  ARISTA113T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65220
+      peers:
+        65100:
+          - 10.0.2.0
+          - fc00::401
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.1/32
+        ipv6: 2064:100::101/128
+      Ethernet1:
+        ipv4: 10.0.2.1/31
+        ipv6: fc00::402/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.1/24
+      ipv6: fc0a::202/64
+  ARISTA114T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65221
+      peers:
+        65100:
+          - 10.0.2.2
+          - fc00::405
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.2/32
+        ipv6: 2064:100::102/128
+      Ethernet1:
+        ipv4: 10.0.2.3/31
+        ipv6: fc00::406/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.2/24
+      ipv6: fc0a::204/64
+  ARISTA115T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65222
+      peers:
+        65100:
+          - 10.0.2.4
+          - fc00::409
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.3/32
+        ipv6: 2064:100::103/128
+      Ethernet1:
+        ipv4: 10.0.2.5/31
+        ipv6: fc00::40a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.3/24
+      ipv6: fc0a::206/64
+  ARISTA116T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65223
+      peers:
+        65100:
+          - 10.0.2.6
+          - fc00::40d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.4/32
+        ipv6: 2064:100::104/128
+      Ethernet1:
+        ipv4: 10.0.2.7/31
+        ipv6: fc00::40e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.4/24
+      ipv6: fc0a::208/64
+  ARISTA117T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65224
+      peers:
+        65100:
+          - 10.0.2.8
+          - fc00::411
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.5/32
+        ipv6: 2064:100::105/128
+      Ethernet1:
+        ipv4: 10.0.2.9/31
+        ipv6: fc00::412/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.5/24
+      ipv6: fc0a::20a/64
+  ARISTA118T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65225
+      peers:
+        65100:
+          - 10.0.2.10
+          - fc00::415
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.6/32
+        ipv6: 2064:100::106/128
+      Ethernet1:
+        ipv4: 10.0.2.11/31
+        ipv6: fc00::416/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.6/24
+      ipv6: fc0a::20c/64
+  ARISTA119T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65226
+      peers:
+        65100:
+          - 10.0.2.12
+          - fc00::419
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.7/32
+        ipv6: 2064:100::107/128
+      Ethernet1:
+        ipv4: 10.0.2.13/31
+        ipv6: fc00::41a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.7/24
+      ipv6: fc0a::20e/64
+  ARISTA120T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65227
+      peers:
+        65100:
+          - 10.0.2.14
+          - fc00::41d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.8/32
+        ipv6: 2064:100::108/128
+      Ethernet1:
+        ipv4: 10.0.2.15/31
+        ipv6: fc00::41e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.8/24
+      ipv6: fc0a::210/64
+  ARISTA121T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65228
+      peers:
+        65100:
+          - 10.0.2.16
+          - fc00::421
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.9/32
+        ipv6: 2064:100::109/128
+      Ethernet1:
+        ipv4: 10.0.2.17/31
+        ipv6: fc00::422/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.9/24
+      ipv6: fc0a::212/64
+  ARISTA122T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65229
+      peers:
+        65100:
+          - 10.0.2.18
+          - fc00::425
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.10/32
+        ipv6: 2064:100::10a/128
+      Ethernet1:
+        ipv4: 10.0.2.19/31
+        ipv6: fc00::426/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.10/24
+      ipv6: fc0a::214/64
+  ARISTA123T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65230
+      peers:
+        65100:
+          - 10.0.2.20
+          - fc00::429
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.11/32
+        ipv6: 2064:100::10b/128
+      Ethernet1:
+        ipv4: 10.0.2.21/31
+        ipv6: fc00::42a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.11/24
+      ipv6: fc0a::216/64
+  ARISTA124T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65231
+      peers:
+        65100:
+          - 10.0.2.22
+          - fc00::42d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.12/32
+        ipv6: 2064:100::10c/128
+      Ethernet1:
+        ipv4: 10.0.2.23/31
+        ipv6: fc00::42e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.12/24
+      ipv6: fc0a::218/64
+  ARISTA125T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65232
+      peers:
+        65100:
+          - 10.0.2.24
+          - fc00::431
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.13/32
+        ipv6: 2064:100::10d/128
+      Ethernet1:
+        ipv4: 10.0.2.25/31
+        ipv6: fc00::432/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.13/24
+      ipv6: fc0a::21a/64
+  ARISTA126T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65233
+      peers:
+        65100:
+          - 10.0.2.26
+          - fc00::435
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.14/32
+        ipv6: 2064:100::10e/128
+      Ethernet1:
+        ipv4: 10.0.2.27/31
+        ipv6: fc00::436/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.14/24
+      ipv6: fc0a::21c/64
+  ARISTA127T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65234
+      peers:
+        65100:
+          - 10.0.2.28
+          - fc00::439
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.15/32
+        ipv6: 2064:100::10f/128
+      Ethernet1:
+        ipv4: 10.0.2.29/31
+        ipv6: fc00::43a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.15/24
+      ipv6: fc0a::21e/64
+  ARISTA128T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65235
+      peers:
+        65100:
+          - 10.0.2.30
+          - fc00::43d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.16/32
+        ipv6: 2064:100::110/128
+      Ethernet1:
+        ipv4: 10.0.2.31/31
+        ipv6: fc00::43e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.16/24
+      ipv6: fc0a::220/64
+  ARISTA129T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65236
+      peers:
+        65100:
+          - 10.0.2.32
+          - fc00::441
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.17/32
+        ipv6: 2064:100::111/128
+      Ethernet1:
+        ipv4: 10.0.2.33/31
+        ipv6: fc00::442/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.17/24
+      ipv6: fc0a::222/64
+  ARISTA130T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65237
+      peers:
+        65100:
+          - 10.0.2.34
+          - fc00::445
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.18/32
+        ipv6: 2064:100::112/128
+      Ethernet1:
+        ipv4: 10.0.2.35/31
+        ipv6: fc00::446/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.18/24
+      ipv6: fc0a::224/64
+  ARISTA131T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65238
+      peers:
+        65100:
+          - 10.0.2.36
+          - fc00::449
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.19/32
+        ipv6: 2064:100::113/128
+      Ethernet1:
+        ipv4: 10.0.2.37/31
+        ipv6: fc00::44a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.19/24
+      ipv6: fc0a::226/64
+  ARISTA132T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65239
+      peers:
+        65100:
+          - 10.0.2.38
+          - fc00::44d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.20/32
+        ipv6: 2064:100::114/128
+      Ethernet1:
+        ipv4: 10.0.2.39/31
+        ipv6: fc00::44e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.20/24
+      ipv6: fc0a::228/64
+  ARISTA133T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65240
+      peers:
+        65100:
+          - 10.0.2.40
+          - fc00::451
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.21/32
+        ipv6: 2064:100::115/128
+      Ethernet1:
+        ipv4: 10.0.2.41/31
+        ipv6: fc00::452/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.21/24
+      ipv6: fc0a::22a/64
+  ARISTA134T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65241
+      peers:
+        65100:
+          - 10.0.2.42
+          - fc00::455
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.22/32
+        ipv6: 2064:100::116/128
+      Ethernet1:
+        ipv4: 10.0.2.43/31
+        ipv6: fc00::456/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.22/24
+      ipv6: fc0a::22c/64
+  ARISTA135T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65242
+      peers:
+        65100:
+          - 10.0.2.44
+          - fc00::459
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.23/32
+        ipv6: 2064:100::117/128
+      Ethernet1:
+        ipv4: 10.0.2.45/31
+        ipv6: fc00::45a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.23/24
+      ipv6: fc0a::22e/64
+  ARISTA136T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65243
+      peers:
+        65100:
+          - 10.0.2.46
+          - fc00::45d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.24/32
+        ipv6: 2064:100::118/128
+      Ethernet1:
+        ipv4: 10.0.2.47/31
+        ipv6: fc00::45e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.24/24
+      ipv6: fc0a::230/64
+  ARISTA137T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65244
+      peers:
+        65100:
+          - 10.0.2.48
+          - fc00::461
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.25/32
+        ipv6: 2064:100::119/128
+      Ethernet1:
+        ipv4: 10.0.2.49/31
+        ipv6: fc00::462/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.25/24
+      ipv6: fc0a::232/64
+  ARISTA138T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65245
+      peers:
+        65100:
+          - 10.0.2.50
+          - fc00::465
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.26/32
+        ipv6: 2064:100::11a/128
+      Ethernet1:
+        ipv4: 10.0.2.51/31
+        ipv6: fc00::466/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.26/24
+      ipv6: fc0a::234/64
+  ARISTA139T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65246
+      peers:
+        65100:
+          - 10.0.2.52
+          - fc00::469
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.27/32
+        ipv6: 2064:100::11b/128
+      Ethernet1:
+        ipv4: 10.0.2.53/31
+        ipv6: fc00::46a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.27/24
+      ipv6: fc0a::236/64
+  ARISTA140T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65247
+      peers:
+        65100:
+          - 10.0.2.54
+          - fc00::46d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.28/32
+        ipv6: 2064:100::11c/128
+      Ethernet1:
+        ipv4: 10.0.2.55/31
+        ipv6: fc00::46e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.28/24
+      ipv6: fc0a::238/64
+  ARISTA141T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65248
+      peers:
+        65100:
+          - 10.0.2.56
+          - fc00::471
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.29/32
+        ipv6: 2064:100::11d/128
+      Ethernet1:
+        ipv4: 10.0.2.57/31
+        ipv6: fc00::472/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.29/24
+      ipv6: fc0a::23a/64
+  ARISTA142T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65249
+      peers:
+        65100:
+          - 10.0.2.58
+          - fc00::475
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.30/32
+        ipv6: 2064:100::11e/128
+      Ethernet1:
+        ipv4: 10.0.2.59/31
+        ipv6: fc00::476/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.30/24
+      ipv6: fc0a::23c/64
+  ARISTA143T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65250
+      peers:
+        65100:
+          - 10.0.2.60
+          - fc00::479
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.31/32
+        ipv6: 2064:100::11f/128
+      Ethernet1:
+        ipv4: 10.0.2.61/31
+        ipv6: fc00::47a/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.31/24
+      ipv6: fc0a::23e/64
+  ARISTA144T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65251
+      peers:
+        65100:
+          - 10.0.2.62
+          - fc00::47d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.32/32
+        ipv6: 2064:100::120/128
+      Ethernet1:
+        ipv4: 10.0.2.63/31
+        ipv6: fc00::47e/126
+        dut_index: 7
+    bp_interface:
+      ipv4: 10.10.247.32/24
+      ipv6: fc0a::240/64
+
+

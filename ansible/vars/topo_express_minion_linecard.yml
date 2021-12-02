@@ -1,0 +1,71 @@
+topology:
+  VMs:
+    VM0800:
+      vlans:
+        - 3
+      vm_offset: 0
+    VM0801:
+      vlans:
+        - 29
+      vm_offset: 1
+
+configuration_properties:
+  common:
+    dut_asn: 65000
+    dut_type: LeafRouter
+    nhipv4: 10.10.246.100
+    nhipv6: FC0A::C9
+  spine:
+    swrole: spine
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    leaf_asn_start: 62001
+    tor_asn_start: 65501
+    failure_rate: 0
+  tor:
+    swrole: tor
+    tor_subnet_number: 5
+
+configuration:
+  VM0800:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 100.0.0.2
+        - 2064:100::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: fc00:100::1/128
+      Ethernet1:
+        ipv4: 100.0.0.1/24
+        ipv6: 2064:100::1/64
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  VM0801:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 65300
+      peers:
+        65100:
+        - 200.0.0.2
+        - 2064:200::2
+    interfaces:
+      Loopback0:
+        ipv4: 101.1.0.1/32
+        ipv6: fc00:101::1/128
+      Ethernet1:
+        ipv4: 200.0.0.1/24
+        ipv6: 2064:200::1/64
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::5/64

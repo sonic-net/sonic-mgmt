@@ -61,6 +61,13 @@ def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
     duthost = duthosts[enum_dut_hostname]
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
+
+        # Clear bcm counters on all duts and all asics
+        for dut in duthosts:
+            for asic in dut.frontend_asics:
+                logger.info("Clearing BCM counters for host {}, acic {}".format(dut.hostname, asic))
+                dut.shell("bcmcmd -n {} \"clear counter\"".format(asic.asic_index))
+
         logger.info("Deep cleaning DUT {}".format(duthost.hostname))
         # Remove old log files.
         duthost.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")

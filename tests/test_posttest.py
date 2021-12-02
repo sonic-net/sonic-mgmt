@@ -25,7 +25,7 @@ def test_collect_techsupport(duthosts, enum_dut_hostname):
     # Because Jenkins is configured to save artifacts from tests/logs,
     # and this util is mainly designed for running on Jenkins,
     # save path is fixed to logs for now.
-    TECHSUPPORT_SAVE_PATH = 'logs/'
+    TECHSUPPORT_SAVE_PATH = '/output_files/'
     out = duthost.command("generate_dump -s yesterday", module_ignore_errors=True)
     if out['rc'] == 0:
         tar_file = out['stdout_lines'][-1]

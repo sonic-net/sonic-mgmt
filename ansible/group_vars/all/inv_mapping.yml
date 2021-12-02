@@ -6,3 +6,5 @@ example_ixia: example_ixia_connection_graph.xml
 
 
 # Specify all internal mappings below
+westford_hw_inventory: nokia_lab_connection_graph.xml
+t2_trial_lab: nokia_lab_connection_graph.xml

@@ -127,4 +127,7 @@ def default_port_toggle_wait_time(duthost, port_count):
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
 
+    if duthost.hostname == 'ixre-egl-board7' or duthost.hostname == 'ixre-egl-board15':
+        port_down_wait_time, port_up_wait_time = 120, 300
+
     return port_down_wait_time, port_up_wait_time

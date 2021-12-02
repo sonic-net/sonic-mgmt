@@ -1,0 +1,32 @@
+- name: Send 'show platform summary'
+  become: true
+  shell: show platform summary
+  register: platform_summary_out
+
+- name: print platform summary
+  debug: msg={{platform_summary_out.stdout_lines}}
+
+- name: Check platform summary
+  assert:
+    that:
+      - platform_summary_out.stdout_lines[0] | search("{{sonic_hw_platform}}")
+      - platform_summary_out.stdout_lines[1] | search("{{sonic_hwsku}}")
+      - platform_summary_out.stdout_lines[2] | search("{{asic_type}}")
+    fail_msg: "Platform summary '{{ platform_summary_out }}' is not as expected"
+    success_msg: "Platform summary is correct"
+
+- name: Send 'docker ps --filter status='dead'
+  become: true
+  shell: docker ps -a --filter status=dead --format \{\{.Names\}\}:\{\{.ID\}\}:\{\{.Status\}\}
+  register: docker_ps_dead_out
+  
+- name: print docker ps filter dead
+  debug: msg={{docker_ps_dead_out.stdout_lines}}
+
+- name: Check docker ps shows no dockers that are dead
+  assert:
+    that:
+       - "{{ docker_ps_dead_out.stdout_lines | length }} == 0"
+    fail_msg: "Found some dockers that are dead. docker ps output '{{ docker_ps_dead_out.stdout_lines }}'" 
+    success_msg: "Found no dockers that are dead"
+

@@ -1,0 +1,121 @@
+topology:
+  VMs:
+    VM0800:
+      vlans:
+        - "0.10@1"
+      vm_offset: 0
+    VM0801:
+      vlans:
+        - "0.11@2"
+      vm_offset: 1
+    VM0802:
+      vlans:
+        - "1.7@3"
+      vm_offset: 2
+    VM0803:
+      vlans:
+        - "1.20@4"
+      vm_offset: 3
+
+configuration_properties:
+  common:
+    dut_asn: 65000
+    dut_type: LeafRouter
+    nhipv4: 10.10.246.100
+    nhipv6: FC0A::C9
+  spine:
+    swrole: spine
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    leaf_asn_start: 62001
+    tor_asn_start: 65501
+    failure_rate: 0
+  tor:
+    swrole: tor
+    tor_subnet_number: 5
+
+configuration:
+  VM0800:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 75100
+      peers:
+        65000:
+        - 100.0.0.2
+        - 2064:100::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: fc00:100::1/128
+      Ethernet1:
+        ipv4: 100.0.0.1/24
+        ipv6: 2064:100::1/64
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  VM0801:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 75101
+      peers:
+        65000:
+        - 101.0.0.2
+        - 2064:101::2
+    interfaces:
+      Loopback0:
+        ipv4: 101.1.0.1/32
+        ipv6: fc00:101::1/128
+      Ethernet1:
+        ipv4: 101.0.0.1/24
+        ipv6: 2064:101::1/64
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::5/64
+
+  VM0802:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 75102
+      peers:
+        65000:
+        - 102.0.0.2
+        - 2064:102::2
+    interfaces:
+      Loopback0:
+        ipv4: 102.1.0.1/32
+        ipv6: fc00:102::1/128
+      Ethernet1:
+        ipv4: 102.0.0.1/24
+        ipv6: 2064:102::1/64
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::6/64
+
+  VM0803:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 75103
+      peers:
+        65000:
+        - 103.0.0.2
+        - 2064:103::2
+    interfaces:
+      Loopback0:
+        ipv4: 103.1.0.1/32
+        ipv6: fc00:103::1/128
+      Ethernet1:
+        ipv4: 103.0.0.1/24
+        ipv6: 2064:103::1/64
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::9/64

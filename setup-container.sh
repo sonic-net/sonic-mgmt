@@ -4,6 +4,7 @@ declare -r SCRIPT_NAME="$(basename "${0}")"
 declare -r SCRIPT_PATH="$(readlink -f "${0}")"
 declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
+
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
 declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
@@ -288,9 +289,8 @@ EOF
 
 function start_local_container() {
     log_info "creating a container: ${CONTAINER_NAME} ..."
-
     eval "docker run -d -t ${PUBLISH_PORTS} \
-    -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
+    -v \"${SCRIPT_DIR}:${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
     --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
     exit_failure "failed to start a container: ${CONTAINER_NAME}"
 
@@ -330,7 +330,7 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxh" opt; do
+while getopts "n:i:d:m:o:p:D:P:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
@@ -343,6 +343,9 @@ while getopts "n:i:d:m:p:fvxh" opt; do
             ;;
         m )
             MOUNT_POINTS+=" -v \"${OPTARG}:${OPTARG}:rslave\""
+            ;;
+        o)
+            MOUNT_POINTS+=" -v \"${OPTARG}:/output_files:rslave\""
             ;;
         p )
             PUBLISH_PORTS+=" -p \"${OPTARG}\""
@@ -360,6 +363,12 @@ while getopts "n:i:d:m:p:fvxh" opt; do
         h )
             show_help_and_exit "${EXIT_SUCCESS}"
             ;;
+        D)
+            MOUNT_POINTS+=" -e \"DISPLAY=${OPTARG}\""
+            ;;
+        P)
+            MOUNT_POINTS+=" -v \"${OPTARG}:/pycharm:rslave\""
+            ;;
         * )
             show_help_and_exit "${EXIT_FAILURE}"
             ;;
@@ -368,6 +377,7 @@ done
 
 parse_arguments
 
+MOUNT_POINTS+=" -e http_proxy=http://proxy.lbs.alcatel-lucent.com:8000 -e https_proxy=http://proxy.lbs.alcatel-lucent.com:8000"
 if [[ "$(id -u)" = "${ROOT_UID}" ]]; then
     exit_failure "run as regular user!"
 fi

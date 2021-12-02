@@ -11,4 +11,59 @@ vms-s6100-t1,vms4-1,t1-64,docker-ptf,ptf-unknown,10.255.0.182/24,,server_1,VM010
 vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf,ptf-unknown,10.255.0.183/24,,server_1,VM0100,lab-s6100-01,lab,True,ests Dell S6100 vms
 vms-multi-dut,vms1-duts,ptf64,docker-ptf,ptf-unknown,10.255.0.184/24,,server_1,VM0100,[dut-host1;dut-host2],lab,True,Example Multi DUTs testbed
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,lab,True,superman
-ixanvl-vs-conf,anvl,ptf32,docker-ptf-anvl,ptf-unknown,10.250.0.100/24,,server_1,,vlab-01,lab,True,Test ptf ANVL SONIC VM
+
+# express topologies
+## chassis
+ixr-hr-chassis1-express,vms_2,express_hr_chassis1,docker-ptf,ptf_vms_2,10.250.2.188/24,,server_2,VM0200,[ixr-hr-board1;ixr-hr-board3;ixr-cpm2-chassis1],westford_hw_inventory,False,express Tests hr_chassis1
+ixr-vdk-chassis2-express,vms_8,express_vdk_chassis2,docker-ptf,ptf_vms_8,10.250.8.188/24,,server_8,VM0800,[ixr-vdk-board5;ixr-vdk-board6;ixr-cpm2-chassis2],westford_hw_inventory,False,express Tests vdk_chassis3
+ixr-vdk-chassis3-express,vms_5,express_vdk_chassis3,docker-ptf,ptf_vms_5,10.250.5.188/24,,server_5,VM0500,[ixr-vdk-board1;ixr-vdk-board2;ixr-cpm2-chassis3],westford_hw_inventory,False,express Tests vdk_chassis1
+ixr-vdk-chassis4-express,vms_12,express_vdk_chassis4,docker-ptf,ptf_vms_12,10.250.12.188/24,,server_12,VM1200,[ixr-vdk-board3;ixr-vdk-board4;ixr-cpm2-chassis4],westford_hw_inventory,False,express Tests vdk_chassis2
+ixr-vdk-chassis5-express,vms_4,express_vdk_chassis5,docker-ptf,ptf_vms_4,10.250.4.188/24,,server_4,VM0400,[ixr-vdk-board10;ixr-vdk-board11;ixr-cpm2-chassis5],westford_hw_inventory,False,express Tests vdk_chassis5
+ixr-vdk-chassis6-express,vms_7,express_vdk_chassis6,docker-ptf,ptf_vms_7,10.250.7.188/24,,server_7,VM0700,[ixr-vdk-board8;ixr-vdk-board9;ixr-cpm2-chassis6],westford_hw_inventory,False,T2 Tests vdk_chassis6
+ixre-chassis7-express,vms_9,t2_ixre_chassis7,docker-ptf,ptf_vms_9,10.250.9.188/24,,server_9,VM0900,[ixre-egl-board25;ixre-egl-board26;ixre-cpm-chassis7],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis8-express,vms_15,t2_ixre_chassis8,docker-ptf,ptf_vms_15,10.250.15.188/24,,server_15,VM1500,[ixre-egl-board3;ixre-egl-board4;ixre-cpm-chassis8],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis10-express,vms_11,t2_ixre_chassis10,docker-ptf,ptf_vms_11,10.250.11.188/24,,server_11,VM1100,[ixre-egl-board27;ixre-egl-board28;ixre-cpm-chassis10],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis12-express,vms_4,t2_ixre_chassis12,docker-ptf,ptf_vms_4,10.250.4.188/24,,server_4,VM0400,[ixre-egl-board9;ixre-egl-board10;ixre-cpm-chassis12],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis14-express,vms_6,t2_ixre_chassis14,docker-ptf,ptf_vms_6,10.250.6.253/24,,server_6,VM0600,[ixre-egl-board29;ixre-egl-board30;ixre-cpm-chassis14],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis15-express,vms_8,t2_ixre_chassis15,docker-ptf,ptf_vms_8,10.250.8.253/24,,server_8,VM0800,[ixre-egl-board40;ixre-egl-board41;ixre-cpm-chassis15],westford_hw_inventory,False,express Tests ixre_chassis11
+
+## M0
+ixs-7215-pizza3-express,vms_3,express_ixs-7215-pizza3,docker-ptf,ptf_vms_3,10.250.3.188/24,,server_3,VM0300,ixs-7215-pizza3,westford_hw_inventory,False,Express OC Tests M0 pizza3
+
+# OC test
+## M0
+ixs-7215-pizza4-t0-52,vms_3,t0-52,docker-ptf,ptf_vms_3,10.250.3.102/24,,server_3,VM0300,ixs-7215-pizza4,westford_hw_inventory,False,OC Testbed for M0 pizza box 4
+ixs-7215-pizza4-t1,vms_3,t1,docker-ptf,ptf_vms_3,10.250.3.102/24,,server_3,VM0300,ixs-7215-pizza4,westford_hw_inventory,False,OC Testbed for M0 pizza box 4
+ixs-7215-pizza4-ptf32,vms_3,ptf32,docker-ptf,ptf_vms_3,10.250.3.102/24,,server_3,,ixs-7215-pizza4,westford_hw_inventory,False,OC Testbed for M0 pizza box 4
+ixs-7215-pizza5-t0-52,vms_13,t0-52,docker-ptf,ptf_vms_13,10.250.13.102/24,,server_13,VM1300,ixs-7215-pizza5,westford_hw_inventory,False,OC Testbed for M0 pizza box 5
+ixs-7215-pizza7-t0-52,vms_7,t0-52,docker-ptf,ptf_vms_7,10.250.7.102/24,,server_7,VM0700,ixs-7215-pizza7,westford_hw_inventory,False,OC Testbed for M0 pizza box 7
+columbia-t0-52,vms1-1,t0-52,docker-ptf,ptf_vms1-1,10.250.1.102/24,,server_1,VM0100,columbia,westford_hw_inventory,False,OC Testbed for 7215 snake test
+
+
+## Chassis
+minion_chassis-t2,vms_s,t2_minion_chassis,docker-ptf,ptf_vms_s,10.250.0.188/24,,server_minion,VM0100,[minion_chassis_cpm;minion_chassis_imm1;minion_chassis_imm2],westford_hw_inventory,False,T2 OC tests minion_chassis
+minion_linecard-t2,vms_s,t2_minion_linecard,docker-ptf,ptf_vms_s,10.250.0.188/24,,server_minion,VM0100,minion_linecard,westford_hw_inventory,False,T2 OC Tests minion_linecard
+ixr-hr-chassis1-t2,vms_2,t2_hr_chassis1,docker-ptf,ptf_vms_2,10.250.2.188/24,,server_2,VM0200,[ixr-hr-board1;ixr-hr-board3;ixr-cpm2-chassis1],westford_hw_inventory,False,T2 OC Tests hr_chassis1
+ixr-vdk-chassis2-t2,vms_8,t2_vdk_chassis3,docker-ptf,ptf_vms_8,10.250.8.188/24,,server_8,VM0800,[ixr-vdk-board5;ixr-vdk-board6;ixr-cpm2-chassis2],westford_hw_inventory,False,T2 Tests vdk_chassis3
+ixr-vdk-chassis3-t2,vms_5,t2_vdk_chassis1,docker-ptf,ptf_vms_6,10.250.5.188/24,,server_5,VM0500,[ixr-vdk-board1;ixr-vdk-board2;ixr-cpm2-chassis3],westford_hw_inventory,False,T2 OC Tests vdk_chassis1
+ixr-vdk-chassis4-t2,vms_12,t2_92,docker-ptf,ptf_vms_12,10.250.12.188/24,,server_12,VM1200,[ixr-vdk-board7;ixr-vdk-board4;ixr-vdk-board3;ixr-cpm2-chassis4],westford_hw_inventory,False,T2 OC Tests vdk_chassis4
+ixr-hr-board2-t2,vms_6,express_hr_board2,docker-ptf,ptf_vms_6,10.250.6.188/24,,server_6,VM0600,ixr-hr-board2,westford_hw_inventory,False,Testbed for HR Board2
+
+# IXRE-chassis
+ixre-chassis7-t2,vms_9,t2_ixre_chassis7,docker-ptf,ptf_vms_9,10.250.9.188/24,,server_9,VM0900,[ixre-egl-board25;ixre-egl-board26;ixre-cpm-chassis7],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis8-t2,vms_15,t2_ixre_chassis8,docker-ptf,ptf_vms_15,10.250.15.188/24,,server_15,VM1500,[ixre-egl-board3;ixre-egl-board4;ixre-cpm-chassis8],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis9-t2,vms_12,t2_ixre_chassis9,docker-ptf,ptf_vms_12,10.250.12.253/24,,server_12,VM1200,[ixre-egl-board1;ixre-egl-board5;ixre-cpm-chassis9],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis10-t2,vms_11,t2_ixre_chassis10,docker-ptf,ptf_vms_11,10.250.11.188/24,,server_11,VM1100,[ixre-egl-board27;ixre-egl-board28;ixre-cpm-chassis10],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis11-t2,vms_14,t2_ixre_chassis11,docker-ptf,ptf_vms_14,10.250.14.253/24,,server_14,VM1400,[ixre-egl-board15;ixre-egl-board7;ixre-cpm-chassis11],westford_hw_inventory,False,express Tests ixre_chassis11
+ixre-chassis12-t2,vms_4,t2_ixre_chassis12,docker-ptf,ptf_vms_4,10.250.4.188/24,,server_4,VM0400,[ixre-egl-board9;ixre-egl-board10;ixre-cpm-chassis12],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-chassis13-t2_system,vms_1,t2_ixre_chassis13,docker-ptf,ptf_vms_1,10.250.1.253/24,,server_1,VM0100,[ixre-egl-board31;ixre-egl-board32;ixre-egl-board33;ixre-egl-board34;ixre-egl-board35;ixre-egl-board36;ixre-egl-board37;ixre-egl-board38;ixre-cpm-chassis13],westford_hw_inventory,False,express Tests ixre_chassis11
+ixre-chassis14-t2,vms_6,t2_ixre_chassis14,docker-ptf,ptf_vms_6,10.250.6.253/24,,server_6,VM0600,[ixre-egl-board29;ixre-egl-board30;ixre-cpm-chassis14],westford_hw_inventory,False,express Tests ixre_chassis11
+ixre-chassis14-ixia,vms_1,t2_ixre_chassis14_ixia,docker-ptf,ptf_vms_1,10.250.1.253/24,,server_1,VM0100,[ixre-egl-board29;ixre-egl-board30;ixre-cpm-chassis14],westford_hw_inventory,False,express Tests ixre_chassis11
+ixre-chassis15-t2,vms_8,t2_ixre_chassis15,docker-ptf,ptf_vms_8,10.250.8.253/24,,server_8,VM0800,[ixre-egl-board40;ixre-egl-board41;ixre-cpm-chassis15],westford_hw_inventory,False,express Tests ixre_chassis11
+ixre-egl-full-t2,vms_1,t2_eagle_full,docker-ptf,ptf_vms_1,10.250.1.188/24,,server_1,VM0100,[ixre-egl-slot1;ixre-egl-slot2;ixre-egl-slot3;ixre-egl-slot4;ixre-egl-slot5;ixre-egl-slot6;ixre-egl-slot7;ixre-egl-slot8;ixre-cpm-egl-full-chassis],westford_hw_inventory,False,express Tests ixre_chassis8
+ixre-fal-full-t2,vms_1,t2_eagle_full,docker-ptf,ptf_vms_1,10.250.1.188/24,,server_1,VM0100,[ixre-fal-slot1;ixre-fal-slot2;ixre-fal-slot3;ixre-fal-slot4;ixre-fal-slot5;ixre-fal-slot6;ixre-fal-slot7;ixre-fal-slot8;ixre-cpm-egl-full-chassis],westford_hw_inventory,False,express Tests ixre_chassis8
+
+
+#ixre-egl-full-t2,vms_1,t2_eagle_full,docker-ptf,ptf_vms_1,10.250.1.188/24,,server_1,VM0100,[ixre-egl-slot1],westford_hw_inventory,False,express Tests ixre_chassis8
+
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment

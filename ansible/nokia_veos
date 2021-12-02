@@ -1,0 +1,1544 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_minion:
+        vm_host_1:
+        vm_host_2:
+        vm_host_3:
+        vm_host_4:
+        vm_host_5:
+        vm_host_6:
+        vm_host_8:
+        vm_host_9:
+        vm_host_10:
+        vm_host_11:
+        vm_host_12:
+        vm_host_7:
+        vm_host_13:
+        vm_host_14:
+        vm_host_15:
+
+    eos:
+      children:
+        vms_s:
+        vms_1:
+        vms_2:
+        vms_3:
+        vms_4:
+        vms_5:
+        vms_6:
+        vms_8:
+        vms_9:
+        vms_10:
+        vms_11:
+        vms_12:
+        vms_7:
+        vms_13:
+        vms_14:
+        vms_15:
+
+    servers:
+      vars:
+        topologies:
+          - t1
+          - t1-lag
+          - t1-64-lag
+          - t1-64-lag-clet
+          - t0
+          - t0-16
+          - t0-56
+          - t0-52
+          - ptf32
+          - ptf64
+          - t0-64
+          - t0-64-32
+          - t0-116
+          - dualtor
+          - t2
+          - express
+      children:
+        server_minion:
+        server_1:
+        server_2:
+        server_3:
+        server_4:
+        server_5:
+        server_6:
+        server_8:
+        server_9:
+        server_10:
+        server_11:
+        server_12:
+        server_7:
+        server_13:
+        server_14:
+        server_15:
+
+    sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
+      hosts:
+        minion_chassis_imm1:
+          sim_type: minion
+        minion_chassis_imm2:
+          sim_type: minion
+        minion_chassis_cpm:
+          sim_type: minion
+        minion_linecard:
+          sim_type: minion
+        
+# The groups below are helpers to limit running playbooks to a specific server only
+server_1:
+  vars:
+    host_var_file: host_vars/sonic-tb1.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+vm_host_1:
+  hosts:
+    sonic-tb1 :
+      ansible_host: 152.148.150.64
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_sudo_pass: IosonIc123#
+      ansible_become_pass: IosonIc123#s
+
+vms_1:
+  hosts:
+    VM0100:
+      ansible_host: 10.250.1.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM0101:
+      ansible_host: 10.250.1.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM0102:
+      ansible_host: 10.250.1.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM0103:
+      ansible_host: 10.250.1.54
+      ansible_password: 123456
+      ansible_user: admin
+    VM0104:
+      ansible_host: 10.250.1.55
+      ansible_password: 123456
+      ansible_user: admin
+    VM0105:
+      ansible_host: 10.250.1.56
+      ansible_password: 123456
+      ansible_user: admin
+    VM0106:
+      ansible_host: 10.250.1.57
+      ansible_password: 123456
+      ansible_user: admin
+    VM0107:
+      ansible_host: 10.250.1.58
+      ansible_password: 123456
+      ansible_user: admin
+    VM0108:
+      ansible_host: 10.250.1.59
+      ansible_password: 123456
+      ansible_user: admin
+    VM0109:
+      ansible_host: 10.250.1.60
+      ansible_password: 123456
+      ansible_user: admin
+    VM0110:
+      ansible_host: 10.250.1.61
+      ansible_password: 123456
+      ansible_user: admin
+    VM0111:
+      ansible_host: 10.250.1.62
+      ansible_password: 123456
+      ansible_user: admin
+    VM0112:
+      ansible_host: 10.250.1.63
+      ansible_password: 123456
+      ansible_user: admin
+    VM0113:
+      ansible_host: 10.250.1.64
+      ansible_password: 123456
+      ansible_user: admin
+    VM0114:
+      ansible_host: 10.250.1.65
+      ansible_password: 123456
+      ansible_user: admin
+    VM0115:
+      ansible_host: 10.250.1.65
+      ansible_password: 123456
+      ansible_user: admin
+    VM0116:
+      ansible_host: 10.250.1.66
+      ansible_password: 123456
+      ansible_user: admin
+    VM0117:
+      ansible_host: 10.250.1.67
+      ansible_password: 123456
+      ansible_user: admin
+    VM0118:
+      ansible_host: 10.250.1.68
+      ansible_password: 123456
+      ansible_user: admin
+    VM0119:
+      ansible_host: 10.250.1.69
+      ansible_password: 123456
+      ansible_user: admin
+    VM0120:
+      ansible_host: 10.250.1.70
+      ansible_password: 123456
+      ansible_user: admin
+    VM0121:
+      ansible_host: 10.250.1.71
+      ansible_password: 123456
+      ansible_user: admin
+    VM0122:
+      ansible_host: 10.250.1.72
+      ansible_password: 123456
+      ansible_user: admin
+    VM0123:
+      ansible_host: 10.250.1.73
+      ansible_password: 123456
+      ansible_user: admin
+    VM0124:
+      ansible_host: 10.250.1.74
+      ansible_password: 123456
+      ansible_user: admin
+    VM0125:
+      ansible_host: 10.250.1.75
+      ansible_password: 123456
+      ansible_user: admin
+    VM0126:
+      ansible_host: 10.250.1.76
+      ansible_password: 123456
+      ansible_user: admin
+    VM0127:
+      ansible_host: 10.250.1.77
+      ansible_password: 123456
+      ansible_user: admin
+    VM0128:
+      ansible_host: 10.250.1.78
+      ansible_password: 123456
+      ansible_user: admin
+    VM0129:
+      ansible_host: 10.250.1.79
+      ansible_password: 123456
+      ansible_user: admin
+    VM0130:
+      ansible_host: 10.250.1.80
+      ansible_password: 123456
+      ansible_user: admin
+    VM0131:
+      ansible_host: 10.250.1.81
+      ansible_password: 123456
+      ansible_user: admin
+    VM0132:
+      ansible_host: 10.250.1.82
+      ansible_password: 123456
+      ansible_user: admin
+
+
+server_2:
+  vars:
+    host_var_file: host_vars/sonic-tb2.yml
+  children:
+    vm_host_2:
+    vms_2:
+
+vm_host_2:
+  hosts:
+    sonic-tb2:
+      ansible_host: 152.148.150.32
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_2:
+  hosts:
+    VM0200:
+      ansible_host: 10.250.2.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0201:
+      ansible_host: 10.250.2.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0202:
+      ansible_host: 10.250.2.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM0203:
+      ansible_host: 10.250.2.54
+      ansible_user: admin
+      ansible_password: 123456
+
+server_3:
+  vars:
+    host_var_file: host_vars/sonic-tb3.yml
+  children:
+    vm_host_3:
+    vms_3:
+
+vm_host_3:
+  hosts:
+    sonic-tb3:
+      ansible_host: 152.148.150.66
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_3:
+  hosts:
+    VM0300:
+      ansible_host: 10.250.3.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM0301:
+      ansible_host: 10.250.3.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM0302:
+      ansible_host: 10.250.3.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM0303:
+      ansible_host: 10.250.3.54
+      ansible_password: 123456
+      ansible_user: admin
+
+server_4:
+  vars:
+    host_var_file: host_vars/sonic-tb4.yml
+  children:
+    vm_host_4:
+    vms_4:
+
+vm_host_4:
+  hosts:
+    sonic-tb4:
+      ansible_host: 152.148.150.34
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_4:
+  hosts:
+    VM0400:
+      ansible_host: 10.250.4.50
+      ansible_user: admin
+      ansible_password: 123456
+    VM0401:
+      ansible_host: 10.250.4.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0402:
+      ansible_host: 10.250.4.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0403:
+      ansible_host: 10.250.4.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM0404:
+      ansible_host: 10.250.4.54
+      ansible_user: admin
+      ansible_password: 123456
+    VM0405:
+      ansible_host: 10.250.4.55
+      ansible_user: admin
+      ansible_password: 123456
+    VM0406:
+      ansible_host: 10.250.4.56
+      ansible_user: admin
+      ansible_password: 123456
+    VM0407:
+      ansible_host: 10.250.4.57
+      ansible_user: admin
+      ansible_password: 123456
+    VM0408:
+      ansible_host: 10.250.4.58
+      ansible_user: admin
+      ansible_password: 123456
+    VM0409:
+      ansible_host: 10.250.4.59
+      ansible_user: admin
+      ansible_password: 123456
+    VM0410:
+      ansible_host: 10.250.4.60
+      ansible_user: admin
+      ansible_password: 123456
+    VM0411:
+      ansible_host: 10.250.4.61
+      ansible_user: admin
+      ansible_password: 123456
+    VM0412:
+      ansible_host: 10.250.4.62
+      ansible_user: admin
+      ansible_password: 123456
+    VM0413:
+      ansible_host: 10.250.4.63
+      ansible_user: admin
+      ansible_password: 123456
+    VM0414:
+      ansible_host: 10.250.4.64
+      ansible_user: admin
+      ansible_password: 123456
+    VM0415:
+      ansible_host: 10.250.4.65
+      ansible_user: admin
+      ansible_password: 123456
+    VM0416:
+      ansible_host: 10.250.4.66
+      ansible_user: admin
+      ansible_password: 123456
+    VM0417:
+      ansible_host: 10.250.4.67
+      ansible_user: admin
+      ansible_password: 123456
+    VM0418:
+      ansible_host: 10.250.4.68
+      ansible_user: admin
+      ansible_password: 123456
+    VM0419:
+      ansible_host: 10.250.4.69
+      ansible_user: admin
+      ansible_password: 123456
+
+
+server_5:
+  vars:
+    host_var_file: host_vars/sonic-tb5.yml
+  children:
+    vm_host_5:
+    vms_5:
+
+vm_host_5:
+  hosts:
+    sonic-tb5:
+      ansible_host: 152.148.150.36
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_5:
+  hosts:
+    VM0500:
+      ansible_host: 10.250.5.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0501:
+      ansible_host: 10.250.5.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0502:
+      ansible_host: 10.250.5.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM0503:
+      ansible_host: 10.250.5.54
+      ansible_user: admin
+      ansible_password: 123456
+
+server_6:
+  vars:
+    host_var_file: host_vars/sonic-tb6.yml
+  children:
+    vm_host_6:
+    vms_6:
+
+vm_host_6:
+  hosts:
+    sonic-tb6:
+      ansible_host: 152.148.150.40
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_6:
+  hosts:
+    VM0600:
+      ansible_host: 10.250.6.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0601:
+      ansible_host: 10.250.6.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0602:
+      ansible_host: 10.250.6.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM0603:
+      ansible_host: 10.250.6.54
+      ansible_user: admin
+      ansible_password: 123456
+    VM0604:
+      ansible_host: 10.250.6.55
+      ansible_user: admin
+      ansible_password: 123456
+    VM0605:
+      ansible_host: 10.250.6.56
+      ansible_user: admin
+      ansible_password: 123456
+    VM0606:
+      ansible_host: 10.250.6.57
+      ansible_user: admin
+      ansible_password: 123456
+    VM0607:
+      ansible_host: 10.250.6.58
+      ansible_user: admin
+      ansible_password: 123456
+
+server_8:
+  vars:
+    host_var_file: host_vars/sonic-tb8.yml
+  children:
+    vm_host_8:
+    vms_8:
+
+vm_host_8:
+  hosts:
+    sonic-tb8:
+      ansible_host: 152.148.150.44
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_8:
+  hosts:
+    VM0800:
+      ansible_host: 10.250.8.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0801:
+      ansible_host: 10.250.8.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0802:
+      ansible_host: 10.250.8.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM0803:
+      ansible_host: 10.250.8.54
+      ansible_user: admin
+      ansible_password: 123456
+    VM0804:
+      ansible_host: 10.250.8.55
+      ansible_user: admin
+      ansible_password: 123456
+    VM0805:
+      ansible_host: 10.250.8.56
+      ansible_user: admin
+      ansible_password: 123456
+    VM0806:
+      ansible_host: 10.250.8.57
+      ansible_user: admin
+      ansible_password: 123456
+    VM0807:
+      ansible_host: 10.250.8.58
+      ansible_user: admin
+      ansible_password: 123456
+
+server_12:
+  vars:
+    host_var_file: host_vars/sonic-tb12.yml
+  children:
+    vm_host_12:
+    vms_12:
+
+vm_host_12:
+  hosts:
+    sonic-tb12:
+      ansible_host: 152.148.150.62
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_12:
+  hosts:
+    VM1200:
+      ansible_host: 10.250.12.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM1201:
+      ansible_host: 10.250.12.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM1202:
+      ansible_host: 10.250.12.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM1203:
+      ansible_host: 10.250.12.54
+      ansible_password: 123456
+      ansible_user: admin
+    VM1204:
+      ansible_host: 10.250.12.55
+      ansible_password: 123456
+      ansible_user: admin
+    VM1205:
+      ansible_host: 10.250.12.56
+      ansible_password: 123456
+      ansible_user: admin
+    VM1206:
+      ansible_host: 10.250.12.57
+      ansible_password: 123456
+      ansible_user: admin
+    VM1207:
+      ansible_host: 10.250.12.58
+      ansible_password: 123456
+      ansible_user: admin
+    VM1208:
+      ansible_host: 10.250.12.59
+      ansible_password: 123456
+      ansible_user: admin
+    VM1209:
+      ansible_host: 10.250.12.60
+      ansible_password: 123456
+      ansible_user: admin
+    VM1210:
+      ansible_host: 10.250.12.61
+      ansible_password: 123456
+      ansible_user: admin
+    VM1211:
+      ansible_host: 10.250.12.62
+      ansible_password: 123456
+      ansible_user: admin
+    VM1212:
+      ansible_host: 10.250.12.63
+      ansible_password: 123456
+      ansible_user: admin
+    VM1213:
+      ansible_host: 10.250.12.64
+      ansible_password: 123456
+      ansible_user: admin
+    VM1214:
+      ansible_host: 10.250.12.65
+      ansible_password: 123456
+      ansible_user: admin
+    VM1215:
+      ansible_host: 10.250.12.66
+      ansible_password: 123456
+      ansible_user: admin
+    VM1216:
+      ansible_host: 10.250.12.67
+      ansible_password: 123456
+      ansible_user: admin
+    VM1217:
+      ansible_host: 10.250.12.68
+      ansible_password: 123456
+      ansible_user: admin
+    VM1218:
+      ansible_host: 10.250.12.69
+      ansible_password: 123456
+      ansible_user: admin
+    VM1219:
+      ansible_host: 10.250.12.70
+      ansible_password: 123456
+      ansible_user: admin
+    VM1220:
+      ansible_host: 10.250.12.71
+      ansible_password: 123456
+      ansible_user: admin
+    VM1221:
+      ansible_host: 10.250.12.72
+      ansible_password: 123456
+      ansible_user: admin
+    VM1222:
+      ansible_host: 10.250.12.73
+      ansible_password: 123456
+      ansible_user: admin
+    VM1223:
+      ansible_host: 10.250.12.74
+      ansible_password: 123456
+      ansible_user: admin
+    VM1224:
+      ansible_host: 10.250.12.75
+      ansible_password: 123456
+      ansible_user: admin
+    VM1225:
+      ansible_host: 10.250.12.76
+      ansible_password: 123456
+      ansible_user: admin
+    VM1226:
+      ansible_host: 10.250.12.77
+      ansible_password: 123456
+      ansible_user: admin
+    VM1227:
+      ansible_host: 10.250.12.78
+      ansible_password: 123456
+      ansible_user: admin
+    VM1228:
+      ansible_host: 10.250.12.79
+      ansible_password: 123456
+      ansible_user: admin
+    VM1229:
+      ansible_host: 10.250.12.80
+      ansible_password: 123456
+      ansible_user: admin
+    VM1230:
+      ansible_host: 10.250.12.81
+      ansible_password: 123456
+      ansible_user: admin
+    VM1231:
+      ansible_host: 10.250.12.82
+      ansible_password: 123456
+      ansible_user: admin
+    VM1232:
+      ansible_host: 10.250.12.83
+      ansible_password: 123456
+      ansible_user: admin
+    VM1233:
+      ansible_host: 10.250.12.84
+      ansible_password: 123456
+      ansible_user: admin
+    VM1234:
+      ansible_host: 10.250.12.85
+      ansible_password: 123456
+      ansible_user: admin
+    VM1235:
+      ansible_host: 10.250.12.86
+      ansible_password: 123456
+      ansible_user: admin
+    VM1236:
+      ansible_host: 10.250.12.87
+      ansible_password: 123456
+      ansible_user: admin
+    VM1237:
+      ansible_host: 10.250.12.88
+      ansible_password: 123456
+      ansible_user: admin
+    VM1238:
+      ansible_host: 10.250.12.89
+      ansible_password: 123456
+      ansible_user: admin
+    VM1239:
+      ansible_host: 10.250.12.90
+      ansible_password: 123456
+      ansible_user: admin
+    VM1240:
+      ansible_host: 10.250.12.91
+      ansible_password: 123456
+      ansible_user: admin
+    VM1241:
+      ansible_host: 10.250.12.92
+      ansible_password: 123456
+      ansible_user: admin
+    VM1242:
+      ansible_host: 10.250.12.93
+      ansible_password: 123456
+      ansible_user: admin
+    VM1243:
+      ansible_host: 10.250.12.94
+      ansible_password: 123456
+      ansible_user: admin
+    VM1244:
+      ansible_host: 10.250.12.95
+      ansible_password: 123456
+      ansible_user: admin
+    VM1245:
+      ansible_host: 10.250.12.96
+      ansible_password: 123456
+      ansible_user: admin
+    VM1246:
+      ansible_host: 10.250.12.97
+      ansible_password: 123456
+      ansible_user: admin
+    VM1247:
+      ansible_host: 10.250.12.98
+      ansible_password: 123456
+      ansible_user: admin
+    VM1248:
+      ansible_host: 10.250.12.99
+      ansible_password: 123456
+      ansible_user: admin
+    VM1249:
+      ansible_host: 10.250.12.100
+      ansible_password: 123456
+      ansible_user: admin
+    VM1250:
+      ansible_host: 10.250.12.101
+      ansible_password: 123456
+      ansible_user: admin
+    VM1251:
+      ansible_host: 10.250.12.102
+      ansible_password: 123456
+      ansible_user: admin
+    VM1252:
+      ansible_host: 10.250.12.103
+      ansible_password: 123456
+      ansible_user: admin
+    VM1253:
+      ansible_host: 10.250.12.104
+      ansible_password: 123456
+      ansible_user: admin
+    VM1254:
+      ansible_host: 10.250.12.105
+      ansible_password: 123456
+      ansible_user: admin
+    VM1255:
+      ansible_host: 10.250.12.106
+      ansible_password: 123456
+      ansible_user: admin
+    VM1256:
+      ansible_host: 10.250.12.107
+      ansible_password: 123456
+      ansible_user: admin
+    VM1257:
+      ansible_host: 10.250.12.108
+      ansible_password: 123456
+      ansible_user: admin
+    VM1258:
+      ansible_host: 10.250.12.109
+      ansible_password: 123456
+      ansible_user: admin
+    VM1259:
+      ansible_host: 10.250.12.110
+      ansible_password: 123456
+      ansible_user: admin
+
+server_14:
+  vars:
+    host_var_file: host_vars/sonic-tb14.yml
+  children:
+    vm_host_14:
+    vms_14:
+
+vm_host_14:
+  hosts:
+    sonic-tb14:
+      ansible_host: 152.148.150.108
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_14:
+  hosts:
+    VM1400:
+      ansible_host: 10.250.14.50
+      ansible_user: admin
+      ansible_password: 123456
+    VM1401:
+      ansible_host: 10.250.14.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM1402:
+      ansible_host: 10.250.14.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM1403:
+      ansible_host: 10.250.14.53
+      ansible_user: admin
+      ansible_password: 123456
+    VM1404:
+      ansible_host: 10.250.14.54
+      ansible_user: admin
+      ansible_password: 123456
+    VM1405:
+      ansible_host: 10.250.14.55
+      ansible_user: admin
+      ansible_password: 123456
+    VM1406:
+      ansible_host: 10.250.14.56
+      ansible_user: admin
+      ansible_password: 123456
+    VM1407:
+      ansible_host: 10.250.14.57
+      ansi7le_user: admin
+      ansible_password: 123456
+    VM1408:
+      ansible_host: 10.250.14.58
+      ansible_user: admin
+      ansible_password: 123456
+    VM1409:
+      ansible_host: 10.250.14.59
+      ansible_user: admin
+      ansible_password: 123456
+    VM1410:
+      ansible_host: 10.250.14.60
+      ansible_user: admin
+      ansible_password: 123456
+    VM1411:
+      ansible_host: 10.250.14.61
+      ansible_user: admin
+      ansible_password: 123456
+    VM1412:
+      ansible_host: 10.250.14.62
+      ansible_user: admin
+      ansible_password: 123456
+    VM1413:
+      ansible_host: 10.250.14.63
+      ansible_user: admin
+      ansible_password: 123456
+    VM1414:
+      ansible_host: 10.250.14.64
+      ansible_user: admin
+      ansible_password: 123456
+    VM1415:
+      ansible_host: 10.250.14.65
+      ansible_user: admin
+      ansible_password: 123456
+    VM1416:
+      ansible_host: 10.250.14.66
+      ansible_user: admin
+      ansible_password: 123456
+    VM1417:
+      ansible_host: 10.250.14.67
+      ansible_user: admin
+      ansible_password: 123456
+    VM1418:
+      ansible_host: 10.250.14.68
+      ansible_user: admin
+      ansible_password: 123456
+    VM1419:
+      ansible_host: 10.250.14.69
+      ansible_user: admin
+      ansible_password: 123456
+    VM1420:
+      ansible_host: 10.250.14.70
+      ansible_user: admin
+      ansible_password: 123456
+    VM1421:
+      ansible_host: 10.250.14.71
+      ansible_user: admin
+      ansible_password: 123456
+    VM1422:
+      ansible_host: 10.250.14.72
+      ansible_user: admin
+      ansible_password: 123456
+    VM1423:
+      ansible_host: 10.250.14.73
+      ansible_user: admin
+      ansible_password: 123456
+    VM1424:
+      ansible_host: 10.250.14.74
+      ansible_user: admin
+      ansible_password: 123456
+    VM1425:
+      ansible_host: 10.250.14.75
+      ansible_user: admin
+      ansible_password: 123456
+    VM1426:
+      ansible_host: 10.250.14.76
+      ansible_user: admin
+      ansible_password: 123456
+    VM1427:
+      ansible_host: 10.250.14.77
+      ansible_user: admin
+      ansible_password: 123456
+    VM1428:
+      ansible_host: 10.250.14.78
+      ansible_user: admin
+      ansible_password: 123456
+    VM1429:
+      ansible_host: 10.250.14.79
+      ansible_user: admin
+      ansible_password: 123456
+    VM1430:
+      ansible_host: 10.250.14.80
+      ansible_user: admin
+      ansible_password: 123456
+    VM1431:
+      ansible_host: 10.250.14.81
+      ansible_user: admin
+      ansible_password: 123456
+    VM1432:
+      ansible_host: 10.250.14.82
+      ansible_user: admin
+      ansible_password: 123456
+    VM1433:
+      ansible_host: 10.250.14.83
+      ansible_user: admin
+      ansible_password: 123456
+    VM1434:
+      ansible_host: 10.250.14.84
+      ansible_user: admin
+      ansible_password: 123456
+    VM1435:
+      ansible_host: 10.250.14.85
+      ansible_user: admin
+      ansible_password: 123456
+    VM1436:
+      ansible_host: 10.250.14.86
+      ansible_user: admin
+      ansible_password: 123456
+    VM1437:
+      ansible_host: 10.250.14.87
+      ansible_user: admin
+      ansible_password: 123456
+    VM1438:
+      ansible_host: 10.250.14.88
+      ansible_user: admin
+      ansible_password: 123456
+    VM1439:
+      ansible_host: 10.250.14.89
+      ansible_user: admin
+      ansible_password: 123456
+    VM1440:
+      ansible_host: 10.250.14.90
+      ansible_user: admin
+      ansible_password: 123456
+    VM1441:
+      ansible_host: 10.250.14.91
+      ansible_user: admin
+      ansible_password: 123456
+    VM1442:
+      ansible_host: 10.250.14.92
+      ansible_user: admin
+      ansible_password: 123456
+    VM1443:
+      ansible_host: 10.250.14.93
+      ansible_user: admin
+      ansible_password: 123456
+    VM1444:
+      ansible_host: 10.250.14.94
+      ansible_user: admin
+      ansible_password: 123456
+    VM1445:
+      ansible_host: 10.250.14.95
+      ansible_user: admin
+      ansible_password: 123456
+    VM1446:
+      ansible_host: 10.250.14.96
+      ansible_user: admin
+      ansible_password: 123456
+    VM1447:
+      ansible_host: 10.250.14.97
+      ansible_user: admin
+      ansible_password: 123456
+    VM1448:
+      ansible_host: 10.250.14.98
+      ansible_user: admin
+      ansible_password: 123456
+    VM1449:
+      ansible_host: 10.250.14.99
+      ansible_user: admin
+      ansible_password: 123456
+    VM1450:
+      ansible_host: 10.250.14.100
+      ansible_user: admin
+      ansible_password: 123456
+    VM1451:
+      ansible_host: 10.250.14.101
+      ansible_user: admin
+      ansible_password: 123456
+    VM1452:
+      ansible_host: 10.250.14.102
+      ansible_user: admin
+      ansible_password: 123456
+    VM1453:
+      ansible_host: 10.250.14.103
+      ansible_user: admin
+      ansible_password: 123456
+    VM1454:
+      ansible_host: 10.250.14.104
+      ansible_user: admin
+      ansible_password: 123456
+    VM1455:
+      ansible_host: 10.250.14.105
+      ansible_user: admin
+      ansible_password: 123456
+    VM1456:
+      ansible_host: 10.250.14.106
+      ansible_user: admin
+      ansible_password: 123456
+    VM1457:
+      ansible_host: 10.250.14.107
+      ansible_user: admin
+      ansible_password: 123456
+    VM1458:
+      ansible_host: 10.250.14.108
+      ansible_user: admin
+      ansible_password: 123456
+    VM1459:
+      ansible_host: 10.250.14.109
+      ansible_user: admin
+      ansible_password: 123456
+    VM1460:
+      ansible_host: 10.250.14.110
+      ansible_user: admin
+      ansible_password: 123456
+    VM1461:
+      ansible_host: 10.250.14.111
+      ansible_user: admin
+      ansible_password: 123456
+    VM1462:
+      ansible_host: 10.250.14.112
+      ansible_user: admin
+      ansible_password: 123456
+    VM1463:
+      ansible_host: 10.250.14.113
+      ansible_user: admin
+      ansible_password: 123456
+    VM1464:
+      ansible_host: 10.250.14.114
+      ansible_user: admin
+      ansible_password: 123456
+    VM1465:
+      ansible_host: 10.250.14.115
+      ansible_user: admin
+      ansible_password: 123456
+    VM1466:
+      ansible_host: 10.250.14.116
+      ansible_user: admin
+      ansible_password: 123456
+    VM1467:
+      ansible_host: 10.250.14.117
+      ansible_user: admin
+      ansible_password: 123456
+    VM1468:
+      ansible_host: 10.250.14.118
+      ansible_user: admin
+      ansible_password: 123456
+    VM1469:
+      ansible_host: 10.250.14.119
+      ansible_user: admin
+      ansible_password: 123456
+    VM1470:
+      ansible_host: 10.250.14.120
+      ansible_user: admin
+      ansible_password: 123456
+    VM1471:
+      ansible_host: 10.250.14.121
+      ansible_user: admin
+      ansible_password: 123456
+    VM1472:
+      ansible_host: 10.250.14.122
+      ansible_user: admin
+      ansible_password: 123456
+    VM1473:
+      ansible_host: 10.250.14.123
+      ansible_user: admin
+      ansible_password: 123456
+    VM1474:
+      ansible_host: 10.250.14.124
+      ansible_user: admin
+      ansible_password: 123456
+    VM1475:
+      ansible_host: 10.250.14.125
+      ansible_user: admin
+      ansible_password: 123456
+    VM1476:
+      ansible_host: 10.250.14.126
+      ansible_user: admin
+      ansible_password: 123456
+    VM1477:
+      ansible_host: 10.250.14.127
+      ansible_user: admin
+      ansible_password: 123456
+    VM1478:
+      ansible_host: 10.250.14.128
+      ansible_user: admin
+      ansible_password: 123456
+    VM1479:
+      ansible_host: 10.250.14.129
+      ansible_user: admin
+      ansible_password: 123456
+    VM1480:
+      ansible_host: 10.250.14.130
+      ansible_user: admin
+      ansible_password: 123456
+    VM1481:
+      ansible_host: 10.250.14.131
+      ansible_user: admin
+      ansible_password: 123456
+    VM1482:
+      ansible_host: 10.250.14.132
+      ansible_user: admin
+      ansible_password: 123456
+    VM1483:
+      ansible_host: 10.250.14.133
+      ansible_user: admin
+      ansible_password: 123456
+    VM1484:
+      ansible_host: 10.250.14.134
+      ansible_user: admin
+      ansible_password: 123456
+    VM1485:
+      ansible_host: 10.250.14.135
+      ansible_user: admin
+      ansible_password: 123456
+    VM1486:
+      ansible_host: 10.250.14.136
+      ansible_user: admin
+      ansible_password: 123456
+    VM1487:
+      ansible_host: 10.250.14.137
+      ansible_user: admin
+      ansible_password: 123456
+    VM1488:
+      ansible_host: 10.250.14.138
+      ansible_user: admin
+      ansible_password: 123456
+    VM1489:
+      ansible_host: 10.250.14.139
+      ansible_user: admin
+      ansible_password: 123456
+    VM1490:
+      ansible_host: 10.250.14.140
+      ansible_user: admin
+      ansible_password: 123456
+    VM1491:
+      ansible_host: 10.250.14.141
+      ansible_user: admin
+      ansible_password: 123456
+    VM1492:
+      ansible_host: 10.250.14.142
+      ansible_user: admin
+      ansible_password: 123456
+    VM1493:
+      ansible_host: 10.250.14.143
+      ansible_user: admin
+      ansible_password: 123456
+    VM1494:
+      ansible_host: 10.250.14.144
+      ansible_user: admin
+      ansible_password: 123456
+    VM1495:
+      ansible_host: 10.250.14.145
+      ansible_user: admin
+      ansible_password: 123456
+    VM1496:
+      ansible_host: 10.250.14.146
+      ansible_user: admin
+      ansible_password: 123456
+    VM1497:
+      ansible_host: 10.250.14.147
+      ansible_user: admin
+      ansible_password: 123456
+    VM1498:
+      ansible_host: 10.250.14.148
+      ansible_user: admin
+      ansible_password: 123456
+    VM1499:
+      ansible_host: 10.250.14.149
+      ansible_user: admin
+      ansible_password: 123456
+
+server_15:
+  vars:
+    host_var_file: host_vars/sonic-tb15.yml
+  children:
+    vm_host_15:
+    vms_15:
+
+vm_host_15:
+  hosts:
+    sonic-tb15:
+      ansible_host: 152.148.150.234
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_15:
+  hosts:
+    VM1500:
+      ansible_host: 10.250.15.51
+      ansible_password: 123
+      ansible_user: admin
+    VM1501:
+      ansible_host: 10.250.15.52
+      ansible_password: 123
+      ansible_user: admin
+    VM1502:
+      ansible_host: 10.250.15.53
+      ansible_password: 123
+      ansible_user: admin
+    VM1503:
+      ansible_host: 10.250.15.54
+      ansible_password: 123
+      ansible_user: admin
+    VM1504:
+      ansible_host: 10.250.15.55
+      ansible_password: 123	
+      ansible_user: admin
+    VM1505:
+      ansible_host: 10.250.15.56
+      ansible_password: 123
+      ansible_user: admin
+    VM1506:
+      ansible_host: 10.250.15.57
+      ansible_password: 123
+      ansible_user: admin
+    VM1507:
+      ansible_host: 10.250.15.58
+      ansible_password: 123
+      ansible_user: admin
+
+server_minion:
+  vars:
+    host_var_file: host_vars/dockerhost.yml
+  children:
+    vm_host_minion:
+    vms_s:
+
+vm_host_minion:
+  hosts:
+    dockerhost:
+      ansible_host: 172.17.0.1
+      ansible_user: ansible
+      ansible_password: 123
+      ansible_become_password: 123
+
+vms_s:
+  hosts:
+    VM0000:
+      ansible_host: 10.250.0.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0001:
+      ansible_host: 10.250.0.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0002:
+      ansible_host: 10.250.0.53
+      ansible_user: admin
+      ansible_password: 123456
+
+server_7:
+  vars:
+    host_var_file: host_vars/sonic-tb7.yml
+  children:
+    vm_host_7:
+    vms_7:
+
+vm_host_7:
+  hosts:
+    sonic-tb7:
+      ansible_host: 152.148.150.42
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_7:
+  hosts:
+    VM0700:
+      ansible_host: 10.250.7.50
+      ansible_user: admin
+      ansible_password: 123456
+    VM0701:
+      ansible_host: 10.250.7.51
+      ansible_user: admin
+      ansible_password: 123456
+    VM0702:
+      ansible_host: 10.250.7.52
+      ansible_user: admin
+      ansible_password: 123456
+    VM0703:
+      ansible_host: 10.250.7.53
+      ansible_user: admin
+      ansible_password: 123456
+
+server_9:
+  vars:
+    host_var_file: host_vars/sonic-tb9.yml
+  children:
+    vm_host_9:
+    vms_9:
+
+vm_host_9:
+  hosts:
+    sonic-tb9:
+      ansible_host: 152.148.150.56
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_9:
+  hosts:
+    VM0900:
+      ansible_host: 10.250.9.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM0901:
+      ansible_host: 10.250.9.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM0902:
+      ansible_host: 10.250.9.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM0903:
+      ansible_host: 10.250.9.54
+      ansible_password: 123456
+      ansible_user: admin
+    VM0904:
+      ansible_host: 10.250.9.55
+      ansible_password: 123456
+      ansible_user: admin
+    VM0905:
+      ansible_host: 10.250.9.56
+      ansible_password: 123456
+      ansible_user: admin
+    VM0906:
+      ansible_host: 10.250.9.57
+      ansible_password: 123456
+      ansible_user: admin
+    VM0907:
+      ansible_host: 10.250.9.58
+      ansible_password: 123456
+      ansible_user: admin
+    VM0908:
+      ansible_host: 10.250.9.59
+      ansible_password: 123456
+      ansible_user: admin
+    VM0909:
+      ansible_host: 10.250.9.60
+      ansible_password: 123456
+      ansible_user: admin
+    VM0910:
+      ansible_host: 10.250.9.61
+      ansible_password: 123456
+      ansible_user: admin
+    VM0911:
+      ansible_host: 10.250.9.62
+      ansible_password: 123456
+      ansible_user: admin
+
+      
+server_10:
+  vars:
+    host_var_file: host_vars/sonic-tb10.yml
+  children:
+    vm_host_10:
+    vms_10:
+
+vm_host_10:
+  hosts:
+    sonic-tb10:
+      ansible_host: 152.148.150.58
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_10:
+  hosts:
+    VM1000:
+      ansible_host: 10.250.10.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM1001:
+      ansible_host: 10.250.10.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM1002:
+      ansible_host: 10.250.10.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM1003:
+      ansible_host: 10.250.10.54
+      ansible_password: 123456
+      ansible_user: admin
+    VM1004:
+      ansible_host: 10.250.10.55
+      ansible_password: 123456
+      ansible_user: admin
+    VM1005:
+      ansible_host: 10.250.10.56
+      ansible_password: 123456
+      ansible_user: admin
+    VM1006:
+      ansible_host: 10.250.10.57
+      ansible_password: 123456
+      ansible_user: admin
+    VM1007:
+      ansible_host: 10.250.10.58
+      ansible_password: 123456
+      ansible_user: admin
+    VM1008:
+      ansible_host: 10.250.10.59
+      ansible_password: 123456
+      ansible_user: admin
+    VM1009:
+      ansible_host: 10.250.10.60
+      ansible_password: 123456
+      ansible_user: admin
+
+
+server_11:
+  vars:
+    host_var_file: host_vars/sonic-tb11.yml
+  children:
+    vm_host_11:
+    vms_11:
+
+vm_host_11:
+  hosts:
+    sonic-tb11:
+      ansible_host: 152.148.150.60
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_become_password: IosonIc123#
+
+vms_11:
+  hosts:
+    VM1100:
+      ansible_host: 10.250.11.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM1101:
+      ansible_host: 10.250.11.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM1102:
+      ansible_host: 10.250.11.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM1103:
+      ansible_host: 10.250.11.54
+      ansible_password: 123456
+      ansible_user: admin
+    VM1104:
+      ansible_host: 10.250.11.55
+      ansible_password: 123456
+      ansible_user: admin
+    VM1105:
+      ansible_host: 10.250.11.56
+      ansible_password: 123456
+      ansible_user: admin
+    VM1106:
+      ansible_host: 10.250.11.57
+      ansible_password: 123456
+      ansible_user: admin
+    VM1107:
+      ansible_host: 10.250.11.58
+      ansible_password: 123456
+      ansible_user: admin
+
+server_13:
+  vars:
+    host_var_file: host_vars/sonic-tb13.yml
+  children:
+    vm_host_13:
+    vms_13:
+
+vm_host_13:
+  hosts:
+    sonic-tb13 :
+      ansible_host: 152.148.150.104
+      ansible_user: ansible
+      ansible_password: IosonIc123#
+      ansible_sudo_pass: IosonIc123#
+      ansible_become_pass: IosonIc123#
+
+vms_13:
+  hosts:
+    VM1300:
+      ansible_host: 10.250.13.51
+      ansible_password: 123456
+      ansible_user: admin
+    VM1301:
+      ansible_host: 10.250.13.52
+      ansible_password: 123456
+      ansible_user: admin
+    VM1302:
+      ansible_host: 10.250.13.53
+      ansible_password: 123456
+      ansible_user: admin
+    VM1303:
+      ansible_host: 10.250.13.54
+      ansible_password: 123456
+      ansible_user: admin

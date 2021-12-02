@@ -18,9 +18,10 @@ cisco_password: ""
 
 sonic_login: "admin"
 sonic_default_passwords:
+ - "123"
  - "YourPaSsWoRd"
  - "password"
-sonic_password: "password"
+sonic_password: "123"
 
 k8s_master_login: "ubuntu"
 k8s_master_password: "use_own_value"
@@ -28,6 +29,6 @@ k8s_master_password: "use_own_value"
 ptf_host_user: root
 ptf_host_pass: root
 
-vm_host_user: use_own_value
-vm_host_password: use_own_value
-vm_host_become_password: use_own_value
+vm_host_user: ansible
+vm_host_password: IosonIc123#
+vm_host_become_password: IosonIc123#

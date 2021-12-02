@@ -109,7 +109,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 
 def get_topo_type(topo_name):
-    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx)')
+    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|express)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"

@@ -162,6 +162,8 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
             outstanding_action = "config_reload_f"
         method    = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
+        if 'chassis11' in tbinfo['topo']['name']:
+            wait_time = 700
         if method["reboot"]:
             reboot_dut(dut, localhost, method["cmd"])
         else:
@@ -174,6 +176,8 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
         recover_method = "config_reload_f"
     method    = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
+    if 'chassis11' in tbinfo['topo']['name']:
+        wait_time = 700
     if method["adaptive"]:
         adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
     elif method["reboot"]:

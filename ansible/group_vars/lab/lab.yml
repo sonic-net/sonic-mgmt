@@ -3,16 +3,16 @@
 # file: group_vars/lab.yml
 
 # ntp variables
-ntp_servers: ['10.0.0.1', '10.0.0.2']
+ntp_servers: ['128.251.10.32', '128.251.10.9']
 
 # syslog variables
-syslog_servers: ['10.0.0.5', '10.0.0.6']
+syslog_servers: ['152.148.150.64']
 
 # dns variables
 dns_servers: ['10.0.0.5', '10.0.0.6']
 
 # forced_mgmt_routes
-forced_mgmt_routes: ['172.17.0.1/24']
+forced_mgmt_routes: ['172.17.0.1', '152.148.0.0/16', '135.0.0.0/8']
 
 # ErspanDestinationIpv4
 erspan_dest: ['10.0.0.7']

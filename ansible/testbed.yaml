@@ -181,33 +181,649 @@
   auto_recover: 'True'
   comment: superman
 
-- conf-name: ixanvl-vs-conf
-  group-name: anvl
-  topo: ptf32
-  ptf_image_name: docker-ptf-anvl
-  ptf: ptf-unknown
-  ptf_ip: 10.250.0.100/24
+- conf-name: ixr-hr-chassis1-express
+  group-name: vms_2
+  topo: express_hr_chassis1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_2
+  ptf_ip: 10.250.2.188/24
   ptf_ipv6:
-  server: server_1
+  server: server_2
+  vm_base: VM0200
+  dut:
+    - ixr-hr-board1
+    - ixr-hr-board3
+    - ixr-cpm2-chassis1
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests hr_chassis1
+
+- conf-name: ixr-vdk-chassis2-express
+  group-name: vms_8
+  topo: express_vdk_chassis2
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_8
+  ptf_ip: 10.250.8.188/24
+  ptf_ipv6:
+  server: server_8
+  vm_base: VM0800
+  dut:
+    - ixr-vdk-board5
+    - ixr-vdk-board6
+    - ixr-cpm2-chassis2
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests vdk_chassis3
+
+- conf-name: ixr-vdk-chassis3-express
+  group-name: vms_5
+  topo: express_vdk_chassis3
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_5
+  ptf_ip: 10.250.5.188/24
+  ptf_ipv6:
+  server: server_5
+  vm_base: VM0500
+  dut:
+    - ixr-vdk-board1
+    - ixr-vdk-board2
+    - ixr-cpm2-chassis3
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests vdk_chassis1
+
+- conf-name: ixr-vdk-chassis4-express
+  group-name: vms_12
+  topo: express_vdk_chassis4
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_12
+  ptf_ip: 10.250.12.188/24
+  ptf_ipv6:
+  server: server_12
+  vm_base: VM1200
+  dut:
+    - ixr-vdk-board3
+    - ixr-vdk-board4
+    - ixr-cpm2-chassis4
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests vdk_chassis2
+
+- conf-name: ixr-vdk-chassis5-express
+  group-name: vms_4
+  topo: express_vdk_chassis5
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_4
+  ptf_ip: 10.250.4.188/24
+  ptf_ipv6:
+  server: server_4
+  vm_base: VM0400
+  dut:
+    - ixr-vdk-board10
+    - ixr-vdk-board11
+    - ixr-cpm2-chassis5
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests vdk_chassis5
+
+- conf-name: ixr-vdk-chassis6-express
+  group-name: vms_7
+  topo: express_vdk_chassis6
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_7
+  ptf_ip: 10.250.7.188/24
+  ptf_ipv6:
+  server: server_7
+  vm_base: VM0700
+  dut:
+    - ixr-vdk-board8
+    - ixr-vdk-board9
+    - ixr-cpm2-chassis6
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 Tests vdk_chassis6
+
+- conf-name: ixre-chassis7-express
+  group-name: vms_9
+  topo: t2_ixre_chassis7
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_9
+  ptf_ip: 10.250.9.188/24
+  ptf_ipv6:
+  server: server_9
+  vm_base: VM0900
+  dut:
+    - ixre-egl-board25
+    - ixre-egl-board26
+    - ixre-cpm-chassis7
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis8-express
+  group-name: vms_15
+  topo: t2_ixre_chassis8
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_15
+  ptf_ip: 10.250.15.188/24
+  ptf_ipv6:
+  server: server_15
+  vm_base: VM1500
+  dut:
+    - ixre-egl-board3
+    - ixre-egl-board4
+    - ixre-cpm-chassis8
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis10-express
+  group-name: vms_11
+  topo: t2_ixre_chassis10
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_11
+  ptf_ip: 10.250.11.188/24
+  ptf_ipv6:
+  server: server_11
+  vm_base: VM1100
+  dut:
+    - ixre-egl-board27
+    - ixre-egl-board28
+    - ixre-cpm-chassis10
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis12-express
+  group-name: vms_4
+  topo: t2_ixre_chassis12
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_4
+  ptf_ip: 10.250.4.188/24
+  ptf_ipv6:
+  server: server_4
+  vm_base: VM0400
+  dut:
+    - ixre-egl-board9
+    - ixre-egl-board10
+    - ixre-cpm-chassis12
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis14-express
+  group-name: vms_6
+  topo: t2_ixre_chassis14
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_6
+  ptf_ip: 10.250.6.253/24
+  ptf_ipv6:
+  server: server_6
+  vm_base: VM0600
+  dut:
+    - ixre-egl-board29
+    - ixre-egl-board30
+    - ixre-cpm-chassis14
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis15-express
+  group-name: vms_8
+  topo: t2_ixre_chassis15
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_8
+  ptf_ip: 10.250.8.253/24
+  ptf_ipv6:
+  server: server_8
+  vm_base: VM0800
+  dut:
+    - ixre-egl-board40
+    - ixre-egl-board41
+    - ixre-cpm-chassis15
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixs-7215-pizza3-express
+  group-name: vms_3
+  topo: express_ixs-7215-pizza3
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_3
+  ptf_ip: 10.250.3.188/24
+  ptf_ipv6:
+  server: server_3
+  vm_base: VM0300
+  dut:
+    - ixs-7215-pizza3
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: Express OC Tests M0 pizza3
+
+- conf-name: ixs-7215-pizza4-t0-52
+  group-name: vms_3
+  topo: t0-52
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_3
+  ptf_ip: 10.250.3.102/24
+  ptf_ipv6:
+  server: server_3
+  vm_base: VM0300
+  dut:
+    - ixs-7215-pizza4
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for M0 pizza box 4
+
+- conf-name: ixs-7215-pizza4-t1
+  group-name: vms_3
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_3
+  ptf_ip: 10.250.3.102/24
+  ptf_ipv6:
+  server: server_3
+  vm_base: VM0300
+  dut:
+    - ixs-7215-pizza4
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for M0 pizza box 4
+
+- conf-name: ixs-7215-pizza4-ptf32
+  group-name: vms_3
+  topo: ptf32
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_3
+  ptf_ip: 10.250.3.102/24
+  ptf_ipv6:
+  server: server_3
   vm_base:
   dut:
-    - vlab-01
-  inv_name: lab
-  auto_recover: 'True'
-  comment: Test ptf ANVL SONIC VM
+    - ixs-7215-pizza4
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for M0 pizza box 4
 
-- conf-name: vms-chassis-packet-dut
-  group-name: vms-dummy-dut
-  topo: t2
+- conf-name: ixs-7215-pizza5-t0-52
+  group-name: vms_13
+  topo: t0-52
   ptf_image_name: docker-ptf
-  ptf: ptf-unknown
-  ptf_ip: 1.1.1.1/23
+  ptf: ptf_vms_13
+  ptf_ip: 10.250.13.102/24
   ptf_ipv6:
-  server: dummy_1
-  vm_base: DUMMY0001
+  server: server_13
+  vm_base: VM1300
   dut:
-    - lab-msft-lc0-1
-    - lab-msft-lc1-1
-    - lab-msft-lc2-1
-    - lab-msft-sup-1
-  comment: Chasiss Testbed
+    - ixs-7215-pizza5
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for M0 pizza box 5
+
+- conf-name: ixs-7215-pizza7-t0-52
+  group-name: vms_7
+  topo: t0-52
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_7
+  ptf_ip: 10.250.7.102/24
+  ptf_ipv6:
+  server: server_7
+  vm_base: VM0700
+  dut:
+    - ixs-7215-pizza7
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for M0 pizza box 7
+
+- conf-name: columbia-t0-52
+  group-name: vms1-1
+  topo: t0-52
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms1-1
+  ptf_ip: 10.250.1.102/24
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - columbia
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: OC Testbed for 7215 snake test
+
+- conf-name: minion_chassis-t2
+  group-name: vms_s
+  topo: t2_minion_chassis
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_s
+  ptf_ip: 10.250.0.188/24
+  ptf_ipv6:
+  server: server_minion
+  vm_base: VM0100
+  dut:
+    - minion_chassis_cpm
+    - minion_chassis_imm1
+    - minion_chassis_imm2
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 OC tests minion_chassis
+
+- conf-name: minion_linecard-t2
+  group-name: vms_s
+  topo: t2_minion_linecard
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_s
+  ptf_ip: 10.250.0.188/24
+  ptf_ipv6:
+  server: server_minion
+  vm_base: VM0100
+  dut:
+    - minion_linecard
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 OC Tests minion_linecard
+
+- conf-name: ixr-hr-chassis1-t2
+  group-name: vms_2
+  topo: t2_hr_chassis1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_2
+  ptf_ip: 10.250.2.188/24
+  ptf_ipv6:
+  server: server_2
+  vm_base: VM0200
+  dut:
+    - ixr-hr-board1
+    - ixr-hr-board3
+    - ixr-cpm2-chassis1
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 OC Tests hr_chassis1
+
+- conf-name: ixr-vdk-chassis2-t2
+  group-name: vms_8
+  topo: t2_vdk_chassis3
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_8
+  ptf_ip: 10.250.8.188/24
+  ptf_ipv6:
+  server: server_8
+  vm_base: VM0800
+  dut:
+    - ixr-vdk-board5
+    - ixr-vdk-board6
+    - ixr-cpm2-chassis2
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 Tests vdk_chassis3
+
+- conf-name: ixr-vdk-chassis3-t2
+  group-name: vms_5
+  topo: t2_vdk_chassis1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_6
+  ptf_ip: 10.250.5.188/24
+  ptf_ipv6:
+  server: server_5
+  vm_base: VM0500
+  dut:
+    - ixr-vdk-board1
+    - ixr-vdk-board2
+    - ixr-cpm2-chassis3
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 OC Tests vdk_chassis1
+
+- conf-name: ixr-vdk-chassis4-t2
+  group-name: vms_12
+  topo: t2_92
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_12
+  ptf_ip: 10.250.12.188/24
+  ptf_ipv6:
+  server: server_12
+  vm_base: VM1200
+  dut:
+    - ixr-vdk-board7
+    - ixr-vdk-board4
+    - ixr-vdk-board3
+    - ixr-cpm2-chassis4
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: T2 OC Tests vdk_chassis4
+
+- conf-name: ixr-hr-board2-t2
+  group-name: vms_6
+  topo: express_hr_board2
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_6
+  ptf_ip: 10.250.6.188/24
+  ptf_ipv6:
+  server: server_6
+  vm_base: VM0600
+  dut:
+    - ixr-hr-board2
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: Testbed for HR Board2
+
+- conf-name: ixre-chassis7-t2
+  group-name: vms_9
+  topo: t2_ixre_chassis7
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_9
+  ptf_ip: 10.250.9.188/24
+  ptf_ipv6:
+  server: server_9
+  vm_base: VM0900
+  dut:
+    - ixre-egl-board25
+    - ixre-egl-board26
+    - ixre-cpm-chassis7
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis8-t2
+  group-name: vms_15
+  topo: t2_ixre_chassis8
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_15
+  ptf_ip: 10.250.15.188/24
+  ptf_ipv6:
+  server: server_15
+  vm_base: VM1500
+  dut:
+    - ixre-egl-board3
+    - ixre-egl-board4
+    - ixre-cpm-chassis8
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis9-t2
+  group-name: vms_12
+  topo: t2_ixre_chassis9
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_12
+  ptf_ip: 10.250.12.253/24
+  ptf_ipv6:
+  server: server_12
+  vm_base: VM1200
+  dut:
+    - ixre-egl-board1
+    - ixre-egl-board5
+    - ixre-cpm-chassis9
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis10-t2
+  group-name: vms_11
+  topo: t2_ixre_chassis10
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_11
+  ptf_ip: 10.250.11.188/24
+  ptf_ipv6:
+  server: server_11
+  vm_base: VM1100
+  dut:
+    - ixre-egl-board27
+    - ixre-egl-board28
+    - ixre-cpm-chassis10
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis11-t2
+  group-name: vms_14
+  topo: t2_ixre_chassis11
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_14
+  ptf_ip: 10.250.14.253/24
+  ptf_ipv6:
+  server: server_14
+  vm_base: VM1400
+  dut:
+    - ixre-egl-board15
+    - ixre-egl-board7
+    - ixre-cpm-chassis11
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixre-chassis12-t2
+  group-name: vms_4
+  topo: t2_ixre_chassis12
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_4
+  ptf_ip: 10.250.4.188/24
+  ptf_ipv6:
+  server: server_4
+  vm_base: VM0400
+  dut:
+    - ixre-egl-board9
+    - ixre-egl-board10
+    - ixre-cpm-chassis12
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-chassis13-t2_system
+  group-name: vms_1
+  topo: t2_ixre_chassis13
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_1
+  ptf_ip: 10.250.1.253/24
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - ixre-egl-board31
+    - ixre-egl-board32
+    - ixre-egl-board33
+    - ixre-egl-board34
+    - ixre-egl-board35
+    - ixre-egl-board36
+    - ixre-egl-board37
+    - ixre-egl-board38
+    - ixre-cpm-chassis13
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixre-chassis14-t2
+  group-name: vms_6
+  topo: t2_ixre_chassis14
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_6
+  ptf_ip: 10.250.6.253/24
+  ptf_ipv6:
+  server: server_6
+  vm_base: VM0600
+  dut:
+    - ixre-egl-board29
+    - ixre-egl-board30
+    - ixre-cpm-chassis14
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixre-chassis14-ixia
+  group-name: vms_1
+  topo: t2_ixre_chassis14_ixia
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_1
+  ptf_ip: 10.250.1.253/24
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - ixre-egl-board29
+    - ixre-egl-board30
+    - ixre-cpm-chassis14
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixre-chassis15-t2
+  group-name: vms_8
+  topo: t2_ixre_chassis15
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_8
+  ptf_ip: 10.250.8.253/24
+  ptf_ipv6:
+  server: server_8
+  vm_base: VM0800
+  dut:
+    - ixre-egl-board40
+    - ixre-egl-board41
+    - ixre-cpm-chassis15
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis11
+
+- conf-name: ixre-egl-full-t2
+  group-name: vms_1
+  topo: t2_eagle_full
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_1
+  ptf_ip: 10.250.1.188/24
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - ixre-egl-slot1
+    - ixre-egl-slot2
+    - ixre-egl-slot3
+    - ixre-egl-slot4
+    - ixre-egl-slot5
+    - ixre-egl-slot6
+    - ixre-egl-slot7
+    - ixre-egl-slot8
+    - ixre-cpm-egl-full-chassis
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8
+
+- conf-name: ixre-fal-full-t2
+  group-name: vms_1
+  topo: t2_eagle_full
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms_1
+  ptf_ip: 10.250.1.188/24
+  ptf_ipv6:
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - ixre-fal-slot1
+    - ixre-fal-slot2
+    - ixre-fal-slot3
+    - ixre-fal-slot4
+    - ixre-fal-slot5
+    - ixre-fal-slot6
+    - ixre-fal-slot7
+    - ixre-fal-slot8
+    - ixre-cpm-egl-full-chassis
+  inv_name: westford_hw_inventory
+  auto_recover: 'False'
+  comment: express Tests ixre_chassis8

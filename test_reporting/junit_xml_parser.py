@@ -36,6 +36,8 @@ import defusedxml.ElementTree as ET
 
 
 TEST_REPORT_CLIENT_VERSION = (1, 1, 0)
+REPORT_LIST = list()
+REPORT_LIST.append("Script Name, Total, Pass, Fail, Skip, Error, XFail, Time")
 
 MAXIMUM_XML_SIZE = 20e7  # 20MB
 MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
@@ -174,10 +176,12 @@ def validate_junit_xml_archive(directory_name, strict=False):
     roots = []
     metadata_source = None
     metadata = {}
-    doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
-    doc_list = set(doc_list)
+    #doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
+    #doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
+    #doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
+    #doc_list = set(doc_list)
+    doc_list = set(glob.glob(os.path.join(directory_name, "*.xml"))) - set(glob.glob(os.path.join(directory_name, "p*test.xml")))
+    doc_list = sorted(doc_list)
 
     total_size = 0
     for document in doc_list:
@@ -380,6 +384,13 @@ def _parse_test_summary(root):
 
 def _extract_test_summary(test_cases):
     test_result_summary = defaultdict(int)
+    test_result_summary["tests"] = 0
+    test_result_summary["failures"] = 0
+    test_result_summary["skipped"] = 0
+    test_result_summary["errors"] = 0
+    test_result_summary["time"] = 0
+    test_result_summary["xfails"] = 0
+    case = None
     for _, cases in test_cases.items():
         for case in cases:
             # Error may occur along with other test results, to count error separately.
@@ -395,6 +406,19 @@ def _extract_test_summary(test_cases):
                 "xfail_error" or case["result"] == "xfail_skipped" or case["result"] == "xfail_success"
 
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
+    total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) \
+          + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
+    passed = int(test_result_summary["tests"]) - int(total)
+    passed = max(0, passed)
+    if case is None:
+        return test_result_summary
+    name = case['file']
+    name = name.split('/')
+    REPORT_LIST.append("{}, {}, {}, {}, {}, {}, {}, {}".
+                         format(name[0], test_result_summary["tests"],
+                         passed, test_result_summary["failures"],
+                         test_result_summary["skipped"], test_result_summary["errors"],
+                         test_result_summary["xfails"], test_result_summary["time"]))
     return test_result_summary
 
 
@@ -698,7 +722,6 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     if args.validate_only or args.json:
         print(f"{args.file_name} validated succesfully!")
         sys.exit(0)
-
     test_result_json = parse_test_result(roots)
     if test_result_json is None:
         print("XML file doesn't exist or no data in the file.")
@@ -714,6 +737,17 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
             output_file.write(output)
     else:
         print(output)
+
+    tstamp = datetime.now().strftime("%d-%b-%Y-%H-%M-%S-%f")
+
+    if args.output_file:
+        csv_file = open('report_{}_{}.csv'.format(args.output_file.split('.')[0], tstamp), "w+")
+    else:
+        csv_file = open('report_{}.csv'.format(tstamp), "w+")
+
+    for test in REPORT_LIST:
+        csv_file.write(test+'\n')
+    csv_file.close()
 
 
 if __name__ == "__main__":

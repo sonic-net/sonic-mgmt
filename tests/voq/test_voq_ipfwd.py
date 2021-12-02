@@ -386,6 +386,7 @@ def check_packet(function, ports, dst_port, src_port, dev=None, dst_ip_fld='my_i
                 pytest_assert(exc.value[0][0]['ttl_exceed'] is True, "Packet with ttl 1 should not have arrived")
 
 
+@pytest.mark.express
 class TestTableValidation(object):
     """
     Verify the kernel route table is correct based on the topology.
@@ -575,7 +576,9 @@ class TestTableValidation(object):
 
 class TestVoqIPFwd(object):
 
-    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128, 9000)])
+    @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           pytest.param(128, 9000, marks=pytest.mark.express)])  # (1, 1500)
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["portchannel", "ethernet"])
     def test_voq_local_interface_ping(self, duthosts, nbrhosts, all_cfg_facts, ttl, size, version, porttype, tbinfo):
@@ -606,7 +609,11 @@ class TestVoqIPFwd(object):
 
         check_packet(sonic_ping, ports, 'portB', 'portA', size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
+
+    @pytest.mark.parametrize('ttl, size', [pytest.param(2, 64, marks=pytest.mark.express),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456),
+                                           (1, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000) (1, 1456),
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_local_neighbor_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
@@ -643,7 +650,10 @@ class TestVoqIPFwd(object):
         check_packet(eos_ping, ports, 'portA', 'portA', src_ip_fld='nbr_ip', dst_ip_fld='my_ip',
                      dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
+    @pytest.mark.parametrize('ttl, size', [(2, 64),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456),
+                                           (1, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000) (1, 1456), []
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_neighbor_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
@@ -681,8 +691,11 @@ class TestVoqIPFwd(object):
         check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_ip', src_ip_fld='nbr_lb',
                      dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
-    @pytest.mark.parametrize('version', [4, 6])
+    @pytest.mark.parametrize('ttl, size', [(2, 64),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456),
+                                           (1, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000) (1, 1456)
+    @pytest.mark.parametrize('version', [4])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_inband_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
@@ -722,7 +735,9 @@ class TestVoqIPFwd(object):
         check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld='inband', size=size, ttl=ttl, ttl_change=0)
         check_packet(sonic_ping, ports, 'portB', 'portA', src_ip_fld='inband', size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (1, 1456), (255, 1456)])
+    @pytest.mark.parametrize('ttl, size', [pytest.param(2, 64, marks=pytest.mark.express), (128, 64),
+                                           pytest.param(1, 1456, marks=pytest.mark.express),
+                                           (255, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000)
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_dut_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
@@ -835,7 +850,9 @@ class TestVoqIPFwd(object):
                 check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld=my_src_fld, src_ip_fld='nbr_lb',
                              dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=1)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456)])
+    @pytest.mark.parametrize('ttl, size', [(2, 64),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456)])  # , ,, , (1,1500), (128, 9000), (255, 1500)
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_end_to_end_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
