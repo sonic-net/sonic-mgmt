@@ -102,5 +102,14 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
-    duthost.shell("sudo config aaa authorization local")
-    duthost.shell("sudo config aaa accounting disable")
+
+    try:
+        duthost.shell("sudo config aaa authorization local")
+    except RunAnsibleModuleFail:
+        logger.info("config aaa authorization command not support on this version")
+
+    try:
+        duthost.shell("sudo config aaa accounting disable")
+    except RunAnsibleModuleFail:
+        logger.info("config aaa accounting command not support on this version")
+        
