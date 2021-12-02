@@ -435,7 +435,7 @@ class AnsibleLogAnalyzer:
                     continue
 
             if not stdin_as_input:
-                if rev_line.find(start_marker) != -1 and 'nsible' not in rev_line:
+                if rev_line.find(start_marker) != -1 and 'extract_log' not in rev_line:
                     self.print_diagnostic_message('found start marker: %s' % start_marker)
                     if (found_start_marker):
                         print('ERROR: duplicate start marker found')

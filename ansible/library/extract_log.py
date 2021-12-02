@@ -103,7 +103,7 @@ def extract_lines(directory, filename, target_string):
         # Prehandle lines to remove these sub-strings
         dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
         sz = os.path.getsize(path)
-        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'nsible' not in line]
+        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'extract_log' not in line]
 
     return result
 
