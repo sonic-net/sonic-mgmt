@@ -5,6 +5,8 @@ import tempfile
 from datetime import datetime
 
 import pytest
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.redis import VoqDbCli
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,23 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
     """
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
+
+    # Collect system neighbors, inband intf and port channel info to resolve ptf ports
+    # for system neigh or lags.
+    voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
+    sys_neigh = {}
+    for entry in voq_db.dump_neighbor_table():
+        neigh_key = entry.split('|')
+        neigh_ip = neigh_key[-1]
+        sys_neigh[neigh_ip] = {'duthost_name' : neigh_key[-4], 'intf' : neigh_key[-2]}
+    dut_inband_intfs = {}
+    dut_port_channels = {}
+    for duthost in duthosts.frontend_nodes:
+        cfg_facts = duts_cfg_facts[duthost.hostname]
+        for asic_cfg_facts in cfg_facts:
+            dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts['VOQ_INBAND_INTERFACE'])
+            dut_port_channels.setdefault(duthost.hostname,{}).update(asic_cfg_facts.get('PORTCHANNEL', {}))
+
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
         mg_facts = duts_mg_facts[duthost.hostname]
@@ -51,9 +70,10 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                     prefix = k.split(':', 1)[1]
                     ifnames = v['value']['ifname'].split(',')
                     nh = v['value']['nexthop']
+                    nh_ips = nh.split(',')
 
                     oports = []
-                    for ifname in ifnames:
+                    for idx, ifname in enumerate(ifnames):
                         if po.has_key(ifname):
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
@@ -68,6 +88,32 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                 if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
+                                elif 'role' in ports[ifname] and ports[ifname]['role'] == 'Inb':
+                                    if nh == '0.0.0.0' or nh == '::':
+                                        # This is a system or inband neighbor.
+                                        neigh_ip = prefix
+                                    else:
+                                        neigh_ip = nh_ips[idx]
+                                    remote_duthost_name = sys_neigh[neigh_ip]['duthost_name']
+                                    remote_neigh_intf = sys_neigh[neigh_ip]['intf']
+
+                                    # Skip route for inband neighbors.
+                                    if remote_neigh_intf in dut_inband_intfs[remote_duthost_name]:
+                                        skip =True
+                                        continue
+
+                                    remote_dut_mg_facts = duts_mg_facts[remote_duthost_name]
+                                    if remote_neigh_intf.startswith('PortChannel'):
+                                        # The nexthop is a system lag.
+                                        if dut_port_channels[remote_duthost_name].has_key(remote_neigh_intf):
+                                            oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][x])
+                                                          for x in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']])
+                                        else:
+                                            pytest_assert(False, "Coundn't find {} in the config of {}".format(
+                                               remote_neigh_intf, remote_duthost_name) )
+                                    else:
+                                        # The nexthop is a system neighbor.
+                                        oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
                                 else:
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
                                     skip = False
@@ -81,7 +127,10 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
                     if not skip:
                         if prefix in fib_info:
-                            fib_info[prefix] += oports
+                            # Do not add the egress ports if they are already added.
+                            for ops in oports:
+                                if ops not in fib_info[prefix]:
+                                    fib_info[prefix].append(ops)
                         else:
                             fib_info[prefix] = oports
 
