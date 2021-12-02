@@ -137,8 +137,13 @@ SUB_INTERFACE_SEPARATOR = '.'
 SUB_INTERFACE_VLAN_ID = '10'
 
 
-config_module_logging('vm_topology')
-
+def construct_log_filename(cmd, vm_set_name):
+    log_filename = 'vm_topology'
+    if cmd:
+        log_filename += '_' + cmd
+    if vm_set_name:
+        log_filename += '_' + vm_set_name
+    return log_filename
 
 def adaptive_name(template, host, index):
     """
@@ -1209,10 +1214,13 @@ def main():
         supports_check_mode=False)
 
     cmd = module.params['cmd']
+    vm_set_name = module.params['vm_set_name']
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
+
+    config_module_logging(construct_log_filename(cmd, vm_set_name))
 
     if cmd == 'bind_keysight_api_server_ip':
         vm_names = []
