@@ -35,9 +35,10 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module")
 def get_dummay_mac_count(tbinfo):
+    # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
     REQUIRED_TOPO = ["t0-116"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
-        # To reduce the case running time and avoid mac age issue
+        # To reduce the case running time
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))
         return DUMMY_MAC_COUNT_SLIM
     else:
