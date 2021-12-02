@@ -26,6 +26,9 @@ r, ".* INFO kernel:.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
+r, ".* ERR swss.*#orchagent.* Failed to get availability.*"
+r, ".* ERR swss.*#nbrmgrd.* doStateSystemNeighTask.* Neigh entry add on dev.* failed for.*"
+r, ".* ERR swss.*#nbrmgrd.* Failed to add Nbr for.*error: 2"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
@@ -175,3 +178,4 @@ r, ".*ERR kernel: \[.*\] AMD-Vi: Event logged \[IO_PAGE_FAULT device=00:13.1 dom
 
 r, ".*WARNING kernel: .*linux_knet_cb.*linux_bcm_knet.*linux_user_bde.*linux_kernel_bde.*xt_TCPMSS.*8021q.*garp.*mrp.*dummy.*"
 r, ".* ERR .*CounterCheck: Invalid port oid.*"
+r, ".* ERR .*SonicDBConfig Global config is already initialized.*"
