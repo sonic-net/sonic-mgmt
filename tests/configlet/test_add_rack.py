@@ -84,7 +84,8 @@ def init(duthost, duthost_name):
         os.mkdir(base_dir)
 
     for i in [ data_dir, orig_db_dir, clet_db_dir, files_dir ]:
-        os.mkdir(i)
+        if not os.path.exists(i):
+            os.mkdir(i)
 
     init_data["files_dir"] = files_dir 
     init_data["data_dir"] = data_dir
