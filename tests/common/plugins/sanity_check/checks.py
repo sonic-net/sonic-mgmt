@@ -17,7 +17,7 @@ MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
-__all__ = [
+CHECK_ITEMS = [
     'check_services',
     'check_interfaces',
     'check_bgp',
@@ -26,6 +26,8 @@ __all__ = [
     'check_processes',
     'check_mux_simulator',
     'check_secureboot']
+
+__all__ = CHECK_ITEMS
 
 
 @pytest.fixture(scope="module")
