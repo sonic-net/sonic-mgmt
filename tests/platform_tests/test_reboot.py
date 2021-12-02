@@ -56,8 +56,16 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     @param reboot_kwargs: The argument used by reboot_helper
     """
     logging.info("Run %s reboot on DUT" % reboot_type)
+    append_reboot_type_to_q = 1
 
-    reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
+    try:
+        reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
+    except Exception as e:
+        if e is 'DUT {} did not shutdown'.format(dut.hostname):
+            append_reboot_type_to_q = 0
+
+    if append_reboot_type_to_q is 1:
+        REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
 
@@ -80,7 +88,6 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info("Skip check reboot-cause history for version before 202012")
         else:
-            REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
             logger.info("Check reboot-cause history")
             assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
                               REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
