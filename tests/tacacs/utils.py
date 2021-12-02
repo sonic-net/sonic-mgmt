@@ -51,8 +51,16 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
 
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
-    duthost.shell("sudo config aaa authorization local")
-    duthost.shell("sudo config aaa accounting disable")
+
+    try:
+        duthost.shell("sudo config aaa authorization local")
+    except RunAnsibleModuleFail:
+        logger.info("config aaa authorization command not support on this version")
+
+    try:
+        duthost.shell("sudo config aaa accounting disable")
+    except RunAnsibleModuleFail:
+        logger.info("config aaa accounting command not support on this version")
     
     # setup local user
     setup_local_user(duthost, creds_all_duts)
