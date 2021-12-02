@@ -100,6 +100,9 @@ class FanoutHost(object):
 
         return self.host.no_shutdown(interface_name)
 
+    def check_intf_link_state(self, interface_name):
+        return self.host.check_intf_link_state(interface_name)
+
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
 

@@ -1217,6 +1217,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
         return True
 
+    def check_intf_link_state(self, interface_name):
+        intf_status = self.show_interface(command="status",interfaces=[interface_name])["ansible_facts"]['int_status']
+        return intf_status[interface_name]['oper_state'] == 'up'
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
