@@ -313,6 +313,11 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform ssdhealth`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    cmd = "cat /sys/block/sda/queue/rotational"
+    ssdcheck_output_lines = duthost.command(cmd)["stdout_lines"]
+    if '0' not in ssdcheck_output_lines:
+       pytest.skip("Disk type is not SSD")
+
     cmd = " ".join([CMD_SHOW_PLATFORM, "ssdhealth"])
 
     logging.info("Verifying output of '{}' on ''{}'...".format(cmd, duthost.hostname))
