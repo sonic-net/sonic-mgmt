@@ -14,7 +14,7 @@ import pytest
 from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -53,7 +53,7 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     @param: cmd_sfp_error_status: fixture representing the command used to test
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    skip_version(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911", "202012"])
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
     logging.info("Check output of '{}'".format(cmd_sfp_error_status))
