@@ -8,6 +8,7 @@ from tests.common import constants
 from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
+from tests.common.helpers.assertions import pytest_require as pt_require
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -244,3 +245,43 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
 
     return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index
+
+@pytest.fixture
+def proxy_arp_enabled(rand_selected_dut, config_facts):
+    """
+    Tries to enable proxy ARP for each VLAN on the ToR
+
+    Also checks CONFIG_DB to see if the attempt was successful
+
+    During teardown, restores the original proxy ARP setting
+
+    Yields:
+        (bool) True if proxy ARP was enabled for all VLANs,
+               False otherwise
+    """
+    duthost = rand_selected_dut
+    pt_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
+
+    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
+    vlans = config_facts['VLAN']
+    vlan_ids =[vlans[vlan]['vlanid'] for vlan in vlans.keys()]
+    old_proxy_arp_vals = {}
+    new_proxy_arp_vals = []
+
+    # Enable proxy ARP/NDP for the VLANs on the DUT
+    for vid in vlan_ids:
+        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
+        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
+
+        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
+
+        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
+        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
+        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
+
+    yield all('enabled' in val for val in new_proxy_arp_vals)
+
+    for vid, proxy_arp_val in old_proxy_arp_vals.items():
+        if 'enabled' not in proxy_arp_val:
+            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))

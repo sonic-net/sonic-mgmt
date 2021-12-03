@@ -133,9 +133,10 @@ def add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf
         testutils.send_packet(ptfadapter, ptf_intf_index, na_pkt)
 
 
-def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, get_function_conpleteness_level):
+def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, get_function_conpleteness_level, proxy_arp_enabled):
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
+    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
     normalized_level = get_function_conpleteness_level

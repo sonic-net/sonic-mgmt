@@ -18,46 +18,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-@pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
-    """
-    Tries to enable proxy ARP for each VLAN on the ToR
-
-    Also checks CONFIG_DB to see if the attempt was successful
-
-    During teardown, restores the original proxy ARP setting
-
-    Yields:
-        (bool) True if proxy ARP was enabled for all VLANs,
-               False otherwise
-    """
-    duthost = rand_selected_dut
-    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
-
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
-    vlans = config_facts['VLAN']
-    vlan_ids =[vlans[vlan]['vlanid'] for vlan in vlans.keys()]
-    old_proxy_arp_vals = {}
-    new_proxy_arp_vals = []
-
-    # Enable proxy ARP/NDP for the VLANs on the DUT
-    for vid in vlan_ids:
-        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
-
-        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
-
-        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
-        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
-
-    yield all('enabled' in val for val in new_proxy_arp_vals)
-
-    for vid, proxy_arp_val in old_proxy_arp_vals.items():
-        if 'enabled' not in proxy_arp_val:
-            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
-
 def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send a gratuitous ARP (GARP) packet from the PTF to the DUT
