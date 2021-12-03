@@ -446,14 +446,11 @@ def find_graph(hostnames, part=False):
     return lab_graph
 
 
-def get_port_name_list(hwsku):
-    # Create a map of SONiC port name to physical port index
-    # Start by creating a list of all port names
-    port_alias_to_name_map, _ = get_port_alias_to_name_map(hwsku)
+def get_port_name_list(device_link):
+    port_name_list = []
+    for port in device_link:
+        port_name_list.append(port)
 
-    # Create a map of SONiC port name to physical port index
-    # Start by creating a list of all port names
-    port_name_list = port_alias_to_name_map.values()
     # Sort the list in natural order, because SONiC port names, when
     # sorted in natural sort order, match the phyical port index order
     port_name_list_sorted = natsorted(port_name_list)
@@ -493,7 +490,7 @@ def build_results(lab_graph, hostnames, ignore_error=False):
             else:
                 device_vlan_map_list[hostname] = {}
 
-                port_name_list_sorted = get_port_name_list(dev['HwSku'])
+                port_name_list_sorted = get_port_name_list(device_conn[hostname])
                 logging.debug("For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
                 for a_host_vlan in host_vlan["VlanList"]:
                     # Get the corresponding port for this vlan from the port vlan list for this hostname
