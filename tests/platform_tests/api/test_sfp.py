@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
@@ -551,7 +551,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests get_error_description() API (supported on 202106 and above)"""
-        skip_version(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
+        skip_release(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)
