@@ -451,7 +451,6 @@ class AdvancedReboot:
                 self.__verifyRebootOper(rebootOper)
             except Exception:
                 failed_list.append(rebootOper)
-                raise Exception
             finally:
                 # always capture the test logs
                 self.__fetchTestLogs(rebootOper)
