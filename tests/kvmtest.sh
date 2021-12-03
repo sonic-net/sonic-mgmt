@@ -129,7 +129,6 @@ test_t0() {
     tacacs/test_ro_user.py \
     tacacs/test_ro_disk.py \
     tacacs/test_jit_user.py \
-    tacacs/test_authorization.py \
     telemetry/test_telemetry.py \
     test_features.py \
     test_procdockerstatsd.py \
