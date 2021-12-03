@@ -266,10 +266,11 @@ def execute_command(duthost, since):
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    stdout = duthost.command("show techsupport --since={}".format('"' + since + '"'))
-    if stdout['rc'] == SUCCESS_CODE:
-        pytest.tar_stdout = stdout['stdout']
-    return stdout['rc'] == SUCCESS_CODE
+    result = duthost.command("show techsupport -r --since={}".format('"' + since + '"'), module_ignore_errors=True)
+    if result['rc'] != SUCCESS_CODE:
+        pytest.fail('Failed to create techsupport. \nstdout:{}. \nstderr:{}'.format(result['stdout'], result['stderr']))
+    pytest.tar_stdout = result['stdout']
+    return True
 
 
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):

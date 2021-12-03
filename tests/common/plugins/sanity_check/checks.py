@@ -17,7 +17,7 @@ MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
-__all__ = [
+CHECK_ITEMS = [
     'check_services',
     'check_interfaces',
     'check_bgp',
@@ -26,6 +26,8 @@ __all__ = [
     'check_processes',
     'check_mux_simulator',
     'check_secureboot']
+
+__all__ = CHECK_ITEMS
 
 
 @pytest.fixture(scope="module")
@@ -203,7 +205,7 @@ def check_bgp(duthosts):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                if a_asic_neighbors is not None:
+                if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in a_asic_neighbors.items()
                                       if v['state'] != 'established']
                     if down_neighbors:

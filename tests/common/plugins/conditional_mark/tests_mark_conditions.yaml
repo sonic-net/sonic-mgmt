@@ -196,6 +196,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
@@ -355,7 +356,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
   skip:
@@ -373,7 +374,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
@@ -421,7 +422,7 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
   skip:
@@ -433,7 +434,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
   skip:
@@ -463,7 +464,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
   skip:
@@ -475,7 +476,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_name:
   skip:
