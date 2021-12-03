@@ -324,6 +324,12 @@ class TestPsuFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
+                led_available = self.get_fan_facts(duthost, j, i, True, "status_led", "available")
+                if not led_available:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not available)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
                 led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
                 if not led_controllable:
                     logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not controllable)".format(j, i))
@@ -348,6 +354,6 @@ class TestPsuFans(PlatformApiTestBase):
                 psus_skipped += 1
 
         if psus_skipped == self.num_psus:
-            pytest.skip("skipped as all PSU fans' LED is not controllable")
+            pytest.skip("skipped as all PSU fans' LED is not available/controllable")
 
         self.assert_expectations()

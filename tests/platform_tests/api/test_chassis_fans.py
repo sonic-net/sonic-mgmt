@@ -266,6 +266,12 @@ class TestChassisFans(PlatformApiTestBase):
         fans_skipped = 0
 
         for i in range(self.num_fans):
+            led_available = self.get_fan_facts(duthost, i, True, "status_led", "available")
+            if not led_available:
+                logger.info("test_set_fans_led: Skipping chassis fan {} (LED not available)".format(i))
+                fans_skipped += 1
+                continue
+
             led_controllable = self.get_fan_facts(duthost, i, True, "status_led", "controllable")
             if not led_controllable:
                 logger.info("test_set_fans_led: Skipping chassis fan {} (LED not controllable)".format(i))
@@ -287,6 +293,6 @@ class TestChassisFans(PlatformApiTestBase):
                             color, color_actual, i))
 
         if fans_skipped == self.num_fans:
-            pytest.skip("skipped as all chassis fans' LED is not controllable")
+            pytest.skip("skipped as all chassis fans' LED is not available/controllable")
 
         self.assert_expectations()
