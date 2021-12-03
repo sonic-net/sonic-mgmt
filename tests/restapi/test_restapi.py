@@ -85,10 +85,11 @@ This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN membe
 '''
 def test_data_path(construct_url, vlan_members):
     # Create Default VxLan Tunnel
-    params = '{"ip_addr": "10.1.0.32"}'
-    logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
-    r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
-    pytest_assert(r.status_code == 204)
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 409:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
 
     # Check RESTAPI server heartbeat
     logger.info("Checking for RESTAPI server heartbeat")
@@ -310,10 +311,164 @@ def test_data_path(construct_url, vlan_members):
     logger.info("Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
+def test_data_path_sad(construct_url, vlan_members):
+    # Create Default VxLan Tunnel
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
+
+    # Check RESTAPI server heartbeat
+    logger.info("Checking for RESTAPI server heartbeat")
+    restapi.heartbeat(construct_url)
+
+    #
+    # Create first VNET and add VLAN, VLAN member, VLAN neighbor and routes to it
+    #
+
+    # Create VNET
+    params = '{"vnid": 7036001}'
+    logger.info("Creating VNET vnet-guid-2 with vnid: 7036001")
+    r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-2', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VNET has been created
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-2')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"vnid": 7036001}, "vnet_id": "vnet-guid-2"}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VNET with vnet_id: vnet-guid-2 has been successfully created with vnid: 7036001")
+
+    # Repeat create VNET
+    params = '{"vnid": 7036001}'
+    logger.info("Repeating creation of VNET vnet-guid-2 with vnid: 7036001")
+    for i in range(5):
+        r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-2', params)
+        pytest_assert(r.status_code == 409)
+
+    # Create new VNET with existing VNID
+    params = '{"vnid": 7036001}'
+    logger.info("Creation of VNET vnet-guid-3 with vnid: 7036001")
+    for i in range(5):
+        r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-3', params)
+        pytest_assert(r.status_code == 409)
+
+    # Create VLAN
+    params = '{"vnet_id": "vnet-guid-2", "ip_prefix": "100.0.10.1/24"}'
+    logger.info("Creating VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2")
+    r = restapi.post_config_vlan(construct_url, '2000', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN has been created
+    r = restapi.get_config_vlan(construct_url, '2000')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"ip_prefix": "100.0.10.1/24", "vnet_id": "vnet-guid-2"}, "vlan_id": 2000}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2 has been successfully created")
+
+    # Repeat create VLAN
+    params = '{"vnet_id": "vnet-guid-2", "ip_prefix": "100.0.10.1/24"}'
+    logger.info("Repeating creation of VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2")
+    for i in range(5):
+        r = restapi.post_config_vlan(construct_url, '2000', params)
+        pytest_assert(r.status_code == 409)
+
+    if len(vlan_members) < 1:
+        pytest.skip("No VLAN interface available")
+    vlan_intf = vlan_members[0]
+    logger.info("VLAN Interface: "+vlan_intf)
+
+    # Add and configure VLAN member
+    params = '{"tagging_mode": "tagged"}'
+    logger.info("Adding "+vlan_intf+" with tagging_mode: tagged to VLAN 2000")
+    r = restapi.post_config_vlan_member(construct_url, '2000', vlan_intf, params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN member has been added
+    r = restapi.get_config_vlan_member(construct_url, '2000', vlan_intf)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"if_name": "'+vlan_intf+'", "vlan_id": 2000, "attr": {"tagging_mode": "tagged"}}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info(vlan_intf+" with tagging_mode: tagged has been successfully added to VLAN 2000")
+
+    # Repeat add and configure VLAN member
+    params = '{"tagging_mode": "tagged"}'
+    logger.info("Repeating Adding "+vlan_intf+" with tagging_mode: tagged to VLAN 2000")
+    for i in range(5):
+        r = restapi.post_config_vlan_member(construct_url, '2000', vlan_intf, params)
+        pytest_assert(r.status_code == 409)
+    
+    # Add neighbor
+    params = '{}'
+    logger.info("Adding neighbor 100.0.10.4 to VLAN 2000")
+    r = restapi.post_config_vlan_neighbor(construct_url, '2000', '100.0.10.4', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify neighbor has been added
+    r = restapi.get_config_vlan_neighbor(construct_url, '2000', '100.0.10.4')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"ip_addr": "100.0.10.4", "vlan_id": 2000}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("Neighbor 100.0.10.4 has been successfully added to VLAN 2000")
+
+    # Repeat add neighbor
+    params = '{}'
+    logger.info("Repeat adding neighbor 100.0.10.4 to VLAN 2000")
+    for i in range(5):
+        r = restapi.post_config_vlan_neighbor(construct_url, '2000', '100.0.10.4', params)
+        pytest_assert(r.status_code == 409)
+    
+    # Add routes
+    params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "101.0.20.5/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": "1c:34:da:72:b0:8a"}, \
+                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.30.0/24", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}]'
+    logger.info("Adding routes with vnid: 7036001 to VNET vnet-guid-2")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify routes
+    # Add some delay before query
+    time.sleep(5)
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
+                {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32", "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
+                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
+    for route in expected:
+        pytest_assert(route in r.json())
+    logger.info("Routes with vnid: 7036001 to VNET vnet-guid-2 have been added successfully")
+
+    # Repeat add routes
+    params = '[{"cmd": "add", "ip_prefix": "100.0.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "101.0.20.5/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": "1c:34:da:72:b0:8a"}, \
+                {"cmd": "add", "ip_prefix": "192.168.20.4/32", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}, \
+                {"cmd": "add", "ip_prefix": "100.0.30.0/24", "nexthop": "100.3.152.52", "vnid": 7036001, "mac_address": null}]'
+    logger.info("Adding routes with vnid: 7036001 to VNET vnet-guid-2")
+    for i in range(5):
+        r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-2', params)
+        pytest_assert(r.status_code == 204)    
+
+
 '''
 This test creates a VNET. It adds routes to the VNET and deletes them
 '''
 def test_create_vrf(construct_url):
+    # Create Default VxLan Tunnel
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
+
     # Create VNET
     params = '{"vnid": 7039114}'
     logger.info("Creating VNET vnet-guid-10 with vnid: 7039114")
@@ -374,6 +529,13 @@ def test_create_vrf(construct_url):
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
 def test_create_interface(construct_url, vlan_members):
+    # Create Default VxLan Tunnel
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
+
     # Create VNET
     params = '{"vnid": 7039115}'
     logger.info("Creating VNET vnet-guid-3 with vnid: 7039115")
@@ -480,3 +642,186 @@ def test_create_interface(construct_url, vlan_members):
     pytest_assert(r.status_code == 404)
     logger.info(r.json())
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
+
+def test_create_interface_sad(construct_url, vlan_members):
+    # Create Default VxLan Tunnel
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
+
+    # Create VNET
+    params = '{"vnid": 7039115}'
+    logger.info("Creating VNET vnet-guid-3 with vnid: 7039115")
+    r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-4', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VNET has been created
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-4')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"vnid": 7039115}, "vnet_id": "vnet-guid-4"}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VNET with vnet_id: vnet-guid-4 has been successfully created with vnid: 7039115")
+
+    # Repeat create VNET
+    params = '{"vnid": 7039115}'
+    logger.info("Repeat creating VNET vnet-guid-3 with vnid: 7039115")
+    for i in range(5):
+        r = restapi.post_config_vrouter_vrf_id(construct_url, 'vnet-guid-4', params)
+        pytest_assert(r.status_code == 409)
+
+    # Create VLAN
+    params = '{"vnet_id": "vnet-guid-4", "ip_prefix": "40.0.0.1/24"}'
+    logger.info("Creating VLAN 4000 with ip_prefix: 40.0.0.1/24 under vnet_id: vnet-guid-4")
+    r = restapi.post_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN has been created
+    r = restapi.get_config_vlan(construct_url, '4000')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"ip_prefix": "40.0.0.1/24", "vnet_id": "vnet-guid-4"}, "vlan_id": 4000}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VLAN 4000 with ip_prefix: 40.0.0.1/24 under vnet_id: vnet-guid-4 has been successfully created")
+
+    # Repeat create VLAN
+    params = '{"vnet_id": "vnet-guid-4", "ip_prefix": "40.0.0.1/24"}'
+    logger.info("Repeat creating VLAN 4000 with ip_prefix: 40.0.0.1/24 under vnet_id: vnet-guid-4")
+    for i in range(5):
+        r = restapi.post_config_vlan(construct_url, '4000', params)
+        pytest_assert(r.status_code == 409)
+
+    vlan_intf = vlan_members[0]
+    logger.info("VLAN Interface: "+vlan_intf)
+
+    # Add and configure VLAN member
+    params = '{"tagging_mode": "tagged"}'
+    logger.info("Adding "+vlan_intf+" with tagging_mode: tagged to VLAN 4000")
+    r = restapi.post_config_vlan_member(construct_url, '4000', vlan_intf, params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN member has been added
+    r = restapi.get_config_vlan_member(construct_url, '4000', vlan_intf)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"if_name": "'+vlan_intf+'", "vlan_id": 4000, "attr": {"tagging_mode": "tagged"}}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info(vlan_intf+" with tagging_mode: tagged has been successfully added to VLAN 4000")
+
+    # Repeat add and configure VLAN member
+    params = '{"tagging_mode": "tagged"}'
+    logger.info("Repeat adding "+vlan_intf+" with tagging_mode: tagged to VLAN 4000")
+    for i in range(5):
+        r = restapi.post_config_vlan_member(construct_url, '4000', vlan_intf, params)
+        pytest_assert(r.status_code == 409)
+
+    # Add neighbor
+    params = '{}'
+    logger.info("Adding neighbor 40.0.0.4 to VLAN 4000")
+    r = restapi.post_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify neighbor has been added
+    r = restapi.get_config_vlan_neighbor(construct_url, '4000', '40.0.0.4')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"ip_addr": "40.0.0.4", "vlan_id": 4000}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("Neighbor 40.0.0.4 has been successfully added to VLAN 4000")
+
+    # Repeat add neighbor
+    params = '{}'
+    logger.info("Repeat adding neighbor 40.0.0.4 to VLAN 4000")
+    for i in range(5):
+        r = restapi.post_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
+        pytest_assert(r.status_code == 409)
+
+    # Delete VLAN before VLAN deleting neigbor and member
+    params = '{}'
+    logger.info("Deleting VLAN 4000 before deleting VLAN neigbor and member")
+    r = restapi.delete_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 409)
+
+    # Delete Neighbor
+    params = '{}'
+    logger.info("Deleting neighbor 40.0.0.4 from VLAN 4000")
+    r = restapi.delete_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify neighbor has been deleted
+    r = restapi.get_config_vlan_neighbor(construct_url, '4000', '40.0.0.4')
+    pytest_assert(r.status_code == 404)
+    logger.info(r.json())
+    logger.info("Neighbor 40.0.0.4 has been successfully deleted to VLAN 4000")
+
+    # Repeat delete Neighbor
+    params = '{}'
+    logger.info("Repeat deleting neighbor 40.0.0.4 from VLAN 4000")
+    for i in range(5):
+        r = restapi.delete_config_vlan_neighbor(construct_url, '4000', '40.0.0.4', params)
+        pytest_assert(r.status_code == 404)
+
+    # Delete VLAN before deleting member
+    params = '{}'
+    logger.info("Deleting VLAN 4000 before deleting VLAN member")
+    r = restapi.delete_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 409)
+
+    # Delete VLAN member
+    params = '{}'
+    logger.info("Deleting "+vlan_intf+" with tagging_mode: tagged to VLAN 4000")
+    r = restapi.delete_config_vlan_member(construct_url, '4000', vlan_intf, params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN member has been deleted
+    r = restapi.get_config_vlan_member(construct_url, '4000', vlan_intf)
+    pytest_assert(r.status_code == 404)
+    logger.info(r.json())
+    logger.info(vlan_intf+" with tagging_mode: tagged has been successfully deleted to VLAN 4000")
+
+    # Repeat delete VLAN member
+    params = '{}'
+    logger.info("Repeat deleting "+vlan_intf+" with tagging_mode: tagged to VLAN 4000")
+    for i in range(5):
+        r = restapi.delete_config_vlan_member(construct_url, '4000', vlan_intf, params)
+        pytest_assert(r.status_code == 404)
+
+    # Delete VLAN
+    params = '{}'
+    logger.info("Deleting VLAN 4000")
+    r = restapi.delete_config_vlan(construct_url, '4000', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN has been deleted
+    r = restapi.get_config_vlan(construct_url, '4000')
+    pytest_assert(r.status_code == 404)
+    logger.info(r.json())
+    logger.info("VLAN 4000 has been successfully deleted")
+
+    # Repeat delete VLAN
+    params = '{}'
+    logger.info("Repeat deleting VLAN 4000")
+    for i in range(5):
+        r = restapi.delete_config_vlan(construct_url, '4000', params)
+        pytest_assert(r.status_code == 404)
+
+    # Delete VNET
+    params = '{}'
+    logger.info("Deleting VNET vnet-guid-3")
+    r = restapi.delete_config_vrouter_vrf_id(construct_url, 'vnet-guid-4', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VNET has been deleted
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'vnet-guid-4')
+    pytest_assert(r.status_code == 404)
+    logger.info(r.json())
+    logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")    
+
+    # Repeat delete VNET
+    params = '{}'
+    logger.info("Repeat deleting VNET vnet-guid-3")
+    for i in range(5):
+        r = restapi.delete_config_vrouter_vrf_id(construct_url, 'vnet-guid-4', params)
+        pytest_assert(r.status_code == 404)
