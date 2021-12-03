@@ -8,6 +8,7 @@ import json
 import ptf
 import re
 import string
+import collections
 
 from scapy.all import Ether, IP, TCP, IPv6
 import scapy.all as scapyall
@@ -671,7 +672,7 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                socket_recv_size=16384)
 
 
-def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip):
+def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip, count=1):
     """
     Generate a packet to server based on hash.
     The value of field in packet is filled with random value according to hash_key
@@ -761,10 +762,22 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
 
     src_mac = ptfadapter.dataplane.get_mac(0, 0)
     dst_mac = duthost.facts["router_mac"]
-    if ipaddress.ip_address(target_server_ip.decode()).version == 4:
-        return _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
-    else:
-        return _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
+
+    # initialize the packets cache
+    if not hasattr(generate_hashed_packet_to_server, "packets_cache"):
+        generate_hashed_packet_to_server.packets_cache = collections.defaultdict(list)
+
+    call_signature = (target_server_ip, tuple(hash_key))
+    if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
+        pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
+        for _ in range(pkt_num):
+            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+                pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            else:
+                pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            generate_hashed_packet_to_server.packets_cache[call_signature].append(pkt_t)
+
+    return generate_hashed_packet_to_server.packets_cache[call_signature][:count]
 
 
 def random_ip(begin, end):
@@ -827,8 +840,8 @@ def check_nexthops_balance(rand_selected_dut,
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    for _ in range(10000):
-        send_packet, exp_pkt, exp_tunnel_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr)
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
