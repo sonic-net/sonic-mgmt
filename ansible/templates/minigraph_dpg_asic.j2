@@ -201,6 +201,7 @@
          <Name i:nil="true"/>
          <AttachTo>{{ all_loopback4096[a_linecard][idx] }}</AttachTo>
          <Type>StaticRoute</Type>
+         <Advertise>false</Advertise>
          <Address>
 {{- nexthop_intfs|join(',') -}}
          </Address>
@@ -210,6 +211,7 @@
          <Name i:nil="true"/>
          <AttachTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AttachTo>
          <Type>StaticRoute</Type>
+         <Advertise>false</Advertise>
          <Address>
 {{- nexthop_v6_intfs|join(',') -}}
          </Address>

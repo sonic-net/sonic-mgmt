@@ -23,16 +23,12 @@ import ipaddr
 import logging
 import pytest
 import json
-import random
-import threading
-import time
 from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
-from tests.common.utilities import wait_until
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -53,12 +49,11 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "send_rate_limit",
                                   "nn_target_vlanid"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
+_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
 _SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
-_SEND_PACKET_NUMBER = 1500
-_SEND_DURATION = 30
 
 
 class TestCOPP(object):
@@ -103,51 +98,6 @@ class TestCOPP(object):
                      copp_testbed,
                      dut_type)
 
-    @pytest.mark.parametrize("protocol", ["LACP",
-                                          "LLDP",
-                                          "UDLD",
-                                          "IP2ME"])
-    def test_counter(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type, counter_test):
-        duthost = duthosts[rand_one_dut_hostname]
-        trap_type = protocol.lower()
-
-        # wait until the trap counter is enabled
-        assert wait_until(10, 1, 0, _check_trap_counter_enabled, duthost, trap_type), 'counter is not created for {}'.format(trap_type)
-
-        # clean previous counter value
-        duthost.command('sonic-clear flowcnt-trap')
-
-        # start a thread to collect the max PPS value
-        actual_rate = []
-        t = threading.Thread(target=_collect_counter_rate, args=(duthost, trap_type, actual_rate))
-        t.start()
-
-        # init and start PTF
-        _copp_runner(duthost,
-                     ptfhost,
-                     protocol,
-                     copp_testbed,
-                     dut_type,
-                     True)
-
-        # wait for thread finish
-        t.join()
-
-        # get final packet count from CLI
-        expect_rate = float(_SEND_PACKET_NUMBER / _SEND_DURATION)
-        actual_packet_number = None
-        cli_data = duthost.show_and_parse('show flowcnt-trap stats')
-        for line in cli_data:
-            if 'trap name' in line and line['trap name'] == trap_type:
-                actual_packet_number = int(line['packets'].replace(',', ''))
-                break
-
-        assert actual_packet_number == _SEND_PACKET_NUMBER, 'Trap {} expect send packet number: {}, but actual: {}'.format(trap_type, _SEND_PACKET_NUMBER, actual_packet_number)
-        assert len(actual_rate) == 1, 'Failed to collect PPS value for trap {}'.format(trap_type)
-        # Allow a 10 percent threshold for trap rate
-        assert (expect_rate * 0.9) < actual_rate[0] < (expect_rate * 1.1), 'Trap {} expect send packet rate: {}, but actual: {}'.format(trap_type, expect_rate, actual_rate)
-
-
 @pytest.fixture(scope="class")
 def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -176,7 +126,7 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     try:
@@ -207,33 +157,17 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
-@pytest.fixture(scope="function")
-def counter_test(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    duthost.command('counterpoll flowcnt-trap enable')
-
-    yield
-
-    duthost.command('counterpoll flowcnt-trap disable')
-
-def _copp_runner(dut, ptf, protocol, test_params, dut_type, counter_test=False):
+def _copp_runner(dut, ptf, protocol, test_params, dut_type):
     """
         Configures and runs the PTF test cases.
     """
-    if not counter_test:
-        params = {"verbose": False,
-                "target_port": test_params.nn_target_port,
-                "myip": test_params.myip,
-                "peerip": test_params.peerip,
-                "send_rate_limit": test_params.send_rate_limit}
-    else:
-        params = {"verbose": False,
-                "target_port": test_params.nn_target_port,
-                "myip": test_params.myip,
-                "peerip": test_params.peerip,
-                "send_rate_limit": test_params.send_rate_limit,
-                "sent_pkt_number": _SEND_PACKET_NUMBER,
-                "send_duration": _SEND_DURATION}
+
+    params = {"verbose": False,
+              "target_port": test_params.nn_target_port,
+              "myip": test_params.myip,
+              "peerip": test_params.peerip,
+              "send_rate_limit": test_params.send_rate_limit}
+
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
@@ -263,11 +197,13 @@ def _gather_test_params(tbinfo, duthost, request):
     topo = tbinfo["topo"]["name"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+    # filter out server peer port and only bgp peer ports remain, to support T0 topologies
+    bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
     # get the port_index_map using the ptf_indicies to support multi DUT topologies
     port_index_map = {
         k: v
         for k, v in mg_facts["minigraph_ptf_indices"].items()
-        if k in mg_facts["minigraph_ports"]
+        if k in mg_facts["minigraph_ports"] and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
     }
     # use randam sonic interface for testing
     nn_target_interface = random.choice(port_index_map.keys())
@@ -309,7 +245,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
 
     logging.info("Set up the PTF for COPP tests")
-    copp_utils.configure_ptf(ptf, test_params.nn_target_port, test_params.nn_target_vlanid, is_backend_topology)
+    copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
@@ -395,51 +331,3 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
     dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
-
-def _check_trap_counter_enabled(duthost, trap_type):
-    lines = duthost.command('show flowcnt-trap stats')['stdout']
-    return trap_type in lines
-
-def _collect_counter_rate(duthost, trap_type, actual_rate):
-    rate_values = []
-    # Wait up to _SEND_DURATION + 5 seconds for PTF to stop sending packet,
-    # as it might take some time for PTF to initialize itself
-    max_wait = _SEND_DURATION + 5
-    packets = None
-    while max_wait > 0:
-        cli_data = duthost.show_and_parse('show flowcnt-trap stats')
-        for line in cli_data:
-            if 'trap name' in line and line['trap name'] == trap_type:
-                packets = line['packets']
-                if packets == 'N/A':
-                    # Packets value is not available yet
-                    logging.debug('Trap {} packets value is not available yet'.format(trap_type))
-                    break
-
-                pps_value = line['pps']
-                if pps_value == 'N/A':
-                    # PPS value is not available yet
-                    logging.debug('Trap {} PPS value is not available yet'.format(trap_type))
-                    break
-
-                packets = int(packets.replace(',', ''))
-                if packets == 0:
-                    # PTF has not started yet
-                    logging.debug('Trap {} packets value is still 0, PTF has not started yet'.format(trap_type))
-                    break
-
-                logging.info('Trap {} current PPS value is {}, packets value is {}'.format(trap_type, pps_value, packets))
-                rate_values.append(float(pps_value[:-2]))
-                break
-        if packets == _SEND_PACKET_NUMBER:
-            # Enough packets are sent, stop
-            break
-        time.sleep(0.5)
-        max_wait -= 0.5
-
-    if rate_values:
-        # Calculate max PPS
-        max_pps = max(rate_values)
-        logging.info('Trap {} max PPS is {}'.format(trap_type, max_pps))
-        actual_rate.append(max_pps)
-

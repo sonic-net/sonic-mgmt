@@ -166,7 +166,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
 
 
 def cleanup(ptfadapter, duthosts_list):
-    print_logs(duthosts_list)
+    print_logs(duthosts_list, print_dual_tor_logs=True)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
