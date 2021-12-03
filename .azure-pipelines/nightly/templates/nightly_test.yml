@@ -101,8 +101,7 @@ stages:
     jobs:
 
       - job: NightlyTest
-        pool: nightly2
-        container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
+        pool: nightly
         timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
         variables:
           - group: TBSHARE_SECRETS

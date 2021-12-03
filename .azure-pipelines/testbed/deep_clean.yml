@@ -162,8 +162,7 @@ parameters:
 jobs:
 - ${{ each SERVER in parameters.SERVER_TESTBED_INFO }}:
   - job: Deep_Clean_${{ SERVER.key }}
-    pool: nightly2
-    container: sonicdev-microsoft.azurecr.io/docker-sonic-mgmt:sudo
+    pool: nightly
     timeoutInMinutes: 300
     variables:
       - group: TBSHARE_SECRETS
