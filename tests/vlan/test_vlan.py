@@ -153,7 +153,7 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -174,6 +174,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vl
 
             res = duthost.command('show int portchannel')
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+            populate_fdb_for_tagged_ports(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
@@ -282,6 +284,15 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
             logger.error("Expected packet was not received")
         raise
 
+def populate_fdb_for_tagged_ports(ptfadapter, work_vlan_ports_list, vlan_intfs_dict):
+    # send icmp packet from each tagged port in each test vlan to populate fdb
+    for vlan in vlan_intfs_dict:
+        for vlan_port in work_vlan_ports_list:
+            if vlan_port['pvid'] != vlan and vlan in vlan_port['permit_vlanid']:
+                port_id = vlan_port['port_index'][0]
+                src_mac = ptfadapter.dataplane.get_mac(0, port_id)
+                pkt = build_icmp_packet(vlan_id=vlan, src_mac=src_mac)
+                testutils.send(ptfadapter, port_id, pkt)
 
 @pytest.mark.bsl
 def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
