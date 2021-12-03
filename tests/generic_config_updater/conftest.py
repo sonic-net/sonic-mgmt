@@ -1,8 +1,8 @@
 import pytest
 
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202106
 
@@ -12,5 +12,5 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_version(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911", "202012"])
 

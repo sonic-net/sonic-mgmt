@@ -51,11 +51,13 @@ class GitHubIssueChecker(IssueCheckerBase):
         creds_file_path = os.path.join(creds_folder_path, CREDENTIALS_FILE)
         try:
             with open(creds_file_path) as creds_file:
-                creds = yaml.safe_load(creds_file).get(self.NAME)
-                self.user = creds.get('user', '')
-                self.api_token = creds.get('api_token', '')
+                creds = yaml.safe_load(creds_file)
+                if creds is not None:
+                    github_creds = creds.get(self.NAME, {})
+                    self.user = github_creds.get('user', '')
+                    self.api_token = github_creds.get('api_token', '')
         except Exception as e:
-            logger.error('Load credentials from {} failed'.format(creds_file_path))
+            logger.error('Load credentials from {} failed with error: {}'.format(creds_file_path, repr(e)))
 
     def is_active(self):
         """Check if the issue is still active.
