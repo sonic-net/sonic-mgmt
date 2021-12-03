@@ -16,7 +16,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -48,7 +48,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_version(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911", "202012"])
 
 @pytest.fixture(scope='module', autouse=True)
 def recover_ports(duthosts, fanouthosts):
