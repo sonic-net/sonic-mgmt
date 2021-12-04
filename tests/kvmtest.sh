@@ -123,6 +123,7 @@ test_t0() {
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_default_route.py \
     ssh/test_ssh_stress.py \
+    ssh/test_ssh_ciphers.py \
     syslog/test_syslog.py \
     tacacs/test_rw_user.py \
     tacacs/test_ro_user.py \
@@ -150,7 +151,9 @@ test_t0() {
 
     # Run tests_2vlans on vlab-01 virtual switch
     tgname=2vlans
-    tests="dhcp_relay/test_dhcp_relay.py"
+    tests="\
+    dhcp_relay/test_dhcp_relay.py \
+    dhcp_relay/test_dhcpv6_relay.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -164,7 +167,7 @@ test_t0_sonic() {
     tests="bgp/test_bgp_fact.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --skip_sanity --disable_loganalyzer"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
     popd
 }
 

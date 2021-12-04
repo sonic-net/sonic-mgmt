@@ -26,15 +26,6 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 
-def skip_version(duthost, version_list):
-    """
-    @summary: Skip current test if any given version keywords are in os_version
-    @param duthost: The DUT
-    @param version_list: A list of incompatible versions
-    """
-    if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
-
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -99,10 +90,14 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception:
+        except Exception as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
-            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
             check_result = False
 
         if check_result:

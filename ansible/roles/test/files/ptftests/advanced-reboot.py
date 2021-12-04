@@ -151,6 +151,7 @@ class ReloadTest(BaseTest):
         self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
         self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
         self.check_param('allow_vlan_flooding', False, required=False)
+        self.check_param('allow_mac_jumping', False, required=False)
         self.check_param('sniff_time_incr', 300, required=False)
         self.check_param('vnet', False, required=False)
         self.check_param('vnet_pkts', None, required=False)
@@ -277,9 +278,13 @@ class ReloadTest(BaseTest):
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
 
+        active_portchannels = list()
+        for neighbor_info in list(self.vm_dut_map.values()):
+            active_portchannels.append(neighbor_info["dut_portchannel"])
+
         pc_ifaces = []
         for pc in portchannel_content.values():
-            if not pc['name'] in pc_in_vlan:
+            if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
         return ports_per_vlan, pc_ifaces
@@ -531,12 +536,12 @@ class ReloadTest(BaseTest):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
+        self.build_peer_mapping()
         self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
         if self.sad_oper:
-            self.build_peer_mapping()
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.default_ip_range = self.test_params['default_ip_range']
@@ -740,6 +745,9 @@ class ReloadTest(BaseTest):
                                         ip_src=dut_lo_ipv4,
                                         icmp_type='echo-reply')
 
+        self.ping_dut_macjump_packet = simple_icmp_packet(eth_dst=self.dut_mac,
+                                    ip_src=self.from_server_src_addr,
+                                    ip_dst=dut_lo_ipv4)
 
         self.ping_dut_exp_packet  = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -1832,9 +1840,13 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def pingDut(self):
-        for i in xrange(self.ping_dut_pkts):
-            src_port, packet = random.choice(self.ping_dut_packets)
-            testutils.send_packet(self, src_port, packet)
+        if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
+            for i in xrange(self.ping_dut_pkts):
+                testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
+        else:
+            for i in xrange(self.ping_dut_pkts):
+                src_port, packet = random.choice(self.ping_dut_packets)
+                testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 

@@ -77,6 +77,7 @@ class InnerHashTest(BaseTest):
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
         self.vxlan_port = self.test_params['vxlan_port']
+        self.outer_encap_formats = self.test_params['outer_encap_formats']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
         self.outer_dst_ip = self.outer_dst_ip_interval.get_first_ip()
 
@@ -89,13 +90,18 @@ class InnerHashTest(BaseTest):
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
 
+        logging.info("balancing_range:  {}".format(self.balancing_range))
+        logging.info("balancing_test_times:  {}".format(self.balancing_test_times))
+        logging.info("outer_encap_formats:  {}".format(self.outer_encap_formats))
+        logging.info("hash_keys:  {}".format(self.hash_keys))
+        logging.info("symmetric_hashing:  {}".format(self.symmetric_hashing))
+
 
     def check_hash(self, hash_key):
         src_port = int(random.choice(self.src_ports))
         logging.info("outer_dst_ip={}, src_port={}, exp_port_list={}".format(self.outer_dst_ip, src_port, self.exp_port_list))
-        outer_encap_formats = ['vxlan', 'nvgre']
 
-        for outer_encap_format in outer_encap_formats:
+        for outer_encap_format in self.outer_encap_formats:
             hit_count_map = {}
             for _ in range(0, self.balancing_test_times*len(self.exp_port_list)):
                 src_port = int(random.choice(self.src_ports))
@@ -154,16 +160,30 @@ class InnerHashTest(BaseTest):
         rand_int = random.randint(1, 99)
         src_mac = '00:12:ab:34:cd:' + str(rand_int)
         dst_mac = str(rand_int) + ':12:ab:34:cd:00'
-        pkt = simple_tcp_packet(
-                        eth_dst=dst_mac,
-                        eth_src=src_mac,
-                        ip_src=ip_src,
-                        ip_dst=ip_dst,
-                        tcp_sport=sport,
-                        tcp_dport=dport,
-                        ip_ttl=64)
+        if ip_network(unicode(ip_src)).version == 4:
+            pkt = simple_tcp_packet(
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                ip_dst=ip_dst,
+                ip_src=ip_src,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ip_ttl=64
+            )
 
-        pkt['IP'].proto = ip_proto
+            pkt["IP"].proto = ip_proto
+        else:
+            pkt = simple_tcpv6_packet(
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                ipv6_dst=ip_dst,
+                ipv6_src=ip_src,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ipv6_hlim=64
+            )
+
+            pkt["IPv6"].nh = ip_proto
         return pkt
 
 
