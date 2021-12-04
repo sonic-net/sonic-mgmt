@@ -17,7 +17,7 @@ MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
-__all__ = [
+CHECK_ITEMS = [
     'check_services',
     'check_interfaces',
     'check_bgp',
@@ -26,6 +26,8 @@ __all__ = [
     'check_processes',
     'check_mux_simulator',
     'check_secureboot']
+
+__all__ = CHECK_ITEMS
 
 
 @pytest.fixture(scope="module")
@@ -203,7 +205,7 @@ def check_bgp(duthosts):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                if a_asic_neighbors is not None:
+                if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in a_asic_neighbors.items()
                                       if v['state'] != 'established']
                     if down_neighbors:
@@ -266,7 +268,7 @@ def _is_db_omem_over_threshold(command_output):
         if m:
             omem = int(m.group(1))
             total_omem += omem
-    logger.debug(json.dumps(command_output, indent=4))
+    logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
@@ -291,9 +293,9 @@ def check_dbmemory(duthosts):
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
             result, total_omem = _is_db_omem_over_threshold(res)
+            check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
-                check_result["total_omem"] = total_omem
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)

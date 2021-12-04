@@ -70,14 +70,14 @@ class FilterPktBuffer(object):
     """
     FilterPktBuffer class for finding of packets in the buffer of PTF
     """
-    def __init__(self, ptfadapter, exp_pkt, dst_port_number, match_fields=None, ignore_fields=None):
+    def __init__(self, ptfadapter, exp_pkt, dst_port_numbers, match_fields=None, ignore_fields=None):
         """
         Initialize an object for finding packets in the buffer
 
         Args:
             ptfadapter: PTF adapter
             exp_pkt: Expected packet
-            dst_port_number: Destination port number
+            dst_port_numbers: Destination port numbers
             match_fields: List of packet fields that should be matched
             ignore_fields: List of packet fields that should be ignored
         """
@@ -85,7 +85,8 @@ class FilterPktBuffer(object):
         self.received_pkt_diff = []
         self.ptfadapter = ptfadapter
         self.pkt = exp_pkt
-        self.dst_port_number = dst_port_number
+        self.dst_port_numbers = [dst_port_numbers] if not isinstance(dst_port_numbers, list) else dst_port_numbers
+        self.matched_index = {port_number: 0 for port_number in self.dst_port_numbers}
 
         if match_fields is None:
             match_fields = []
@@ -128,16 +129,18 @@ class FilterPktBuffer(object):
         return pkt_dict
 
 
-    def __find_pkt_in_buffer(self):
+    def __find_pkt_in_buffer(self, dst_port_number):
         """
         Find expected packet in buffer by using matched fields
 
         Returns:
             Received packet
         """
-        time.sleep(0.1)
+        time.sleep(3)
         common_buffer = self.ptfadapter.dataplane.packet_queues
-        packet_buffer = common_buffer[(0, self.dst_port_number)][:]
+        packet_buffer = common_buffer[(0, dst_port_number)][:]
+        matched_index = 0
+        received_pkt = None
 
         for pkt in packet_buffer:
             packet_dict = convert_pkt_to_dict(Ether(pkt[0]))
@@ -149,9 +152,13 @@ class FilterPktBuffer(object):
                 except KeyError:
                     break
             else:
-                return Ether(pkt[0])
+                matched_index += 1
+                received_pkt = Ether(pkt[0])
 
-        return None
+        if received_pkt:
+            return ({dst_port_number: matched_index}, received_pkt)
+
+        return (None, None)
 
 
     def __diff_between_dict(self, rcv_pkt_dict, exp_pkt_dict, path=''):
@@ -207,7 +214,12 @@ class FilterPktBuffer(object):
         Returns:
             Bool value or difference between received packet and expected packet
         """
-        self.received_pkt = self.__find_pkt_in_buffer()
+        for dst_port in self.dst_port_numbers:
+            matched_index, received_pkt = self.__find_pkt_in_buffer(dst_port)
+
+            if received_pkt:
+                self.received_pkt = received_pkt
+                self.matched_index.update(matched_index)
 
         if self.received_pkt:
             return self.masked_exp_pkt.pkt_match(self.received_pkt) or self._diff_between_pkt(self.received_pkt)

@@ -44,6 +44,20 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 MOCK_DEST_IP = "2.2.2.2"
 LINK_LOCAL_IP = "169.254.0.1"
 
+# For dualtor
+@pytest.fixture(scope='module')
+def vlan_mac(duthost):
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dut_vlan_mac = None
+    for vlan in config_facts.get('VLAN', {}).values():
+        if 'mac' in vlan:
+            logging.debug('Found VLAN mac')
+            dut_vlan_mac = vlan['mac']
+            break
+    if not dut_vlan_mac:
+        logging.debug('No VLAN mac, use default router_mac')
+        dut_vlan_mac = duthost.facts['router_mac']
+    return dut_vlan_mac
 
 def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     """ Generate FDB config file to apply it using 'swssconfig' tool.
@@ -438,10 +452,11 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
 
 @pytest.fixture
-def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params):
+def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vlan_mac):
 
     def _get_simple_ip_packet(rx_port, src_ip, dst_ip):
-        dst_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+        dst_mac = vlan_mac if rx_port in testbed_params["vlan_ports"] \
+            else duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
         src_mac = "DE:AD:BE:EF:12:34"
         # send tagged packet for t0-backend whose vlan mode is tagged
         enable_vlan = rx_port in testbed_params["vlan_ports"] and testbed_params["vlan_interface"]["type"] == "tagged"

@@ -581,6 +581,19 @@ class AclVlanOuterTest_Base(object):
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_UNTAGGED, ACTION_DROP)
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_sonic_leaf_fanout(fanouthosts):
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
+    1. The Ingress test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic
+    leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout
+    2. The Egress test will populate ARP table by ping command, and the egressed ICMP packets will be tagged with test
+    vlan id (100 or 200), which will be dropped by sonic leaf-fanout.
+    """
+    for fanouthost in fanouthosts.values():
+        if fanouthost.get_fanout_os() == 'sonic':
+            pytest.skip("Not supporteds on SONiC leaf-fanout")
+            
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in ingress
@@ -666,6 +679,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
         # Skip on broadcom platforms
+        self.testing_acl_table_created = False
         pytest_require(duthost.facts["asic_type"] not in ("broadcom"),
                     "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"]))
         # Skip IPV6 EGRESS test since arp_responder doesn't support yet
@@ -673,6 +687,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
                     "IPV6 EGRESS test not supported")
 
         self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[1])
+        self.testing_acl_table_created = True
         ip_list = self._setup_arp_responder(ptfhost, vlan_setup_info)
         # Populate ARP table on DUT
         cmds = []
@@ -681,7 +696,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         duthost.shell_cmds(cmds=cmds, module_ignore_errors=True)
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
-        if ip_version == IPV4:
+        if self.testing_acl_table_created:
             self._remove_acl_table(duthost, EGRESS, ip_version)
         self._teardown_arp_responder(ptfhost)
     
