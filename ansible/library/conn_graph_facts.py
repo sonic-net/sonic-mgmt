@@ -12,13 +12,11 @@ from collections import defaultdict
 from natsort import natsorted
 
 try:
-    from ansible.module_utils.port_utils import get_port_alias_to_name_map
     from ansible.module_utils.debug_utils import config_module_logging
 except ImportError:
     # Add parent dir for using outside Ansible
     import sys
     sys.path.append('..')
-    from module_utils.port_utils import get_port_alias_to_name_map
     from module_utils.debug_utils import config_module_logging
 
 
