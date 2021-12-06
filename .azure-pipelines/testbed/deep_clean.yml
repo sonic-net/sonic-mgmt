@@ -57,7 +57,7 @@ parameters:
           - vms3-t1-7280
           - vms3-t1-dx010-1
       server_6:
-        vm_type: veos
+        vm_type: ceos
         testbeds:
           - vms6-1
           - vms6-t0-7060
