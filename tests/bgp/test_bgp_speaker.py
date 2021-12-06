@@ -15,6 +15,7 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common import constants
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -343,6 +344,13 @@ def get_dut_vlan_ptf_ports(mg_facts):
     return ports
 
 
+def is_all_neighbors_learned(duthost, speaker_ips):
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    for ip in speaker_ips:
+        if not str(ip.ip) in bgp_facts['bgp_neighbors']:
+            return False
+    return True
+  
 def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
                                        tbinfo, duthost, ptfhost, ipv4, ipv6, mtu,
                                        family, prefix, nexthop_ips, vlan_mac):
@@ -362,7 +370,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    time.sleep(30)
+    assert wait_until(90, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), "Not all dynamic neighbors were learned"
 
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     logger.info(bgp_facts)

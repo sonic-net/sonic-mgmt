@@ -61,6 +61,7 @@ def load_conditions(session):
             return yaml.safe_load(f)
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_file, repr(e)), exc_info=True)
+        pytest.fail('Loading conditions file "{}" failed. Possibly invalid yaml file.'.format(conditions_file))
 
     return None
 
@@ -299,6 +300,8 @@ def pytest_collection_modifyitems(session, config, items):
                     if mark_name == 'xfail':
                         strict = mark_details.get('strict', False)
                         mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
+                        # To generate xfail property in the report xml file
+                        item.user_properties.append(('xfail', strict))
                     else:
                         mark = getattr(pytest.mark, mark_name)(reason=reason)
 
