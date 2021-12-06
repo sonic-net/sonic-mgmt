@@ -748,3 +748,10 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
     conditions:
       - "asic_type=='cisco-8000'"
+
+system_health/test_system_health.py::test_service_checker_with_process_exit:
+  xfail:
+    strict: True
+    conditions:
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.44'"
