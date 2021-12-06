@@ -4965,7 +4965,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet60/1" vlanids="1629"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str2-7260cx3-acs-fan-33">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.166/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.248/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str2-7260cx3-acs-fan-33">
       <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="1666-1777"/>
