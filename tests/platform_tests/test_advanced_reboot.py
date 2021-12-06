@@ -85,7 +85,6 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     advancedReboot.runRebootTestcase()
 
 
-@pytest.mark.device_type('vs')
 def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_health,
     get_advanced_reboot):
     '''
