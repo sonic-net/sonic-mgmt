@@ -14,7 +14,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common import constants
-
+from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -96,11 +96,8 @@ def dut_config_change(duthost, dut_4basn):
     time.sleep(10)
     duthost.shell("config save -y")
     time.sleep(10)
-    is_config_applied=duthost.shell("sudo config reload -y")
-    time.sleep(20)
-    logger.info(is_config_applied)
-    logger.info("wait for configuration to be applied")
-    time.sleep(30)
+    duthost.shell("sudo config reload -y")
+    wait_critical_processes(duthost)
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info("New T0 ASN = %s" % updated_asn)
     result="false"
@@ -114,9 +111,7 @@ def dut_config_change(duthost, dut_4basn):
 def dut_config_reset(duthost, dut_asn_default):
     duthost.shell("sudo cp /etc/sonic/config_db_org.json /etc/sonic/config_db.json")
     duthost.shell("sudo config reload -y")
-    time.sleep(10)
-    logger.info("wait for configuration to be applied")
-    time.sleep(40)
+    wait_critical_processes(duthost)
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info(updated_asn)
     logger.info(updated_asn['stdout_lines'])
