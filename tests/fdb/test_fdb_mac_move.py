@@ -2,6 +2,8 @@ import logging
 import time
 import math
 
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 from utils import MacToInt, IntToMac, fdb_cleanup, get_crm_resources, send_arp_request
 
 TOTAL_FDB_ENTRIES = 12000
@@ -19,7 +21,7 @@ LOOP_TIMES_LEVEL_MAP = {
 logger = logging.getLogger(__name__)
 
 
-def get_fdb_dict(duthost, ptfadapter, vlan_table):
+def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
     """
     :param ptfadapter: PTF adapter object
     :param vlan_table: VLAN table map: VLAN subnet -> list of VLAN members
@@ -27,9 +29,7 @@ def get_fdb_dict(duthost, ptfadapter, vlan_table):
     """
 
     fdb = {}
-
     vlan = vlan_table.keys()[0]
-    vlan_member_count = len(vlan_table[vlan])
 
     total_fdb_entries = min(TOTAL_FDB_ENTRIES, (
                 get_crm_resources(duthost, "fdb_entry", "available") - get_crm_resources(duthost, "fdb_entry", "used")))
@@ -40,8 +40,6 @@ def get_fdb_dict(duthost, ptfadapter, vlan_table):
             continue
 
         port_index = member['port_index'][0]
-        vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
-        mac = ptfadapter.dataplane.get_mac(0, port_index)
 
         fdb[port_index] = {}
 
@@ -109,7 +107,13 @@ def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_
         if port_index:
             vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    fdb = get_fdb_dict(duthost, ptfadapter, vlan_table)
+    vlan = vlan_table.keys()[0]
+    vlan_member_count = len(vlan_table[vlan])
+    total_fdb_entries = min(TOTAL_FDB_ENTRIES, (
+            get_crm_resources(duthost, "fdb_entry", "available") - get_crm_resources(duthost, "fdb_entry", "used")))
+    dummay_mac_count = int(math.floor(total_fdb_entries / vlan_member_count))
+
+    fdb = get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count)
     port_list = fdb.keys()
     dummy_mac_list = fdb.values()
 
@@ -122,7 +126,8 @@ def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_
                 send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
 
         time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
-        time.sleep(10)
+        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) > vlan_member_count),
+                      "FDB Table Add failed")
         # Flush dataplane
         ptfadapter.dataplane.flush()
         fdb_cleanup(duthosts, rand_one_dut_hostname)
