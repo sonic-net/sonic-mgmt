@@ -53,6 +53,9 @@ class MtuTest(BaseTest):
         self.src_host_ip = self.test_params.get('src_host_ip')
         self.src_router_ip = self.test_params.get('src_router_ip')
         self.dst_host_ip = self.test_params.get('dst_host_ip')
+        self.src_host_ipv6 = self.test_params.get('src_host_ipv6')
+        self.src_router_ipv6 = self.test_params.get('src_router_ipv6')
+        self.dst_host_ipv6 = self.test_params.get('dst_host_ipv6')
         self.src_ptf_port_list = self.test_params.get('src_ptf_port_list')
         self.dst_ptf_port_list = self.test_params.get('dst_ptf_port_list')
     
@@ -90,6 +93,52 @@ class MtuTest(BaseTest):
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
+        dst_port_list = self.src_ptf_port_list
+
+        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        
+        assert received
+
+        matched_port = dst_port_list[matched_index]
+        logging.info("Received packet at " + str(matched_port))
+
+        return
+
+    #---------------------------------------------------------------------
+
+    def check_icmpv6_mtu(self):
+        '''
+        @summary: Check ICMPv6/Ping6 to DUT works for MAX MTU.
+        '''
+        ipv6_src = self.src_host_ipv6
+        ipv6_dst = self.src_router_ipv6
+        src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
+        pktlen = self.pktlen
+
+        pkt = simple_icmpv6_packet(pktlen=pktlen,
+                            eth_dst=self.router_mac,
+                            eth_src=src_mac,
+                            ipv6_src=ipv6_src,
+                            ipv6_dst=ipv6_dst,
+                            icmp_type=128,
+                            ipv6_hlim=64)
+
+        exp_pkt = simple_icmpv6_packet(pktlen=pktlen,
+                            eth_src=self.router_mac,
+                            ipv6_src=ipv6_dst,
+                            ipv6_dst=ipv6_src,
+                            icmp_type=129)
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "chksum")
+         
+        src_port = self.src_ptf_port_list[0]
+        send_packet(self, src_port, pkt)
+        logging.info("Sending packet from port " + str(src_port) + " to " + ipv6_dst)
         dst_port_list = self.src_ptf_port_list
 
         (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
@@ -143,11 +192,55 @@ class MtuTest(BaseTest):
 
     #---------------------------------------------------------------------
 
+    def check_ipv6_mtu(self):
+        '''
+        @summary: Check unicast IP forwarding in DUT works for MAX MTU.
+        '''
+        ipv6_src = self.src_host_ipv6
+        ipv6_dst = self.dst_host_ipv6
+        src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
+
+        pkt = simple_ipv6ip_packet(pktlen=self.pktlen,
+                            eth_dst=self.router_mac,
+                            eth_src=src_mac,
+                            ipv6_src=ipv6_src,
+                            ipv6_dst=ipv6_dst,
+                            ipv6_hlim=64)
+
+        exp_pkt = simple_ipv6ip_packet(pktlen=self.pktlen,
+                            eth_src=self.router_mac,
+                            ipv6_src=ipv6_src,
+                            ipv6_dst=ipv6_dst,
+                            ipv6_hlim=63)
+
+        masked_exp_pkt = Mask(exp_pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
+
+        src_port = self.src_ptf_port_list[0]
+        send_packet(self, src_port, pkt)
+        logging.info("Sending packet from port " + str(src_port) + " to " + ipv6_dst)
+
+        dst_port_list = self.dst_ptf_port_list
+        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+
+        assert received
+
+        matched_port = dst_port_list[matched_index]
+        logging.info("Received packet at " + str(matched_port))
+    
+        return
+
+    #---------------------------------------------------------------------
+
     def runTest(self):
         """
         @summary: Send packet(Max MTU) to test on Ping request/response and unicast IP destination.
         Expect the packet to be received from one of the expected ports
         """
         self.pktlen = self.testbed_mtu          
-        self.check_icmp_mtu()
-        self.check_ip_mtu()
+        #self.check_icmp_mtu()
+        #self.check_icmpv6_mtu()
+        #self.check_ip_mtu()
+        self.check_ipv6_mtu()
