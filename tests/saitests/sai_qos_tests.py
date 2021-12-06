@@ -1820,7 +1820,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
             margin = int(self.test_params['pkts_num_margin'])
         else:
-            margin = 2
+            margin = int(self.test_params['pkts_num_margin']) if self.test_params.get("pkts_num_margin") else 2
 
         # Get a snapshot of counter values
         xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
