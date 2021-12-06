@@ -25,7 +25,6 @@ from tests.common.cache import FactsCache
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -38,6 +37,22 @@ def skip_release(duthost, release_list):
 
     if any(release == duthost.sonic_release for release in release_list):
         pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+
+def check_skip_release(duthost, release_list):
+    """
+    @summary: check if need skip current test if any given release keywords are in os_version, match sonic_release.
+    @param duthost: The DUT
+    @param release_list: A list of incompatible releases
+    """
+    if any(release in duthost.os_version for release in release_list):
+        logger.info("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
+        return True
+
+    if any(release == duthost.sonic_release for release in release_list):
+        logger.info("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+        return True
+
+    return False
 
 def skip_release_for_platform(duthost, release_list, platform_list):
     """

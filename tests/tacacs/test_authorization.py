@@ -3,7 +3,7 @@ import paramiko
 import pytest
 
 from .test_ro_user import ssh_remote_run
-from .utils import stop_tacacs_server, start_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server, per_command_check_skip_versions
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 
@@ -70,7 +70,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, ["201811", "201911", "202012", "202106"])
+    skip_release(duthost, per_command_check_skip_versions)
 
 def test_authorization_tacacs_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs, remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

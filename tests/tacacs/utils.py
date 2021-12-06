@@ -3,11 +3,14 @@ import logging
 import re
 
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_skip_release
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
+
+# per-command authorization and accounting feature not avaliable in following versions
+per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
 
 def check_output(output, exp_val1, exp_val2):
     pytest_assert(not output['failed'], output['stderr'])
@@ -53,9 +56,11 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
 
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
-    duthost.shell("sudo config aaa authorization local")
-    duthost.shell("sudo config aaa accounting disable")
-    
+
+    if check_skip_release(duthost, per_command_check_skip_versions):
+        duthost.shell("sudo config aaa authorization local")
+        duthost.shell("sudo config aaa accounting disable")
+
     # setup local user
     setup_local_user(duthost, creds_all_duts)
 
@@ -113,5 +118,7 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
-    duthost.shell("sudo config aaa authorization local")
-    duthost.shell("sudo config aaa accounting disable")
+
+    if check_skip_release(duthost, per_command_check_skip_versions):
+        duthost.shell("sudo config aaa authorization local")
+        duthost.shell("sudo config aaa accounting disable")
