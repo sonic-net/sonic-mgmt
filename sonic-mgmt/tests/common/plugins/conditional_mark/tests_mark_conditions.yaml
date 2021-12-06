@@ -116,6 +116,12 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
     conditions:
        - asic_type=="cisco-8000"
 
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+  skip:
+    reason: "Forward action not supported in cisco-8000"
+    conditions:
+       - asic_type=="cisco-8000"
+
 drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
     reason: "Cisco 8000 platform does not drop DIP linklocal packets in 202012 version"
