@@ -19,6 +19,14 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
     conditions:
       - "asic_type=='cisco-8000'"
 
+
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
+  skip:
+    reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 platform, fans do not have their own leds."
@@ -89,5 +97,45 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   #there is no fan tray idprom
   skip:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
+  #Most of the drivers used for thermal sensors are standard hwmon kernel drivers, and Cisco platform currently do not expose 
+  #serial and model number under sysfs path
+  skip:
+    reason: "test_get_model is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
+  #Most of the drivers used for thermal sensors are standard hwmon kernel drivers, and Cisco platform currently do not expose 
+  #serial and model number under sysfs path
+  skip:
+    reason: "test_get_serial is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+drop_packets/test_drop_counters.py::test_dst_ip_link_local:
+  skip:
+    reason: "Cisco 8000 platform does not drop DIP linklocal packets in 202012 version"
+    conditions:
+      - "asic_type=='cisco-8000' and release in ['202012']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
+  skip:
+    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version"
+    conditions:
+      - "asic_type=='cisco-8000' and release in ['202012']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
+  skip:
+    reason: "psu led is not supported in cisco platform"
+    conditions:
+       - asic_type=="cisco-8000"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
+  skip:
+    reason: "psu led is not supported in cisco platform"
     conditions:
        - asic_type=="cisco-8000"
