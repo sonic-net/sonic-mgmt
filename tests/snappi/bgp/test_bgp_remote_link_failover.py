@@ -52,7 +52,7 @@ def test_bgp_convergence_for_remote_link_failover(cvg_api,
         route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
-    #convergence_test_iterations, multipath, number_of_routes and route_type parameters can be modified as per user preference
+    #convergence_test_iterations, multipath, number_of_routes, port_speed and route_type parameters can be modified as per user preference
     run_bgp_remote_link_failover_test(cvg_api,
                                       duthost,
                                       tgen_ports,

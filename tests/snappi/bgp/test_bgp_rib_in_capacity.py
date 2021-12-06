@@ -8,7 +8,7 @@ import pytest
 
 
 @pytest.mark.parametrize('multipath', [2])
-@pytest.mark.parametrize('start_value', [10000])
+@pytest.mark.parametrize('start_value', [1000])
 @pytest.mark.parametrize('step_value', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
 @pytest.mark.parametrize('port_speed',['speed_100_gbps'])
@@ -53,7 +53,7 @@ def test_RIB_IN_capacity(cvg_api,
         route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
-    #multipath, start_value, step_value and route_type parameters can be modified as per user preference
+    #multipath, start_value, step_value and route_type, port_speed parameters can be modified as per user preference
     run_RIB_IN_capacity_test(cvg_api,
                              duthost,
                              tgen_ports,

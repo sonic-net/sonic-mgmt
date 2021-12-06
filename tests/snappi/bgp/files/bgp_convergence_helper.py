@@ -1,7 +1,7 @@
 from tabulate import tabulate
 from statistics import mean
-from tests.common.utilities import wait
-import json
+from tests.common.utilities import (wait, wait_until)
+from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -168,7 +168,8 @@ def run_RIB_IN_capacity_test(cvg_api,
                              multipath,
                              start_value,
                              step_value,
-                             route_type,):
+                             route_type,
+                             port_speed,):
 
     """
     Run RIB-IN Capacity test
@@ -844,5 +845,6 @@ def cleanup_config(duthost):
     """
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT+60,"For Cleanup to complete \n")
+    logger.info("Wait until all critical services are fully started")
+    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
     logger.info('Convergence Test Completed')

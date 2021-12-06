@@ -54,7 +54,7 @@ def test_rib_in_convergence(cvg_api,
         route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
-    #convergence_test_iterations, multipath, number_of_routes and route_type parameters can be modified as per user preference
+    #convergence_test_iterations, multipath, number_of_routes port_speed and route_type parameters can be modified as per user preference
     run_rib_in_convergence_test(cvg_api,
                                 duthost,
                                 tgen_ports,
