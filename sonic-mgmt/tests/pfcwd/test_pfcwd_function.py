@@ -722,7 +722,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
              pfc_wd_restore_time_large = request.config.getoption("--restore-time")
              # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
              self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-             for action in ['dontcare', 'drop', 'forward']:
+             actions = ['dontcare', 'drop', 'forward']
+             if duthost.sonichost._facts['asic_type']=="cisco-8000":
+                 actions = ['dontcare', 'drop']
+             for action in actions:
                  try:
                      self.stats = PfcPktCntrs(self.dut, action)
                      logger.info("{} on port {}".format(WD_ACTION_MSG_PFX[action], port))
