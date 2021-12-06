@@ -35,7 +35,7 @@ class AclCapabilityModule(object):
         swsssdk.SonicDBConfig.load_sonic_global_db_config()
         conn = swsssdk.SonicV2Connector(namespace=namespace_list[0])
         conn.connect(conn.STATE_DB)
-        keys = conn.keys(conn.STATE_DB, 'ACL_STAGE_CAPABILITY_TABLE|*')
+        keys = conn.keys(conn.STATE_DB, 'ACL_STAGE_CAPABILITY_TABLE|*') or []
 
         for key in keys:
             capab = conn.get_all(conn.STATE_DB, key)
