@@ -345,62 +345,75 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
                     additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
-    marker = loganalyzer.init()
-    loganalyzer.load_common_config()
 
-    ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
-    expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
-    ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
-    expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
+    def pre_reboot_analysis():
+        marker = loganalyzer.init()
+        loganalyzer.load_common_config()
 
-    loganalyzer.ignore_regex.extend(ignore_reg_exp)
-    loganalyzer.expect_regex = []
-    loganalyzer.expect_regex.extend(expect_reg_exp)
-    loganalyzer.match_regex = []
+        ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
+        expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
+        ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+        expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
 
-    yield
+        loganalyzer.ignore_regex.extend(ignore_reg_exp)
+        loganalyzer.expect_regex = []
+        loganalyzer.expect_regex.extend(expect_reg_exp)
+        loganalyzer.match_regex = []
+        return marker
 
-    result = loganalyzer.analyze(marker, fail=False)
-    analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
-    offset_from_kexec = dict()
+    def post_reboot_analysis(marker, reboot_oper=None):
+        result = loganalyzer.analyze(marker, fail=False)
+        analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
+        offset_from_kexec = dict()
 
-    for key, messages in result["expect_messages"].items():
-        if "syslog" in key:
-            get_kexec_time(duthost, messages, analyze_result)
-            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
-        elif "bgpd.log" in key:
-            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
-        elif "sairedis.rec" in key:
-            analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
+        for key, messages in result["expect_messages"].items():
+            if "syslog" in key:
+                get_kexec_time(duthost, messages, analyze_result)
+                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+            elif "bgpd.log" in key:
+                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+            elif "sairedis.rec" in key:
+                analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 
-    for marker, time_data in analyze_result["offset_from_kexec"].items():
-        marker_start_time = time_data.get("timestamp", {}).get("Start")
-        reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
-        if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
-            time_data["time_taken"] = (_parse_timestamp(marker_start_time) -\
-                _parse_timestamp(reboot_start_time)).total_seconds()
+        for marker, time_data in analyze_result["offset_from_kexec"].items():
+            marker_start_time = time_data.get("timestamp", {}).get("Start")
+            reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+            if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
+                time_data["time_taken"] = (_parse_timestamp(marker_start_time) -\
+                    _parse_timestamp(reboot_start_time)).total_seconds()
+            else:
+                time_data["time_taken"] = "N/A"
+
+        get_data_plane_report(analyze_result, reboot_type)
+        result_summary = get_report_summary(analyze_result, reboot_type)
+        logging.info(json.dumps(analyze_result, indent=4))
+        logging.info(json.dumps(result_summary, indent=4))
+        if reboot_oper and not isinstance(reboot_oper, str):
+            reboot_oper = type(reboot_oper).__name__
+        if reboot_oper:
+            report_file_name = request.node.name + "_" + reboot_oper + "_report.json"
+            summary_file_name = request.node.name + "_" + reboot_oper + "_summary.json"
         else:
-            time_data["time_taken"] = "N/A"
+            report_file_name = request.node.name + "_report.json"
+            summary_file_name = request.node.name + "_summary.json"
 
-    get_data_plane_report(analyze_result, reboot_type)
-    result_summary = get_report_summary(analyze_result, reboot_type)
-    logging.info(json.dumps(analyze_result, indent=4))
-    logging.info(json.dumps(result_summary, indent=4))
-    report_file_name = request.node.name + "_report.json"
-    summary_file_name = request.node.name + "_summary.json"
-    report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
-        "../logs/platform_tests/")))
-    report_file_path = report_file_dir + "/" + report_file_name
-    summary_file_path = report_file_dir + "/" + summary_file_name
-    if not os.path.exists(report_file_dir):
-        os.makedirs(report_file_dir)
-    with open(report_file_path, 'w') as fp:
-        json.dump(analyze_result, fp, indent=4)
-    with open(summary_file_path, 'w') as fp:
-        json.dump(result_summary, fp, indent=4)
 
-    # After generating timing data report, do some checks on the timing data
-    verify_mac_jumping(test_name, analyze_result)
+        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+            "../logs/platform_tests/")))
+        report_file_path = report_file_dir + "/" + report_file_name
+        summary_file_path = report_file_dir + "/" + summary_file_name
+        if not os.path.exists(report_file_dir):
+            os.makedirs(report_file_dir)
+        with open(report_file_path, 'w') as fp:
+            json.dump(analyze_result, fp, indent=4)
+        with open(summary_file_path, 'w') as fp:
+            json.dump(result_summary, fp, indent=4)
+
+        # After generating timing data report, do some checks on the timing data
+        verify_mac_jumping(test_name, analyze_result)
+
+    yield pre_reboot_analysis, post_reboot_analysis
+
 
 @pytest.fixture()
 def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):

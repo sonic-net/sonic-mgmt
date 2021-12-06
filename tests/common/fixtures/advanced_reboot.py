@@ -5,6 +5,7 @@ import json
 import logging
 import pytest
 import time
+import os
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -76,6 +77,7 @@ class AdvancedReboot:
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
+        self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer" in kwargs else None
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -352,6 +354,17 @@ class AdvancedReboot:
         '''
         Fetch test logs from duthost and ptfhost after individual test run
         '''
+        if rebootOper:
+            dir_name = "{}_{}".format(self.request.node.name, rebootOper)
+        else:
+            dir_name = self.request.node.name
+        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+            "../../logs/platform_tests/")))
+        log_dir = os.path.join(report_file_dir, dir_name)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        log_dir = log_dir + "/"
+
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(self.rebootType)
             rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
@@ -381,15 +394,15 @@ class AdvancedReboot:
         logger.info('Fetching log files from ptf and dut hosts')
         logFiles = {
             self.ptfhost: [
-                {'src': rebootLog, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': rebootReport, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': capturePcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': filterPcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
+                {'src': rebootLog, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': rebootReport, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': capturePcap, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': filterPcap, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
             ],
             self.duthost: [
-                {'src': syslogFile, 'dest': '/tmp/', 'flat': True},
-                {'src': sairedisRec, 'dest': '/tmp/', 'flat': True},
-                {'src': swssRec, 'dest': '/tmp/', 'flat': True},
+                {'src': syslogFile, 'dest': log_dir, 'flat': True},
+                {'src': sairedisRec, 'dest': log_dir, 'flat': True},
+                {'src': swssRec, 'dest': log_dir, 'flat': True},
             ],
         }
         for host, logs in logFiles.items():
@@ -430,6 +443,9 @@ class AdvancedReboot:
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
+                if self.advanceboot_loganalyzer:
+                    pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
+                    marker = pre_reboot_analysis()
                 self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
@@ -440,6 +456,8 @@ class AdvancedReboot:
                 self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
+                if self.advanceboot_loganalyzer:
+                    post_reboot_analysis(marker, reboot_oper=rebootOper)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         pytest_assert(len(failed_list) == 0,\
