@@ -587,6 +587,18 @@ sonic_arista:
     str2-7804-sup-1:
       ansible_host: 10.3.146.249
       hwsku: Arista-7808R3A-FM
+      skip_modules:
+          'line-cards':
+            - LINE-CARD1
+            - LINE-CARD2
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'psus':
+            - psu9
+            - psu10
+            - psu11
+            - psu12
     str2-7804-lc3-1:
       ansible_host: 10.3.147.15
       hwsku: Arista-7800R3-48CQ2-C48
@@ -911,6 +923,18 @@ sonic_arista_sup:
     str2-7804-sup-1:
       ansible_host: 10.3.146.249
       hwsku: Arista-7808R3A-FM
+      skip_modules:
+          'line-cards':
+            - LINE-CARD1
+            - LINE-CARD2
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'psus':
+            - psu9
+            - psu10
+            - psu11
+            - psu12
 
 sonic_cisco_sup:
   vars:
