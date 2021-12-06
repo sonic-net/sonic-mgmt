@@ -7,7 +7,6 @@ import ptf.packet as packet
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
                       ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
-from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses

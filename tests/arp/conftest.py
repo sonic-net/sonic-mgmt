@@ -7,7 +7,7 @@ from .arp_utils import collect_info, get_po
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
+from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_require as pt_require
 
 CRM_POLLING_INTERVAL = 1

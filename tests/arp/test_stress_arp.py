@@ -5,7 +5,10 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
         in6_getnsma, inet_pton, inet_ntop, socket
+from ipaddress import ip_network
+from tests.common.utilities import wait_until
 
+ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
 
@@ -38,6 +41,11 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
+def genrate_ipv4_ip():
+    ipv4_addr = ip_network(unicode(ARP_BASE_IP), strict=False)
+    ptf_intf_ipv4_hosts = ipv4_addr.hosts()
+    return list(ptf_intf_ipv4_hosts)
+
 def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfadapter, get_function_conpleteness_level):
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
@@ -52,10 +60,10 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfad
     fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - get_crm_resources(duthost, "fdb_entry", "used")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
-    arp_avaliable = min(ipv4_avaliable, fdb_avaliable)
+    arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
-    _, ptf_intf_ipv4_hosts, _, _, _ = ip_and_intf_info
+    ptf_intf_ipv4_hosts = genrate_ipv4_ip()
     ptf_intf_ipv4_hosts = list(ptf_intf_ipv4_hosts)[1:arp_avaliable + 1]
     _, _, intf1_index, _, = intfs_for_test
 
@@ -65,7 +73,8 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfad
         loop_times -= 1
         add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
 
-        time.sleep(10)
+        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
+                      "ARP Table Add failed")
 
         clear_dut_arp_cache(duthost)
         fdb_cleanup(duthost)
@@ -117,10 +126,7 @@ def packets_for_test(duthost, config_facts, tbinfo, ip_and_intf_info, fake_src_m
     return ns_pkt, na_pkt
 
 
-def add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index):
-    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - get_crm_resources(duthost,"ipv6_neighbor","used")
-    nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
-
+def add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
     for entry in range(0, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_link_local_addr(nd_entry_mac)
@@ -144,12 +150,17 @@ def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, ge
         normalized_level = "basic"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - get_crm_resources(duthost, "ipv6_neighbor",
+                                                                                                  "used")
+    nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
 
     while loop_times > 0:
         loop_times -= 1
         add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index)
 
-        time.sleep(5)
+        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
+                      "Neighbor Table Add failed")
+
         clear_dut_arp_cache(duthost)
         fdb_cleanup(duthost)
         time.sleep(5)

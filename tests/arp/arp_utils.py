@@ -60,7 +60,7 @@ def get_crm_resources(duthost, resource, status):
 
 def get_fdb_dynamic_mac_count(duthost):
     res = duthost.command('show mac')
-    # logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
     for l in res['stdout_lines']:
         if "dynamic" in l.lower():
@@ -76,5 +76,5 @@ def fdb_cleanup(duthost):
         return
     else:
         duthost.command('fdbclear')
-        pytest_assert(wait_until(100, 1, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) == True),
+        pytest_assert(wait_until(200, 2, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) == True),
                       "FDB Table Cleanup failed")
