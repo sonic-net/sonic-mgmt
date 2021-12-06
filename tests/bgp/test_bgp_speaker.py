@@ -93,10 +93,9 @@ def dut_config_change(duthost, dut_4basn):
 
     duthost.copy(src=TMP_FILE, dest=TMP_FILE)
     duthost.shell("sonic-cfggen -j {} -w".format(TMP_FILE))
-    time.sleep(10)
     duthost.shell("config save -y")
-    time.sleep(10)
     duthost.shell("sudo config reload -y")
+    time.sleep(10)
     wait_critical_processes(duthost)
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info("New T0 ASN = %s" % updated_asn)
@@ -105,7 +104,6 @@ def dut_config_change(duthost, dut_4basn):
         if dut_4basn in item:
             result= "true"
             break
-
     return result
 
 def dut_config_reset(duthost, dut_asn_default):
@@ -122,7 +120,7 @@ def dut_config_reset(duthost, dut_asn_default):
             break
     return result
 
-@pytest.fixture
+@pytest.fixture#(scope="module")
 def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, request):
 
     logger.info("########### Setup for bgp speaker testing ###########")
@@ -519,18 +517,6 @@ def test_bgp_speaker_2byteasn_announce_routes(common_setup_teardown, Asntype, tb
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
 
 @pytest.mark.parametrize('common_setup_teardown', [
-      ['4byte']
-   ], indirect = True)
-@pytest.mark.parametrize("ipv4, ipv6, mtu, Asntype", [pytest.param(True, False, 1514, "4byte")])
-def test_bgp_speaker_4byteasn_announce_routes(common_setup_teardown, Asntype, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
-    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR with 4 byte ASN
-
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    nexthops = common_setup_teardown[3]
-    bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
-
-@pytest.mark.parametrize('common_setup_teardown', [
       ['2byte']
    ], indirect = True)
 @pytest.mark.parametrize("ipv4, ipv6, mtu, Asntype", [pytest.param(False, True, 1514, "2byte")])
@@ -541,6 +527,18 @@ def test_bgp_speaker_2byteasn_announce_routes_v6(common_setup_teardown, Asntype,
     duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[4]
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac)
+
+@pytest.mark.parametrize('common_setup_teardown', [
+      ['4byte']
+   ], indirect = True)
+@pytest.mark.parametrize("ipv4, ipv6, mtu, Asntype", [pytest.param(True, False, 1514, "4byte")])
+def test_bgp_speaker_4byteasn_announce_routes(common_setup_teardown, Asntype, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
+    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR with 4 byte ASN
+
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    nexthops = common_setup_teardown[3]
+    bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
 
 @pytest.mark.parametrize('common_setup_teardown', [
       ['4byte']
