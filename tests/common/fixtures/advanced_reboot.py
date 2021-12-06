@@ -75,6 +75,7 @@ class AdvancedReboot:
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
+        self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -445,7 +446,8 @@ class AdvancedReboot:
             "Advanced-reboot failure. Failed cases: {}".format(failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+    def runRebootTestcase(self, prebootList=None, inbootList=None,
+        prebootFiles='peer_dev_info,neigh_port_info'):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
@@ -516,7 +518,9 @@ class AdvancedReboot:
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
-            "asic_type": self.duthost.facts["asic_type"]
+            "asic_type": self.duthost.facts["asic_type"],
+            "allow_mac_jumping": self.allowMacJump,
+            "preboot_files" : self.prebootFiles
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -527,7 +531,6 @@ class AdvancedReboot:
             # presence of routing in reboot operation indicates it is during reboot operation (inboot)
             inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
             params.update({
-                "preboot_files" : self.prebootFiles,
                 "preboot_oper" : prebootOper,
                 "inboot_oper" : inbootOper,
             })
