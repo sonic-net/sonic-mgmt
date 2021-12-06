@@ -79,7 +79,7 @@ class TestSfpApi(PlatformApiTestBase):
         'type',
         'manufacturer',
         'model',
-        'hardware_rev',
+        'vendor_rev',
         'serial',
         'vendor_oui',
         'vendor_date',
