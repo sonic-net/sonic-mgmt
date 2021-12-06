@@ -11,8 +11,7 @@ pytestmark = [
     pytest.mark.topology('t1', 't2')
 ]
 
-@pytest.mark.parametrize("mtu", [9114])
-#@pytest.mark.parametrize("mtu", [1514,9114])
+@pytest.mark.parametrize("mtu", [1514,9114])
 def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, mtu, gather_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 

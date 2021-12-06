@@ -194,7 +194,7 @@ class MtuTest(BaseTest):
 
     def check_ipv6_mtu(self):
         '''
-        @summary: Check unicast IP forwarding in DUT works for MAX MTU.
+        @summary: Check unicast IPv6 forwarding in DUT works for MAX MTU.
         '''
         ipv6_src = self.src_host_ipv6
         ipv6_dst = self.dst_host_ipv6
@@ -240,7 +240,7 @@ class MtuTest(BaseTest):
         Expect the packet to be received from one of the expected ports
         """
         self.pktlen = self.testbed_mtu          
-        #self.check_icmp_mtu()
-        #self.check_icmpv6_mtu()
-        #self.check_ip_mtu()
+        self.check_icmp_mtu()
+        self.check_icmpv6_mtu()
+        self.check_ip_mtu()
         self.check_ipv6_mtu()
