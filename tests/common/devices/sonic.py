@@ -806,6 +806,8 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to shutdown
         """
         image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces shutdown
+        # Change the batch shutdown call to individual call here
         if "201811" in image_info.get("current"):
             for ifname in ifnames:
                 self.shutdown(ifname)
@@ -832,12 +834,15 @@ class SonicHost(AnsibleHostBase):
                 ifnames (list): the interface names to bring up
         """
         image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces startup
+        # Change the batch startup call to individual call here
         if "201811" in image_info.get("current"):
             for ifname in ifnames:
                 self.no_shutdown(ifname)
             return
-        intf_str = ','.join(ifnames)
-        return self.no_shutdown(intf_str)
+        else:
+            intf_str = ','.join(ifnames)
+            return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
