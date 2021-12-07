@@ -557,9 +557,39 @@ sonic_arista64_100:
       ansible_host: 10.64.247.224
       ansible_hostv6: 2a01:111:e210:b000::4
       hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: SSJ18423396
+      base_mac: 98:5d:82:1b:0a:2c
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "SSJ18423396"
+        "0x24": "98:5d:82:1b:0a:2c"
+        "0x25": "2018/11/01 14:57:25"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "SSJ18423396"
     str-7260cx3-acs-2:
       ansible_host: 10.64.247.10
       hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: SSJ17432414
+      base_mac: 74:83:ef:09:33:1c
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504B0"
+        "0x23": "SSJ17432414"
+        "0x24": "98:5d:82:1b:0a:2c"
+        "0x25": "2018/11/01 14:57:25"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "SSJ17432414"
     str-a7170-acs-1:
       ansible_host: 10.64.246.73
       hwsku: Arista-7170-64C
