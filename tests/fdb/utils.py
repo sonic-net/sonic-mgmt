@@ -11,6 +11,7 @@ from tests.common.utilities import wait_until
 MAC_STR = "000000000000"
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 5
+BASE_MAC_PREFIX = "02:11:22"
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ def get_fdb_dynamic_mac_count(duthost):
     logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
     for l in res['stdout_lines']:
-        if "dynamic" in l.lower():
+        if "dynamic" in l.lower() and BASE_MAC_PREFIX in l.lower():
             total_mac_count += 1
     return total_mac_count
 
