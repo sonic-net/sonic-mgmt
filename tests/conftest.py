@@ -559,7 +559,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.iteritems():
+    for k, v in console_login_creds.items():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -583,7 +583,7 @@ def creds_all_duts(duthosts):
 def pytest_runtest_makereport(item, call):
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
 
     # execute all other hooks to obtain the report object
     outcome = yield
