@@ -524,17 +524,6 @@ def test_bgp_speaker_2byteasn_announce_routes(common_setup_teardown, Asntype, tb
     nexthops = common_setup_teardown[3]
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
 
-@pytest.mark.parametrize('common_setup_teardown', [
-      ['2byte']
-   ], indirect = True)
-@pytest.mark.parametrize("ipv4, ipv6, mtu, Asntype", [pytest.param(False, True, 1514, "2byte")])
-def test_bgp_speaker_2byteasn_announce_routes_v6(common_setup_teardown, Asntype, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
-    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR with 2 byte bgp speaker and 4 byte T0 ASN
-
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    nexthops = common_setup_teardown[4]
-    bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac)
 
 @pytest.mark.parametrize('common_setup_teardown', [
       ['4byte']
@@ -547,6 +536,20 @@ def test_bgp_speaker_4byteasn_announce_routes(common_setup_teardown, Asntype, tb
     duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[3]
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
+
+@pytest.mark.parametrize('common_setup_teardown', [
+      ['2byte']
+   ], indirect = True)
+@pytest.mark.parametrize("ipv4, ipv6, mtu, Asntype", [pytest.param(False, True, 1514, "2byte")])
+def test_bgp_speaker_2byteasn_announce_routes_v6(common_setup_teardown, Asntype, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
+    """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR with 2 byte bgp speaker and 4 byte T0 ASN
+
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    nexthops = common_setup_teardown[4]
+    bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac)
+
+
 
 @pytest.mark.parametrize('common_setup_teardown', [
       ['4byte']
