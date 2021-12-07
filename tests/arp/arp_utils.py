@@ -5,6 +5,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 MAC_STR = "000000000000"
+ARP_MAC_PREFIX = "00:00:01"
 
 def clear_dut_arp_cache(duthost, ns_option = None):
     logger.info("Clearing {} neighbor table".format(duthost.hostname))
@@ -63,7 +64,7 @@ def get_fdb_dynamic_mac_count(duthost):
     logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
     for l in res['stdout_lines']:
-        if "dynamic" in l.lower():
+        if "dynamic" in l.lower() and BASE_MAC_PREFIX in l.lower():
             total_mac_count += 1
     return total_mac_count
 
