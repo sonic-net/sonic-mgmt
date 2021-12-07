@@ -164,6 +164,8 @@ class FgEcmpTest(BaseTest):
         self.inner_hashing = graph['inner_hashing']
         self.src_ipv4_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[1])))
         self.src_ipv6_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[1])))
+        self.vxlan_port = graph['vxlan_port']
+
         self.log(self.net_ports)
         self.log(self.serv_ports)
         self.log(self.exp_port_set_one)
@@ -174,6 +176,7 @@ class FgEcmpTest(BaseTest):
         self.log(self.num_flows)
         self.log(self.inner_hashing)
         self.log(self.exp_flow_count)
+        self.log(self.vxlan_port)
 
         if self.test_case != 'hash_check_warm_boot':
             # We send bi-directional traffic during warm boot due to
@@ -227,10 +230,11 @@ class FgEcmpTest(BaseTest):
             # and generate a flow to port map
             self.log("Creating flow to port map ...")
             for i in range(0, self.num_flows):
-                if ipv4:
+                if ipv4 or self.inner_hashing:
                     src_ip = self.src_ipv4_interval.get_random_ip()
                 else:
                     src_ip = self.src_ipv6_interval.get_random_ip()
+
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -274,7 +278,11 @@ class FgEcmpTest(BaseTest):
             self.log("Ensure that all packets were received ...")
             total_num_pkts_lost = 0
             for i in range(0, self.num_flows):
-                src_ip = str(base_ip + i)
+                if ipv4 or self.inner_hashing:
+                    src_ip = self.src_ipv4_interval.get_random_ip()
+                else:
+                    src_ip = self.src_ipv6_interval.get_random_ip()
+
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -485,7 +493,7 @@ class FgEcmpTest(BaseTest):
                     ip_dst=self.dst_ip,
                     ip_ttl=64,
                     udp_sport=rand_int,
-                    udp_dport=4789,
+                    udp_dport=self.vxlan_port,
                     vxlan_vni=20000+rand_int,
                     with_udp_chksum=False,
                     inner_frame=pkt)
@@ -521,7 +529,7 @@ class FgEcmpTest(BaseTest):
                     ipv6_src='2:2:2::' + str(rand_int),
                     ipv6_dst=self.dst_ip,
                     udp_sport=rand_int,
-                    udp_dport=4789,
+                    udp_dport=self.vxlan_port,
                     vxlan_vni=20000+rand_int,
                     with_udp_chksum=False,
                     inner_frame=pkt)
