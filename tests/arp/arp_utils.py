@@ -5,7 +5,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 MAC_STR = "000000000000"
-ARP_MAC_PREFIX = "00:00:01"
+BASE_MAC_PREFIX = "00:00:01"
 
 def clear_dut_arp_cache(duthost, ns_option = None):
     logger.info("Clearing {} neighbor table".format(duthost.hostname))
