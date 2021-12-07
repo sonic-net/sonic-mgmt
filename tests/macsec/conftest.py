@@ -6,6 +6,7 @@ import ipaddress
 import collections
 import time
 from multiprocessing.pool import ThreadPool
+import natsort
 
 from tests.common import config_reload
 
@@ -47,16 +48,7 @@ def recover_configuration(duthost, nbrhosts):
 
 
 @pytest.fixture(scope="module")
-def macsec_environment(duthost, nbrhosts):
-    recover_configuration(duthost, nbrhosts)
-    logger.info("Prepare MACsec environment")
-    yield
-    # recover_configuration(duthost, nbrhosts)
-    logger.info("Cleanup MACsec configuration")
-
-
-@pytest.fixture(scope="module")
-def enable_macsec_feature(duthost, nbrhosts, macsec_environment):
+def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
     time.sleep(30)
     logger.info("Enable MACsec feature")
@@ -162,9 +154,8 @@ def find_links_from_nbr(duthost, tbinfo, nbrhosts):
 @pytest.fixture(scope="module")
 def ctrl_links(duthost, tbinfo, nbrhosts):
     assert len(nbrhosts) > 1
-    import natsort
-    # ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)//2)
     ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
+    ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)//2)
     logging.info("Controlled links {}".format(ctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
