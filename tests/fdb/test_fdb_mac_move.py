@@ -31,8 +31,6 @@ def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
     fdb = {}
     vlan = vlan_table.keys()[0]
 
-    total_fdb_entries = min(TOTAL_FDB_ENTRIES, (
-                get_crm_resources(duthost, "fdb_entry", "available") - get_crm_resources(duthost, "fdb_entry", "used")))
     for member in vlan_table[vlan]:
         if 'port_index' not in member or 'tagging_mode' not in member:
             continue
@@ -43,7 +41,6 @@ def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
 
         fdb[port_index] = {}
 
-        dummay_mac_count = int(math.floor(total_fdb_entries / vlan_member_count))
         dummy_macs = []
         base_mac = BASE_MAC_ADDRESS.format(port_index)
         for i in range(dummay_mac_count):
