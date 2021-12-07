@@ -435,10 +435,11 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
+                stdout, _, _ = self.dut_connection.execCommand('sonic_installer list | grep Current | cut -f2 -d " "')
                 if key == 'v4':
                     cmd = "show ip bgp neighbors"
                 else:
-                    cmd = "show ipv6 bgp neighbors"
+                    cmd = "show ip bgp neighbors" if "201811" in stdout[0] else "show ipv6 bgp neighbors"
                 stdout, stderr, return_code = self.dut_connection.execCommand(cmd+' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
