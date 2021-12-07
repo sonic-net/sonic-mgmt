@@ -23,9 +23,9 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-2" EndPort="Card12/Port2" StartDevice="msr-sn2700-dut-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-2" EndPort="Card12/Port3" StartDevice="msr-sn2700-dut-1" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-2" EndPort="Card12/Port4" StartDevice="msr-sn2700-dut-1" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port6" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port7" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port8" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port5" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port6" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="msr-ixia-1" EndPort="Card12/Port7" StartDevice="msr-7050qx-dut-1" StartPort="Ethernet12"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port1" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port2" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port3" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet8"/>
@@ -58,9 +58,9 @@
       <InterfaceVlan mode="Access" portname="Card12/Port5" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card12/Port6" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card12/Port7" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port5" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card12/Port6" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card12/Port7" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port8" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="msr-ixia-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
