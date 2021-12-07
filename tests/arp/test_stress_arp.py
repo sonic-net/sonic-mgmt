@@ -156,7 +156,7 @@ def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, ge
 
     while loop_times > 0:
         loop_times -= 1
-        add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index)
+        add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
         pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
                       "Neighbor Table Add failed")
