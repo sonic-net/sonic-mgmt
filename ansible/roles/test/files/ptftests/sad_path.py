@@ -439,7 +439,7 @@ class SadOper(SadPath):
                 if key == 'v4':
                     cmd = "show ip bgp neighbors"
                 else:
-                    cmd = "show ip bgp neighbors" if "201811" in stdout[0] else "show ipv6 bgp neighbors"
+                    cmd = "show ip bgp neighbors" if (len(stdout) > 0 and "201811" in stdout[0]) else "show ipv6 bgp neighbors"
                 stdout, stderr, return_code = self.dut_connection.execCommand(cmd+' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
