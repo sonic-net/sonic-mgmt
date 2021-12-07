@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def ensure_dut_readiness(duthost):
     """
-    Setup/teardown fixture for incremental qos config update tst
+    Setup/teardown fixture for pfcwd interval config update tst
 
     Args:
         duthost: DUT host object
