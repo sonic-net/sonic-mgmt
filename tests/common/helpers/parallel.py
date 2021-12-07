@@ -198,7 +198,7 @@ def parallel_run(
             pt_assert(
                 False,
                 'Processes "{}" had failures. Please check the logs'.format(
-                    failed_processes.keys()
+                    list(failed_processes.keys())
                 )
             )
 

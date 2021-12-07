@@ -61,7 +61,7 @@ def print_logs(duthosts, print_dual_tor_logs=False):
     for dut in duthosts:
         logger.info("Run commands to print logs")
 
-        cmds = constants.PRINT_LOGS.values()
+        cmds = list(constants.PRINT_LOGS.values())
 
         if print_dual_tor_logs is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])

@@ -1,7 +1,7 @@
 
 import logging
 
-import constants
+from . import constants
 
 from tests.common.utilities import wait
 from tests.common.platform.device_utils import fanout_switch_port_lookup

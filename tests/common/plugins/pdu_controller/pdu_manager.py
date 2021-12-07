@@ -19,7 +19,7 @@
 
 import logging
 import copy
-from snmp_pdu_controllers import get_pdu_controller
+from .snmp_pdu_controllers import get_pdu_controller
 
 logger = logging.getLogger(__name__)
 

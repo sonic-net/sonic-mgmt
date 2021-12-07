@@ -291,7 +291,7 @@ class AnsibleLogAnalyzer:
 
         for filename in file_lsit:
             self.print_diagnostic_message('processing match file:%s' % filename)
-            with open(filename, 'rb') as csvfile:
+            with open(filename, 'r') as csvfile:
                 csvreader = csv.reader(csvfile, quotechar='"', delimiter=',',
                                        skipinitialspace=True)
 

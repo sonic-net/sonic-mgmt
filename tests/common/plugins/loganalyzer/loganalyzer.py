@@ -5,9 +5,9 @@ import re
 import time
 import pprint
 
-import system_msg_handler
+from . import system_msg_handler
 
-from system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
+from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
 from os.path import normpath
 
@@ -260,7 +260,7 @@ class LogAnalyzer:
         expected_lines_total = []
         unused_regex_messages = []
 
-        for key, value in analyzer_parse_result.iteritems():
+        for key, value in analyzer_parse_result.items():
             matching_lines, expecting_lines = value
             analyzer_summary["total"]["match"] += len(matching_lines)
             analyzer_summary["total"]["expected_match"] += len(expecting_lines)

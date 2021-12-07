@@ -8,7 +8,6 @@ import ipaddr as ipaddress
 import json
 import os
 import re
-import string
 import yaml
 import logging
 
@@ -96,8 +95,7 @@ class TestbedInfo(object):
                 if line['ptf_ipv6']:
                     line['ptf_ipv6'], line['ptf_netmask_v6'] = \
                         self._cidr_to_ip_mask(line['ptf_ipv6'])
-
-                line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                line['duts'] = re.sub('\[|\]| ', '', line['dut']).split(';')
                 line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 

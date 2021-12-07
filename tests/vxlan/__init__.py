@@ -3,9 +3,9 @@ import pytest
 import yaml
 
 from os import path
-from vnet_utils import combine_dicts, safe_open_template
+from .vnet_utils import combine_dicts, safe_open_template
 
-from vnet_constants import *
+from .vnet_constants import *
 
 logger = logging.getLogger(__name__)
 
