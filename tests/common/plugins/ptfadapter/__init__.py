@@ -2,7 +2,7 @@
 import os
 import pytest
 
-from ptfadapter import PtfTestAdapter
+from .ptfadapter import PtfTestAdapter
 import ptf.testutils
 
 from tests.common import constants

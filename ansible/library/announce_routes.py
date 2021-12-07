@@ -23,13 +23,13 @@ Options:
     - option-name: ptf_ip
       description: PTF container management IP address
       required: True
-      
+
     - option-name: action
       description: announce or withdraw routes
       required: False
-      
+
     - option-name: path
-      description: to figure out the path of topo_{}.yml 
+      description: to figure out the path of topo_{}.yml
       required: False
 '''
 
@@ -204,10 +204,10 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                 suffix = ((podset * tor_number * max_tor_subnet_number * tor_subnet_size) + \
                           (tor * max_tor_subnet_number * tor_subnet_size) + \
                           (subnet * tor_subnet_size))
-                octet2 = (168 + (suffix / (256 ** 2)))
-                octet1 = (192 + (octet2 / 256))
+                octet2 = (168 + int(suffix / (256 ** 2)))
+                octet1 = (192 + int(octet2 / 256))
                 octet2 = (octet2 % 256)
-                octet3 = ((suffix / 256) % 256)
+                octet3 = (int(suffix / 256) % 256)
                 octet4 = (suffix % 256)
                 prefixlen_v4 = (32 - int(math.log(tor_subnet_size, 2)))
 

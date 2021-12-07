@@ -3,7 +3,7 @@ from __future__ import print_function, division, absolute_import
 import inspect
 import logging
 import os
-import cPickle as pickle
+import pickle
 import shutil
 import sys
 
@@ -84,7 +84,7 @@ class FactsCache(with_metaclass(Singleton, object)):
         else:
             facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
             try:
-                with open(facts_file) as f:
+                with open(facts_file, 'b') as f:
                     self._cache[zone][key] = pickle.load(f)
                     logger.debug('Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
                     return self._cache[zone][key]
@@ -114,7 +114,7 @@ class FactsCache(with_metaclass(Singleton, object)):
                     logger.info('Create cache dir {}'.format(cache_subfolder))
                     os.makedirs(cache_subfolder)
 
-                with open(facts_file, 'w') as f:
+                with open(facts_file, 'wb') as f:
                     pickle.dump(value, f, pickle.HIGHEST_PROTOCOL)
                     self._cache[zone][key] = value
                     logger.info('Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
@@ -170,9 +170,10 @@ def _get_default_zone(function, func_args, func_kargs):
         Add the namespace to the default zone.
     """
     hostname = None
+    unicode_type = str if sys.version_info.major == 3 else unicode
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
-    if not hostname or type(hostname) not in [ str, unicode ]:
+    if not hostname or type(hostname) not in [ str, unicode_type ]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
     zone = hostname

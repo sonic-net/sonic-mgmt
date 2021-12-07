@@ -142,9 +142,9 @@ def check_interfaces(duthosts):
             phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
-                ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+                ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += cfg_facts["VLAN_INTERFACE"].keys()
+                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))

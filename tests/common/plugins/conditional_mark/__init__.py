@@ -13,7 +13,7 @@ import yaml
 
 import pytest
 
-from issue import check_issues
+from .issue import check_issues
 
 logger = logging.getLogger(__name__)
 

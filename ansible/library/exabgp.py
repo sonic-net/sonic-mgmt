@@ -164,7 +164,7 @@ def stop_exabgp(module, name):
 
 def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, auto_flush=True, group_updates=True, dump_script=None, passive=False):
     try:
-        os.mkdir("/etc/exabgp", 0755)
+        os.mkdir("/etc/exabgp", 0o755)
     except OSError:
         pass
 
@@ -208,7 +208,7 @@ def remove_exabgp_supervisord_conf(name):
 
 def setup_exabgp_processor():
     try:
-        os.mkdir("/usr/share/exabgp", 0755)
+        os.mkdir("/usr/share/exabgp", 0o755)
     except OSError:
         pass
     with open("/usr/share/exabgp/http_api.py", 'w') as out_file:
