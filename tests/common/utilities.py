@@ -540,5 +540,4 @@ def str2bool(str):
     :param str: The input string value
     :return: False if value is 0 or false, else True
     """
-    return str.lower() not in ["0", "false"]
-
+    return str.lower() not in ["0", "false", "no"]
