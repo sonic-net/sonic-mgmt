@@ -173,13 +173,12 @@ def upload_platform(duthost, paths, next_image=None):
         os.path.join(target, DEVICES_PATH, duthost.facts["platform"])))
 
     for comp, dat in paths.items():
-        duthost.copy(src=os.path.join("firmware", dat["firmware"]), 
-                dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
-        if "install" in dat:
-            duthost.copy(src=os.path.join("firmware", dat["install"]["firmware"]), 
+        if dat["firmware"].startswith("http"):
+            duthost.get_url(url=dat["firmware"], 
                     dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
-            logger.info("Copying {} to {}".format(os.path.join("firmware", dat["install"]["firmware"]),
-                os.path.join(target, DEVICES_PATH, duthost.facts["platform"])))
+        else:
+            duthost.copy(src=os.path.join("firmware", dat["firmware"]), 
+                    dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
 
 def validate_versions(init, final, config, chassis, boot):
     final = final["chassis"][chassis]["component"]
@@ -205,7 +204,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     command = "fwutil"
     if basepath is not None:
         command += " install"
-        auto_reboot = False
+        auto_reboot = paths[component].get("force_reboot", False)
     else:
         command += " update"
         auto_reboot = True
@@ -219,7 +218,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     if basepath is not None:
         # Install file is override if API implementation needs a different file for install / update
-        filepath = paths[component]["install"]["firmware"] if "install" in paths[component] else paths[component]["firmware"]
+        filepath = paths[component]["firmware"]
         command += " {}".format(os.path.join(basepath, os.path.basename(filepath)))
 
     if next_image is not None:
