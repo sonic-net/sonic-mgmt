@@ -65,7 +65,7 @@ class TestbedVMFacts():
     def get_neighbor_eos(self):
         eos = {}
         with open(self.topofile) as f:
-            vm_topology = yaml.load(f)
+            vm_topology = yaml.safe_load(f)
         self.topoall = vm_topology
         for  vm in vm_topology['topology']['VMs']:
             vm_index = int(vm_topology['topology']['VMs'][vm]['vm_offset'])+self.start_index

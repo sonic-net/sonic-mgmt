@@ -668,13 +668,13 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
   skip:
