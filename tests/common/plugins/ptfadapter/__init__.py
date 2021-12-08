@@ -1,6 +1,7 @@
 """This module provides ptfadapter fixture to be used by tests to send/receive traffic via PTF ports"""
 import os
 import pytest
+import time
 
 from .ptfadapter import PtfTestAdapter
 import ptf.testutils
@@ -199,8 +200,10 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
                 host.shell('docker run -dt --network=host --rm --name ptf -v /tmp/ptf_nn_agent.conf:/etc/supervisor/conf.d/ptf_nn_agent.conf docker-ptf')
 
                 #Maybe the threads in this docker are not ready and may return None
-                if "RUNNING" in host.shell('docker exec ptf supervisorctl status ptf_nn_agent')["stdout_lines"][0]:
-                    return ptf_nn_port
+                for j in range(MAX_RETRY_TIME):
+                    time.sleep(1)
+                    if "RUNNING" in host.shell('docker exec ptf supervisorctl status ptf_nn_agent', module_ignore_errors = True)["stdout_lines"][0]:
+                        return ptf_nn_port
             return None
 
         ptf_nn_agent_port = start_ptf_nn_agent()
