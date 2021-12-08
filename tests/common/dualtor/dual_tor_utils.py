@@ -8,7 +8,6 @@ import json
 import ptf
 import re
 import string
-import collections
 
 from scapy.all import Ether, IP, TCP, IPv6
 import scapy.all as scapyall
@@ -765,7 +764,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
 
     # initialize the packets cache
     if not hasattr(generate_hashed_packet_to_server, "packets_cache"):
-        generate_hashed_packet_to_server.packets_cache = collections.defaultdict(list)
+        generate_hashed_packet_to_server.packets_cache = defaultdict(list)
 
     call_signature = (target_server_ip, tuple(hash_key))
     if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
