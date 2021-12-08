@@ -512,6 +512,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
 
+
 def check_qos_db_fv_reference_with_table(duthost):
     """
     @summary: Check qos db field value refrence with table name or not.
@@ -522,3 +523,12 @@ def check_qos_db_fv_reference_with_table(duthost):
         logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
+
+
+def str2bool(str):
+    """
+    This is used as a type when add option for pytest
+    :param str: The input string value
+    :return: False if value is 0 or false, else True
+    """
+    return str.lower() not in ["0", "false", "no"]
