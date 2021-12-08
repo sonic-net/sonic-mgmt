@@ -1,4 +1,5 @@
 import pytest
+from tests.common.utilities import str2bool
 
 
 def add_advanced_reboot_args(parser):
@@ -31,7 +32,7 @@ def add_advanced_reboot_args(parser):
     parser.addoption(
         "--stay_in_target_image",
         action="store",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Stay in target image after reboot",
     )

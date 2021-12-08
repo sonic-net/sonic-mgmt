@@ -7,6 +7,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lg
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
+from tests.common.utilities import str2bool
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def pytest_addoption(parser):
                      help='Warm reboot needs to be enabled or not')
     parser.addoption('--restore-time', action='store', type=int, default=3000,
                      help='PFC WD storm restore interval')
-    parser.addoption('--fake-storm', action='store', type=bool, default=True,
+    parser.addoption('--fake-storm', action='store', type=str2bool, default=True,
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
