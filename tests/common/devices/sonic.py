@@ -240,7 +240,7 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
 
 
@@ -265,7 +265,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in platform_info.iteritems():
+                for key, value in platform_info.items():
                     result[key] = value
 
             except Exception:
@@ -805,8 +805,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to shutdown
         """
-        intf_str = ','.join(ifnames)
-        return self.shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces shutdown
+        # Change the batch shutdown call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.shutdown(intf_str)
 
     def no_shutdown(self, ifname):
         """
@@ -825,8 +833,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to bring up
         """
-        intf_str = ','.join(ifnames)
-        return self.no_shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces startup
+        # Change the batch startup call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.no_shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
