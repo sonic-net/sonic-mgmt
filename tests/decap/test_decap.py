@@ -33,6 +33,9 @@ def ttl_dscp_params(duthost, supported_ttl_dscp_params):
     if "uniform" in supported_ttl_dscp_params.values() and ("201811" in duthost.os_version or "201911" in duthost.os_version):
         pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
 
+    if supported_ttl_dscp_params['dscp'] == 'pipe' and duthost.facts['asic_type'] in ['cisco-8000']:
+        pytest.skip('dscp pipe mode is currently not supported for Cisco 8000 platform')
+
     return supported_ttl_dscp_params
 
 
