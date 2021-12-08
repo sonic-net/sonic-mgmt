@@ -38,6 +38,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.utilities import str2bool
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
