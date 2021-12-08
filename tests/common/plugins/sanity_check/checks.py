@@ -17,7 +17,7 @@ MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
-__all__ = [
+CHECK_ITEMS = [
     'check_services',
     'check_interfaces',
     'check_bgp',
@@ -26,6 +26,8 @@ __all__ = [
     'check_processes',
     'check_mux_simulator',
     'check_secureboot']
+
+__all__ = CHECK_ITEMS
 
 
 @pytest.fixture(scope="module")
@@ -140,9 +142,9 @@ def check_interfaces(duthosts):
             phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
-                ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+                ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += cfg_facts["VLAN_INTERFACE"].keys()
+                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
