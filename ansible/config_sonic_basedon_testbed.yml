@@ -235,6 +235,17 @@
       - "ports"
     when: front_panel_asic_ifnames != []
 
+  - block:
+      - name: Create new dictionary for my slot
+        set_fact:
+          new_asic_topo_config : "{{ new_asic_topo_config | default( { slot_num  : asic_topo_config.slot0 }) }}"
+
+      - name: set asic_topo_config to new dictionary
+        set_fact:
+          asic_topo_config: "{{ new_asic_topo_config }}"
+
+    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
+
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
