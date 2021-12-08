@@ -213,13 +213,13 @@ class ParseTestbedTopoinfo():
             raise Exception("cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
         else:
             with open(topo_filename) as f:
-                topo_definition = yaml.load(f)
+                topo_definition = yaml.safe_load(f)
 
         if not os.path.isfile(asic_topo_filename):
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
-                slot_definition = yaml.load(f)
+                slot_definition = yaml.safe_load(f)
 
         ### parse topo file specified in vars/ to reverse as dut config
         dut_num = 1
