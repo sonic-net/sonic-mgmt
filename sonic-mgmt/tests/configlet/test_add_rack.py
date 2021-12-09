@@ -138,7 +138,7 @@ def configure_dut(duthosts, rand_one_dut_hostname):
 
 def load_minigraph(duthost, duthost_name):
     config_reload(duthost, config_source="minigraph", wait=180, start_bgp=True) 
-    assert wait_until(300, 20, duthost.critical_services_fully_started), \
+    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
             "All critical services should fully started!{}".format(duthost.critical_services)
 
 

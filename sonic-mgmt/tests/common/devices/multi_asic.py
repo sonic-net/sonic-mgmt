@@ -57,8 +57,16 @@ class MultiAsicSonicHost(object):
             [list]: list of the services running the device
         """
         service_list = []
-        service_list+= self._DEFAULT_SERVICES
-        for asic in self.asics:
+        active_asics = self.asics
+        if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
+            active_asics = []
+            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_ASIC_TABLE|asic*\"")
+            for a_asic_line in sonic_db_cli_out["stdout_lines"]:
+                a_asic_name = a_asic_line.split("|")[1]
+                a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
+                active_asics.append(a_asic_instance)
+        service_list += self._DEFAULT_SERVICES
+        for asic in active_asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
 
@@ -367,14 +375,18 @@ class MultiAsicSonicHost(object):
             # If 'No such command' is found in stderr, the command doesn't exist
             return 'No such command' not in e.results['stderr']
 
-    def disable_syslog_rate_limit(self, feature):
+    def modify_syslog_rate_limit(self, feature, rl_option='disable'):
         """
         Disable Rate limit for a given service
         """
         services = [feature]
 
         if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
-            services = [asic.get_docker_name(feature) for asic in self.asics]
+            services = []
+            for asic in self.asics:
+                service_name = asic.get_docker_name(feature)
+                if service_name in self.sonichost.critical_services:
+                    services.append(service_name)
 
         for docker in services:
             cmd_disable_rate_limit = (
@@ -382,9 +394,18 @@ class MultiAsicSonicHost(object):
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
                 r"/etc/rsyslog.conf"
             )
+            cmd_enable_rate_limit = (
+                r"docker exec -i {} sed -i "
+                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
+                r"/etc/rsyslog.conf"
+            )
             cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
             cmds = []
-            cmds.append(cmd_disable_rate_limit.format(docker))
+
+            if rl_option == 'disable':
+                cmds.append(cmd_disable_rate_limit.format(docker))
+            else:
+                cmds.append(cmd_enable_rate_limit.format(docker))
             cmds.append(cmd_reload.format(docker))
             self.sonichost.shell_cmds(cmds=cmds)
 

@@ -688,14 +688,14 @@ class TestConfigInterface():
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
                         "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                         "Interface {} should be admin up".format(test_intf))
 
 

@@ -73,6 +73,21 @@ class TestFanDrawerFans(PlatformApiTestBase):
             self.expect(value == expected_value,
                           "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within fan_drawer {}".format(key, value, expected_value, fan_idx, fan_drawer_idx))
 
+    def get_fan_facts(self, duthost, fan_drawer_idx, fan_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            fan_drawers = duthost.facts.get("chassis").get("fan_drawers")
+            if fan_drawers:
+                fans = fan_drawers[fan_drawer_idx].get("fans")
+                if fans:
+                    value = fans[fan_idx]
+                    for key in keys:
+                        value = value.get(key)
+                        if value is None:
+                            return def_value
+
+                    return value
+
+        return def_value
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -204,18 +219,38 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        fan_drawers_skipped = 0
+
         for j in range(self.num_fan_drawers):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
-
                 speed_target_val = 25
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_fans_target_speed: Skipping fandrawer {} fan {} (speed not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                speed_minimum = self.get_fan_facts(duthost, j, i, 25, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
+                    speed_target_val = random.randint(speed_minimum, speed_maximum)
+
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, speed_target_val)
                 target_speed = fan_drawer_fan.get_target_speed(platform_api_conn, j, i)
                 if self.expect(target_speed is not None, "Unable to retrieve Fan drawer {} fan {} target speed".format(j, i)):
                     if self.expect(isinstance(target_speed, int), "Fan drawer {} fan {} target speed appears incorrect".format(j,i)):
                         self.expect(target_speed == speed_target_val, "Fan drawer {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}".format(
                             j, i, speed_target_val, target_speed))
+
+            if fans_skipped == num_fans:
+                fan_drawers_skipped += 1
+
+        if fan_drawers_skipped == self.num_fan_drawers:
+            pytest.skip("skipped as all fandrawer fans' speed is not controllable")
 
         self.assert_expectations()
 
@@ -234,12 +269,26 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
-        for j in range(self.num_fan_drawers):
-            num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        fan_drawers_skipped = 0
 
+        for j in range(self.num_fan_drawers):
             target_speed = random.randint(1, 100)
+            num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_set_fans_speed: Skipping fandrawer {} fan {} (speed not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                speed_minimum = self.get_fan_facts(duthost, j, i, 1, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > target_speed or speed_maximum < target_speed:
+                    target_speed = random.randint(speed_minimum, speed_maximum)
+
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
 
@@ -249,6 +298,12 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 self.expect(abs(act_speed - target_speed) <= speed_tol,
                             "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, actual speed {}".format(j, i, speed, target_speed, act_speed))
+
+            if fans_skipped == num_fans:
+                fan_drawers_skipped += 1
+
+        if fan_drawers_skipped == self.num_fan_drawers:
+            pytest.skip("skipped as all fandrawer fans' speed is not controllable")
 
         self.assert_expectations()
 
@@ -281,23 +336,51 @@ class TestFanDrawerFans(PlatformApiTestBase):
             2: "off"
         }
 
+        fan_drawers_skipped = 0
         for j in range(self.num_fan_drawers):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
-                for index, led_type in enumerate(LED_COLOR_TYPES):
-                    led_type_result = False
-                    for color in led_type:
-                        result = fan_drawer_fan.set_status_led(platform_api_conn, j, i, color)
-                        if self.expect(result is not None, "Failed to perform set_status_led"):
-                            led_type_result = result or led_type_result
-                        if ((result is None) or (not result)):
-                            continue
-                        color_actual = fan_drawer_fan.get_status_led(platform_api_conn, j, i)
-                        if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                            if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                                self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
-                                    color, color_actual, i))
-                    self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}".format(j , i, LED_COLOR_TYPES_DICT[index]))
+                led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
+                led_supported_colors = self.get_fan_facts(duthost, j, i, None, "status_led", "colors")
+
+                if led_controllable:
+                    led_type_skipped = 0
+                    for index, led_type in enumerate(LED_COLOR_TYPES):
+                        if led_supported_colors:
+                            led_type = set(led_type) & set(led_supported_colors)
+                            if not led_type:
+                                logger.warning("test_status_led: Skipping fandrawer {} fan {} set status_led to {} (No supported colors)".format(j, i, LED_COLOR_TYPES_DICT[index]))
+                                led_type_skipped += 1
+                                continue
+
+                        led_type_result = False
+                        for color in led_type:
+                            result = fan_drawer_fan.set_status_led(platform_api_conn, j, i, color)
+                            if self.expect(result is not None, "Failed to perform set_status_led"):
+                                led_type_result = result or led_type_result
+                            if ((result is None) or (not result)):
+                                continue
+                            color_actual = fan_drawer_fan.get_status_led(platform_api_conn, j, i)
+                            if self.expect(color_actual is not None, "Failed to retrieve status_led"):
+                                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
+                                    self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
+                                        color, color_actual, i))
+                        self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}".format(j , i, LED_COLOR_TYPES_DICT[index]))
+
+                    if led_type_skipped == len(LED_COLOR_TYPES):
+                        logger.info("test_status_led: Skipping fandrawer {} fan {} (no supported colors for all types)".format(j, i))
+                        fans_skipped += 1
+
+                else:
+                    logger.info("test_status_led: Skipping fandrawer {} fan {} (LED is not controllable)".format(j, i))
+                    fans_skipped += 1
+
+            if fans_skipped == num_fans:
+                fan_drawers_skipped += 1
+
+        if fan_drawers_skipped == self.num_fan_drawers:
+            pytest.skip("skipped as all fandrawer fans' LED is not controllable/no supported colors")
 
         self.assert_expectations()

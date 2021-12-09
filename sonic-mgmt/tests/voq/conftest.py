@@ -22,7 +22,7 @@ def chassis_facts(duthosts, request):
             host_vars = get_host_visible_vars(inv_files, a_host.hostname)
             assert 'slot_num' in host_vars, "Variable 'slot_num' not found in inventory for host {}".format(a_host.hostname)
             slot_num = host_vars['slot_num']
-            a_host.facts['slot_num'] = int(slot_num)
+            a_host.facts['slot_num'] = int(slot_num[len("slot"):])
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +67,8 @@ def nbr_macs(nbrhosts):
     logger.debug("Get MACS for all neighbor hosts.")
     results = parallel_run(_get_nbr_macs, [nbrhosts], {}, nbrhosts.keys(), timeout=120)
 
-    for res in results:
+    # result is DictProxy. Iterate it by using keys().
+    for res in results.keys():
         logger.info("parallel_results %s = %s", res, results[res])
 
     return results

@@ -55,6 +55,11 @@ class ControlPlaneBaseTest(BaseTest):
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
         self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
+        
+        # For counter test
+        self.expect_send_pkt_number = test_params.get('sent_pkt_number', None)
+        self.send_duration = test_params.get('send_duration', None)
+        self.is_counter_test = self.expect_send_pkt_number is not None and self.send_duration is not None
 
         self.needPreSend = None
 
@@ -110,6 +115,9 @@ class ControlPlaneBaseTest(BaseTest):
         '''
         Pre-send some packets for a second to absorb the CBS capacity.
         '''
+        if self.is_counter_test:
+            return self.copp_counter_test(packet, send_intf, recv_intf)
+
         if self.needPreSend:
             pre_send_count = 0
             end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.DEFAULT_PRE_SEND_INTERVAL_SEC)
@@ -178,6 +186,67 @@ class ControlPlaneBaseTest(BaseTest):
 
         return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
 
+    def copp_counter_test(self, packet, send_intf, recv_intf):
+        pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
+        pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
+        pre_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
+        pre_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
+
+        send_count = 0
+        start_time = datetime.datetime.now()
+        send_window = float(self.send_duration) / float(self.expect_send_pkt_number)
+        while send_count < self.expect_send_pkt_number:
+            begin = time.time()
+            testutils.send_packet(self, send_intf, packet)
+            send_count += 1
+            elapse = time.time() - begin
+
+            # Depending on the server/platform combination it is possible for the server to
+            # overwhelm the DUT, so we add an artificial delay here to rate-limit the server.
+            if elapse > 0:
+                time.sleep(send_window - elapse)
+
+        end_time = datetime.datetime.now()
+        time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)  # Wait a little bit for all the packets to make it through
+        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0])
+
+        post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
+        post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
+        post_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
+        post_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
+
+        ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
+        nn_tx_count = int(post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
+        ptf_rx_count = int(post_test_ptf_rx_counter[0] - pre_test_ptf_rx_counter[0])
+        nn_rx_count = int(post_test_nn_rx_counter[0] - pre_test_nn_rx_counter[0])
+
+        self.log("", True)
+        self.log("Counters before the test:", True)
+        self.log("If counter (0, n): %s" % str(pre_test_ptf_tx_counter), True)
+        self.log("NN counter (0, n): %s" % str(pre_test_nn_tx_counter), True)
+        self.log("If counter (1, n): %s" % str(pre_test_ptf_rx_counter), True)
+        self.log("NN counter (1, n): %s" % str(pre_test_nn_rx_counter), True)
+        self.log("", True)
+        self.log("Counters after the test:", True)
+        self.log("If counter (0, n): %s" % str(post_test_ptf_tx_counter), True)
+        self.log("NN counter (0, n): %s" % str(post_test_nn_tx_counter), True)
+        self.log("If counter (1, n): %s" % str(post_test_ptf_rx_counter), True)
+        self.log("NN counter (1, n): %s" % str(post_test_nn_rx_counter), True)
+        self.log("")
+        self.log("Sent through NN to local ptf_nn_agent:    %d" % ptf_tx_count)
+        self.log("Sent through If to remote ptf_nn_agent:   %d" % nn_tx_count)
+        self.log("Recv from If on remote ptf_nn_agent:      %d" % ptf_rx_count)
+        self.log("Recv from NN on from remote ptf_nn_agent: %d" % nn_rx_count)
+
+        time_delta = end_time - start_time
+        self.log("Sent out %d packets in %ds" % (send_count, time_delta.seconds))
+        time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 1000
+        tx_pps = int(send_count / (float(time_delta_ms) / 1000))
+        rx_pps = int(recv_count / (float(time_delta_ms) / 1000))
+
+        return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
+
+
     def contruct_packet(self, port_number):
         raise NotImplementedError
 
@@ -214,21 +283,22 @@ class NoPolicyTest(ControlPlaneBaseTest):
         self.needPreSend = False
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        pkt_rx_limit = send_count * 0.90
+        if not self.is_counter_test:
+            pkt_rx_limit = send_count * 0.90
 
-        self.log("")
-        self.log("Checking constraints (NoPolicy):")
-        self.log(
-            "rx_pps (%d) > NO_POLICER_LIMIT (%d): %s" %
-            (int(rx_pps), int(self.NO_POLICER_LIMIT), str(rx_pps > self.NO_POLICER_LIMIT))
-        )
-        self.log(
-            "recv_count (%d) > pkt_rx_limit (%d): %s" %
-            (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
-        )
+            self.log("")
+            self.log("Checking constraints (NoPolicy):")
+            self.log(
+                "rx_pps (%d) > NO_POLICER_LIMIT (%d): %s" %
+                (int(rx_pps), int(self.NO_POLICER_LIMIT), str(rx_pps > self.NO_POLICER_LIMIT))
+            )
+            self.log(
+                "recv_count (%d) > pkt_rx_limit (%d): %s" %
+                (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
+            )
 
-        assert(rx_pps > self.NO_POLICER_LIMIT)
-        assert(recv_count > pkt_rx_limit)
+            assert(rx_pps > self.NO_POLICER_LIMIT)
+            assert(recv_count > pkt_rx_limit)
 
 
 class PolicyTest(ControlPlaneBaseTest):
@@ -237,17 +307,18 @@ class PolicyTest(ControlPlaneBaseTest):
         self.needPreSend = True
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        self.log("")
-        self.log("Checking constraints (PolicyApplied):")
-        self.log(
-            "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
-            (int(self.PPS_LIMIT_MIN),
-             int(rx_pps),
-             int(self.PPS_LIMIT_MAX),
-             str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
-        )
+        if not self.is_counter_test:
+            self.log("")
+            self.log("Checking constraints (PolicyApplied):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                int(rx_pps),
+                int(self.PPS_LIMIT_MAX),
+                str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
 
-        assert(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX)
+            assert(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=600 for ARP

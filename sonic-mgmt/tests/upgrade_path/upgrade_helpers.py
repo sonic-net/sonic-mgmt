@@ -66,6 +66,7 @@ def prepare_ptf(ptfhost, duthost, tbinfo):
     arp_responder_conf = Template(open("../ansible/roles/test/templates/arp_responder.conf.j2").read())
     ptfhost.copy(content=arp_responder_conf.render(arp_responder_args="-e"),
                  dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest="/root/ptftests/advanced_reboot_sniffer.py")
 
     ptfhost.shell("supervisorctl reread")
     ptfhost.shell("supervisorctl update")

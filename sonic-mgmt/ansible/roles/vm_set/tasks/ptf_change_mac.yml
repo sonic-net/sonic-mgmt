@@ -18,6 +18,15 @@
     groups:
       - ptf_host
 
+- name: wait until ptf is reachable
+  wait_for:
+    port: 22
+    host: "{{ ptf_host_ip }}"
+    state: started
+    delay: 0
+    timeout: 300
+  delegate_to: "localhost"
+
 - name: Change PTF interface MAC addresses
   script: change_mac.sh
   delegate_to: "{{ ptf_host }}"

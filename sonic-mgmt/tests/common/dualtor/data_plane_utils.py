@@ -4,6 +4,7 @@ from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import wait_until
+from tests.common.plugins.sanity_check import print_logs
 import threading
 import logging
 from natsort import natsorted
@@ -152,7 +153,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         action()
     # do not time-wait the test, if early stop is not requested (when stop_after=None)
     if stop_after is not None:
-        wait_until(timeout=stop_after, interval=0.5, condition=\
+        wait_until(timeout=stop_after, interval=0.5, delay=0, condition=\
             lambda: not send_and_sniff.is_alive)
         if send_and_sniff.is_alive():
             logger.info("Sender/Sniffer threads are still running. Sending signal "\
@@ -165,10 +166,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
 
 
 def cleanup(ptfadapter, duthosts_list):
-    for duthost in duthosts_list:
-        facts = duthost.bgp_facts()
-        logger.info("{} BGP status".format(duthost))
-        logger.info(json.dumps(facts['ansible_facts'], indent=4))
+    print_logs(duthosts_list)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
@@ -198,7 +196,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
     
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
         Helper method for `send_t1_to_server_with_action`.
@@ -263,7 +261,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
 
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
-                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
         Helper method for `send_server_to_t1_with_action`.

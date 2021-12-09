@@ -167,7 +167,7 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         for 3 minutes. It will return False after timeout.
     """
     logger.info("Post-checking status of critical processes and BGP sessions...")
-    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS,
+    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
                       post_test_check, duthost, up_bgp_neighbors)
 
 

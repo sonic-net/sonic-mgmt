@@ -76,6 +76,12 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
         for i in range(29, 37):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
+    elif hwsku == "Arista-7280CR3-C40":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        for i in range(33, 41, 2):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/5" % i] = "Ethernet%d" % (i * 4)
     elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
         for i in range(1, 65):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -164,10 +170,10 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "Seastone-DX010":
         for i in range(1, 33):
             port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-    elif hwsku == "Celestica-E1031-T48S4":
+    elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215"]:
         for i in range(1, 53):
             port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
-    elif hwsku == "et6448m" or hwsku == "Nokia-7215":
+    elif hwsku == "et6448m":
         for i in range(0, 52):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "newport":
@@ -221,6 +227,9 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["twentyfiveGigE0/%d" % i] = "Ethernet%d" % i
         for i in range(49,57):
             port_alias_to_name_map["hundredGigE0/%d" % (i-48)] = "Ethernet%d" % i
+    elif hwsku == "RA-B6910-64C":
+        for i in range(1,65):
+            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
     else:
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
