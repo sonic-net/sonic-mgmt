@@ -3,7 +3,7 @@ import paramiko
 import pytest
 
 from .test_ro_user import ssh_remote_run
-from .utils import stop_tacacs_server, start_tacacs_server, per_command_check_skip_versions
+from .utils import stop_tacacs_server, start_tacacs_server, per_command_check_skip_versions, remove_all_tacacs_server
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 
@@ -112,8 +112,10 @@ def test_authorization_tacacs_only_some_server_down(localhost, duthosts, enum_ra
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     duthost.shell("sudo config tacacs timeout 1")
-    for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
-        duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+
+    # cleanup all tacacs server, if UT break, tacacs server may still left in dut and will break next UT.
+    remove_all_tacacs_server(duthost)
+
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     

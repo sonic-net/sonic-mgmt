@@ -2,7 +2,7 @@ import crypt
 import paramiko
 import pytest
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, per_command_check_skip_versions
+from .test_authorization import ssh_connect_remote, ssh_run_command, per_command_check_skip_versions, remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
@@ -154,8 +154,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(localhost, ptfhost, duth
     tacacs_server_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     duthost.shell("sudo config tacacs timeout 1")
-    for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
-        duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+    remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config aaa accounting tacacs+")

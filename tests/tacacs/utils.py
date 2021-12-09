@@ -114,7 +114,7 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     stop_tacacs_server(ptfhost)
 
     # reset tacacs client configuration
-    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
+    remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
@@ -122,3 +122,10 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     if check_skip_release(duthost, per_command_check_skip_versions):
         duthost.shell("sudo config aaa authorization local")
         duthost.shell("sudo config aaa accounting disable")
+
+def remove_all_tacacs_server(duthost):
+    # use grep command to extract tacacs server address from tacacs config
+    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"' 
+    server_list = duthost.shell(find_server_command)['stdout']
+    for tacacs_server in server_list:
+        duthost.shell("sudo config tacacs delete %s" % tacacs_server)
