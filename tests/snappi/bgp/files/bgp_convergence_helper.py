@@ -799,42 +799,71 @@ def get_RIB_IN_capacity(cvg_api,
         return conv_config
 
 
+    def run_traffic(routes):
+        logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
+        conv_config = tgen_capacity(routes)
+        cvg_api.set_config(conv_config)
+
+        """ Starting Traffic """
+        logger.info('Starting Traffic')
+        cs = cvg_api.convergence_state()
+        cs.transmit.state = cs.transmit.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Traffic To start")
+
     try:
         for j in range(start_value, 100000000000, step_value):
             tx_frate, rx_frate = [], []
-            logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(j))
-            conv_config = tgen_capacity(j)
-            cvg_api.set_config(conv_config)
-
-            """ Starting Traffic """
-            logger.info('Starting Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.START
-            cvg_api.set_state(cs)
-            wait(TIMEOUT, "For Traffic To start")
+            run_traffic(j)
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
-            flows = get_flow_stats(cvg_api)
-            for flow in flows:
+            for flow in flow_stats:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            if sum(tx_frate) != sum(rx_frate):
-                raise Exception('Tx Frame rate not equal to Rx Frame rate for {} routes'.format(j))
-            else:
+            logger.info("Tx Frame Rate : {}".format(tx_frate))
+            logger.info("Rx Frame Rate : {}".format(rx_frate))
+            if float(flow_stats[0].loss) > 0.001:
+                if j == start_value:
+                    raise Exception('Traffic Loss Encountered in first iteration, reduce the start value and run the test')
+                logger.info('Loss greater than 0.001 occured')
+                logger.info('Reducing the routes and running test')
+                b = j-step_value
                 logger.info('Stopping Traffic')
                 cs = cvg_api.convergence_state()
                 cs.transmit.state = cs.transmit.STOP
                 cvg_api.set_state(cs)
-                wait(TIMEOUT, "For Traffic To stop")
-    except:
-        if start_value == j:
-            max_routes = 'N/A'
-            raise Exception('Set the start_value less than : {} !!!!!!!!!!!!'.format(start_value))
-        else:
-            max_routes = j-step_value
-            logger.info('max_routes :{}'.format(max_routes))
+                wait(TIMEOUT-20, "For Traffic To stop")
+                break
+            logger.info('Stopping Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Traffic To stop")
+        l = []
+        l.append(b+int(step_value/8))
+        l.append(b+int(step_value/4))
+        l.append(b+int(step_value/2))
+        l.append(b+step_value-int(step_value/4))
+        l.append(b+step_value-int(step_value/8))
+        for i in range(0,len(l)):
+            run_traffic(l[i])
+            flow_stats = get_flow_stats(cvg_api)
+            logger.info('Loss% : {}'.format(flow_stats[0].loss))
+            if float(flow_stats[0].loss) <= 0.001:
+                pass
+            else:
+                max_routes = l[i]-int(step_value/8)
+                break
+            logger.info('Stopping Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Traffic To stop")
+    except Exception as e:
+        logger.info(e)
     finally:
-        logger.info('|------------ Max Routes without loss (RIB-IN Capacity Value) : {} ----|'.format(max_routes))
+        columns = ['Test Name', 'Maximum no. of Routes']
+        logger.info("\n%s" % tabulate([['RIB-IN Capacity Test',max_routes]], headers=columns, tablefmt="psql"))
 
 def cleanup_config(duthost):
     """
