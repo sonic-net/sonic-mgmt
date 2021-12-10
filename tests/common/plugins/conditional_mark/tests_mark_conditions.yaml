@@ -62,6 +62,13 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
 
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
+  xfail:
+    strict: True
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
+    conditions:
+      - "asic_type=='cisco-8000'"
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
    skip:
      reason: "On Cisco 8000 platform, fans do not have their own leds."
