@@ -219,7 +219,7 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform, device_typ
         tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
 
     base = 100
-
+    data['veos']['vm_host_1']['STR-ACS-SERV-01']['ansible_host'] = data['sonic_mgmt']['HostAgent']
     for i in range (1,vEOS_count+1):
         tdata['veos']['vms_1']['VM0' + str(base)]['ansible_host'] = data['veos'+str(i)]['xr_mgmt_ip']
         base +=1
@@ -750,17 +750,17 @@ def main():
 
     for dut_name in get_dut_names(data):
         device = data[dut_name]
-        print("Sonic DUT '{}' (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
+        print("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
-    print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+    print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
+    print("PTF (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
     if 'dualtor' in device_type:
-        print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+        print("MUX SIM (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
-        print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
+        print("VEOS{}:  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 
     print("******************************************************************************************************************************************************************************\n")
     if device_type == 'sherman':
@@ -792,17 +792,17 @@ def main():
 
     for dut_name in get_dut_names(data):
         device = data[dut_name]
-        print("Sonic DUT '{}' (cisco/cisco123):  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
+        print("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
-    print("Sonic Mgmt (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
+    print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
-    print("PTF (root/root) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
+    print("PTF (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
     if 'dualtor' in device_type:
-        print("MUX SIM (vxr/cisco123) :  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
+        print("MUX SIM (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
 
     print("VEOS (admin/123456): ")
     for i in range (1,vEOS_count+1):
-        print("VEOS{}:  Tlnt: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
+        print("VEOS{}:  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
 
     print("******************************************************************************************************************************************************************************\n")
     if device_type == 'sherman':
