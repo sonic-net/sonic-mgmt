@@ -34,14 +34,14 @@ def check_skip_release(duthost, release_list):
     if any(release in duthost.os_version for release in release_list):
         reason = "DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list))
         logger.info(reason)
-        return True, reason
+        return (True, reason)
 
     if any(release == duthost.sonic_release for release in release_list):
         reason = "DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list))
         logger.info(reason)
-        return True, reason
+        return (True, reason)
 
-    return False
+    return (False, '')
 
 def skip_release(duthost, release_list):
     """
@@ -50,7 +50,7 @@ def skip_release(duthost, release_list):
     @param duthost: The DUT
     @param release_list: A list of incompatible releases
     """
-    skip, reason = check_skip_release(duthost, release_list)
+    (skip, reason) = check_skip_release(duthost, release_list)
     if skip:
         pytest.skip(reason)
 
