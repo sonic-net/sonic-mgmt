@@ -437,7 +437,6 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             bgp_facts = asic.bgp_facts()['ansible_facts']
-            logging.info("bgp_facts: {}".format(bgp_facts))
             for k, v in bgp_facts['bgp_neighbors'].items():
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
