@@ -1282,3 +1282,9 @@ def duts_minigraph_facts(duthosts, tbinfo):
         }
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
+
+@pytest.fixture(scope="module", autouse=True)
+def get_reboot_cause(duthost):
+    yield
+    reboot_cause_history_got = duthost.show_and_parse("show reboot-cause history")
+    logger.info("dut {} reboot-cause history {}".format(duthost.hostname, reboot_cause_history_got))
