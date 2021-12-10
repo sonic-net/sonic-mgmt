@@ -219,7 +219,7 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform, device_typ
         tdata['testbed']['docker-ptf']['group-name'] = 'vms_1'
 
     base = 100
-    data['veos']['vm_host_1']['STR-ACS-SERV-01']['ansible_host'] = data['sonic_mgmt']['HostAgent']
+    tdata['veos']['vm_host_1']['STR-ACS-SERV-01']['ansible_host'] = data['sonic_mgmt']['HostAgent']
     for i in range (1,vEOS_count+1):
         tdata['veos']['vms_1']['VM0' + str(base)]['ansible_host'] = data['veos'+str(i)]['xr_mgmt_ip']
         base +=1
