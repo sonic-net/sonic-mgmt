@@ -71,10 +71,11 @@ def test_lo_interface_tc1_add_init(duthost, cfg_facts):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success(duthost, output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 def test_lo_interface_tc2_add_duplicate(duthost):
     """ Add v4 and v6 duplicate lo intf to config
@@ -103,10 +104,11 @@ def test_lo_interface_tc2_add_duplicate(duthost):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success(duthost, output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, name, dummy_lo_interface_v4, dummy_lo_interface_v6", [
     ("add", "Loopback0", "587.1.0.32~132", "FC00:1::32~1128"),
@@ -142,10 +144,11 @@ def test_lo_interface_tc3_xfail(duthost, op, name,
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_failure(output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 def test_lo_interface_tc4_replace(duthost):
     """ Replace v4 and v6 loopback intf ip
@@ -180,10 +183,11 @@ def test_lo_interface_tc4_replace(duthost):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success(duthost, output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 def test_lo_interface_tc5_remove(duthost):
     """ Remove v4 and v6 loopback intf config
@@ -198,7 +202,8 @@ def test_lo_interface_tc5_remove(duthost):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success(duthost, output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
