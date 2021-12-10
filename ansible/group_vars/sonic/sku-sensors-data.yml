@@ -4731,7 +4731,7 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-nvidia_msn4800-r0:
+  x86_64-nvidia_sn4800-r0:
     alarms:
       fan:
       - dps460-i2c-4-59/PSU-1(R) Fan 1/fan1_alarm
