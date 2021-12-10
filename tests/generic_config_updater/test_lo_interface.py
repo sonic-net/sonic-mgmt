@@ -6,28 +6,35 @@ from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
+# Test on t0 topo to verify functionality and to choose predefined variable
+# "LOOPBACK_INTERFACE": {
+    # "Loopback0": {},
+    # "Loopback0|10.1.0.32/32": {},
+    # "Loopback0|FC00:1::32/128": {}
+# }
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0'),
 ]
 
 logger = logging.getLogger(__name__)
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
+@pytest.fixture(autouse=True)
+def setup_env(duthosts, rand_one_dut_hostname):
     """
-    Setup/teardown fixture for loopback interface config
+    Setup/teardown fixture for each loopback interface test
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
-        cfg_facts: config facts for selected DUT
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    config_tmpfile = generate_tmpfile(duthost)
-    logger.info("config_tmpfile {} Backing up config_db.json".format(config_tmpfile))
-    duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
+    yield
 
-    # Cleanup LOOPBACK_INTERFACE config
+    logger.info("Restoring config_db.json")
+    config_reload(duthost)
+
+ # Cleanup LOOPBACK_INTERFACE config
+def cleanup_lo_interface_config(duthost, cfg_facts):
     lo_interfaces = cfg_facts.get('LOOPBACK_INTERFACE', {})
     for lo_interface in lo_interfaces:
         del_loopback_interface = duthost.shell("sudo config loopback del {}".format(lo_interface),
@@ -35,38 +42,26 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
         pytest_assert(not del_loopback_interface['rc'],
             "Loopback interface '{}' is not deleted successfully".format(lo_interface))
 
-    yield
+def test_lo_interface_tc1_add_init(duthost, cfg_facts):
+    """ Clean up orig lo interface and test initial addion of v4 and v6 lo intf
 
-    logger.info("Restoring config_db.json")
-    duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
-    delete_tmpfile(duthost, config_tmpfile)
-    config_reload(duthost)
-
-@pytest.mark.parametrize("op, name, dummy_lo_interface_v4, dummy_lo_interface_v6", [
-    ("add", "Loopback0", "10.1.0.32/32", "FC00:1::32/128")
-])
-def test_syslog_server_tc1_add_init(duthost, op, name,
-        dummy_lo_interface_v4, dummy_lo_interface_v6):
-    """ Add v4 and v6 lo intf to config
-
-    Sample output
+    Expected output
     "LOOPBACK_INTERFACE": {
         "Loopback0": {},
         "Loopback0|10.1.0.32/32": {},
         "Loopback0|FC00:1::32/128": {}
     }
     """
-    dummy_lo_interface_v4 = name + "|" + dummy_lo_interface_v4
-    dummy_lo_interface_v6 = name + "|" + dummy_lo_interface_v6
+    cleanup_lo_interface_config(duthost, cfg_facts)
 
     json_patch = [
         {
-            "op": "{}".format(op),
+            "op": "add",
             "path": "/LOOPBACK_INTERFACE",
             "value": {
-                "{}".format(name): {},
-                "{}".format(dummy_lo_interface_v4): {},
-                "{}".format(dummy_lo_interface_v6): {}
+                "Loopback0": {},
+                "Loopback0|10.1.0.32/32": {},
+                "Loopback0|FC00:1::32/128": {}
             }
         }
     ]
@@ -81,25 +76,26 @@ def test_syslog_server_tc1_add_init(duthost, op, name,
 
     delete_tmpfile(duthost, tmpfile)
 
-@pytest.mark.parametrize("op, name, dummy_lo_interface_v4, dummy_lo_interface_v6", [
-    ("add", "Loopback0", "10.1.0.32~132", "FC00:1::32~1128")
-])
-def test_syslog_server_tc2_add_duplicate(duthost, op, name,
-        dummy_lo_interface_v4, dummy_lo_interface_v6):
+def test_lo_interface_tc2_add_duplicate(duthost):
     """ Add v4 and v6 duplicate lo intf to config
-    """
-    dummy_lo_interface_v4 = name + "|" + dummy_lo_interface_v4
-    dummy_lo_interface_v6 = name + "|" + dummy_lo_interface_v6
 
+    Note: the Identifier '/' as changed to '~1'
+    Initial Loopback setup in t0
+    "LOOPBACK_INTERFACE": {
+        "Loopback0": {},
+        "Loopback0|10.1.0.32/32": {},
+        "Loopback0|FC00:1::32/128": {}
+    }
+    """
     json_patch = [
         {
-            "op": "{}".format(op),
-            "path": "/LOOPBACK_INTERFACE/{}".format(dummy_lo_interface_v4),
+            "op": "add",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|10.1.0.32~132",
             "value": {}
         },
         {
-            "op": "{}".format(op),
-            "path": "/LOOPBACK_INTERFACE/{}".format(dummy_lo_interface_v6),
+            "op": "add",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|FC00:1::32~1128",
             "value": {}
         }
     ]
@@ -118,7 +114,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, op, name,
     ("remove", "Loopback0", "10.1.0.33~132", "FC00:1::32~1128"),
     ("remove", "Loopback0", "10.1.0.32~132", "FC00:1::33~1128")
 ])
-def test_syslog_server_tc3_xfail(duthost, op, name,
+def test_lo_interface_tc3_xfail(duthost, op, name,
         dummy_lo_interface_v4, dummy_lo_interface_v6):
     """ Test expect fail testcase
 
@@ -151,16 +147,50 @@ def test_syslog_server_tc3_xfail(duthost, op, name,
 
     delete_tmpfile(duthost, tmpfile)
 
-@pytest.mark.parametrize("op, name, dummy_lo_interface_v4, dummy_lo_interface_v6", [
-    ("remove", "Loopback0", "10.1.0.32~132", "FC00:1::32~1128")
-])
-def test_syslog_server_tc4_remove(duthost, op, name,
-        dummy_lo_interface_v4, dummy_lo_interface_v6):
-    """ Remove v4 and v6 loopback intf
+def test_lo_interface_tc4_replace(duthost):
+    """ Replace v4 and v6 loopback intf ip
+    Expected output
+    "LOOPBACK_INTERFACE": {
+        "Loopback0": {},
+        "Loopback0|10.1.0.33/32": {},
+        "Loopback0|FC00:1::33/128": {}
+    }
     """
     json_patch = [
         {
-            "op": "{}".format(op),
+            "op": "remove",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|FC00:1::32~1128"
+        },
+        {
+            "op": "remove",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|10.1.0.32~132"
+        },
+        {
+            "op": "add",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|10.1.0.33~132",
+            "value": {}
+        },
+        {
+            "op": "add",
+            "path": "/LOOPBACK_INTERFACE/Loopback0|FC00:1::33~1128",
+            "value": {}
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    expect_op_success(duthost, output)
+
+    delete_tmpfile(duthost, tmpfile)
+
+def test_lo_interface_tc5_remove(duthost):
+    """ Remove v4 and v6 loopback intf config
+    """
+    json_patch = [
+        {
+            "op": "remove",
             "path": "/LOOPBACK_INTERFACE"
         }
     ]
