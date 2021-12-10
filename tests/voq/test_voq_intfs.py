@@ -7,7 +7,7 @@ from tests.common import config_reload
 
 from test_voq_init import check_voq_interfaces
 
-from tests.common.helpers.redis import VoqDbCli, RedisKeyNotFound
+from tests.common.helpers.redis import VoqDbCli, SonicDbKeyNotFound
 
 logger = logging.getLogger(__name__)
 
