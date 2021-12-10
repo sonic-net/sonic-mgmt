@@ -28,6 +28,11 @@ def find_pattern(lines, pattern):
             return True
     return False
 
+def get_hw_revision(duthost):
+    out = duthost.command("show platform summary")
+    rev_line = out["stdout"].splitlines()[6]
+    return rev_line.split(": ")[1]
+
 def power_cycle(duthost=None, pdu_ctrl=None, delay_time=60):
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skipping" % duthost.hostname)
@@ -129,6 +134,9 @@ def get_install_paths(duthost, fw, versions, chassis, target_component):
                 log.warning("Firmware is upgrade only and existing firmware {} is not present in version list. Skipping {}".format(ver[comp], comp))
                 continue
             for i, rev in enumerate(revs):
+                if "hw_revision" in r and r["hw_revision"] != get_hw_revision(duthost):
+                    log.warning("Firmware {} only supports HW Revision {} and this chassis is {}. Skipping".format(rev["version"], rev["hw_revision"], get_hw_revision(duthost)))
+                    continue
                 if rev["version"] != ver[comp]:
                     paths[comp] = rev
                     break
