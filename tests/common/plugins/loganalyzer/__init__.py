@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from loganalyzer import LogAnalyzer
+from .loganalyzer import LogAnalyzer
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 

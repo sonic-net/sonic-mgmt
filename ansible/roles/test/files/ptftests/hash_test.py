@@ -114,7 +114,10 @@ class HashTest(BaseTest):
         ports = list(set(self.src_ports) - set(exp_port_list))
         filtered_ports = []
         for port in ports:
-            active_dut_index = self.ptf_test_port_map[str(port)]['target_dut']
+            if self.single_fib:
+                active_dut_index = 0
+            else:
+                active_dut_index = self.ptf_test_port_map[str(port)]['target_dut']
             next_hop = self.fibs[active_dut_index][dst_ip]
             possible_exp_port_list = next_hop.get_next_hop_list()
             if possible_exp_port_list == exp_port_list:

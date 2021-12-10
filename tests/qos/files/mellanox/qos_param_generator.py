@@ -167,6 +167,7 @@ class QosParamMellanox(object):
         wm_pg_shared_lossless = self.qos_params_mlnx['wm_pg_shared_lossless']
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
         wm_pg_shared_lossless['cell_size'] = self.cell_size
+        wm_pg_shared_lossless["pkts_num_margin"] = 3
 
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
@@ -179,6 +180,7 @@ class QosParamMellanox(object):
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
+        wm_shared_lossy["pkts_num_margin"] = 3
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
 
