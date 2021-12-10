@@ -535,43 +535,6 @@ def get_port_by_ip(cfg_facts, ipaddr):
     raise Exception("Dod not find port for IP %s" % ipaddr)
 
 
-<<<<<<< HEAD
-def find_system_port(dev_sysports, slot, asic_index, hostif):
-    """
-    System key string can be arbitrary text with slot, asic, and port, so try to find the match
-    and return the correct string.  ex.  "Slot1|asic3|Ethernet12" or "Linecard4|Asic1|Portchannel23"
-
-    Args:
-        dev_sysports: dictionary from config_facts with all of the system ports on the system.
-        slot: The slot number of the system port to find.
-        asic_index: The asic number of ths system port to find.
-        hostif: The interface of the system port to find.
-
-    Returns:
-        A dictionary with the system port text strings.
-
-    Raises:
-        KeyError if the system port can't be found in the dictionary.
-
-    """
-
-    if "portchannel" in hostif.lower():
-        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|'.format(slot, asic_index))
-    else:
-        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|{}$'.format(slot, asic_index, hostif))
-    sys_info = {}
-
-    for sysport in dev_sysports:
-        match = sys_re.match(sysport)
-        if match:
-            sys_info['slot'] = match.group(1)
-            sys_info['asic'] = match.group(2)
-            sys_info['key'] = sysport
-            return sys_info
-
-    raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
-
-
 def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts):
     """
     Verifies a single neighbor entry is present in a voq system on local and remote sonic instances.
