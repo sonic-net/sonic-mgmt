@@ -581,6 +581,19 @@ class AclVlanOuterTest_Base(object):
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_UNTAGGED, ACTION_DROP)
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_sonic_leaf_fanout(fanouthosts):
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
+    1. The Ingress test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic
+    leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout
+    2. The Egress test will populate ARP table by ping command, and the egressed ICMP packets will be tagged with test
+    vlan id (100 or 200), which will be dropped by sonic leaf-fanout.
+    """
+    for fanouthost in fanouthosts.values():
+        if fanouthost.get_fanout_os() == 'sonic':
+            pytest.skip("Not supporteds on SONiC leaf-fanout")
+            
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in ingress

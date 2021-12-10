@@ -193,7 +193,7 @@ class TestcasesTopology():
 
     def read_testcases(self):
         with open(self.testcase_filename) as f:
-            testcases = yaml.load(f)
+            testcases = yaml.safe_load(f)
             if 'testcases' not in testcases:
                 raise Exception("not correct testcases file format??")
             for tc,prop in testcases['testcases'].items():
