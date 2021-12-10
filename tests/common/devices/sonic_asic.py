@@ -149,6 +149,13 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
+        if self.namespace != DEFAULT_NAMESPACE:
+            cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
+            return self.sonichost.command(cmd, verbose=False)
+        # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
+        return self.sonichost.run_sonic_db_cli_cmd(sonic_db_cmd)
+
     def run_redis_cli_cmd(self, redis_cmd):
         if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
