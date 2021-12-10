@@ -18,7 +18,8 @@ def pytest_addoption(parser):
                          help="only run tests matching the device DEV_TYPE ('physical', 'vs')")
         parser.addoption("--completeness_level", metavar="TEST_LEVEL", action="store",
                          help="Coverage level of test \n Defined levels: Debug, Basic, Confident, Thorough")
-
+        parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                         help="Define the loop times of the test")
 
 def pytest_configure(config):
     # register all the markers

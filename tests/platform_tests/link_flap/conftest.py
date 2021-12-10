@@ -18,6 +18,6 @@ def pytest_addoption(parser):
     )
 
 @pytest.fixture(scope='module')
-def get_function_conpleteness_level(pytestconfig):
-    return pytestconfig.getoption("--completeness_level")
+def get_loop_times(pytestconfig):
+    return pytestconfig.getoption("--loop_times")
 
