@@ -128,4 +128,5 @@ def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_
         # Flush dataplane
         ptfadapter.dataplane.flush()
         fdb_cleanup(duthosts, rand_one_dut_hostname)
+        # Wait for 10 seconds before starting next loop
         time.sleep(10)
