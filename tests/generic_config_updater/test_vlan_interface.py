@@ -108,7 +108,7 @@ def test_vlan_interface_tc2_xfail(duthost, op, name,
         delete_tmpfile(duthost, tmpfile)
 
 def test_vlan_interface_tc3_add_new(duthost):
-    """ Add an branch new vlan interface
+    """ Add an brand new vlan interface Vlan2000
 
     Sample output:
     "VLAN": {
@@ -231,23 +231,13 @@ def test_vlan_interface_tc6_incremental_change(duthost):
     """ Incremental test for VLAN interface
 
     Note: Current topo doesn't contain those change.
-    Need to modify if future topology contains such incremental change.
+    MTU and admin_status incremental change is not support as of 12/10/2021
     """
     json_patch = [
         {
             "op": "add",
-            "path": "/VLAN/Vlan1000/mtu",
-            "value": "1510"
-        },
-        {
-            "op": "add",
             "path": "/VLAN/Vlan1000/description",
             "value": "incremental test for Vlan1000"
-        },
-        {
-            "op": "add",
-            "path": "/VLAN/Vlan1000/admin_status",
-            "value": "down"
         }
     ]
 
