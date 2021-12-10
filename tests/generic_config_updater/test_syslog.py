@@ -18,23 +18,21 @@ SYSLOG_INTERVAL             = 1
 SYSLOG_MAX_SERVER           = -1
 # The max server test only support SYSLOG_MAX_SERVER that is equal or lower than 254.
 SYSLOG_TEST_MAX_UPPER_LIMIT = 254
+SYSLOG_DUMMY_IPV4_SERVER    = "10.0.0.5"
+SYSLOG_DUMMY_IPV6_SERVER    = "cc98:2008::1"
 
-@pytest.fixture(scope="module")
-def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
+@pytest.fixture(scope="module", params=["config_cleanup", "config_add_default"])
+def init_syslog_config(request):
+    return request.param
+
+def syslog_config_cleanup(duthost, cfg_facts):
+    """ Cleanup syslog server
+
+    Sample output
+    admin@vlab-01:~$ show runningconfiguration syslog
+    Syslog Servers
+    ----------------
     """
-    Setup/teardown fixture for syslog config
-    Args:
-        duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
-        cfg_facts: config facts for selected DUT
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    config_tmpfile = generate_tmpfile(duthost)
-    logger.info("config_tmpfile {} Backing up config_db.json".format(config_tmpfile))
-    duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
-
-    # Cleanup syslog server config
     syslog_servers = cfg_facts.get('SYSLOG_SERVER', {})
     for syslog_server in syslog_servers:
         del_syslog_server = duthost.shell("sudo config syslog del {}".format(syslog_server),
@@ -42,11 +40,41 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts):
         pytest_assert(not del_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server))
 
+
+def syslog_config_add_default(duthost):
+    """ Add default v4 and v6 syslog server to config
+
+    Sample output
+    admin@vlab-01:~$ show runningconfiguration syslog
+    Syslog Servers
+    ----------------
+    [10.0.0.5]
+    [cc98:2008::1]
+    """
+    for syslog_server in [SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER]:
+        add_syslog_server = duthost.shell("sudo config syslog add {}".format(syslog_server),
+            module_ignore_errors=True)
+        pytest_assert(not add_syslog_server['rc'],
+            "syslog server '{}' is not deleted successfully".format(syslog_server))
+
+@pytest.fixture(autouse=True)
+def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config):
+    """
+    Setup/teardown fixture for syslog config
+    Args:
+        duthosts: list of DUTs.
+        rand_selected_dut: The fixture returns a randomly selected DuT.
+        cfg_facts: config facts for selected DUT
+        init_syslog_config: initial syslog config for test
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    syslog_config_cleanup(duthost, cfg_facts)
+
+    if init_syslog_config == "config_add_default":
+        syslog_config_add_default(duthost)
+
     yield
 
-    logger.info("Restoring config_db.json")
-    duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
-    delete_tmpfile(duthost, config_tmpfile)
     config_reload(duthost)
 
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
@@ -59,9 +87,9 @@ def expect_res_success_syslog(duthost, expected_content_list, unexpected_content
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
 @pytest.mark.parametrize("op, dummy_syslog_server_v4, dummy_syslog_server_v6", [
-    ("add", "10.0.0.5", "cc98:2008::1")
+    ("add", SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER)
 ])
-def test_syslog_server_tc1_add_init(duthost, setup_env, op,
+def test_syslog_server_tc1_add_init(duthost, init_syslog_config, op,
         dummy_syslog_server_v4, dummy_syslog_server_v6):
     """ Add v4 and v6 syslog server to config
 
@@ -72,6 +100,9 @@ def test_syslog_server_tc1_add_init(duthost, setup_env, op,
     [10.0.0.5]
     [cc98:2008::1]
     """
+    if init_syslog_config != "config_cleanup":
+        pytest.skip("Unsupported initial config")
+
     json_patch = [
         {
             "op": "{}".format(op),
@@ -86,18 +117,19 @@ def test_syslog_server_tc1_add_init(duthost, setup_env, op,
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
-    expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
-    expect_res_success_syslog(duthost, expected_content_list, [])
-
-    delete_tmpfile(duthost, tmpfile)
+        expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
+        expect_res_success_syslog(duthost, expected_content_list, [])
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, dummy_syslog_server_v4, dummy_syslog_server_v6", [
-    ("add", "10.0.0.5", "cc98:2008::1")
+    ("add", SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER)
 ])
-def test_syslog_server_tc2_add_duplicate(duthost, setup_env, op,
+def test_syslog_server_tc2_add_duplicate(duthost, init_syslog_config, op,
         dummy_syslog_server_v4, dummy_syslog_server_v6):
     """ Add v4 and v6 duplicate syslog server to config
 
@@ -108,6 +140,9 @@ def test_syslog_server_tc2_add_duplicate(duthost, setup_env, op,
     [10.0.0.5]
     [cc98:2008::1]
     """
+    if init_syslog_config != "config_add_default":
+        pytest.skip("Unsupported initial config")
+
     json_patch = [
         {
             "op": "{}".format(op),
@@ -124,13 +159,14 @@ def test_syslog_server_tc2_add_duplicate(duthost, setup_env, op,
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
-    expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
-    expect_res_success_syslog(duthost, expected_content_list, [])
-
-    delete_tmpfile(duthost, tmpfile)
+        expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
+        expect_res_success_syslog(duthost, expected_content_list, [])
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, dummy_syslog_server_v4, dummy_syslog_server_v6", [
     ("add", "10.0.0.587", "cc98:2008::1"),
@@ -138,7 +174,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, setup_env, op,
     ("remove", "10.0.0.6", "cc98:2008:1"),
     ("remove", "10.0.0.5", "cc98:2008::2")
 ])
-def test_syslog_server_tc3_xfail(duthost, setup_env, op,
+def test_syslog_server_tc3_xfail(duthost, init_syslog_config, op,
         dummy_syslog_server_v4, dummy_syslog_server_v6):
     """ Test expect fail testcase
 
@@ -147,6 +183,9 @@ def test_syslog_server_tc3_xfail(duthost, setup_env, op,
     ("remove", "10.0.0.6", "cc98:2008:1"), REMOVE Unexist IPv4 address
     ("remove", "10.0.0.5", "cc98:2008::2") REMOVE Unexist IPv6 address
     """
+    if init_syslog_config != "config_add_default":
+        pytest.skip("Unsupported initial config")
+
     json_patch = [
         {
             "op": "{}".format(op),
@@ -162,15 +201,16 @@ def test_syslog_server_tc3_xfail(duthost, setup_env, op,
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_failure(output)
-
-    delete_tmpfile(duthost, tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, dummy_syslog_server_v4, dummy_syslog_server_v6", [
-    ("remove", "10.0.0.5", "cc98:2008::1")
+    ("remove", SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER)
 ])
-def test_syslog_server_tc4_remove(duthost, setup_env, op,
+def test_syslog_server_tc4_remove(duthost, init_syslog_config, op,
         dummy_syslog_server_v4, dummy_syslog_server_v6):
     """ Remove v4 and v6 syslog server
 
@@ -179,6 +219,9 @@ def test_syslog_server_tc4_remove(duthost, setup_env, op,
     Syslog Servers
     ----------------
     """
+    if init_syslog_config != "config_add_default":
+        pytest.skip("Unsupported initial config")
+
     json_patch = [
         {
             "op": "{}".format(op),
@@ -189,15 +232,67 @@ def test_syslog_server_tc4_remove(duthost, setup_env, op,
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
-    unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
-    expect_res_success_syslog(duthost, [], unexpected_content_list)
+        unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
+        expect_res_success_syslog(duthost, [], unexpected_content_list)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
-    delete_tmpfile(duthost, tmpfile)
+@pytest.mark.parametrize("op, replace_syslog_server_v4, replace_syslog_server_v6", [
+    ("add", "10.0.0.6", "cc98:2008::2")
+])
+def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
+        replace_syslog_server_v4, replace_syslog_server_v6):
+    """ Add v4 and v6 duplicate syslog server to config
 
-def test_syslog_server_tc5_add_to_max(duthost, setup_env):
+    Sample output
+    admin@vlab-01:~$ show runningconfiguration syslog
+    Syslog Servers
+    ----------------
+    [10.0.0.5]
+    [cc98:2008::1]
+    """
+    if init_syslog_config != "config_add_default":
+        pytest.skip("Unsupported initial config")
+
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV6_SERVER)
+        },
+        {
+            "op": "remove",
+            "path": "/SYSLOG_SERVER/{}".format(SYSLOG_DUMMY_IPV4_SERVER)
+        },
+        {
+            "op": "{}".format(op),
+            "path": "/SYSLOG_SERVER/{}".format(replace_syslog_server_v4),
+            "value": {}
+        },
+        {
+            "op": "{}".format(op),
+            "path": "/SYSLOG_SERVER/{}".format(replace_syslog_server_v6),
+            "value": {}
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+
+        expected_content_list = ["[{}]".format(replace_syslog_server_v4), "[{}]".format(replace_syslog_server_v6)]
+        unexpected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER), "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
+        expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def syslog_server_add_to_max(duthost):
     """ Test syslog server max
 
     admin@vlab-01:~$ show runningconfiguration syslog
@@ -208,9 +303,6 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
     ...
     [10.0.0.SYSLOG_MAX_SERVER]
     """
-    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
-        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
-
     syslog_servers = ["10.0.0.{}".format(i) for i in range(1, SYSLOG_MAX_SERVER+1)]
 
     json_patch = [
@@ -226,27 +318,25 @@ def test_syslog_server_tc5_add_to_max(duthost, setup_env):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
 
-    status = duthost.get_service_props('rsyslog-config')["ActiveState"]
-    logger.info("rsyslog-config status {}".format(status))
-    pytest_assert(
-        duthost.get_service_props('rsyslog-config')["ActiveState"] == "active",
-        "rsyslog-config service is not active"
-    )
+        status = duthost.get_service_props('rsyslog-config')["ActiveState"]
+        logger.info("rsyslog-config status {}".format(status))
+        pytest_assert(
+            duthost.get_service_props('rsyslog-config')["ActiveState"] == "active",
+            "rsyslog-config service is not active"
+        )
 
-    expected_content_list = ["[{}]".format(syslog_server) for syslog_server in syslog_servers]
-    expect_res_success_syslog(duthost, expected_content_list, [])
+        expected_content_list = ["[{}]".format(syslog_server) for syslog_server in syslog_servers]
+        expect_res_success_syslog(duthost, expected_content_list, [])
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
-    delete_tmpfile(duthost, tmpfile)
-
-def test_syslog_server_tc6_exceed_max(duthost, setup_env):
+def syslog_server_exceed_max(duthost):
     """ Exceed syslog server maximum test
     """
-    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
-        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
-
     json_patch = [
         {
             "op": "add",
@@ -258,7 +348,18 @@ def test_syslog_server_tc6_exceed_max(duthost, setup_env):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_failure(output)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
-    delete_tmpfile(duthost, tmpfile)
+def test_syslog_server_tc6_max(duthost, init_syslog_config):
+    if init_syslog_config != "config_cleanup":
+        pytest.skip("Unsupported initial config")
+
+    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
+        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
+
+    syslog_server_add_to_max(duthost)
+    syslog_server_exceed_max(duthost)
