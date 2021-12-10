@@ -1,11 +1,15 @@
 import contextlib
 import logging
+import itertools
 import pytest
 import random
 import time
 import json
 import ptf
-from scapy.all import Ether, IP, TCP
+import re
+import string
+
+from scapy.all import Ether, IP, TCP, IPv6
 import scapy.all as scapyall
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -16,7 +20,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
 import ipaddress
 
 from ptf import mask
@@ -667,54 +671,112 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                socket_recv_size=16384)
 
 
-def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip):
+def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip, count=1):
     """
     Generate a packet to server based on hash.
     The value of field in packet is filled with random value according to hash_key
     """
+
+    def _generate_hashed_ipv4_packet(src_mac, dst_mac, dst_ip, hash_key):
+        SRC_IP_RANGE = [u'1.0.0.0', u'200.255.255.255']
+        src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
+        sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
+        dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
+        send_pkt = testutils.simple_tcp_packet(
+            pktlen=128,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            tcp_sport=sport,
+            tcp_dport=dport,
+            ip_ttl=64
+        )
+        exp_pkt = mask.Mask(send_pkt)
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+        exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+
+        inner_packet = send_pkt[IP]
+        inner_packet.ttl = inner_packet.ttl - 1
+        exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src="10.1.0.32",
+            ip_dst="10.1.0.33",
+            inner_frame=inner_packet
+        )
+        send_pkt.ttl = 64
+        exp_tunnel_pkt[TCP] = inner_packet[TCP]
+        exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
+
+        return send_pkt, exp_pkt, exp_tunnel_pkt
+
+    def _generate_hashed_ipv6_packet(src_mac, dst_mac, dst_ip, hash_key):
+        SRC_IP_RANGE = [u'20D0:A800:0:00::', u'20D0:FFFF:0:00::FFFF']
+        src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
+        sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
+        dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
+        send_pkt = testutils.simple_tcpv6_packet(
+            pktlen=128,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            ipv6_src=src_ip,
+            ipv6_dst=dst_ip,
+            tcp_sport=sport,
+            tcp_dport=dport
+        )
+        exp_pkt = mask.Mask(send_pkt)
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(scapyall.IPv6, "hlim")
+
+        inner_packet = send_pkt[IPv6].copy()
+        inner_packet[IPv6].hlim -= 1
+        exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src="10.1.0.32",
+            ip_dst="10.1.0.33",
+            inner_frame=inner_packet
+        )
+        exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
+        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+
+        return send_pkt, exp_pkt, exp_tunnel_pkt
+
     src_mac = ptfadapter.dataplane.get_mac(0, 0)
-    ip_dst = target_server_ip
-    SRC_IP_RANGE = [unicode('1.0.0.0'), unicode('200.255.255.255')]
-    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
-    sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
-    dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
-    send_pkt = testutils.simple_tcp_packet(pktlen=128,
-                        eth_dst=dst_mac,
-                        eth_src=src_mac,
-                        dl_vlan_enable=False,
-                        vlan_vid=0,
-                        vlan_pcp=0,
-                        ip_src=ip_src,
-                        ip_dst=ip_dst,
-                        tcp_sport=sport,
-                        tcp_dport=dport,
-                        ip_ttl=64)
-    exp_pkt = mask.Mask(send_pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
 
-    inner_packet = send_pkt[IP]
-    inner_packet.ttl = inner_packet.ttl - 1
-    exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
-        eth_dst=dst_mac,
-        eth_src=src_mac,
-        ip_src="10.1.0.32",
-        ip_dst="10.1.0.33",
-        inner_frame=inner_packet
-    )
-    send_pkt.ttl = 64
-    exp_tunnel_pkt[TCP] = inner_packet[TCP]
-    exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
+    # initialize the packets cache
+    if not hasattr(generate_hashed_packet_to_server, "packets_cache"):
+        generate_hashed_packet_to_server.packets_cache = defaultdict(list)
 
-    return send_pkt, exp_pkt, exp_tunnel_pkt
+    call_signature = (target_server_ip, tuple(hash_key))
+    if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
+        pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
+        for _ in range(pkt_num):
+            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+                pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            else:
+                pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            generate_hashed_packet_to_server.packets_cache[call_signature].append(pkt_t)
+
+    return generate_hashed_packet_to_server.packets_cache[call_signature][:count]
 
 
 def random_ip(begin, end):
@@ -758,7 +820,7 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
 
 def check_nexthops_balance(rand_selected_dut,
     ptfadapter,
-    dst_server_ipv4,
+    dst_server_addr,
     tbinfo,
     downlink_ints,
     nexthops_count):
@@ -777,8 +839,8 @@ def check_nexthops_balance(rand_selected_dut,
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    for _ in range(10000):
-        send_packet, exp_pkt, exp_tunnel_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
@@ -937,36 +999,37 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
 
     res['selected_port'] = random_server_iface
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
+    res['target_server_ipv6'] = servers[random_server_iface]['server_ipv6'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
     logger.debug("dualtor info is generated {}".format(res))
     return res
 
 
-def show_arp(duthost, neighbor_addr):
-    """Show arp table entry for neighbor."""
-    command = "/usr/sbin/arp -n %s" % neighbor_addr
-    output = duthost.shell(command)["stdout_lines"]
-    if "no entry" in output[0]:
+def get_neighbor(duthost, neighbor_addr):
+    """Get the neighbor details from ip neighbor show output."""
+    command = "ip neighbor show %s" % neighbor_addr
+    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
+    if not output:
         return {}
-    headers = ("address", "hwtype", "hwaddress", "flags", "iface")
-    return dict(zip(headers, output[1].split()))
+    output = output[0]
+    return dict(_.split() for _ in itertools.chain(*re.findall('(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
 
 
 @contextlib.contextmanager
 def flush_neighbor(duthost, neighbor, restore=True):
     """Flush neighbor entry for server in duthost."""
-    neighbor_info = show_arp(duthost, neighbor)
-    logging.info("neighbor entry for %s: %s", neighbor, neighbor_info)
-    assert neighbor_info, "No neighbor info for neighbor %s" % neighbor
+    neighbor_details = get_neighbor(duthost, neighbor)
+    assert neighbor_details, "No dev found for neighbor %s" % neighbor
+    logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
     logging.info("remove neighbor entry for %s", neighbor)
-    duthost.shell("ip -4 neighbor del %s dev %s" % (neighbor, neighbor_info["iface"]))
+    duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
     try:
         yield
     finally:
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)
-            duthost.shell("ip -4 neighbor replace {address} lladdr {hwaddress} dev {iface}".format(**neighbor_info))
+            duthost.shell("ip neighbor replace %s lladdr %s dev %s" % (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
 
 
 @pytest.fixture(scope="function")
@@ -994,8 +1057,8 @@ def show_muxcable_status(duthost):
     return ret
 
 
-def build_packet_to_server(duthost, ptfadapter, target_server_ip):
-    """Build packet and expected mask packet destinated to server."""
+def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build ipv4 packet and expected mask packet destinated to server."""
     pkt_dscp = random.choice(range(0, 33))
     pkt_ttl = random.choice(range(3, 65))
     pkt = testutils.simple_ip_packet(
@@ -1018,6 +1081,35 @@ def build_packet_to_server(duthost, ptfadapter, target_server_ip):
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
     exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
     return pkt, exp_pkt
+
+
+def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build ipv6 packet and expected mask packet destinated to server."""
+    pkt_dscp = random.choice(range(0, 33))
+    pkt_hl = random.choice(range(3, 65))
+    pktlen = 100
+    pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
+    pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
+    pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
+    pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
+    logging.info(
+        "the packet destinated to server %s:\n%s",
+        target_server_ip,
+        dump_scapy_packet_show_output(pkt)
+    )
+    exp_pkt = mask.Mask(pkt)
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
+    exp_pkt.set_do_not_care_scapy(scapyall.IPv6, "hlim")
+    return pkt, exp_pkt
+
+
+def build_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build packet and expected mask packet destinated to server."""
+    if is_ipv4_address(target_server_ip):
+        return build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip)
+    else:
+        return build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip)
 
 
 @contextlib.contextmanager
@@ -1057,15 +1149,15 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
 
-    ipv4_neighbors = []
-
+    route_dst = ipaddress.ip_address(route_dst.decode())
+    ip_neighbors = []
     for neighbor in bgp_neighbors:
-        if ipaddress.ip_address(neighbor).version == 4:
-            ipv4_neighbors.append(neighbor)
+        if ipaddress.ip_address(neighbor).version == route_dst.version:
+            ip_neighbors.append(neighbor)
 
     nexthop_str = ''
     if nexthops is None:
-        for neighbor in ipv4_neighbors:
+        for neighbor in ip_neighbors:
             nexthop_str += 'nexthop via {} '.format(neighbor)
     else:
         for nexthop in nexthops:
@@ -1073,7 +1165,8 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
 
     # Use `ip route replace` in case a rule already exists for this IP
     # If there are no pre-existing routes, equivalent to `ip route add`
-    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
+    subnet_mask_len = 32 if route_dst.version == 4 else 128
+    route_cmd = 'ip route replace {}/{} {}'.format(str(route_dst), subnet_mask_len, nexthop_str)
     standby_tor.shell(route_cmd)
     logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 

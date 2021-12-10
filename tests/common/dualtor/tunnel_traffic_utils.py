@@ -6,7 +6,7 @@ import pytest
 import re
 
 from ptf import mask, testutils
-from scapy.all import IP, Ether
+from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
@@ -101,7 +101,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         @staticmethod
         def _check_ttl(packet):
             """Check ttl field in the packet."""
-            outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
+            outer_ttl = packet[IP].ttl
+            if IP in packet[IP].payload:
+                inner_ttl = packet[IP].payload[IP].ttl
+            elif IPv6 in packet[IP].payload:
+                inner_ttl = packet[IP].payload[IPv6].hlim
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
+
             logging.info("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
             if outer_ttl != 255:
                 return "outer packet's TTL expected TTL 255, actual %s" % outer_ttl
@@ -114,7 +121,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             def _disassemble_ip_tos(tos):
                 return tos >> 2, tos & 0x3
 
-            outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
+            outer_tos = packet[IP].tos
+            if IP in packet[IP].payload:
+                inner_tos = packet[IP].payload[IP].tos
+            elif IPv6 in packet[IP].payload:
+                inner_tos = packet[IP].payload[IPv6].tc
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
+
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
@@ -133,8 +147,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             def _disassemble_ip_tos(tos):
                 return tos >> 2, tos & 0x3
 
+            outer_tos = packet[IP].tos
+            if IP in packet[IP].payload:
+                inner_tos = packet[IP].payload[IP].tos
+            elif IPv6 in packet[IP].payload:
+                inner_tos = packet[IP].payload[IPv6].tc
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
 
-            outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
