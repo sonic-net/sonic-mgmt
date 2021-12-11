@@ -104,7 +104,7 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
     check_all_services_status(ptfhost)
 
-    # FIXME: This is a short term mitigation, we need to figure out why the tacacs+ server does not start
+    # FIXME: This is a short term mitigation, we need to figure out why \nthe tacacs+ server does not start
     # reliably all of a sudden.
     wait_until(5, 1, 0, start_tacacs_server, ptfhost)
     check_all_services_status(ptfhost)
@@ -130,5 +130,6 @@ def remove_all_tacacs_server(duthost):
     find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"' 
     server_list = duthost.shell(find_server_command)['stdout']
     for tacacs_server in server_list:
+        tacacs_server = tacacs_server.rstrip()
         if tacacs_server:
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
