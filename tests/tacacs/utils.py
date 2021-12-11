@@ -57,8 +57,8 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
 
-    (skip, reason) = check_skip_release(duthost, per_command_check_skip_versions)
-    if skip:
+    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa authorization local")
         duthost.shell("sudo config aaa accounting disable")
 
@@ -120,8 +120,8 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
 
-    (skip, reason) = check_skip_release(duthost, per_command_check_skip_versions)
-    if skip:
+    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa authorization local")
         duthost.shell("sudo config aaa accounting disable")
 
