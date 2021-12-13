@@ -3,9 +3,9 @@ import time
 from arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, clear_dut_arp_cache, increment_ipv6_addr, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
+from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
         in6_getnsma, inet_pton, inet_ntop, socket
-from ipaddress import ip_network
+from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
 
 ARP_BASE_IP = "172.16.0.1/16"
@@ -81,7 +81,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfad
 
         time.sleep(5)
 
-def generate_link_local_addr(mac):
+def generate_global_addr(mac):
     parts = mac.split(":")
     parts.insert(3, "ff")
     parts.insert(4, "fe")
@@ -91,22 +91,13 @@ def generate_link_local_addr(mac):
     for i in range(0, len(parts), 2):
         ipv6Parts.append("".join(parts[i:i+2]))
     ipv6 = "fc02:1000::{}".format(":".join(ipv6Parts))
+    ipv6 = str(ip_address(unicode(ipv6)))
     return ipv6
 
 
-def packets_for_test(duthost, config_facts, tbinfo, ip_and_intf_info, fake_src_mac, fake_src_addr):
+def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     _, _, src_addr_v6, _, _ = ip_and_intf_info
     fake_src_mac = fake_src_mac
-    vlans = config_facts['VLAN']
-    topology = tbinfo['topo']['name']
-    dut_mac = ''
-    for vlan_details in vlans.values():
-        if 'dualtor' in topology:
-            dut_mac = vlan_details['mac'].lower()
-        else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode(
-                "utf-8")
-        break
 
     tgt_addr = increment_ipv6_addr(src_addr_v6)
     multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
@@ -118,28 +109,29 @@ def packets_for_test(duthost, config_facts, tbinfo, ip_and_intf_info, fake_src_m
     ns_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=fake_src_mac)
     logging.info(repr(ns_pkt))
 
-    na_pkt = Ether(src=fake_src_mac, dst=dut_mac)
-    na_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=fake_src_addr)
-    na_pkt /= ICMPv6ND_NA(tgt=fake_src_addr, S=1, R=1, O=0)
-    logging.info(repr(na_pkt))
+    return ns_pkt
 
-    return ns_pkt, na_pkt
+def get_ipv6_entries_status(duthost, ipv6_addr):
+    ipv6_entry = duthost.shell("ip -6 neighbor | grep -w {}".format(ipv6_addr))["stdout_lines"][0]
+    ipv6_entry_status = ipv6_entry.split(" ")[-1]
+    return (ipv6_entry_status == 'REACHABLE')
 
-
-def add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
+def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
     for entry in range(0, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
-        fake_src_addr = generate_link_local_addr(nd_entry_mac)
-        ns_pkt, na_pkt = packets_for_test(duthost, config_facts, tbinfo, ip_and_intf_info, nd_entry_mac, fake_src_addr)
+        fake_src_addr = generate_global_addr(nd_entry_mac)
+        ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
+
+        ptfhost.shell("ip -6 addr add {}/64 dev eth1".format(fake_src_addr))
 
         ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        duthost.shell(
-            "sudo ip neighbor change {} lladdr {} dev Vlan1000 nud reachable".format(fake_src_addr, nd_entry_mac))
-        testutils.send_packet(ptfadapter, ptf_intf_index, na_pkt)
+        get_ipv6_entries_status(duthost, fake_src_addr)
+        wait_until(20, 1, 0, lambda: get_ipv6_entries_status == True)
+        ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
-def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, get_function_conpleteness_level, proxy_arp_enabled):
+def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, get_function_conpleteness_level, proxy_arp_enabled):
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -153,10 +145,11 @@ def test_ipv6_nd(duthost, config_facts, tbinfo, ip_and_intf_info, ptfadapter, ge
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - get_crm_resources(duthost, "ipv6_neighbor",
                                                                                                   "used")
     nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
+    nd_avaliable = 10
 
     while loop_times > 0:
         loop_times -= 1
-        add_nd(duthost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+        add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
         pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
                       "Neighbor Table Add failed")

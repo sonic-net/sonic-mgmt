@@ -1,7 +1,6 @@
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-import pprint
 
 
 logger = logging.getLogger(__name__)
@@ -11,9 +10,9 @@ BASE_MAC_PREFIX = "00:00:01"
 
 def clear_dut_arp_cache(duthost, ns_option = None):
     logger.info("Clearing {} neighbor table".format(duthost.hostname))
-    arp_flush_cmd = "sudo ip -stats neigh flush all"
+    arp_flush_cmd = "ip -stats neigh flush all"
     if ns_option:
-        arp_flush_cmd = "sudo ip -stats {} neigh flush all".format(ns_option)
+        arp_flush_cmd = "ip -stats {} neigh flush all".format(ns_option)
     duthost.shell(arp_flush_cmd)
 
 def get_po(mg_facts, intf):
@@ -63,7 +62,6 @@ def get_crm_resources(duthost, resource, status):
 
 def get_fdb_dynamic_mac_count(duthost):
     res = duthost.command('show mac')
-    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
     for l in res['stdout_lines']:
         if "dynamic" in l.lower() and BASE_MAC_PREFIX in l.lower():

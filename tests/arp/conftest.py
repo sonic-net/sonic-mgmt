@@ -9,6 +9,8 @@ from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.utilities import wait
+
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -19,14 +21,12 @@ logger = logging.getLogger(__name__)
 def set_polling_interval(duthost):
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
     duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 # WR-ARP pytest arguments
 def pytest_addoption(parser):
