@@ -8,7 +8,7 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-LOG_EXPECT_PO_CLEANUP_RE = "INFO kernel:.*{}:.*removed"
+LOG_EXPECT_PO_CLEANUP_RE = "cleanTeamProcesses: Sent SIGTERM to port channel.*{}.*"
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -41,7 +41,7 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
 
 @pytest.fixture(scope="module", autouse=True)
 def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-    
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -60,6 +60,8 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
         fail_msg = "PortChannel interface still exists in kernel"
         pytest.fail(fail_msg)
+    # Restore swss service.
+    duthost.asic_instance(enum_asic_index).start_service("swss")
 
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
