@@ -160,7 +160,7 @@ def test_change_mux_state(
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
-    wait(3, 'extra wait for initial CRMs to be updated')
+    wait(10, 'extra wait for initial CRMs to be updated')
 
     crm_facts1 = dut.get_crm_facts()
     logger.info(json.dumps(crm_facts1, indent=4))
@@ -170,7 +170,7 @@ def test_change_mux_state(
         load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))
         load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
 
-    wait(3, 'extra wait for CRMs to be updated')
+    wait(10, 'extra wait for CRMs to be updated')
 
     crm_facts2 = dut.get_crm_facts()
     logger.info(json.dumps(crm_facts2, indent=4))

@@ -91,7 +91,7 @@ def next_image(duthost, fw_pkg):
 
     logger.info("Attempting to stage test firware onto newly-installed image.")
     try:
-        wait_until(10, 1, check_path_exists, fs_rw)
+        wait_until(10, 1, 0, check_path_exists, fs_rw)
 
         duthost.command("mkdir -p {}".format(fs_mountpoint))
         cmd = "mount -t squashfs {} {}".format(fs_path, fs_mountpoint)

@@ -1,7 +1,10 @@
 import pytest
 import ipaddress
 import logging
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -10,13 +13,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
-    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
-
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
 
@@ -48,13 +49,11 @@ def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostna
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
 
-def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index):
     """
     check if ipv6 default route nexthop address uses global address
 
     """
-    pytest_require('t1-backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
-
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
 

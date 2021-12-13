@@ -94,8 +94,11 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-
-        if out['failed'] == True:
+            
+        # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed'] 
+        # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
+        # error.
+        if out['failed'] == True or out['changed'] == False:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -145,23 +148,32 @@ class EosHost(AnsibleHostBase):
             commands=['show ipv6 bgp summary | json'])
         logging.info("ipv6 bgp summary: {}".format(out_v6))
 
-        for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
-            if v['peerState'].lower() == state.lower():
-                if k in neigh_ips:
-                    neigh_ips_ok.append(k)
-                if 'description' in v:
-                    neigh_desc_available = True
-                    if v['description'] in neigh_desc:
-                        neigh_desc_ok.append(v['description'])
+        # when bgpd is inactive, the bgp summary output: [{u'vrfs': {}, u'warnings': [u'BGP inactive']}]
+        if 'BGP inactive' in out_v4['stdout'][0].get('warnings', '') and 'BGP inactive' in out_v6['stdout'][0].get('warnings', ''):
+            return False
 
-        for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
-            if v['peerState'].lower() == state.lower():
-                if k.lower() in neigh_ips:
-                    neigh_ips_ok.append(k)
-                if 'description' in v:
-                    neigh_desc_available = True
-                    if v['description'] in neigh_desc:
-                        neigh_desc_ok.append(v['description'])
+        try:
+            for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
+                if v['peerState'].lower() == state.lower():
+                    if k in neigh_ips:
+                        neigh_ips_ok.append(k)
+                    if 'description' in v:
+                        neigh_desc_available = True
+                        if v['description'] in neigh_desc:
+                            neigh_desc_ok.append(v['description'])
+
+            for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
+                if v['peerState'].lower() == state.lower():
+                    if k.lower() in neigh_ips:
+                        neigh_ips_ok.append(k)
+                    if 'description' in v:
+                        neigh_desc_available = True
+                        if v['description'] in neigh_desc:
+                            neigh_desc_ok.append(v['description'])
+        except KeyError:
+            # ignore any KeyError due to unexpected BGP summary output
+            pass
+
         logging.info("neigh_ips_ok={} neigh_desc_available={} neigh_desc_ok={}"\
             .format(str(neigh_ips_ok), str(neigh_desc_available), str(neigh_desc_ok)))
         if neigh_desc_available:

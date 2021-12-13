@@ -9,6 +9,7 @@ import logging
 import pytest
 import random
 import time
+import contextlib
 
 from ptf import mask
 from ptf import testutils
@@ -96,6 +97,14 @@ def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor):
+
+    @contextlib.contextmanager
+    def stop_garp(ptfhost):
+        """Temporarily stop garp service."""
+        ptfhost.shell("supervisorctl stop garp_service")
+        yield
+        ptfhost.shell("supervisorctl start garp_service")
+
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_active_state_to_orchagent')
     else:
@@ -108,11 +117,12 @@ def test_decap_active_tor(
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet, decrease_ttl=True)
 
-    ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
-    testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index)
+    with stop_garp(ptfhost):
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
+        testutils.verify_packet(ptfadapter, exp_pkt, exp_ptf_port_index, timeout=10)
 
 
 def test_decap_standby_tor(

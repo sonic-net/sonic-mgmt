@@ -50,11 +50,13 @@ RPC_RESTART_INTERVAL_IN_SEC = 32
 RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
+
 def pytest_addoption(parser):
     # sai test options
     parser.addoption("--sai_test_dir", action="store", default=None, type=str, help="SAI repo folder where the tests will be run.")
     parser.addoption("--sai_test_report_dir", action="store", default=None, type=str, help="SAI test report directory on mgmt node.")
     parser.addoption("--sai_test_container", action="store", default=None, type=str, help="SAI test container, saiserver or syncd.")
+    parser.addoption("--sai_test_keep_test_env", action="store_true", default=False, help="SAI test debug options. If keep the test environment in DUT and PTF.")
 
 
 @pytest.fixture(scope="module")
@@ -62,11 +64,13 @@ def start_sai_test_container(duthost, creds, deploy_sai_test_container, request)
     """
         Starts sai test container docker on DUT.
     """
+    logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     logger.info("Starting sai test container {}".format(get_sai_test_container_name(request)))
     start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     yield
     logger.info("Stopping and removing sai test container {}".format(get_sai_test_container_name(request)))
-    stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
+    if not request.config.option.sai_test_keep_test_env:
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
 
 
 @pytest.fixture(scope="module")
@@ -77,21 +81,24 @@ def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saise
     container_name = request.config.option.sai_test_container
     prepare_sai_test_container(duthost, creds, container_name)
     yield
-    revert_sai_test_container(duthost, creds, container_name)
+    if not request.config.option.sai_test_keep_test_env:
+        revert_sai_test_container(duthost, creds, container_name)
 
 
 @pytest.fixture(scope="module")
-def stop_other_services(duthost):
+def stop_other_services(duthost, request):
     stop_dockers(duthost)
     yield
-    reload_dut_config(duthost)
+    if not request.config.option.sai_test_keep_test_env:
+        reload_dut_config(duthost)
 
 
 @pytest.fixture(scope="module")
-def prepare_saiserver_script(duthost):
+def prepare_saiserver_script(duthost, request):
     _copy_saiserver_script(duthost)
     yield
-    _delete_saiserver_script(duthost)
+    if not request.config.option.sai_test_keep_test_env:
+        delete_saiserver_script(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -99,7 +106,8 @@ def prepare_ptf_server(ptfhost, duthost, request):
     update_saithrift_ptf(request, ptfhost)
     _create_sai_port_map_file(ptfhost, duthost)
     yield
-    _delete_sai_port_map_file(ptfhost)
+    if not request.config.option.sai_test_keep_test_env:
+        _delete_sai_port_map_file(ptfhost)
 
 
 def prepare_sai_test_container(duthost, creds, container_name):
@@ -151,11 +159,11 @@ def start_sai_test_conatiner_with_retry(duthost, container_name):
 
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     logger.info("Checking the PRC connection before starting the {}.".format(container_name))
-    rpc_ready = wait_until(1, 1, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(1, 1, 0, _is_rpc_server_ready, dut_ip)
     
     if not rpc_ready:
         logger.info("Attempting to start {}.".format(container_name))
-        sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, _is_sai_test_container_restarted, duthost, container_name)
+        sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, 0, _is_sai_test_container_restarted, duthost, container_name)
         pt_assert(sai_ready, "[{}] sai test container failed to start in {}s".format(container_name, SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC))
         logger.info("Waiting for another {} second for sai test container warm up.".format(SAI_TEST_CONTAINER_WARM_UP_IN_SEC))
         time.sleep(SAI_TEST_CONTAINER_WARM_UP_IN_SEC)
@@ -191,7 +199,7 @@ def _is_sai_test_container_restarted(duthost, container_name):
         logger.info("{} already exists, stop and remove it for a clear restart.".format(container_name))
         stop_and_rm_sai_test_container(duthost, container_name)
     _start_sai_test_container(duthost, container_name)
-    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, _is_rpc_server_ready, dut_ip)
+    rpc_ready = wait_until(RPC_RESTART_INTERVAL_IN_SEC, RPC_CHECK_INTERVAL_IN_SEC, 0, _is_rpc_server_ready, dut_ip)
     if not rpc_ready:
         logger.info("Failed to start up {} for sai testing on DUT, stop it for a restart".format(container_name))
     return rpc_ready
@@ -429,7 +437,7 @@ def _services_env_stop_check(duthost):
             return False
         return True
 
-    shutdown_check = wait_until(20, 4, ready_for_sai_test)
+    shutdown_check = wait_until(20, 4, 0, ready_for_sai_test)
     if running_services:
         format_list = ['{:>1}' for item in running_services] 
         servers = ','.join(format_list)

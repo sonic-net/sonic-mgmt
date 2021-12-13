@@ -51,10 +51,10 @@ This document describes the steps to setup the testbed and deploy a topology.
     /etc/ssh/sshd_config PermitRootLogin yes
     sudo passwd (YourPaSsWoRd)
     sudo systemctl restart sshd
-    ```   
+    ```
  - reboot
-    - at minimum terminate ssh conection or log out and log back in 
-    - this is needed for the permisions to be update, otherwise next step will fail
+    - at minimum terminate ssh connection or log out and log back in
+    - this is needed for the permissions to be update, otherwise next step will fail
 
 ## Setup Docker Registry for `docker-ptf`
 
@@ -67,6 +67,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
+   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz).
 
 2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry.
 
@@ -82,7 +83,7 @@ Managing the testbed and running tests requires various dependencies to be insta
     make target/docker-sonic-mgmt.gz
     ```
 
-    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-jenkins.westus2.cloudapp.azure.com/job/bldenv/job/docker-sonic-mgmt/lastSuccessfulBuild/artifact/sonic-buildimage/target/docker-sonic-mgmt.gz).
+    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master/docker-sonic-mgmt.gz&definitionId=194&artifactName=docker-sonic-mgmt&buildId=42201&target=target%2Fdocker-sonic-mgmt.gz).
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
@@ -135,7 +136,7 @@ Managing the testbed and running tests requires various dependencies to be insta
           dhcp4: no
           dhcp6: no
     ```
-    alternativeley use this script but settings will be lost on reboot
+    alternatively use this script but settings will be lost on reboot
 
     ```
     sudo bash ./sonic-mgmt/ansible/setup-management-network.sh
@@ -178,7 +179,7 @@ Once you are in the docker container, you need to modify the testbed configurati
         - `Aboot-veos-serial-8.0.0.iso`
         - `vEOS-lab-4.20.15M.vmdk`
 
-    - Update /ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a diferent version
+    - Update /ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a different version
     - Update the VM IP addresses in the [`ansible/veos`](/ansible/veos) inventory file. These IP addresses should be in the management subnet defined above.
 
     - Update the VM credentials in `ansible/group_vars/eos/creds.yml`.
@@ -231,3 +232,7 @@ Our fanout switches deploy using the Arista switch's eosadmin shell login. If yo
 - To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/.password```
 
 **NOTE:** The last step in `testbed-cli.sh` is trying to re-deploy the Vlan range in the root fanout switch to match the VLAN range specified in the topology. In other words, it's trying to change the "allowed" Vlan for the Arista switch ports. If you have a different type of switch, this may or may not work. Please review the steps and update accordingly if necessary. If you comment out the last step, you may manually swap Vlan ranges in the root fanout to make the testbed topology switch work.
+
+## Deploy Minigraph
+
+Please follow the "Device Minigraph Generation and Deployment" section of the [Device Minigraph Generation and Deployment](README.testbed.Minigraph.md) to finish minigraph deployment.

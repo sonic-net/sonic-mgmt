@@ -9,14 +9,13 @@ import strip
 
 sonic_local_ports = set()
 
-def is_host_mlnx():
-    hwsku = tor_data["hwsku"]["local"].lower()
-    return hwsku.find("mellanox") != -1
+def is_version_2019_higher():
+    return '201811' not in init_data["version"]
 
 
 def get_pfc_time():
     ret = 0
-    pfc_wd = config_db_data_wo_t0.get("PFC_WD", {})
+    pfc_wd = config_db_data_orig.get("PFC_WD", {})
     for n, val in pfc_wd.items():
         ret = int(val.get("detection_time", 0))
         if ret:
@@ -28,12 +27,35 @@ def get_pfc_time():
     return ret
 
 
+def get_vlan_sub_interface():
+    global tor_data, sonic_local_ports
+
+    ret = []
+
+    port = list(sonic_local_ports)[0] + ".10"
+    port_ip = port + "|" + tor_data["ip"]["local"] + "/31"
+    port_ip6 = port + "|" + tor_data["ipv6"]["local"] + "/126"
+
+    ret.append({
+        "VLAN_SUB_INTERFACE": {
+            port: {
+                "admin_status": "up"
+            },
+            port_ip: {},
+            port_ip6: {} }
+        })
+    log_debug("clet: get_vlan_sub_interface: {}".format(str(ret)))
+    return ret
+
+
 def get_port_channel():
     global tor_data
 
     ret = []
     pc_name = tor_data["portChannel"]
     if not pc_name:
+        log_debug("No portchannel added, as no portchannel info found for ports: {}".
+                format(str(tor_data["links"])))
         return ret
 
     ret.append( {
@@ -58,8 +80,12 @@ def get_port_channel():
         pc_intf["{}|{}/31".format(pc_name, tor_data["ip"]["local"])] = {}
     if tor_data["ipv6"]["local"]:
         pc_intf["{}|{}/126".format(pc_name, tor_data["ipv6"]["local"])] = {}
-    ret.append({ "PORTCHANNEL_INTERFACE": pc_intf })
+    if pc_intf:
+        if is_version_2019_higher():
+            pc_intf[pc_name] = {}
+        ret.append({ "PORTCHANNEL_INTERFACE": pc_intf })
 
+    log_debug("clet: portchannel: {}".format(str(ret)))
     return ret
 
 
@@ -87,8 +113,8 @@ def add_interface():
 
 def get_acl():
     acl_table = {}
-    acl_table["EVERFLOW"] = config_db_data_wo_t0["ACL_TABLE"]["EVERFLOW"]
-    acl_table["EVERFLOWV6"] = config_db_data_wo_t0["ACL_TABLE"]["EVERFLOWV6"]
+    acl_table["EVERFLOW"] = config_db_data_orig["ACL_TABLE"]["EVERFLOW"]
+    acl_table["EVERFLOWV6"] = config_db_data_orig["ACL_TABLE"]["EVERFLOWV6"]
 
     
     lst_ports = set(acl_table["EVERFLOW"]["ports"])
@@ -141,7 +167,7 @@ def get_device_info():
     return ret
 
 
-def get_port_related_data():
+def get_port_related_data(is_mlnx, is_storage_backend):
     ret = []
     cable = {}
     queue = {}
@@ -152,11 +178,8 @@ def get_port_related_data():
     qos = {}
     pfc_wd = {}
     pfc_time = get_pfc_time()
-    is_mlnx = is_host_mlnx()
     
-    is_version_2019_higher = '201811' not in init_data["version"]
-    log_debug("is_version_2019_higher={}".format(is_version_2019_higher))
-
+    log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
     for local_port in sonic_local_ports:
         # Hard coded as 300m per discussion with Neetha
@@ -195,7 +218,7 @@ def get_port_related_data():
 
         if is_mlnx:
             # "BUFFER_PORT_INGRESS_PROFILE_LIST"
-            if is_version_2019_higher:
+            if is_version_2019_higher():
                 buffer_port_ingress[local_port] = {
                         "profile_list": "[BUFFER_PROFILE|ingress_lossless_profile]"
                         }
@@ -215,9 +238,13 @@ def get_port_related_data():
                 "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
                 "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
                 "pfc_enable": "3,4",
-                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]",
-                "dscp_to_tc_map": "[DSCP_TO_TC_MAP|AZURE]"
+                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]"
                 }
+
+        if is_storage_backend:
+            qos[local_port]["dot1p_to_tc_map"] = "[DOT1P_TO_TC_MAP|AZURE]"
+        else:
+            qos[local_port]["dscp_to_tc_map"]  = "[DSCP_TO_TC_MAP|AZURE]"
 
         if is_mlnx:
             qos[local_port]["pfc_to_pg_map"] = "[PFC_PRIORITY_TO_PRIORITY_GROUP_MAP|AZURE]"
@@ -274,18 +301,21 @@ def write_out(lst, tmpdir):
     managed_files["configlet"] = fpath
 
 
-def main(tmpdir):
+def main(tmpdir, is_mlnx, is_storage_backend):
     global sonic_local_ports
     ret = []
 
     _, sonic_local_ports = strip.get_local_ports()
 
     ret += update_port()
-    ret += add_interface()
-    ret += get_port_channel()
+    if not is_storage_backend:
+        ret += add_interface()
+        ret += get_port_channel()
+    else:
+        ret += get_vlan_sub_interface()
     ret += get_acl()
     ret += get_device_info()
-    ret += get_port_related_data()
+    ret += get_port_related_data(is_mlnx, is_storage_backend)
     ret += get_bgp_neighbor()
 
     write_out(ret, tmpdir)

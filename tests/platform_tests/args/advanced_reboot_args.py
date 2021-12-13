@@ -1,4 +1,5 @@
 import pytest
+from tests.common.utilities import str2bool
 
 
 def add_advanced_reboot_args(parser):
@@ -31,7 +32,7 @@ def add_advanced_reboot_args(parser):
     parser.addoption(
         "--stay_in_target_image",
         action="store",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Stay in target image after reboot",
     )
@@ -56,7 +57,7 @@ def add_advanced_reboot_args(parser):
         "--sniff_time_incr",
         action="store",
         type=int,
-        default=60,
+        default=300,
         help="Sniff time increment",
     )
 

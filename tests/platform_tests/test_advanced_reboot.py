@@ -22,28 +22,51 @@ pytestmark = [
 
 
 ### Tetcases to verify normal reboot procedure ###
+@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Fast reboot test case is run using advacned reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='fast-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='fast-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
 
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer):
+    advanceboot_loganalyzer, capture_interface_counters):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
+    advancedReboot.runRebootTestcase()
+
+
+def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
+    '''
+    Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
+    all VLAN ports.
+    Part of the warm reboot handling is to ensure there are no MAC events reported
+    while warm reboot is in progress. So at the beginning of warm reboot SONIC
+    instructs SAI to disable MAC learning on all the ports.
+    When the warm reboot completes, SAI is communicated again for each port to enable
+    MAC learning. To ensure that this is properly handled by SAI, this test case
+    purposely generates new MAC learn events or MAC move events during warm reboot
+    and the expected results is to only see those MAC move events after warm reboot competed.
+    If for some reason SAI is not adhering to this requirement, any MAC learn events
+    generated during warm reboot will cause META checker failure resulting to Orchagent crash.
+    '''
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_mac_jumping=True,\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
 
 
@@ -62,7 +85,6 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     advancedReboot.runRebootTestcase()
 
 
-@pytest.mark.device_type('vs')
 def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_health,
     get_advanced_reboot):
     '''
@@ -78,7 +100,7 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
 
 
 ### Tetcases to verify reboot procedure with SAD cases ###
-def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                          backup_and_restore_config_db, advanceboot_neighbor_restore,
                          duthost, fanouthosts, nbrhosts):
     '''
@@ -87,7 +109,8 @@ def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     prebootList = [
         'neigh_bgp_down',               # Shutdown single BGP session on remote device (VM) before reboot DUT
         'dut_bgp_down',                 # Shutdown single BGP session on DUT brefore rebooting it
@@ -104,12 +127,11 @@ def test_warm_reboot_sad(request, get_advanced_reboot, verify_dut_health,
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
-def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                                backup_and_restore_config_db, advanceboot_neighbor_restore,
                                duthost, fanouthosts, nbrhosts):
     '''
@@ -118,7 +140,8 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     lagMemberCnt = advancedReboot.getlagMemberCnt()
     prebootList = [
         'neigh_bgp_down:2',             # Shutdown single BGP session on 2 remote devices (VMs) before reboot DUT
@@ -142,12 +165,11 @@ def test_warm_reboot_multi_sad(request, get_advanced_reboot, verify_dut_health,
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
-def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
     backup_and_restore_config_db):
     '''
     Warm reboot with multi sad path (during boot)
@@ -157,19 +179,19 @@ def test_warm_reboot_multi_sad_inboot(request, get_advanced_reboot, verify_dut_h
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     inbootList = [
         'routing_del:50',               # Delete 50 routes IPv4/IPv6 each (100 total) from each BGP session
         'routing_add:50',               # Add 50 routes IPv4/IPv6 each (100 total) from each BGP session
     ]
 
     advancedReboot.runRebootTestcase(
-        inbootList=inbootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        inbootList=inbootList
     )
 
 
-def test_warm_reboot_sad_bgp(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_sad_bgp(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
     backup_and_restore_config_db, advanceboot_neighbor_restore):
     '''
     Warm reboot with sad (bgp)
@@ -177,19 +199,19 @@ def test_warm_reboot_sad_bgp(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     prebootList = [
         'neigh_bgp_down:2',             # Shutdown single BGP session on 2 remote devices (VMs) before reboot DUT
         'dut_bgp_down:3',               # Shutdown 3 BGP sessions on DUT brefore rebooting it
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
-def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                                     backup_and_restore_config_db, advanceboot_neighbor_restore,
                                     duthost, fanouthosts, nbrhosts):
     '''
@@ -198,7 +220,8 @@ def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_hea
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     lagMemberCnt = advancedReboot.getlagMemberCnt()
     prebootList = [
         # Shutdown 1 LAG member of 3 LAG sessions corresponding to 3 remote devices (VM)
@@ -216,12 +239,11 @@ def test_warm_reboot_sad_lag_member(request, get_advanced_reboot, verify_dut_hea
     ] if advancedReboot.getTestbedType() in ['t0-64', 't0-116', 't0-64-32'] else [])
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
-def test_warm_reboot_sad_lag(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_sad_lag(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
     backup_and_restore_config_db, advanceboot_neighbor_restore):
     '''
     Warm reboot with sad path (lag)
@@ -229,19 +251,19 @@ def test_warm_reboot_sad_lag(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     prebootList = [
         'dut_lag_down:2',               # Shutdown 2 LAG sessions on DUT brefore rebooting it
         'neigh_lag_down:3',             # Shutdown 1 LAG session on 3 remote devices (VMs) before reboot DUT
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )
 
 
-def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                                    backup_and_restore_config_db, duthost, fanouthosts):
     '''
     Warm reboot with sad path (vlan port)
@@ -249,13 +271,13 @@ def test_warm_reboot_sad_vlan_port(request, get_advanced_reboot, verify_dut_heal
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
-    advancedReboot = get_advanced_reboot(rebootType='warm-reboot')
+    advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     prebootList = [
         DutVlanMemberDown(duthost, PhyPropsPortSelector(duthost, 4)),                # Shutdown 4 vlan ports (interfaces) on DUT
         NeighVlanMemberDown(duthost, fanouthosts, PhyPropsPortSelector(duthost, 4)), # Shutdown 4 vlan ports (interfaces) on fanout
     ]
 
     advancedReboot.runRebootTestcase(
-        prebootList=prebootList,
-        prebootFiles='peer_dev_info,neigh_port_info'
+        prebootList=prebootList
     )

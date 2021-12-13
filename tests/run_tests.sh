@@ -37,11 +37,19 @@ function get_dut_from_testbed_file() {
         if [[ $TESTBED_FILE == *.csv ]];
         then
             LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+            if [[ -z ${LINE} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=',' read -ra ARRAY <<< "$LINE"
-            DUT_NAME=${ARRAY[9]}
+            DUT_NAME=${ARRAY[9]//[\[\] ]/}
         elif [[ $TESTBED_FILE == *.yaml ]];
         then
             content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            if [[ -z ${content} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
@@ -145,6 +153,11 @@ function setup_test_options()
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
     TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+
+    if [[ -z $TEST_CASES ]]; then
+        echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
+        show_help_and_exit 1
+    fi
 
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \

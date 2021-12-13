@@ -4,6 +4,7 @@ import time
 
 from .args.wr_arp_args import add_wr_arp_args
 from .arp_utils import collect_info, get_po
+from tests.common import constants
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -40,53 +41,62 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
 
-    if is_storage_backend:
-        vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
-        ports_for_test = [_['attachto'] for _ in vlan_sub_intfs]
+    if tbinfo['topo']['type'] == 't0':
+        if is_storage_backend:
+            vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
+            intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
-        # select two vlan sub interfaces for testing
-        intf1 = ports_for_test[0]
-        intf2 = ports_for_test[1]
-    elif tbinfo['topo']['type'] == 't0':
-        if 'PORTCHANNEL_MEMBER' in config_facts:
-            portchannel_members = []
-            for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
-                portchannel_members += v.keys()
-            ports_for_test = [x for x in ports if x not in portchannel_members]
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
         else:
-            ports_for_test = ports
+            if 'PORTCHANNEL_MEMBER' in config_facts:
+                portchannel_members = []
+                for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
+                    portchannel_members += v.keys()
+                ports_for_test = [x for x in ports if x not in portchannel_members]
+            else:
+                ports_for_test = ports
 
-        # Select two interfaces for testing which are not in portchannel
-        intf1 = ports_for_test[0]
-        intf2 = ports_for_test[1]
+            # Select two interfaces for testing which are not in portchannel
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
     else:
-        # Select port index 0 & 1 two interfaces for testing
-        intf1 = ports[0]
-        intf2 = ports[1]
+        if tbinfo['topo']['type'] == 't1' and is_storage_backend:
+            # Select two vlan sub interfaces for t1-backend topology
+            vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
+            ports_for_test = [_['attachto'] for _ in vlan_sub_intfs]
 
-        po1 = get_po(mg_facts, intf1)
-        po2 = get_po(mg_facts, intf2)
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+        else:
+            # Select port index 0 & 1 two interfaces for testing
+            intf1 = ports[0]
+            intf2 = ports[1]
 
-        if po1:
-            asic.config_portchannel_member(po1, intf1, "del")
-            collect_info(duthost)
-            asic.startup_interface(intf1)
-            collect_info(duthost)
+            po1 = get_po(mg_facts, intf1)
+            po2 = get_po(mg_facts, intf2)
 
-        if po2:
-            asic.config_portchannel_member(po2, intf2, "del")
-            collect_info(duthost)
-            asic.startup_interface(intf2)
-            collect_info(duthost)
+            if po1:
+                asic.config_portchannel_member(po1, intf1, "del")
+                collect_info(duthost)
+                asic.startup_interface(intf1)
+                collect_info(duthost)
 
-        if po1 or po2:
-            time.sleep(40)
+            if po2:
+                asic.config_portchannel_member(po2, intf2, "del")
+                collect_info(duthost)
+                asic.startup_interface(intf2)
+                collect_info(duthost)
+
+            if po1 or po2:
+                time.sleep(40)
 
     logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
 
-    if is_storage_backend:
-        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1.split('.')[0]]
-        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2.split('.')[0]]
+    if tbinfo['topo']['type'] == 't1' and is_storage_backend:
+        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]]
+        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]]
     else:
         intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
         intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
