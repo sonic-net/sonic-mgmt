@@ -145,7 +145,6 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info, ptfad
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - get_crm_resources(duthost, "ipv6_neighbor",
                                                                                                   "used")
     nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
-    nd_avaliable = 10
 
     while loop_times > 0:
         loop_times -= 1
