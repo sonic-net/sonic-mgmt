@@ -9,6 +9,8 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+TEMP_STATUS_FILE = "/tmp/firmwareupdate/fw_au_status"
+
 WARM_REBOOT = "warm"
 COLD_REBOOT = "cold"
 POWER_CYCLE = "power off"
@@ -134,7 +136,7 @@ def get_install_paths(duthost, fw, versions, chassis, target_component):
                 log.warning("Firmware is upgrade only and existing firmware {} is not present in version list. Skipping {}".format(ver[comp], comp))
                 continue
             for i, rev in enumerate(revs):
-                if "hw_revision" in r and r["hw_revision"] != get_hw_revision(duthost):
+                if "hw_revision" in rev and rev["hw_revision"] != get_hw_revision(duthost):
                     log.warning("Firmware {} only supports HW Revision {} and this chassis is {}. Skipping".format(rev["version"], rev["hw_revision"], get_hw_revision(duthost)))
                     continue
                 if rev["version"] != ver[comp]:
@@ -167,6 +169,9 @@ def generate_config(duthost, cfg, versions):
 
 def upload_platform(duthost, paths, next_image=None):
     target = next_image if next_image else "/"
+
+    # Clear auto update status file
+    duthost.command("rm -rf {}".format(TEMP_STATUS_FILE))
 
     # Backup the original platform_components.json file
     duthost.fetch(dest=os.path.join("firmware", "platform_components_backup.json"), 
