@@ -61,35 +61,60 @@ class MtuTest(BaseTest):
     
     #---------------------------------------------------------------------
 
-    def check_icmp_mtu(self):
+    def check_icmp_mtu(self, ipv4=True):
         '''
-        @summary: Check ICMP/Ping to DUT works for MAX MTU.
+        @summary: Check ICMPv6/Ping6 to DUT works for MAX MTU.
         '''
-        ip_src = self.src_host_ip
-        ip_dst = self.src_router_ip
         src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
         pktlen = self.pktlen
+        if ipv4:
+            ip_src = self.src_host_ip
+            ip_dst = self.src_router_ip
 
-        pkt = simple_icmp_packet(pktlen=pktlen,
-                            eth_dst=self.router_mac,
-                            eth_src=src_mac,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            ip_ttl=64)
+            pkt = simple_icmp_packet(pktlen=pktlen,
+                                eth_dst=self.router_mac,
+                                eth_src=src_mac,
+                                ip_src=ip_src,
+                                ip_dst=ip_dst,
+                                ip_ttl=64)
 
-        exp_pkt = simple_icmp_packet(pktlen=pktlen,
-                            eth_src=self.router_mac,
-                            ip_src=ip_dst,
-                            ip_dst=ip_src,
-                            icmp_type=0)
+            exp_pkt = simple_icmp_packet(pktlen=pktlen,
+                                eth_src=self.router_mac,
+                                ip_src=ip_dst,
+                                ip_dst=ip_src,
+                                icmp_type=0)
 
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
-         
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
+        else:
+            ip_src = self.src_host_ipv6
+            ip_dst = self.src_router_ipv6
+
+            pkt = simple_icmpv6_packet(pktlen=pktlen,
+                                eth_dst=self.router_mac,
+                                eth_src=src_mac,
+                                ipv6_src=ip_src,
+                                ipv6_dst=ip_dst,
+                                icmp_type=128,
+                                ipv6_hlim=64)
+
+            exp_pkt = simple_icmpv6_packet(pktlen=pktlen,
+                                eth_src=self.router_mac,
+                                ipv6_src=ip_dst,
+                                ipv6_dst=ip_src,
+                                icmp_type=129)
+
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "chksum")
+
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
@@ -106,53 +131,7 @@ class MtuTest(BaseTest):
 
     #---------------------------------------------------------------------
 
-    def check_icmpv6_mtu(self):
-        '''
-        @summary: Check ICMPv6/Ping6 to DUT works for MAX MTU.
-        '''
-        ipv6_src = self.src_host_ipv6
-        ipv6_dst = self.src_router_ipv6
-        src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
-        pktlen = self.pktlen
-
-        pkt = simple_icmpv6_packet(pktlen=pktlen,
-                            eth_dst=self.router_mac,
-                            eth_src=src_mac,
-                            ipv6_src=ipv6_src,
-                            ipv6_dst=ipv6_dst,
-                            icmp_type=128,
-                            ipv6_hlim=64)
-
-        exp_pkt = simple_icmpv6_packet(pktlen=pktlen,
-                            eth_src=self.router_mac,
-                            ipv6_src=ipv6_dst,
-                            ipv6_dst=ipv6_src,
-                            icmp_type=129)
-
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "chksum")
-         
-        src_port = self.src_ptf_port_list[0]
-        send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " to " + ipv6_dst)
-        dst_port_list = self.src_ptf_port_list
-
-        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
-        
-        assert received
-
-        matched_port = dst_port_list[matched_index]
-        logging.info("Received packet at " + str(matched_port))
-
-        return
-
-    #---------------------------------------------------------------------
-
-    def check_ip_mtu(self):
+    def check_ip_mtu(self, ipv4=True):
         '''
         @summary: Check unicast IP forwarding in DUT works for MAX MTU.
         '''
@@ -160,21 +139,44 @@ class MtuTest(BaseTest):
         ip_dst = self.dst_host_ip
         src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
 
-        pkt = simple_ip_packet(pktlen=self.pktlen,
-                            eth_dst=self.router_mac,
-                            eth_src=src_mac,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            ip_ttl=64)
+        if ipv4:
+            ip_src = self.src_host_ip
+            ip_dst = self.dst_host_ip
+            pkt = simple_ip_packet(pktlen=self.pktlen,
+                                eth_dst=self.router_mac,
+                                eth_src=src_mac,
+                                ip_src=ip_src,
+                                ip_dst=ip_dst,
+                                ip_ttl=64)
 
-        exp_pkt = simple_ip_packet(pktlen=self.pktlen,
-                            eth_src=self.router_mac,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            ip_ttl=63)
+            exp_pkt = simple_ip_packet(pktlen=self.pktlen,
+                                eth_src=self.router_mac,
+                                ip_src=ip_src,
+                                ip_dst=ip_dst,
+                                ip_ttl=63)
 
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        else:
+            ip_src = self.src_host_ipv6
+            ip_dst = self.dst_host_ipv6
+            pkt = simple_tcpv6_packet(pktlen=self.pktlen,
+                                eth_dst=self.router_mac,
+                                eth_src=src_mac,
+                                ipv6_src=ip_src,
+                                ipv6_dst=ip_dst,
+                                ipv6_hlim=64)
+
+            exp_pkt = simple_tcpv6_packet(pktlen=self.pktlen,
+                                eth_src=self.router_mac,
+                                ipv6_src=ip_src,
+                                ipv6_dst=ip_dst,
+                                ipv6_hlim=63)
+
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
 
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
@@ -191,56 +193,14 @@ class MtuTest(BaseTest):
         return
 
     #---------------------------------------------------------------------
-
-    def check_ipv6_mtu(self):
-        '''
-        @summary: Check unicast IPv6 forwarding in DUT works for MAX MTU.
-        '''
-        ipv6_src = self.src_host_ipv6
-        ipv6_dst = self.dst_host_ipv6
-        src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
-
-        pkt = simple_ipv6ip_packet(pktlen=self.pktlen,
-                            eth_dst=self.router_mac,
-                            eth_src=src_mac,
-                            ipv6_src=ipv6_src,
-                            ipv6_dst=ipv6_dst,
-                            ipv6_hlim=64)
-
-        exp_pkt = simple_ipv6ip_packet(pktlen=self.pktlen,
-                            eth_src=self.router_mac,
-                            ipv6_src=ipv6_src,
-                            ipv6_dst=ipv6_dst,
-                            ipv6_hlim=63)
-
-        masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
-
-        src_port = self.src_ptf_port_list[0]
-        send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " to " + ipv6_dst)
-
-        dst_port_list = self.dst_ptf_port_list
-        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
-
-        assert received
-
-        matched_port = dst_port_list[matched_index]
-        logging.info("Received packet at " + str(matched_port))
-    
-        return
-
-    #---------------------------------------------------------------------
-
     def runTest(self):
         """
         @summary: Send packet(Max MTU) to test on Ping request/response and unicast IP destination.
         Expect the packet to be received from one of the expected ports
         """
+
         self.pktlen = self.testbed_mtu          
         self.check_icmp_mtu()
-        self.check_icmpv6_mtu()
+        self.check_icmp_mtu(ipv4=False)
         self.check_ip_mtu()
-        self.check_ipv6_mtu()
+        self.check_ip_mtu(ipv4=False)
