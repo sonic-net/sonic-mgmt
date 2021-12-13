@@ -64,7 +64,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test, ptfad
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
-    ptf_intf_ipv4_hosts = list(ptf_intf_ipv4_hosts)[1:arp_avaliable + 1]
+    ptf_intf_ipv4_hosts = ptf_intf_ipv4_hosts[1:arp_avaliable + 1]
     _, _, intf1_index, _, = intfs_for_test
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
