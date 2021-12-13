@@ -6,56 +6,89 @@ import logging
 import pytest
 import random
 
-from tests.common.plugins.test_completeness import CompletenessLevel
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link
-from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.dut_ports import decode_dut_port_name
+from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, check_orch_cpu_utilization
+from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
-    pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic)
 ]
 
-
-class TestLinkFlap(object):
-    """
-    TestLinkFlap class for link flap
-    """
-    def __init__(self, request):
-        """
-        Initialization of parameters for test
-
-        Args:
-            request: pytest request object
-        """
-        self.completeness_level = CompletenessLevel.get_normalized_level(request)
-
-    def run_link_flap_test(self, dut, fanouthosts, port):
-        """
-        Test runner of link flap test.
-
-        Args:
-            dut: DUT host object
-            fanouthosts: List of fanout switch instances.
-        """
-        candidates = build_test_candidates(dut, fanouthosts, port, self.completeness_level)
-        pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
-
-        for dut_port, fanout, fanout_port in candidates:
-            toggle_one_link(dut, dut_port, fanout, fanout_port)
-
+def get_port_list(duthost, tbinfo):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts["minigraph_ports"].keys()
 
 @pytest.mark.platform('physical')
-def test_link_flap(request, duthosts, enum_dut_portname, fanouthosts):
+def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts, get_loop_times):
     """
     Validates that link flap works as expected
     """
-    tlf = TestLinkFlap(request)
+    duthost = duthosts[rand_one_dut_hostname]
+    orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
 
-    dutname, portname = decode_dut_port_name(enum_dut_portname)
-    for dut in duthosts:
-        if dutname == 'unknown' or dutname == dut.hostname:
-            tlf.run_link_flap_test(dut, fanouthosts, portname)
+    # Record memory status at start
+    memory_output = duthost.shell("show system-memory")["stdout"]
+    logger.info("Memory Status at start: %s", memory_output)
+
+    # Record Redis Memory at start
+    start_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+    logger.info("Redis Memory: %s M", start_time_redis_memory)
+
+     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
+    logger.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
+    pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
+
+    loop_times = get_loop_times
+
+    port_lists = get_port_list(duthost, tbinfo)
+
+    candidates = []
+    for port in port_lists:
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        candidates.append((port, fanout, fanout_port))
+
+    for loop_time in range(0, loop_times):
+        watch = False
+        check_status = False
+        if loop_time == 0 or loop_time == loop_times - 1:
+            watch = True
+            check_status = True
+
+        for dut_port, fanout, fanout_port in candidates:
+            toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
+
+    # Record memory status at end
+    memory_output = duthost.shell("show system-memory")["stdout"]
+    logger.info("Memory Status at end: %s", memory_output)
+
+    # Record orchagent CPU utilization at end
+    orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
+    logger.info("Orchagent CPU Util at end: %s", orch_cpu)
+
+    # Record Redis Memory at end
+    end_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+    logger.info("Redis Memory at start: %s M", start_time_redis_memory)
+    logger.info("Redis Memory at end: %s M", end_time_redis_memory)
+
+    # Calculate diff in Redis memory
+    incr_redis_memory = float(end_time_redis_memory) - float(start_time_redis_memory)
+    logger.info("Redis absolute  difference: %d", incr_redis_memory)
+
+    # Check redis memory only if it is increased else default to pass
+    if incr_redis_memory > 0.0:
+        percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
+        logger.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
+        pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
+
+    # Orchagent CPU should consume < orch_cpu_threshold at last.
+    logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
+    pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
+
