@@ -63,7 +63,7 @@ class MtuTest(BaseTest):
 
     def check_icmp_mtu(self, ipv4=True):
         '''
-        @summary: Check ICMPv6/Ping6 to DUT works for MAX MTU.
+        @summary: Check ICMP/Ping or ICMPv6/Ping6 to DUT works for MAX MTU.
         '''
         src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
         pktlen = self.pktlen
@@ -133,7 +133,7 @@ class MtuTest(BaseTest):
 
     def check_ip_mtu(self, ipv4=True):
         '''
-        @summary: Check unicast IP forwarding in DUT works for MAX MTU.
+        @summary: Check unicast IP/IPv6 forwarding in DUT works for MAX MTU.
         '''
         ip_src = self.src_host_ip
         ip_dst = self.dst_host_ip
