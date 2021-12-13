@@ -52,8 +52,10 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
-
+    if 'switch_type' in dut_vars:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"])
+    else:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
