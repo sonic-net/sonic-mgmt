@@ -120,9 +120,10 @@ def check_interface_status(duthost):
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202106"])
-    config_reload(duthost)
-    wait_critical_processes(duthost)
-    pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+    if not check_interface_status(duthost):
+        config_reload(duthost)
+        wait_critical_processes(duthost)
+        pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8")
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
