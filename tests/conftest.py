@@ -147,6 +147,11 @@ def pytest_addoption(parser):
     parser.addoption("--restore_to_image", default="",
         help="Specify the target image to restore to, or stay in target image if empty",
     )
+    ############################
+    #   loop_times options     #
+    ############################
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
 
 
 @pytest.fixture(scope="session", autouse=True)
