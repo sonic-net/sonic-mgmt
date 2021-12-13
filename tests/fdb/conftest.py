@@ -2,6 +2,8 @@ import time
 import logging
 import pytest
 from .args.fdb_args import add_fdb_mac_expire_args
+from tests.common.utilities import wait
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +28,12 @@ def pytest_addoption(parser):
 def set_polling_interval(duthost):
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
     duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 @pytest.fixture(scope='module')
 def get_function_conpleteness_level(pytestconfig):
