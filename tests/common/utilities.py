@@ -26,15 +26,6 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 
-def skip_version(duthost, version_list):
-    """
-    @summary: Skip current test if any given version keywords are in os_version
-    @param duthost: The DUT
-    @param version_list: A list of incompatible versions
-    """
-    if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
-
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -521,6 +512,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
 
+
 def check_qos_db_fv_reference_with_table(duthost):
     """
     @summary: Check qos db field value refrence with table name or not.
@@ -531,3 +523,12 @@ def check_qos_db_fv_reference_with_table(duthost):
         logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
+
+
+def str2bool(str):
+    """
+    This is used as a type when add option for pytest
+    :param str: The input string value
+    :return: False if value is 0 or false, else True
+    """
+    return str.lower() not in ["0", "false", "no"]

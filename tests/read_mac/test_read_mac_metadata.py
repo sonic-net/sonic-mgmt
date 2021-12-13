@@ -3,7 +3,6 @@ import logging
 
 from tests.common.utilities import wait
 from tests.common.utilities import wait_until
-from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from datetime import datetime
@@ -23,7 +22,17 @@ pytestmark = [
 @pytest.fixture(scope='function')
 def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    initImage = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
     yield
+    """
+    Recover the image to image2 which is the image before doing this case.
+    """
+    currentImage = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
+    if initImage != currentImage:
+        logger.info("Re-install the image: {} to DUT" .format(initImage))
+        duthost.copy(src=BINARY_FILE_ON_LOCALHOST_2, dest=BINARY_FILE_ON_DUTHOST)
+        duthost.shell("sonic-installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
+        reboot(duthost, localhost, wait=120)
     logger.info('Remove temporary images')
     duthost.shell("rm -rf {}".format(BINARY_FILE_ON_DUTHOST))
     localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_1))
@@ -100,7 +109,7 @@ class ReadMACMetadata():
             duthost.copy(src=BINARY_FILE_ON_LOCALHOST_2, dest=BINARY_FILE_ON_DUTHOST)
 
         logger.info("Installing new SONiC image")
-        duthost.shell("sonic_installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
+        duthost.shell("sonic-installer install -y {}".format(BINARY_FILE_ON_DUTHOST))
 
     def check_mtu_and_interfaces(self, duthost):
         logger.info("Verify that MAC address fits template XX:XX:XX:XX:XX:XX")
@@ -111,11 +120,19 @@ class ReadMACMetadata():
             pytest.fail("MAC entry does not exist")
 
         logger.info("Verify interfaces are UP and MTU == 9100")
-        checks.check_interfaces(duthost)
+        check_interfaces = self.request.getfixturevalue("check_interfaces")
+        results = check_interfaces()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         non_default_ports = [k for k,v in cfg_facts["PORT"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
-        non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+
+        # Not all topology has portchannel in config, therefore, only verify the status if portchannel exists.
+        non_default_portchannel = []
+        if "PORTCHANNEL" in cfg_facts:
+            non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
 
         if len(non_default_ports) != 0 or len(non_default_portchannel) != 0:
             pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}".format(non_default_ports,non_default_portchannel))

@@ -38,6 +38,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.utilities import str2bool
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
@@ -129,16 +130,6 @@ def pytest_addoption(parser):
     parser.addoption("--testnum", action="store", default=None, type=str)
 
     ############################
-    # platform sfp api options #
-    ############################
-    # Allow user to skip the absent sfp modules. User can use it like below:
-    # "--skip-absent-sfp=True"
-    # If this option is not specified, False will be used by default.
-    parser.addoption("--skip-absent-sfp", action="store", type=bool, default=False,
-        help="Skip test on absent SFP",
-    )
-
-    ############################
     # upgrade_path options     #
     ############################
     parser.addoption("--upgrade_type", default="warm",
@@ -156,6 +147,11 @@ def pytest_addoption(parser):
     parser.addoption("--restore_to_image", default="",
         help="Specify the target image to restore to, or stay in target image if empty",
     )
+    ############################
+    #   loop_times options     #
+    ############################
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -434,7 +430,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -444,6 +440,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
+            duthost = duthosts[dut_host]
+            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
                 fanout_host = str(fanout_rec['peerdevice'])
@@ -481,6 +479,19 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+
+                # Add port name to fanout port mapping port if dut_port is alias.
+                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                    # it happens when an interface has the same name with another alias, for example:
+                    # Interface     Alias
+                    # --------------------
+                    # Ethernet108   Ethernet32
+                    # Ethernet32    Ethernet13/1
+                    if mapped_port not in value.keys():
+                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
     except:
@@ -554,7 +565,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.iteritems():
+    for k, v in console_login_creds.items():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -578,7 +589,7 @@ def creds_all_duts(duthosts):
 def pytest_runtest_makereport(item, call):
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
 
     # execute all other hooks to obtain the report object
     outcome = yield

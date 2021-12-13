@@ -166,7 +166,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
 
 
 def cleanup(ptfadapter, duthosts_list):
-    print_logs(duthosts_list)
+    print_logs(duthosts_list, print_dual_tor_logs=True)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
@@ -196,7 +196,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
     
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
         Helper method for `send_t1_to_server_with_action`.
@@ -261,7 +261,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     arp_setup(ptfhost)
 
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
-                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=None,
+                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
         Helper method for `send_server_to_t1_with_action`.

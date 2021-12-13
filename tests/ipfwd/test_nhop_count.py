@@ -252,6 +252,7 @@ def loganalyzer_ignore_regex_list():
         ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6:.*",
         ".*ERR syncd#syncd: :- processQuadEvent: attr: SAI_ACL_TABLE_ATTR_FIELD_TCP_FLAGS:.*",
         ".*ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_CREATE.*",
+        ".*ERR swss#orchagent: :- getResAvailableCounters: Failed to get availability for object_type.*",
         ".*brcm_sai_dnx_create_acl_table:.*",
     ]
     return ignore

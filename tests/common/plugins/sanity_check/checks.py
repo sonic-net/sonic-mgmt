@@ -17,58 +17,16 @@ MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
-__all__ = [
-    'check_services',
+CHECK_ITEMS = [
+    'check_processes',
     'check_interfaces',
     'check_bgp',
     'check_dbmemory',
     'check_monit',
-    'check_processes',
     'check_mux_simulator',
     'check_secureboot']
 
-
-@pytest.fixture(scope="module")
-def check_services(duthosts):
-    def _check(*args, **kwargs):
-        result = parallel_run(_check_services_on_dut, (args), kwargs, duthosts, timeout=SYSTEM_STABILIZE_MAX_TIME)
-        return result.values()
-
-    @reset_ansible_local_tmp
-    def _check_services_on_dut(*args, **kwargs):
-        dut=kwargs['node']
-        results = kwargs['results']
-        logger.info("Checking services status on %s..." % dut.hostname)
-
-        networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
-        interval = 20
-        logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
-                    (networking_uptime, timeout, interval))
-
-        check_result = {"failed": True, "check_item": "services", "host": dut.hostname}
-        if timeout == 0:    # Check services status, do not retry.
-            services_status = dut.critical_services_status()
-            check_result["failed"] = False if all(services_status.values()) else True
-            check_result["services_status"] = services_status
-        else:
-            start = time.time()
-            elapsed = 0
-            while elapsed < timeout:
-                services_status = dut.critical_services_status()
-                check_result["failed"] = False if all(services_status.values()) else True
-                check_result["services_status"] = services_status
-
-                if check_result["failed"]:
-                    wait(interval, msg="Not all services are started, wait %d seconds to retry. Remaining time: %d %s" % \
-                                       (interval, int(timeout - elapsed), str(check_result["services_status"])))
-                    elapsed = time.time() - start
-                else:
-                    break
-
-        logger.info("Done checking services status on %s" % dut.hostname)
-        results[dut.hostname] = check_result
-    return _check
+__all__ = CHECK_ITEMS
 
 
 def _find_down_phy_ports(dut, phy_interfaces):
@@ -140,9 +98,9 @@ def check_interfaces(duthosts):
             phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
-                ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+                ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += cfg_facts["VLAN_INTERFACE"].keys()
+                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
@@ -203,7 +161,7 @@ def check_bgp(duthosts):
             for asic_index, a_asic_facts in enumerate(bgp_facts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
-                if a_asic_neighbors is not None:
+                if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
                     down_neighbors = [k for k, v in a_asic_neighbors.items()
                                       if v['state'] != 'established']
                     if down_neighbors:
@@ -266,7 +224,7 @@ def _is_db_omem_over_threshold(command_output):
         if m:
             omem = int(m.group(1))
             total_omem += omem
-    logger.debug(json.dumps(command_output, indent=4))
+    logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
@@ -291,9 +249,9 @@ def check_dbmemory(duthosts):
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
             result, total_omem = _is_db_omem_over_threshold(res)
+            check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
-                check_result["total_omem"] = total_omem
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
