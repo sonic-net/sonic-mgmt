@@ -3,11 +3,9 @@ import subprocess
 
 # Packet Test Framework imports
 import ptf
-import ptf.packet as packet
 import ptf.testutils as testutils
 from ptf import config
 from ptf.base_tests import BaseTest
-from ptf.mask import Mask
 
 IPv6 = scapy.layers.inet6.IPv6
 
