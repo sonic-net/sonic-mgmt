@@ -84,7 +84,7 @@ class FactsCache(with_metaclass(Singleton, object)):
         else:
             facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
             try:
-                with open(facts_file, 'b') as f:
+                with open(facts_file, 'rb') as f:
                     self._cache[zone][key] = pickle.load(f)
                     logger.debug('Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
                     return self._cache[zone][key]
