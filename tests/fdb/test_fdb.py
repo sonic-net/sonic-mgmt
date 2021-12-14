@@ -13,9 +13,8 @@ import re
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
+from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
     pytest.mark.topology('t0', 't0-56-po2vlan'),
@@ -105,7 +104,6 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
                 )
     logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
-
 
 def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
@@ -216,31 +214,6 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
     ptfadapter.dataplane.flush()
 
     return fdb
-
-
-def get_fdb_dynamic_mac_count(duthost):
-    res = duthost.command('show mac')
-    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
-    total_mac_count = 0
-    for l in res['stdout_lines']:
-        if "dynamic" in l.lower() and DUMMY_MAC_PREFIX in l.lower():
-            total_mac_count += 1
-    return total_mac_count
-
-
-def fdb_table_has_no_dynamic_macs(duthost):
-    return (get_fdb_dynamic_mac_count(duthost) == 0)
-
-
-def fdb_cleanup(duthosts, rand_one_dut_hostname):
-    """ cleanup FDB before and after test run """
-    duthost = duthosts[rand_one_dut_hostname]
-    if fdb_table_has_no_dynamic_macs(duthost):
-        return
-    else:
-        duthost.command('sonic-clear fdb all')
-        pytest_assert(wait_until(20, 2, 0, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
-
 
 def validate_mac(mac):
     if mac.find(':') != -1:
