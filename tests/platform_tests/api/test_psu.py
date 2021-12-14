@@ -393,6 +393,9 @@ class TestPsuApi(PlatformApiTestBase):
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
 
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                continue
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
                 for color in led_type:
