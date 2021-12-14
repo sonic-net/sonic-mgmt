@@ -812,6 +812,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[queueProfile].keys():
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
 
+        if "pkts_num_margin" in qosConfig[queueProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest",
             testParams=testParams
