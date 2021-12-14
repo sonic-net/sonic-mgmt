@@ -256,7 +256,7 @@ class TestShowInterfaces():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        regex_int = re.compile(r'(\S+)\s+(\w)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)')
+        regex_int = re.compile(r'(\S+)(\w)(\d+)')
         interfaces = list()
 
         show_intf_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces counter'.format(ifmode))
@@ -266,6 +266,8 @@ class TestShowInterfaces():
             line = line.strip()
             if regex_int.match(line):
                 interfaces.append(regex_int.match(line).group(1))
+
+        assert(len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
