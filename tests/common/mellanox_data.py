@@ -747,7 +747,7 @@ SWITCH_MODELS = {
             }
         }
     },
-    "x86_64-mlnx_msn4800-r0": {
+    "x86_64-nvidia_sn4800-r0": {
         "chip_type": "spectrum3",
         "reboot": {
             "cold_reboot": True,

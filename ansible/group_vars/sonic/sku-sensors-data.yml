@@ -4731,7 +4731,7 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-mlnx_msn4800-r0:
+  x86_64-nvidia_sn4800-r0:
     alarms:
       fan:
       - dps460-i2c-4-59/PSU-1(R) Fan 1/fan1_alarm
@@ -4800,14 +4800,13 @@ sensors_checks:
       - mp2975-i2c-5-6a/PMIC-5 ASIC 1.2V_T4_7 Rail (out2)/in3_lcrit_alarm
       - mp2975-i2c-5-6a/PMIC-5 12V ASIC 1.2V_MAIN_1.2V_T4_7 Rail Pwr (in)/power1_alarm
 
-      - mp2975-i2c-56-6b/PMIC-6 COMEX 1.8V Rail Curr (out1)/curr1_alarm
-      - mp2975-i2c-56-6b/PMIC-6 COMEX 1.05V Rail Curr (out2)/curr2_alarm
-      - mp2975-i2c-56-6b/PMIC-6 PSU 12V Rail (in1)/in1_crit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 PSU 12V Rail (in2)/in2_crit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 COMEX 1.8V Rail (out1)/in3_crit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 COMEX 1.8V Rail (out1)/in3_lcrit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 COMEX 1.8V Rail Pwr (out1)/power1_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX Curr (iin)/curr1_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX VCORE Rail Curr (out1)/curr2_alarm
+      - mp2975-i2c-56-6b/PMIC-6 PSU 12V Rail (vin)/in1_crit_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX VCORE (out1)/in3_crit_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX VCORE (out1)/in3_lcrit_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX Pwr (pin)/power1_alarm
+      - mp2975-i2c-56-6b/PMIC-6 COMEX VCCSA Rail Curr (out2)/curr3_alarm
 
       - dps460-i2c-4-59/PSU-1(R) 220V Rail Curr (in)/curr1_crit_alarm
       - dps460-i2c-4-59/PSU-1(R) 220V Rail Curr (in)/curr1_max_alarm
@@ -4917,8 +4916,8 @@ sensors_checks:
       - mp2975-i2c-5-6a/PMIC-5 ASIC 1.2V_MAIN_1.2V_T4_7 Temp 1/temp1_crit_alarm
       - mp2975-i2c-5-6a/PMIC-5 ASIC 1.2V_MAIN_1.2V_T4_7 Temp 1/temp1_max_alarm
 
-      - mp2975-i2c-56-6b/PMIC-6 Temp 1/temp1_crit_alarm
-      - mp2975-i2c-56-6b/PMIC-6 Temp 1/temp1_max_alarm
+      - mp2975-i2c-56-6b/PMIC-6 Temp/temp1_crit_alarm
+      - mp2975-i2c-56-6b/PMIC-6 Temp/temp1_max_alarm
 
       - mp2975-i2c-59-62/Linecard PMIC-1 AGB VCORE_1.2V Ambient Temp 1/temp1_max_alarm
       - mp2975-i2c-59-62/Linecard PMIC-1 AGB VCORE_1.2V Ambient Temp 1/temp1_crit_alarm
