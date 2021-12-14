@@ -37,6 +37,9 @@ def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                        "src_host_ip": gather_facts['src_host_ipv4'],
                        "src_router_ip": gather_facts['src_router_ipv4'],
                        "dst_host_ip": gather_facts['dst_host_ipv4'],
+                       "src_host_ipv6": gather_facts['src_host_ipv6'],
+                       "src_router_ipv6": gather_facts['src_router_ipv6'],
+                       "dst_host_ipv6": gather_facts['dst_host_ipv6'],
                        "src_ptf_port_list": gather_facts['src_port_ids'],
                        "dst_ptf_port_list": gather_facts['dst_port_ids']
                        },
