@@ -21,13 +21,11 @@ class SonicDbCli(object):
 
     def _cli_prefix(self):
         """Builds opening of sonic-db-cli command for other methods."""
-        # return "sonic-db-cli -p {pid} --raw -n {db} ".format(
-        #     docker=self.docker, db=self.database, pid=self.pid)
         return " {db} ".format(db=self.database)
 
     def _run_and_check(self, cmd):
         """
-        Executes a redis CLI command and checks the output for empty string.
+        Executes a sonic-db CLI command and checks the output for empty string.
 
         Args:
             cmd: Full CLI command to run.
@@ -47,7 +45,7 @@ class SonicDbCli(object):
 
     def _run_and_raise(self, cmd):
         """
-        Executes a redis CLI command and checks the output for empty string.
+        Executes a sonic-db CLI command and checks the output for empty string.
 
         Args:
             cmd: Full CLI command to run.
@@ -79,20 +77,20 @@ class SonicDbCli(object):
         Returns:
             The corresponding value of the key.
         Raises:
-            RedisKeyNotFound: If the key or field has no value or is not present.
+            SonicDbKeyNotFound: If the key or field has no value or is not present.
 
 
         """
         cmd = self._cli_prefix() + "hget {} {}".format(key, field)
         result = self._run_and_check(cmd)
         if result == {}:
-            raise SonicDbKeyNotFound("Key: %s, field: %s not found in rediscmd: %s" % (key, field, cmd))
+            raise SonicDbKeyNotFound("Key: %s, field: %s not found in sonic-db cmd: %s" % (key, field, cmd))
         else:
             return result['stdout'].decode('unicode-escape')
 
     def get_and_check_key_value(self, key, value, field=None):
         """
-        Executes a redis CLI get or hget and validates the response against a provided field.
+        Executes a sonic-db CLI get or hget and validates the response against a provided field.
 
         Args:
             key: full name of the key to get.
@@ -103,8 +101,8 @@ class SonicDbCli(object):
             True if the validation succeeds.
 
         Raises:
-            RedisKeyNotFound: If the key or field has no value or is not present.
-            AssertionError: If the fetched value from redis does not match the provided value.
+            SonicDbKeyNotFound: If the key or field has no value or is not present.
+            AssertionError: If the fetched value from sonic-db does not match the provided value.
 
         """
         if field is None:
@@ -116,7 +114,7 @@ class SonicDbCli(object):
             logger.info("Value {val} matches output {out}".format(val=value, out=result))
             return True
         else:
-            raise AssertionError("redis value error: %s != %s key was: %s" % (result, value, key))
+            raise AssertionError("sonic-db value error: %s != %s key was: %s" % (result, value, key))
 
     def get_keys(self, table):
         """
@@ -129,25 +127,25 @@ class SonicDbCli(object):
                 list of keys retrieved
 
             Raises:
-                RedisKeyNotFound: If the key or field has no value or is not present.
+                SonicDbKeyNotFound: If the key or field has no value or is not present.
 
         """
         cmd = self._cli_prefix() + " keys {}".format(table)
         result = self._run_and_check(cmd)
         if result == {}:
-            raise SonicDbKeyNotFound("No keys for %s found in rediscmd: %s" % (table, cmd))
+            raise SonicDbKeyNotFound("No keys for %s found in sonic-db cmd: %s" % (table, cmd))
         else:
             return result['stdout'].decode('unicode-escape')
 
     def dump(self, table):
         """
-        Dumps and entire table with redis-dump.
+        Dumps and entire table with sonic-db-dump.
 
         Args:
             table: The table to dump.
 
         Returns:
-            Dictionary containing the parsed json output of the redis_dump.
+            Dictionary containing the parsed json output of the sonic-db-dump.
 
         """
         cli = "sonic-db-dump"
@@ -318,7 +316,7 @@ class AsicDbCli(SonicDbCli):
         is saved so it can be returned directly in subsequent calls.
 
         Args:
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
 
         """
@@ -340,10 +338,10 @@ class AsicDbCli(SonicDbCli):
 
         Args:
             portid: A port OID (oid:0x1000000000004)
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
         Raises:
-            RedisKeyNotFound: If no hostif exists with the portid provided.
+            SonicDbKeyNotFound: If no hostif exists with the portid provided.
         """
         hostif_table = self.get_hostif_table(refresh)
 
@@ -360,7 +358,7 @@ class AsicDbCli(SonicDbCli):
 
         Args:
             portid: the port oid from SAI_ROUTER_INTERFACE_ATTR_PORT_ID (oid:0x6000000000c4d)
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
         Returns:
             "hostif" if the port ID has a host interface
@@ -529,7 +527,7 @@ class VoqDbCli(SonicDbCli):
 
 class SonicDbKeyNotFound(KeyError):
     """
-    Raised when requested keys or fields are not found in the redis db.
+    Raised when requested keys or fields are not found in the db.
     """
     pass
 
