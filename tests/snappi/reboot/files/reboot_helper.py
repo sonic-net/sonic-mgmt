@@ -454,7 +454,8 @@ def get_convergence_for_reboot_test(duthost,
     bgp_up_time = bgp_up_start_timer - bgp_down_start_timer
     loopback_up_time = loopback_up_start_timer - loopback_down_start_timer
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
     request = cvg_api.convergence_request()
     request.convergence.flow_names = flow_names
     convergence_metrics = cvg_api.get_results(request).flow_convergence
