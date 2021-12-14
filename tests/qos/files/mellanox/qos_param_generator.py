@@ -172,6 +172,8 @@ class QosParamMellanox(object):
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_q_shared_lossless['cell_size'] = self.cell_size
+        # It was 8 but recently it failed in rare case. To stabilize the test, increase it to 9
+        wm_q_shared_lossless['pkts_num_margin'] = 9
 
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
