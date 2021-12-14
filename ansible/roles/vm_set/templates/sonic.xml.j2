@@ -46,6 +46,7 @@
     <interface type='ethernet' >
         <target dev='{{ dut_name }}-{{ i + 1 }}' />
         <model type='e1000' />
+        <mtu size='{{ fp_mtu_size }}' />
     </interface>
 {% endfor %}
     <controller type='usb' index='0'/>
