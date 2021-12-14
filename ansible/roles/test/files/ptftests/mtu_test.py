@@ -135,8 +135,6 @@ class MtuTest(BaseTest):
         '''
         @summary: Check unicast IP/IPv6 forwarding in DUT works for MAX MTU.
         '''
-        ip_src = self.src_host_ip
-        ip_dst = self.dst_host_ip
         src_mac = self.dataplane.get_mac(0, self.src_ptf_port_list[0])
 
         if ipv4:
