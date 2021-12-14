@@ -124,7 +124,7 @@ class AnsibleLogAnalyzer:
         This function is introduced to identify whether a file needs default marker
         check.
         '''
-        files_to_skip = ["sairedis.rec", "bgpd.log"]
+        files_to_skip = ["sairedis.rec", "bgpd.log", "console_log"]
         return not any([target in file_path for target in files_to_skip])
 
     #---------------------------------------------------------------------

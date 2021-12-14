@@ -11,6 +11,7 @@ import pytest
 import yaml
 import jinja2
 import copy
+import pexpect
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -31,6 +32,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.plugins.loganalyzer.console_loganalyzer import ConsoleLogAnalyzer
 import time
 
 from tests.common.helpers.constants import (
@@ -190,6 +192,10 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--public_docker_registry", action="store_true", default=False,
                     help="To use public docker registry for syncd swap, by default is disabled (False)")
+
+    # flag to support capturing console
+    parser.addoption("--capture_console", action="store_true", default=False,
+                     help="Flag for if want to capture console when running tests")
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
