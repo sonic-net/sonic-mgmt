@@ -18,59 +18,15 @@ OMEM_THRESHOLD_BYTES=10485760 # 10MB
 cache = FactsCache()
 
 CHECK_ITEMS = [
-    'check_services',
+    'check_processes',
     'check_interfaces',
     'check_bgp',
     'check_dbmemory',
     'check_monit',
-    'check_processes',
     'check_mux_simulator',
     'check_secureboot']
 
 __all__ = CHECK_ITEMS
-
-
-@pytest.fixture(scope="module")
-def check_services(duthosts):
-    def _check(*args, **kwargs):
-        result = parallel_run(_check_services_on_dut, (args), kwargs, duthosts, timeout=SYSTEM_STABILIZE_MAX_TIME)
-        return result.values()
-
-    @reset_ansible_local_tmp
-    def _check_services_on_dut(*args, **kwargs):
-        dut=kwargs['node']
-        results = kwargs['results']
-        logger.info("Checking services status on %s..." % dut.hostname)
-
-        networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
-        interval = 20
-        logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" % \
-                    (networking_uptime, timeout, interval))
-
-        check_result = {"failed": True, "check_item": "services", "host": dut.hostname}
-        if timeout == 0:    # Check services status, do not retry.
-            services_status = dut.critical_services_status()
-            check_result["failed"] = False if all(services_status.values()) else True
-            check_result["services_status"] = services_status
-        else:
-            start = time.time()
-            elapsed = 0
-            while elapsed < timeout:
-                services_status = dut.critical_services_status()
-                check_result["failed"] = False if all(services_status.values()) else True
-                check_result["services_status"] = services_status
-
-                if check_result["failed"]:
-                    wait(interval, msg="Not all services are started, wait %d seconds to retry. Remaining time: %d %s" % \
-                                       (interval, int(timeout - elapsed), str(check_result["services_status"])))
-                    elapsed = time.time() - start
-                else:
-                    break
-
-        logger.info("Done checking services status on %s" % dut.hostname)
-        results[dut.hostname] = check_result
-    return _check
 
 
 def _find_down_phy_ports(dut, phy_interfaces):
@@ -142,9 +98,9 @@ def check_interfaces(duthosts):
             phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
-                ip_interfaces = cfg_facts["PORTCHANNEL_INTERFACE"].keys()
+                ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
-                ip_interfaces += cfg_facts["VLAN_INTERFACE"].keys()
+                ip_interfaces += list(cfg_facts["VLAN_INTERFACE"].keys())
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
