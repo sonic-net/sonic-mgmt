@@ -7,7 +7,6 @@ import ptf.packet as packet
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
                       ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
-from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
@@ -17,140 +16,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope='module')
-def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
-    """
-    Calculate IP addresses and interface to use for test
-    """
-    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    _, _, intf1_index, _, = intfs_for_test
-    ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
-
-    # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
-    intf_ipv6_addr = None
-    intf_ipv4_addr = None
-
-    for addr in vlan_addrs:
-        try:
-            if type(ip_network(addr, strict=False)) is IPv6Network:
-                intf_ipv6_addr = ip_network(addr, strict=False)
-            elif type(ip_network(addr, strict=False)) is IPv4Network:
-                intf_ipv4_addr = ip_network(addr, strict=False)
-        except ValueError:
-            continue
-
-    # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
-    # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
-    if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
-    else:
-        ptf_intf_ipv4_addr = None
-
-    if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
-    else:
-        ptf_intf_ipv6_addr = None
-
-    logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
-
-    return ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index
-
-
-@pytest.fixture
-def garp_enabled(rand_selected_dut, config_facts):
-    """
-    Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
-
-    Also checks the kernel `arp_accept` value to see if the
-    attempt was successful.
-
-    During teardown, restores the original `grat_arp` value in 
-    CONFIG_DB
-
-    Yields:
-        (bool) True if `arp_accept` was successfully set for all VLANs,
-               False otherwise
-
-    """
-    duthost = rand_selected_dut
-
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
-    garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
-    garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
-    cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
-    arp_accept_vals = []
-    old_grat_arp_vals = {}
-
-    for vlan in vlan_intfs:
-        old_grat_arp_res = duthost.shell(garp_check_cmd.format(vlan))
-        old_grat_arp_vals[vlan] = old_grat_arp_res['stdout']
-        res = duthost.shell(garp_enable_cmd.format(vlan))
-
-        if res['rc'] != 0:
-            pytest.fail("Unable to enable GARP for {}".format(vlan))
-        else:
-            logger.info("Enabled GARP for {}".format(vlan))
-
-            # Get the `arp_accept` values for each VLAN interface
-            arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
-            arp_accept_vals.append(arp_accept_res['stdout'])
-
-    yield all(int(val) == 1 for val in arp_accept_vals)
-
-    garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
-    for vlan in vlan_intfs:
-        old_grat_arp_val = old_grat_arp_vals[vlan]
-
-        if 'enabled' not in old_grat_arp_val:
-            res = duthost.shell(garp_disable_cmd.format(vlan))
-
-            if res['rc'] != 0:
-                pytest.fail("Unable to disable GARP for {}".format(vlan))
-            else:
-                logger.info("GARP disabled for {}".format(vlan))
-
-@pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
-    """
-    Tries to enable proxy ARP for each VLAN on the ToR
-
-    Also checks CONFIG_DB to see if the attempt was successful
-
-    During teardown, restores the original proxy ARP setting
-
-    Yields:
-        (bool) True if proxy ARP was enabled for all VLANs,
-               False otherwise
-    """
-    duthost = rand_selected_dut
-    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
-
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
-    vlans = config_facts['VLAN']
-    vlan_ids =[vlans[vlan]['vlanid'] for vlan in vlans.keys()]
-    old_proxy_arp_vals = {}
-    new_proxy_arp_vals = []
-
-    # Enable proxy ARP/NDP for the VLANs on the DUT
-    for vid in vlan_ids:
-        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
-
-        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
-
-        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
-        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
-
-    yield all('enabled' in val for val in new_proxy_arp_vals)
-
-    for vid, proxy_arp_val in old_proxy_arp_vals.items():
-        if 'enabled' not in proxy_arp_val:
-            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
 
 def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
@@ -203,7 +68,7 @@ def generate_link_local_addr(mac):
 @pytest.fixture(params=['v4', 'v6'])
 def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
-    src_addr_v4, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
+    src_addr_v4, _, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
@@ -260,7 +125,9 @@ def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     """
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
-    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
+
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index  = ip_and_intf_info
+
     ip_version, outgoing_packet, expected_packet = packets_for_test
 
     if ip_version == 'v4':
