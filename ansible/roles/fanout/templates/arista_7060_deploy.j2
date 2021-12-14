@@ -43,6 +43,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 100gfull
    error-correction encoding reed-solomon
+   no switchport mac address learning
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
@@ -50,6 +51,7 @@ interface {{ intf }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
+   no switchport mac address learning
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
@@ -58,6 +60,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 50gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {% set intf =  'Ethernet' + i|string + '/3'  %}
 interface {{ intf }}
@@ -68,6 +71,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 50gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%         else %}
    shutdown
@@ -79,6 +83,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 10gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%         for j in range(2,5) %}
 {% set intf =  'Ethernet' + i|string + '/' + j|string %}
@@ -90,6 +95,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 10gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%             else %}
    shutdown
@@ -105,6 +111,7 @@ interface {{ intf }}
    switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    spanning-tree portfast
    speed force 40gfull
+   no switchport mac address learning
    no shutdown
 {% else %}
    shutdown
