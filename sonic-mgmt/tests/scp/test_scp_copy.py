@@ -16,11 +16,11 @@ BLOCK_SIZE = 500000000
 def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     # Copies script to DUT
-    duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")
+    duthost.copy(src="scp/perform_scp.py", dest="/home/cisco/perform_scp.py")
 
     yield
 
-    files_to_remove = ["./{}".format(TEST_FILE_NAME), "/home/admin/perform_scp.py"]
+    files_to_remove = ["./{}".format(TEST_FILE_NAME), "/home/cisco/perform_scp.py"]
     for file in files_to_remove:
         duthost.file(path=file, state="absent")
 
@@ -48,7 +48,7 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, cred
     p3_pexp_exists = duthost.command("python3 -c 'import pexpect'", module_ignore_errors=True)["rc"]
     if p3_pexp_exists!=0:
         python_version = "python"
-    duthost.command("{} perform_scp.py in {} /root/{} /home/admin {} {}"\
+    duthost.command("{} perform_scp.py in {} /root/{} /home/cisco {} {}"\
         .format(python_version, ptf_ip, TEST_FILE_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate file was received
@@ -66,7 +66,7 @@ def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, cred
             .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("{} perform_scp.py out {} /home/admin/{} /root/{} {} {}"\
+    duthost.command("{} perform_scp.py out {} /home/cisco/{} /root/{} {} {}"\
             .format(python_version, ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate that the file copied is now present in the PTF
