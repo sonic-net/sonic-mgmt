@@ -403,7 +403,6 @@ def __tgen_bgp_config(cvg_api,
     flow.metrics.enable = True
     return conv_config
 
-
 def get_flow_stats(cvg_api):
     """
     Args:
@@ -412,7 +411,6 @@ def get_flow_stats(cvg_api):
     request = cvg_api.convergence_request()
     request.metrics.flow_names = []
     return cvg_api.get_results(request).flow_metric
-
 
 def get_convergence_for_local_link_failover(cvg_api,
                                             bgp_config,
@@ -440,7 +438,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             port_name: Name of the port
         """
 
-        table, avg, tx_frate, rx_frate = [], [], [], []
+        table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
         for i in range(0, iteration):
             logger.info('|---- {} Link Flap Iteration : {} ----|'.format(port_name, i+1))
 
@@ -453,7 +451,6 @@ def get_convergence_for_local_link_failover(cvg_api,
             flow_stats = get_flow_stats(cvg_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
-
             """ Flapping Link """
             logger.info('Simulating Link Failure on {} link'.format(port_name))
             cs = cvg_api.convergence_state()
@@ -474,7 +471,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-
+            avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
             """ Performing link up at the end of iteration """
             logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
             cs = cvg_api.convergence_state()
@@ -485,13 +482,14 @@ def get_convergence_for_local_link_failover(cvg_api,
         table.append(route_type)
         table.append(number_of_routes)
         table.append(iteration)
+        table.append(mean(avg_delta))
         table.append(mean(avg))
         return table
     table = []
     """ Iterating link flap test on all the rx ports """
     for i, port_name in enumerate(rx_port_names):
         table.append(get_avg_dpdp_convergence_time(port_name))
-    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Avg Calculated Data Convergence Time (ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Delta Frames', 'Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
@@ -529,7 +527,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             route_name: name of the route
 
         """
-        table, avg, tx_frate, rx_frate = [], [], [], []
+        table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
         for i in range(0, iteration):
             logger.info('|---- {} Route Withdraw Iteration : {} ----|'.format(route_name, i+1))
 
@@ -564,6 +562,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
             avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
+            avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
             """ Advertise the routes back at the end of iteration """
             cs = cvg_api.convergence_state()
             cs.route.names = [route_name]
@@ -575,6 +574,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
         table.append(route_type)
         table.append(number_of_routes)
         table.append(iteration)
+        table.append(mean(avg_delta))
         table.append(mean(avg))
         return table
     table = []
@@ -582,7 +582,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
     for route in route_names:
         table.append(get_avg_cpdp_convergence_time(route))
 
-    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Avg Control to Data Plane Convergence Time (ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Frames Delta', 'Avg Control to Data Plane Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
@@ -613,7 +613,7 @@ def get_rib_in_convergence(cvg_api,
     bgp_config.rx_rate_threshold = 90/(multipath)
     cvg_api.set_config(bgp_config)
 
-    table, avg, tx_frate, rx_frate = [], [], [], []
+    table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
         logger.info('|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
         """ withdraw all routes before starting traffic """
@@ -657,7 +657,7 @@ def get_rib_in_convergence(cvg_api,
         for metrics in convergence_metrics:
             logger.info('RIB-IN Convergence time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
         avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-
+        avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
         """ Stop traffic at the end of iteration """
         logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
         cs = cvg_api.convergence_state()
@@ -668,8 +668,9 @@ def get_rib_in_convergence(cvg_api,
     table.append(route_type)
     table.append(number_of_routes)
     table.append(iteration)
+    table.append(mean(avg_delta))
     table.append(mean(avg))
-    columns = ['Event Name', 'Route Type', 'No. of Routes','Iterations', 'Avg RIB-IN Convergence Time(ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes','Iterations', 'Frames Delta', 'Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
 
 
@@ -706,7 +707,6 @@ def get_RIB_IN_capacity(cvg_api,
             lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)
             config.devices[i-1].container_name = c_lag.name
-            #config.devices[i-1].container_name = config.ports[i-1].name
 
         config.options.port_options.location_preemption = True
         layer1 = config.layer1.layer1()[-1]
