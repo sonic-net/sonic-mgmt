@@ -79,7 +79,7 @@ class InnerHashTest(BaseTest):
         self.vxlan_port = self.test_params['vxlan_port']
         self.outer_encap_formats = self.test_params['outer_encap_formats']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
-        self.gre_key = self.test_params.get('gre_key', '')
+        self.nvgre_tni = self.test_params.get('nvgre_tni', '')
         self.outer_dst_ip = self.outer_dst_ip_interval.get_first_ip()
 
         self.next_hop = self.fib[self.outer_dst_ip]
@@ -227,7 +227,7 @@ class InnerHashTest(BaseTest):
 
         outer_ip_src = self.outer_src_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_src_ip_interval.get_first_ip()
         outer_ip_dst = self.outer_dst_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_dst_ip_interval.get_first_ip()
-        nvgre_tni = 0x25 if self.gre_key else random.randint(1, 254) + 20000
+        nvgre_tni = self.nvgre_tni if self.nvgre_tni else random.randint(1, 254) + 20000
 
         pkt = self.generate_inner_pkt(sport, dport, ip_src, ip_dst, ip_proto)
         nvgre_pkt = simple_nvgre_packet(
@@ -319,7 +319,7 @@ class InnerHashTest(BaseTest):
 
         outer_ip_src = self.outer_src_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_src_ip_interval.get_first_ip()
         outer_ip_dst = self.outer_dst_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_dst_ip_interval.get_first_ip()
-        nvgre_tni = 0x25 if self.gre_key else random.randint(1, 254) + 20000
+        nvgre_tni = self.nvgre_tni if self.nvgre_tni else random.randint(1, 254) + 20000
 
         pkt = self.generate_inner_pkt(sport, dport, ip_src, ip_dst, ip_proto)
         nvgre_pkt = self.simple_nvgrev6_packet(

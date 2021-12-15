@@ -10,6 +10,8 @@ from datetime import datetime
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.config_reload import config_reload
+from tests.generic_config_updater.gu_utils import delete_tmpfile
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ V6_ETHER_TYPE = "0x86dd"
 VXLAN_IP_PROTOCOL = "0x11"
 NVGRE_IP_PROTOCOL = "0x2f"
 GRE_KEY = "0x2500"
+NVGRE_TNI = 0x25
 GRE_MASK = "0xffffff00"
 VXLAN_L4_DST_PORT = "0x3412"
 VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
@@ -190,6 +193,9 @@ def vlan_ptf_ports(config_facts, tbinfo, duthost):
 
 @pytest.fixture(scope='module')
 def lag_port_map(duthost, config_facts, vlan_ptf_ports, tbinfo):
+    '''
+    Create lag-port map for vlan ptf ports
+    '''
     portchannels = config_facts.get('PORTCHANNEL', {}).keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list_idx = 0
@@ -269,6 +275,37 @@ def outer_ipver(request):
 @pytest.fixture(scope="module", params=IP_VERSIONS_LIST)
 def inner_ipver(request):
     return request.param
+
+
+@pytest.fixture(scope="module")
+def save_config_teardown(duthost):
+
+    yield
+
+    duthost.command('sudo config save -y')
+
+
+@pytest.fixture(scope="module")
+def setup_acl_config(duthost):
+    """
+    Setup/teardown fixture for acl config
+    """
+    config_tmpfile = "/etc/sonic/config_db.json.orig"
+    logger.info("config_tmpfile {} Backing up config_db.json".format(config_tmpfile))
+    duthost.command("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
+
+    # Cleanup acl config
+    duthost.command('sudo config acl remove table EVERFLOW')
+    duthost.command('sudo config acl remove table EVERFLOWV6')
+
+    yield
+
+    logger.info("Restoring config_db.json")
+    duthost.command("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
+    delete_tmpfile(duthost, config_tmpfile)
+
+     # Restore acl config
+    config_reload(duthost)
 
 
 @pytest.fixture(scope="module")

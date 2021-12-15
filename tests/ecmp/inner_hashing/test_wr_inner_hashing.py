@@ -7,7 +7,7 @@ import allure
 from datetime import datetime
 from tests.common import reboot
 from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, VXLAN_PORT,\
-    PTF_QLEN, OUTER_ENCAP_FORMATS, GRE_KEY
+    PTF_QLEN, OUTER_ENCAP_FORMATS, NVGRE_TNI
 from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ class TestWRDynamicInnerHashing():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
+        request.getfixturevalue("save_config_teardown")
         with allure.step('Config Dynamic PBH'):
             request.getfixturevalue("config_pbh_table")
             request.getfixturevalue("config_hash_fields")
@@ -67,7 +68,7 @@ class TestWRDynamicInnerHashing():
                                "balancing_test_times": balancing_test_times,
                                "balancing_range": balancing_range,
                                "outer_encap_formats": outer_encap_format,
-                               "gre_key": GRE_KEY,
+                               "nvgre_tni": NVGRE_TNI,
                                "symmetric_hashing": symmetric_hashing},
                        log_file=log_file,
                        qlen=PTF_QLEN,

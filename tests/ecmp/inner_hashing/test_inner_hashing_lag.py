@@ -10,7 +10,7 @@ from datetime import datetime
 from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
 from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
-    VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, GRE_KEY
+    VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,8 @@ class TestDynamicInnerHashingLag():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
+        with allure.step('Setup ACL config'):
+            request.getfixturevalue("setup_acl_config")
         with allure.step('Add required LAG config'):
             request.getfixturevalue("config_lag_ports")
         with allure.step('Config Dynamic PBH'):
@@ -63,7 +65,7 @@ class TestDynamicInnerHashingLag():
                                "balancing_test_times": balancing_test_times,
                                "balancing_range": balancing_range,
                                "outer_encap_formats": OUTER_ENCAP_FORMATS,
-                               "gre_key" : GRE_KEY,
+                               "nvgre_tni": NVGRE_TNI,
                                "symmetric_hashing": symmetric_hashing},
                        log_file=log_file,
                        qlen=PTF_QLEN,
