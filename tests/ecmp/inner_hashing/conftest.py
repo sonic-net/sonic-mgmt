@@ -10,8 +10,6 @@ from datetime import datetime
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
-from tests.common.config_reload import config_reload
-from tests.generic_config_updater.gu_utils import delete_tmpfile
 
 logger = logging.getLogger(__name__)
 
