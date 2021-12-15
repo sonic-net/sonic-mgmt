@@ -3,7 +3,7 @@ Pytest configuration used by the link flap tests.
 
 Teardowns used by the link flap tests.
 """
-
+import pytest
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the Link flap tests.
@@ -16,4 +16,8 @@ def pytest_addoption(parser):
         default=10,
         help="Orchagent CPU threshold",
     )
+
+@pytest.fixture(scope='module')
+def get_loop_times(pytestconfig):
+    return pytestconfig.getoption("--loop_times")
 
