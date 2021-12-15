@@ -1,0 +1,397 @@
+from tabulate import tabulate
+from statistics import mean
+from tests.common.utilities import (wait, wait_until)
+from tests.common.helpers.assertions import pytest_assert
+logger = logging.getLogger(__name__)
+
+TGEN_AS_NUM = 65200
+DUT_AS_NUM = 65100
+TIMEOUT = 30
+BGP_TYPE = 'ebgp'
+temp_tg_port=dict()
+
+def run_lacp_add_remove_link_physically(cvg_api,
+                                            duthost,
+                                            tgen_ports,
+                                            iteration,
+                                            port_count,
+                                            number_of_routes,
+                                            port_speed,):
+    """
+    Run Local link failover test
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        duthost (pytest fixture): duthost fixture
+        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        iteration: number of iterations for running convergence test on a port
+        multipath: ecmp value for BGP config
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
+    """
+
+    """ Create bgp config on dut """
+    duthost_bgp_config(duthost,
+                       tgen_ports,
+                       port_count,)
+
+    """ Create bgp config on TGEN """
+    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+                                        port_count,
+                                        number_of_routes,
+                                        port_speed,)
+
+    """
+        Run the convergence test by flapping all the rx
+        links one by one and calculate the convergence values
+    """
+    get_lacp_add_remove_link_physically(cvg_api,
+                                            tgen_bgp_config,
+                                            iteration,
+                                            port_count,
+                                            number_of_routes,)
+
+    """ Cleanup the dut configs after getting the convergence numbers """
+    cleanup_config(duthost)
+
+def duthost_bgp_config(duthost,
+                       tgen_ports,
+                       port_count,):
+    """
+    Configures BGP on the DUT with N-1 ecmp
+
+    Args:
+        duthost (pytest fixture): duthost fixture
+        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        port_count:multipath + 1
+        multipath: ECMP value for BGP config
+        route_type: IPv4 or IPv6 routes
+    """
+    duthost.command("sudo config save -y")
+    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
+    global temp_tg_port
+    temp_tg_port = tgen_ports
+    for i in range(0, port_count):
+        intf_config = (
+            "sudo config interface ip remove %s %s/%s \n"
+            "sudo config interface ip remove %s %s/%s \n"
+        )
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
+        duthost.shell(intf_config)
+
+    tx_portchannel_config = (
+    "sudo config portchannel add PortChannel1 \n"
+    "sudo config portchannel member add PortChannel1 %s\n"
+    "sudo config interface ip add PortChannel1 %s/%s\n"
+    "sudo config interface ip add PortChannel1 %s/%s\n"
+    )
+    tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+    logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
+    duthost.shell(tx_portchannel_config)
+    duthost.shell("sudo config portchannel add PortChannel2 \n")
+    for i in range(1, port_count):
+        rx_portchannel_config = (
+        "sudo config portchannel member add PortChannel2 %s\n"
+        )
+        rx_portchannel_config %= (tgen_ports[i]['peer_port'])
+        logger.info('Configuring %s to PortChannel2' % (tgen_ports[i]['peer_port']))
+        duthost.shell(rx_portchannel_config)
+    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n"%(tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
+    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n"%(tgen_ports[1]['peer_ipv6'], 64))
+    bgp_config = (
+    "vtysh "
+    "-c 'configure terminal' "
+    "-c 'router bgp %s' "
+    "-c 'no bgp ebgp-requires-policy' "
+    "-c 'bgp bestpath as-path multipath-relax' "
+    "-c 'neighbor %s remote-as %s' "
+    "-c 'neighbor %s remote-as %s' "
+    "-c 'address-family ipv4 unicast' "
+    "-c 'neighbor %s activate' "
+    "-c 'address-family ipv6 unicast' "
+    "-c 'neighbor %s activate' "
+    "-c 'exit' "
+    )
+    bgp_config %= (DUT_AS_NUM, tgen_ports[1]['ip'], TGEN_AS_NUM, tgen_ports[1]['ipv6'], TGEN_AS_NUM, tgen_ports[1]['ip'],tgen_ports[1]['ipv6'])
+    logger.info('Configuring BGP v4 and v6 Neighbor %s, %s' %(tgen_ports[i]['ip'],tgen_ports[i]['ipv6']))
+    duthost.shell(bgp_config)
+
+
+def __tgen_bgp_config(cvg_api,
+                      port_count,
+                      number_of_routes,
+                      port_speed,):
+    """
+    Creating  BGP config on TGEN
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        port_count: multipath + 1
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        route_type: IPv4 or IPv6 routes
+        port_speed: speed of the port used for test
+    """
+    conv_config = cvg_api.convergence_config()
+    config = conv_config.config
+    for i in range(1, port_count+1):
+        config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+
+    lag0 = config.lags.lag(name="lag0")[-1]
+    lp = lag0.ports.port(port_name='Test_Port_1')[-1]
+    lp.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
+    lp.ethernet.name= "eth0"
+    lp.ethernet.mac = "00:11:02:00:10:01"
+    
+    #for loop
+    lag1 = config.lags.lag(name="lag1")[-1]
+    for i in range(2,port_count+1):
+        lagport = lag1.ports.port(port_name='Test_Port_%d' % i)[-1]
+        if len(str(hex(i).split('0x')[1])) == 1:
+            m = '0'+hex(i).split('0x')[1]
+        else:
+            m = hex(i).split('0x')[1]
+        lagport.protocol.lacp.actor_system_id = "00:10:00:00:00:11"
+        lagport.ethernet.name = "eth%d"%i
+        lagport.ethernet.mac = "00:10:04:00:00:%s" % m
+
+    config.options.port_options.location_preemption = True
+    layer1 = config.layer1.layer1()[-1]
+    layer1.name = 'port settings'
+    layer1.port_names = [port.name for port in config.ports]
+    layer1.ieee_media_defaults = False
+    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.link_training = False
+    layer1.speed = port_speed
+    layer1.auto_negotiate = False
+
+    #Source
+    d1 = config.devices.device(name='Tx')[-1]
+    d1.container_name = lag0.name
+    eth_1 = d1.ethernet
+    eth_1.name = 'Ethernet 1'
+    eth_1.mac = "00:14:0a:00:00:01"
+    ipv4_1 = d1.ethernet.ipv4
+    ipv4_1.name = 'IPv4_1'
+    ipv4_1.address = temp_tg_port[0]['ip']
+    ipv4_1.gateway = temp_tg_port[0]['peer_ip']
+    ipv4_1.prefix = 24
+    ipv6_1 = d1.ethernet.ipv6
+    ipv6_1.name = 'IPv6_1'
+    ipv6_1.address = temp_tg_port[0]['ipv6']
+    ipv6_1.gateway = temp_tg_port[0]['peer_ipv6']
+    ipv6_1.prefix = 64
+
+    #Destination
+    d2 = config.devices.device(name="Rx")[-1]
+    d2.container_name = lag1.name
+    eth_2 = d2.ethernet
+    eth_2.name = 'Ethernet 2'
+    eth_2.mac = "00:14:01:00:00:01"
+    ipv4_2 = eth_2.ipv4
+    ipv4_2.name = 'IPv4_2'
+    ipv4_2.address = temp_tg_port[1]['ip']
+    ipv4_2.gateway = temp_tg_port[1]['peer_ip']
+    ipv4_2.prefix = 24
+    ipv6_2 = eth_2.ipv6
+    ipv6_2.name = 'IPv6_2'
+
+    ipv6_2.address = temp_tg_port[1]['ipv6']
+    ipv6_2.gateway = temp_tg_port[1]['peer_ipv6']
+    ipv6_2.prefix = 64
+    bgpv4_stack = ipv4_2.bgpv4
+    bgpv4_stack.name = 'BGP 2'
+    bgpv4_stack.as_type = BGP_TYPE
+    bgpv4_stack.dut_address = temp_tg_port[1]['peer_ip']
+    bgpv4_stack.local_address = temp_tg_port[1]['ip']
+    bgpv4_stack.as_number = int(TGEN_AS_NUM)
+    route_range1 = bgpv4_stack.bgpv4_routes.bgpv4route(name="IPv4_Routes")[-1]
+    route_range1.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=24, count=number_of_routes)
+    bgpv6_stack = ipv6_2.bgpv6
+    bgpv6_stack.name = r'BGP+_2'
+    bgpv6_stack.as_type = BGP_TYPE
+    bgpv6_stack.dut_address = temp_tg_port[1]['peer_ipv6']
+    bgpv6_stack.local_address = temp_tg_port[1]['ipv6']
+    bgpv6_stack.as_number = int(TGEN_AS_NUM)
+    route_range2 = bgpv6_stack.bgpv6_routes.bgpv6route(name="IPv6_Routes")[-1]
+    route_range2.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=number_of_routes)
+
+    def createTrafficItem(traffic_name, src, dest):
+        flow1 = config.flows.flow(name=str(traffic_name))[-1]
+        flow1.tx_rx.device.tx_names = [src]
+        flow1.tx_rx.device.rx_names = [dest]
+        flow1.size.fixed = 1024
+        flow1.rate.percentage = 50
+        flow1.metrics.enable = True
+        flow1.metrics.loss = True
+    createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name)
+    #createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name)
+    return conv_config
+
+
+def get_flow_stats(cvg_api):
+    """
+    Args:
+        cvg_api (pytest fixture): Snappi API
+    """
+    request = cvg_api.convergence_request()
+    request.metrics.flow_names = []
+    return cvg_api.get_results(request).flow_metric
+
+def get_lacp_add_remove_link_physically(cvg_api,
+                                        bgp_config,
+                                        iteration,
+                                        port_count,
+                                        number_of_routes,):
+    """
+    Args:
+        cvg_api (pytest fixture): snappi API
+        bgp_config: __tgen_bgp_config
+        config: TGEN config
+        iteration: number of iterations for running convergence test on a port
+        number_of_routes:  Number of Routes
+    """
+    rx_port_names = []
+    for i in range(1, len(bgp_config.config.ports)):
+        rx_port_names.append(bgp_config.config.ports[i].name)
+    bgp_config.rx_rate_threshold = 90/(port_count-2)
+    cvg_api.set_config(bgp_config)
+
+    def get_avg_cpdp_convergence_time(port_name):
+        """
+        Args:
+            port_name: Name of the port
+        """
+
+        table, avg, tx_frate, rx_frate = [], [], [], []
+        for i in range(0, iteration):
+            logger.info('|---- {} Link Flap Iteration : {} ----|'.format(port_name, i+1))
+
+            """ Starting Traffic """
+            logger.info('Starting Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.START
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To start")
+            flow_stats = get_flow_stats(cvg_api)
+            tx_frame_rate = flow_stats[0].frames_tx_rate
+            assert tx_frame_rate != 0, "Traffic has not started"
+            logger.info('Traffic has started')
+            """ Flapping Link """
+            logger.info('Simulating Link Failure on {} link'.format(port_name))
+            cs = cvg_api.convergence_state()
+            cs.link.port_names = [port_name]
+            cs.link.state = cs.link.DOWN
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Link to go down")
+            flows = get_flow_stats(cvg_api)
+            for flow in flows:
+                tx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_tx_rate)
+            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            logger.info("Traffic has converged after link flap")
+            """ Get control plane to data plane convergence value """
+            request = cvg_api.convergence_request()
+            request.convergence.flow_names = []
+            convergence_metrics = cvg_api.get_results(request).flow_convergence
+            for metrics in convergence_metrics:
+                logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
+            avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
+
+            """ Performing link up at the end of iteration """
+            logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
+            cs = cvg_api.convergence_state()
+            cs.link.port_names = [port_name]
+            cs.link.state = cs.link.UP
+            cvg_api.set_state(cs)
+        table.append('%s Link Failure' % port_name)
+        table.append(number_of_routes)
+        table.append(iteration)
+        table.append(mean(avg))
+        return table
+    table = []
+    """ Iterating link flap test on all the rx ports """
+    for i, port_name in enumerate(rx_port_names):
+        table.append(get_avg_cpdp_convergence_time(port_name))
+    columns = ['Event Name', 'No. of Routes', 'Iterations', 'Avg Calculated Data Convergence Time (ms)']
+    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+
+def get_lacp_add_remove_link_from_dut(cvg_api,
+                                        duthost,
+                                        bgp_config,
+                                        iteration,
+                                        port_count,
+                                        number_of_routes,):
+    """
+    Args:
+        cvg_api (pytest fixture): snappi API
+        bgp_config: __tgen_bgp_config
+        config: TGEN config
+        iteration: number of iterations for running convergence test on a port
+        number_of_routes:  Number of Routes
+    """
+    rx_port_names,temp_list = [],[]
+    for i in range(1, len(bgp_config.config.ports)):
+        rx_port_names.append(bgp_config.config.ports[i].name)
+        temp_list.append(i)
+    bgp_config.rx_rate_threshold = 90/(port_count-2)
+    cvg_api.set_config(bgp_config)
+
+    def get_avg_cpdp_convergence_time(port_name,index):
+        """
+        Args:
+            port_name: Name of the port
+        """
+
+        table, tx_frate, rx_frate = [], [], []
+        for i in range(0, iteration):
+            logger.info('|---- {} Link Flap Iteration : {} ----|'.format(temp_tg_port[index]['peer_port'], i+1))
+
+            """ Starting Traffic """
+            logger.info('Starting Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.START
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To start")
+            flow_stats = get_flow_stats(cvg_api)
+            tx_frame_rate = flow_stats[0].frames_tx_rate
+            assert tx_frame_rate != 0, "Traffic has not started"
+            logger.info('Traffic has started')
+            """ Flapping Link """
+            logger.info('Simulating Link Failure on {} from dut side '.format(port_name))
+            duthost.shell("sudo config portchannel member del PortChannel2 %s\n"%(temp_tg_port[index]['peer_port']))
+            wait(TIMEOUT-20, "For Link to go down and traffic to stabilize")
+            flows = get_flow_stats(cvg_api)
+            for flow in flows:
+                tx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_tx_rate)
+            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            logger.info("Traffic has converged after link flap with no loss")
+            """ Performing link up at the end of iteration """
+            logger.info('Simulating Link Up on {} from dut side at the end of iteration {}'.format(temp_tg_port[index]['peer_port'], i+1))
+            duthost.shell("sudo config portchannel member add PortChannel2 %s\n"%(temp_tg_port[index]['peer_port']))
+
+        table.append('%s Link Failure' % temp_tg_port[index]['peer_port'])
+        table.append(number_of_routes)
+        table.append(iteration)
+        table.append(flow_stats[0].loss)
+        return table
+    table = []
+    """ Iterating link flap test on all the rx ports """
+    for port_name,index in zip(rx_port_names,temp_list):
+        table.append(get_avg_cpdp_convergence_time(port_name,index))
+    columns = ['Event Name', 'No. of Routes', 'Iterations', 'Loss%']
+    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+
+def cleanup_config(duthost):
+    """
+    Cleaning up dut config at the end of the test
+
+    Args:
+        duthost (pytest fixture): duthost fixture
+    """
+    logger.info('Cleaning up config')
+    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
+    duthost.shell("sudo config reload -y \n")
+    logger.info('Convergence Test Completed')
