@@ -22,7 +22,6 @@ class TestWRDynamicInnerHashing():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
-        request.getfixturevalue("save_config_teardown")
         with allure.step('Config Dynamic PBH'):
             request.getfixturevalue("config_pbh_table")
             request.getfixturevalue("config_hash_fields")
@@ -48,7 +47,6 @@ class TestWRDynamicInnerHashing():
             balancing_test_times = 200
             balancing_range = 0.3
 
-            duthost.command('sudo config save -y')
             reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
             reboot_thr.start()
 
@@ -90,7 +88,6 @@ class TestWRStaticInnerHashing():
         outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-        duthost.command('sudo config save -y')
         reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
         reboot_thr.start()
 

@@ -25,8 +25,6 @@ class TestDynamicInnerHashingLag():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
-        with allure.step('Setup ACL config'):
-            request.getfixturevalue("setup_acl_config")
         with allure.step('Add required LAG config'):
             request.getfixturevalue("config_lag_ports")
         with allure.step('Config Dynamic PBH'):

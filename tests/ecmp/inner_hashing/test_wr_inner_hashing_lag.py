@@ -22,8 +22,6 @@ class TestWRDynamicInnerHashingLag():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
-        with allure.step('Setup ACL config'):
-            request.getfixturevalue("setup_acl_config")
         with allure.step('Add required LAG config'):
             request.getfixturevalue("config_lag_ports")
         with allure.step('Config Dynamic PBH'):
@@ -50,7 +48,6 @@ class TestWRDynamicInnerHashingLag():
         balancing_test_times = 200
         balancing_range = 0.3
 
-        duthost.command('sudo config save -y')
         reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
         reboot_thr.start()
 

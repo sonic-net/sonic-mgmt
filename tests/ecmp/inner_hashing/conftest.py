@@ -278,37 +278,6 @@ def inner_ipver(request):
 
 
 @pytest.fixture(scope="module")
-def save_config_teardown(duthost):
-
-    yield
-
-    duthost.command('sudo config save -y')
-
-
-@pytest.fixture(scope="module")
-def setup_acl_config(duthost):
-    """
-    Setup/teardown fixture for acl config
-    """
-    config_tmpfile = "/etc/sonic/config_db.json.orig"
-    logger.info("config_tmpfile {} Backing up config_db.json".format(config_tmpfile))
-    duthost.command("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
-
-    # Cleanup acl config
-    duthost.command('sudo config acl remove table EVERFLOW')
-    duthost.command('sudo config acl remove table EVERFLOWV6')
-
-    yield
-
-    logger.info("Restoring config_db.json")
-    duthost.command("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
-    delete_tmpfile(duthost, config_tmpfile)
-
-     # Restore acl config
-    config_reload(duthost)
-
-
-@pytest.fixture(scope="module")
 def config_pbh_table_lag(duthost, lag_port_map):
     logging.info("Create PBH table: {}".format(TABLE_NAME))
     test_intfs_str = ",".join(lag_port_map.keys())
