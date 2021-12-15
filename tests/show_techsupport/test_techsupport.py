@@ -191,6 +191,8 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
+    elif asic_type in ["cisco-8000"]:
+        SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
 
