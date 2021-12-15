@@ -110,7 +110,6 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
-
 def check_interface_status(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8"):
@@ -127,6 +126,39 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
         assert "*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)
+
+def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+    """ Test DHCPv6 Counter """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    messages = ["Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release", "Decline", "Relay-Forward", "Relay-Reply"]
+
+    for dhcp_relay in dut_dhcp_relay_data:
+
+        for message in messages:
+            cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
+            duthost.shell(cmd)
+        
+        # Send the DHCP relay traffic on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcpv6_counter_test.DHCPCounterTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
+                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
+                           "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
+                   log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log")
+        
+        for message in messages:
+            get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
+            message_count = duthost.shell(get_message)['stdout']
+            assert int(message_count) > 0, "Missing {} count".format(message)
 
 def test_dhcp_relay_default(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist):
     """Test DHCP relay functionality on T0 topology.
