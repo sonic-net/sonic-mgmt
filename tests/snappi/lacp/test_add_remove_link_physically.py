@@ -9,10 +9,12 @@ import pytest
 
 @pytest.mark.parametrize('port_count', [4])
 @pytest.mark.parametrize('number_of_routes', [1000])
+@pytest.mark.parametrize('iterations', [1])
 @pytest.mark.parametrize('port_speed',['speed_100_gbps'])
 def test_lacp_add_remove_link_physically(cvg_api,
                                         duthost,
                                         tgen_ports,
+                                        iterations,
                                         conn_graph_facts,
                                         fanout_graph_facts,
                                         port_count,
@@ -44,6 +46,7 @@ def test_lacp_add_remove_link_physically(cvg_api,
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         port_count: Total no of ports used in the test
+        iterations: no of iterations to run the link flap test
         number_of_routes:  Number of IPv4/IPv6 Routes
         port_speed: speed of the port used for test
     """
@@ -51,6 +54,7 @@ def test_lacp_add_remove_link_physically(cvg_api,
     run_lacp_add_remove_link_physically(cvg_api,
                                      duthost,
                                      tgen_ports,
+                                     iterations,
                                      port_count,
                                      number_of_routes,
                                      port_speed,)

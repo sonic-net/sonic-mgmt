@@ -25,9 +25,8 @@ def run_lacp_add_remove_link_from_dut(api,
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
-        multipath: ecmp value for BGP config
+        port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
 
@@ -65,9 +64,7 @@ def duthost_bgp_config(duthost,
     Args:
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        port_count:multipath + 1
-        multipath: ECMP value for BGP config
-        route_type: IPv4 or IPv6 routes
+        port_count: total number of ports used in test
     """
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
@@ -128,9 +125,8 @@ def __tgen_bgp_config(api,
 
     Args:
         api (pytest fixture): snappi API
-        port_count: multipath + 1
+        port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
     config = api.config()
@@ -344,4 +340,5 @@ def cleanup_config(duthost):
     logger.info('Cleaning up config')
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
+    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
     logger.info('Convergence Test Completed')
