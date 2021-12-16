@@ -1287,3 +1287,36 @@ def duts_minigraph_facts(duthosts, tbinfo):
         }
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
+
+def collect_db_dump_on_duts(request, duthosts, duthost):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    if request.node.rep_call.failed:
+        db_dump_base = "/tmp/db_dump"
+        db_dump_path = os.path.join(db_dump_base, request.module.__name__, request.node.name)
+        db_dump_tarfile = "{}.tar.gz".format(db_dump_base)
+
+        # Collect DB config
+        dbs = {}
+        result = duthost.shell("cat /var/run/redis/sonic-db/database_config.json")
+        logger.debug("db_config: {}".format(result['stdout']))
+        db_config = json.loads(result['stdout'])
+        for db in db_config['DATABASES']:
+            db_id = db_config['DATABASES'][db]['id']
+            dbs[db_id] = 0
+
+        # Collect DB dump
+        duthosts.file(path=db_dump_path, state="directory")
+        for i in dbs:
+            duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
+        duthosts.shell("tar czf {} {}".format(db_dump_tarfile, db_dump_base))
+        duthosts.fetch(src=db_dump_tarfile, dest="/tmp/")
+
+@pytest.fixture(autouse=True)
+def collect_db_dump(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    yield
+    collect_db_dump_on_duts(request, duthosts, duthosts[0])
