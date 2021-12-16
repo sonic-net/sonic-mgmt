@@ -14,6 +14,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lg
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.common.fixtures.fib_utils import fib_info_files
+from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
@@ -32,6 +33,9 @@ pytestmark = [
 def ttl_dscp_params(duthost, supported_ttl_dscp_params):
     if "uniform" in supported_ttl_dscp_params.values() and ("201811" in duthost.os_version or "201911" in duthost.os_version):
         pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
+
+    if supported_ttl_dscp_params['dscp'] == 'pipe' and duthost.facts['asic_type'] in ['cisco-8000']:
+        pytest.skip('dscp pipe mode is currently not supported for Cisco 8000 platform')
 
     return supported_ttl_dscp_params
 
@@ -90,12 +94,13 @@ def loopback_ips(duthosts, duts_running_config_facts):
 
 
 @pytest.fixture(scope='module')
-def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files):
+def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files, single_fib_for_duts):
 
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
     setup_info = {
         "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
+        "single_fib_for_duts": single_fib_for_duts,
         "ignore_ttl": True if is_multi_asic else False,
         "max_internal_hops": 3 if is_multi_asic else 0,
         'router_macs': [duthost.facts['router_mac'] for duthost in duthosts]
@@ -200,6 +205,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_serv
                         "ignore_ttl": setup_info["ignore_ttl"],
                         "max_internal_hops": setup_info["max_internal_hops"],
                         "fib_info_files": setup_info["fib_info_files"],
+                        "single_fib_for_duts": setup_info["single_fib_for_duts"],
                         "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url)
                         },
                 qlen=PTFRUNNER_QLEN,
