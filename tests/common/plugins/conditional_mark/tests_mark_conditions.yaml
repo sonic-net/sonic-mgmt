@@ -13,7 +13,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   skip:
     reason: "test_get_model is not supported in cisco and mellanox platform"
     conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
@@ -21,7 +21,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   skip:
     reason: "test_get_serial is not supported in cisco and mellanox platform"
     conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
@@ -29,7 +29,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   skip:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
@@ -37,7 +37,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   skip:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
@@ -45,7 +45,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   skip:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
@@ -73,19 +73,19 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
    skip:
      reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
      conditions:
-       - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type=='cisco-8000' or asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
