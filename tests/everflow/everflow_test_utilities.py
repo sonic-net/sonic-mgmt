@@ -608,7 +608,7 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
@@ -629,6 +629,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+        if duthost.facts["asic_type"] in ["cisco-8000"]:
+            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
