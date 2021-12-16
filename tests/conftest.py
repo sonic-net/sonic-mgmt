@@ -1288,7 +1288,7 @@ def duts_minigraph_facts(duthosts, tbinfo):
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
 
-def collect_db_dump_on_duts(request, duthosts, duthost):
+def collect_db_dump_on_duts(request, duthosts):
     '''
         When test failed, teardown of this fixture will dump all the DB and collect to the test servers
     '''
@@ -1299,7 +1299,7 @@ def collect_db_dump_on_duts(request, duthosts, duthost):
 
         # Collect DB config
         dbs = {}
-        result = duthost.shell("cat /var/run/redis/sonic-db/database_config.json")
+        result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
         logger.debug("db_config: {}".format(result['stdout']))
         db_config = json.loads(result['stdout'])
         for db in db_config['DATABASES']:
@@ -1319,4 +1319,4 @@ def collect_db_dump(request, duthosts):
         When test failed, teardown of this fixture will dump all the DB and collect to the test servers
     '''
     yield
-    collect_db_dump_on_duts(request, duthosts, duthosts[0])
+    collect_db_dump_on_duts(request, duthosts)
