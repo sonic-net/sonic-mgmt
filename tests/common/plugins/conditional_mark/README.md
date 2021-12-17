@@ -2,7 +2,7 @@
 
 This is a plugin for adding any mark to specified test cases based on conditions in a centralized file.
 
-The centralized file can be supplied in pytest command line option `--mark-conditions-file`. If no conditions file is specified, use the default conditions file located at `tests/common/plugins/conditional_mark/test_mark_conditions.yaml`.
+The centralized file can be supplied in pytest command line option `--mark-conditions-files`. If no conditions file is specified, use the default conditions file located at `tests/common/plugins/conditional_mark/test_mark_conditions.yaml`.
 
 
 ## How it works
@@ -12,7 +12,21 @@ This plugin works at the collection stage of pytest. It mainly uses two pytest h
 
 In `pytest_collection` hook function, it reads the specified conditions file and collect some basic facts that can be used in condition evaluation. The loaded information is stored in pytest object `session.config.cache`.
 
-In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for the longest match test case name defined in the conditions content. If a match is found, then it will add the marks specified for this case based on conditions for each of the marks.
+In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for the longest match test case name defined in the conditions content. If a match is found, then it will add the marks specified for this case based on conditions for each of the marks. If different marks are found, all of them will be added to the test item(test case). However, when having the duplicate mark, it will choose the first one. 
+
+## How to use `--mark-conditions-files`
+`--mark-conditions-files` supports exactly file name such as `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` or the pattern of the file name such as `tests/common/plugins/conditional_mark/test_mark_conditions*.yaml` which will collect all files under the path `tests/common/plugins/conditional_mark` named as `test_mark_conditions*.yaml`.
+
+For example:
+```buildoutcfg
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.csv -i veos_vtb -u -l INFO -e "--mark-conditions-files path1/test1.yaml" -e "--mark-conditions-files path2/test2.yaml"
+```
+or 
+```buildoutcfg
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.csv -i veos_vtb -u -l INFO -e "--mark-conditions-files path1/{pattern}.yaml" 
+```
+
+
 
 ## Format of the conditions file
 
@@ -125,10 +139,10 @@ Example variables can be used in condition string:
 A new pytest command line option is added for specifying location of the conditions file. If the option is not supplied, default conditions file located at `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` will be used.
 ```
     parser.addoption(
-        '--mark-conditions-file',
-        action='store',
-        dest='mark_conditions_file',
-        default='',
+        '--mark-conditions-files',
+        action='append',
+        dest='mark_conditions_files',
+        default=[],
         help="Location of your own mark conditions file. If it is not specified, the default file will be used.")
 
     parser.addoption(
