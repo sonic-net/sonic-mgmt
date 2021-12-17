@@ -12,6 +12,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -110,18 +111,18 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
-def check_interface_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay")["stdout"].encode("utf-8"):
+def check_interface_status(duthost):
+    if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8"):
         return True
     return False
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202106"])
-    config_reload(duthost)
-    wait_critical_processes(duthost)
-    wait_until(120, 5, 0, check_interface_status, duthosts, rand_one_dut_hostname)
+    if not check_interface_status(duthost):
+        config_reload(duthost)
+        wait_critical_processes(duthost)
+        pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8")
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
