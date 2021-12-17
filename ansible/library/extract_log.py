@@ -234,7 +234,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
-                file = gzip.GzipFile(path)
+                file = gzip.open(path, mode='rt')
             else:
                 file = open(path)
 
