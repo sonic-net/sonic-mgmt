@@ -92,6 +92,9 @@ def apply_acl_rule(request, rand_selected_dut, tbinfo, apply_mirror_session):
     # Skip on marvell platform
     if "marvell" == rand_selected_dut.facts["asic_type"]:
         pytest.skip("Match 'IN_PORTS' is not supported on Marvell platform")
+    # Skip on Cisco platform
+    if "cisco-8000" == rand_selected_dut.facts["asic_type"] and ip_ver == "ipv6":
+        pytest.skip("Match 'IN_PORTS' is not supported for mirrorv6 ACL on Cisco platform")
     # Check existence of EVERFLOW
     table_name = EVERFLOW_TABLE_NAME[ip_ver]
     output = rand_selected_dut.shell('show acl table {}'.format(table_name))['stdout_lines']
