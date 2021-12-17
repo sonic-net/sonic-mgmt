@@ -251,6 +251,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     pdu_delay = fw["chassis"][chassis].get("power_cycle_delay", 60)
     complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image, timeout, pdu_delay)
 
+    time.sleep(2) # Give a little bit of time in case of no-op install for mounts to complete
     final_versions = show_firmware(duthost)
     assert validate_versions(init_versions, final_versions, paths, chassis, boot_type)
 
