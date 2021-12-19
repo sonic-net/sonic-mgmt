@@ -244,7 +244,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
         time.sleep(20)
 
         # Restart DHCP relay service on DUT
-        duthost.shell('systemctl restart dhcp_relay.service')
+        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
+        duthost.shell_cmds(cmds=cmds)
 
         # Sleep to give the DHCP relay container time to start up and
         # allow the relay agent to begin listening on the down interfaces
