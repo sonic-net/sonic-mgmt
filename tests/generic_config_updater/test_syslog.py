@@ -3,7 +3,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success_and_reset_check, expect_res_success, expect_op_failure
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success_and_reset_check, expect_res_success, expect_op_failure, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 pytestmark = [
@@ -68,14 +68,18 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config):
         init_syslog_config: initial syslog config for test
     """
     duthost = duthosts[rand_one_dut_hostname]
-    syslog_config_cleanup(duthost, cfg_facts)
+    running_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    syslog_config_cleanup(duthost, running_facts)
+    # syslog_config_cleanup(duthost, cfg_facts)
 
     if init_syslog_config == "config_add_default":
         syslog_config_add_default(duthost)
 
     yield
 
-    config_reload(duthost)
+    running_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    syslog_config_cleanup(duthost, running_facts)
+    # config_reload(duthost)
 
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
     """Check if syslog server show as expected
@@ -119,7 +123,7 @@ def test_syslog_server_tc1_add_init(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+        expect_op_success(duthost,output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -161,7 +165,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+        expect_op_success(duthost,output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -234,7 +238,7 @@ def test_syslog_server_tc4_remove(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+        expect_op_success(duthost,output)
 
         unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, [], unexpected_content_list)
@@ -284,7 +288,7 @@ def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+        expect_op_success(duthost,output)
 
         expected_content_list = ["[{}]".format(replace_syslog_server_v4), "[{}]".format(replace_syslog_server_v6)]
         unexpected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER), "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
@@ -320,7 +324,7 @@ def syslog_server_add_to_max(duthost):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success_and_reset_check(duthost, output, 'rsyslog-config', SYSLOG_TIMEOUT, SYSLOG_INTERVAL, 0)
+        expect_op_success(duthost,output)
 
         status = duthost.get_service_props('rsyslog-config')["ActiveState"]
         logger.info("rsyslog-config status {}".format(status))
