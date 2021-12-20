@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common import constants
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -95,33 +96,34 @@ def dut_config_change(duthost, dut_4basn):
     duthost.copy(src=TMP_FILE, dest=TMP_FILE)
     duthost.shell("sonic-cfggen -j {} -w".format(TMP_FILE))
     duthost.shell("config save -y")
-    duthost.shell("sudo config reload -y")
-    time.sleep(10)
+    #duthost.shell("sudo config reload -y")
+    #time.sleep(10)
+    config_reload(duthost, config_source='config_db', wait=600)
     wait_critical_processes(duthost)
     updated_asn=duthost.shell("show ip bgp sum")
     logger.info("New T0 ASN = %s" % updated_asn)
-    result="false"
+    result = False
     for item in updated_asn['stdout_lines']:
         if dut_4basn in item:
-            result= "true"
+            result = True
             break
     return result
 
 def dut_config_reset(duthost, dut_asn_default):
     duthost.shell("sudo cp /etc/sonic/config_db_org.json /etc/sonic/config_db.json")
-    duthost.shell("sudo config reload -y")
+#    duthost.shell("sudo config reload -y")
+    config_reload(duthost, config_source='config_db', wait=600)
     wait_critical_processes(duthost)
-    updated_asn=duthost.shell("show ip bgp sum")
-    logger.info(updated_asn)
+    updated_asn = duthost.shell("show ip bgp sum")
     logger.info(updated_asn['stdout_lines'])
-    result="false"
+    result = False
     for item in updated_asn['stdout_lines']:
         if str(dut_asn_default) in item:
-            result="true"
+            result = True
             break
     return result
 
-@pytest.fixture#(scope="module")
+@pytest.fixture
 def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, request):
 
     logger.info("########### Setup for bgp speaker testing ###########")
@@ -143,12 +145,12 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     bgp_speaker_asn_default = res['stdout']
     bgp_dut_asn = mg_facts['minigraph_bgp_asn']
     bgp_dut_asn_default = mg_facts['minigraph_bgp_asn']
-    bgp_speaker_4byteasn=bgp_speaker_asn_default
-    bgp_speaker_asn=bgp_speaker_asn_default
+    bgp_speaker_4byteasn = bgp_speaker_asn_default
+    bgp_speaker_asn = bgp_speaker_asn_default
     if "4byte" in request.param:
         bgp_dut_asn = "65538"
-        dut_4basn_status=dut_config_change(duthost, bgp_dut_asn)
-        assert dut_4basn_status=="true"
+        dut_4basn_status = dut_config_change(duthost, bgp_dut_asn)
+        assert dut_4basn_status == True
 
 
     vlan_ips = generate_ips(3, "%s/%s" % (mg_facts['minigraph_vlan_interfaces'][0]['addr'],
@@ -226,19 +228,16 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
         duthost.command("ip route add %s/32 dev %s" % (ip.ip, mg_facts['minigraph_vlan_interfaces'][0]['attachto']))
 
     if ("2byte" in request.param) or ("4byte" in request.param):
-        bgp_speaker_4byteasn="65536"
-        bgp_speaker_asn=bgp_speaker_4byteasn
-        logger.info("bgpasn={}".format(bgp_speaker_4byteasn))
+        bgp_speaker_4byteasn = "65536"
+        bgp_speaker_asn = bgp_speaker_4byteasn
+        logger.info("bgpasn = {}".format(bgp_speaker_4byteasn))
 
         bgpvacstatus = dut_bgp_asn_update_status(duthost, bgp_speaker_4byteasn, bgp_dut_asn, request.param)
 
-        logger.info("bgpvacstatus=%s"%bgpvacstatus)
+        logger.info("bgpvacstatus = %s"%bgpvacstatus)
 
-
-    logger.info("Bgp Speaker ASN={}".format(bgp_speaker_asn))
-    logger.info("Sonic device ASN={}".format(bgp_dut_asn))
-
-
+    logger.info("Bgp Speaker ASN = {}".format(bgp_speaker_asn))
+    logger.info("Sonic device ASN = {}".format(bgp_dut_asn))
     logger.info("Start exabgp on ptf")
     for i in range(0, 3):
         local_ip = str(speaker_ips[i].ip)
@@ -277,12 +276,12 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
 
     if "4byte" in request.param:
         dut_config_reset(duthost, bgp_dut_asn_default)
-        bgp_dut_asn=bgp_dut_asn_default
+        bgp_dut_asn = bgp_dut_asn_default
         logger.info("resetting bgpvac")
         dut_bgp_asn_update_status(duthost, bgp_speaker_asn_default, bgp_dut_asn, "default")
 
     if "2byte" in request.param:
-        bgp_dut_asn=bgp_dut_asn_default
+        bgp_dut_asn = bgp_dut_asn_default
         logger.info("resetting bgpvac")
         dut_bgp_asn_update_status(duthost, bgp_speaker_asn_default, bgp_dut_asn, "default")
 
@@ -375,11 +374,11 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     logger.info(bgp_facts)
     cnt=0
-    flag="false"
+    flag = False
     for v in  bgp_facts["bgp_neighbors"].items():
         logger.info("bgp neighbor={}".format(v))
         if v[1]["state"] == "established":
-            flag = "true"
+            flag = True
             cnt+=1
         logger.info("flag=%s"%flag)
     logger.info(cnt)
@@ -467,18 +466,18 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, Asntype,
             if prefix in values:
                 if nexthop_ips[1].ip and nexthop_ips[2].ip and neighbor_asn in values:
                     logger.info("Bgp AS Path for {} is {}".format(prefix,values))
-                    assert "true"
+                    assert True
             if peer_range in values:
                 if nexthop_ips[0].ip and neighbor_asn in values:
                     logger.info("Bgp AS Path for {} is {}".format(peer_range,values))
-                    assert "true"
+                    assert True
     elif family == "v6":
         bgp_table_output = duthost.shell("vtysh -c \"show ip bgp ipv6\" -c \"exit\"")
         for values in bgp_table_output["stdout_lines"]:
             if prefix in values:
                 if bgp_dut_asn and neighbor_asn in values:
                     logger.info("Bgp AS Path for {} is {}".format(prefix,values))
-                    assert "true"
+                    assert True
 
     logger.info("Withdraw routes")
     withdraw_route(ptfip, lo_addr, prefix, nexthop_ips[1].ip, port_num[0])
@@ -524,7 +523,7 @@ def test_bgp_speaker_2byteasn_announce_routes(common_setup_teardown, Asntype, tb
     nexthops = common_setup_teardown[3]
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
 
-
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('common_setup_teardown', [
       ['4byte']
    ], indirect = True)
@@ -550,7 +549,7 @@ def test_bgp_speaker_2byteasn_announce_routes_v6(common_setup_teardown, Asntype,
     bgp_speaker_announce_routes_common(common_setup_teardown, Asntype, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac)
 
 
-
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('common_setup_teardown', [
       ['4byte']
    ], indirect = True)
