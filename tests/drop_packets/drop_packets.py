@@ -552,7 +552,7 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
         ip_src=pkt_fields["ipv4_src"],  # PTF source
-        ip_dst="", # VM source
+        ip_dst=None, # VM source
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
@@ -875,8 +875,8 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         eth_layer = Ether(src=ports_info["src_mac"], dst=ethernet_dst)
         ip_layer = IP(src=pkt_fields["ipv4_src"], )
         igmp_layer = igmp_types[igmp_version][msg_type]
-        assert igmp_layer.igmpize(ip=ip_layer, ether=eth_layer), "Can't create IGMP packet"
         pkt = eth_layer/ip_layer/igmp_layer
+        assert igmp_layer.igmpize(), "Can't create IGMP packet"
 
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
     do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
