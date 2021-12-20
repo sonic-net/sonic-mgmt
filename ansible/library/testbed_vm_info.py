@@ -57,24 +57,11 @@ class TestbedVMFacts():
             vm_topology = yaml.safe_load(f)
         self.topoall = vm_topology
 
-        vm_names = [vm_name for vm_name in self.inv_mgr.hosts if vm_name.startswith('VM')]
-        vm_names.sort()
-        vm_names_count = len(vm_names)
-
-        if self.base_vm != '':
-            start_index = vm_names.index(self.base_vm)
-        else:
-            start_index = 0
-
-        for vm in vm_topology['topology']['VMs']:
-            if start_index < 0:  # Unable to find base_vm in inventory file
-                eos[vm] = ''
-            else:
-                vm_index = int(vm_topology['topology']['VMs'][vm]['vm_offset']) + start_index
-                if vm_index < vm_names_count:
-                    eos[vm] = vm_names[vm_index]
-                else:
-                    eos[vm] = ''
+        vm_base = int(self.base_vm[2:])
+        vm_name_fmt = 'VM%0{}d'.format(len(self.base_vm) - 2)
+        for eos_name, eos_value in vm_topology['topology']['VMs'].items():
+            vm_name = vm_name_fmt % (vm_base + eos_value['vm_offset'])
+            eos[eos_name] = vm_name
         return eos
 
 
@@ -102,7 +89,7 @@ def main():
             vm_name = neighbor_eos[eos]
             if 'tgen' in topo_type:
                 vm_mgmt_ip[eos] = str(tgen_mgmt_ips[index])
-            elif vm_name != '':
+            elif vm_name in vm_facts.inv_mgr.hosts:
                 vm_mgmt_ip[eos] = vm_facts.inv_mgr.get_host(vm_name).get_vars()['ansible_host']
             else:
                 err_msg = "Cannot find the vm {} in VM inventory file {}, please make sure you have enough VMs" \
