@@ -103,7 +103,7 @@ sonic_s6100:
     lab-s6100-01:
       ansible_host: 10.251.0.190
     vlab-02:
-      ansible_host: 10.250.0.102
+      ansible_host: 10.250.0.114
 
 sonic_a7260:
   vars:
