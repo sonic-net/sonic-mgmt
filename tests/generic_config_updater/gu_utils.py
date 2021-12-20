@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-DEFAULT_ROLLBACK_NAME   = DEFAULT_CHECKPOINT_NAME
 YANG_IGNORED_OPTIONS    = "-i /FEATURE -i /QUEUE -i /SCHEDULER"
 
 def generate_tmpfile(duthost):
@@ -99,7 +98,7 @@ def start_limit_hit(duthost, service_name):
     Args:
         service_name: Service to reset
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
+    service_status = duthost.shell("systemctl status {}.service | grep 'Active'".format(service_name))
     pytest_assert(
         not service_status['rc'],
         "{} service status cannot be found".format(service_name)
@@ -123,13 +122,13 @@ def reset_start_limit_hit(duthost, service_name, timeout, interval, delay):
     """
     logger.info("Reset service '{}' due to start-limit-hit".format(service_name))
 
-    service_reset_failed = duthost.shell("sudo systemctl reset-failed {}.service".format(service_name))
+    service_reset_failed = duthost.shell("systemctl reset-failed {}.service".format(service_name))
     pytest_assert(
         not service_reset_failed['rc'],
         "{} systemctl reset-failed service fails"
     )
 
-    service_start = duthost.shell("sudo systemctl start {}.service".format(service_name))
+    service_start = duthost.shell("systemctl start {}.service".format(service_name))
     pytest_assert(
         not service_start['rc'],
         "{} systemctl start service fails"
@@ -182,27 +181,27 @@ def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
         "Failed to delete a checkpoint file: {}".format(cp)
     )
 
-def rollback(duthost, rb=DEFAULT_ROLLBACK_NAME):
+def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run rollback on target duthost
 
     Args:
         duthost: Device Under Test (DUT)
         rb: rollback filename
     """
-    cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, rb)
+    cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, cp)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
 
     return output
 
-def rollback_or_reload(duthost):
+def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run rollback on target duthost. config_reload if rollback failed.
 
     Args:
         duthost: Device Under Test (DUT)
     """
-    output = rollback(duthost)
+    output = rollback(duthost, cp)
 
     if output['rc'] or "Config rolled back successfull" not in output['stdout']:
         config_reload(duthost)
