@@ -9,6 +9,8 @@ parameters:
   type: string
 - name: vmtype
   type: string
+- name: section
+  type: string
 
 steps:
 - script: |
@@ -53,7 +55,7 @@ steps:
 
     rm -rf $(Build.ArtifactStagingDirectory)/*
     parent_dir=$(basename $PWD)
-    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }}"
+    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
   displayName: "Run tests"
 
 - script: |

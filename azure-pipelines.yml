@@ -20,7 +20,7 @@ stages:
   jobs:
   - job:
     pool: sonictest
-    displayName: "kvmtest-t0"
+    displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 400
 
     steps:
@@ -31,6 +31,22 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0
         vmtype: ceos
+        section: part-1
+
+  - job:
+    pool: sonictest
+    displayName: "kvmtest-t0-part2"
+    timeoutInMinutes: 400
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0
+        vmtype: ceos
+        section: part-2
 
   - job:
     pool: sonictest-t1-lag
