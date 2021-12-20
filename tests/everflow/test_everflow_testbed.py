@@ -91,6 +91,26 @@ class EverflowIPv4Tests(BaseEverflowTest):
         duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"",setup_info[request.param]["namespace"]))
         time.sleep(15)
 
+    @pytest.fixture(autouse=True)
+    def add_dest_routes(self, duthosts, rand_one_dut_hostname, setup_info, tbinfo, dest_port_type):
+        if self.acl_stage() != 'egress':
+            yield
+            return
+        duthost = duthosts[rand_one_dut_hostname]
+
+        default_traffic_port_type = "tor" if dest_port_type == "spine" else "spine"
+        rx_port = setup_info[default_traffic_port_type]["dest_port"][0]
+        nexthop_ip = everflow_utils.get_neighbor_info(duthost, rx_port, tbinfo)
+        
+        ns = setup_info[default_traffic_port_type]["namespace"]
+        dst_mask = "30.0.0.0/28"
+
+        everflow_utils.add_route(duthost, dst_mask, nexthop_ip, ns)
+
+        yield
+
+        everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
+
 
     def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """
