@@ -1,12 +1,16 @@
 import json
 import logging
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
+DEFAULT_CHECKPOINT_NAME = "test"
+DEFAULT_ROLLBACK_NAME   = DEFAULT_CHECKPOINT_NAME
+YANG_IGNORED_OPTIONS    = "-i /FEATURE -i /QUEUE -i /SCHEDULER"
 
 def generate_tmpfile(duthost):
     """Generate temp file
@@ -28,7 +32,7 @@ def apply_patch(duthost, json_data, dest_file):
     """
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
-    cmds = 'config apply-patch {}'.format(dest_file)
+    cmds = 'config apply-patch {} {}'.format(YANG_IGNORED_OPTIONS, dest_file)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
@@ -143,3 +147,63 @@ def reset_start_limit_hit(duthost, service_name, timeout, interval, delay):
         reset_service,
         "Failed to reset service '{}' due to start-limit-hit".format(service_name)
     )
+
+def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
+    """Run checkpoint on target duthost
+
+    Args:
+        duthost: Device Under Test (DUT)
+        cp: checkpoint filename
+    """
+    cmds = 'config checkpoint {}'.format(cp)
+
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    pytest_assert(
+        not output['rc'] and "Checkpoint created successfully" in output['stdout'],
+        "Failed to config a checkpoint file: {}".format(cp)
+    )
+
+def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
+    """Run checkpoint on target duthost
+
+    Args:
+        duthost: Device Under Test (DUT)
+        cp: checkpoint filename
+    """
+    cmds = 'config delete-checkpoint {}'.format(cp)
+
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    pytest_assert(
+        not output['rc'] and "Checkpoint deleted successfully" in output['stdout'],
+        "Failed to delete a checkpoint file: {}".format(cp)
+    )
+
+def rollback(duthost, rb=DEFAULT_ROLLBACK_NAME):
+    """Run rollback on target duthost
+
+    Args:
+        duthost: Device Under Test (DUT)
+        rb: rollback filename
+    """
+    cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, rb)
+
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    return output
+
+def rollback_or_reload(duthost):
+    """Run rollback on target duthost. config_reload if rollback failed.
+
+    Args:
+        duthost: Device Under Test (DUT)
+    """
+    output = rollback(duthost)
+
+    if output['rc'] or "Config rolled back successfull" not in output['stdout']:
+        config_reload(duthost)
+        pytest.fail("config rollback failed. Restored by config_reload")

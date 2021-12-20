@@ -2,9 +2,9 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "LOOPBACK_INTERFACE": {
@@ -27,11 +27,15 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    create_checkpoint(duthost)
 
     yield
 
-    logger.info("Restoring config_db.json")
-    config_reload(duthost)
+    try:
+        logger.info("Rolled back to original checkpoint")
+        rollback_or_reload(duthost)
+    finally:
+        delete_checkpoint(duthost)
 
  # Cleanup LOOPBACK_INTERFACE config
 def cleanup_lo_interface_config(duthost, cfg_facts):
@@ -65,8 +69,6 @@ def test_lo_interface_tc1_add_init(duthost, cfg_facts):
             }
         }
     ]
-
-    logger.info("json patch {}".format(json_patch))
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
