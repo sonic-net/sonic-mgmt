@@ -96,8 +96,6 @@ def dut_config_change(duthost, dut_4basn):
     duthost.copy(src=TMP_FILE, dest=TMP_FILE)
     duthost.shell("sonic-cfggen -j {} -w".format(TMP_FILE))
     duthost.shell("config save -y")
-    #duthost.shell("sudo config reload -y")
-    #time.sleep(10)
     config_reload(duthost, config_source='config_db', wait=600)
     wait_critical_processes(duthost)
     updated_asn=duthost.shell("show ip bgp sum")
@@ -111,7 +109,6 @@ def dut_config_change(duthost, dut_4basn):
 
 def dut_config_reset(duthost, dut_asn_default):
     duthost.shell("sudo cp /etc/sonic/config_db_org.json /etc/sonic/config_db.json")
-#    duthost.shell("sudo config reload -y")
     config_reload(duthost, config_source='config_db', wait=600)
     wait_critical_processes(duthost)
     updated_asn = duthost.shell("show ip bgp sum")
