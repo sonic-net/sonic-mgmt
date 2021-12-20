@@ -3,7 +3,7 @@
 usage() {
     cat >&2 <<EOF
 Usage:
-  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut
+  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut section
 
 Description:
   -d SONIC_MGMT_DIR
@@ -22,6 +22,8 @@ Description:
        testbed name
   dut
        DUT name
+  section
+       which part of t0 test [part-1|part-2]
 
 Example:
   ./kvmtest.sh vms-kvm-t0 vlab-01
@@ -71,7 +73,9 @@ fi
 
 tbname=$1
 dut=$2
-section=$3
+if [ -n $3 ]; then
+  section=$3
+fi
 
 RUNTEST_CLI_COMMON_OPTS="\
 -i $inventory \
@@ -95,7 +99,7 @@ test_t0() {
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
-      tests_1="\
+      tests="\
       monit/test_monit_status.py \
       platform_tests/test_advanced_reboot.py \
       test_interfaces.py \
@@ -121,15 +125,15 @@ test_t0() {
       snmp/test_snmp_interfaces.py \
       snmp/test_snmp_lldp.py \
       snmp/test_snmp_pfc_counters.py \
-      snmp/test_snmp_queue.py"
+      snmp/test_snmp_queue.py \
+      snmp/test_snmp_loopback.py \
+      snmp/test_snmp_default_route.py"
 
       pushd $SONIC_MGMT_DIR/tests
-      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests_1" -p logs/$tgname
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
       popd
     else
-      tests_2="\
-      snmp/test_snmp_loopback.py \
-      snmp/test_snmp_default_route.py \
+      tests="\
       ssh/test_ssh_stress.py \
       ssh/test_ssh_ciphers.py \
       syslog/test_syslog.py\
@@ -148,9 +152,10 @@ test_t0() {
       system_health/test_system_status.py"
 
       pushd $SONIC_MGMT_DIR/tests
-      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests_2" -p logs/$tgname
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
       popd
 
+      # Run test cases against two vlan configuration in part-2
       # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
       pushd $SONIC_MGMT_DIR/ansible
       ./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt -e vlan_config=two_vlan_a

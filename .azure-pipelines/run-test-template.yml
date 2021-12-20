@@ -11,6 +11,7 @@ parameters:
   type: string
 - name: section
   type: string
+  defaultValue: ''
 
 steps:
 - script: |
