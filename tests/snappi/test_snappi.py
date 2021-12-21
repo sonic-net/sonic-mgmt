@@ -6,6 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config
+from tests.common.snappi.snappi_helpers import wait_for_arp
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.qos_fixtures import prio_dscp_map
 
@@ -125,26 +126,8 @@ def test_snappi(snappi_api,
     # """ Apply configuration """
     snappi_api.set_config(config)
 
-    # Check for ARP status to be resolved
-    attempts = 0
-    max_attempts = 10
-
-    while attempts < max_attempts:
-        request = snappi_api.states_request()
-        states = snappi_api.get_states(request)
-
-        v4_link_layer_address = [state.link_layer_address 
-                                 for state in states.ipv4_neighbors
-                                 if state.link_layer_address]
-        if len(states.ipv4_neighbors) == len(v4_link_layer_address) and\
-           len(states.ipv4_neighbors) > 0:
-            break
-        else:
-            time.sleep(SNAPPI_POLL_DELAY_SEC)
-            attempts += 1
-
-    pytest_assert(attempts < max_attempts,
-                  "ARP is not resolved in {} seconds".format(max_attempts * 2))
+    # """Wait for Arp"""
+    wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=2)
 
     # """ Start traffic """
     ts = snappi_api.transmit_state()
