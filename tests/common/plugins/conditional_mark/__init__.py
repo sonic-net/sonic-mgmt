@@ -61,10 +61,9 @@ def load_conditions(session):
     if not conditions_files:
         conditions_files = glob.glob(DEFAULT_CONDITIONS_FILE)
 
-    for conditions_file in conditions_files:
-        if not os.path.exists(conditions_file):
-            # No conditions file supplied, skip adding conditional marks
-            return None
+    conditions_files = [f for f in conditions_files if os.path.exists(f)]
+    if not conditions_files:
+        pytest.fail('There is no conditions files')
 
     try:
         for conditions_file in conditions_files:
@@ -140,8 +139,8 @@ def load_basic_facts(session):
 
     return results
 
-def find_longest_match(nodeid, conditions):
-    """Find the longest match of the given test case name in the case_names list.
+def find_longest_matches(nodeid, conditions):
+    """Find the longest matches of the given test case name in the case_names list.
 
     This is similar to longest prefix match in routing table. The longest match takes precedence.
 
@@ -152,18 +151,19 @@ def find_longest_match(nodeid, conditions):
     Returns:
         str: Longest match test case name or None if not found
     """
-    longest_match = []
+    longest_matches = []
     max_length = -1
     for condition in conditions:
+        # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(condition.keys()[0]):
             length = len(condition)
             if length > max_length:
                 max_length = length
-                longest_match = []
-                longest_match.append(condition)
+                longest_matches = []
+                longest_matches.append(condition)
             elif length == max_length:
-                longest_match.append(condition)
-    return longest_match
+                longest_matches.append(condition)
+    return longest_matches
 
 def update_issue_status(condition_str):
     """Replace issue URL with 'True' or 'False' based on its active state.
@@ -292,14 +292,14 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
 
     for item in items:
-        logger.info('Processing: {}'.format(item.nodeid))
-        longest_match = find_longest_match(item.nodeid, conditions)
+        longest_matches = find_longest_matches(item.nodeid, conditions)
 
-        if longest_match:
-            logger.debug('Found match "{}" for test case "{}"'.format(longest_match, item.nodeid))
+        if longest_matches:
+            logger.debug('Found match "{}" for test case "{}"'.format(longest_matches, item.nodeid))
 
-            for mark in longest_match:
-                for mark_name, mark_details in mark.values()[0].items():
+            for match in longest_matches:
+                # match is a dict which has only one item, so we use match.values()[0] to get its value.
+                for mark_name, mark_details in match.values()[0].items():
 
                     add_mark = False
                     mark_conditions = mark_details.get('conditions', None)
