@@ -263,7 +263,6 @@ def check_vrf_route_for_lo_intf(duthost, vrf_name, lo_intf_name, ipv4=True):
     address_family = "ip" if ipv4 else "ipv6"
     output = duthost.shell("show {} route vrf {} | grep {}".format(address_family, vrf_name, lo_intf_name))
 
-    logger.info("get_vrf_route_for_lo_intf output {}".format(output))
     pytest_assert(not output['rc'],
         "Route not found for {} in vrf {}".format(lo_intf_name, vrf_name))
 
