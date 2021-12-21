@@ -259,6 +259,9 @@ class TestSfpApi(PlatformApiTestBase):
 
                     unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
+                        #hardware_rev is applicable only for QSFP-DD
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
+                            continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
