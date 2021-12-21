@@ -2,16 +2,22 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure, expect_res_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "LOOPBACK_INTERFACE": {
-    # "Loopback0": {},
-    # "Loopback0|10.1.0.32/32": {},
-    # "Loopback0|FC00:1::32/128": {}
+#     "Loopback0": {},
+#     "Loopback0|10.1.0.32/32": {},
+#     "Loopback0|FC00:1::32/128": {}
 # }
+# admin@vlab-01:~$ show ip interfaces | grep Loopback0
+# Loopback0                  10.1.0.32/32         up/up         N/A             N/A
+# admin@vlab-01:~$ show ipv6 interfaces | grep Loopback0
+# Loopback0                         fc00:1::32/128                              up/up         N/A             N/A
+#                                   fe80::4a3:18ff:fec2:f9e3%Loopback0/64                     N/A             N/A
+
 pytestmark = [
     pytest.mark.topology('t0'),
 ]
@@ -21,7 +27,9 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
-    Setup/teardown fixture for each loopback interface test
+    Setup/teardown fixture for each loopback interface test.
+    rollback to check if it goes back to starting config without vrf set
+
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
@@ -34,6 +42,8 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.32/32"], ["Vrf"], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::32/128"], ["Vrf"], ipv4=False)
     finally:
         delete_checkpoint(duthost)
 
@@ -45,6 +55,21 @@ def cleanup_lo_interface_config(duthost, cfg_facts):
             module_ignore_errors=True)
         pytest_assert(not del_loopback_interface['rc'],
             "Loopback interface '{}' is not deleted successfully".format(lo_interface))
+
+def check_show_lo_intf(duthost, lo_intf_name, expected_content_list, unexpected_content_list, ipv4=True):
+    """Check lo interface status by show command
+
+    Sample output:
+    admin@vlab-01:~$ show ip interfaces | grep Loopback0
+    Loopback0                  10.1.0.32/32         up/up         N/A             N/A
+    admin@vlab-01:~$ show ipv6 interfaces | grep Loopback0
+    Loopback0                         fc00:1::32/128                              up/up         N/A             N/A
+                                      fe80::4a3:18ff:fec2:f9e3%Loopback0/64                     N/A             N/A
+    """
+    address_family = "ip" if ipv4 else "ipv6"
+    output = duthost.shell("show {} interfaces | grep {} || true".format(address_family, lo_intf_name))
+
+    expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
 def test_lo_interface_tc1_add_init(duthost, cfg_facts):
     """ Clean up orig lo interface and test initial addion of v4 and v6 lo intf
@@ -76,6 +101,10 @@ def test_lo_interface_tc1_add_init(duthost, cfg_facts):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.32/32"], [], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::32/128"], [], ipv4=False)
+
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -109,6 +138,9 @@ def test_lo_interface_tc2_add_duplicate(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.32/32"], [], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::32/128"], [], ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -160,6 +192,11 @@ def test_lo_interface_tc4_replace(duthost):
         "Loopback0|10.1.0.33/32": {},
         "Loopback0|FC00:1::33/128": {}
     }
+    admin@vlab-01:~$ show ip interfaces | grep Loopback0
+    Loopback0                  10.1.0.33/32         up/up         N/A             N/A
+    admin@vlab-01:~$ show ipv6 interfaces | grep Loopback0
+    Loopback0                         fc00:1::33/128                              up/up         N/A             N/A
+                                      fe80::a8cb:e8ff:fe6e:df6e%Loopback0/64                    N/A             N/A
     """
     json_patch = [
         {
@@ -188,6 +225,9 @@ def test_lo_interface_tc4_replace(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.33/32"], ["10.1.0.32/32"], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::33/128"], ["fc00:1::32/128"], ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -207,5 +247,100 @@ def test_lo_interface_tc5_remove(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", [], ["10.1.0.32/32"], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", [], ["fc00:1::32/128"], ipv4=False)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def check_vrf_route_for_lo_intf(duthost, vrf_name, lo_intf_name, ipv4=True):
+    """Check ip route for specific vrf
+
+    Sample output:
+    admin@vlab-01:~$ show ip route vrf Vrf_01 | grep Loopback0
+    C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:13
+    """
+    address_family = "ip" if ipv4 else "ipv6"
+    output = duthost.shell("show {} route vrf {} | grep {}".format(address_family, vrf_name, lo_intf_name))
+
+    logger.info("get_vrf_route_for_lo_intf output {}".format(output))
+    pytest_assert(not output['rc'],
+        "Route not found for {} in vrf {}".format(lo_intf_name, vrf_name))
+
+def setup_vrf_config(duthost):
+    """Create two vrf and bind Loopback0 to Vrf_01
+
+    admin@vlab-01:~$ show ip interfaces | grep Loopback0
+    Loopback0        Vrf_01    10.1.0.32/32         up/up         N/A             N/A
+    admin@vlab-01:~$ show ipv6 interfaces | grep Loopback0
+    Loopback0        Vrf_01           fc00:1::32/128                              up/up         N/A             N/A
+                                      fe80::a8cb:e8ff:fe6e:df6e%Loopback0/64                    N/A             N/A
+    admin@vlab-01:~$ show ip route vrf Vrf_01
+    VRF Vrf_01:
+    C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:13
+
+    """
+    cmds = []
+    cmds.append("config vrf add Vrf_01")
+    cmds.append("config vrf add Vrf_02")
+
+    output = duthost.shell_cmds(cmds=cmds)
+
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/LOOPBACK_INTERFACE/Loopback0/vrf_name",
+            "value": "Vrf_01"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.32/32", "Vrf_01"], [], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::32/128", "Vrf_01"], [], ipv4=False)
+
+        check_vrf_route_for_lo_intf(duthost, "Vrf_01", "Loopback0", ipv4=True)
+        check_vrf_route_for_lo_intf(duthost, "Vrf_01", "Loopback0", ipv4=False)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_lo_interface_tc6_vrf_change(duthost):
+    """ Replace lo interface vrf
+
+    admin@vlab-01:~$ show ip interfaces | grep Loopback0
+    Loopback0        Vrf_02    10.1.0.32/32         up/up         N/A             N/A
+    admin@vlab-01:~$ show ipv6 interfaces | grep Loopback0
+    Loopback0        Vrf_02           fc00:1::32/128                              up/up         N/A             N/A
+                                      fe80::a8cb:e8ff:fe6e:df6e%Loopback0/64                    N/A             N/A
+    admin@vlab-01:~$ show ip route vrf Vrf_02
+    VRF Vrf_02:
+    C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:17
+    """
+    setup_vrf_config(duthost)
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/LOOPBACK_INTERFACE/Loopback0/vrf_name",
+            "value": "Vrf_02"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        check_show_lo_intf(duthost, "Loopback0", ["10.1.0.32/32", "Vrf_02"], [], ipv4=True)
+        check_show_lo_intf(duthost, "Loopback0", ["fc00:1::32/128", "Vrf_02"], [], ipv4=False)
+
+        check_vrf_route_for_lo_intf(duthost, "Vrf_02", "Loopback0", ipv4=True)
+        check_vrf_route_for_lo_intf(duthost, "Vrf_02", "Loopback0", ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
