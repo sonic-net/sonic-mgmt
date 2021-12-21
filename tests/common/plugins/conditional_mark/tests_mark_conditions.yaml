@@ -7,6 +7,24 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   skip:
     reason: "SONiC can't enable loop-back filter feature"
 
+drop_packets/test_drop_counters.py::test_src_ip_link_local:
+  skip:
+    reason: "Cisco 8000 platform does not drop SIP link local packets"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
+  skip:
+    reason: "Cisco 8000 platform does not drop packets with source IP address in class E"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
+  skip:
+    reason: "Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details. 
   # Due to this Cisco currently does not expose serial and model number under sysfs path
