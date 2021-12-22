@@ -259,7 +259,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
 
         # Count the number of these packets received on the ports connected to our leaves
-        solicit_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices)
+        solicit_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices, timeout=4.0)
         self.assertTrue(solicit_count >= 1,
                 "Failed: Solicit count of %d" % solicit_count)
 
@@ -313,7 +313,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
         
         # Count the number of these packets received on the ports connected to our leaves
-        request_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices)
+        request_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices, timeout=4.0)
         self.assertTrue(request_count >= 1,
                 "Failed: Request count of %d" % request_count)
                 
