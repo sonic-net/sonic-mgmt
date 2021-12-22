@@ -1,11 +1,10 @@
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import check_show_ip_intf
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "VLAN_INTERFACE": {
 #     "Vlan1000": {},
@@ -27,11 +26,17 @@ def cleanup_test_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    create_checkpoint(duthost)
 
     yield
 
-    logger.info("Restoring config_db.json")
-    config_reload(duthost)
+    try:
+        logger.info("Rolled back to original checkpoint")
+        rollback_or_reload(duthost)
+        check_show_ip_intf(duthost, "Vlan1000", ["192.168.0.1/21"], [], is_ipv4=True)
+        check_show_ip_intf(duthost, "Vlan1000", ["fc02:1000::1/64"], [], is_ipv4=False)
+    finally:
+        delete_checkpoint(duthost)
 
 def test_vlan_interface_tc1_add_duplicate(duthost):
     """ Add duplicate v4 and v6 lo intf to config
@@ -64,6 +69,9 @@ def test_vlan_interface_tc1_add_duplicate(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_ip_intf(duthost, "Vlan1000", ["192.168.0.1/21"], [], is_ipv4=True)
+        check_show_ip_intf(duthost, "Vlan1000", ["fc02:1000::1/64"], [], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -133,6 +141,13 @@ def test_vlan_interface_tc3_add_new(duthost):
         "Vlan2000|192.168.8.1/21": {},
         "Vlan2000|fc02:2000::1/64": {}
     }
+
+    admin@vlab-01:~/vlan$ show ip interfaces | grep Vlan2000
+    Vlan2000                   192.168.8.1/21       up/up         N/A             N/A
+    admin@vlab-01:~/vlan$ show ipv6 interfaces | grep Vlan2000
+    Vlan2000                          fc02:2000::1/64                             up/up         N/A             N/A
+                                      fe80::5054:ff:feda:c6af%Vlan2000/64                       N/A             N/A
+
     """
     json_patch = [
         {
@@ -165,6 +180,9 @@ def test_vlan_interface_tc3_add_new(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_ip_intf(duthost, "Vlan2000", ["192.168.8.1/21"], [], is_ipv4=True)
+        check_show_ip_intf(duthost, "Vlan2000", ["fc02:2000::1/64"], [], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -205,6 +223,9 @@ def test_vlan_interface_tc4_replace(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_ip_intf(duthost, "Vlan1000", ["192.168.0.2/21"], ["192.168.0.1/21"], is_ipv4=True)
+        check_show_ip_intf(duthost, "Vlan1000", ["fc02:1000::2/64"], ["fc02:1000::1/64"], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -224,6 +245,9 @@ def test_vlan_interface_tc5_remove(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
+
+        check_show_ip_intf(duthost, "Vlan1000", [], ["192.168.0.1/21"], is_ipv4=True)
+        check_show_ip_intf(duthost, "Vlan1000", [], ["fc02:1000::1/64"], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
