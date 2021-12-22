@@ -140,7 +140,7 @@ def load_basic_facts(session):
     return results
 
 def find_longest_matches(nodeid, conditions):
-    """Find the longest matches of the given test case name in the case_names list.
+    """Find the longest matches of the given test case name in the conditions list.
 
     This is similar to longest prefix match in routing table. The longest match takes precedence.
 
