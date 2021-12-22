@@ -2,9 +2,9 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success_and_reset_check, expect_res_success, expect_op_failure, expect_op_success
+from tests.generic_config_updater.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -12,8 +12,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-SYSLOG_TIMEOUT              = 10
-SYSLOG_INTERVAL             = 1
 # This is restricted by sonic-syslog.yang. Use '-1' to indicate no max is set
 SYSLOG_MAX_SERVER           = -1
 # The max server test only support SYSLOG_MAX_SERVER that is equal or lower than 254.
@@ -57,36 +55,76 @@ def syslog_config_add_default(duthost):
         pytest_assert(not add_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server))
 
+@pytest.fixture(scope="module")
+def original_syslog_servers(duthost, tbinfo):
+    """A module level fixture to store original syslog servers info
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    original_syslog_servers = []
+    for syslog_server in mg_facts['syslog_servers']:
+        original_syslog_servers.append(syslog_server)
+
+    return original_syslog_servers
+
+def get_current_syslog_servers(duthost):
+    """Get current syslog servers from running host
+    """
+    cmds = "show runningconfiguration syslog"
+    output = duthost.shell(cmds)
+
+    pytest_assert(not output['rc'],
+        "'{}' is not running successfully".format(cmds)
+    )
+
+    # Jump over introductory printout
+    output_lines = output['stdout'].splitlines()[2:]
+    current_syslog_servers = []
+    for line in output_lines:
+        # remove enclosed sqaure bracket
+        current_syslog_servers.append(line[1:-1])
+    return current_syslog_servers
+
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config):
+def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, original_syslog_servers):
     """
     Setup/teardown fixture for syslog config
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
         cfg_facts: config facts for selected DUT
-        init_syslog_config: initial syslog config for test
+        init_syslog_config: set up the initial syslog config for test
+        original_syslog_servers: original syslog servers stored in config
     """
     duthost = duthosts[rand_one_dut_hostname]
-    running_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    syslog_config_cleanup(duthost, running_facts)
-    # syslog_config_cleanup(duthost, cfg_facts)
+    create_checkpoint(duthost)
+
+    syslog_config_cleanup(duthost, cfg_facts)
 
     if init_syslog_config == "config_add_default":
         syslog_config_add_default(duthost)
 
     yield
 
-    running_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    syslog_config_cleanup(duthost, running_facts)
-    # config_reload(duthost)
+    try:
+        logger.info("Rolled back to original checkpoint")
+        rollback_or_reload(duthost)
+
+        current_syslog_servers = get_current_syslog_servers(duthost)
+        pytest_assert(set(current_syslog_servers) == set(original_syslog_servers),
+            "Syslog servers are not rollback_or_reload to initial config setup"
+        )
+    finally:
+        delete_checkpoint(duthost)
 
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
     """Check if syslog server show as expected
     """
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+    pytest_assert(not output['rc'],
+        "'{}' is not running successfully".format(cmds)
+    )
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
