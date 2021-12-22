@@ -38,6 +38,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.utilities import str2bool
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
@@ -146,6 +147,11 @@ def pytest_addoption(parser):
     parser.addoption("--restore_to_image", default="",
         help="Specify the target image to restore to, or stay in target image if empty",
     )
+    ############################
+    #   loop_times options     #
+    ############################
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -559,7 +565,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.iteritems():
+    for k, v in console_login_creds.items():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -583,7 +589,7 @@ def creds_all_duts(duthosts):
 def pytest_runtest_makereport(item, call):
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
 
     # execute all other hooks to obtain the report object
     outcome = yield

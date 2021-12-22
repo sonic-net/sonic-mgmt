@@ -5,7 +5,7 @@ The classes must implement the PduControllerBase interface defined in controller
 """
 import logging
 
-from controller_base import PduControllerBase
+from .controller_base import PduControllerBase
 
 from pysnmp.proto import rfc1902
 from pysnmp.entity.rfc3413.oneliner import cmdgen
