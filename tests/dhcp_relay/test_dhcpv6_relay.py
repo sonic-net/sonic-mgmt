@@ -244,6 +244,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
         time.sleep(20)
 
         # Restart DHCP relay service on DUT
+        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
+        # reset-failed before restart service
         cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
         duthost.shell_cmds(cmds=cmds)
 
