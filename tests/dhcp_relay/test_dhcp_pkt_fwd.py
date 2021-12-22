@@ -66,6 +66,30 @@ class DhcpPktFwdBase:
 
         return lags, peerIp
 
+    def __updateRoute(self, duthost, ip, peerIp, op=""):
+        """
+        Update route to add/remove for a given IP <ip> towards BGP peer
+
+         Args:
+            duthost(Ansible Fixture): instance of SonicHost class of DUT
+            ip(str): IP to add/remove route for
+            peerIp(str): BGP peer IP
+            op(str): operation add/remove to be performed, default add
+
+        Returns:
+            None
+        """
+        logger.info("{0} route to '{1}' via '{2}'".format(
+            "Deleting" if "no" == op else "Adding",
+            ip,
+            peerIp
+        ))
+        duthost.shell("vtysh -c \"configure terminal\" -c \"{} ip route {} {}\"".format(
+            op,
+            ipaddress.ip_interface((ip + "/24").encode().decode("utf-8")).network,
+            peerIp
+        ))
+
     @pytest.fixture(scope="class")
     def dutPorts(self, duthosts, rand_one_dut_hostname, tbinfo):
         """
