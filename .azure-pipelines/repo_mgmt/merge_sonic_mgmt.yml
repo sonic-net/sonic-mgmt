@@ -22,7 +22,6 @@ stages:
     jobs:
 
       - job: sonic_mgmt_merge
-        pool: nightly
         timeoutInMinutes: 30
         variables:
           - group: GIT_SECRETS
@@ -80,6 +79,7 @@ stages:
 
                   post_tag="${mssonic_branch}-`date '+%Y%m%d-%H%M'`.post-merge"
 
+                  git config pull.rebase false
                   RC=0
                   git pull github ${github_branch} --no-edit || RC=$?
                   if [[ ${RC} != 0 ]]; then
