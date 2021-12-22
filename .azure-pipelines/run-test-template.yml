@@ -86,17 +86,17 @@ steps:
   condition: succeededOrFailed()
 
 - publish: $(Build.ArtifactStagingDirectory)/kvmdump
-  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}${{ parameters.section}}.memdump@$(System.JobAttempt)
+  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}${{ parameters.section }}.memdump@$(System.JobAttempt)
   displayName: "Archive sonic kvm memdump"
   condition: failed()
 
 - publish: $(Build.ArtifactStagingDirectory)/logs
-  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section}}.log@$(System.JobAttempt)
+  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.log@$(System.JobAttempt)
   displayName: "Archive sonic kvm logs"
   condition: succeededOrFailed()
 
 - task: PublishTestResults@2
   inputs:
     testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
-    testRunTitle: kvmtest.${{ parameters.tbtype }}${{ parameters.section}}
+    testRunTitle: kvmtest.${{ parameters.tbtype }}${{ parameters.section }}
   condition: succeededOrFailed()
