@@ -364,13 +364,6 @@ def syslog_server_add_to_max(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost,output)
 
-        status = duthost.get_service_props('rsyslog-config')["ActiveState"]
-        logger.info("rsyslog-config status {}".format(status))
-        pytest_assert(
-            duthost.get_service_props('rsyslog-config')["ActiveState"] == "active",
-            "rsyslog-config service is not active"
-        )
-
         expected_content_list = ["[{}]".format(syslog_server) for syslog_server in syslog_servers]
         expect_res_success_syslog(duthost, expected_content_list, [])
     finally:
