@@ -2448,12 +2448,12 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
             # Shutdown the port and check whether the lossless PG has been remvoed
             logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-            wait_until(60, 5, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, None)
+            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, None)
 
             # Startup the port and check whether the lossless PG has been reconfigured
             logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface startup {}'.format(port_to_shutdown))
-            wait_until(60, 5, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, expected_profile)
+            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, expected_profile)
         finally:
             duthost.shell('config interface startup {}'.format(port_to_shutdown), module_ignore_errors=True)
 
