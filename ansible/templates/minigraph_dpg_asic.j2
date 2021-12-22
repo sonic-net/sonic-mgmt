@@ -127,7 +127,7 @@
           <Name>Vlan2</Name>
 {% set vlan_intf_str=';'.join(vlan_intfs) %}
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
-          <Type>Tagged</Type>
+          <Type>UnTagged</Type>
           <VlanID>2</VlanID>
         </VlanInterface>
       </VlanInterfaces>
@@ -161,25 +161,21 @@
 {% endif %}
 {% endfor %}
 {% if switch_type is defined and switch_type == 'chassis-packet' %}
-      </IPInterfaces>
-      <SubInterfaces>
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
-        <SubInterface>
+        <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Vlan>2</Vlan>
-          <Encapsulation>dot1q</Encapsulation>
           <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
-        </SubInterface>
-        <SubInterface>
+        </IPInterface>
+        <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Vlan>2</Vlan>
-          <Encapsulation>dot1q</Encapsulation>
           <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
-        </SubInterface>
+        </IPInterface>
 {% endfor %}
+      </IPInterfaces>
+      <SubInterfaces>
       </SubInterfaces>
       <IPNextHops>
 {% for a_linecard in all_loopback4096 %}
