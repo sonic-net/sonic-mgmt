@@ -403,6 +403,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     vm_base = int(tbinfo['vm_base'][2:])
+    vm_name_fmt = 'VM%0{}d'.format(len(tbinfo['vm_base']) - 2)
     neighbor_type = request.config.getoption("--neighbor_type")
 
     if not 'VMs' in tbinfo['topo']['properties']['topology']:
@@ -410,9 +411,10 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        vm_name,
                                         creds['eos_login'],
                                         creds['eos_password'],
                                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
@@ -420,7 +422,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
                         'conf': tbinfo['topo']['properties']['configuration'][k]}
         elif neighbor_type == "sonic":
             devices[k] = {'host': SonicHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
                         'conf': tbinfo['topo']['properties']['configuration'][k]}
