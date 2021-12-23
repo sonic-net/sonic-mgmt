@@ -1161,9 +1161,15 @@ def cleanup_cache_for_session(request):
     This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
     """
     tbname, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
+    inv_data = get_host_visible_vars(inv_files, a_dut)
+    if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
+            for asic_id in range(inv_data['num_asics']):
+                cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
+
 
 def get_l2_info(dut):
     """
