@@ -1092,16 +1092,22 @@ def pytest_generate_tests(metafunc):
         # parameterize on both - create tuple for each
         tuple_list = []
         for a_dut_index, a_dut in enumerate(duts_selected):
-            for a_asic in asics_selected[a_dut_index]:
-                # Create tuple of dut and asic index
-                tuple_list.append((a_dut, a_asic))
+            if len(asics_selected):
+                for a_asic in asics_selected[a_dut_index]:
+                    # Create tuple of dut and asic index
+                    tuple_list.append((a_dut, a_asic))
+            else:
+                tuple_list.append((a_dut, None))
         metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
     elif dut_fixture_name:
         # parameterize only on DUT
         metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
-        metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        if len(asics_selected):
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        else:
+            metafunc.parametrize(asic_fixture_name, [None], scope="module")
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
