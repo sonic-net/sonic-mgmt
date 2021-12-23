@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 SYSLOG_DUMMY_IPV4_SERVER    = "10.0.0.5"
 SYSLOG_DUMMY_IPV6_SERVER    = "cc98:2008::1"
-SETUP_ENV_CP                = "test_setup"
+SETUP_ENV_CP                = "test_setup_checkpoint"
 CONFIG_CLEANUP              = "config_cleanup"
 CONFIG_ADD_DEFAULT          = "config_add_default"
 
@@ -139,6 +139,7 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, or
             "Syslog servers are not rollback_or_reload to initial config setup"
         )
     finally:
+        delete_checkpoint(duthost, SETUP_ENV_CP)
         delete_checkpoint(duthost)
 
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
