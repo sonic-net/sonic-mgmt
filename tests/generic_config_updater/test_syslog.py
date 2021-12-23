@@ -12,10 +12,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-# This is restricted by sonic-syslog.yang. Use '-1' to indicate no max is set
-SYSLOG_MAX_SERVER           = -1
-# The max server test only support SYSLOG_MAX_SERVER that is equal or lower than 254.
-SYSLOG_TEST_MAX_UPPER_LIMIT = 254
 SYSLOG_DUMMY_IPV4_SERVER    = "10.0.0.5"
 SYSLOG_DUMMY_IPV6_SERVER    = "cc98:2008::1"
 
@@ -33,7 +29,7 @@ def syslog_config_cleanup(duthost, cfg_facts):
     """
     syslog_servers = cfg_facts.get('SYSLOG_SERVER', {})
     for syslog_server in syslog_servers:
-        del_syslog_server = duthost.shell("sudo config syslog del {}".format(syslog_server),
+        del_syslog_server = duthost.shell("config syslog del {}".format(syslog_server),
             module_ignore_errors=True)
         pytest_assert(not del_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server))
@@ -50,7 +46,7 @@ def syslog_config_add_default(duthost):
     [cc98:2008::1]
     """
     for syslog_server in [SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER]:
-        add_syslog_server = duthost.shell("sudo config syslog add {}".format(syslog_server),
+        add_syslog_server = duthost.shell("config syslog add {}".format(syslog_server),
             module_ignore_errors=True)
         pytest_assert(not add_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server))
@@ -333,68 +329,3 @@ def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
         expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
-
-def syslog_server_add_to_max(duthost):
-    """ Test syslog server max
-
-    admin@vlab-01:~$ show runningconfiguration syslog
-    Sample output:
-    Syslog Servers
-    ----------------
-    [10.0.0.1]
-    ...
-    [10.0.0.SYSLOG_MAX_SERVER]
-    """
-    syslog_servers = ["10.0.0.{}".format(i) for i in range(1, SYSLOG_MAX_SERVER+1)]
-
-    json_patch = [
-        {
-            "op": "add",
-            "path": "/SYSLOG_SERVER",
-            "value": {
-                "{}".format(syslog_server) : {} for syslog_server in syslog_servers
-            }
-        }
-    ]
-
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
-
-        expected_content_list = ["[{}]".format(syslog_server) for syslog_server in syslog_servers]
-        expect_res_success_syslog(duthost, expected_content_list, [])
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-def syslog_server_exceed_max(duthost):
-    """ Exceed syslog server maximum test
-    """
-    json_patch = [
-        {
-            "op": "add",
-            "path": "/SYSLOG_SERVER/10.0.0.{}".format(SYSLOG_MAX_SERVER+1),
-            "value": {}
-        }
-    ]
-
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_failure(output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-def test_syslog_server_tc6_max(duthost, init_syslog_config):
-    if init_syslog_config != "config_cleanup":
-        pytest.skip("Unsupported initial config")
-
-    if SYSLOG_MAX_SERVER == -1 or SYSLOG_MAX_SERVER > SYSLOG_TEST_MAX_UPPER_LIMIT:
-        pytest.skip("SYSLOG_MAX_SERVER is not set or is over the test max upper limit")
-
-    syslog_server_add_to_max(duthost)
-    syslog_server_exceed_max(duthost)
