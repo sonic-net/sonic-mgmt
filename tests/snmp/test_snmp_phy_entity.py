@@ -511,7 +511,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1
         assert transceiver_snmp_fact['entPhysName'] == name
-        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['hardware_rev']
+        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['vendor_rev']
         assert transceiver_snmp_fact['entPhysFwVer'] == ''
         assert transceiver_snmp_fact['entPhysSwVer'] == ''
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial']
