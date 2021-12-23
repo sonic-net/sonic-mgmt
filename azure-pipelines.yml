@@ -18,19 +18,6 @@ stages:
     value: vtestbed.csv
 
   jobs:
-  - job:
-    displayName: "kvmtest-t0"
-    timeoutInMinutes: 400
-    dependsOn:
-      - t0-part1
-      - t0-part2
-    condition: |
-      and
-      (
-        in(dependencies.t0-part1.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),
-        in(dependencies.t0-part2.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')
-      )
-
   - job: t0-part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
@@ -60,6 +47,19 @@ stages:
         tbtype: t0
         vmtype: ceos
         section: part-2
+
+  - job:
+    displayName: "kvmtest-t0"
+    timeoutInMinutes: 400
+    dependsOn:
+      - t0-part1
+      - t0-part2
+    condition: |
+      and
+      (
+        in(dependencies.t0-part1.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),
+        in(dependencies.t0-part2.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')
+      )
 
   - job:
     pool: sonictest-t1-lag
