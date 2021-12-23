@@ -2,7 +2,6 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -27,7 +26,7 @@ T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
 def get_cacl_tables(duthost):
     """Get acl control palne tables
     """
-    cmds = "show acl table | grep CTRLPLANE | awk {'print $1'} || true"
+    cmds = "show acl table | grep -w CTRLPLANE | awk {'print $1'} || true"
     output = duthost.shell(cmds)
     cacl_tables = output['stdout'].splitlines()
     return cacl_tables
