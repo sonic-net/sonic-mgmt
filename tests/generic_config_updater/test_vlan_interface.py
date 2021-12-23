@@ -4,13 +4,15 @@ import pytest
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import check_show_ip_intf
+from tests.generic_config_updater.gu_utils import create_path, check_show_ip_intf
+
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "VLAN_INTERFACE": {
 #     "Vlan1000": {},
 #     "Vlan1000|192.168.0.1/21": {},
 #     "Vlan1000|fc02:1000::1/64": {}
 # }
+
 pytestmark = [
     pytest.mark.topology('t0'),
 ]
@@ -51,12 +53,12 @@ def test_vlan_interface_tc1_add_duplicate(duthost):
     json_patch = [
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan1000|192.168.0.1~121",
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|192.168.0.1/21"]),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan1000|fc02:1000::1~164",
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|fc02:1000::1/64"]),
             "value": {}
         }
     ]
@@ -76,19 +78,19 @@ def test_vlan_interface_tc1_add_duplicate(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, name, dummy_vlan_interface_v4, dummy_vlan_interface_v6", [
-    ("add", "Vlan1000", "587.168.0.1~121", "fc02:1000::1~164"),
-    ("add", "Vlan1000", "192.168.0.1~121", "fc02:1000::xyz~164"),
-    ("remove", "Vlan1000", "192.168.0.2~121", "fc02:1000::1~164"),
-    ("remove", "Vlan1000", "192.168.0.1~121", "fc02:1000::2~164")
+    ("add", "Vlan1000", "587.168.0.1/21", "fc02:1000::1/64"),
+    ("add", "Vlan1000", "192.168.0.1/21", "fc02:1000::xyz/64"),
+    ("remove", "Vlan1000", "192.168.0.2/21", "fc02:1000::1/64"),
+    ("remove", "Vlan1000", "192.168.0.1/21", "fc02:1000::2/64")
 ])
 def test_vlan_interface_tc2_xfail(duthost, op, name,
         dummy_vlan_interface_v4, dummy_vlan_interface_v6):
     """ Test expect fail testcase
 
-    ("add", "Vlan1000", "587.168.0.1~121", "fc02:1000::1~164"), ADD Invalid IPv4 address
-    ("add", "Vlan1000", "192.168.0.1~121", "fc02:1000::xyz~164"), ADD Invalid IPv6 address
-    ("remove", "Vlan1000", "192.168.0.2~121", "fc02:1000::1~164"), REMOVE Unexist IPv4 address
-    ("remove", "Vlan1000", "192.168.0.1~121", "fc02:1000::2~164") REMOVE Unexist IPv6 address
+    ("add", "Vlan1000", "587.168.0.1/21", "fc02:1000::1/64"), ADD Invalid IPv4 address
+    ("add", "Vlan1000", "192.168.0.1/21", "fc02:1000::xyz/64"), ADD Invalid IPv6 address
+    ("remove", "Vlan1000", "192.168.0.2/21", "fc02:1000::1/64"), REMOVE Unexist IPv4 address
+    ("remove", "Vlan1000", "192.168.0.1/21", "fc02:1000::2/64") REMOVE Unexist IPv6 address
     """
     dummy_vlan_interface_v4 = name + "|" + dummy_vlan_interface_v4
     dummy_vlan_interface_v6 = name + "|" + dummy_vlan_interface_v6
@@ -96,12 +98,12 @@ def test_vlan_interface_tc2_xfail(duthost, op, name,
     json_patch = [
         {
             "op": "{}".format(op),
-            "path": "/VLAN_INTERFACE/{}".format(dummy_vlan_interface_v4),
+            "path": create_path(["VLAN_INTERFACE", dummy_vlan_interface_v4]),
             "value": {}
         }   ,
         {
             "op": "{}".format(op),
-            "path": "/VLAN_INTERFACE/{}".format(dummy_vlan_interface_v6),
+            "path": create_path(["VLAN_INTERFACE", dummy_vlan_interface_v6]),
             "value": {}
         }
     ]
@@ -142,9 +144,9 @@ def test_vlan_interface_tc3_add_new(duthost):
         "Vlan2000|fc02:2000::1/64": {}
     }
 
-    admin@vlab-01:~/vlan$ show ip interfaces | grep Vlan2000
+    admin@vlab-01:~/vlan$ show ip interfaces | grep -w Vlan2000
     Vlan2000                   192.168.8.1/21       up/up         N/A             N/A
-    admin@vlab-01:~/vlan$ show ipv6 interfaces | grep Vlan2000
+    admin@vlab-01:~/vlan$ show ipv6 interfaces | grep -w Vlan2000
     Vlan2000                          fc02:2000::1/64                             up/up         N/A             N/A
                                       fe80::5054:ff:feda:c6af%Vlan2000/64                       N/A             N/A
 
@@ -157,12 +159,12 @@ def test_vlan_interface_tc3_add_new(duthost):
         },
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan2000|192.168.8.1~121",
+            "path": create_path(["VLAN_INTERFACE", "Vlan2000|192.168.8.1/21"]),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan2000|fc02:2000::1~164",
+            "path": create_path(["VLAN_INTERFACE","Vlan2000|fc02:2000::1/64"]),
             "value": {}
         },
         {
@@ -199,20 +201,20 @@ def test_vlan_interface_tc4_replace(duthost):
     json_patch = [
         {
             "op": "remove",
-            "path": "/VLAN_INTERFACE/Vlan1000|fc02:1000::1~164"
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|fc02:1000::1/64"]),
         },
         {
             "op": "remove",
-            "path": "/VLAN_INTERFACE/Vlan1000|192.168.0.1~121"
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|192.168.0.1/21"]),
         },
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan1000|192.168.0.2~121",
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|192.168.0.2/21"]),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan1000|fc02:1000::2~164",
+            "path": create_path(["VLAN_INTERFACE", "Vlan1000|fc02:1000::2/64"]),
             "value": {}
         }
     ]
