@@ -258,7 +258,7 @@ def main():
 
     lldp_data = dict()
 
-    for intf in lldp_rem_sys.keys():
+    for intf in lldp_rem_sys:
         lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf],
                                 'neighbor_port_desc': lldp_rem_port_desc[intf],
                                 'neighbor_port_id': lldp_rem_port_id[intf],
