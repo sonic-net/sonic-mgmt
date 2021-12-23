@@ -4,7 +4,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -14,8 +14,11 @@ logger = logging.getLogger(__name__)
 
 SYSLOG_DUMMY_IPV4_SERVER    = "10.0.0.5"
 SYSLOG_DUMMY_IPV6_SERVER    = "cc98:2008::1"
+SETUP_ENV_CP                = "test_setup"
+CONFIG_CLEANUP              = "config_cleanup"
+CONFIG_ADD_DEFAULT          = "config_add_default"
 
-@pytest.fixture(scope="module", params=["config_cleanup", "config_add_default"])
+@pytest.fixture(scope="module", params=[CONFIG_CLEANUP, CONFIG_ADD_DEFAULT])
 def init_syslog_config(request):
     return request.param
 
@@ -73,13 +76,31 @@ def get_current_syslog_servers(duthost):
         "'{}' is not running successfully".format(cmds)
     )
 
+    # If len less than 3 means not syslog output
+    lines = output['stdout'].splitlines()
+    if len(lines) < 3:
+        return []
     # Jump over introductory printout
-    output_lines = output['stdout'].splitlines()[2:]
     current_syslog_servers = []
-    for line in output_lines:
+    for line in lines[2:]:
         # remove enclosed sqaure bracket
         current_syslog_servers.append(line[1:-1])
     return current_syslog_servers
+
+def check_rollback_res(duthost, output, init_syslog_config):
+    pytest_assert(
+        not output['rc'] and "Config rolled back successfull" in output['stdout'],
+        "Rollback to previous setup env failed."
+    )
+    if init_syslog_config == CONFIG_CLEANUP:
+        pytest_assert(not get_current_syslog_servers(duthost),
+            "Failed to rollback to {}".format(init_syslog_config)
+        )
+    elif init_syslog_config == CONFIG_ADD_DEFAULT:
+        pytest_assert(
+            set(get_current_syslog_servers(duthost)) == set([SYSLOG_DUMMY_IPV4_SERVER, SYSLOG_DUMMY_IPV6_SERVER]),
+            "Failed to rollback to {}".format(init_syslog_config)
+        )
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, original_syslog_servers):
@@ -97,12 +118,19 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, or
 
     syslog_config_cleanup(duthost, cfg_facts)
 
-    if init_syslog_config == "config_add_default":
+    if init_syslog_config == CONFIG_ADD_DEFAULT:
         syslog_config_add_default(duthost)
+
+    create_checkpoint(duthost, SETUP_ENV_CP)
 
     yield
 
+    # Rollback twice. First rollback to checkpoint just before 'yield'
+    # Second rollback is to back to original setup
     try:
+        output = rollback(duthost, SETUP_ENV_CP)
+        check_rollback_res(duthost, output, init_syslog_config)
+
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
 
@@ -138,7 +166,7 @@ def test_syslog_server_tc1_add_init(duthost, init_syslog_config, op,
     [10.0.0.5]
     [cc98:2008::1]
     """
-    if init_syslog_config != "config_cleanup":
+    if init_syslog_config != CONFIG_CLEANUP:
         pytest.skip("Unsupported initial config")
 
     json_patch = [
@@ -178,7 +206,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, init_syslog_config, op,
     [10.0.0.5]
     [cc98:2008::1]
     """
-    if init_syslog_config != "config_add_default":
+    if init_syslog_config != CONFIG_ADD_DEFAULT:
         pytest.skip("Unsupported initial config")
 
     json_patch = [
@@ -221,7 +249,7 @@ def test_syslog_server_tc3_xfail(duthost, init_syslog_config, op,
     ("remove", "10.0.0.6", "cc98:2008:1"), REMOVE Unexist IPv4 address
     ("remove", "10.0.0.5", "cc98:2008::2") REMOVE Unexist IPv6 address
     """
-    if init_syslog_config != "config_add_default":
+    if init_syslog_config != CONFIG_ADD_DEFAULT:
         pytest.skip("Unsupported initial config")
 
     json_patch = [
@@ -257,7 +285,7 @@ def test_syslog_server_tc4_remove(duthost, init_syslog_config, op,
     Syslog Servers
     ----------------
     """
-    if init_syslog_config != "config_add_default":
+    if init_syslog_config != CONFIG_ADD_DEFAULT:
         pytest.skip("Unsupported initial config")
 
     json_patch = [
@@ -293,7 +321,7 @@ def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
     [10.0.0.5]
     [cc98:2008::1]
     """
-    if init_syslog_config != "config_add_default":
+    if init_syslog_config != CONFIG_ADD_DEFAULT:
         pytest.skip("Unsupported initial config")
 
     json_patch = [
