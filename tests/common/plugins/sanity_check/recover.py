@@ -8,6 +8,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.config_reload import config_force_option_supported
 from tests.common.reboot import reboot
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
+from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 
 logger = logging.getLogger(__name__)
 
@@ -99,23 +100,22 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
     else:
         __recover_with_command(dut, method['cmd'], wait_time)
 
+@reset_ansible_local_tmp
+def neighbor_vm_recover_bgpd(node=None):
+    nbr_host = node['host']
+    intf_list = node['conf']['interfaces'].keys()
+    # restore interfaces and portchannels
+    for intf in intf_list:
+        nbr_host.no_shutdown(intf)
+    asn = node['conf']['bgp']['asn']
+    # start BGPd
+    nbr_host.start_bgpd()
+    # restore BGP session
+    nbr_host.no_shutdown_bgp(asn)
 
 def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        for lag_name in lag_facts['names']:
-            nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
-            peer_device   = vm_neighbors[nbr_intf]['name']
-            nbr_host = nbrhosts[peer_device]['host']
-            intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
-            # restore interfaces and portchannels
-            for intf in intf_list:
-                nbr_host.no_shutdown(intf)
-            asn = nbrhosts[peer_device]['conf']['bgp']['asn']
-            # start BGPd
-            nbr_host.start_bgpd()
-            # restore BGP session
-            nbr_host.no_shutdown_bgp(asn)
+        parallel_run(neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
