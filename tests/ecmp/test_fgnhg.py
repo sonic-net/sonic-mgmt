@@ -578,7 +578,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
 
 def cleanup(duthost, ptfhost):
     logger.info("Start cleanup")
-    ptfhost.command('rm /tmp/fg_ecmp_persist_map.json')
+    ptfhost.command('rm -f /tmp/fg_ecmp_persist_map.json')
     config_reload(duthost)
 
 
