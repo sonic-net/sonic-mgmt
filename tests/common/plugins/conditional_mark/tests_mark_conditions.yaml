@@ -29,41 +29,41 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details. 
   # Due to this Cisco currently does not expose serial and model number under sysfs path
   skip:
-    reason: "test_get_model is not supported in cisco platform"
+    reason: "test_get_model is not supported in cisco and mellanox platform"
     conditions:
-       - asic_type=="cisco-8000"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
   # Due to this Cisco currently does not expose serial and model number under sysfs path
   skip:
-    reason: "test_get_serial is not supported in cisco platform"
+    reason: "test_get_serial is not supported in cisco and mellanox platform"
     conditions:
-       - asic_type=="cisco-8000"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
   skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - asic_type=="cisco-8000"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
   skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - asic_type=="cisco-8000"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
   skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 platform"
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
-       - asic_type=="cisco-8000"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
@@ -89,21 +89,21 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
    skip:
-     reason: "On Cisco 8000 platform, fans do not have their own leds."
+     reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
      conditions:
-       - "asic_type=='cisco-8000'"
+       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
-    reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
+    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type=='cisco-8000'"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
-    reason: "On Cisco 8000 platform, PSU led are unable to be controlled by software"
+    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type=='cisco-8000'"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -128,8 +128,8 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
-# Skip unsupported API test on Mellanox platform
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
+  # Skip unsupported API test on Mellanox platform
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -189,12 +189,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
 platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
   skip:
     reason: "Unsupported platform API"
@@ -202,12 +196,6 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -255,19 +243,7 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -297,19 +273,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -496,18 +460,6 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
     conditions:
