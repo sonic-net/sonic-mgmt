@@ -10,7 +10,7 @@ def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
+    cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip)
 
 
 @pytest.fixture(scope="module")
@@ -25,4 +25,4 @@ def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_a
 
     yield
 
-    cleanup_tacacs(ptfhost, duthost, tacacs_server_ip)
+    cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip)
