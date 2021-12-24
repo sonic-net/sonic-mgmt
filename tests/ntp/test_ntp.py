@@ -111,7 +111,8 @@ def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
     duthost = duthosts[rand_one_dut_hostname]
 
     duthost.service(name='ntp', state='stopped')
-    duthost.command("ntpd -gq")
+    ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+    duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
     duthost.service(name='ntp', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP not in sync")
