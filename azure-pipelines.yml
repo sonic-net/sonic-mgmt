@@ -18,7 +18,7 @@ stages:
     value: vtestbed.csv
 
   jobs:
-  - job: part1
+  - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 200
@@ -33,7 +33,7 @@ stages:
         vmtype: ceos
         section: part-1
 
-  - job: part2
+  - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
     timeoutInMinutes: 200
@@ -49,31 +49,25 @@ stages:
         section: part-2
 
   - job:
+    pool: sonictest
     displayName: "kvmtest-t0"
     timeoutInMinutes: 400
     dependsOn:
-    - part1
-    - part2
+    - t0_part1
+    - t0_part2
     variables:
-      resultOfPart1: $[ dependencies.part1.result ]
-      resultOfPart2: $[ dependencies.part2.result ]
+      resultOfPart1: $[ dependencies.t0_part1.result ]
+      resultOfPart2: $[ dependencies.t0_part2.result ]
 
     steps:
-    - script: 'echo "Both job kvemtest-t0-part1 and kvemtest-t0-part2 are passed."'
-      condition: |
-        and
-        (
-          in(variables.resultOfPart1, 'Succeeded'),
-          in(variables.resultOfPart2, 'Succeeded')
-        )
-
-    - script: 'echo "Either job kvemtest-t0-part1 or job kvemtest-t0-part2 failed! Please check the detailed information." ; exit 1'
-      condition: |
-        or
-        (
-          notIn(variables.resultOfPart1, 'Succeeded'),
-          notIn(variables.resultOfPart2, 'Succeeded')
-        )
+    - script: |
+        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
+          echo "Both job kvemtest-t0-part1 and kvemtest-t0-part2 are passed."
+          exit 0
+        else
+          echo "Run kvmtest-t0 failed!Either job kvemtest-t0-part1 or job kvemtest-t0-part2 failed! Please check the detailed information."
+          exit 1
+        fi
 
   - job:
     pool: sonictest-t1-lag
