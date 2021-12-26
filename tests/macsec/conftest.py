@@ -1,7 +1,6 @@
 import pytest
 import logging
-import re
-import random
+# import random
 import ipaddress
 import collections
 import time
@@ -64,8 +63,7 @@ def default_priority():
     return 64
 
 
-# TODO: params=["GCM-AES-128", "GCM-AES-256"]
-@pytest.fixture(scope="module", params=["GCM-AES-128"])
+@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256"])
 def cipher_suite(request):
     return request.param
 
@@ -90,6 +88,11 @@ def primary_cak(cipher_suite):
 
 @pytest.fixture(scope="module", params=["integrity_only", "security"])
 def policy(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=["true", "false"])
+def send_sci(request):
     return request.param
 
 
@@ -155,7 +158,7 @@ def find_links_from_nbr(duthost, tbinfo, nbrhosts):
 def ctrl_links(duthost, tbinfo, nbrhosts):
     assert len(nbrhosts) > 1
     ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
-    ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)//2)
+    # ctrl_nbr_names = random.sample(nbrhosts.keys(), len(nbrhosts)//2)
     logging.info("Controlled links {}".format(ctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
