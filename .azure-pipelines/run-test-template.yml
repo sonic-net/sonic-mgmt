@@ -9,6 +9,9 @@ parameters:
   type: string
 - name: vmtype
   type: string
+- name: section
+  type: string
+  default: ''
 
 steps:
 - script: |
@@ -53,7 +56,7 @@ steps:
 
     rm -rf $(Build.ArtifactStagingDirectory)/*
     parent_dir=$(basename $PWD)
-    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }}"
+    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
   displayName: "Run tests"
 
 - script: |
@@ -83,17 +86,17 @@ steps:
   condition: succeededOrFailed()
 
 - publish: $(Build.ArtifactStagingDirectory)/kvmdump
-  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}.memdump@$(System.JobAttempt)
+  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}${{ parameters.section }}.memdump@$(System.JobAttempt)
   displayName: "Archive sonic kvm memdump"
   condition: failed()
 
 - publish: $(Build.ArtifactStagingDirectory)/logs
-  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}.log@$(System.JobAttempt)
+  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.log@$(System.JobAttempt)
   displayName: "Archive sonic kvm logs"
   condition: succeededOrFailed()
 
 - task: PublishTestResults@2
   inputs:
     testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
-    testRunTitle: kvmtest.${{ parameters.tbtype }}
+    testRunTitle: kvmtest.${{ parameters.tbtype }}${{ parameters.section }}
   condition: succeededOrFailed()
