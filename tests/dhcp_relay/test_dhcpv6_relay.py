@@ -118,7 +118,7 @@ def check_interface_status(duthost):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201811", "201911", "202106"])
+    skip_release(duthost, ["201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -131,7 +131,8 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
-
+    skip_release(duthost, ["201911", "202106"])
+    
     messages = ["Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release", "Decline", "Relay-Forward", "Relay-Reply"]
 
     for dhcp_relay in dut_dhcp_relay_data:
@@ -244,7 +245,10 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
         time.sleep(20)
 
         # Restart DHCP relay service on DUT
-        duthost.shell('systemctl restart dhcp_relay.service')
+        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
+        # reset-failed before restart service
+        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
+        duthost.shell_cmds(cmds=cmds)
 
         # Sleep to give the DHCP relay container time to start up and
         # allow the relay agent to begin listening on the down interfaces
