@@ -280,7 +280,46 @@ def restart_thermal_control_daemon(dut):
     config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
 
+def stop_thermal_control_daemon(dut):
+    """
+    Stop thermal control daemon
+    """
+    logging.info('Stopping thermal control daemon on {}...'.format(dut.hostname))
+    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
+    output = dut.shell(find_thermalctld_pid_cmd)
+    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
+    assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+                                                                    
+    stop_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl stop thermalctld'"
+    output = dut.shell(stop_thermalctl_cmd)
+    if output["rc"] == 0:
+        assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
+        logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
+        return
+    # try restore by config reload...
+    config_reload(dut)
+    assert 0, 'Wait thermal control daemon stop failed'
 
+def start_thermal_control_daemon(dut):
+    """
+    Start thermal control daemon
+    """
+    logging.info('Starting thermal control daemon on {}...'.format(dut.hostname))
+    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
+    output = dut.shell(find_thermalctld_pid_cmd)
+    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
+    assert len(output["stdout_lines"]) == 0, "There should be 0 thermalctld process before starting"
+
+    start_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl start thermalctld'"
+    output = dut.shell(start_thermalctl_cmd)
+    if output["rc"] == 0:
+        assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
+        logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
+        return
+    # try restore by config reload...
+    config_reload(dut)    
+    assert 0, 'Wait thermal control daemon start failed'
+                                                                
 class ThermalPolicyFileContext:
     """
     Context class to help replace thermal control policy file and restore it automatically.
