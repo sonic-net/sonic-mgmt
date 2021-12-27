@@ -58,11 +58,10 @@ def check_portchannel_table(duthost):
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
-    Setup/teardown fixture for loopback interface config
+    Setup/teardown fixture for portchannel  interface config
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
-        cfg_facts: config facts for selected DUT
     """
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
