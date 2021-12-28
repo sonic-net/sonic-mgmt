@@ -6,6 +6,8 @@ from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
+from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -133,6 +135,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
+
 @pytest.mark.usefixtures('pfcwd_timer_setup_restore')
 class TestPfcwdAllTimer(object):
     """ PFCwd timer test class """
@@ -140,8 +143,9 @@ class TestPfcwdAllTimer(object):
         """
         Test execution
         """
-        logger.info("Flush logs")
-        self.dut.shell("logrotate -f /etc/logrotate.conf")
+        with DisableLogrotateCronContext(self.ansible_host):
+            logger.info("Flush logs")
+            self.dut.shell("logrotate -f /etc/logrotate.conf")
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
         time.sleep(8)

@@ -18,6 +18,47 @@ COMMON_EXPECT = join(split(__file__)[0], "loganalyzer_common_expect.txt")
 SYSLOG_TMP_FOLDER = "/tmp/syslog"
 
 
+class DisableLogrotateCronContext:
+    """
+    Context class to help disable logrotate cron task and restore it automatically.
+    """
+
+    def __init__(self, ansible_host):
+        """
+        Constructor of DisableLogrotateCronContext.
+        :param ansible_host: DUT object representing a SONiC switch under test.
+        """
+        self.ansible_host = ansible_host
+
+    def __enter__(self):
+        """
+        Disable logrotate cron task and make sure the running logrotate is stopped.
+        """
+        # Disable logrotate cron task
+        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
+        logging.debug("Waiting for logrotate from previous cron task run to finish")
+        # Wait for logrotate from previous cron task run to finish
+        end = time.time() + 60
+        while time.time() < end:
+            # Verify for exception because self.ansible_host automatically handle command return codes and raise exception for none zero code
+            try:
+                self.ansible_host.command("pgrep -f logrotate")
+            except Exception:
+                break
+            else:
+                time.sleep(5)
+                continue
+        else:
+            logging.error("Logrotate from previous task was not finished during 60 seconds")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Restore logrotate cron task.
+        """
+        # Enable logrotate cron task back
+        self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+
+
 class LogAnalyzerError(Exception):
     """Raised when loganalyzer found matches during analysis phase."""
     def __repr__(self):
@@ -196,30 +237,13 @@ class LogAnalyzer:
         else:
             start_string = self.start_marker
 
-        try:
-            # Disable logrotate cron task
-            self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
-
-            logging.debug("Waiting for logrotate from previous cron task run to finish")
-            # Wait for logrotate from previous cron task run to finish
-            end = time.time() + 60
-            while time.time() < end:
-                # Verify for exception because self.ansible_host automatically handle command return codes and raise exception for none zero code
-                try:
-                    self.ansible_host.command("pgrep -f logrotate")
-                except Exception:
-                    break
-                else:
-                    time.sleep(5)
-                    continue
-            else:
-                logging.error("Logrotate from previous task was not finished during 60 seconds")
-
+        with DisableLogrotateCronContext(self.ansible_host):
             # Add end marker into DUT syslog
             self._add_end_marker(marker)
 
             # On DUT extract syslog files from /var/log/ and create one file by location - /tmp/syslog
-            self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string, target_filename=self.extracted_syslog)
+            self.ansible_host.extract_log(directory='/var/log', file_prefix='syslog', start_string=start_string,
+                                          target_filename=self.extracted_syslog)
             for idx, path in enumerate(self.additional_files):
                 file_dir, file_name = split(path)
                 extracted_file_name = os.path.join(self.dut_run_dir, file_name)
@@ -227,10 +251,8 @@ class LogAnalyzer:
                     start_str = self.additional_start_str[idx]
                 else:
                     start_str = start_string
-                self.ansible_host.extract_log(directory=file_dir, file_prefix=file_name, start_string=start_str, target_filename=extracted_file_name)
-        finally:
-            # Enable logrotate cron task back
-            self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+                self.ansible_host.extract_log(directory=file_dir, file_prefix=file_name, start_string=start_str,
+                                              target_filename=extracted_file_name)
 
         # Download extracted logs from the DUT to the temporal folder defined in SYSLOG_TMP_FOLDER
         self.save_extracted_log(dest=tmp_folder)

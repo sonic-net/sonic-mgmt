@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from .loganalyzer import LogAnalyzer
+from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 
@@ -13,14 +13,15 @@ def pytest_addoption(parser):
 
 @reset_ansible_local_tmp
 def analyzer_logrotate(node=None, results=None):
-    logging.info("logrotate called on {}".format(node.hostname))
-    try:
-        node.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
-    except RunAnsibleModuleFail as e:
-        logging.warning("logrotate is failed. Command returned:\n"
-                        "Stdout: {}\n"
-                        "Stderr: {}\n"
-                        "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+    with DisableLogrotateCronContext(node):
+        logging.info("logrotate called on {}".format(node.hostname))
+        try:
+            node.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
+        except RunAnsibleModuleFail as e:
+            logging.warning("logrotate is failed. Command returned:\n"
+                            "Stdout: {}\n"
+                            "Stderr: {}\n"
+                            "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
 
 
 @reset_ansible_local_tmp
