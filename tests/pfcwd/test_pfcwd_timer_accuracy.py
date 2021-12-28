@@ -143,7 +143,7 @@ class TestPfcwdAllTimer(object):
         """
         Test execution
         """
-        with DisableLogrotateCronContext(self.ansible_host):
+        with DisableLogrotateCronContext(self.dut):
             logger.info("Flush logs")
             self.dut.shell("logrotate -f /etc/logrotate.conf")
         self.storm_handle.start_storm()
