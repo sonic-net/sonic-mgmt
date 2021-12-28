@@ -22,6 +22,8 @@ def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return mg_facts["minigraph_ports"].keys()
 
+
+@pytest.mark.usefixtures("bgp_sessions_config")
 @pytest.mark.platform('physical')
 def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts, get_loop_times):
     """
