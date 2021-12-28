@@ -2,12 +2,6 @@ import pytest
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 
 
-# upgrade_path pytest arguments
-def pytest_addoption(parser):
-    options_group = parser.getgroup("Upgrade_path test suite options")
-    add_advanced_reboot_args(parser)
-
-
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
     to_list = item.config.getoption('target_image_list')

@@ -39,6 +39,7 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
+from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 
 
 logger = logging.getLogger(__name__)
@@ -132,21 +133,8 @@ def pytest_addoption(parser):
     ############################
     # upgrade_path options     #
     ############################
-    parser.addoption("--upgrade_type", default="warm",
-        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
-    )
+    add_advanced_reboot_args(parser)
 
-    parser.addoption("--base_image_list", default="",
-        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--target_image_list", default="",
-        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--restore_to_image", default="",
-        help="Specify the target image to restore to, or stay in target image if empty",
-    )
     ############################
     #   loop_times options     #
     ############################
