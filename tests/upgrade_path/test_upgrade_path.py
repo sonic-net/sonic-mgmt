@@ -1,11 +1,8 @@
 import pytest
 import logging
-from datetime import datetime
-from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
-from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
+from tests.common.reboot import get_reboot_cause
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version, get_reboot_command
 from tests.upgrade_path.upgrade_helpers import restore_image
@@ -19,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
-from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.platform_tests.warmboot_sad_cases import get_sad_case_list
 
 
 pytestmark = [
@@ -62,7 +59,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrho
 
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
-            target_version = install_sonic(duthost, to_image, tbinfo)
+            install_sonic(duthost, to_image, tbinfo)
             if upgrade_type == REBOOT_TYPE_COLD: #reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):
                 # advance-reboot test (on ptf) does not support cold reboot yet
                 reboot(duthost, localhost)
@@ -99,7 +96,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
 
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
-            target_version = install_sonic(duthost, to_image, tbinfo)
+            install_sonic(duthost, to_image, tbinfo)
             advancedReboot = get_advanced_reboot(rebootType=get_reboot_command(duthost, "warm"),\
                 advanceboot_loganalyzer=advanceboot_loganalyzer)
             sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type)

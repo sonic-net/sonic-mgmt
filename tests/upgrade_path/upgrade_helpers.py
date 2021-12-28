@@ -1,11 +1,7 @@
 import pytest
 import logging
-import json
-import os
 import time
 from urlparse import urlparse
-from jinja2 import Template
-import ipaddr
 import ipaddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot

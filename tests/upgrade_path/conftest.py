@@ -1,5 +1,4 @@
 import pytest
-from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 
 
 def pytest_runtest_setup(item):

@@ -40,6 +40,8 @@ from tests.common.cache import FactsCache
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 
 
 logger = logging.getLogger(__name__)
@@ -130,10 +132,12 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
 
-    ############################
-    # upgrade_path options     #
-    ############################
+    ##################################
+    # advance-reboot,upgrade options #
+    ##################################
     add_advanced_reboot_args(parser)
+    add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
 
     ############################
     #   loop_times options     #
