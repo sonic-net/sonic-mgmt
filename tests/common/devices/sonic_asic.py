@@ -1,3 +1,4 @@
+import json
 import logging
 import socket
 
@@ -53,8 +54,8 @@ class SonicAsic(object):
         """
         a_service = []
         for service in self.sonichost.DEFAULT_ASIC_SERVICES:
-           a_service.append("{}{}".format(
-               service, self.asic_index if self.sonichost.is_multi_asic else ""))
+            a_service.append("{}{}".format(
+                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
     def is_it_frontend(self):
@@ -458,7 +459,7 @@ class SonicAsic(object):
         return queue_oid
 
     def get_extended_minigraph_facts(self, tbinfo):
-          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+        return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
 
     def startup_interface(self, interface_name):
         return self.sonichost.shell("sudo config interface {ns} startup {intf}".
@@ -558,3 +559,17 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
+
+    def get_def_route_frm_app_db(self, af='ipv4'):
+        def_rt_json = None
+        if af == 'ipv4':
+            def_rt_str = 'ROUTE_TABLE:0.0.0.0/0'
+        else:
+            def_rt_str = 'ROUTE_TABLE:::/0'
+
+        def_rt_entry = self.sonichost.shell(
+            "{} redis-dump -y -k \"{}\" --pretty".format(
+                self.ns_arg, def_rt_str))['stdout']
+        if def_rt_entry is not None:
+            def_rt_json = json.loads(def_rt_entry)
+        return def_rt_json
