@@ -1,6 +1,7 @@
 import json
 import logging
 import pytest
+from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
@@ -238,3 +239,34 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     if output['rc'] or "Config rolled back successfull" not in output['stdout']:
         config_reload(duthost)
         pytest.fail("config rollback failed. Restored by config_reload")
+
+def create_path(tokens):
+    return JsonPointer.from_parts(tokens).path
+
+def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_content_list, is_ipv4=True):
+    """Check lo interface status by show command
+
+    Sample output:
+    admin@vlab-01:~$ show ip interfaces  | grep -w Vlan1000
+    Vlan1000                   192.168.0.1/21       up/up         N/A             N/A
+    admin@vlab-01:~$ show ipv6 interfaces | grep -w Vlan1000
+    Vlan1000                          fc02:1000::1/64                             up/up         N/A             N/A
+                                      fe80::5054:ff:feda:c6af%Vlan1000/64                       N/A             N/A
+    """
+    address_family = "ip" if is_ipv4 else "ipv6"
+    output = duthost.shell("show {} interfaces | grep -w {} || true".format(address_family, intf_name))
+
+    expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
+
+def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
+    """Check ip route for specific vrf
+
+    Sample output:
+    admin@vlab-01:~$ show ip route vrf Vrf_01 | grep -w Loopback0
+    C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:13
+    """
+    address_family = "ip" if is_ipv4 else "ipv6"
+    output = duthost.shell("show {} route vrf {} | grep -w {}".format(address_family, vrf_name, intf_name))
+
+    pytest_assert(not output['rc'],
+        "Route not found for {} in vrf {}".format(intf_name, vrf_name))

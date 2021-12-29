@@ -3,7 +3,7 @@
 usage() {
     cat >&2 <<EOF
 Usage:
-  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut
+  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut section
 
 Description:
   -d SONIC_MGMT_DIR
@@ -22,6 +22,8 @@ Description:
        testbed name
   dut
        DUT name
+  section
+       which part of t0 test [part-1|part-2]
 
 Example:
   ./kvmtest.sh vms-kvm-t0 vlab-01
@@ -71,6 +73,9 @@ fi
 
 tbname=$1
 dut=$2
+if [ -n $3 ]; then
+  section=$3
+fi
 
 RUNTEST_CLI_COMMON_OPTS="\
 -i $inventory \
@@ -93,71 +98,80 @@ test_t0() {
     # Run tests_1vlan on vlab-01 virtual switch
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=1vlan
-    tests="\
-    monit/test_monit_status.py \
-    platform_tests/test_advanced_reboot.py \
-    test_interfaces.py \
-    arp/test_arp_dualtor.py \
-    bgp/test_bgp_fact.py \
-    bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
-    bgp/test_bgp_speaker.py \
-    bgp/test_bgp_update_timer.py \
-    cacl/test_ebtables_application.py \
-    cacl/test_cacl_application.py \
-    cacl/test_cacl_function.py \
-    dhcp_relay/test_dhcp_relay.py \
-    dhcp_relay/test_dhcpv6_relay.py \
-    lldp/test_lldp.py \
-    ntp/test_ntp.py \
-    pc/test_po_cleanup.py \
-    pc/test_po_update.py \
-    route/test_default_route.py \
-    route/test_static_route.py \
-    arp/test_neighbor_mac.py \
-    arp/test_neighbor_mac_noptf.py \
-    snmp/test_snmp_cpu.py \
-    snmp/test_snmp_interfaces.py \
-    snmp/test_snmp_lldp.py \
-    snmp/test_snmp_pfc_counters.py \
-    snmp/test_snmp_queue.py \
-    snmp/test_snmp_loopback.py \
-    snmp/test_snmp_default_route.py \
-    ssh/test_ssh_stress.py \
-    ssh/test_ssh_ciphers.py \
-    syslog/test_syslog.py \
-    tacacs/test_rw_user.py \
-    tacacs/test_ro_user.py \
-    tacacs/test_ro_disk.py \
-    tacacs/test_jit_user.py \
-    telemetry/test_telemetry.py \
-    test_features.py \
-    test_procdockerstatsd.py \
-    iface_namingmode/test_iface_namingmode.py \
-    platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py \
-    container_checker/test_container_checker.py \
-    process_monitoring/test_critical_process_monitoring.py \
-    system_health/test_system_status.py"
+    if [ x$section == x"part-1" ]; then
+      tests="\
+      monit/test_monit_status.py \
+      platform_tests/test_advanced_reboot.py \
+      test_interfaces.py \
+      arp/test_arp_dualtor.py \
+      bgp/test_bgp_fact.py \
+      bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
+      bgp/test_bgp_speaker.py \
+      bgp/test_bgp_update_timer.py \
+      cacl/test_ebtables_application.py \
+      cacl/test_cacl_application.py \
+      cacl/test_cacl_function.py \
+      dhcp_relay/test_dhcp_relay.py \
+      dhcp_relay/test_dhcpv6_relay.py \
+      lldp/test_lldp.py \
+      ntp/test_ntp.py \
+      pc/test_po_cleanup.py \
+      pc/test_po_update.py \
+      route/test_default_route.py \
+      route/test_static_route.py \
+      arp/test_neighbor_mac.py \
+      arp/test_neighbor_mac_noptf.py\
+      snmp/test_snmp_cpu.py \
+      snmp/test_snmp_interfaces.py \
+      snmp/test_snmp_lldp.py \
+      snmp/test_snmp_pfc_counters.py \
+      snmp/test_snmp_queue.py \
+      snmp/test_snmp_loopback.py \
+      snmp/test_snmp_default_route.py"
 
-    pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
-    popd
+      pushd $SONIC_MGMT_DIR/tests
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      popd
+    else
+      tests="\
+      ssh/test_ssh_stress.py \
+      ssh/test_ssh_ciphers.py \
+      syslog/test_syslog.py\
+      tacacs/test_rw_user.py \
+      tacacs/test_ro_user.py \
+      tacacs/test_ro_disk.py \
+      tacacs/test_jit_user.py \
+      telemetry/test_telemetry.py \
+      test_features.py \
+      test_procdockerstatsd.py \
+      iface_namingmode/test_iface_namingmode.py \
+      platform_tests/test_cpu_memory_usage.py \
+      bgp/test_bgpmon.py \
+      container_checker/test_container_checker.py \
+      process_monitoring/test_critical_process_monitoring.py \
+      system_health/test_system_status.py"
 
-    # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
-    pushd $SONIC_MGMT_DIR/ansible
-    ./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt -e vlan_config=two_vlan_a
-    popd
-    sleep 180
+      pushd $SONIC_MGMT_DIR/tests
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      popd
 
-    # Run tests_2vlans on vlab-01 virtual switch
-    tgname=2vlans
-    tests="\
-    dhcp_relay/test_dhcp_relay.py \
-    dhcp_relay/test_dhcpv6_relay.py"
+      # Run test cases against two vlan configuration in part-2
+      # Create and deploy two vlan configuration (two_vlan_a) to the virtual switch
+      pushd $SONIC_MGMT_DIR/ansible
+      ./testbed-cli.sh -m $inventory -t $testbed_file deploy-mg $tbname lab password.txt -e vlan_config=two_vlan_a
+      popd
+      sleep 180
 
-    pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
-    popd
+      # Run tests_2vlans on vlab-01 virtual switch
+      tgname=2vlans
+      tests="\
+      dhcp_relay/test_dhcp_relay.py \
+      dhcp_relay/test_dhcpv6_relay.py"
+
+      pushd $SONIC_MGMT_DIR/tests
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      popd
+    fi
 }
 
 test_t0_sonic() {
