@@ -10,6 +10,8 @@ from ptf import testutils, mask, packet
 
 from tests.common import config_reload
 import ipaddress
+
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -52,6 +54,7 @@ def reload_testbed(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     yield None
     logging.info("Reloading config and restarting swss...")
     config_reload(duthost)
+    wait_critical_processes(duthost)
 
 
 def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
@@ -229,10 +232,13 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
 
     ptfadapter.dataplane.flush()
-    q = Queue(1)
+    member_update_finished_flag = Queue(1)
+    packet_sending_flag = Queue(1)
 
     def del_add_members():
-        time.sleep(1)
+        # wait for packets sending started, then starts to update pc members
+        while packet_sending_flag.empty() or (not packet_sending_flag.get()):
+            time.sleep(0.5)
         asichost.config_portchannel_member(tmp_pc, pc_members[0], "del")
         time.sleep(2)
         asichost.config_portchannel_member(tmp_pc, pc_members[0], "add")
@@ -241,23 +247,25 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         time.sleep(2)
         asichost.config_portchannel_member(tmp_pc, pc_members[1], "add")
         time.sleep(5)
-        q.put(True)
+        member_update_finished_flag.put(True)
 
     t = threading.Thread(target=del_add_members, name="del_add_members_thread")
     t.start()
     t_max = time.time() + 60
     send_count = 0
-
     stop_sending = False
     while not stop_sending:
+        # After 100 packets send, awake del_add_members thread, it happens only once.
+        if send_count == 100:
+            packet_sending_flag.put(True)
+
         testutils.send(ptfadapter, in_ptf_index, pkt)
         send_count += 1
-        member_update_thread_finished = (not q.empty()) and q.get()
+        member_update_thread_finished = (not member_update_finished_flag.empty()) and member_update_finished_flag.get()
         reach_max_time = time.time() > t_max
         stop_sending = reach_max_time or member_update_thread_finished
-    t.join()
-
+    t.join(20)
     match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
 
-    assert match_cnt > 0
-    assert match_cnt == send_count
+    pytest_assert(match_cnt > 0, "Packets not send")
+    pytest_assert(match_cnt == send_count, "Packets lost during pc members add/removal")
