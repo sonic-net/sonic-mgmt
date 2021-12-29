@@ -1,6 +1,5 @@
 import pytest
 import ipaddress
-import json
 import logging
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
