@@ -55,13 +55,11 @@ def get_upstream_neigh(tb):
                     ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
                 if 'ipv6' in intf_cfg:
                     ipv6_addr = interfaces[intf]['ipv6'].split('/')[0]
-                break
             elif 'Ethernet' in intf:
                 if 'ipv4' in intf_cfg:
                     ipv4_addr = interfaces[intf]['ipv4']
                 if 'ipv6' in intf_cfg:
                     ipv6_addr = interfaces[intf]['ipv6']
-                break
             else:
                 continue
 
@@ -170,7 +168,7 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
         verify_default_route_in_app_db(asichost, tbinfo, af)
 
     duthost.command("sudo config bgp shutdown all")
-    if not wait_until(120, 2.0, duthost.is_bgp_state_idle):
+    if not wait_until(120, 2, 0, duthost.is_bgp_state_idle):
         pytest.fail(
             'BGP Shutdown Timeout: BGP sessions not shutdown after 120 seconds')
 
