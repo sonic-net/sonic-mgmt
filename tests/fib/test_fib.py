@@ -12,11 +12,12 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lg
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
 from tests.common.utilities import is_ipv4_address
 
 from tests.common.fixtures.fib_utils import fib_info_files_per_function
+from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
@@ -55,14 +56,6 @@ def ignore_ttl(duthosts):
     for duthost in duthosts:
         if duthost.sonichost.is_multi_asic:
             return True
-    return False
-
-
-@pytest.fixture(scope="module")
-def single_fib_for_duts(tbinfo):
-    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
-    if tbinfo['topo']['type'] == "t2":
-        return True
     return False
 
 
@@ -255,7 +248,7 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
 
 
 def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
-              toggle_all_simulator_ports_to_rand_selected_tor,
+              toggle_all_simulator_ports_to_rand_selected_tor_m,
               tbinfo, mux_server_url, router_macs,
               ignore_ttl, single_fib_for_duts):
 

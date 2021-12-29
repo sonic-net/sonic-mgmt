@@ -19,9 +19,9 @@ from sub_ports_helpers import get_port
 from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import remove_lag_port
 from sub_ports_helpers import add_port_to_namespace
-from sub_ports_helpers import add_static_route
+from sub_ports_helpers import add_static_route_to_ptf
 from sub_ports_helpers import remove_namespace
-from sub_ports_helpers import remove_static_route
+from sub_ports_helpers import remove_static_route_from_ptf
 from sub_ports_helpers import get_ptf_port_list
 from sub_ports_helpers import remove_ip_from_port
 from sub_ports_helpers import add_ip_to_dut_port
@@ -33,6 +33,11 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import add_member_to_vlan
 from sub_ports_helpers import remove_sub_port_from_ptf
 from sub_ports_helpers import remove_bond_port
+from sub_ports_helpers import configure_ptf_nn_agent
+from sub_ports_helpers import cleanup_ptf_nn_agent
+from sub_ports_helpers import add_static_route_to_dut
+from sub_ports_helpers import remove_static_route_from_dut
+from sub_ports_helpers import update_dut_arp_table
 
 
 def pytest_addoption(parser):
@@ -67,7 +72,7 @@ def port_type(request):
 
 
 @pytest.fixture
-def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type):
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
     """
     Define configuration of sub-ports for TC run
 
@@ -119,7 +124,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     prefix = 30
     network = ipaddress.ip_network(ip_subnet)
 
-    config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
+    # for normal t0, get_port tries to retrieve test ports from vlan members
+    # let's enforce same behavior for t0-backend
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, exclude_sub_interface_ports=True)
+    else:
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
 
     subnets = [i for i, _ in zip(network.subnets(new_prefix=22), config_port_indices)]
 
@@ -171,7 +181,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
-    py_assert(wait_until(3, 1, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
+    py_assert(wait_until(3, 1, 0, check_sub_port, duthost, sub_ports_vars['sub_ports'].keys()),
               "Some sub-ports were not created")
 
     yield sub_ports_vars
@@ -238,8 +248,8 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
 
             if 'tunneling' not in request.node.name:
-                add_static_route(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
-                add_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+                add_static_route_to_ptf(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
+                add_static_route_to_ptf(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
@@ -256,8 +266,8 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
 
             if 'tunneling' not in request.node.name:
-                remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
-                remove_static_route(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
+                remove_static_route_from_ptf(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
+                remove_static_route_from_ptf(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
             remove_namespace(ptfhost, name_of_namespace)
 
@@ -344,9 +354,9 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
 
             # Add static route from sub-port to selected interface on the PTF
-            add_static_route(ptfhost, subnet, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
+            add_static_route_to_ptf(ptfhost, subnet, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
             # Add static route from selected interface to sub-port on the PTF
-            add_static_route(ptfhost, dst_port_network, dut_port_ip)
+            add_static_route_to_ptf(ptfhost, dst_port_network, dut_port_ip)
 
             port_map[ptf_port]['dst_ports'].append((next_hop_sub_port, name_of_namespace))
 
@@ -362,8 +372,8 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
         # Remove static route between selected sub-ports and selected interfaces from the PTF
         for sub_port, name_of_namespace in next_hop_sub_ports['dst_ports']:
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
-            remove_static_route(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
-            remove_static_route(ptfhost, dst_port_network, next_hop_sub_ports['neighbor_ip'])
+            remove_static_route_from_ptf(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
+            remove_static_route_from_ptf(ptfhost, dst_port_network, next_hop_sub_ports['neighbor_ip'])
             remove_namespace(ptfhost, name_of_namespace)
 
         if 'svi' in request.param:
@@ -430,6 +440,56 @@ def apply_tunnel_table_to_dut(duthost, apply_route_config):
         duthost.command('docker exec -i database redis-cli -n 4 -c DEL "TUNNEL|MuxTunnel{}"'.format(index))
 
 
+@pytest.fixture()
+def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+    """
+    Apply balancing configuration on the DUT and remove after tests
+    Args:
+        duthost: DUT host object
+        ptfhost: PTF host object
+        ptfadapter: PTF adapter
+        define_sub_ports_configuration: Dictonary of parameters for configuration DUT
+        apply_config_on_the_dut: fixture for applying sub-ports configuration on the DUT
+        apply_config_on_the_ptf: fixture for applying sub-ports configuration on the PTF
+    Yields:
+        Dictonary of parameters for configuration DUT and PTF host
+    """
+    new_sub_ports = []
+    sub_ports = define_sub_ports_configuration['sub_ports']
+    dut_ports = define_sub_ports_configuration['dut_ports']
+    ptf_ports = define_sub_ports_configuration['ptf_ports']
+
+    src_ports = tuple(set(ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map").values()).difference(ptf_ports))
+
+    network = u'1.1.1.0/24'
+    network = ipaddress.ip_network(network)
+
+    for port, subnet in zip(dut_ports.values(), network.subnets(new_prefix=30)):
+        sub_ports_on_port = [sub_port for sub_port in sub_ports if port + '.' in sub_port]
+
+        sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
+        configure_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+
+        new_sub_ports.append((sub_ports_on_port, subnet))
+
+        for next_hop_sub_port in sub_ports_on_port:
+            update_dut_arp_table(duthost, sub_ports[next_hop_sub_port]['neighbor_ip'].split('/')[0])
+            add_static_route_to_dut(duthost, str(subnet), sub_ports[next_hop_sub_port]['neighbor_ip'])
+
+    yield {
+        'new_sub_ports': new_sub_ports,
+        'sub_ports': sub_ports,
+        'src_ports': src_ports
+    }
+
+    for sub_ports_on_port, subnet in new_sub_ports:
+        sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
+        cleanup_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+
+        for next_hop_sub_port in sub_ports_on_port:
+            remove_static_route_from_dut(duthost, str(subnet), sub_ports[next_hop_sub_port]['neighbor_ip'])
+
+
 @pytest.fixture
 def reload_dut_config(request, duthost, define_sub_ports_configuration):
     """
@@ -444,10 +504,10 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
-    if check_sub_port(duthost, sub_ports.keys()):
-        for sub_port, sub_port_info in sub_ports.items():
-            remove_sub_port(duthost, sub_port, sub_port_info['ip'])
+    existing_sub_ports = cfg_facts.get("VLAN_SUB_INTERFACE", {})
+    for sub_port in sub_ports:
+        if sub_port in existing_sub_ports:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]['ip'])
 
     py_assert(check_sub_port(duthost, sub_ports.keys(), True), "Some sub-port were not deleted")
 

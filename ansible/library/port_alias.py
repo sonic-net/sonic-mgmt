@@ -78,26 +78,28 @@ class SonicPortAliasMap():
                     return value
         return None
 
-    def get_portconfig_path(self, asic_id=None):
+    def get_portconfig_path(self, slotid=None, asic_id=None):
         platform = self.get_platform_type()
         if platform is None:
             return None
-        if asic_id is None:
+        if asic_id is None or asic_id == '':
             portconfig = os.path.join(FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
-        else:
+        elif slotid is None or slotid == '':
             portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
+        else:
+            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(slotid), str(asic_id), PORTMAP_FILE)
         if os.path.exists(portconfig):
             return portconfig
         return None
 
     def get_portmap(self, asic_id=None, include_internal=False,
-                    hostname=None, switchid=None):
+                    hostname=None, switchid=None, slotid=None):
         aliases = []
         portmap = {}
         aliasmap = {}
         portspeed = {}
         # Front end interface asic names
-        front_panel_asic_ifnames = []
+        front_panel_asic_ifnames = {}
         # All asic names
         asic_if_names = []
         sysports = []
@@ -107,7 +109,7 @@ class SonicPortAliasMap():
         # default to Asic0 as minigraph.py parsing code has that assumption.
         asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
 
-        filename = self.get_portconfig_path(asic_id)
+        filename = self.get_portconfig_path(slotid, asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
         with open(filename) as f:
@@ -116,6 +118,7 @@ class SonicPortAliasMap():
         speed_index = -1
         role_index = -1
         asic_name_index = -1
+        port_index = -1
         while len(lines) != 0:
             line = lines.pop(0)
             if re.match('^#', line):
@@ -137,6 +140,8 @@ class SonicPortAliasMap():
                             port_core_portid_index = index
                         if 'numvoq' in text:
                             num_voq_index = index
+                        if 'index' in text:
+                            port_index = index
             else:
                 #added support to parse recycle port
                 if re.match('^Ethernet', line) or re.match('^Recirc', line):
@@ -158,12 +163,12 @@ class SonicPortAliasMap():
                     add_port = False
                     if role == 'Ext' or (role == "Int" and include_internal):
                         add_port = True
-                        aliases.append(alias)
+                        aliases.append((alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))
                         portmap[name] = alias
                         aliasmap[alias] = name
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
-                            front_panel_asic_ifnames.append(asicifname)
+                            front_panel_asic_ifnames[alias] = asicifname
                     if (asic_name_index != -1) and (len(mapping) > asic_name_index):
                         asicifname = mapping[asic_name_index]
                         asic_if_names.append(asicifname)
@@ -209,7 +214,8 @@ def main():
             include_internal=dict(required=False, type='bool', default=False),
             card_type=dict(type='str', required=False),
             hostname=dict(type='str', required=False),
-            switchids=dict(type='list', required=False)
+            switchids=dict(type='list', required=False),
+            slotid=dict(type='str', required=False)
         ),
         supports_check_mode=True
     )
@@ -220,8 +226,8 @@ def main():
         aliasmap = {}
         portspeed = {}
         sysports = []
-        # ASIC interface names of front panel interfaces
-        front_panel_asic_ifnames = []
+        # Map of ASIC interface names to front panel interfaces
+        front_panel_asic_ifnames = {}
         # { asic_name: [ asic interfaces] }
         asic_if_names = {}
 
@@ -230,14 +236,18 @@ def main():
                                            'port_name_map': portmap,
                                            'port_alias_map': aliasmap,
                                            'port_speed': portspeed,
-                                           'front_panel_asic_ifnames': front_panel_asic_ifnames,
+                                           'front_panel_asic_ifnames': [],
                                            'asic_if_names': asic_if_names,
                                            'sysports': sysports})
            return
         allmap = SonicPortAliasMap(m_args['hwsku'])
         switchids = None
+        slotid = None
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
+        
+        if 'slotid' in m_args and m_args['slotid'] != None:
+           slotid = m_args['slotid']
         # When this script is invoked on sonic-mgmt docker, num_asic 
         # parameter is passed.
         if m_args['num_asic'] is not None:
@@ -269,7 +279,7 @@ def main():
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,
-             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid)
+             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
@@ -279,17 +289,20 @@ def main():
             if portspeed_asic is not None:
                 portspeed.update(portspeed_asic)
             if front_panel_asic is not None:
-                front_panel_asic_ifnames.extend(front_panel_asic)
+                front_panel_asic_ifnames.update(front_panel_asic)
             if asicifnames_asic is not None:
                 asic = 'ASIC' + str(asic_id)
                 asic_if_names[asic] = asicifnames_asic
             if sysport_asic is not None:
                 sysports.extend(sysport_asic)
-        module.exit_json(ansible_facts={'port_alias': aliases,
+
+        # Sort the Interface Name needed in multi-asic
+        aliases.sort(key=lambda x: int(x[1]))
+        module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
-                                        'front_panel_asic_ifnames': front_panel_asic_ifnames,
+                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k[0]] for k in aliases] if front_panel_asic_ifnames else [],
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
     except (IOError, OSError) as e:

@@ -84,7 +84,8 @@ def init(duthost, duthost_name):
         os.mkdir(base_dir)
 
     for i in [ data_dir, orig_db_dir, clet_db_dir, files_dir ]:
-        os.mkdir(i)
+        if not os.path.exists(i):
+            os.mkdir(i)
 
     init_data["files_dir"] = files_dir 
     init_data["data_dir"] = data_dir
@@ -138,7 +139,7 @@ def configure_dut(duthosts, rand_one_dut_hostname):
 
 def load_minigraph(duthost, duthost_name):
     config_reload(duthost, config_source="minigraph", wait=180, start_bgp=True) 
-    assert wait_until(300, 20, duthost.critical_services_fully_started), \
+    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
             "All critical services should fully started!{}".format(duthost.critical_services)
 
 

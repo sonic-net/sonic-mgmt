@@ -66,7 +66,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     wait_critical_processes(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    pytest_assert(wait_until(300, 20, check_interface_information, dut, enum_frontend_asic_index, interfaces, xcvr_skip_list),
+    pytest_assert(wait_until(300, 20, 0, check_interface_information, dut, enum_frontend_asic_index, interfaces, xcvr_skip_list),
                   "Not all interface information are detected within 300 seconds")
 
     logging.info("Check transceiver status on asic %s" % enum_frontend_asic_index)

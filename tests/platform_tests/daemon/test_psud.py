@@ -92,7 +92,7 @@ def wait_data(duthost):
         shared_scope.data_after_restart = collect_data(duthost)
         return bool(shared_scope.data_after_restart['data'])
     psud_pooling_interval = 60
-    wait_until(psud_pooling_interval, 6, _collect_data)
+    wait_until(psud_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
 
 @pytest.fixture(scope='module')
@@ -142,7 +142,7 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.start_pmon_daemon(daemon_name)
 
-    wait_until(50, 10, check_expected_daemon_status, duthost, expected_running_status)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -169,7 +169,7 @@ def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    wait_until(50, 10, check_expected_daemon_status, duthost, expected_running_status)
+    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -195,7 +195,7 @@ def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts, rand_one
 
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
-    wait_until(120, 10, check_expected_daemon_status, duthost, expected_running_status)
+    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,

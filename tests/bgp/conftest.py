@@ -137,12 +137,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
     res = True
     err_msg = ""
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
     is_backend_topo = "backend" in tbinfo["topo"]["name"]
-    if not is_backend_topo and res and not wait_until(100, 5, duthost.check_bgp_default_route):
+    if not is_backend_topo and res and not wait_until(100, 5, 0, duthost.check_bgp_default_route):
         res = False
         err_msg = "ipv4 or ipv6 bgp default route not available"
 
@@ -157,7 +157,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     check_results(results)
 
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
 
 
@@ -530,7 +530,7 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
 
     pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
                   "Failed to start bgp monitor session on PTF")
-    pt_assert(wait_until(20, 5, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
+    pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
     yield
     # Cleanup bgp monitor

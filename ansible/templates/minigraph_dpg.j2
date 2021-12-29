@@ -19,7 +19,7 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
-      {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
+      {% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
       {% if loopback4096_ip is defined %}
         <a:LoopbackIPInterface>
           <Name>HostIP1</Name>
@@ -108,7 +108,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
         <PortChannel>
-          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
+          <Name>PortChannel{{ '10' + ((index+1)|string) }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -171,7 +171,7 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -180,7 +180,7 @@
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -242,7 +242,7 @@
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
+{% set a_intf = 'PortChannel' + '10' + ((index+1) |string) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}
@@ -266,6 +266,5 @@
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
 {% include 'minigraph_dpg_asic.j2' %}
-{% include 'minigraph_dpg_voq_asic.j2' %}
   </DpgDec>
 

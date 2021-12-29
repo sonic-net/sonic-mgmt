@@ -26,15 +26,6 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 
-def skip_version(duthost, version_list):
-    """
-    @summary: Skip current test if any given version keywords are in os_version
-    @param duthost: The DUT
-    @param version_list: A list of incompatible versions
-    """
-    if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
-
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -73,19 +64,25 @@ def wait(seconds, msg=""):
     time.sleep(seconds)
 
 
-def wait_until(timeout, interval, condition, *args, **kwargs):
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Wait until the specified condition is True or timeout.
     @param timeout: Maximum time to wait
     @param interval: Poll interval
+    @param delay: Delay time
     @param condition: A function that returns False or True
     @param *args: Extra args required by the 'condition' function.
     @param **kwargs: Extra args required by the 'condition' function.
     @return: If the condition function returns True before timeout, return True. If the condition function raises an
         exception, log the error and keep waiting and polling.
     """
-    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s" % \
-        (condition.__name__, timeout, interval))
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
+        (condition.__name__, timeout, interval, delay))
+
+    if delay > 0:
+        logger.debug("Delay for %s seconds first" % delay)
+        time.sleep(delay)
+
     start_time = time.time()
     elapsed_time = 0
     while elapsed_time < timeout:
@@ -93,10 +90,14 @@ def wait_until(timeout, interval, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception:
+        except Exception as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
-            logger.error("Exception caught while checking %s:\n%s" % (condition.__name__, "".join(details)))
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    condition.__name__, "".join(details), e
+                )
+            )
             check_result = False
 
         if check_result:
@@ -511,6 +512,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
 
+
 def check_qos_db_fv_reference_with_table(duthost):
     """
     @summary: Check qos db field value refrence with table name or not.
@@ -521,3 +523,12 @@ def check_qos_db_fv_reference_with_table(duthost):
         logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
+
+
+def str2bool(str):
+    """
+    This is used as a type when add option for pytest
+    :param str: The input string value
+    :return: False if value is 0 or false, else True
+    """
+    return str.lower() not in ["0", "false", "no"]

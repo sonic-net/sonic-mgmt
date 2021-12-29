@@ -248,7 +248,7 @@ class TestPsuFans(PlatformApiTestBase):
                         self.expect(target_speed == speed_target_val, "psu {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}".format(
                             j, i, speed_target_val, target_speed))
 
-            if fans_skipped == num_fans:
+            if  num_fans != 0 and fans_skipped == num_fans:
                 psus_skipped += 1
 
         if psus_skipped == self.num_psus:
@@ -301,7 +301,7 @@ class TestPsuFans(PlatformApiTestBase):
                 self.expect(abs(act_speed - target_speed) <= speed_tol,
                             "psu {} fan {} speed change from {} to {} is not within tolerance, actual speed {}".format(j, i, speed, target_speed, act_speed))
 
-            if fans_skipped == num_fans:
+            if  num_fans != 0 and fans_skipped == num_fans:
                 psus_skipped += 1
 
         if psus_skipped == self.num_psus:
@@ -324,6 +324,12 @@ class TestPsuFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
+                led_available = self.get_fan_facts(duthost, j, i, True, "status_led", "available")
+                if not led_available:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not available)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
                 led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
                 if not led_controllable:
                     logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not controllable)".format(j, i))
@@ -344,10 +350,10 @@ class TestPsuFans(PlatformApiTestBase):
                             self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
                                 color, color_actual, i))
 
-            if fans_skipped == num_fans:
+            if  num_fans != 0 and fans_skipped == num_fans:
                 psus_skipped += 1
 
         if psus_skipped == self.num_psus:
-            pytest.skip("skipped as all PSU fans' LED is not controllable")
+            pytest.skip("skipped as all PSU fans' LED is not available/controllable")
 
         self.assert_expectations()

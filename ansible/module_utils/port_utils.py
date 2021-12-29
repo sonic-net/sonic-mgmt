@@ -76,6 +76,12 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
         for i in range(29, 37):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 5) * 4)
+    elif hwsku == "Arista-7280CR3-C40":
+        for i in range(1, 33):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        for i in range(33, 41, 2):
+            port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+            port_alias_to_name_map["Ethernet%d/5" % i] = "Ethernet%d" % (i * 4)
     elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
         for i in range(1, 65):
             port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -170,6 +176,17 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "et6448m":
         for i in range(0, 52):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "Nokia-IXR7250E-36x400G":
+        if asic_id is not None:
+            asic_offset = int(asic_id) * 18
+            for i in range(0, 18):
+                port_alias_to_name_map["Ethernet%d" % (asic_offset + i)] = "Ethernet%d" % ((asic_offset + i))
+                port_alias_asic_map["Eth%d-ASIC%d" % (i, int(asic_id))] = "Ethernet%d" % ((asic_offset + i))
+        else:
+            for i in range(0, 36):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == 'Nokia-IXR7250E-SUP-10':
+        port_alias_to_name_map = {}
     elif hwsku == "newport":
         for i in range(0, 256, 8):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
@@ -182,6 +199,28 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "64x100Gb":
         for i in range(0, 64):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "8800-LC-48H-O":
+        for j in range(0,8):
+            for i in range(0, 13):
+                port_alias_to_name_map["Eth%d/0/%d" % (j,i)] = "Ethernet%d" % i
+            for i in range(13,47,3):
+                if i > 15:
+                    port_alias_to_name_map["Eth%d/0/%d" % (j,i-1)] = "Ethernet%d" % (i-1)
+                for i in range(i,i+2):
+                    port_alias_to_name_map["Eth%d/1/%d" % (j,i)] = "Ethernet%d" % i
+        for i in range(0, 13):
+            port_alias_asic_map["Eth%d-ASIC0" % i] = "Ethernet%d" % i
+        for i in range(13,47,3):
+            if i > 15:
+                port_alias_asic_map["Eth%d-ASIC0" % (i-1)] = "Ethernet%d" % (i-1)
+            for i in range(i,i+2):
+                port_alias_asic_map["Eth%d-ASIC1" % i] = "Ethernet%d" % i
+        port_alias_to_name_map["Eth2064-ASIC0"] = "Ethernet-BP2064"
+        for i in range(2154,2264,2):
+            port_alias_to_name_map["Eth%d-ASIC0" % i] = "Ethernet-BP%d" % i
+        port_alias_to_name_map["Eth2320-ASIC1"] = "Ethernet-BP2320"
+        for i in range(2410,2520,2):
+            port_alias_to_name_map["Eth%d-ASIC1" % i] = "Ethernet-BP%d" % i
     elif hwsku == "msft_multi_asic_vs":
         if asic_id is not None and asic_id in namespace_list['front_ns']:
             asic_offset = int(asic_id) * 16
@@ -221,6 +260,9 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["twentyfiveGigE0/%d" % i] = "Ethernet%d" % i
         for i in range(49,57):
             port_alias_to_name_map["hundredGigE0/%d" % (i-48)] = "Ethernet%d" % i
+    elif hwsku == "RA-B6910-64C":
+        for i in range(1,65):
+            port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
     else:
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i

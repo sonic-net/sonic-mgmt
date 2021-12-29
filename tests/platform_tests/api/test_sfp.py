@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
@@ -79,7 +79,7 @@ class TestSfpApi(PlatformApiTestBase):
         'type',
         'manufacturer',
         'model',
-        'hardware_rev',
+        'vendor_rev',
         'serial',
         'vendor_oui',
         'vendor_date',
@@ -177,6 +177,12 @@ class TestSfpApi(PlatformApiTestBase):
             return False
         return True
 
+    def is_xcvr_support_power_override(self, xcvr_info_dict):
+        """Returns True if transceiver supports power override, False if not supported"""
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        is_valid_xcvr_type = "QSFP" in xcvr_type and xcvr_type != "QSFP-DD"
+        return self.is_xcvr_optical(xcvr_info_dict) and is_valid_xcvr_type
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -253,6 +259,9 @@ class TestSfpApi(PlatformApiTestBase):
 
                     unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
+                        #hardware_rev is applicable only for QSFP-DD
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
+                            continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
@@ -460,7 +469,7 @@ class TestSfpApi(PlatformApiTestBase):
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
@@ -509,21 +518,21 @@ class TestSfpApi(PlatformApiTestBase):
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state".format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_optical(info_dict):
+            if not self.is_xcvr_support_power_override(info_dict):
                 logger.warning("test_power_override: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
@@ -545,7 +554,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests get_error_description() API (supported on 202106 and above)"""
-        skip_version(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
+        skip_release(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)

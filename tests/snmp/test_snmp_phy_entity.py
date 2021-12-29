@@ -511,7 +511,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1
         assert transceiver_snmp_fact['entPhysName'] == name
-        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['hardware_rev']
+        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['vendor_rev']
         assert transceiver_snmp_fact['entPhysFwVer'] == ''
         assert transceiver_snmp_fact['entPhysSwVer'] == ''
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial']
@@ -613,9 +613,9 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     # turn off the first PSU
     first_outlet = outlet_status[0]
     pdu_controller.turn_off_outlet(first_outlet)
-    assert wait_until(30, 5, check_outlet_status, pdu_controller, first_outlet, False)
+    assert wait_until(30, 5, 0, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
-    assert wait_until(180, 20, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
+    assert wait_until(180, 20, 0, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):

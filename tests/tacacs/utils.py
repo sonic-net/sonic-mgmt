@@ -60,11 +60,11 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
 
     # FIXME: This is a short term mitigation, we need to figure out why the tacacs+ server does not start
     # reliably all of a sudden.
-    wait_until(5, 1, start_tacacs_server, ptfhost)
+    wait_until(5, 1, 0, start_tacacs_server, ptfhost)
     check_all_services_status(ptfhost)
 
 
-def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
+def cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip):
     # stop tacacs server
     ptfhost.service(name="tacacs_plus", state="stopped")
     check_all_services_status(ptfhost)
@@ -74,3 +74,6 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
+    duthost.user(name=creds_all_duts[duthost]['tacacs_ro_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=creds_all_duts[duthost]['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=creds_all_duts[duthost]['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)

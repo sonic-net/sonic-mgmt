@@ -1136,3 +1136,21 @@ class MinTableMocker(object):
         :return:
         """
         self.mock_helper.deinit()
+
+
+@mocker('PsuMocker')
+class PsuMocker(object):
+    PSU_PRESENCE = 'psu{}_status'
+
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+
+    def deinit(self):
+        """
+        Destructor of MinTableMocker.
+        :return:
+        """
+        self.mock_helper.deinit()
+
+    def mock_psu_status(self, psu_index, status):
+        self.mock_helper.mock_thermal_value(self.PSU_PRESENCE.format(psu_index), '1' if status else '0')
