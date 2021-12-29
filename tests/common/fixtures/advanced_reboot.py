@@ -559,7 +559,7 @@ class AdvancedReboot:
         self.__updateAndRestartArpResponder(rebootOper)
 
 
-        logger.info('Run advanced-reboot ReloadTest on the PTF host')
+        logger.info('Run advanced-reboot ReloadTest on the PTF host. Case: {}'.format(str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
             "ptftests",

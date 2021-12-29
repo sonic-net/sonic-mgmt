@@ -16,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
-from tests.platform_tests.warmboot_sad_cases import get_sad_case_list
+from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
 
 pytestmark = [
@@ -27,6 +27,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
+def pytest_generate_tests(metafunc):
+    if "sad_case_type" in metafunc.fixturenames:
+        sad_cases = SAD_CASE_LIST
+        metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 @pytest.fixture(scope="module")
 def upgrade_path_lists(request):
