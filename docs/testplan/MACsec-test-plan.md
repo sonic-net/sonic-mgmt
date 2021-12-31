@@ -1,131 +1,227 @@
-# Testbed
+<!-- omit in toc -->
+# MACsec Test plan
 
+- [Testbed](#testbed)
+- [Configuration](#configuration)
+  - [Dynamic Key(MKA)](#dynamic-keymka)
+- [Test steps](#test-steps)
+- [Test cases](#test-cases)
+  - [Control plane](#control-plane)
+    - [Check WPA Supplicant](#check-wpa-supplicant)
+    - [Check APP DB](#check-app-db)
+      - [Check the following fields in MACsec port table are consistent with configuration](#check-the-following-fields-in-macsec-port-table-are-consistent-with-configuration)
+      - [Check the following fields in MACsec SC table and MACsec SA table are consistent](#check-the-following-fields-in-macsec-sc-table-and-macsec-sa-table-are-consistent)
+    - [Check MKA session](#check-mka-session)
+  - [Data plane](#data-plane)
+    - [PTF to VM](#ptf-to-vm)
+    - [Notes](#notes)
+    - [VM to VM](#vm-to-vm)
+  - [Functionality](#functionality)
+    - [Rekey caused by Packet Number exhaustion](#rekey-caused-by-packet-number-exhaustion)
+    - [Periodic Rekey](#periodic-rekey)
+      - [Rekey is triggered at the expected time](#rekey-is-triggered-at-the-expected-time)
+      - [No remarkable packet loss during MACsec SA refreshing](#no-remarkable-packet-loss-during-macsec-sa-refreshing)
+    - [Primary/Fallback CAK](#primaryfallback-cak)
+    - [PFC in MACsec](#pfc-in-macsec)
+      - [Bypass mode](#bypass-mode)
+      - [Encrypt mode](#encrypt-mode)
+      - [Strict mode](#strict-mode)
+
+## Testbed
+
+```txt
++-------------------------------------------------------------------------+
+|                                                                         |
+| DUT                                                                     |
+|                                                                         |
++-------+-------------------+-----------------+--------------+----------+-+
+        *                   *                 |              |          |
+        *                   *                 |              |          |
+        *.........          *.........        +......        +......    |
+        *        :          *        :        |     :        |     :    |
+        *        :          *        :        |     :        |     :    |
+  +-----+------+ :    +-----+------+ :    +---+---+ :    +---+---+ :    |
+  |VM0         | :    |VM1         | :    |VM2    | :    |VM3    | :    |
+  |(Controlled)| :    |(Controlled)| :    |       | :    |       | :    |
+  +------------+ :    +------------+ :    +-------+ :    +-------+ :    |
+                 :                   :              :              :    |
++----------------+-------------------+--------------+--------------+----+-+
+|                                                                         |
+| PTF                                                                     |
+|                                                                         |
++-------------------------------------------------------------------------+
+
+
+-----       normal link
+.....       injected link
+*****       protected link
+VM<->DUT    up link
+PTF<->DUT   down link
 ```
-+----------------------------------------------------------------------+
-|                                                                      |
-| DUT                                                                  |
-|                                                                      |
-+-----+----------------+----------------+----------------+-----------+-+
-      |                |                |                |           |
-      |                |                |                |           |
-      +-----+          +-----+          +-----+          +-----+     |
-      |     |          |     |          |     |          |     |     |
-      |     |          |     |          |     |          |     |     |
-  +---+---+ |      +---+---+ |      +---+---+ |      +---+---+ |     |
-  |VM0    | |      |VM1    | |      |VM2    | |      |VM3    | |     |
-  |       | |      |       | |      |       | |      |       | |     |
-  +-------+ |      +-------+ |      +-------+ |      +-------+ |     |
-            |                |                |                |     |
-+-----------+----------------+----------------+----------------+-----+-+
-|                                                                      |
-| PTF                                                                  |
-|                                                                      |
-+----------------------------------------------------------------------+
 
-```
-
-In this topology, VMs (SONiC virtual Switch) act as the MACsec participant of the DUT. Each pair of MACsec participant belongs to different MACsec connectivity association(CA).
-All VMs and PTF need to install PTF NN Server and SONiC-mgmt-docker need to install PTF NN Client. SONiC-mgmt-docker can use each PTF NN Server instance to send packets by PTF NN Client.
+In this topology, We pick two VMs (SONiC virtual Switch) that act as the MACsec participants of the DUT. These two pairs of MACsec participant belong to different MACsec connectivity association(CA).
+All VMs and PTF need to install PTF NN Server and SONiC-mgmt-docker need to install PTF NN Client. sonic-mgmt container can use each PTF NN Server instance to send packets by PTF NN Client.
 
 ## Configuration
 
-One VM(VM0) should have higher priority than DUT and others should have lower priority than DUT. This design is for two scenarios that whether DUT is correct when it's or not as the MACsec Key server.
+### Dynamic Key(MKA)
 
-# Test cases
+***MACsec profile table***
 
-## Control plane connectivity
+| Field                 |                                                              Value                                                              |
+| --------------------- | :-----------------------------------------------------------------------------------------------------------------------------: |
+| priority              |                                                  DUT(*64*) VM0(*63*) VM1(*65*)                                                  |
+| cipher suite          |                                                   *GCM-AES-128*/*GCM-AES-256*                                                   |
+| CKN                   |                               *6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435*                                |
+| CAK                   | GCM-AES-128(*0123456789ABCDEF0123456789ABCDEF*)/GCM-AES-256(*0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF*) |
+| policy                |                                                   *integrity_only*/*security*                                                   |
+| enable_replay_protect |                                                         *true*/*false*                                                          |
+| replay_window         |                                    enable_replay_protect(*0*)/disable_replay_protect(*100*)                                     |
+| send_sci              |                                                         *true*/*false*                                                          |
+| rekey_period          |                                                            *0*/*30*                                                             |
 
-### Test steps
+***Port table***
+| Field               |                Value                |
+| ------------------- | :---------------------------------: |
+| pfc_encryption_mode | *bypass*/*encrypt*/*strict_encrypt* |
 
-1. Dispatches configuration to VMs and DUT
-2. Reload config to establish MACsec connection
+All combination of values will be picked as a separated test group.
 
-### Check points
+## Test steps
 
-To use `ip macsec show` in every VMs to check whether the MACsec connection has been created. We should find the following phenomena in each VM
-- One MACsec device was created
-- Two MACsec Security Channel(SC), Egress and Ingress SC, belong to the above device
-- Each SC has one MACsec Security Association(SA)
+1. Enable MACsec feature `sudo config feature state macsec enabled` on each device
+2. Dispatches MACsec configuration to devices
+3. Waiting 300 seconds for the MACsec session to negotiate.
+4. Run every testcases
+5. Remove all MACsec configuration on devices
 
-Here is an example to demonstrate an expected output in VMs.
+## Test cases
 
-```
-admin@sonic:~$ ip macsec show
-112: macsec_eth1: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
-    cipher suite: GCM-AES-128, using ICV length 16
-    TXSC: 5254001234560001 on SA 0
-        0: PN 4, state on, key c2c31ab98c04f55a7765f2efe22e8aa9
-    RXSC: fe54002ace420001, state on
-        0: PN 35, state on, key c2c31ab98c04f55a7765f2efe22e8aa9
-```
+### Control plane
 
-## Data plane connectivity
+#### Check WPA Supplicant
 
-We should test three scenarios
+Check the process, `wpa_supplicant`, for the target port is running in the devices.
 
-- VM to VM (Encrypted traffic to encrypted traffic)
-- VM to PTF (Encrypted traffic to plaintext traffic)
-- PTF to VM (plaintext traffic to encrypted traffic)
+#### Check APP DB
 
-### Test steps
+##### Check the following fields in MACsec port table are consistent with configuration
 
-We assume the above test case, **[Control plane connectivity](##Control-plane-connectivity)**, passed so that we can directly use its configuration to verify the connectivity in data plane. 
+| Config DB Field | Config DB Value |  App DB Field  | APP DB Value |
+| :-------------: | :-------------: | :------------: | :----------: |
+|                 |                 |     enable     |     true     |
+|  cipher_suite   |   GCM-AES-128   |  cipher_suite  | GCM-AES-128  |
+|  cipher_suite   |   GCM-AES-256   |  cipher_suite  | GCM-AES-256  |
+|                 |                 | enable_protect |     true     |
+|     policy      |    security     | enable_encrypt |     true     |
+|     policy      | integrity_only  | enable_encrypt |    false     |
+|    send_sci     |      true       |    send_sci    |     true     |
+|    send_sci     |      false      |    send_sci    |    false     |
 
-1. Send a packet *P0* from *VM0* to *VM1* by SONiC-mgmt-docker PTF NN Client
-2. Send a packet *P1* from *VM1* to *VM0* by SONiC-mgmt-docker PTF NN Client
-3. Send a packet *P2* from *VM0* to *PTF regular port* by SONiC-mgmt-docker PTF NN Client
-4. Send a packet *P3* from *VM1* to *PTF regular port* by SONiC-mgmt-docker PTF NN Client
-5. Send a packet *P4* from *PTF regular port* to *VM0* by SONiC-mgmt-docker PTF NN Client
-6. Send a packet *P5* from *PTF regular port* to *VM1* by SONiC-mgmt-docker PTF NN Client
-7. Send a packet *P6* from *PTF injected port* to *VM0* by PTF
+##### Check the following fields in MACsec SC table and MACsec SA table are consistent
 
-### Check point
+1. There should be a MACsec SA in MACsec SA table with the same AN of *encoding_an* in MACsec SC.
+2. The count of ingress MACsec SA shouldn't lesser than the count of egress MACsec SA in the peer side.
+3. The corresponding ingress and egress MACsec SA should have same *sak* and *auth_key*.
+4. The *next_pn* of egress MACsec SA shouldn't lesser than the *lowest_acceptable_pn* of the corresponding ingress MACsec SA in the peer side.
 
-1. *VM1's PTF injected port* should receive *the encrypted packet of P0*, and *VM1* should receive *the plaintext packet of P0*
-2. *VM0's PTF injected port* should receive *the encrypted packet of P1*, and *VM0* should receive *the plaintext packet of P1*
-3. *PTF regular port* should received *the plaintext packet of P2*
-4. *PTF regular port* should received *the plaintext packet of P3*
-5. *VM0's PTF injected port* should received *the encrypted packet of P4*, and *VM0* should received *the plaintext packet of P4*
-6. *VM1's PTF injected port* should received *the encrypted packet of P5*, and *VM0* should received *the plaintext packet of P5*
-7. *P6* should be dropped by DUT which means on one port can received any encrypted or plaintext packet of P6
+#### Check MKA session
 
-## Rekey caused by Packet Number exhaustion
+This checking is only for SONiC virtual switch to verify the implementation of virtual SAI. If the DUT is SONiC virtual switch, do this checking on the DUT. And if the neighbor devices(VM0 and VM1) are SONiC virtual switch, do this on the neighbor devices too.
+
+1. Get the MKA session by `ip macsec show`
+2. Check the MACsec session is consistent with configuration.
+
+### Data plane
+
+#### PTF to VM
+
+1. Send IPv4 packet
+
+|   Field   |      Value      |
+| :-------: | :-------------: |
+| ether dst | DUT mac address |
+|  ip src   |     1.2.3.4     |
+|  ip dst   | VM ipv4 address |
+|  ip ttl   |       64        |
+
+2. Expected IPv4 packet
+
+|   Field   |      Value      |
+| :-------: | :-------------: |
+| ether src | DUT mac address |
+| ether dst | VM mac address  |
+|  ip src   |     1.2.3.4     |
+|  ip dst   | VM ipv4 address |
+|  ip ttl   |       63        |
+
+3. Send a set of above packet on the PTF up port
+4. The target VM should receive at least one expected above packet
+5. In the injected port of PTF, we should get at least one expected packet encapsulated by MACsec
+
+#### Notes
+
+1. The number of send packet is 100 to avoid the send packet dropped by MACsec engine
+2. Set the buffer queue of PTF to the 1000 to avoid the send packet dropped by PTF
+3. We can decapsulate all MACsec packets by the SAK in the activated APP DB. Because the operation of decapsulation needs to take a long time which may cause we miss the expected packet, we collect all packets for 10 seconds firstly and decapsulate them one by one until the expected packet appearance.
+
+#### VM to VM
+
+In the following statement, we assume we send packet from VM(0) to VM(1). But in the real test, we will test all directions from VM(x) to VM(non-x)
+
+1. Send IPv4 packet
+
+|   Field   |      Value       |
+| :-------: | :--------------: |
+| ether dst | DUT mac address  |
+|  ip src   | VM0 ipv4 address |
+|  ip dst   | VM1 ipv4 address |
+|  ip ttl   |        64        |
+
+2. Expected IPv4 packet
+
+|   Field   |      Value       |
+| :-------: | :--------------: |
+| ether dst | DUT mac address  |
+| ether dst | DUT mac address  |
+|  ip src   | VM0 ipv4 address |
+|  ip dst   | VM1 ipv4 address |
+|  ip ttl   |        63        |
+
+3. Send a set of above packet on the VM0
+4. VM1 should receive at least one expected above packet
+
+### Functionality
+
+#### Rekey caused by Packet Number exhaustion
 
 TODO
 
-<!--
+#### Periodic Rekey
 
-### Test steps
+This testcase is only available if the field *rekey_period* in configuration isn't 0.
 
-1. Recompile the wpa_supplicant to reduce the rekey threshold. (Maybe we can enhance the wpa_supplicant to make this threshold can be configurable)
-2. Dispatches configuration
-3. Reload config to establish MACsec connection
-4. Get the MACsec information by `ip macsec show`
-5. Send several ping packets to trigger the rekey action
-6. Get a new MACsec information by `ip macsec show`
+##### Rekey is triggered at the expected time
 
-### Check point
+1. Record the SAK in APP DB
+2. Sleep for 30 seconds
+3. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
 
-1. These ping packets should be any lost
-2. The new MACsec information should have different MACsec SA to the first MACsec information
+##### No remarkable packet loss during MACsec SA refreshing
 
--->
+Ping VM0 on the DUT with command `sudo ping VM0_ipv4_address -w 60 -i 0.01`. The packet loss should be lesser than 1%.
 
-## Periodic Rekey
+#### Primary/Fallback CAK
 
 TODO
 
-## Primary/Fallback CAK
-
-TODO
-
-## PFC in MACsec
+#### PFC in MACsec
 
 ![MACsec_PFC_test](images/MACsec_PFC_test.png)  
 
 Use PTF to generate and capture PFC packets and set the same mode between DUT and Neighbor device.
 
-### Bypass mode
+##### Bypass mode
 
 1. Send clear PFC frame from the neighbor device to the DUT
    - The DUT expects to capture the clear PFC packet
@@ -137,7 +233,7 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
 
-### Encrypt mode
+##### Encrypt mode
 
 1. Send clear PFC frame from the neighbor device to the DUT
    - The DUT expects to capture the clear PFC packet
@@ -149,7 +245,7 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
 
-### Strict mode
+##### Strict mode
 
 1. Send clear PFC frame from the neighbor device to the DUT
    - The DUT expects to capture the clear PFC packet
@@ -160,4 +256,3 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
    - The DUT expects to no any PFC packet
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
-
