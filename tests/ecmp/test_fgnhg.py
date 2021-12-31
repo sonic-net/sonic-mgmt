@@ -133,7 +133,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 def setup_arpresponder(ptfhost, ip_to_port):
     logger.info("Copy arp_responder to ptfhost")
     # Stop existing arp responder if running
-    ptfhost.command('supervisorctl stop arp_responder')
+    ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
 
     d = defaultdict(list)
 
