@@ -139,7 +139,8 @@ class NeighVlanMemberDown(VlanMemberDown):
 
         for port in self.ports:
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.shutdown(fanport)
+            if fanout and fanport:
+                fanout.shutdown(fanport)
 
     def verify(self):
         facts = self.duthost.show_interface(command="status", interfaces=self.ports)
@@ -149,7 +150,8 @@ class NeighVlanMemberDown(VlanMemberDown):
     def revert(self):
         for port in self.ports:
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.no_shutdown(fanport)
+            if fanout and fanport:
+                fanout.no_shutdown(fanport)
 
     def __str__(self):
         return "neigh_vlan_member_down:{}".format(len(self.ports))
@@ -270,10 +272,11 @@ class NeighLagMemberDown(LagMemberDown):
                 nbrhost.shutdown(nbrport)
 
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            if bring_up:
-                fanout.no_shutdown(fanport)
-            else:
-                fanout.shutdown(fanport)
+            if fanout and fanport:
+                if bring_up:
+                    fanout.no_shutdown(fanport)
+                else:
+                    fanout.shutdown(fanport)
 
 
     def __str__(self):
