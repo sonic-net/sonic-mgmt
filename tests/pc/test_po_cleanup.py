@@ -62,6 +62,8 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
         pytest.fail(fail_msg)
     # Restore swss service.
     duthost.asic_instance(enum_asic_index).start_service("swss")
+    assert wait_until(300, 20, 0, duthost.critical_services_fully_started),\
+        "Not all critical services are fully started"
 
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
