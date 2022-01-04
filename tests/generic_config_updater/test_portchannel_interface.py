@@ -261,6 +261,16 @@ def test_portchannel_interface_tc4_remove(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+def verify_po_running(duthost):
+    for portchannel_name in T0_PORTCHANNEL_TABLE:
+        cmds = 'teamdctl {} state dump | python -c "import sys, json;  print(json.load(sys.stdin)[\'runner\'][\'active\'])"'.format(portchannel_name)
+        output = duthost.shell(cmds, module_ignore_errors=True)
+
+        pytest_assert(
+            not output['rc'] or output['stdout'] != 'True',
+            "{} is not running correctly."
+        )
+
 def verify_attr_change(duthost, name, attr, value):
     """
     attr:
@@ -321,6 +331,7 @@ def test_portchannel_interface_tc5_modify_attribute(duthost, op, name, attr, val
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
+        verify_po_running(duthost)
         verify_attr_change(duthost, name, attr, value)
     finally:
         delete_tmpfile(duthost, tmpfile)
