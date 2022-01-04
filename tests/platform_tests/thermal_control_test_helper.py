@@ -296,8 +296,6 @@ def stop_thermal_control_daemon(dut):
         assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
         logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
         return
-    # try restore by config reload...
-    config_reload(dut)
     assert 0, 'Wait thermal control daemon stop failed'
 
 def start_thermal_control_daemon(dut):

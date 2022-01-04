@@ -190,14 +190,12 @@ class TestPsuFans(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
-            fans_skipped = 0
 
             for i in range(num_fans):
             # Ensure the fan speed is sane
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
                     logger.info("test_get_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
-                    fans_skipped += 1
                     continue
                 speed = psu_fan.get_speed(platform_api_conn, j, i)
                 if self.expect(speed is not None, "Unable to retrieve psu {} fan {} speed".format(j, i)):
@@ -266,13 +264,11 @@ class TestPsuFans(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
-            fans_skipped = 0
             
             for i in range(num_fans):
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
                     logger.info("test_get_fans_speed_tolerance: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
-                    fans_skipped += 1
                     continue
                 speed_tolerance = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
                 if self.expect(speed_tolerance is not None, "Unable to retrieve psu {} fan {} speed tolerance".format(j, i)):
