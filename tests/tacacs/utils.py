@@ -110,7 +110,7 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     check_all_services_status(ptfhost)
 
 
-def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
+def cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip):
     # stop tacacs server
     stop_tacacs_server(ptfhost)
 
@@ -124,6 +124,11 @@ def cleanup_tacacs(ptfhost, duthost, tacacs_server_ip):
     if not skip:
         duthost.shell("sudo config aaa authorization local")
         duthost.shell("sudo config aaa accounting disable")
+
+    duthost.user(name=creds_all_duts[duthost]['tacacs_ro_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=creds_all_duts[duthost]['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=creds_all_duts[duthost]['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config

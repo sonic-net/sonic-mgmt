@@ -76,7 +76,7 @@ class SonicHost(AnsibleHostBase):
         self._kernel_version = self._get_kernel_version()
 
     def __repr__(self):
-        return '<SonicHost> {}'.format(self.hostname)
+        return '<SonicHost {}>'.format(self.hostname)
 
     @property
     def facts(self):
@@ -215,8 +215,6 @@ class SonicHost(AnsibleHostBase):
         res = "False" if out["failed"] else out["stdout"]
         return res
 
-
-
     def _get_asic_count(self, platform):
         """
         Gets the number of asics for this device.
@@ -242,7 +240,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-
 
     def _get_platform_info(self):
         """
@@ -388,10 +385,22 @@ class SonicHost(AnsibleHostBase):
         return len(status["stdout_lines"]) > 1
 
     def critical_services_status(self):
-        result = {}
+        # Initialize service status
+        services = {}
         for service in self.critical_services:
-            result[service] = self.is_service_fully_started(service)
-        return result
+            services[service] = False
+
+        # Check and update service status
+        try:
+            results = self.command("docker ps --filter status=running --format \{\{.Names\}\}")['stdout_lines']
+            for service in self.critical_services:
+                if service in results:
+                    services[service] = True
+        except Exception as e:
+            logging.info("Critical service status: {}".format(json.dumps(services)))
+            logging.info("Get critical service status failed with error {}".format(repr(e)))
+
+        return services
 
     def critical_services_fully_started(self):
         """
@@ -486,6 +495,48 @@ class SonicHost(AnsibleHostBase):
 
         return critical_group_list, critical_process_list, succeeded
 
+    def critical_group_process(self):
+        # Get critical group and process definitions by running cmds in batch to save overhead
+        cmds = []
+        for service in self.critical_services:
+            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
+                  " && cat /etc/supervisor/critical_processes'".format(service)
+
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical group and service definition of all services
+        group_process_results = {}
+        for service in self.critical_services:
+            if service not in service_results or service_results[service]['rc'] != 0:
+                continue
+
+            service_group_process = {'groups': [], 'processes': []}
+
+            file_content = service_results[service]['stdout_lines']
+            for line in file_content:
+                line_info = line.strip().split(':')
+                if len(line_info) != 2:
+                    if '201811' in self._os_version and len(line_info) == 1:
+                        process_name = line_info[0].strip()
+                        service_group_process['processes'].append(process_name)
+                else:
+                    group_or_process = line_info[0].strip()
+                    group_process_name = line_info[1].strip()
+                    if group_or_process == 'group' and group_process_name:
+                        service_group_process['groups'].append(group_process_name)
+                    elif group_or_process == 'program' and group_process_name:
+                        service_group_process['processes'].append(group_process_name)
+            group_process_results[service] = service_group_process
+
+        return group_process_results
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -530,10 +581,50 @@ class SonicHost(AnsibleHostBase):
         """
         @summary: Check whether all critical processes status for all critical services
         """
-        result = {}
+        # Get critical process definition of all services
+        group_process_results = self.critical_group_process()
+
+        # Get process status of all services. Run cmds in batch to save overhead
+        cmds = []
         for service in self.critical_services:
-            result[service] = self.critical_process_status(service)
-        return result
+            cmd = 'docker exec {} supervisorctl status'.format(service)
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical process status of all services
+        all_critical_process = {}
+        for service in self.critical_services:
+            service_critical_process = {
+                'status': True,
+                'exited_critical_process': [],
+                'running_critical_process': []
+            }
+            if service not in group_process_results or service not in service_results:
+                service_critical_process['status'] = False
+                all_critical_process[service] = service_critical_process
+                continue
+
+            service_group_process = group_process_results[service]
+
+            service_result = service_results[service]
+            for line in service_result['stdout_lines']:
+                pname, status, _ = re.split('\s+', line, 2)
+                if status != 'RUNNING':
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['exited_critical_process'].append(pname)
+                        service_critical_process['status'] = False
+                else:
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['running_critical_process'].append(pname)
+            all_critical_process[service] = service_critical_process
+
+        return all_critical_process
 
     def get_crm_resources(self):
         """

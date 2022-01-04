@@ -38,6 +38,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.utilities import str2bool
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
@@ -146,6 +147,11 @@ def pytest_addoption(parser):
     parser.addoption("--restore_to_image", default="",
         help="Specify the target image to restore to, or stay in target image if empty",
     )
+    ############################
+    #   loop_times options     #
+    ############################
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -397,6 +403,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     vm_base = int(tbinfo['vm_base'][2:])
+    vm_name_fmt = 'VM%0{}d'.format(len(tbinfo['vm_base']) - 2)
     neighbor_type = request.config.getoption("--neighbor_type")
 
     if not 'VMs' in tbinfo['topo']['properties']['topology']:
@@ -404,9 +411,10 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
             devices[k] = {'host': EosHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        vm_name,
                                         creds['eos_login'],
                                         creds['eos_password'],
                                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
@@ -414,7 +422,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
                         'conf': tbinfo['topo']['properties']['configuration'][k]}
         elif neighbor_type == "sonic":
             devices[k] = {'host': SonicHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
+                                        vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
                         'conf': tbinfo['topo']['properties']['configuration'][k]}
@@ -1086,16 +1094,22 @@ def pytest_generate_tests(metafunc):
         # parameterize on both - create tuple for each
         tuple_list = []
         for a_dut_index, a_dut in enumerate(duts_selected):
-            for a_asic in asics_selected[a_dut_index]:
-                # Create tuple of dut and asic index
-                tuple_list.append((a_dut, a_asic))
+            if len(asics_selected):
+                for a_asic in asics_selected[a_dut_index]:
+                    # Create tuple of dut and asic index
+                    tuple_list.append((a_dut, a_asic))
+            else:
+                tuple_list.append((a_dut, None))
         metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
     elif dut_fixture_name:
         # parameterize only on DUT
         metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
-        metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        if len(asics_selected):
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        else:
+            metafunc.parametrize(asic_fixture_name, [None], scope="module")
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1149,9 +1163,15 @@ def cleanup_cache_for_session(request):
     This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
     """
     tbname, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
+    inv_data = get_host_visible_vars(inv_files, a_dut)
+    if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
+            for asic_id in range(inv_data['num_asics']):
+                cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
+
 
 def get_l2_info(dut):
     """

@@ -155,6 +155,31 @@ topology:
           prefix: 192.168.4.1/22
           prefix_v6: fc02:200::1/64
           tag: 200
+      four_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [0, 2, 4, 6, 8, 10]
+          prefix: 192.168.0.1/23
+          prefix_v6: fc02:400::1/64
+          tag: 1000
+        Vlan2000:
+          id: 2000
+          intfs: [16, 18, 20, 22, 24, 26]
+          prefix: 192.168.2.1/23
+          prefix_v6: fc02:401::1/64
+          tag: 2000
+        Vlan3000:
+          id: 3000
+          intfs: [28, 30, 32, 34, 36, 38]
+          prefix: 192.168.4.1/23
+          prefix_v6: fc02:402::1/64
+          tag: 3000
+        Vlan4000:
+          id: 4000
+          intfs: [44, 46, 48, 50, 52, 54]
+          prefix: 192.168.6.1/23
+          prefix_v6: fc02:403::1/64
+          tag: 4000
     tunnel_configs:
       default_tunnel_config: tunnel_ipinip
       tunnel_ipinip:

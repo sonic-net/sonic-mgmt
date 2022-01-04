@@ -18,10 +18,10 @@ stages:
     value: vtestbed.csv
 
   jobs:
-  - job:
+  - job: t0_part1
     pool: sonictest
-    displayName: "kvmtest-t0"
-    timeoutInMinutes: 400
+    displayName: "kvmtest-t0-part1"
+    timeoutInMinutes: 200
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -31,6 +31,44 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0
         vmtype: ceos
+        section: part-1
+
+  - job: t0_part2
+    pool: sonictest
+    displayName: "kvmtest-t0-part2"
+    timeoutInMinutes: 200
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0
+        vmtype: ceos
+        section: part-2
+
+  - job:
+    pool: sonictest
+    displayName: "kvmtest-t0"
+    timeoutInMinutes: 400
+    dependsOn:
+    - t0_part1
+    - t0_part2
+    condition: always()
+    variables:
+      resultOfPart1: $[ dependencies.t0_part1.result ]
+      resultOfPart2: $[ dependencies.t0_part2.result ]
+
+    steps:
+    - script: |
+        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
+          echo "Both job kvmtest-t0-part1 and kvmtest-t0-part2 are passed."
+          exit 0
+        else
+          echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
+          exit 1
+        fi
 
   - job:
     pool: sonictest-t1-lag
