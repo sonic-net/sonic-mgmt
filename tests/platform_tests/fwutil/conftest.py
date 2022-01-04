@@ -79,10 +79,10 @@ def next_image(duthost, fw_pkg):
 
     logger.info("Installing new image {}".format(target))
 
-    if fwpkg["images"][target].startswith("http"):
-        duthost.get_url(url=fwpkg["images"][target], dest=DUT_HOME)
+    if fw_pkg["images"][target].startswith("http"):
+        duthost.get_url(url=fw_pkg["images"][target], dest=DUT_HOME)
     else:
-        duthost.copy(src=os.path.join("firmware", fwpkg["images"][target]), dest=DUT_HOME)
+        duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest=DUT_HOME)
 
     remote_path = os.path.join(DUT_HOME, os.path.basename(fw_pkg["images"][target]))
     duthost.command("sonic-installer install -y {}".format(remote_path), module_ignore_errors=True)
