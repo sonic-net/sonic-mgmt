@@ -165,15 +165,15 @@ def get_info_for_a_port(cfg_facts, iface_list, version, dut, asic_index, nbrhost
     return rtn_dict
 
 
-def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", version=4):
+def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet", version=4):
     """
     Selects ports to test by sampling the interface and port channel lists.
 
                           ---------- DUT ----------
                           |--- LC1 ---|--- LC2 ---|
-    VM01T3   -------------|A          |          C|------------- VM02T1
+    VM01T1  --------------|A          |          C|------------- VM02T3
                           |         F0|F1         |
-    VM02T3   -------------|B     LB1  |   LB2    D|------------- VM01T1
+    VM02T1   -------------|B     LB1  |   LB2    D|------------- VM01T3
                           |-----------|-----------|
 
     Args:
@@ -185,13 +185,11 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
 
     Returns:
         intfs_to_test: A merged dictionary of ethernet and portchannel interfaces to test
-            portA - interface of type port_type_A on first frontend node in an asic.
+            portA - interface of type port_type_A on first frontend node in an asic that is connected to T1 VM's
             portB - interface on first frontend node in the same asic as portA - preferably of type different than
                     port_type_A.
-            portC - interface on any asic other than portA asic in the chassis of type port_type_A - preferably on
-                    another frontend node.
-            portD - interface on any asic other than portA asic in the chassis of type different than port_type_A -
-                    preferably on another frontend node.
+            portC - interface on any asic other than portA asic in the chassis of type port_type_A that is connected to T3 VM's
+            portD - interface on any asic other than portA asic in the chassis of type different than port_type_A that is connected to T3 VM's
 
         if we can't find portA we will skip the test.
         if we can't find any portB, portC, or portD, then their respective dictionary will be None, and the ping tests
@@ -200,8 +198,20 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
 
     """
     intfs_to_test = {}
-    # Lets find portA and portB in the first frontend node
-    dutA = duthosts.frontend_nodes[0]
+    # Lets find portA and portB in the first frontend node that is connected to T1 VM's
+    dutA = None
+    for a_dut in duthosts:
+        minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+        minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+        for key, value in minigraph_neighbors.items():
+            if 'T1' in value['name']:
+                dutA = a_dut
+                break
+        if dutA:
+            break
+
+    if dutA is None:
+        pytest.skip("Did not find any asic in the DUTs (linecards) that are connected to T1 VM's")
 
     for asic_index, asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
         cfg_facts = asic_cfg['ansible_facts']
@@ -242,13 +252,25 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
         # We are dealing with a single card, lets find the portC and portD in other asic on the same card
         other_duts = [dutA]
     else:
-        other_duts = duthosts.frontend_nodes[1:]
+        other_duts = [a_dut for a_dut in duthosts]
+        other_duts.remove(dutA)
 
     # Lets try to find portC and portD on other asics/linecards.
     for dut in other_duts:
         for asic_index, asic_cfg in enumerate(all_cfg_facts[dut.hostname]):
             if dut == dutA and asic_index == intfs_to_test['portA']['asic'].asic_index:
                 # Ignore the asic we used for portA
+                continue
+            other_dut_to_use = None
+            minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
+            minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+            for key, value in minigraph_neighbors.items():
+                if 'T3' in value['name']:
+                    other_dut_to_use = dut
+                    break
+
+            if other_dut_to_use is None:
+                # This DUT is not connected to T3 VM's - ignore it
                 continue
             cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
@@ -257,17 +279,17 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a="ethernet", versio
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
             if len(eths) != 0:
                 if port_type_a == "ethernet":
-                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, eths, version, dut, asic_index,
+                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, eths, version, other_dut_to_use, asic_index,
                                                                  nbrhosts)
                 else:
-                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, eths, version, dut, asic_index,
+                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, eths, version, other_dut_to_use, asic_index,
                                                                  nbrhosts)
 
             if len(pos) != 0:
                 if port_type_a == "ethernet":
-                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, pos, version, dut, asic_index, nbrhosts)
+                    intfs_to_test['portD'] = get_info_for_a_port(cfg_facts, pos, version, other_dut_to_use, asic_index, nbrhosts)
                 else:
-                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, pos, version, dut, asic_index, nbrhosts)
+                    intfs_to_test['portC'] = get_info_for_a_port(cfg_facts, pos, version, other_dut_to_use, asic_index, nbrhosts)
 
             if 'portC' in intfs_to_test and 'portD' in intfs_to_test:
                 # We have found both portC and portD - no need to check other asics
@@ -543,7 +565,7 @@ class TestVoqIPFwd(object):
     @pytest.mark.parametrize('ttl, size', [(2, 1500), (255, 1500), (128, 64), (128, 9000)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["portchannel", "ethernet"])
-    def test_voq_local_interface_ping(self, duthosts, nbrhosts, all_cfg_facts, ttl, size, version, porttype):
+    def test_voq_local_interface_ping(self, duthosts, nbrhosts, all_cfg_facts, ttl, size, version, porttype, tbinfo):
         """
         Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to local line card interfaces.
 
@@ -567,14 +589,14 @@ class TestVoqIPFwd(object):
         """
         logger.info(
             "Pinging local interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl, size=size))
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
 
         check_packet(sonic_ping, ports, 'portB', 'portA', size=size, ttl=ttl, ttl_change=0)
 
     @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_voq_local_neighbor_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts):
+    def test_voq_local_neighbor_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
         Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to neighbor addresses.
 
@@ -598,7 +620,7 @@ class TestVoqIPFwd(object):
             porttype: Test port type, ethernet or portchannel
 
         """
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info(
             "Pinging local interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl, size=size))
         check_packet(sonic_ping, ports, 'portA', 'portA', dst_ip_fld='nbr_ip', size=size, ttl=ttl, ttl_change=0)
@@ -611,7 +633,7 @@ class TestVoqIPFwd(object):
     @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_voq_neighbor_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts):
+    def test_voq_neighbor_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
         Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to learned route addresses.
 
@@ -635,7 +657,7 @@ class TestVoqIPFwd(object):
             porttype: Test port type, ethernet or portchannel
 
         """
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
 
@@ -649,7 +671,7 @@ class TestVoqIPFwd(object):
     @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64,), (255, 1456), (1, 1456)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_voq_inband_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts):
+    def test_voq_inband_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
         Verify IP connectivity over inband interfaces.
 
@@ -670,7 +692,7 @@ class TestVoqIPFwd(object):
             porttype: Test port type, ethernet or portchannel
 
         """
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
         remote_port = 'portD'
@@ -689,7 +711,7 @@ class TestVoqIPFwd(object):
     @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (1, 1456), (255, 1456)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_voq_dut_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts):
+    def test_voq_dut_lb_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
         Verify IP Connectivity to DUT loopback addresses.
 
@@ -718,7 +740,7 @@ class TestVoqIPFwd(object):
 
         """
 
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
         # these don't decrement ttl
@@ -771,7 +793,7 @@ class TestVoqIPFwd(object):
     @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456)])
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
-    def test_voq_end_to_end_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts):
+    def test_voq_end_to_end_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
         """
         Verify IP Connectivity to DUT loopback addresses.
 
@@ -794,7 +816,7 @@ class TestVoqIPFwd(object):
             porttype: Test port type, ethernet or portchannel
 
         """
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
         vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
@@ -824,7 +846,7 @@ def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, po
 
     """
 
-    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
 
     if 'portB' in ports:
         dst_list = [('portB', ports['portB']['nbr_lb']), ('portD', ports['portD']['nbr_lb'])]
@@ -894,7 +916,7 @@ class TestFPLinkFlap(LinkFlap):
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_front_panel_linkflap_port(self, duthosts, all_cfg_facts,
-                                       fanouthosts, porttype, version, nbrhosts):
+                                       fanouthosts, porttype, version, nbrhosts, tbinfo):
         """
         Traffic to Sonic host interfaces recovers after the front panel port flaps.
 
@@ -928,7 +950,7 @@ class TestFPLinkFlap(LinkFlap):
             pytest.skip("Fanouthosts fixture did not return anything, this test case can not run.")
         logger.info("Fanouthosts: %s", fanouthosts)
 
-        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+        ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         cfg_facts = all_cfg_facts[ports['portA']['dut'].hostname][ports['portA']['asic'].asic_index]['ansible_facts']
 
         if "portchannel" in ports['portA']['port'].lower():
@@ -1062,7 +1084,7 @@ def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, por
         nbr_macs: The nbr_macs fixture
 
     """
-    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+    ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
 
     dst_ip = ports[port][ip]
 
