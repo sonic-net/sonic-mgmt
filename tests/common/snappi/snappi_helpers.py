@@ -277,7 +277,7 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
             v4_link_layer_address = [
                 state.link_layer_address
                 for state in states.ipv4_neighbors
-                if state.link_layer_address
+                if state.link_layer_address is not None
             ]
             if len(v4_addresses) == len(v4_link_layer_address):
                 v4_gateway_macs_resolved = True
@@ -292,7 +292,7 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
             v6_link_layer_address = [
                 state.link_layer_address
                 for state in states.ipv6_neighbors
-                if state.link_layer_address
+                if state.link_layer_address is not None
             ]
             if len(v6_addresses) == len(v6_link_layer_address):
                 v6_gateway_macs_resolved = True
