@@ -885,6 +885,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.57/24
       ipv6: fc0a::4a/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA03T1:
     properties:
       - common
@@ -1010,6 +1015,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.77/24
       ipv6: fc0a::5e/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA12T1:
     properties:
       - common
@@ -1136,6 +1146,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.83/24
       ipv6: fc0a::6a/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA18T1:
     properties:
       - common
@@ -1157,6 +1172,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.84/24
       ipv6: fc0a::6c/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA19T1:
     properties:
       - common
@@ -1308,6 +1328,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.105/24
       ipv6: fc0a::82/64
+    vips:
+      ipv4:
+        prefixes:
+          - 200.0.1.0/26
+        asn: 64700
   ARISTA30T1:
     properties:
       - common
