@@ -254,8 +254,8 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
     returns number of attempts if arp is resolved within max attempts else fail 
     """
     attempts = 0
-    arp = False
-    nd = False
+    v4_gateway_macs_resolved = False
+    v6_gateway_macs_resolved = False
 
     get_config = snappi_api.get_config()
     v4_addresses = []
@@ -280,9 +280,9 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
                 if state.link_layer_address
             ]
             if len(v4_addresses) == len(v4_link_layer_address):
-                arp = True
+                v4_gateway_macs_resolved = True
         else:
-            arp = True
+            v4_gateway_macs_resolved = True
 
         request = snappi_api.states_request()
         request.choice = request.IPV6_NEIGHBORS
@@ -295,11 +295,11 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
                 if state.link_layer_address
             ]
             if len(v6_addresses) == len(v6_link_layer_address):
-                nd = True
+                v6_gateway_macs_resolved = True
         else:
-            nd = True
+            v6_gateway_macs_resolved = True
 
-        if arp and nd:
+        if v4_gateway_macs_resolved and v6_gateway_macs_resolved:
             break
         else:
             time.sleep(poll_interval_sec)
