@@ -2,11 +2,10 @@ from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
-from threading import Lock, Thread
+from threading import Thread
 import json
 import ipaddr
 import time
-import re
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
