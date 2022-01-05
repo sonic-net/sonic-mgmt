@@ -26,7 +26,7 @@ T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
 def get_cacl_tables(duthost):
     """Get acl control palne tables
     """
-    cmds = "show acl table | grep -w CTRLPLANE | awk {'print $1'}"
+    cmds = "show acl table | grep -w CTRLPLANE | awk '{print $1}'"
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'],
         "'{}' failed with rc={}".format(cmds, output['rc'])
