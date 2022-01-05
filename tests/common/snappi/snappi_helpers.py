@@ -8,6 +8,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 from tests.common.reboot import logger
+import time
 
 
 class SnappiFanoutManager():
@@ -238,3 +239,73 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
            return i
 
     return None
+
+
+def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
+    """
+    This function waits for arp to get resolved for ipv4/ipv6 in the snappi config
+
+    Args:
+    snappi_api: snappi api
+    max_attempts: maximum attempts for timeout
+    poll_interval_sec: interval poll second
+
+    Return:
+    returns number of attempts if arp is resolved within max attempts else fail 
+    """
+    attempts = 0
+    v4_gateway_macs_resolved = False
+    v6_gateway_macs_resolved = False
+
+    get_config = snappi_api.get_config()
+    v4_addresses = []
+    v6_addresses = []
+
+    for device in get_config.devices:
+        for ethernet in device.ethernets:
+            for v4_address in ethernet.ipv4_addresses:
+                v4_addresses.append(v4_address.address)
+            for v6_address in ethernet.ipv6_addresses:
+                v6_addresses.append(v6_address.address)
+
+    while attempts < max_attempts:
+        request = snappi_api.states_request()
+        request.choice = request.IPV4_NEIGHBORS
+        states = snappi_api.get_states(request)
+
+        if len(v4_addresses) > 0:
+            v4_link_layer_address = [
+                state.link_layer_address
+                for state in states.ipv4_neighbors
+                if state.link_layer_address is not None
+            ]
+            if len(v4_addresses) == len(v4_link_layer_address):
+                v4_gateway_macs_resolved = True
+        else:
+            v4_gateway_macs_resolved = True
+
+        request = snappi_api.states_request()
+        request.choice = request.IPV6_NEIGHBORS
+        states = snappi_api.get_states(request)
+
+        if len(v6_addresses) > 0:
+            v6_link_layer_address = [
+                state.link_layer_address
+                for state in states.ipv6_neighbors
+                if state.link_layer_address is not None
+            ]
+            if len(v6_addresses) == len(v6_link_layer_address):
+                v6_gateway_macs_resolved = True
+        else:
+            v6_gateway_macs_resolved = True
+
+        if v4_gateway_macs_resolved and v6_gateway_macs_resolved:
+            break
+        else:
+            time.sleep(poll_interval_sec)
+            attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "ARP is not resolved in {} seconds".format(max_attempts * poll_interval_sec))
+
+    return attempts
