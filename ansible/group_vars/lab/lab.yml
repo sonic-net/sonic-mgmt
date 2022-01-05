@@ -12,7 +12,7 @@ syslog_servers: ['10.0.0.5', '10.0.0.6']
 dns_servers: ['10.0.0.5', '10.0.0.6']
 
 # forced_mgmt_routes
-forced_mgmt_routes: []
+forced_mgmt_routes: ['172.17.0.1']
 
 # ErspanDestinationIpv4
 erspan_dest: ['10.0.0.7']
