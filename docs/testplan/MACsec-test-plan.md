@@ -59,8 +59,7 @@ VM<->DUT    up link
 PTF<->DUT   down link
 ```
 
-In this topology, We pick two VMs (SONiC virtual Switch) that act as the MACsec participants of the DUT. These two pairs of MACsec participant belong to different MACsec connectivity association(CA).
-All VMs and PTF need to install PTF NN Server and SONiC-mgmt-docker need to install PTF NN Client. sonic-mgmt container can use each PTF NN Server instance to send packets by PTF NN Client.
+In this topology, We pick two VMs (MACsec support) that act as the MACsec participants of the DUT. These two pairs of MACsec participant belong to different MACsec connectivity association(CA).
 
 ## Configuration
 
@@ -133,6 +132,32 @@ This checking is only for SONiC virtual switch to verify the implementation of v
 2. Check the MACsec session is consistent with configuration.
 
 ### Data plane
+
+```txt
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+| DUT                                                                               |
+|                                                                                   |
++-------+-------------------+-------------------+-------------------+-------------+-+
+        *                   *                   |                   |             |
+        *                   *                   |                   |             |
+        *.........          *.........          +.........          +.........    |
+        *        :          *        :          |        :          |        :    |
+        *        :          *        :          |        :          |        :    |
+  +-----+------+ :    +-----+------+ :    +-----+------+ :    +-----+------+ :    |
+  |VM0         | :    |VM1         | :    |VM2         | :    |VM3         | :    |
+  |(Controlled)| :    |(Controlled)| :    |            | :    |            | :    |
+  |ptf_nn_agent| :    |ptf_nn_agent| :    |ptf_nn_agent| :    |ptf_nn_agent| :    |
+  +------------+ :    +------------+ :    +------------+ :    +------------+ :    |
+                 :                   :                   :                   :    |
++----------------+-------------------+-------------------+-------------------+----+-+
+|                                                                                   |
+| PTF (ptf_nn_agent)                                                                |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
+```
+
+All VMs and PTF docker in the host need to install PTF NN agent. So, SONiC-mgmt-docker can use an unified interface, ptf_nn_client, to handle the packets sending operation in the servers and VMs.
 
 #### PTF to VM
 
@@ -209,7 +234,7 @@ The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet numbe
                      │    │                           │
                      │    │       wpa_supplicant      │
                      │    │                           │
-                     │    └───*─────────────────────▲─┘
+                     │    └─────────────────────────▲─┘
                      │        *                     │
                      │        *                     │
                      │      rekey            transmit_next_pn
