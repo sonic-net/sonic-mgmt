@@ -155,11 +155,19 @@ This checking is only for SONiC virtual switch to verify the implementation of v
 | PTF (ptf_nn_agent)                                                                |
 |                                                                                   |
 +-----------------------------------------------------------------------------------+
+
+-----       normal link
+.....       injected link
+*****       protected link
+VM<->DUT    up link
+PTF<->DUT   down link
 ```
 
 All VMs and PTF docker in the host need to install PTF NN agent. So, SONiC-mgmt-docker can use an unified interface, ptf_nn_client, to handle the packets sending operation in the servers and VMs.
 
 #### PTF to VM
+
+This test is to verify the traffic is truly protected by MACsec.
 
 1. Send IPv4 packet
 
@@ -191,6 +199,8 @@ All VMs and PTF docker in the host need to install PTF NN agent. So, SONiC-mgmt-
 3. We can decapsulate all MACsec packets by the SAK in the activated APP DB. Because the operation of decapsulation needs to take a long time which may cause we miss the expected packet, we collect all packets for 10 seconds firstly and decapsulate them one by one until the expected packet appearance.
 
 #### VM to VM
+
+This test is to verify a packet can be correctly forwarded between controlled nodes and uncontrolled nodes.
 
 In the following statement, we assume we send packet from VM(0) to VM(1). But in the real test, we will test all directions from VM(x) to VM(non-x)
 
