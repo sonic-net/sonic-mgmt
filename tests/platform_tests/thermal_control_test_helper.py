@@ -8,6 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
+from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
@@ -280,43 +281,23 @@ def restart_thermal_control_daemon(dut):
     config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
 
-def stop_thermal_control_daemon(dut):
-    """
-    Stop thermal control daemon
-    """
-    logging.info('Stopping thermal control daemon on {}...'.format(dut.hostname))
-    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
-    output = dut.shell(find_thermalctld_pid_cmd)
-    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-    assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
-                                                                    
-    stop_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl stop thermalctld'"
-    output = dut.shell(stop_thermalctl_cmd)
-    if output["rc"] == 0:
-        assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
-        logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
-        return
-    assert 0, 'Wait thermal control daemon stop failed'
-
 def start_thermal_control_daemon(dut):
-    """
-    Start thermal control daemon
-    """
-    logging.info('Starting thermal control daemon on {}...'.format(dut.hostname))
-    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
-    output = dut.shell(find_thermalctld_pid_cmd)
-    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-    assert len(output["stdout_lines"]) == 0, "There should be 0 thermalctld process before starting"
+    daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status != "RUNNING":
+        dut.start_pmon_daemon(daemon_name)
+        time.sleep(10)
+    running_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
+    assert running_daemon_status == "RUNNING", "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
 
-    start_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl start thermalctld'"
-    output = dut.shell(start_thermalctl_cmd)
-    if output["rc"] == 0:
-        assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
-        logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
-        return
-    # try restore by config reload...
-    config_reload(dut)    
-    assert 0, 'Wait thermal control daemon start failed'
+def stop_thermal_control_daemon(dut):
+    daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status == "RUNNING":
+        dut.stop_pmon_daemon(daemon_name)
+        time.sleep(10)
+    stopped_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
+    assert stopped_daemon_status == "STOPPED", "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
                                                                 
 class ThermalPolicyFileContext:
     """
