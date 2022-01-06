@@ -18,9 +18,9 @@
     - [VM to VM](#vm-to-vm)
   - [Functionality](#functionality)
     - [Rekey caused by Packet Number exhaustion](#rekey-caused-by-packet-number-exhaustion)
+      - [Test Steps](#test-steps-1)
     - [Periodic Rekey](#periodic-rekey)
-      - [Rekey is triggered at the expected time](#rekey-is-triggered-at-the-expected-time)
-      - [No remarkable packet loss during MACsec SA refreshing](#no-remarkable-packet-loss-during-macsec-sa-refreshing)
+      - [Test steps](#test-steps-2)
     - [Primary/Fallback CAK](#primaryfallback-cak)
     - [PFC in MACsec](#pfc-in-macsec)
       - [Bypass mode](#bypass-mode)
@@ -195,21 +195,72 @@ In the following statement, we assume we send packet from VM(0) to VM(1). But in
 
 #### Rekey caused by Packet Number exhaustion
 
-TODO
+The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet number and `0xC000000000000000ULL` to 64bits packet number(XPN). So, to set the attribute `next_pn` of `MACSEC_EGRESS_SA` in APP_DB cheats MKA protocol for rekey action.
+
+```txt https://asciiflow.com/#/share/eJzNU91qgzAUfpWR6xZ0uxgTdiHOlV7MDbWwi0DINFSZRomRVUrfYuxhxp5mTzI3Oig1SuJPaTgX8STfd75z%2FLIFFKcEGLRMkhlIcEUYMMAWgg0Exo1%2BNYOgqneX13q942TD6w8ILo7W9%2FuXUkBIBRSNRNu1IqNxME%2FXKe%2B8JsU2VHcLO61HhXJ6yyNGiihLwrmuaVoHvo%2Bc4aqFs5IYnBj%2FlmNUlHmexAGmXB3fu%2F6Y8fEpNbUu5dOjGXkl1eEJZ5gWaczR3njnpl44YtH095sGZpDbG2LbrdfNgPMchS9NhiArKSfs72xKDUqhjlHwvnidGXb%2FGE5cVdbrh%2F9JmllGYic6Y0GE14Ty%2F4RnLtGDaXm2hTwTmb7vImvlurbjo%2BcnZxIZyjaWY26X0sCKmn507peLlWvfIXvh2p732%2F64VUfFqtpslJCyg3Ifx6miokHYH65Y%2FfQBwQ7sfgAV2TM0)
+                ┌──────────────┐
+                │              │
+                │  sonic-mgmt  │
+                │              │
+                └────┬─────────┘
+                     │
+            next_pn=threshold-5000
+                     │    ┌───────────────────────────┐
+                     │    │                           │
+                     │    │       wpa_supplicant      │
+                     │    │                           │
+                     │    └───*─────────────────────▲─┘
+                     │        *                     │
+                     │        *                     │
+                     │      rekey            transmit_next_pn
+                     │        *                     │
+                     │        *                     │
+                 ┌───▼────────▼─┐    ┌──────────────┴─┐
+                 │              │    │                │
+                 │    app_db    │    │    counter_db  │
+                 │              │    │                │
+                 └───┬──────────┘    └──────────────▲─┘
+                     │                              │
+                     │                              │
+                     │                              │
+      MACSEC_EGRESS_SA:next_pn                      │
+                     │                              │
+                 ┌───▼──────────┐                   │
+                 │              │                   │
+                 │   orchagent  │   SAI_MACSEC_SA_ATTR_CURRENT_XPN
+                 │              │                   │
+                 └───┬──────────┘                   │
+                     │                              │
+SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
+                     │                              │
+                     │                              │
+                 ┌───▼──────────────────────────────┴──┐
+                 │                                     │
+                 │                syncd                │
+                 │                                     │
+                 └─────────────────────────────────────┘
+```
+
+##### Test Steps
+
+1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.01` to simulate continuous traffic.
+2. Record the SAK in APP DB.
+3. Update the next_pn of egress SA to `threshold - 5000`.
+4. Sleep for 30 seconds.
+5. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
+6. The background thread shouldn't obverse the remarkable packet loss (packet loss lesser than 1%).
 
 #### Periodic Rekey
 
-This testcase is only available if the field *rekey_period* in configuration isn't 0.
+This testcase is only available if the field *rekey_period* in configuration is more than 0.
 
-##### Rekey is triggered at the expected time
+##### Test steps
 
-1. Record the SAK in APP DB
-2. Sleep for 30 seconds
-3. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
-
-##### No remarkable packet loss during MACsec SA refreshing
-
-Ping VM0 on the DUT with command `sudo ping VM0_ipv4_address -w 60 -i 0.01`. The packet loss should be lesser than 1%.
+1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.01` to simulate continuous traffic.
+2. Record the SAK in APP DB.
+3. Sleep for 30 seconds.
+4. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
+5. The background thread shouldn't obverse the remarkable packet loss (packet loss lesser than 1%).
 
 #### Primary/Fallback CAK
 
