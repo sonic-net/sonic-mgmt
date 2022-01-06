@@ -8,7 +8,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 from collections import defaultdict
 
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -56,13 +56,14 @@ def loganalyzer(duthosts, request):
 
     for duthost in duthosts:
         # Force rotate logs
-        try:
-            duthost.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
-        except RunAnsibleModuleFail as e:
-            logging.warning("logrotate is failed. Command returned:\n"
-                            "Stdout: {}\n"
-                            "Stderr: {}\n"
-                            "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
+        with DisableLogrotateCronContext(duthost):
+            try:
+                duthost.shell("/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1")
+            except RunAnsibleModuleFail as e:
+                logging.warning("logrotate is failed. Command returned:\n"
+                                "Stdout: {}\n"
+                                "Stderr: {}\n"
+                                "Return code: {}".format(e.results["stdout"], e.results["stderr"], e.results["rc"]))
 
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
         logging.info("Add start marker into DUT syslog")
