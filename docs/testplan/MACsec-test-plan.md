@@ -188,15 +188,15 @@ This test is to verify the traffic is truly protected by MACsec.
 |  ip dst   | VM ipv4 address |
 |  ip ttl   |       63        |
 
-3. Send a set of above packet on the PTF up port
+3. Send a set of above packet on the down link of DUT
 4. The target VM should receive at least one expected above packet
 5. In the injected port of PTF, we should get at least one expected packet encapsulated by MACsec
 
 #### Notes
 
-1. The number of send packet is 100 to avoid the send packet dropped by MACsec engine
+1. The number of send packet is 100 to avoid the send packet dropped by MACsec engine or others.
 2. Set the buffer queue of PTF to the 1000 to avoid the send packet dropped by PTF
-3. We can decapsulate all MACsec packets by the SAK in the activated APP DB. Because the operation of decapsulation needs to take a long time which may cause we miss the expected packet, we collect all packets for 10 seconds firstly and decapsulate them one by one until the expected packet appearance.
+3. We can decapsulate all MACsec packets by the activated SAK in the APP DB. Because the operation of decapsulation needs to take a long time which may cause we miss the expected packet, we collect all packets for 10 seconds firstly and decapsulate them one by one until the expected packet appearance.
 
 #### VM to VM
 
@@ -230,7 +230,7 @@ In the following statement, we assume we send packet from VM(0) to VM(1). But in
 
 #### Rekey caused by Packet Number exhaustion
 
-The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet number and `0xC000000000000000ULL` to 64bits packet number(XPN). So, to set the attribute `next_pn` of `MACSEC_EGRESS_SA` in APP_DB cheats MKA protocol for rekey action.
+The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet number and `0xC000000000000000ULL` to 64bits packet number(XPN). It's impossible to really send many packets to trigger the rekey action. So, We use the attribute `next_pn` of `MACSEC_EGRESS_SA` in APP_DB to cheat MKA protocol for rekey action.
 
 ```txt https://asciiflow.com/#/share/eJzNU91qgzAUfpWR6xZ0uxgTdiHOlV7MDbWwi0DINFSZRomRVUrfYuxhxp5mTzI3Oig1SuJPaTgX8STfd75z%2FLIFFKcEGLRMkhlIcEUYMMAWgg0Exo1%2BNYOgqneX13q942TD6w8ILo7W9%2FuXUkBIBRSNRNu1IqNxME%2FXKe%2B8JsU2VHcLO61HhXJ6yyNGiihLwrmuaVoHvo%2Bc4aqFs5IYnBj%2FlmNUlHmexAGmXB3fu%2F6Y8fEpNbUu5dOjGXkl1eEJZ5gWaczR3njnpl44YtH095sGZpDbG2LbrdfNgPMchS9NhiArKSfs72xKDUqhjlHwvnidGXb%2FGE5cVdbrh%2F9JmllGYic6Y0GE14Ty%2F4RnLtGDaXm2hTwTmb7vImvlurbjo%2BcnZxIZyjaWY26X0sCKmn507peLlWvfIXvh2p732%2F64VUfFqtpslJCyg3Ifx6miokHYH65Y%2FfQBwQ7sfgAV2TM0)
                 ┌──────────────┐
