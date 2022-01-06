@@ -152,6 +152,7 @@ def update_bfd_session_state(ptfhost, neighbor_addr, local_addr, state):
     ptfhost.shell("bfdd-control session local {} remote {} state {}".format(neighbor_addr, local_addr, state))
 
 
+@pytest.mark.skip(reason="Test may currently fail due to lack of hardware support")
 def test_bfd(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     bfd_session_cnt = 5
