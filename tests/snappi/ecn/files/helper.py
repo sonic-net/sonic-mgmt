@@ -11,6 +11,7 @@ from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
 from tests.common.snappi.port import select_ports, select_tx_port
+from tests.common.snappi.snappi_helpers import wait_for_arp
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,10 @@ def __run_traffic(api,
         N/A
     """
     api.set_config(config)
+
+    logger.info('Wait for Arp to Resolve ...')
+    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+
     cs = api.capture_state()
     cs.port_names = [capture_port_name]
     cs.state = cs.START
