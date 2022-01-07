@@ -23,7 +23,7 @@
   ptf_ip: 10.64.246.56/23
   ptf_ipv6:
   server: server_1
-  vm_base: VM0100
+  vm_base: VM01000
   dut:
     - str-n3132-acs-2
   inv_name: str
@@ -38,7 +38,7 @@
   ptf_ip: 10.64.246.57/23
   ptf_ipv6: 2a01:111:e210:b000::8/64
   server: server_1
-  vm_base: VM0124
+  vm_base: VM01024
   dut:
     - str-msn2700-02
   inv_name: str
@@ -53,7 +53,7 @@
   ptf_ip: 10.64.246.69/23
   ptf_ipv6:
   server: server_1
-  vm_base: VM0148
+  vm_base: VM01048
   dut:
     - str-msn2700-01
   inv_name: str
@@ -68,7 +68,7 @@
   ptf_ip: 10.64.246.43/23
   ptf_ipv6:
   server: server_1
-  vm_base: VM0160
+  vm_base: VM01060
   dut:
     - str-msn2700-06
   inv_name: str
@@ -83,7 +83,7 @@
   ptf_ip: 10.64.246.82/23
   ptf_ipv6:
   server: server_1
-  vm_base: VM0184
+  vm_base: VM01084
   dut:
     - str-n3132-acs-1
   inv_name: str
@@ -98,7 +98,7 @@
   ptf_ip: 10.3.147.19/23
   ptf_ipv6:
   server: server_1
-  vm_base: VM0188
+  vm_base: VM01088
   dut:
     - str-n3132-acs-3
   inv_name: str
@@ -113,7 +113,7 @@
   ptf_ip: 10.64.246.27/23
   ptf_ipv6:
   server: server_2
-  vm_base: VM0232
+  vm_base: VM02032
   dut:
     - str-msn2700-20
   inv_name: str
@@ -128,7 +128,7 @@
   ptf_ip: 10.64.246.131/23
   ptf_ipv6:
   server: server_2
-  vm_base: VM0240
+  vm_base: VM02040
   dut:
     - str-msn2700-22
   inv_name: str
@@ -143,7 +143,7 @@
   ptf_ip: 10.64.246.79/23
   ptf_ipv6:
   server: server_2
-  vm_base: VM0244
+  vm_base: VM02044
   dut:
     - str-7260cx3-acs-7
   inv_name: str
@@ -158,7 +158,7 @@
   ptf_ip: 10.64.247.23/23
   ptf_ipv6:
   server: server_2
-  vm_base: VM0272
+  vm_base: VM02072
   dut:
     - str-a7050-acs-1
   inv_name: str
@@ -173,7 +173,7 @@
   ptf_ip: 10.64.246.21/23
   ptf_ipv6:
   server: server_3
-  vm_base: VM0356
+  vm_base: VM03056
   dut:
     - str-s6100-acs-1
   inv_name: str
@@ -188,7 +188,7 @@
   ptf_ip: 10.64.246.11/23
   ptf_ipv6:
   server: server_3
-  vm_base: VM0360
+  vm_base: VM03060
   dut:
     - str-s6000-acs-13
   inv_name: str
@@ -203,7 +203,7 @@
   ptf_ip: 10.64.247.15/23
   ptf_ipv6: 2a01:111:e210:b000::7/64
   server: server_3
-  vm_base: VM0300
+  vm_base: VM03000
   dut:
     - str-dx010-acs-1
   inv_name: str
@@ -218,7 +218,7 @@
   ptf_ip: 10.64.246.87/23
   ptf_ipv6:
   server: server_3
-  vm_base: VM0324
+  vm_base: VM03024
   dut:
     - str-a7280cr3-2
   inv_name: str
@@ -233,7 +233,7 @@
   ptf_ip: 10.64.247.6/23
   ptf_ipv6:
   server: server_6
-  vm_base: VM0600
+  vm_base: VM06000
   dut:
     - str-a7050-acs-2
   inv_name: str
@@ -248,7 +248,7 @@
   ptf_ip: 10.64.247.7/23
   ptf_ipv6:
   server: server_6
-  vm_base: VM0624
+  vm_base: VM06024
   dut:
     - str-agc7648-acs-1
   inv_name: str
@@ -263,7 +263,7 @@
   ptf_ip: 10.64.247.18/23
   ptf_ipv6:
   server: server_6
-  vm_base: VM0632
+  vm_base: VM06032
   dut:
     - str-z9100-acs-2
   inv_name: str
@@ -278,7 +278,7 @@
   ptf_ip: 10.64.247.20/23
   ptf_ipv6:
   server: server_6
-  vm_base: VM0636
+  vm_base: VM06036
   dut:
     - str-a7060cx-acs-1
   inv_name: str
@@ -293,7 +293,7 @@
   ptf_ip: 10.64.247.19/23
   ptf_ipv6:
   server: server_6
-  vm_base: VM0640
+  vm_base: VM06040
   dut:
     - str-a7060cx-acs-10
   inv_name: str
@@ -308,7 +308,7 @@
   ptf_ip: 10.64.247.16/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0732
+  vm_base: VM07032
   dut:
     - str-s6100-acs-2
   inv_name: str
@@ -323,7 +323,7 @@
   ptf_ip: 10.64.247.8/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0700
+  vm_base: VM07000
   dut:
     - str-s6100-acs-5
   inv_name: str
@@ -338,7 +338,7 @@
   ptf_ip: 10.64.247.17/23
   ptf_ipv6: 2a01:111:e210:b000::6/64
   server: server_7
-  vm_base: VM0736
+  vm_base: VM07036
   dut:
     - str-7260cx3-acs-1
   inv_name: str
@@ -353,7 +353,7 @@
   ptf_ip: 10.64.247.21/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0740
+  vm_base: VM07040
   dut:
     - str-7260cx3-acs-2
   inv_name: str
@@ -368,7 +368,7 @@
   ptf_ip: 10.64.246.80/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0748
+  vm_base: VM07048
   dut:
     - str-s6100-acs-4
   inv_name: str
@@ -383,7 +383,7 @@
   ptf_ip: 10.64.246.59/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0756
+  vm_base: VM07056
   dut:
     - str-dx010-acs-4
   inv_name: str
@@ -398,7 +398,7 @@
   ptf_ip: 10.64.246.117/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0760
+  vm_base: VM07060
   dut:
     - str-dx010-acs-5
   inv_name: str
@@ -413,7 +413,7 @@
   ptf_ip: 10.64.246.151/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM0752
+  vm_base: VM07052
   dut:
     - str-msn4600c-acs-02
   inv_name: str
@@ -428,7 +428,7 @@
   ptf_ip: 10.64.246.23/23
   ptf_ipv6:
   server: server_11
-  vm_base: VM1132
+  vm_base: VM11032
   dut:
     - str-msn2700-03
   inv_name: str
@@ -443,7 +443,7 @@
   ptf_ip: 10.64.246.22/23
   ptf_ipv6:
   server: server_11
-  vm_base: VM1164
+  vm_base: VM11064
   dut:
     - str-s6000-acs-11
   inv_name: str
@@ -458,7 +458,7 @@
   ptf_ip: 10.64.246.83/23
   ptf_ipv6:
   server: server_11
-  vm_base: VM1116
+  vm_base: VM11016
   dut:
     - str-s6000-acs-10
   inv_name: str
@@ -473,7 +473,7 @@
   ptf_ip: 10.64.246.108/23
   ptf_ipv6:
   server: server_11
-  vm_base: VM1120
+  vm_base: VM11020
   dut:
     - str-s6000-on-4
   inv_name: str
@@ -488,7 +488,7 @@
   ptf_ip: 10.64.246.109/23
   ptf_ipv6:
   server: server_11
-  vm_base: VM1124
+  vm_base: VM11024
   dut:
     - str-s6000-on-6
   inv_name: str
@@ -503,7 +503,7 @@
   ptf_ip: 10.64.247.27/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1200
+  vm_base: VM12000
   dut:
     - str-s6000-acs-8
   inv_name: str
@@ -518,7 +518,7 @@
   ptf_ip: 10.64.247.26/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1224
+  vm_base: VM12024
   dut:
     - str-s6000-acs-7
   inv_name: str
@@ -533,7 +533,7 @@
   ptf_ip: 10.64.246.26/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1228
+  vm_base: VM12028
   dut:
     - str-msn2700-04
   inv_name: str
@@ -548,7 +548,7 @@
   ptf_ip: 10.64.246.42/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1264
+  vm_base: VM12064
   dut:
     - str-e1031-acs-1
   inv_name: str
@@ -563,7 +563,7 @@
   ptf_ip: 10.64.246.84/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1232
+  vm_base: VM12032
   dut:
     - str-s6000-on-5
   inv_name: str
@@ -578,7 +578,7 @@
   ptf_ip: 10.64.246.55/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1280
+  vm_base: VM12080
   dut:
     - str-s6000-acs-14
   inv_name: str
@@ -593,7 +593,7 @@
   ptf_ip: 10.64.246.90/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1272
+  vm_base: VM12072
   dut:
     - str-sn3800-01
   inv_name: str
@@ -608,7 +608,7 @@
   ptf_ip: 10.64.246.112/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1284
+  vm_base: VM12084
   dut:
     - str-s5232f-on-1
   inv_name: str
@@ -623,7 +623,7 @@
   ptf_ip: 10.64.246.153/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM1288
+  vm_base: VM12088
   dut:
     - str-e1031-acs-3
   inv_name: str
@@ -638,7 +638,7 @@
   ptf_ip: 10.64.246.75/23
   ptf_ipv6:
   server: server_13
-  vm_base: VM1304
+  vm_base: VM13004
   dut:
     - str-a7170-acs-1
   inv_name: str
@@ -653,7 +653,7 @@
   ptf_ip: 10.64.246.54/23
   ptf_ipv6:
   server: server_13
-  vm_base: VM1308
+  vm_base: VM13008
   dut:
     - str-n3164-acs-2
   inv_name: str
@@ -668,7 +668,7 @@
   ptf_ip: 10.64.246.17/23
   ptf_ipv6:
   server: server_13
-  vm_base: VM1368
+  vm_base: VM13068
   dut:
     - str-s6000-acs-12
   inv_name: str
@@ -683,7 +683,7 @@
   ptf_ip: 10.64.246.19/23
   ptf_ipv6:
   server: server_13
-  vm_base: VM1372
+  vm_base: VM13072
   dut:
     - str-s6000-on-2
   inv_name: str
@@ -698,7 +698,7 @@
   ptf_ip: 10.64.246.141/23
   ptf_ipv6:
   server: server_18
-  vm_base: VM1800
+  vm_base: VM18000
   dut:
     - str2-msn4600c-acs-01
   inv_name: str2
@@ -713,7 +713,7 @@
   ptf_ip: 10.64.246.143/23
   ptf_ipv6:
   server: server_18
-  vm_base: VM1824
+  vm_base: VM18024
   dut:
     - str2-7215-acs-1
   inv_name: str2
@@ -728,7 +728,7 @@
   ptf_ip: 10.64.246.158/23
   ptf_ipv6:
   server: server_18
-  vm_base: VM1828
+  vm_base: VM18028
   dut:
     - str2-7050qx-32s-acs-02
   inv_name: str2
@@ -743,7 +743,7 @@
   ptf_ip: 10.64.246.159/23
   ptf_ipv6:
   server: server_18
-  vm_base: VM1884
+  vm_base: VM18084
   dut:
     - str2-7050qx-32s-acs-03
   inv_name: str2
@@ -758,7 +758,7 @@
   ptf_ip: 10.64.246.120/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2000
+  vm_base: VM20000
   dut:
     - str2-dx010-acs-6
   inv_name: str2
@@ -773,7 +773,7 @@
   ptf_ip: 10.64.246.126/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2024
+  vm_base: VM20024
   dut:
     - str2-7050cx3-acs-03
   inv_name: str2
@@ -788,7 +788,7 @@
   ptf_ip: 10.64.246.134/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2048
+  vm_base: VM20048
   dut:
     - str2-n3164-acs-4
   inv_name: str2
@@ -803,7 +803,7 @@
   ptf_ip: 10.64.246.144/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2076
+  vm_base: VM20076
   dut:
     - str2-7170-azd
   inv_name: str2
@@ -818,7 +818,7 @@
   ptf_ip: 10.64.246.118/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2080
+  vm_base: VM20080
   dut:
     - str2-7050cx3-acs-01
   inv_name: str2
@@ -833,7 +833,7 @@
   ptf_ip: 10.64.246.125/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2084
+  vm_base: VM20084
   dut:
     - str2-7050cx3-acs-02
   inv_name: str2
@@ -848,7 +848,7 @@
   ptf_ip: 10.64.246.105/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2088
+  vm_base: VM20088
   dut:
     - str2-sn3800-02
   inv_name: str2
@@ -863,7 +863,7 @@
   ptf_ip: 10.64.246.58/23
   ptf_ipv6:
   server: server_20
-  vm_base: VM2092
+  vm_base: VM20092
   dut:
     - str2-7060cx-32s-29
   inv_name: str2
@@ -953,7 +953,7 @@
   ptf_ip: 10.64.246.145/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2100
+  vm_base: VM21000
   dut:
     - str2-msn2700-spy-1
   inv_name: str2
@@ -968,7 +968,7 @@
   ptf_ip: 10.64.246.146/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2104
+  vm_base: VM21004
   dut:
     - str2-msn2700-spy-2
   inv_name: str2
@@ -983,7 +983,7 @@
   ptf_ip: 10.64.246.147/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2128
+  vm_base: VM21028
   dut:
     - str2-7050cx3-acs-10
     - str2-7050cx3-acs-11
@@ -999,7 +999,7 @@
   ptf_ip: 10.64.246.148/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2132
+  vm_base: VM21032
   dut:
     - str2-z9332f-05
   inv_name: str2
@@ -1014,7 +1014,7 @@
   ptf_ip: 10.64.246.149/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2156
+  vm_base: VM21056
   dut:
     - str2-z9332f-01
   inv_name: str2
@@ -1029,7 +1029,7 @@
   ptf_ip: 10.64.246.236/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2180
+  vm_base: VM21080
   dut:
     - str2-7215-acs-3
   inv_name: str2
@@ -1044,7 +1044,7 @@
   ptf_ip: 10.64.246.231/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2184
+  vm_base: VM21084
   dut:
     - str2-8102-01
   inv_name: str2
@@ -1059,7 +1059,7 @@
   ptf_ip: 10.64.246.238/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2800
+  vm_base: VM28000
   dut:
     - str2-8102-02
   inv_name: str2
@@ -1074,7 +1074,7 @@
   ptf_ip: 10.64.246.239/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2824
+  vm_base: VM28024
   dut:
     - str2-8102-03
     - str2-8102-04
@@ -1090,7 +1090,7 @@
   ptf_ip: 10.64.246.240/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2828
+  vm_base: VM28028
   dut:
     - str2-msn4600c-acs-03
   inv_name: str2
@@ -1105,7 +1105,7 @@
   ptf_ip: 10.64.246.241/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2832
+  vm_base: VM28032
   dut:
     - str2-msn4600c-acs-04
   inv_name: str2
@@ -1120,7 +1120,7 @@
   ptf_ip: 10.64.246.242/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2836
+  vm_base: VM28036
   dut:
     - str2-a7280cr3-3
   inv_name: str2
@@ -1135,7 +1135,7 @@
   ptf_ip: 10.64.246.243/23
   ptf_ipv6:
   server: server_28
-  vm_base: VM2840
+  vm_base: VM28040
   dut:
     - str2-7260cx3-acs-12
     - str2-7260cx3-acs-13
@@ -1151,7 +1151,7 @@
   ptf_ip: 10.64.246.152/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2188
+  vm_base: VM21088
   dut:
     - str2-7260cx3-acs-10
     - str2-7260cx3-acs-11
@@ -1167,7 +1167,7 @@
   ptf_ip: 10.64.246.229/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM2192
+  vm_base: VM21092
   dut:
     - str2-dx010-acs-7
   inv_name: str2
@@ -1182,7 +1182,7 @@
   ptf_ip: 10.64.246.106/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2404
+  vm_base: VM24004
   dut:
     - str2-n3164-acs-3
   inv_name: str2
@@ -1197,7 +1197,7 @@
   ptf_ip: 10.64.246.107/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2428
+  vm_base: VM24028
   dut:
     - str2-sn3800-azd
   inv_name: str2
@@ -1212,7 +1212,7 @@
   ptf_ip: 10.64.246.110/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2432
+  vm_base: VM24032
   dut:
     - str2-sn3800-azd-2
   inv_name: str2
@@ -1227,7 +1227,7 @@
   ptf_ip: 10.64.246.137/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2436
+  vm_base: VM24036
   dut:
     - str2-7050qx-32s-acs-01
   inv_name: str2
@@ -1242,7 +1242,7 @@
   ptf_ip: 10.64.246.138/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2460
+  vm_base: VM24060
   dut:
     - str2-n3164-acs-1
   inv_name: str2
@@ -1257,7 +1257,7 @@
   ptf_ip: 10.64.246.139/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2484
+  vm_base: VM24084
   dut:
     - str2-7050cx3-acs-06
     - str2-7050cx3-acs-07
@@ -1273,7 +1273,7 @@
   ptf_ip: 10.64.246.140/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2488
+  vm_base: VM24088
   dut:
     - str2-7050cx3-acs-08
     - str2-7050cx3-acs-09
@@ -1289,7 +1289,7 @@
   ptf_ip: 10.64.246.142/23
   ptf_ipv6:
   server: server_24
-  vm_base: VM2492
+  vm_base: VM24092
   dut:
     - str2-7260cx3-acs-9
   inv_name: str2
@@ -1304,7 +1304,7 @@
   ptf_ip: 10.64.246.230/23
   ptf_ipv6:
   server: server_26
-  vm_base: VM2600
+  vm_base: VM26000
   dut:
     - str2-7804-lc3-1
     - str2-7804-lc6-1
@@ -1323,7 +1323,7 @@
   ptf_ip: 10.64.246.244/23
   ptf_ipv6:
   server: server_29
-  vm_base: VM2900
+  vm_base: VM29000
   dut:
     - str2-8800-lc1-1
     - str2-8800-lc2-1
@@ -1342,7 +1342,7 @@
   ptf_ip: 10.206.144.19/24
   ptf_ipv6:
   server: server_svc_1
-  vm_base: VM1000
+  vm_base: VM10000
   dut:
     - svcstr-n3164-acs-1
   inv_name: strsvc
@@ -1357,7 +1357,7 @@
   ptf_ip: 10.206.144.20/24
   ptf_ipv6:
   server: server_svc_1
-  vm_base: VM1024
+  vm_base: VM10024
   dut:
     - svcstr-n3164-acs-2
   inv_name: strsvc
@@ -1372,7 +1372,7 @@
   ptf_ip: 10.0.0.30/32
   ptf_ipv6:
   server: server_6
-  vm_base: VM0600
+  vm_base: VM06000
   dut:
     - example-s6100-dut-1
   inv_name: ''
