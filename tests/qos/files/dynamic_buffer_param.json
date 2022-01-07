@@ -26,7 +26,7 @@
 	    }
 	},
 	"extra_overhead": {
-	    "400000": "95232",
+	    "8": "95232",
 	    "default": "58368"
 	},
 	"shared-headroom-pool": {
