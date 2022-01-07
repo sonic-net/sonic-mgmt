@@ -36,11 +36,26 @@ TIMEOUT_DEVIATION = 2
 class TestWatchdogApi(PlatformApiTestBase):
     ''' Hardware watchdog platform API test cases '''
 
+    def get_watchdog_attributes(self, duthost, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            attr = duthost.facts.get("chassis").get("watchdog")
+            if attr:
+                for key in keys:
+                    value = attr.get(key)
+                    if value is None:
+                        return def_value
+                return value
+        return def_value
+
     @pytest.fixture(scope='function', autouse=True)
-    def watchdog_not_running(self, platform_api_conn):
+    def watchdog_not_running(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):
         ''' Fixture that automatically runs on each test case and
         verifies that watchdog is not running before the test begins
         and disables it after the test ends'''
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        support_disarm = self.get_watchdog_attributes(duthost, True, "disarm")
+        if not support_disarm:
+            pytest.skip("test_watchdog:disarm not supported")
 
         assert not watchdog.is_armed(platform_api_conn)
 

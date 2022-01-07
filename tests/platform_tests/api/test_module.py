@@ -76,6 +76,17 @@ class TestModuleApi(PlatformApiTestBase):
                 if self.num_modules == 0:
                     pytest.skip("No modules found on device")
 
+    def get_module_facts(self, duthost, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            attr = duthost.facts.get("chassis").get("get_module_attributes")
+            if attr:
+                for key in keys:
+                    value = attr.get(key)
+                    if value is None:
+                        return def_value
+                return value
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -116,9 +127,15 @@ class TestModuleApi(PlatformApiTestBase):
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+
+            support_get_model = self.get_module_facts(duthost, True, "model")
+            if not support_get_model:
+                pytest.skip("get attribute: model is not supported")
+
             model = module.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
@@ -126,9 +143,15 @@ class TestModuleApi(PlatformApiTestBase):
 
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+
+            support_get_serial = self.get_module_facts(duthost, True, "serial")
+            if not support_get_serial:
+                pytest.skip("get attribute: serial is not supported")
+
             serial = module.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
@@ -169,6 +192,7 @@ class TestModuleApi(PlatformApiTestBase):
 
     def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         # Ensure the base MAC address of each module is sane
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
         for i in range(self.num_modules):
@@ -179,6 +203,11 @@ class TestModuleApi(PlatformApiTestBase):
             if "FABRIC-CARD" in mod_name:
                 logger.info("skipping get_base_mac for module {} which is a Fabric Card".format(mod_name))
                 continue
+
+            support_get_base_mac = self.get_module_facts(duthost, True, "base_mac")
+            if not support_get_base_mac:
+                pytest.skip("get attribute: base_mac is not supported")
+
             base_mac = module.get_base_mac(platform_api_conn, i)
 	    if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
@@ -216,6 +245,7 @@ class TestModuleApi(PlatformApiTestBase):
             ONIE_TLVINFO_TYPE_CODE_CRC32
         ])
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         # TODO: Add expected system EEPROM info for each module to inventory file and compare against it
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
@@ -226,6 +256,10 @@ class TestModuleApi(PlatformApiTestBase):
             if "FABRIC-CARD" in mod_name:
                 logger.info("skipping test_get_system_eeprom_info for module {} which is a Fabric Card".format(mod_name))
                 continue
+
+            support_get_system_eeprom_info = self.get_module_facts(duthost, True, "system_eeprom_info")
+            if not support_get_system_eeprom_info:
+                pytest.skip("get attribute: system_eeprom_info is not supported")
 
             syseeprom_info_dict = module.get_system_eeprom_info(platform_api_conn, i)
             if not self.expect(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i)):
