@@ -314,7 +314,7 @@ def __run_traffic(api,
 
     api.set_config(config)
 
-    # """Wait for Arp"""
+    logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
