@@ -365,7 +365,7 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
     fi
 fi
 
-if ! j2 -v &> /dev/null; then
+if ! which j2 &> /dev/null; then
     exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
 fi
 
