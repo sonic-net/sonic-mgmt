@@ -14,6 +14,8 @@ DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, 'files')
 
+daemon_name = "thermalctld"
+
 class BaseMocker:
     """
     @summary: Base class for thermal control data mocker
