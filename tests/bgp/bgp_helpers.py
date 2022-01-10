@@ -22,7 +22,8 @@ BGP_MONITOR_NAME = "bgp_monitor"
 BGP_MONITOR_PORT = 7000
 BGP_ANNOUNCE_TIME = 30 #should be enough to receive and parse bgp updates
 PREFIX_LISTS = {
-    'IPv4': [u'172.16.30.0/24', u'172.16.31.0/24']
+    'IPv4': [u'172.16.30.0/24',u'172.16.31.0/24'],
+    'IPv6': [u'2000:172:16:30::/64',u'2000:172:16:31::/64']
 }
 
 def apply_bgp_config(duthost, template_name):

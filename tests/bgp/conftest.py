@@ -543,8 +543,8 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
 
-@pytest.fixture(scope='module')
-def build_routes(tbinfo):
+@pytest.fixture()
+def build_routes(tbinfo, ip_ver):
     """
     Add nexthops to routes that are used for test
     Args:
@@ -555,14 +555,13 @@ def build_routes(tbinfo):
     nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     routes = []
-    for list_name, prefixes in PREFIX_LISTS.items():
-        for prefix in prefixes:
-            route = {}
-            route['prefix'] = prefix
-            if ipaddress.ip_network(prefix).version == 4:
-                route['nexthop'] = nhipv4
-            else:
-                route['nexthop'] = nhipv6
-            routes.append(route)
+    for prefix in PREFIX_LISTS[ip_ver]:
+        route = {}
+        route['prefix'] = prefix
+        if ipaddress.ip_network(prefix).version == 4:
+            route['nexthop'] = nhipv4
+        else:
+            route['nexthop'] = nhipv6
+        routes.append(route)
 
     yield routes
