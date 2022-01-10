@@ -7,6 +7,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ def update_init_cfg_file(duthost, default_pfcwd_value):
     if matched:
         original_value = matched.group(1)
     else:
-        pytest.failed("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
+        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
 
     sed_command = "sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' /etc/sonic/init_cfg.json".format(original_value, default_pfcwd_value)
     duthost.shell(sed_command)
@@ -343,8 +344,7 @@ class TestDefaultPfcConfig(object):
             None
         """
         duthost = duthosts[rand_one_dut_hostname]
-
-        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+        config_reload(duthost, config_source='minigraph')
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')
