@@ -549,9 +549,10 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " switch_type not found")
 
-                        try: #get slot_num                                                                                                                                                                                           slot_num = dev.get("slot_num")                                           
-                            if slot_num is not None:                                                 
-                               entry += "\tslot_num=" + str( slot_num )                              
+                        try: #get slot_num
+                            slot_num = dev.get("slot_num")
+                            if slot_num is not None:
+                               entry += "\tslot_num=" + str( slot_num )
                         except AttributeError:
                             print("\t\t" + host + " slot_num not found")
 
@@ -561,6 +562,27 @@ def makeLab(data, devices, testbed, outfile):
                                entry += "\tos=" + str( os )
                         except AttributeError:
                             print("\t\t" + host + " os not found")
+
+                        try: #get model
+                            model=dev.get("model")
+                            if model is not None:
+                                entry += "\tmodel=" + str( model )
+                        except AttributeError:
+                            print("\t\t" + host + " model not found")
+
+                        try: #get base_mac
+                            base_mac=dev.get("base_mac")
+                            if base_mac is not None:
+                                entry += "\tbase_mac=" + str( base_mac )
+                        except AttributeError:
+                            print("\t\t" + host + " base_mac not found")
+
+                        try: #get serial
+                            serial=dev.get("serial")
+                            if serial is not None:
+                                entry += "\tserial=" + str( serial )
+                        except AttributeError:
+                            print("\t\t" + host + " serial not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")

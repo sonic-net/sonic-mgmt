@@ -5,7 +5,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform
@@ -120,7 +120,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_version(duthost, ["201811", "201911", "202012"])
+        skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
@@ -393,6 +393,9 @@ class TestPsuApi(PlatformApiTestBase):
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
 
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                continue
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
                 for color in led_type:

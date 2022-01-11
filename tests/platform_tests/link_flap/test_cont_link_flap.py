@@ -85,9 +85,10 @@ class TestContLinkFlap(object):
 
         config_facts = duthost.get_running_config_facts()
 
-        for portchannel in config_facts['PORTCHANNEL'].keys():
-            pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
-                          "Fail: dut interface {}: link operational down".format(portchannel))
+        if config_facts and 'PORTCHANNEL' in config_facts:
+            for portchannel in config_facts['PORTCHANNEL'].keys():
+                pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
+                              "Fail: dut interface {}: link operational down".format(portchannel))
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
@@ -103,11 +104,17 @@ class TestContLinkFlap(object):
                 nbrhost = nbrhosts[k]['host']
                 if isinstance(nbrhost, EosHost):
                     res = nbrhost.eos_command(commands=['show ip bgp sum'])
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.eos_command(commands=['show ipv6 bgp sum'])
+                    failmsg.append(res['stdout'])
                 elif isinstance(nbrhost, SonicHost):
                     res = nbrhost.command('vtysh -c "show ip bgp sum"')
+                    failmsg.append(res['stdout'])
+                    res = nbrhost.command('vtysh -c "show ipv6 bgp sum"')
+                    failmsg.append(res['stdout'])
                 else:
-                    res = ""
-                failmsg.append(res['stdout'])
+                    pass
+
             pytest.fail(str(failmsg))
 
         # Record memory status at end

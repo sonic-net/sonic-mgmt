@@ -65,7 +65,7 @@ class VlanPort(object):
     def destroy_vlan_port(self, vlan_port):
         if VlanPort.iface_exists(vlan_port):
             VlanPort.iface_down(vlan_port)
-            VlanPort.cmd('vconfig rem %s' % vlan_port)
+            VlanPort.cmd('ip link del %s' % vlan_port)
 
         return
 
@@ -104,18 +104,27 @@ class VlanPort(object):
 
     @staticmethod
     def iface_exists(iface_name):
-        iface = VlanPort.ifconfig("ifconfig -a %s" % iface_name)
+        try:
+            iface = VlanPort.ifconfig("ifconfig -a %s" % iface_name)
+        except Exception:
+            iface = None
         return bool(iface)
 
     @staticmethod
     def log_show_vlan_intf(port, vlan_id):
-        cmdline = "cat /proc/net/vlan/config | grep %s" % vlan_id
+        cmdline = "cat /proc/net/vlan/config | grep -E '\|[[:space:]]*%s[[:space:]]*\|'" % vlan_id
         out = VlanPort.cmd(cmdline, ignore_error=True)
-        if out:
-            vlan_intf, vlan_id, port = out.strip().split("|")
-            logging.debug("Port %s has vlan interface %s with vlan id %s" % (port, vlan_intf, vlan_id))
-        else:
+        lines = out.splitlines()
+        if len(lines) == 0:
             logging.debug("Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
+        elif len(lines) == 1:
+            try:
+                vlan_intf, vlan_id, port = lines[0].strip().split("|")
+                logging.debug("Port %s has vlan interface %s with vlan id %s" % (port, vlan_intf, vlan_id))
+            except Exception:
+                logging.warn("Unexpected output:\n%s", out)
+        else:
+            logging.warn("Unexpected output:\n%s", out)
 
     @staticmethod
     def iface_updown(iface_name, state, pid):

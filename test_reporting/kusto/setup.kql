@@ -55,13 +55,14 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestReportSummary (ReportId: string, TotalCasesRun: int, Failures: int,
-                                 Errors: int, Skipped: int, TotalRuntime: double)
+                                 Errors: int, Skipped: int, Xfails: int, TotalRuntime: double)
 
 .create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' '[{"column":"ReportId","Properties":{"path":"$.id"}},
                                                                                 {"column":"TotalCasesRun","Properties":{"path":"$.tests"}},
                                                                                 {"column":"Failures","Properties":{"path":"$.failures"}},
                                                                                 {"column":"Errors","Properties":{"path":"$.errors"}},
                                                                                 {"column":"Skipped","Properties":{"path":"$.skipped"}},
+                                                                                {"column":"Xfails","Properties":{"path":"$.xfails"}},
                                                                                 {"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
 
 ###############################################################################
@@ -86,6 +87,17 @@
                                                                                   {"column":"TestbedName","Properties":{"path":"$.testbed"}},
                                                                                   {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
 
+###############################################################################
+# EXPECTED TEST RUNS TABLE SETUP                                              #
+# 1. Create a ExpectedTestRuns table to store expected test runs data         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+
+.create table ExpectedTestRuns (Timestamp: datetime,
+                                TestbedName: string)
+
+.create table ExpectedTestRuns ingestion json mapping 'ExpectedTestRunsV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
+                                                                             {"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
 
 ###############################################################################
 # RAW REBOOT REPORT TABLE SETUP                                               #
