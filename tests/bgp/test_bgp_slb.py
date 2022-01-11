@@ -8,7 +8,8 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0"),
+    pytest.mark.device_type('vs')
 ]
 
 PEER_COUNT = 1
@@ -60,13 +61,13 @@ def bgp_slb_neighbor(duthosts, rand_one_dut_hostname, setup_interfaces, ptfhost,
 def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
     duthosts, rand_one_dut_hostname, bgp_slb_neighbor,
     toggle_all_simulator_ports_to_rand_selected_tor, reboot_type, localhost
-    ):
+):
 
     def verify_bgp_session(duthost, bgp_neighbor):
         """Verify the bgp session to the DUT is established."""
         bgp_facts = duthost.bgp_facts()["ansible_facts"]
         return bgp_neighbor.ip in bgp_facts["bgp_neighbors"] and bgp_facts["bgp_neighbors"][bgp_neighbor.ip]["state"] == "established"
-    
+
     duthost = duthosts[rand_one_dut_hostname]
     neighbor = bgp_slb_neighbor
 
