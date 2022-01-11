@@ -87,6 +87,17 @@
                                                                                   {"column":"TestbedName","Properties":{"path":"$.testbed"}},
                                                                                   {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
 
+###############################################################################
+# EXPECTED TEST RUNS TABLE SETUP                                              #
+# 1. Create a ExpectedTestRuns table to store expected test runs data         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+
+.create table ExpectedTestRuns (Timestamp: datetime,
+                                TestbedName: string)
+
+.create table ExpectedTestRuns ingestion json mapping 'ExpectedTestRunsV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
+                                                                             {"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
 
 ###############################################################################
 # RAW REBOOT REPORT TABLE SETUP                                               #
