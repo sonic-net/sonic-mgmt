@@ -1,0 +1,609 @@
+import logging
+import pytest
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+
+pytestmark = [
+    pytest.mark.topology('t0'),
+]
+
+logger = logging.getLogger(__name__)
+
+AAA_CATEGORY = ["authentication", "authorization", "accounting"]
+
+@pytest.fixture(autouse=True)
+def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
+    """
+    Setup/teardown fixture for each loopback interface test.
+    rollback to check if it goes back to starting config
+
+    Args:
+        duthosts: list of DUTs.
+        rand_selected_dut: The fixture returns a randomly selected DuT.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    create_checkpoint(duthost)
+
+    yield
+
+    try:
+        logger.info("Rolled back to original checkpoint")
+        rollback_or_reload(duthost)
+    finally:
+        delete_checkpoint(duthost)
+
+
+
+def verify_aaa_sub_options(duthost, aaa_type, option, value):
+    """ Verify if AAA sub type's options match with expected value
+
+    Sample output:
+    admin@vlab-01:~/tacacs$ show aaa
+    AAA authentication login local (default)
+    AAA authentication failthrough False (default)
+    AAA authorization login local (default)
+    AAA accounting login disable (default)
+    """
+    output = duthost.shell('show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
+    logger.info("{}".format(output))
+    pytest_assert(not output['rc'],
+        "Failed to grep AAA {}".format(option)
+    )
+    pytest_assert(output['stdout'] == value,
+        "AAA {} {} failed to apply".format(aaa_type, option)
+    )
+
+def aaa_add_init_config(duthost):
+    """ Add initial config for AAA
+
+    Though AAA has default value in setup. But the config does not
+    included in configDB. So to make change on AAA table, the init
+    config need to be added to config first.
+    Sample configDB table:
+    "AAA": {
+        "accounting": {
+            "login": "local"
+        },
+        "authentication": {
+            "login": "local"
+        },
+        "authorization": {
+            "login": "local"
+        }
+    }
+    """
+    cmds = []
+    cmds.append("config aaa authentication login local")
+    cmds.append("config aaa authorization local")
+    cmds.append("config aaa accounting local")
+
+    output = duthost.shell_cmds(cmds=cmds)['results']
+    logger.info(output)
+    for res in output:
+        pytest_assert(not res['rc'],
+            "AAA init config failed"
+        )
+
+def verify_tacacs_global_config(duthost, tacacs_global_type, value):
+    """ Verify tacacs global config match with expected value
+
+    Sample output in t0:
+    admin@vlab-01:~/tacacs$ show tacacs
+    TACPLUS global auth_type pap (default)
+    TACPLUS global timeout 5 (default)
+    TACPLUS global passkey <EMPTY_STRING> (default)
+
+    TACPLUS_SERVER address 10.0.0.8
+                   priority 1
+                   tcp_port 49
+
+    TACPLUS_SERVER address 10.0.0.9
+                   priority 1
+                   tcp_port 49
+
+    """
+    output = duthost.shell('show tacacs | grep -Po "TACPLUS global {} \K.*"'.format(tacacs_global_type))
+    logger.info("{}".format(output))
+    pytest_assert(not output['rc'],
+        "Failed to grep TACACS {}".format(tacacs_global_type)
+    )
+    pytest_assert(output['stdout'] == value,
+        "TACACS global {} failed to apply".format(tacacs_global_type)
+    )
+
+def tacacs_add_init_config(duthost):
+    """ Add initial config for tacacs
+
+    Same with AAA config. The default tacacs config does not
+    included in configDB. So to make change, the initial
+    config need to be added to config first.
+    Sample configDB table:
+    "TACPLUS": {
+        "global": {
+            "auth_type": "pap",
+            "passkey": "testing123",
+            "timeout": "5"
+        }
+    }
+    """
+    cmds = []
+    cmds.append("config tacacs authtype pap")
+    cmds.append("config tacacs passkey testing123")
+    cmds.append("config tacacs timeout 5")
+
+    output = duthost.shell_cmds(cmds=cmds)['results']
+    logger.info(output)
+    for res in output:
+        pytest_assert(not res['rc'],
+            "TACACS init config failed"
+        )
+
+def parse_tacacs_server(duthost):
+    """ Parse tacacs server
+
+    Sample output in t0:
+    {u'10.0.0.9': {u'priority': u'1', u'tcp_port': u'49'}, 
+    u'10.0.0.8': {u'priority': u'1', u'tcp_port': u'49'}}
+    """
+    output = duthost.shell("show tacacs")
+    pytest_assert(not output['rc'])
+    lines = output['stdout']
+
+    tacacs_servers = {}
+    tacacs_server = {}
+    address = ""
+    tacacs_server_found = False
+
+    for line in lines.splitlines():
+        
+        if line.startswith("TACPLUS_SERVER"):
+            address = line.split(" ")[-1]
+            tacacs_server_found = True
+        else:
+            if not tacacs_server_found:
+                continue
+
+            if not line:
+                tacacs_servers[address] = tacacs_server
+                tacacs_server = {}
+                address = ""
+            else:
+                pytest_assert(len(line.strip().split(" ")) == 2)
+                k, v = line.strip().split(" ")
+                tacacs_server[k] = v
+
+    if address:
+        tacacs_servers[address] = tacacs_server
+
+    return tacacs_servers
+
+@pytest.mark.parametrize("aaa_type, aaa_sub_options", [
+    (
+        "authentication",
+        {
+            "debug": "True",
+            "failthrough": "True",
+            "fallback": "True",
+            "login": "local,tacacs+",
+            "trace": "True"
+        }
+    ),
+    (
+        "authorization",
+        {
+            "login": "tacacs+,local"
+        }
+    ),
+    (
+        "accounting",
+        {
+            "login": "tacacs+,local"
+        }
+    )
+])
+def test_aaa_tc1_add_config(duthost, aaa_type, aaa_sub_options):
+    """ Test AAA add initial config for its sub type
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/AAA",
+            "value": {
+                "{}".format(aaa_type): aaa_sub_options
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for option, value in aaa_sub_options.items():
+            verify_aaa_sub_options(duthost, aaa_type, option, value)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_aaa_tc2_replace(duthost):
+    """ Test replace option value in each AAA sub type
+    """
+    aaa_add_init_config(duthost)
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/AAA/authorization/login",
+            "value": "tacacs+"
+        },
+        {
+            "op": "replace",
+            "path": "/AAA/authentication/login",
+            "value": "tacacs+"
+        },
+        {
+            "op": "replace",
+            "path": "/AAA/accounting/login",
+            "value": "tacacs+"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for aaa_type in AAA_CATEGORY:
+            verify_aaa_sub_options(duthost, aaa_type, "login", "tacacs+")
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_aaa_tc3_add_duplicate(duthost):
+    """ Test add duplicate config in AAA sub type
+    """
+    aaa_add_init_config(duthost)
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/AAA/authorization/login",
+            "value": "local"
+        },
+        {
+            "op": "add",
+            "path": "/AAA/authentication/login",
+            "value": "local"
+        },
+        {
+            "op": "add",
+            "path": "/AAA/accounting/login",
+            "value": "local"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for aaa_type in AAA_CATEGORY:
+            verify_aaa_sub_options(duthost, aaa_type, "login", "local")
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_aaa_tc4_remove(duthost):
+    """ Test remove AAA config check if it returns to default setup
+    """
+    aaa_add_init_config(duthost)
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/AAA"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        output = duthost.shell('show aaa')
+        pytest_assert(not output['rc'],
+            "AAA show command failed"
+        )
+        logger.info("output {}".format(output))
+        for line in output['stdout'].splitlines():
+            logger.info(line)
+            pytest_assert(line.endswith("(default)"),
+                "AAA config deletion failed!"
+            )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_global_tc5_add_config(duthost):
+    """ Test add tacacs global config
+    """
+    TACACS_ADD_CONFIG = {
+        "auth_type": "login",
+        "passkey": "testing123",
+        "timeout": "10"
+    }
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS",
+            "value": {
+                "global": TACACS_ADD_CONFIG
+            }
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
+            verify_tacacs_global_config(duthost, tacacs_global_type, value)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+@pytest.mark.parametrize("tacacs_global_type, invalid_input", [
+    ("auth_type", "logout"),
+    ("passkey", " 123"), ("passkey", "#123"), ("passkey", ",123"), ("passkey", "1"*66),
+    ("timeout", "61"), ("timeout", "0")
+])
+def test_tacacs_global_tc6_invalid_input(duthost, tacacs_global_type, invalid_input):
+    """ Test tacacs global invalid input
+
+    option restriction:
+        auth_type:[chap, pap, mschap, login]
+        passkey: cannot contain space, "#" and ","
+        timeout: range[1, 60]
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS",
+            "value": {
+                "global": {
+                    tacacs_global_type: invalid_input
+                }
+            }
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_global_tc7_duplicate_input(duthost):
+    """ Test tacacs global duplicate input
+    """
+    tacacs_add_init_config(duthost)
+
+    TACACS_ADD_CONFIG = {
+        "auth_type": "pap",
+        "passkey": "testing123",
+        "timeout": "5"
+    }
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS",
+            "value": {
+                "global": TACACS_ADD_CONFIG
+            }
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
+            verify_tacacs_global_config(duthost, tacacs_global_type, value)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_global_tc8_remove(duthost):
+    """ Test tacacs global config removal
+    """
+    tacacs_add_init_config(duthost)
+
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/TACPLUS"
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        output = duthost.shell('show tacacs | grep "TACPLUS global"')
+        pytest_assert(not output['rc'],
+            "AAA show command failed"
+        )
+        for line in output['stdout'].splitlines():
+            pytest_assert(line.endswith("(default)"),
+                "AAA config deletion failed!"
+            )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+@pytest.mark.parametrize("ip_address", ["10.0.0.10", "fc10::10"])
+def test_tacacs_server_tc9_add(duthost, ip_address):
+    """ Test tacacs server addition
+    """
+    TACACS_SERVER_ADD = {
+        "auth_type": "login",
+        "passkey": "testing123",
+        "priority": "10",
+        "tcp_port": "50",
+        "timeout": "10"
+    }
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS_SERVER/{}".format(ip_address),
+            "value": TACACS_SERVER_ADD
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        tacacs_servers = parse_tacacs_server(duthost)
+        pytest_assert(ip_address in tacacs_servers,
+            "tacacs server failed to add to config."
+        )
+        tacacs_server = tacacs_servers[ip_address]
+        for opt, value in TACACS_SERVER_ADD.items():
+            pytest_assert(opt in tacacs_server and tacacs_server[opt] == value,
+                "tacacs server failed to add to config completely."
+            )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_server_tc10_add_max(duthost):
+    """ Test tacacs server reach maximum 8 servers
+
+    The t0 has two servers 10.0.0.8 and 10.0.0.9. Need to add 7 more
+    servers to exceed the max.
+    """
+    json_patch = []
+    for i in range(10, 17):
+        server = {
+            "op": "add",
+            "path": "/TACPLUS_SERVER/10.0.0.{}".format(i),
+            "value": {
+                "priority": "1",
+                "tcp_port": "49"
+            }
+        }
+        json_patch.append(server)
+    logger.info(json_patch)
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+@pytest.mark.parametrize("tacacs_server_options, invalid_input", [
+    ("auth_type", "logout"),
+    ("passkey", " 123"), ("passkey", "#123"), ("passkey", ",123"), ("passkey", "1"*66),
+    ("priority", "0"), ("priority", "65"),
+    ("tcp_port", "65536"),
+    ("timeout", "61"), ("timeout", "0")
+])
+def test_tacacs_server_tc11_add_invalid(duthost, tacacs_server_options, invalid_input):
+    """ Test invalid input for tacacs server
+
+    valid input restriction:
+        auth_type:[chap, pap, mschap, login]
+        passkey: cannot contain space, "#" and ","
+        priority: range[1, 64]
+        tcp_port: [0, 65535]
+        timeout: range[1, 60]
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS_SERVER/10.0.0.10",
+            "value": {
+                tacacs_server_options: invalid_input
+            }
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_server_tc12_add_duplicate(duthost):
+    """ Test tacacs server add duplicate server
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/TACPLUS_SERVER/10.0.0.8",
+            "value": {
+                "priority": "1",
+                "tcp_port": "49"
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        tacacs_servers = parse_tacacs_server(duthost)
+        pytest_assert('10.0.0.9' in tacacs_servers,
+            "tacacs server add duplicate failed."
+        )
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_tacacs_server_tc13_remove(duthost):
+    """ Test tacasc server removal
+    """
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/TACPLUS_SERVER"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        tacacs_servers = parse_tacacs_server(duthost)
+        pytest_assert(not tacacs_servers,
+            "tacacs server failed to remove."
+        )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
