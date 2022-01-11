@@ -16,10 +16,12 @@ init_data = {
         "version": "",
         "switch_name": "",
         "files_dir": "",
-        "data_dir": ""
+        "data_dir": "",
+        "orig_db_dir": ""
         }
 
-running_in_switch = False
+
+MAX_MISMATCH_CNT = 10
 
 #
 # App-DB/"LLDP_ENTRY_TABLE" is very dynamic -- not a candidate for comparison
@@ -29,9 +31,12 @@ scan_dbs = {
         "config-db": {
             "db_no": 4,
             "keys_to_compare": set(),
-            "keys_to_skip_comp": {"BUFFER_PROFILE|pg_lossless_40000_5m_profile"},
+            "keys_to_skip_comp": {
+                "BUFFER_PROFILE|pg_lossless_40000_5m_profile",
+                "FLEX_COUNTER_TABLE"
+                },
             "keys_skip_val_comp": set()
-            },
+        },
         "app-db": {
             "db_no": 0,
             "keys_to_compare": set(),
@@ -40,9 +45,10 @@ scan_dbs = {
                 "NEIGH_TABLE:eth0",
                 "NEIGH_TABLE_DEL_SET",
                 "ROUTE_TABLE:fe80:",
-                "ROUTE_TABLE:FE80:"},
+                "ROUTE_TABLE:FE80:",
+                "TUNNEL_DECAP_TABLE"},
             "keys_skip_val_comp": set()
-            },
+        },
         "state-db": {
             "db_no": 6,
             "keys_to_compare": {
@@ -111,7 +117,7 @@ def match_key(key, kset):
     return False
 
 
-def chk_for_pfc_wd(duthost, duthost_name, data_dir):
+def chk_for_pfc_wd(duthost):
     ret = False
     res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
@@ -128,39 +134,40 @@ def chk_for_pfc_wd(duthost, duthost_name, data_dir):
         ret = True
     return ret
 
-def set_running_in_switch():
-    global running_in_switch
 
-    running_in_switch = True
-
-
-def dut_dump(redis_cmd, duthost, duthost_name, data_dir, fname):
+def dut_dump(redis_cmd, duthost, data_dir, fname):
     db_read = {}
-    if not running_in_switch:
-        duthost.shell("{} -o /tmp/{}.json".format(redis_cmd, fname))
-        duthost.fetch(src="/tmp/{}.json".format(fname), dest=data_dir)
-        with open("{}/{}/tmp/{}.json".format(data_dir, duthost_name, fname), "r") as s:
-            db_read = json.load(s)
-    else:
-        os.system("{} -o {}/tmp/{}.json".format(redis_cmd, data_dir, fname))
-        with open("{}/tmp/{}.json".format(data_dir, fname), "r") as s:
-            db_read = json.load(s)
+
+    dump_file = "/tmp/{}.json".format(fname)
+    ret = duthost.shell("{} -o {}".format(redis_cmd, dump_file))
+    assert ret["rc"] == 0, "Failed to run cmd:{}".format(redis_cmd)
+
+    ret = duthost.fetch(src=dump_file, dest=data_dir)
+    dest_file = ret.get("dest", None)
+
+    assert dest_file != None, "Failed to fetch src={} dest:{}".format(
+            dump_file, data_dir)
+    assert os.path.exists(dest_file), "Fetched file not exist: {}".format(
+            dest_file)
+
+    with open(dest_file, "r") as s:
+        db_read = json.load(s)
     return db_read
 
 
-def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):
+def get_dump(duthost, db_name, db_info, dir_name, data_dir):
     db_no = db_info["db_no"]
     lst_keys = db_info["keys_to_compare"]
 
     db_read = {}
     if not lst_keys:
         db_read = dut_dump("redis-dump -d {} --pretty".format(db_no),
-                duthost, duthost_name, data_dir, db_name)
+                duthost, data_dir, db_name)
     else:
         for k in lst_keys:
             fname = "{}_{}.json".format(k, db_name)
             cmd = 'redis-dump -d {} --pretty -k \"{}*\"'.format(db_no, k)
-            db_read.update(dut_dump(cmd, duthost, duthost_name, data_dir, fname))
+            db_read.update(dut_dump(cmd, duthost, data_dir, fname))
 
     keys_skip_cmp = db_info["keys_to_skip_comp"]
     keys_skip_val = db_info["keys_skip_val_comp"]
@@ -174,15 +181,20 @@ def get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir):
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
     with open(dst_file, "w") as s:
         s.write(json.dumps(db_write, indent=4, default=str))
-    
+
     log_info("Written dst_file: {}".format(dst_file))
 
-    
-def take_DB_dumps(duthost, duthost_name, dir_name, data_dir):
-    for db_name, db_info in scan_dbs.items():
-        get_dump(duthost, duthost_name, db_name, db_info, dir_name, data_dir)
 
-    log_info("created in dir = {}".format(dir_name))
+def take_DB_dumps(duthost, dir_name, data_dir):
+    log_info("Taking DB dumps dir= {}".format(dir_name))
+    for db_name, db_info in scan_dbs.items():
+        get_dump(duthost, db_name, db_info, dir_name, data_dir)
+
+    for i in [ "config_db.json", "minigraph.xml" ]:
+        ret = duthost.fetch(src=os.path.join("/etc/sonic/", i), dest=data_dir)
+        os.system("cp {} {}".format(ret["dest"], dir_name))
+
+    log_info("dumps created in dir = {}".format(dir_name))
 
 
 def cmp_str(orig_s, clet_s):
@@ -215,6 +227,8 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     clet_data = {}
     msg = ""
 
+    log_info("comparing dump {} {} {}".format(
+        db_name, orig_db_dir, clet_db_dir))
     fname = "{}.json".format(db_name)
     with open(os.path.join(orig_db_dir, fname), "r") as s:
         orig_data = json.load(s)
@@ -235,12 +249,20 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
         mismatch_cnt += 1
         if not msg:
             msg = "Missing key: {}".format(k)
+        if mismatch_cnt >= MAX_MISMATCH_CNT:
+            log_error("Too many errors; bailing out")
+            break
+
 
     diff = clet_keys - orig_keys
     for k in diff:
         log_info("{}: New key:  {}".format(fname, k))
 
     for k in orig_keys.intersection(clet_keys):
+        if mismatch_cnt >= MAX_MISMATCH_CNT:
+            log_error("Too many errors; bailing out")
+            break
+
         if orig_data[k] != clet_data[k]:
             if orig_data[k]["type"] != clet_data[k]["type"]:
                 log_error("{}: mismatch key:{} type:{} != {}".format(
@@ -266,6 +288,8 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
             db_name, orig_db_dir, clet_db_dir, mismatch_cnt))
     if msg:
         msg = "{}: {}".format(db_name, msg)
+    log_info("compared dump {} mismatch_cnt={} msg={}".format(
+        db_name, mismatch_cnt, msg))
     return mismatch_cnt, msg
 
 
