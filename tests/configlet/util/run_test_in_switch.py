@@ -10,7 +10,8 @@ from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
 from helpers import *
 
 
-def run_test(skip_load, skip_test, skip_generic):
+def run_test(skip_load=False, skip_clet_test=False,
+        skip_generic_add=False, skip_generic_rm=False):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     set_print()
@@ -25,8 +26,10 @@ def run_test(skip_load, skip_test, skip_generic):
     else:
         skip_load = True
 
-    do_test_add_rack(duthost, skip_test=skip_test, skip_generic=skip_generic,
-        skip_load=skip_load)
+    do_test_add_rack(duthost, skip_load=skip_load,
+            skip_clet_test=skip_clet_test,
+            skip_generic_add=skip_generic_add,
+            skip_generic_rm=skip_generic_rm)
     
 
 def main():
@@ -37,9 +40,14 @@ def main():
     parser.add_argument("-d", "--dir", help="Test Data dir", required=True)
     parser.add_argument("-l", "--skip-load", help="skip initial minigraph loading", 
             action='store_true', default=False)
-    parser.add_argument("-s", "--skip-test", help="skip any testing; create clet files only", 
+    parser.add_argument("-c", "--skip-clet-test",
+            help="skip clet testing; create clet files only", 
             action='store_true', default=False)
-    parser.add_argument("-g", "--skip-generic", help="skip generic updater testing; executes clet test only", 
+    parser.add_argument("-a", "--skip-generic-add",
+            help="skip add via generic updater testing", 
+            action='store_true', default=False)
+    parser.add_argument("-r", "--skip-generic-rm",
+            help="skip remove via generic updater testing", 
             action='store_true', default=False)
 
     args = parser.parse_args()
@@ -61,7 +69,9 @@ def main():
 
     print("Work dir for this run is {}".format(os.getcwd()))
 
-    run_test(args.skip_load, args.skip_test, args.skip_generic)
+    run_test(skip_load=args.skip_load, skip_clet_test=args.skip_clet_test,
+            skip_generic_add=args.skip_generic_add,
+            skip_generic_rm=args.skip_generic_rm)
 
 
 if __name__ == "__main__":

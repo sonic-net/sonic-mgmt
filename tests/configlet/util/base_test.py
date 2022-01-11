@@ -177,7 +177,7 @@ def load_minigraph(duthost):
             "PFC_WD is missing in CONFIG-DB"
 
 
-def apply_clet(duthost):
+def apply_clet(duthost, skip_test=False):
     global no_t0_db_dir
 
     pfx_lvl = get_prefix_lvl()
@@ -211,28 +211,29 @@ def apply_clet(duthost):
         append_log_prefix_msg("load_mini_wo_t0", pfx_lvl)
         take_DB_dumps(duthost, no_t0_db_dir, data_dir)
 
-        append_log_prefix_msg("applying", pfx_lvl)
-        # Apply delete 
-        duthost.shell("sudo configlet -d -j {}".format(del_sonic_clet_file))
+        if not skip_test:
+            append_log_prefix_msg("applying", pfx_lvl)
+            # Apply delete 
+            duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
 
-        tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-        duthost.shell("sudo config interface shutdown {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+            tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
+            duthost.shell("config interface shutdown {}".format(tor_ifname))
+            do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
 
-        duthost.shell("sudo configlet -u -j {}".format(sonic_clet_file))
-        do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
+            duthost.shell("configlet -u -j {}".format(sonic_clet_file))
+            do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
 
-        duthost.shell("sudo config interface startup {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+            duthost.shell("config interface startup {}".format(tor_ifname))
+            do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
 
-        append_log_prefix_msg("checking_dump", pfx_lvl)
-        assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
-                orig_db_dir, "apply_clet"), \
-                "DB compare failed after apply-clet"
+            append_log_prefix_msg("checking_dump", pfx_lvl)
+            assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
+                    orig_db_dir, "apply_clet"), \
+                    "DB compare failed after apply-clet"
 
-        # Ensure BGP session is up
-        chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
-        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+            # Ensure BGP session is up
+            chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
+            chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
 
         log_info("AddRack by template succeeded")
     finally:
@@ -299,7 +300,8 @@ def generic_patch_add_t0(duthost):
     _create_patch(no_t0_db_dir, orig_db_dir, patch_file)
 
     # Apply patch
-    res = duthost.shell("config apply-patch  -f CONFIGDB -v {}".format(
+    CMD = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -v {}"
+    res = duthost.shell(CMD.format(
         patch_file))
     assert res["rc"] == 0, "Failed to apply patch"
 
@@ -333,8 +335,9 @@ def generic_patch_rm_t0(duthost):
             "DB compare failed after adding T0 via generic patch updater"
 
 
-def do_test_add_rack(duthost, is_storage_backend = False, skip_test=False,
-        skip_generic=False, skip_load=False):
+def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
+        skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False):
+
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     init(duthost)
@@ -372,25 +375,25 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_test=False,
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
     chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
 
-    if skip_test:
-        # Pause after all create files
-        return
-    
-    set_log_prefix_msg("apply clet")
-    apply_clet(duthost)
+    set_log_prefix_msg("apply clet: skip={}".format(skip_clet_test))
+    apply_clet(duthost, skip_test=skip_clet_test)
 
-    if skip_generic:
-        return False
+    if not skip_generic_add:
+        # Note: apply_clet is required to run the update test
+        # via generic-updater as that helps create no_t0 files
+        # that are required to create patch for generic updater.
+        #
+        set_log_prefix_msg("patch_add")
+        generic_patch_add_t0(duthost)
 
-    # Note: apply_clet is required to run the update test
-    # via generic-updater as that helps create no_t0 files
-    # that are required to create patch for generic updater.
-    #
-    set_log_prefix_msg("patch_add")
-    generic_patch_add_t0(duthost)
 
-    set_log_prefix_msg("patch_rm")
-    generic_patch_rm_t0(duthost)
+    if not skip_generic_rm:
+        # generic_patch_rm_t0 expects T0 added.
+        # Via clet or generic
+        #
+        set_log_prefix_msg("patch_rm")
+        generic_patch_rm_t0(duthost)
+
     log_info("Test run is good!")
 
 

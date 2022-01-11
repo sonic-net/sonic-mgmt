@@ -190,6 +190,8 @@ def take_DB_dumps(duthost, dir_name, data_dir):
     for db_name, db_info in scan_dbs.items():
         get_dump(duthost, db_name, db_info, dir_name, data_dir)
 
+    duthost.shell("config save -y")
+
     for i in [ "config_db.json", "minigraph.xml" ]:
         ret = duthost.fetch(src=os.path.join("/etc/sonic/", i), dest=data_dir)
         os.system("cp {} {}".format(ret["dest"], dir_name))
