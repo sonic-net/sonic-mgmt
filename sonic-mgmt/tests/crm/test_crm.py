@@ -619,7 +619,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
     verify_thresholds(duthost,asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver), crm_used=new_crm_stats_nexthop_used,
         crm_avail=new_crm_stats_nexthop_available)
 
-@pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2","2.2.2.1/8"), ("6", "2001::1","2001::2/64")])
+@pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
 def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,  crm_interface, ip_ver, neighbor,host):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
