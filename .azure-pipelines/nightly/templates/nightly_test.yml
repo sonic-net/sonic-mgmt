@@ -13,6 +13,14 @@ parameters:
     type: number
     default: 1800    # minutes, totally 30 hours
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+
   # ============ Upgrade parameters ============
   - name: IMAGE_URL
     type: string
@@ -101,7 +109,7 @@ stages:
     jobs:
 
       - job: NightlyTest
-        pool: nightly
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
         variables:
           - group: TBSHARE_SECRETS

@@ -33,6 +33,11 @@ parameters:
     default: $(SAITHRIFT_BRCM_201911)
     displayName: "py_saithrift URL"
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly-svc
+    displayName: "Agent pool"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -40,3 +45,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
