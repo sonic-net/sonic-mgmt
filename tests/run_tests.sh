@@ -110,6 +110,8 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins 
+    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
 
     # Kill pytest and ansible-playbook process
     pkill --signal 9 pytest
