@@ -253,9 +253,10 @@ class EosHost(AnsibleHostBase):
             # so this branch left nop intentionally
             return True
             
+        speed_mode = 'auto' if self.get_auto_negotiation_mode(interface_name) else 'forced'
         speed = speed[:-3] + 'gfull'
         out = self.host.eos_config(
-                lines=['speed forced {}'.format(speed)],
+                lines=['speed {} {}'.format(speed_mode, speed)],
                 parents='interface %s' % interface_name)[self.hostname]
         logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
         return not self._has_cli_cmd_failed(out)

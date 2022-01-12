@@ -2,9 +2,12 @@ import json
 import os
 import pytest
 import logging
+import re
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,65 @@ def cfg_setup(setup_pfc_test, duthosts, rand_one_dut_hostname):
     logger.info("--- Clean up config dir from DUT ---")
     cfg_teardown(duthost)
 
+def update_init_cfg_file(duthost, default_pfcwd_value):
+    """
+    Set default_pfcwd_status in /etc/sonic/init_cfg.json with parameter default_pfcwd_value
+
+    Args:
+        duthost (AnsibleHost): instance
+        default_pfcwd_value: value of default_pfcwd_status, enable or disable
+
+    Returns:
+        original value of default_pfcwd_status
+    """
+    output = duthost.shell("cat /etc/sonic/init_cfg.json | grep default_pfcwd_status")['stdout']
+    matched = re.search('"default_pfcwd_status": "(.*)"', output)
+    if matched:
+        original_value = matched.group(1)
+    else:
+        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
+
+    sed_command = "sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' /etc/sonic/init_cfg.json".format(original_value, default_pfcwd_value)
+    duthost.shell(sed_command)
+
+    return original_value
+
+def mg_cfg_teardown(duthost, default_pfcwd_value):
+    """
+    Reset default_pfcwd_status to its orignial value after the case run
+
+    Args:
+        duthost (AnsibleHost): instance
+        default_pfcwd_value: value of default_pfcwd_status, enable or disable
+
+    Returns:
+        None
+    """
+    update_init_cfg_file(duthost, default_pfcwd_value)
+
+@pytest.fixture(scope='class', autouse=True)
+def mg_cfg_setup(duthosts, rand_one_dut_hostname):
+    """
+    Class level automatic fixture. Prior to the test run, enable default pfcwd configuration
+    before load_minigraph.
+    After the test case is done, recover the configuration
+
+    Args:
+        duthost: instance of AnsibleHost class
+        rand_one_dut_hostname(string) : randomly pick a dut in multi DUT setup
+    Returns:
+        None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    logger.info("Enable pfcwd in configuration file")
+    original_pfcwd_value = update_init_cfg_file(duthost, "enable")
+
+    yield
+    logger.info("--- Start running default pfcwd config test---")
+
+    logger.info("--- Recover configuration ---")
+    mg_cfg_teardown(duthost, original_pfcwd_value)
 
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, rand_one_dut_hostname):
@@ -268,3 +330,26 @@ class TestPfcConfig(object):
         """
         duthost = duthosts[rand_one_dut_hostname]
         self.execute_test(duthost, "pfc_wd_high_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
+
+@pytest.mark.usefixtures('mg_cfg_setup')
+class TestDefaultPfcConfig(object):
+    def test_default_cfg_after_load_mg(self, duthosts, rand_one_dut_hostname):
+        """
+        Tests for checking if pfcwd gets started after load_minigraph
+
+        Args:
+            duthost(AnsibleHost): instance
+
+        Returns:
+            None
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        config_reload(duthost, config_source='minigraph')
+        # sleep 20 seconds to make sure configuration is loaded
+        time.sleep(20)
+        res = duthost.command('pfcwd show config')
+        for l in res['stdout_lines']:
+            if "ethernet" in l.lower():
+                return
+        # If no ethernet port existing in stdout, failed this case.
+        pytest.fail("Failed to start pfcwd after load_minigraph")

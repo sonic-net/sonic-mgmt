@@ -82,6 +82,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     # Gather test facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
+    acl_capability_facts = duthost.acl_capabilities_facts()["ansible_facts"]
 
     # Get the list of T0/T2 ports
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
@@ -129,6 +130,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         t1_ports = t1_ports_namespace_map[t1_namespace]
 
     switch_capabilities = switch_capability_facts["switch_capabilities"]["switch"]
+    acl_capabilities = acl_capability_facts["acl_capabilities"]
 
     test_mirror_v4 = switch_capabilities["MIRROR"] == "true"
     test_mirror_v6 = switch_capabilities["MIRRORV6"] == "true"
@@ -141,7 +143,13 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         test_ingress_mirror_on_egress_acl = False
         test_egress_mirror_on_egress_acl = False
         test_egress_mirror_on_ingress_acl = False
+    elif acl_capabilities:
+        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
+        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
     else:
+        logging.info("Fallback to the old source of ACL capabilities (assuming SONiC release is < 202111)")
         test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
         test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
         test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
@@ -281,14 +289,14 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     duthost.command("sudo config bgp shutdown all")
     time.sleep(60)
     duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-    
+
     yield setup_information
-    
-    # Enable BGP again 
+
+    # Enable BGP again
     duthost.command("sudo config bgp startup all")
     time.sleep(60)
     duthost.command("rm -rf {}".format(DUT_RUN_DIR))
- 
+
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
@@ -661,12 +669,12 @@ class BaseEverflowTest(object):
         dest_ports_namespace = self._get_port_namespace(setup,int (dest_ports[0]))
 
         src_port_set =  set()
-        
-        # Some of test scenario are not valid across namespaces so test will explicltly pass 
+
+        # Some of test scenario are not valid across namespaces so test will explicltly pass
         # valid_across_namespace as False (default is True)
         if valid_across_namespace == True or src_port_namespace == dest_ports_namespace:
             src_port_set.add(src_port)
-        
+
         # To verify same namespace mirroring we will add destination port also to the Source Port Set
         if src_port_namespace != dest_ports_namespace:
             src_port_set.add(dest_ports[0])
@@ -682,7 +690,7 @@ class BaseEverflowTest(object):
                                                                   mirror_packet,
                                                                   False)
 
- 
+
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
             expected_mirror_packet = expected_mirror_packet_with_ttl \
@@ -724,7 +732,7 @@ class BaseEverflowTest(object):
                 pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
-    
+
     @staticmethod
     def get_expected_mirror_packet(mirror_session, setup, duthost, mirror_packet, check_ttl):
         payload = mirror_packet.copy()
@@ -733,7 +741,7 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
@@ -754,6 +762,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+        if duthost.facts["asic_type"] in ["cisco-8000"]:
+            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
@@ -801,7 +811,7 @@ class BaseEverflowTest(object):
             "session_gre": session_gre,
             "session_prefixes": session_prefixes
         }
-    
+
     def _get_port_namespace(self,setup, port):
         return setup["port_index_namespace_map"][port]
 
