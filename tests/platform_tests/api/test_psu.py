@@ -298,10 +298,9 @@ class TestPsuApi(PlatformApiTestBase):
         psus_skipped = 0
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
-            if duthost.facts.get("chassis").get("psus")[psu_id].get("led"):
-                led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
-                if led_support == "N/A":
-                    logger.info("led not supported for this psu {}".format(name))
+            led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
+            if led_support == "N/A":
+                logger.info("led not supported for this psu {}".format(name))
             elif name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
                 psus_skipped += 1
@@ -395,9 +394,9 @@ class TestPsuApi(PlatformApiTestBase):
         supported_colors = []
         if self.num_psus == 0:
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
-        
-        if duthost.facts.get("chassis").get("master_psu_led_color"):
-            supported_colors = duthost.facts.get("chassis").get("master_psu_led_color")
+
+        supported_colors = duthost.facts.get("chassis").get("master_psu_led_color")
+        if supported_colors:
             for index, colors in enumerate(LED_COLOR_TYPES):
                 for color in colors:
                     if color not in supported_colors:
