@@ -84,7 +84,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                         upgrade_path_lists, backup_and_restore_config_db, advanceboot_neighbor_restore,
                         sad_case_type):
     duthost = duthosts[rand_one_dut_hostname]
-    _, from_list_images, to_list_images, _ = upgrade_path_lists
+    upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
