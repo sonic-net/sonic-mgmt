@@ -80,6 +80,8 @@ ACL_SERVICES = {
     }
 }
 
+# Template json file used to test scale rules
+SCALE_ACL_FILE = "/tmp/scale_cacl.json"
 
 def parse_int_to_tcp_flags(hex_value):
     tcp_flags_str = ""
@@ -428,6 +430,99 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
 
     return iptables_natrules, ip6tables_natrules
 
+def clean_scale_rules(duthost):
+    """
+    Delete ACL template json file and clean ACL rules, recover configuration.
+
+    Args:
+        duthost: instance of AnsibleHost class
+
+    Returns:
+        None
+    """
+    logger.info("delete tmp file and recover ACL configuration")
+    # delete the tmp file
+    duthost.file(path=SCALE_ACL_FILE, state='absent')
+    # recover ACL configuration
+    duthost.command("acl-loader delete")
+
+def generate_scale_rules(duthost, ip_type):
+    """
+    Generate scale rules for SNMP-ACL, ssh-only, NTP-ACL tables with template json file
+
+    Args:
+        duthost: instance of AnsibleHost class
+        ip_type: ipv4 or ipv6
+
+    Returns:
+        None
+    """
+    rules_data = {}
+    snmp_acl_entry = {}
+    ssh_acl_entry = {}
+    ntp_acl_entry = {}
+
+    for index in range(1, 51):
+        if ip_type == "ipv4":
+            src_ip = "20.0.0." + str(1 + index) + "/32"
+        else:
+            src_ip = "2001::" + str(1 + index) + "/128"
+        acl_entry = {}
+        acl_entry[index] = {
+                            "actions": {
+                                "config": {
+                                    "forwarding-action": "DROP"
+                                }
+                            },
+                            "config": {
+                                "sequence-id": index
+                            },
+                            "ip": {
+                                "config": {
+                                    "source-ip-address": src_ip
+                                }
+                            }
+                        }
+
+        snmp_acl_entry.update(acl_entry)
+        ssh_acl_entry.update(acl_entry)
+        ntp_acl_entry.update(acl_entry)
+
+    rules_data['acl'] = {
+        "acl-sets": {
+            "acl-set": {
+                "SNMP-ACL": {
+                    "acl-entries": {
+                        "acl-entry": snmp_acl_entry
+                    },
+                    "config": {
+                        "name": "SNMP-ACL"
+                    }
+                },
+                "ssh-only": {
+                    "acl-entries": {
+                        "acl-entry": ssh_acl_entry
+                    },
+                    "config": {
+                        "name": "ssh-only"
+                    }
+                },
+                "ntp-acl": {
+                    "acl-entries": {
+                        "acl-entry": ntp_acl_entry
+                    },
+                    "config": {
+                        "name": "ntp-acl"
+                    }
+                }
+            }
+        }
+    }
+
+    duthost.copy(content=json.dumps(rules_data, indent=4), dest=SCALE_ACL_FILE)
+
+    cmds = 'acl-loader update full {}'.format(SCALE_ACL_FILE)
+    duthost.command(cmds)
 
 def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
@@ -437,6 +532,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
+    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}".format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
     missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}".format(repr(missing_iptables_rules)))
 
@@ -456,6 +552,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
+    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}".format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}".format(repr(missing_ip6tables_rules)))
 
@@ -515,3 +612,23 @@ def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, 
     duthost = duthosts[rand_one_dut_hostname]
     verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
+
+def test_cacl_scale_rules(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
+    """
+    Test case to ensure cover scale rules for control plan ACL
+
+    This is done by creating scale rules for SNMP-ACL, ssh-only, NTP-ACL tables
+    and generating our own set of expected iptables and ip6tables
+    rules based on the DUT's configuration and comparing them against the
+    actual iptables/ip6tables rules on the DuT.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    # test scale rules for ipv4
+    generate_scale_rules(duthost, "ipv4")
+    verify_cacl(duthost, localhost, creds, docker_network)
+    clean_scale_rules(duthost)
+
+    # test scale rules for ipv6
+    generate_scale_rules(duthost, "ipv6")
+    verify_cacl(duthost, localhost, creds, docker_network)
+    clean_scale_rules(duthost)
