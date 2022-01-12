@@ -1,6 +1,7 @@
 import json
 import logging
 import pytest
+import random
 
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
@@ -11,7 +12,7 @@ from vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
-
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext
 import tests.arp.test_wr_arp as test_wr_arp
 
 logger = logging.getLogger(__name__)
@@ -133,7 +134,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
 
     return vxlan_enabled, request.param
 
-def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds):
     """
     Test case for VNET VxLAN
 
@@ -169,10 +170,22 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
-    ptf_runner(ptfhost,
-               "ptftests",
-               "vnet_vxlan.VNET",
-               platform_dir="ptftests",
-               params=ptf_params,
-               qlen=1000,
-               log_file=log_file)
+    if scenario == 'Enabled' and vxlan_enabled:
+        route_pattern = 'Vnet1|100.1.1.1/32'
+        with RouteFlowCounterTestContext(duthost, [route_pattern], {route_pattern: {'packets': '3'}}):
+            ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+    else:
+        ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+

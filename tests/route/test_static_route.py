@@ -19,6 +19,7 @@ import ptf.mask as mask
 import ptf.packet as packet
 from pkg_resources import parse_version
 from tests.common import constants
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext
 
 
 pytestmark = [
@@ -165,7 +166,8 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
-        generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+        with RouteFlowCounterTestContext(duthost, [prefix], {prefix: {'packets': '1'}}):
+            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
         # Check the route is advertised to the neighbors
         check_route_redistribution(duthost, prefix, ipv6)
@@ -177,7 +179,8 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
             #FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
-            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+            with RouteFlowCounterTestContext(duthost, [prefix], {prefix: {'packets': '1'}}):
+                generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
     finally:

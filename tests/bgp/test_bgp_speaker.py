@@ -15,6 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext
 
 
 pytestmark = [
@@ -311,19 +312,20 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
 
     logger.info("run ptf test")
 
-    ptf_runner(ptfhost,
-                "ptftests",
-                "fib_test.FibTest",
-                platform_dir="ptftests",
-                params={"router_macs": [duthost.facts['router_mac']],
-                        "ptf_test_port_map": PTF_TEST_PORT_MAP,
-                        "fib_info_files": ["/root/bgp_speaker_route_%s.txt" % family],
-                        "ipv4": ipv4,
-                        "ipv6": ipv6,
-                        "testbed_mtu": mtu,
-                        "test_balancing": False},
-                log_file="/tmp/bgp_speaker_test.FibTest.log",
-                socket_recv_size=16384)
+    with RouteFlowCounterTestContext(duthost, [prefix], {prefix : {'packets': 3, 'bytes': 4554}}):
+        ptf_runner(ptfhost,
+                    "ptftests",
+                    "fib_test.FibTest",
+                    platform_dir="ptftests",
+                    params={"router_macs": [duthost.facts['router_mac']],
+                            "ptf_test_port_map": PTF_TEST_PORT_MAP,
+                            "fib_info_files": ["/root/bgp_speaker_route_%s.txt" % family],
+                            "ipv4": ipv4,
+                            "ipv6": ipv6,
+                            "testbed_mtu": mtu,
+                            "test_balancing": False},
+                    log_file="/tmp/bgp_speaker_test.FibTest.log",
+                    socket_recv_size=16384)
 
     logger.info("Withdraw routes")
     withdraw_route(ptfip, lo_addr, prefix, nexthop_ips[1].ip, port_num[0])
