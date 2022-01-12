@@ -400,9 +400,13 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
         global PORTS_WITH_8LANES
         hostname = conn_graph_facts['device_conn'].keys()[0]
         ports_info = conn_graph_facts['device_conn'][hostname]
+        if not ports_info:
+            ports = [port.split('|')[1] for port in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split('\n')]
+        else:
+            ports = ports_info.keys()
         if PORTS_WITH_8LANES is None:
             PORTS_WITH_8LANES = []
-            for port in ports_info.keys():
+            for port in ports:
                 lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port))['stdout']
                 if len(lanes.split(',')) == 8:
                     PORTS_WITH_8LANES.append(port)
