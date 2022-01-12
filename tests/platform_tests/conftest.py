@@ -94,7 +94,7 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     elif first_after_offset:
         # capture the first occurence as the one after offset timestamp and ignore the ones before
         # this is useful to find time after a specific instance, for eg. - kexec time or FDB disable time.
-        if datetime.strptime(first_after_offset, FMT) < datetime.strptime(time, FMT):
+        if _parse_timestamp(first_after_offset) < _parse_timestamp(time):
             timestamps[state_status] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
@@ -312,8 +312,8 @@ def verify_mac_jumping(test_name, timing_data):
         # and ends when SAI is instructed to enable MAC learning (warmboot recovery path)
         logging.info("Mac expiry for unexpected addresses started at {}".format(mac_expiry_start) +\
             " and FDB learning enabled at {}".format(fdb_aging_disable_end))
-        if datetime.strptime(mac_expiry_start, FMT) > datetime.strptime(fdb_aging_disable_start, FMT) and\
-            datetime.strptime(mac_expiry_start, FMT) < datetime.strptime(fdb_aging_disable_end, FMT):
+        if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start, FMT) and\
+            _parse_timestamp(mac_expiry_start) < _parse_timestamp(fdb_aging_disable_end):
             pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
 
@@ -369,6 +369,11 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         for key, messages in result["expect_messages"].items():
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
+                reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                if not reboot_start_time or reboot_start_time == "N/A":
+                    logging.error("kexec regex \"Rebooting with /sbin/kexec\" not found in syslog. " +\
+                    "Skipping log_analyzer checks..")
+                    return
                 analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
             elif "bgpd.log" in key:
                 analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
