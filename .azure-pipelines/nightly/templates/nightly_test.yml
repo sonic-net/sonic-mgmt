@@ -390,7 +390,7 @@ stages:
                   # temporary workaround to allow reboot timing data upload
                   # After recent test change, the file names get DUT name in them
                   # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-                  report_upload_files="../results $(find ../results -type f -iname 'test_*_reboot*.json')"
+                  report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
 
                   python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
               condition: always()
