@@ -214,7 +214,7 @@ class SadOper(SadPath):
             self.dut_bgps['changed_state'] = 'Active'
             [self.dut_needed.update({vm:None}) for vm in self.neigh_vms]
         elif self.oper_type == 'dut_bgp_down':
-            self.neigh_bgps['changed_state'] = 'Active,OpenSent'
+            self.neigh_bgps['changed_state'] = 'Active,OpenSent,Connect'
             self.dut_bgps['changed_state'] = 'Idle'
         elif 'neigh_lag' in self.oper_type:
             # on the DUT side, bgp states are different pre and post boot. hence passing multiple values

@@ -28,7 +28,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             ip, interface = line.split('via')
             ip = ip.strip("*, ")
             interface = interface.strip("*, ")
-            if interface != "eth0":
+            if interface != "eth0" and 'Ethernet-IB' not in interface and 'Ethernet-BP' not in interface:
                 dut_result_nexthops.append(ip)
 
     # If show ip route 0.0.0.0/0 has route only via eth0,

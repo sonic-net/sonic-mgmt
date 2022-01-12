@@ -36,6 +36,10 @@
       delegate_to: "{{ ptf_host }}"
       when: item and item != 'None'
 
+    - name: Copy sniffer script to the PTF container
+      copy: src=../tests/scripts/dual_tor_sniffer.py dest=/root/ptftests/advanced_reboot_sniffer.py
+      delegate_to: "{{ ptf_host }}"
+
     - name: Update supervisor configuration
       include_tasks: "roles/test/tasks/common_tasks/update_supervisor.yml"
       vars:

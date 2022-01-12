@@ -141,14 +141,14 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         mac = __gen_mac(port_id)
 
         device = config.devices.device(
-            name='Device Port {}'.format(port_id),
-            container_name=config.ports[port_id].name)[-1]
+            name='Device Port {}'.format(port_id))[-1]
 
-        ethernet = device.ethernet
+        ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
+        ethernet.port_name = config.ports[port_id].name
         ethernet.mac = mac
 
-        ip_stack = ethernet.ipv4
+        ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
         ip_stack.address = ip
         ip_stack.prefix = int(prefix)
@@ -221,14 +221,14 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
             device = config.devices.device(
-                name='Device Port {}'.format(port_id),
-                container_name=config.ports[port_id].name)[-1]
+                name='Device Port {}'.format(port_id))[-1]
 
-            ethernet = device.ethernet
+            ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
+            ethernet.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
-            ip_stack = ethernet.ipv4
+            ip_stack = ethernet.ipv4_addresses.add()
             ip_stack.name = 'Ipv4 Port {}'.format(port_id)
             ip_stack.address = vlan_ip_addr
             ip_stack.prefix = int(prefix)
@@ -321,14 +321,14 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
             port_config_list.append(port_config)
 
-        device = config.devices.device(name='Device {}'.format(pc),
-                                       container_name=lag.name)[-1]
+        device = config.devices.device(name='Device {}'.format(pc))[-1]
 
-        ethernet = device.ethernet
+        ethernet = device.ethernets.add()
+        ethernet.port_name = lag.name
         ethernet.name = 'Ethernet {}'.format(pc)
         ethernet.mac = __gen_pc_mac(pc_id)
 
-        ip_stack = device.ethernet.ipv4
+        ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 {}'.format(pc)
         ip_stack.address = pc_ip_addr
         ip_stack.prefix = int(prefix)

@@ -184,6 +184,7 @@ class QosParamMellanox(object):
         wm_shared_lossy['cell_size'] = self.cell_size
         wm_shared_lossy["pkts_num_margin"] = 3
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
+        wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
 
         wm_buf_pool_lossless = self.qos_params_mlnx['wm_buf_pool_lossless']
