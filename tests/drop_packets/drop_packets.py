@@ -547,14 +547,25 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
     @summary: Create a packet with absent destination IP address.
     """
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], "", pkt_fields["ipv4_src"])
-
-    pkt = testutils.simple_tcp_packet(
-        eth_dst=ports_info["dst_mac"],  # DUT port
-        eth_src=ports_info["src_mac"],  # PTF port
-        ip_src=pkt_fields["ipv4_src"],  # PTF source
-        ip_dst="", # VM source
-        tcp_sport=pkt_fields["tcp_sport"],
-        tcp_dport=pkt_fields["tcp_dport"])
+    try:
+        # ip_dst accept None as empty dst ip address in scapy version such as 2.4.5,
+        # but in old scapy version such as 2.2.0.dev0, it will throw TypeError
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=ports_info["dst_mac"],  # DUT port
+            eth_src=ports_info["src_mac"],  # PTF port
+            ip_src=pkt_fields["ipv4_src"],  # PTF source
+            ip_dst=None,  # VM source
+            tcp_sport=pkt_fields["tcp_sport"],
+            tcp_dport=pkt_fields["tcp_dport"])
+    except TypeError:
+        # in old scapy version such as 2.2.0.dev0, ip_dst accept "" as dst ip address
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=ports_info["dst_mac"],  # DUT port
+            eth_src=ports_info["src_mac"],  # PTF port
+            ip_src=pkt_fields["ipv4_src"],  # PTF source
+            ip_dst="",  # VM source
+            tcp_sport=pkt_fields["tcp_sport"],
+            tcp_dport=pkt_fields["tcp_dport"])
 
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
@@ -875,8 +886,15 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         eth_layer = Ether(src=ports_info["src_mac"], dst=ethernet_dst)
         ip_layer = IP(src=pkt_fields["ipv4_src"], )
         igmp_layer = igmp_types[igmp_version][msg_type]
-        assert igmp_layer.igmpize(ip=ip_layer, ether=eth_layer), "Can't create IGMP packet"
         pkt = eth_layer/ip_layer/igmp_layer
+        try:
+            # in old scapy version such as 2.2.0.dev0, igmpize method require the parameter ip and ether,
+            # if these params not specified the return value will be False
+            # in new scapy version such as 2.4.5, the igmpize dose not require any parameters,
+            # if any parameter is given, it will throw TypeError
+            assert igmp_layer.igmpize(ip=ip_layer, ether=eth_layer), "Can't create IGMP packet"
+        except TypeError:
+            assert igmp_layer.igmpize(), "Can't create IGMP packet"
 
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
     do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
