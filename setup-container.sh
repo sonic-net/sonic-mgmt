@@ -132,6 +132,7 @@ function show_local_container_login() {
     echo "******************************************************************************"
 }
 
+
 function pull_sonic_mgmt_docker_image() {
     if [[ -z "${IMAGE_ID}" ]]; then
         DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
