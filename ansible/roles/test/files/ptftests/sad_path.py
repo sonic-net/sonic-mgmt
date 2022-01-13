@@ -55,7 +55,10 @@ class SadPath(object):
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
-        self.dut_connection = DeviceConnection(test_args['dut_hostname'], test_args['dut_username'], password=test_args['dut_password'])
+        self.dut_connection = DeviceConnection(test_args['dut_hostname'],
+            test_args['dut_username'],
+            password=test_args['dut_password'],
+            alt_password=test_args.get('alt_password'))
         self.vlan_ports = vlan_ports
         self.ports_per_vlan = ports_per_vlan
         self.vlan_if_port = self.test_args['vlan_if_port']
