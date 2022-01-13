@@ -40,7 +40,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot'], (
+        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
             "Please set rebootType var."
         )
 
@@ -538,7 +538,8 @@ class AdvancedReboot:
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
-            "preboot_files" : self.prebootFiles
+            "preboot_files" : self.prebootFiles,
+            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword")
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -557,7 +558,8 @@ class AdvancedReboot:
 
         self.__updateAndRestartArpResponder(rebootOper)
 
-        logger.info('Run advanced-reboot ReloadTest on the PTF host')
+
+        logger.info('Run advanced-reboot ReloadTest on the PTF host. Case: {}'.format(str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
             "ptftests",
