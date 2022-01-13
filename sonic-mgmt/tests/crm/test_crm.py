@@ -249,7 +249,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
              if "ipv4 neighbor" or "ipv6 neighbor" in kwargs["crm_cli_res"] and "cisco-8000" in duthost.facts["asic_type"].lower():
-                # Skip the percentage for cisco devices
+                # Skip the percentage for Cisco-8000 devices
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
             if key == "exceeded_percentage":
@@ -638,7 +638,8 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     crm_stats_neighbor_used, crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
 
     # Add neighbor
-    asichost.shell("config interface ip add {} {}".format(crm_interface[0], host)) if duthost.facts["asic_type"] in ["cisco-8000"]  else None
+    if duthost.facts["asic_type"] in ["cisco-8000"]:
+         asichost.shell("config interface ip add {} {}".format(crm_interface[0], host))
     asichost.shell(neighbor_add_cmd)
 
     # Make sure CRM counters updated
@@ -657,7 +658,8 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         pytest.fail("\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
 
     # Remove neighbor
-    asichost.shell("config interface ip remove {} {}".format(crm_interface[0], host)) if duthost.facts["asic_type"] in ["cisco-8000"] else None
+    if duthost.facts["asic_type"] in ["cisco-8000"]:
+        asichost.shell("config interface ip remove {} {}".format(crm_interface[0], host))
     asichost.shell(neighbor_del_cmd)
 
     # Make sure CRM counters updated
@@ -675,7 +677,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
 
     used_percent = get_used_percent(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
     if used_percent < 1:
-        # For Cisco, add 3k routes instead of 1pc
+        #  Add 3k routes instead of 1 percentage for Cisco-8000 devices
         neighbours_num = get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available) if duthost.facts["asic_type"] not in ["cisco-8000"] else 3000
 
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
