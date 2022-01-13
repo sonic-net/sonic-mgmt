@@ -8,6 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
+from tests.common.utilities import wait_until
 
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
@@ -15,6 +16,9 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, 'files')
 
 daemon_name = "thermalctld"
+
+expected_running_status = "RUNNING"
+expected_stopped_status = "STOPPED"
 
 class BaseMocker:
     """
@@ -251,6 +255,9 @@ def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
         return thermal_mocker.check_thermal_algorithm_status(expected_status)
     return True  # if vendor doesn't provide a thermal mocker, ignore this check by return True.
 
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
 
 def restart_thermal_control_daemon(dut):
     """
@@ -286,7 +293,7 @@ def start_thermal_control_daemon(dut):
     daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
     if daemon_status != "RUNNING":
         dut.start_pmon_daemon(daemon_name)
-        time.sleep(10)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_running_status)
     running_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
     assert running_daemon_status == "RUNNING", "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
     logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
@@ -295,7 +302,7 @@ def stop_thermal_control_daemon(dut):
     daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
     if daemon_status == "RUNNING":
         dut.stop_pmon_daemon(daemon_name)
-        time.sleep(10)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_stopped_status)
     stopped_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
     assert stopped_daemon_status == "STOPPED", "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
     logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
