@@ -65,7 +65,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrho
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
             install_sonic(duthost, to_image, tbinfo)
-            if upgrade_type == REBOOT_TYPE_COLD: #reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command"):
+            if upgrade_type == REBOOT_TYPE_COLD:
                 # advance-reboot test (on ptf) does not support cold reboot yet
                 reboot(duthost, localhost)
             else:
