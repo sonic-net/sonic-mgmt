@@ -13,9 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
-from .args.advanced_reboot_args import add_advanced_reboot_args
-from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from .args.normal_reboot_args import add_normal_reboot_args
+
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -479,12 +477,6 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stderr')
         outputs.append(res)
     logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
-
-
-def pytest_addoption(parser):
-    add_advanced_reboot_args(parser)
-    add_cont_warm_reboot_args(parser)
-    add_normal_reboot_args(parser)
 
 
 def pytest_generate_tests(metafunc):
