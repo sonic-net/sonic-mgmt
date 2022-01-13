@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 
 from helpers import *
 
@@ -22,6 +23,51 @@ init_data = {
 
 
 MAX_MISMATCH_CNT = 10
+
+ORIG_DB_SUB_DIR = "orig"
+NO_T0_DB_SUB_DIR = "no_T0"
+CLET_DB_SUB_DIR = "clet"
+PATCH_ADD_T0_SUB_DIR = "patch_add"
+PATCH_RM_T0_SUB_DIR = "patch_rm"
+FILES_SUB_DIR = "files"
+
+# Ansible test run creates all files under logs/<test dir name, which in our
+# case is "configlet">
+# Create a AddRack under that and put all files under that.
+# NOTE: Any duthost.fetch will download the file under 
+# <given dir>/<dut hostname>/<entire path of the src file>
+# if you download /etc/sonic/minigraph.xml under data_dir,
+# it will be created as <data_dir>/<duthost name>/etc/sonic/minigraph.xml
+# Say, return value of duthost.fetch is ret, then ret["dest"]
+# is easier way to get the destination path.
+#
+base_dir    = "logs/configlet"
+data_dir    = "{}/AddRack".format(base_dir)
+orig_db_dir = "{}/{}".format(data_dir, ORIG_DB_SUB_DIR)
+no_t0_db_dir = "{}/{}".format(data_dir, NO_T0_DB_SUB_DIR)
+clet_db_dir = "{}/{}".format(data_dir, CLET_DB_SUB_DIR)
+patch_add_t0_dir = "{}/{}".format(data_dir, PATCH_ADD_T0_SUB_DIR)
+patch_rm_t0_dir = "{}/{}".format(data_dir, PATCH_RM_T0_SUB_DIR)
+files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
+
+def MINS_TO_SECS(n):
+    return n * 60
+
+RELOAD_WAIT_TIME = MINS_TO_SECS(3)      # TODO: Change to 3
+
+PAUSE_INTF_DOWN = MINS_TO_SECS(1)
+PAUSE_INTF_UP = MINS_TO_SECS(3)         # TODO: change to 3
+PAUSE_CLET_APPLY = MINS_TO_SECS(1)
+
+DB_COMP_WAIT_TIME = MINS_TO_SECS(3)     # TODO: change to 5
+
+
+def do_pause(secs, msg):
+    log_info("do_pause: seconds:{} {}".format(secs, msg))
+    time.sleep(secs)
+    log_info("do_pause: DONE")
+
+
 
 #
 # App-DB/"LLDP_ENTRY_TABLE" is very dynamic -- not a candidate for comparison
@@ -305,6 +351,28 @@ def compare_dumps(orig_db_dir, clet_db_dir):
             ret_msg = msg
     return mismatch_cnt, ret_msg
     
+
+def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
+    global data_dir
+
+    take_DB_dumps(duthost, test_db_dir, data_dir)
+
+    ret, msg = compare_dumps(ref_db_dir, test_db_dir)
+    if ret:
+        log_info("{}: Failed to compare:{}; retry if withing limits".format(
+            ctx, msg))
+        return False
+    log_info("{}: Succeeded to compare".format(ctx))
+    return True
+
+
+def chk_bgp_session(duthost, ip, msg):
+    # info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
+    info = duthost.get_bgp_neighbor_info(ip)
+    bgp_state = info.get("bgpState", "")
+    assert bgp_state == "Established", \
+            "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
+
 
 def main():
     set_print()

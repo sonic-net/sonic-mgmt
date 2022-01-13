@@ -4,6 +4,7 @@ import argparse
 import json
 import jsonpatch
 import os
+import re
 import sys
 import time
 import yaml
@@ -12,6 +13,7 @@ from helpers import *
 from common import *
 import strip
 import configlet
+import generic_patch
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until
@@ -77,50 +79,6 @@ else:
 #   3) Take DB dumps and compare with those taken upon loading minigraph w/o T0
 #
 
-ORIG_DB_SUB_DIR = "orig"
-NO_T0_DB_SUB_DIR = "no_T0"
-CLET_DB_SUB_DIR = "clet"
-PATCH_ADD_T0_SUB_DIR = "patch_add"
-PATCH_RM_T0_SUB_DIR = "patch_rm"
-FILES_SUB_DIR = "files"
-
-# Ansible test run creates all files under logs/<test dir name, which in our
-# case is "configlet">
-# Create a AddRack under that and put all files under that.
-# NOTE: Any duthost.fetch will download the file under 
-# <given dir>/<dut hostname>/<entire path of the src file>
-# if you download /etc/sonic/minigraph.xml under data_dir,
-# it will be created as <data_dir>/<duthost name>/etc/sonic/minigraph.xml
-# Say, return value of duthost.fetch is ret, then ret["dest"]
-# is easier way to get the destination path.
-#
-base_dir    = "logs/configlet"
-data_dir    = "{}/AddRack".format(base_dir)
-orig_db_dir = "{}/{}".format(data_dir, ORIG_DB_SUB_DIR)
-no_t0_db_dir = "{}/{}".format(data_dir, NO_T0_DB_SUB_DIR)
-clet_db_dir = "{}/{}".format(data_dir, CLET_DB_SUB_DIR)
-patch_add_t0_dir = "{}/{}".format(data_dir, PATCH_ADD_T0_SUB_DIR)
-patch_rm_t0_dir = "{}/{}".format(data_dir, PATCH_RM_T0_SUB_DIR)
-files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
-
-def MINS_TO_SECS(n):
-    return n * 60
-
-RELOAD_WAIT_TIME = MINS_TO_SECS(3)      # TODO: Change to 3
-
-PAUSE_INTF_DOWN = MINS_TO_SECS(1)
-PAUSE_INTF_UP = MINS_TO_SECS(3)         # TODO: change to 3
-PAUSE_CLET_APPLY = MINS_TO_SECS(1)
-
-DB_COMP_WAIT_TIME = MINS_TO_SECS(3)     # TODO: change to 5
-
-
-def do_pause(secs, msg):
-    log_info("do_pause: seconds:{} {}".format(secs, msg))
-    time.sleep(secs)
-    log_info("do_pause: DONE")
-
-
 def init(duthost):
     global init_data
 
@@ -156,12 +114,16 @@ def backup_minigraph(duthost):
 def restore_orig_minigraph(duthost, skip_load=False):
     ret = duthost.stat(path="/etc/sonic/orig/minigraph.xml.addRack.orig")
     if ret["stat"]["exists"]:
+        pfx_lvl = get_prefix_lvl()
+        append_log_prefix_msg("restore_orig_minigraph")
+
         duthost.shell("cp /etc/sonic/orig/minigraph.xml.addRack.orig /etc/sonic/minigraph.xml")
         duthost.shell("chmod u+w /etc/sonic/minigraph.xml")
         # Reload original minigraph
         if not skip_load:
             load_minigraph(duthost)
         log_info("restored minigraph")
+        set_prefix_lvl(pfx_lvl)
         return True
     else:
         log_info("No minigraph file to restore from")
@@ -177,67 +139,77 @@ def load_minigraph(duthost):
             "PFC_WD is missing in CONFIG-DB"
 
 
-def apply_clet(duthost, skip_test=False):
+def prepare_for_test(duthost):
     global no_t0_db_dir
 
     pfx_lvl = get_prefix_lvl()
 
-    try:
-        mini_wo_to = managed_files["minigraph_wo_to"]
-        clet_file = managed_files["configlet"]
-        sonic_clet_file = "/etc/sonic/add_Rack.json"
+    mini_wo_to = managed_files["minigraph_wo_to"]
+    if not mini_wo_to:
+        report_error("Failed to get files wo_to={} clet={}".format(
+            mini_wo_to, clet_file))
 
-        del_clet_file = os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "everflow_delete.json")
-        del_sonic_clet_file = "/etc/sonic/everflow_delete.json"
+    if not os.path.exists(mini_wo_to):
+        report_error("minigraph {} file absent".format(mini_wo_to))
 
-        if not mini_wo_to or not clet_file:
-            report_error("Failed to get files wo_to={} clet={}".format(
-                mini_wo_to, clet_file))
+    duthost.copy(src=mini_wo_to, dest="/etc/sonic/minigraph.xml")
 
-        if not os.path.exists(mini_wo_to):
-            report_error("minigraph {} file absent".format(mini_wo_to))
+    append_log_prefix_msg("load_mini_wo_t0", pfx_lvl)
+    load_minigraph(duthost)
 
-        if not os.path.exists(clet_file):
-            report_error("configlet {} file absent".format(clet_file))
+    append_log_prefix_msg("load_mini_wo_t0", pfx_lvl)
+    take_DB_dumps(duthost, no_t0_db_dir, data_dir)
 
-        duthost.copy(src=mini_wo_to, dest="/etc/sonic/minigraph.xml")
-        duthost.copy(src=clet_file, dest=sonic_clet_file)
-        duthost.copy(src=del_clet_file, dest=del_sonic_clet_file)
+    set_prefix_lvl(pfx_lvl)
 
-        append_log_prefix_msg("load_mini_wo_t0", pfx_lvl)
-        load_minigraph(duthost)
 
-        append_log_prefix_msg("load_mini_wo_t0", pfx_lvl)
-        take_DB_dumps(duthost, no_t0_db_dir, data_dir)
+def apply_clet(duthost, skip_test=False):
 
-        if not skip_test:
-            append_log_prefix_msg("applying", pfx_lvl)
-            # Apply delete 
-            duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
+    pfx_lvl = get_prefix_lvl()
 
-            tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-            duthost.shell("config interface shutdown {}".format(tor_ifname))
-            do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+    clet_file = managed_files["configlet"]
+    sonic_clet_file = "/etc/sonic/add_Rack.json"
 
-            duthost.shell("configlet -u -j {}".format(sonic_clet_file))
-            do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
+    del_clet_file = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), "everflow_delete.json")
+    del_sonic_clet_file = "/etc/sonic/everflow_delete.json"
 
-            duthost.shell("config interface startup {}".format(tor_ifname))
-            do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+    if not clet_file:
+        report_error("Failed to get files wo_to={} clet={}".format(
+            mini_wo_to, clet_file))
 
-            append_log_prefix_msg("checking_dump", pfx_lvl)
-            assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
-                    orig_db_dir, "apply_clet"), \
-                    "DB compare failed after apply-clet"
+    if not os.path.exists(clet_file):
+        report_error("configlet {} file absent".format(clet_file))
 
-            # Ensure BGP session is up
-            chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
-            chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+    duthost.copy(src=clet_file, dest=sonic_clet_file)
+    duthost.copy(src=del_clet_file, dest=del_sonic_clet_file)
 
-        log_info("AddRack by template succeeded")
-    finally:
-        set_prefix_lvl(pfx_lvl)
+    append_log_prefix_msg("applying", pfx_lvl)
+    # Apply delete 
+    duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
+
+    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
+    duthost.shell("config interface shutdown {}".format(tor_ifname))
+    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+
+    duthost.shell("configlet -u -j {}".format(sonic_clet_file))
+    do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
+
+    duthost.shell("config interface startup {}".format(tor_ifname))
+    do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+
+    append_log_prefix_msg("checking_dump", pfx_lvl)
+    assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
+            orig_db_dir, "apply_clet"), \
+            "DB compare failed after apply-clet"
+
+    # Ensure BGP session is up
+    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
+    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+
+    log_info("AddRack by template succeeded")
+
+    set_prefix_lvl(pfx_lvl)
 
 
 def download_sonic_files(duthost):
@@ -253,90 +225,9 @@ def files_create(is_mlnx, is_storage_backend):
     log_info("Managed files: {}".format(json.dumps(managed_files, indent=4)))
                                 
                                         
-def chk_bgp_session(duthost, ip, msg):
-    # info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
-    info = duthost.get_bgp_neighbor_info(ip)
-    bgp_state = info.get("bgpState", "")
-    assert bgp_state == "Established", \
-            "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
-
-
-def _create_patch(src_dir, dst_dir, patch_file):
-    with open(os.path.join(src_dir, "config_db.json"), "r") as s:
-        src_json = json.load(s)
-
-    with open(os.path.join(dst_dir, "config_db.json"), "r") as s:
-        dst_json = json.load(s)
-
-    jpatch = list(jsonpatch.JsonPatch.from_diff(src_json, dst_json))
-
-    with open(patch_file, "w") as s:
-        s.write(json.dumps(jpatch, indent=4))
-
-
-def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
-    global data_dir
-
-    take_DB_dumps(duthost, test_db_dir, data_dir)
-
-    ret, msg = compare_dumps(ref_db_dir, test_db_dir)
-    if ret:
-        log_info("{}: Failed to compare:{}; retry if withing limits".format(
-            ctx, msg))
-        return False
-    return True
-
-
-def generic_patch_add_t0(duthost):
-    # Create patch from no_t0 to original that had T0.
-    #
-    # Load config w/o T0
-    #
-    duthost.copy(src=os.path.join(no_t0_db_dir, "config_db.json"),
-            dest="/etc/sonic/config_db.json")
-    config_reload(duthost, wait=RELOAD_WAIT_TIME, start_bgp=True)
-
-    patch_file = os.path.join(patch_add_t0_dir, "patch.json")
-    _create_patch(no_t0_db_dir, orig_db_dir, patch_file)
-
-    # Apply patch
-    CMD = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -v {}"
-    res = duthost.shell(CMD.format(
-        patch_file))
-    assert res["rc"] == 0, "Failed to apply patch"
-
-
-    assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_add_t0_dir,
-            orig_db_dir, "generic_patch_add_t0"), \
-            "DB compare failed after adding T0 via generic patch updater"
-
-    # Ensure BGP session is up
-    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-patch-add test")
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-patch-add test")
-
-
-def generic_patch_rm_t0(duthost):
-    # Create patch from original to no_t0
-    #
-    # As this test follows generic_patch_add_t0, the current
-    # config has all T0s
-    #
-    patch_file = os.path.join(patch_rm_t0_dir, "patch.json")
-    _create_patch(orig_db_dir, no_t0_db_dir, patch_file)
-
-    # Apply patch
-    res = duthost.shell("config apply-patch  -f CONFIGDB -v {}".format(
-        patch_file))
-    assert res["rc"] == 0, "Failed to apply patch"
-
-
-    assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
-            no_t0_db_dir, "generic_patch_rm_t0"), \
-            "DB compare failed after adding T0 via generic patch updater"
-
-
 def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
-        skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False):
+        skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False,
+        skip_prepare = False):
 
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
@@ -357,42 +248,46 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         # Loads original minigraph with all T0s & get dumps
 
         load_minigraph(duthost)
+
+        # Ensure BGP session is up before we apply stripped minigraph
+        chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
+        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
+
+    if not skip_prepare:
         log_info("config reloaded; Taking dumps ...")
+        set_log_prefix_msg("orig_DB_dumps")
+        take_DB_dumps(duthost, orig_db_dir, data_dir)
 
-    set_log_prefix_msg("orig_DB_dumps")
-    take_DB_dumps(duthost, orig_db_dir, data_dir)
+        set_log_prefix_msg("create files")
+        # Download sonic files required to generate minigraph w/o a T0
+        # and configlet. 
+        download_sonic_files(duthost)
 
-    set_log_prefix_msg("create files")
-    # Download sonic files required to generate minigraph w/o a T0
-    # and configlet. 
-    download_sonic_files(duthost)
+        # Create minigraph w/o a T0 & configlet, apply & take dump
+        files_create(is_mlnx = duthost.facts["asic_type"] == "mellanox",
+                is_storage_backend = is_storage_backend)
 
-    # Create minigraph w/o a T0 & configlet, apply & take dump
-    files_create(is_mlnx = duthost.facts["asic_type"] == "mellanox",
-            is_storage_backend = is_storage_backend)
+        set_log_prefix_msg("test prepare")
+        prepare_for_test(duthost)
 
-    # Ensure BGP session is up before we apply stripped minigraph
-    chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
-
-    set_log_prefix_msg("apply clet: skip={}".format(skip_clet_test))
-    apply_clet(duthost, skip_test=skip_clet_test)
+    if not skip_clet_test:
+        set_log_prefix_msg("apply clet")
+        apply_clet(duthost)
 
     if not skip_generic_add:
-        # Note: apply_clet is required to run the update test
-        # via generic-updater as that helps create no_t0 files
-        # that are required to create patch for generic updater.
+        # prepare test loads config w/o T0
+        # Reload config w/o t0 if clet test is done (not skipped).
         #
         set_log_prefix_msg("patch_add")
-        generic_patch_add_t0(duthost)
-
+        generic_patch.generic_patch_add_t0(duthost, do_load = not skip_clet_test)
 
     if not skip_generic_rm:
         # generic_patch_rm_t0 expects T0 added.
-        # Via clet or generic
+        # Via clet or generic_add; Else load orig config
         #
         set_log_prefix_msg("patch_rm")
-        generic_patch_rm_t0(duthost)
+        generic_patch.generic_patch_rm_t0(duthost,
+                do_load = skip_generic_add and skip_clet_test)
 
     log_info("Test run is good!")
 
