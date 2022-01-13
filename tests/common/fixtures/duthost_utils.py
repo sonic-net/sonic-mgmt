@@ -3,7 +3,8 @@ import logging
 import itertools
 import collections
 import ipaddress
-
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,43 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
         and port not in config_port_channel_member_ports]
     return ports
 
+def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
+    sumv4, sumv6 = duthost.get_ip_route_summary()
+    rtn_val = True
+    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and sumv4['ebgp']['routes'] != num_v4_routes:
+        rtn_val = False
+    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and sumv6['ebgp']['routes'] != num_v6_routes:
+        rtn_val = False
+    return rtn_val
+
+@pytest.fixture(scope="module")
+def shutdown_ebgp(duthosts):
+    # To store the original number of eBGP v4 and v6 routes.
+    v4ebgps = {}
+    v6ebgps = {}
+    for duthost in duthosts.frontend_nodes:
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
+        # Verify that the total eBGP routes are 0.
+        pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
+                      "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+
+    yield
+
+    for duthost in duthosts.frontend_nodes:
+        # Startup all the eBGP neighbors
+        duthost.command("sudo config bgp startup all")
+
+    for duthost in duthosts.frontend_nodes:
+        # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
+        orig_v4_ebgp = v4ebgps[duthost.hostname]
+        orig_v6_ebgp = v6ebgps[duthost.hostname]
+        pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
+                      "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
 
 @pytest.fixture(scope="module")
 def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):

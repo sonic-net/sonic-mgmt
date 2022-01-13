@@ -15,6 +15,7 @@ from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
 from tests.common.utilities import skip_release
+from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -27,7 +28,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -45,7 +46,7 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 @pytest.mark.parametrize("cmd_sfp_error_status", ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
-def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list):
+def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP error status using 'sfputil show error-status' and 'sfputil show error-status --fetch-from-hardware'
               This feature is supported on 202106 and above
@@ -68,7 +69,7 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
             assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
 
 
-def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -86,7 +87,7 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
 
-def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list):
+def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -125,7 +126,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
 
 
-def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list):
+def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP low power mode
 
