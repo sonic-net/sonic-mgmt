@@ -3,6 +3,7 @@ import logging
 import re
 import pytest
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
 
@@ -179,7 +180,30 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
 
+def check_no_routes_from_nexthop(asic, nexthop):
+    if ':' in nexthop:
+        ver = '-6'
+    else:
+        ver = '-4'
+    cmd = "ip {} route show | grep -w {} | wc -l".format(ver, nexthop)
+    if asic.namespace is not None:
+        fullcmd = "sudo ip netns exec {} {}".format(asic.namespace, cmd)
+        output = asic.sonichost.shell(fullcmd)
+    else:
+        output = asic.sonichost.shell(cmd)
+    output = int(output['stdout'].split()[0])
+    return output == 0
+
+
+def verify_no_routes_from_nexthop(duthosts, nexthop):
+    for dut in duthosts.frontend_nodes:
+        for asic in dut.asics:
+            pytest_assert(wait_until(30, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
+                          "Not all routes flushed from nexthop {} on asic {} on {}".format(nexthop, asic.asic_index, dut.hostname))
+
+
 def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=True):
+
     """
     Checks the kernel route on the host OS.
 
