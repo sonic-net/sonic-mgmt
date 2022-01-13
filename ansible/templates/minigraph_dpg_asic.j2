@@ -184,18 +184,25 @@
 {% if a_linecard != inventory_hostname or idx != asic_index %}
 {%- set nexthop_intfs = [] -%}
 {%- set nexthop_v6_intfs = [] -%}
+{%- set internal_po_channel_intfs = [] -%}
 {% for asic,asic_config in asic_topo_config[all_slots[a_linecard]].items() %}
 {% if (a_linecard != inventory_hostname and asic == remote_asic_name) or (a_linecard == inventory_hostname and asic != asic_name) %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
 {% set _ = nexthop_v6_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) %}
+{% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+{% set po_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(2) %}
+{{- internal_po_channel_intfs.append(po_intf) -}}
 {% endfor %}
 {% endif %}
 {% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AttachTo>{{ all_loopback4096[a_linecard][idx] }}</AttachTo>
+         <AssociatedTo>{{ all_loopback4096[a_linecard][idx] }}</AssociatedTo>
+         <AttachTo>
+{{- internal_po_channel_intfs|join(',') -}}
+         </AttachTo>
          <Type>StaticRoute</Type>
          <Advertise>false</Advertise>
          <Address>
@@ -205,7 +212,10 @@
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AttachTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AttachTo>
+         <AssociatedTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AssociatedTo>
+         <AttachTo>
+{{- internal_po_channel_intfs|join(',') -}}
+         </AttachTo>
          <Type>StaticRoute</Type>
          <Advertise>false</Advertise>
          <Address>
