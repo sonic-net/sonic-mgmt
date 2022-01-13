@@ -289,21 +289,21 @@ def restart_thermal_control_daemon(dut):
     assert 0, 'Wait thermal control daemon restart failed'
 
 def start_thermal_control_daemon(dut):
-    daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status != expected_running_status:
         dut.start_pmon_daemon(daemon_name)
         wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_running_status)
-    running_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
-    assert running_daemon_status == "RUNNING", "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
+    running_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert running_daemon_status == expected_running_status, "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
     logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
 
 def stop_thermal_control_daemon(dut):
-    daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
-    if daemon_status == "RUNNING":
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status == expected_running_status:
         dut.stop_pmon_daemon(daemon_name)
         wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_stopped_status)
-    stopped_daemon_status, daemon_pid = dut.get_pmon_daemon_status(daemon_name)
-    assert stopped_daemon_status == "STOPPED", "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
+    stopped_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert stopped_daemon_status == expected_stopped_status, "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
     logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
                                                                 
 class ThermalPolicyFileContext:
