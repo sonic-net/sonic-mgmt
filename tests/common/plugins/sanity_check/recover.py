@@ -101,7 +101,7 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
         __recover_with_command(dut, method['cmd'], wait_time)
 
 @reset_ansible_local_tmp
-def neighbor_vm_recover_bgpd(node=None):
+def neighbor_vm_recover_bgpd(node=None, results=None):
     nbr_host = node['host']
     intf_list = node['conf']['interfaces'].keys()
     # restore interfaces and portchannels
