@@ -31,5 +31,6 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     duthost_name = rand_one_dut_hostname
 
-    do_test_add_rack(duthost, 'backend' in tbinfo['topo']['name'])
+    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'],
+            hack_apply=True)
 
