@@ -12,7 +12,7 @@ from helpers import *
 
 def run_test(skip_load=False, skip_clet_test=False,
         skip_generic_add=False, skip_generic_rm=False,
-        skip_prepare=False):
+        hack_apply=False, skip_prepare=False):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     set_print()
@@ -31,6 +31,7 @@ def run_test(skip_load=False, skip_clet_test=False,
             skip_clet_test=skip_clet_test,
             skip_generic_add=skip_generic_add,
             skip_generic_rm=skip_generic_rm,
+            hack_apply=hack_apply,
             skip_prepare=skip_prepare)
     
 
@@ -52,6 +53,9 @@ def main():
             action='store_true', default=False)
     parser.add_argument("-r", "--skip-generic-rm",
             help="skip remove via generic updater testing", 
+            action='store_true', default=False)
+    parser.add_argument("-k", "--hack-apply",
+            help="skip any hack to cover generic-updater issues", 
             action='store_true', default=False)
 
     args = parser.parse_args()
@@ -79,6 +83,7 @@ def main():
     run_test(skip_load=args.skip_load, skip_clet_test=args.skip_clet_test,
             skip_generic_add=args.skip_generic_add,
             skip_generic_rm=args.skip_generic_rm,
+            hack_apply=args.hack_apply,
             skip_prepare = args.use_exist)
 
 

@@ -4,7 +4,6 @@ import argparse
 import json
 import jsonpatch
 import os
-import re
 import sys
 import time
 import yaml
@@ -227,7 +226,7 @@ def files_create(is_mlnx, is_storage_backend):
                                         
 def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False,
-        skip_prepare = False):
+        hack_apply=False, skip_prepare = False):
 
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
@@ -270,6 +269,11 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         set_log_prefix_msg("test prepare")
         prepare_for_test(duthost)
 
+        generic_patch.create_patch(no_t0_db_dir, orig_db_dir, patch_add_t0_dir,
+                hack_apply)
+        generic_patch.create_patch(orig_db_dir, no_t0_db_dir, patch_rm_t0_dir,
+                hack_apply)
+
     if not skip_clet_test:
         set_log_prefix_msg("apply clet")
         apply_clet(duthost)
@@ -279,7 +283,8 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         # Reload config w/o t0 if clet test is done (not skipped).
         #
         set_log_prefix_msg("patch_add")
-        generic_patch.generic_patch_add_t0(duthost, do_load = not skip_clet_test)
+        generic_patch.generic_patch_add_t0(duthost, skip_load = skip_clet_test,
+                hack_apply=hack_apply)
 
     if not skip_generic_rm:
         # generic_patch_rm_t0 expects T0 added.
@@ -287,7 +292,8 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         #
         set_log_prefix_msg("patch_rm")
         generic_patch.generic_patch_rm_t0(duthost,
-                do_load = skip_generic_add and skip_clet_test)
+                skip_load = not (skip_generic_add and skip_clet_test),
+                hack_apply=hack_apply)
 
     log_info("Test run is good!")
 
