@@ -84,7 +84,7 @@ parameters:
           - vms11-t0-s6000
           - vms11-t0-s6000-6
       server_12:
-        vm_type: veos
+        vm_type: ceos
         testbeds:
           - vms12-3-t0-e1031
           - vms12-9-t0-e1031
@@ -96,7 +96,7 @@ parameters:
           - vms12-t0-s6000-1
           - vms12-t1-lag-1
       server_13:
-        vm_type: veos
+        vm_type: ceos
         testbeds:
           - vms13-4-t0
           - vms13-5-t1-lag
