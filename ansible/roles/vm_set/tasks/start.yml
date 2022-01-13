@@ -29,6 +29,7 @@
 
     - name: Download hdd image
       get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
+      environment: "{{ proxy_env | default({}) }}"
       when: not hdd_stat.stat.exists and not skip_image_downloading
 
     - name: Check cd image
@@ -41,6 +42,7 @@
 
     - name: Download cd image
       get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
+      environment: "{{ proxy_env | default({}) }}"
       when: not cd_stat.stat.exists and not skip_image_downloading
 
     - set_fact:
