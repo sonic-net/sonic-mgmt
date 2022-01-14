@@ -163,13 +163,13 @@ class TestCOPP(object):
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
-    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db):
+    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
 
         1. Set always_enabled of a trap(e.g. bgp) to true
         2. Config save -y
-        3. Do reboot randomly(reboot/warm-reboot/fast-reboot/soft-reboot)
+        3. Do reboot according to the specified parameter of copp_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
         4. Verify configuration are saved successfully
         5. Verify the trap status is installed by sending traffic
         """
@@ -182,7 +182,7 @@ class TestCOPP(object):
         logger.info("Config save")
         duthost.command("sudo config save -y")
 
-        reboot_type = random.choice(["cold", "fast", "warm", "soft"])
+        reboot_type = request.config.getoption("--copp_reboot_type")
         logger.info("Do {}".format(reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
