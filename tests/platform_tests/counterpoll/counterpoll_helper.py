@@ -6,8 +6,7 @@ from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollCo
 class ConterpollHelper:
     @staticmethod
     def get_counterpoll_show_output(duthost):
-        counterpoll_show = duthost.command(CounterpollConstants.COUNTERPOLL_SHOW)
-        return counterpoll_show[CounterpollConstants.STDOUT]
+        return duthost.show_and_parse(CounterpollConstants.COUNTERPOLL_SHOW)
 
     @staticmethod
     def get_available_counterpoll_types(duthost):
@@ -22,12 +21,10 @@ class ConterpollHelper:
     @staticmethod
     def get_parsed_counterpoll_show(counterpoll_show):
         parsed_counterpoll = {}
-        for line in counterpoll_show.splitlines():
-            match = re.search('(?P<type>\w+)\s+(?P<interval>(default \(\d+\))|\d+)\s+(?P<status>\w+)', line)
-            if match:
-                parsed_counterpoll[match.group(CounterpollConstants.TYPE)] = {
-                    CounterpollConstants.INTERVAL: match.group(CounterpollConstants.INTERVAL),
-                    CounterpollConstants.STATUS: match.group(CounterpollConstants.STATUS)}
+        for counterpoll in counterpoll_show:
+                parsed_counterpoll[counterpoll[CounterpollConstants.TYPE]] = {
+                    CounterpollConstants.INTERVAL: counterpoll[CounterpollConstants.INTERVAL],
+                    CounterpollConstants.STATUS: counterpoll[CounterpollConstants.STATUS]}
         return parsed_counterpoll
 
     @staticmethod
@@ -42,11 +39,14 @@ class ConterpollHelper:
     @staticmethod
     def restore_counterpoll_status(duthost, counterpoll_before, counterpoll_after):
         for counterpoll, value in counterpoll_after.items():
-            if counterpoll_after[counterpoll][CounterpollConstants.STATUS] \
-                    != counterpoll_before[counterpoll][CounterpollConstants.STATUS]:
-                duthost.command(CounterpollConstants.COUNTERPOLL_RESTORE.format(
-                    CounterpollConstants.COUNTERPOLL_MAPPING[counterpoll],
-                    counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
+            if counterpoll not in counterpoll_before:
+                continue
+            else:
+                if counterpoll_after[counterpoll][CounterpollConstants.STATUS] \
+                        != counterpoll_before[counterpoll][CounterpollConstants.STATUS]:
+                    duthost.command(CounterpollConstants.COUNTERPOLL_RESTORE.format(
+                        CounterpollConstants.COUNTERPOLL_MAPPING[counterpoll],
+                        counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
     def disable_counterpoll(duthost, counter_type_list):

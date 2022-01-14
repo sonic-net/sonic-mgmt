@@ -4,9 +4,9 @@ class CounterpollConstants:
     COUNTERPOLL_DISABLE = 'counterpoll {} disable'
     COUNTERPOLL_RESTORE = 'counterpoll {} {}'
     COUNTERPOLL_INTERVAL_STR = 'counterpoll {} interval {}'
-    COUNTERPOLL_QUEST = 'counterpoll ?'
-    EXCLUDE_COUNTER_SUB_COMMAND = ['show', 'config-db']
-    INTERVAL = 'interval'
+    COUNTERPOLL_QUEST = 'counterpoll --help'
+    EXCLUDE_COUNTER_SUB_COMMAND = ['show', 'config-db', "flowcnt-trap", "tunnel"]
+    INTERVAL = 'interval (in ms)'
     TYPE = 'type'
     STATUS = 'status'
     STDOUT ='stdout'
@@ -24,6 +24,8 @@ class CounterpollConstants:
     QUEUE_WATERMARK_STAT_TYPE = 'QUEUE_WATERMARK_STAT'
     PG_WATERMARK_STAT_TYPE = 'PG_WATERMARK_STAT'
     BUFFER_POOL_WATERMARK_STAT_TYPE = 'BUFFER_POOL_WATERMARK_STAT'
+    ACL = 'acl'
+    ACL_TYPE = "ACL"
     COUNTERPOLL_MAPPING = {PG_DROP_STAT_TYPE: PG_DROP,
                            QUEUE_STAT_TYPE: QUEUE,
                            PORT_STAT_TYPE: PORT,
@@ -31,8 +33,9 @@ class CounterpollConstants:
                            RIF_STAT_TYPE: RIF,
                            BUFFER_POOL_WATERMARK_STAT_TYPE: WATERMARK,
                            QUEUE_WATERMARK_STAT_TYPE: WATERMARK,
-                           PG_WATERMARK_STAT_TYPE: WATERMARK}
-    PORT_BUFFER_DROP_NEW_INTERVAL = '10000'
-    PORT_BUFFER_DROP_OLD_INTERVAL = '30000'
+                           PG_WATERMARK_STAT_TYPE: WATERMARK,
+                           ACL_TYPE: ACL}
+    PORT_BUFFER_DROP_INTERVAL = '10000'
+    COUNTERPOLL_INTERVAL = {PORT_BUFFER_DROP: 10000}
     SX_SDK = 'sx_sdk'
     MLNX_PLATFORM_STR = "x86_64-mlnx_msn"
