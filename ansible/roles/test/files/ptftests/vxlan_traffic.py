@@ -5,8 +5,7 @@
 
 # The test checks vxlan encapsulation/decapsulation:
 # The test runs three tests for each vlan on the DUT:
-# 1. 'test_decap' : Sends encapsulated packets to T2-facing interfaces and expects to see the decapsulated inner packets on the T0-facing interface.
-# 2. 'test_encap' : Sends regular packets to T0-facing interface and expects to see the encapsulated packets on the T2-facing interfaces.
+# 'test_encap' : Sends regular packets to T0-facing interface and expects to see the encapsulated packets on the T2-facing interfaces.
 #
 # The test has the following parameters:
 # 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
@@ -84,7 +83,6 @@ class VXLAN(BaseTest):
 
   def tearDown(self):
     if self.vxlan_enabled:
-      #self.cmd(["supervisorctl", "stop", "arp_responder"])
       json.dump(self.packets, open("/tmp/vnet_pkts.json", 'w'))
     return
 
@@ -110,8 +108,6 @@ class VXLAN(BaseTest):
         for addr in neighbors:
             for destination,nh in self.config_data['dest_to_nh_map'][vnet].iteritems():
                 self.test_encap(ptf_port, vni, addr, destination, nh, test_ecn=TEST_ECN)
-                if self.decap_required:
-                    self.test_decap(ptf_port, t0_intf, vni, addr, destination, nh, test_ecn=TEST_ECN)
 
   def get_ptf_port(self, dut_port):
     m = re.search('Ethernet([0-9]+)', dut_port)
@@ -181,7 +177,6 @@ class VXLAN(BaseTest):
             # This will ensure that every nh is used atleast once.
             for i in range(4):
               tcp_sport = get_incremental_value('tcp_sport')
-              #tcp_dport = get_incremental_value('tcp_dport')
               tcp_dport = 5000
               valid_combination = True
               if isinstance(ip_address(destination), ipaddress.IPv4Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv4Address):
@@ -215,8 +210,6 @@ class VXLAN(BaseTest):
                   pkt = simple_tcpv6_packet(**pkt_opts)
                   pkt_opts['ipv6_hlim'] = 63
                   pkt_opts['eth_dst'] = self.dut_mac
-                  # This is Cisco/nexus behaviour. Returned packet has both
-                  # same src and dest mac.
                   pkt_opts['eth_src'] = self.dut_mac
                   exp_pkt = simple_tcpv6_packet(**pkt_opts)
               else:
@@ -251,9 +244,6 @@ class VXLAN(BaseTest):
                       vxlan_vni=vni,
                       inner_frame=exp_pkt)
                       #**options_v6)
-              else:
-                    print("Unusable combination:src:{} and dst:{}".format(src, destination))
-                    #raise Exception("Found invalid IP address in test")
               send_packet(self, ptf_port, str(pkt), count=2)
   
               masked_exp_pkt = Mask(encap_pkt)
@@ -304,148 +294,6 @@ class VXLAN(BaseTest):
                    returned_ip_addresses.keys(), set(nhs)-set(returned_ip_addresses.keys())))
           pkt.load = '0' * 60 + str(len(self.packets))
           self.packets.append((ptf_port, str(pkt).encode("base64")))
-
-      finally:
-          print
-
-
-  def test_decap(self, ptf_port, dut_port, vni, ptf_addr, destination, nhs, test_ecn=False, dut_mac="00:00:00:00:00:00", vlan=0):
-      rv = True
-      decap_ip_id = 108
-      try:
-          pkt_len = self.DEFAULT_PKT_LEN
-          if vlan != 0:
-              tagged = True
-              pkt_len += 4
-          else:
-              tagged = False
-
-          options =  {'ip_tos' : 0}
-          options_v6 = {'ipv6_tc' : 0}
-          if test_ecn:
-            options = {'ip_tos' : random.randint(0, 3)}
-            options_v6 = {'ipv6_tos' : random.randint(0, 3)}
-
-
-          returned_ip_addresses = {}
-          for host_address in nhs:
-            if isinstance(ip_address(host_address), ipaddress.IPv6Address):
-              print ("IPv6 Decap is not supported")
-              return
-            # This will ensure that every nh is used atleast once.
-            for net_port in self.t2_ports:
-              valid_combination = True
-              if isinstance(ip_address(destination), ipaddress.IPv4Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv4Address):
-
-#                # Before the test is started, we need the DUT to update its arp/NDP table for 
-#                # the neighbor entry. We are going to force it by sending an arp resolution
-#                # ourselves. The arp_responder program will be useful when this issue is
-#                # resolved in the DUT.
-#                # DUT issue: https://jira-eng-sjc10.cisco.com/jira/browse/MIGSOFTWAR-879
-#                # Update from Ramesh: Keep it this way, since in Microsoft, this is always
-#                # populated. Drop the arp responder.
-#                arp_pkt = simple_arp_packet(eth_dst=self.dut_mac,
-#                              eth_src=self.ptf_mac_addrs['eth%d' % ptf_port],
-#                              arp_op=1,
-#                              ip_snd=ptf_addr,
-#                              ip_tgt=self.config_data['intf_to_ip_map'][dut_port],
-#                              hw_tgt=self.ptf_mac_addrs['eth%d' % ptf_port],
-#                              hw_snd=self.ptf_mac_addrs['eth%d' % ptf_port],
-#                              pktlen=64
-#                          )
-#                send_packet(self, ptf_port, arp_pkt)
-
-                exp_pkt = simple_tcp_packet(
-                  pktlen=pkt_len,
-                  eth_dst=self.ptf_mac_addrs['eth%d' % ptf_port],
-                  eth_src=self.dut_mac,
-                  ip_dst=ptf_addr,
-                  ip_src=destination,
-                  ip_id=decap_ip_id,
-                  ip_ttl=63,
-                  tcp_sport=1234,
-                  tcp_dport=5000,
-                  **options)
-              elif isinstance(ip_address(destination), ipaddress.IPv6Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv6Address):
-
-#                # See the ARP notes above. For IPv6, it is NDP instead of Arp.
-#                ndp_pkt = Ether(dst=self.dut_mac, src=self.ptf_mac_addrs['eth%d' % ptf_port])
-#                ndp_pkt /= IPv6(src=ptf_addr, dst=destination, fl=0, tc=0, hlim=255) / ICMPv6ND_RA(code=0, M=1, O=0)
-#                ndp_pkt /= ICMPv6NDOptDstLLAddr(lladdr=self.ptf_mac_addrs['eth%d' % ptf_port])
-#                ndp_pkt /= ICMPv6NDOptPrefixInfo(type=3, len=4)
-#
-#                send_packet(self, ptf_port, ndp_pkt)
-
-                exp_pkt = simple_tcpv6_packet(
-                  pktlen=pkt_len,
-                  eth_dst=self.ptf_mac_addrs['eth%d' % ptf_port],
-                  eth_src=self.dut_mac,
-                  ipv6_dst=ptf_addr,
-                  ipv6_src=destination,
-                  ipv6_hlim=63,
-                  tcp_sport=1234,
-                  tcp_dport=5000,
-                  **options_v6)
-              else:
-                  valid_combination = False
-                  print("Unusable combination:src:{} and dst:{}".format(src, destination))
-              udp_sport = 1234 # Use entropy_hash(pkt), it will be ignored in the test later.
-              udp_dport = self.vxlan_port
-              if isinstance(ip_address(host_address), ipaddress.IPv4Address):
-                encap_pkt = simple_vxlan_packet(
-                    eth_src=self.ptf_mac_addrs['eth%d' % int(net_port)],
-                    eth_dst=self.dut_mac,
-                    ip_id=0,
-                    ip_src=host_address,
-                    ip_dst=self.loopback_ipv4,
-                    ip_ttl=64,
-                    udp_sport=udp_sport,
-                    udp_dport=udp_dport,
-                    with_udp_chksum=False,
-                    vxlan_vni=vni,
-                    inner_frame=exp_pkt)
-                #encap_pkt[IP].flags = 0x2
-              elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
-                encap_pkt = simple_vxlanv6_packet(
-                    eth_src=self.ptf_mac_addrs['eth%d' % int(net_port)],
-                    eth_dst=self.dut_mac,
-                    ipv6_src=host_address,
-                    ipv6_dst=self.loopback_ipv6,
-                    udp_sport=udp_sport,
-                    udp_dport=udp_dport,
-                    ipv6_hlim=64,
-                    with_udp_chksum=False,
-                    vxlan_vni=vni,
-                    inner_frame=exp_pkt)
-                #encap_pkt[IPv6].flags = 0x2
-              else:
-                  print("Unusable combination:src:{} and dst:{}".format(src, destination))
-                  #raise Exception("Found invalid IP address in test")
-              # TODO: remove hardcoded value.
-              send_packet(self, net_port, str(encap_pkt), count=2)
-
-              masked_exp_pkt = Mask(exp_pkt)
-              masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-              masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-              if isinstance(ip_address(destination), ipaddress.IPv4Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv4Address):
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-              else:
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
-
-              logging.info("Sending packet from port " + str(ptf_port) + " to " + destination)
-
-              if self.expect_decap_success:
-                try:
-                  verify_packet(self, masked_exp_pkt, ptf_port)
-                except:
-                    raise
-
-              else:
-                print ("Verifying no packet")
-                verify_no_packet_any(self, masked_exp_pkt, self.t2_ports)
-          self.packets.append((ptf_port, str(encap_pkt).encode("base64")))
 
       finally:
           print
