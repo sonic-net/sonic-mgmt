@@ -130,7 +130,7 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     CMD = CMD_APPLY_HACK if hack_apply else CMD_APPLY
 
     for fl in patch_files:
-        res = duthost.shell(CMD.format(fl))
+        res = duthost.shell(CMD.format(os.path.join(patch_add_t0_dir, fl)))
 
         # HACK: TODO: There are scenarios, where it applies patch and still consider as failed
         # "...Error: After applying patch to config, there are still some parts not updated\n"
@@ -169,12 +169,13 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         duthost.shell("config interface shutdown {}".format(tor_ifname))
         do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
 
-    patch_files = _list_patch_files(patch_add_t0_dir)
+    patch_files = _list_patch_files(patch_rm_t0_dir)
 
     CMD = CMD_APPLY_HACK if hack_apply else CMD_APPLY
 
     for fl in patch_files:
         res = duthost.shell(CMD.format(fl))
+        res = duthost.shell(CMD.format(os.path.join(patch_rm_t0_dir, fl)))
         # HACK: TODO: There are scenarios, where it applies patch and still consider as failed
         # "...Error: After applying patch to config, there are still some parts not updated\n"
         # The above error is possible, if some control plane component is making an update.
