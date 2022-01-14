@@ -46,6 +46,9 @@ class TestThermalApi(PlatformApiTestBase):
                 self.num_thermals = int(chassis.get_num_thermals(platform_api_conn))
             except:
                 pytest.fail("num_thermals is not an integer")
+            else:
+                if self.num_thermals == 0:
+                    pytest.skip("No thermals found on device")
 
     #
     # Helper functions

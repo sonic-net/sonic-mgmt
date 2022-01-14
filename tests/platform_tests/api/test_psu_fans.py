@@ -54,6 +54,9 @@ class TestPsuFans(PlatformApiTestBase):
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
             except:
                 pytest.fail("num_fans is not an integer")
+            else:
+                if self.num_psus == 0:
+                    pytest.skip("No psus found on device")
 
     #
     # Helper functions
