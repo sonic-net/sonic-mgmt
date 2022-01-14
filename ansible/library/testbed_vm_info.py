@@ -39,14 +39,14 @@ TGEN_MGMT_NETWORK = '10.65.32.0/24'
 
 class TestbedVMFacts():
     """
-    Retrieve testbed VMs management information that for a specified toplogy defined in testbed.csv
+    Retrieve testbed VMs management information that for a specified toplogy defined in testbed.yaml
 
     """
 
     def __init__(self, toponame, base_vm, vm_file):
         CLET_SUFFIX = "-clet"
-        toponame = re.sub(CLET_SUFFIX + "$", "", toponame)
-        self.topofile = TOPO_PATH+'topo_'+toponame +'.yml'
+        self.toponame = re.sub(CLET_SUFFIX + "$", "", toponame)
+        self.topofile = TOPO_PATH + 'topo_' + self.toponame + '.yml'
         self.base_vm = base_vm
         self.vm_file = vm_file
         self.inv_mgr = InventoryManager(loader=DataLoader(), sources=self.vm_file)
@@ -57,10 +57,18 @@ class TestbedVMFacts():
             vm_topology = yaml.safe_load(f)
         self.topoall = vm_topology
 
-        vm_base = int(self.base_vm[2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(self.base_vm) - 2)
+        if len(self.base_vm) > 2:
+            vm_start_index = int(self.base_vm[2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(self.base_vm) - 2)
+        else:
+            if 'tgen' in self.toponame:
+                vm_start_index = 0
+                vm_name_fmt = 'VM%05d'
+            else:
+                return eos
+
         for eos_name, eos_value in vm_topology['topology']['VMs'].items():
-            vm_name = vm_name_fmt % (vm_base + eos_value['vm_offset'])
+            vm_name = vm_name_fmt % (vm_start_index + eos_value['vm_offset'])
             eos[eos_name] = vm_name
         return eos
 
