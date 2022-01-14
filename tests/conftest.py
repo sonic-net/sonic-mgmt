@@ -363,9 +363,12 @@ def k8smasters(ansible_adhoc, request):
     k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
+    k8s_inv_file = None
     for inv_file in inv_files:
         if "k8s" in inv_file:
             k8s_inv_file = inv_file
+    if not k8s_inv_file:
+        pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
