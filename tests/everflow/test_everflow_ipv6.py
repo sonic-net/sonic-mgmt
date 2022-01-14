@@ -3,13 +3,13 @@ import pytest
 import ptf.testutils as testutils
 
 import everflow_test_utilities as everflow_utils
-from everflow_test_utilities import BaseEverflowTest
+from everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 
 # Module-level fixtures
 from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("t1")
+    pytest.mark.topology("t0","t1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -36,17 +36,26 @@ class EverflowIPv6Tests(BaseEverflowTest):
         Setup the route for mirror session destination ip and update monitor port list.
         Remove the route as part of cleanup.
         """
-
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"",setup_info["tor"]["namespace"]))
-        tx_port = setup_info["tor"]["dest_port"][0]
+        if setup_info['topo'] == 't0':
+            # On T0 testbed, the collector IP is routed to T1
+            namespace = setup_info[UP_STREAM]['namespace']
+            tx_port = setup_info[UP_STREAM]["dest_port"][0]
+            dest_port_ptf_id_list = [setup_info[UP_STREAM]["dest_port_ptf_id"][0]]
+        else:
+            namespace = setup_info[DOWN_STREAM]['namespace']
+            tx_port = setup_info[DOWN_STREAM]["dest_port"][0]
+            dest_port_ptf_id_list = [setup_info[DOWN_STREAM]["dest_port_ptf_id"][0]]
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"", namespace))
         peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info["tor"]["namespace"])
-        EverflowIPv6Tests.tx_port_ids = self._get_tx_port_id_list([setup_info["tor"]["dest_port_ptf_id"][0]])
+        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, namespace)
+        EverflowIPv6Tests.tx_port_ids = self._get_tx_port_id_list(dest_port_ptf_id_list)
         time.sleep(5)
+
         yield
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, setup_info["tor"]["namespace"])
-        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"",setup_info["tor"]["namespace"]))
+
+        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, namespace)
+        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"", namespace))
 
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
         """Verify that we can match on Source IPv6 addresses."""

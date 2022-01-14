@@ -7,6 +7,10 @@
       destination-ip-address: "30.0.0.10/32"
 
 - qualifiers:
+    ip:
+      destination-ip-address: "192.168.0.2/32"
+
+- qualifiers:
     transport:
       source-port: "4661"
 
