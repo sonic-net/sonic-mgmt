@@ -301,7 +301,6 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
             log_error("Too many errors; bailing out")
             break
 
-
     diff = clet_keys - orig_keys
     for k in diff:
         log_info("{}: New key:  {}".format(fname, k))
