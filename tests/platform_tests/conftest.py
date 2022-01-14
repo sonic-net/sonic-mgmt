@@ -13,9 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
-from .args.advanced_reboot_args import add_advanced_reboot_args
-from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from .args.normal_reboot_args import add_normal_reboot_args
+
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -94,7 +92,7 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     elif first_after_offset:
         # capture the first occurence as the one after offset timestamp and ignore the ones before
         # this is useful to find time after a specific instance, for eg. - kexec time or FDB disable time.
-        if datetime.strptime(first_after_offset, FMT) < datetime.strptime(time, FMT):
+        if _parse_timestamp(first_after_offset) < _parse_timestamp(time):
             timestamps[state_status] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
@@ -312,8 +310,8 @@ def verify_mac_jumping(test_name, timing_data):
         # and ends when SAI is instructed to enable MAC learning (warmboot recovery path)
         logging.info("Mac expiry for unexpected addresses started at {}".format(mac_expiry_start) +\
             " and FDB learning enabled at {}".format(fdb_aging_disable_end))
-        if datetime.strptime(mac_expiry_start, FMT) > datetime.strptime(fdb_aging_disable_start, FMT) and\
-            datetime.strptime(mac_expiry_start, FMT) < datetime.strptime(fdb_aging_disable_end, FMT):
+        if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start, FMT) and\
+            _parse_timestamp(mac_expiry_start) < _parse_timestamp(fdb_aging_disable_end):
             pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
 
@@ -369,6 +367,11 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         for key, messages in result["expect_messages"].items():
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
+                reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                if not reboot_start_time or reboot_start_time == "N/A":
+                    logging.error("kexec regex \"Rebooting with /sbin/kexec\" not found in syslog. " +\
+                    "Skipping log_analyzer checks..")
+                    return
                 analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
             elif "bgpd.log" in key:
                 analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
@@ -474,12 +477,6 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stderr')
         outputs.append(res)
     logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
-
-
-def pytest_addoption(parser):
-    add_advanced_reboot_args(parser)
-    add_cont_warm_reboot_args(parser)
-    add_normal_reboot_args(parser)
 
 
 def pytest_generate_tests(metafunc):

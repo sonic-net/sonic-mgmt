@@ -21,6 +21,7 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
+from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 
 from tests.common.helpers.constants import (
@@ -39,6 +40,9 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
+from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 
 
 logger = logging.getLogger(__name__)
@@ -129,24 +133,13 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
 
-    ############################
-    # upgrade_path options     #
-    ############################
-    parser.addoption("--upgrade_type", default="warm",
-        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
-    )
+    ##################################
+    # advance-reboot,upgrade options #
+    ##################################
+    add_advanced_reboot_args(parser)
+    add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
 
-    parser.addoption("--base_image_list", default="",
-        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--target_image_list", default="",
-        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--restore_to_image", default="",
-        help="Specify the target image to restore to, or stay in target image if empty",
-    )
     ############################
     #   loop_times options     #
     ############################
@@ -370,9 +363,12 @@ def k8smasters(ansible_adhoc, request):
     k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
+    k8s_inv_file = None
     for inv_file in inv_files:
         if "k8s" in inv_file:
             k8s_inv_file = inv_file
+    if not k8s_inv_file:
+        pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
@@ -413,21 +409,24 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
-            devices[k] = {'host': EosHost(ansible_adhoc,
-                                        vm_name,
-                                        creds['eos_login'],
-                                        creds['eos_password'],
-                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+            device = NeighborDevice({'host': EosHost(ansible_adhoc,
+                                                     vm_name,
+                                                     creds['eos_login'],
+                                                     creds['eos_password'],
+                                                     shell_user=creds[
+                                                         'eos_root_user'] if 'eos_root_user' in creds else None,
+                                                     shell_passwd=creds[
+                                                         'eos_root_password'] if 'eos_root_password' in creds else None),
+                                     'conf': tbinfo['topo']['properties']['configuration'][k]})
         elif neighbor_type == "sonic":
-            devices[k] = {'host': SonicHost(ansible_adhoc,
+            device = NeighborDevice({'host': SonicHost(ansible_adhoc,
                                         vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+                                    'conf': tbinfo['topo']['properties']['configuration'][k]})
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+        devices[k] = device
     return devices
 
 
@@ -1114,7 +1113,7 @@ def pytest_generate_tests(metafunc):
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module")
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module", indirect=True)
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
