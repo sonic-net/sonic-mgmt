@@ -121,8 +121,12 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "show interface status",
             "show interface portchannel",
             "show ip bgp summary",
+            "show ip bgp neighbors",
+            "show ip bgp network",
             "show ip interface",
             "show ipv6 interface",
+            "show ipv6 bgp neighbors",
+            "show ipv6 bgp network",
             "show lldp table",
         ],
     }
