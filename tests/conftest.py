@@ -21,6 +21,7 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
+from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 
 from tests.common.helpers.constants import (
@@ -405,21 +406,24 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
-            devices[k] = {'host': EosHost(ansible_adhoc,
-                                        vm_name,
-                                        creds['eos_login'],
-                                        creds['eos_password'],
-                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+            device = NeighborDevice({'host': EosHost(ansible_adhoc,
+                                                     vm_name,
+                                                     creds['eos_login'],
+                                                     creds['eos_password'],
+                                                     shell_user=creds[
+                                                         'eos_root_user'] if 'eos_root_user' in creds else None,
+                                                     shell_passwd=creds[
+                                                         'eos_root_password'] if 'eos_root_password' in creds else None),
+                                     'conf': tbinfo['topo']['properties']['configuration'][k]})
         elif neighbor_type == "sonic":
-            devices[k] = {'host': SonicHost(ansible_adhoc,
+            device = NeighborDevice({'host': SonicHost(ansible_adhoc,
                                         vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+                                    'conf': tbinfo['topo']['properties']['configuration'][k]})
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+        devices[k] = device
     return devices
 
 
