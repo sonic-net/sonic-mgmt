@@ -55,9 +55,6 @@ class TestChassisFans(PlatformApiTestBase):
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
             except:
                 pytest.fail("num_fans is not an integer")
-            else:
-                if self.num_fans == 0:
-                    pytest.skip("No fans found on device")
         stop_thermal_control_daemon(duthost)
         yield
         start_thermal_control_daemon(duthost) 
