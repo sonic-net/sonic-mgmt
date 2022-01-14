@@ -1,4 +1,5 @@
 from tabulate import tabulate
+from statistics import mean
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)

@@ -9,7 +9,8 @@ DUT_AS_NUM = 65100
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
-
+lacpdu_interval_dict = { 0:'Auto',1:'Fast',30:'Slow'}
+lacpdu_timeout_dict = { 0:'Auto',3:'Short',90:'Long'}
 def run_lacp_add_remove_link_physically(cvg_api,
                                         duthost,
                                         tgen_ports,
@@ -40,6 +41,54 @@ def run_lacp_add_remove_link_physically(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         port_speed,)
+
+    """
+        Run the convergence test by flapping all the rx
+        links one by one and calculate the convergence values
+    """
+    get_lacp_add_remove_link_physically(cvg_api,
+                                            tgen_bgp_config,
+                                            iteration,
+                                            port_count,
+                                            number_of_routes,)
+
+    """ Cleanup the dut configs after getting the convergence numbers """
+    cleanup_config(duthost)
+
+def run_lacp_timers_effect(cvg_api,
+                            duthost,
+                            tgen_ports,
+                            iteration,
+                            port_count,
+                            number_of_routes,
+                            port_speed,
+                            lacpdu_interval_period,
+                            lacpdu_timeout,):
+    """
+    Run Local link failover test
+
+    Args:
+        cvg_api (pytest fixture): snappi API
+        duthost (pytest fixture): duthost fixture
+        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
+        iteration: number of iterations for running convergence test on a port
+        port_count: total number of ports used in test
+        number_of_routes:  Number of IPv4/IPv6 Routes
+        port_speed: speed of the port used for test
+    """
+
+    """ Create bgp config on dut """
+    duthost_bgp_config(duthost,
+                       tgen_ports,
+                       port_count,)
+
+    """ Create bgp config on TGEN """
+    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+                                        port_count,
+                                        number_of_routes,
+                                        port_speed,
+                                        lacpdu_interval_period,
+                                        lacpdu_timeout,)
 
     """
         Run the convergence test by flapping all the rx
@@ -119,7 +168,9 @@ def duthost_bgp_config(duthost,
 def __tgen_bgp_config(cvg_api,
                       port_count,
                       number_of_routes,
-                      port_speed,):
+                      port_speed,
+                      lacpdu_interval_period = 0,
+                      lacpdu_timeout = 0,):
     """
     Creating  BGP config on TGEN
 
@@ -128,6 +179,8 @@ def __tgen_bgp_config(cvg_api,
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
         port_speed: speed of the port used for test
+        lacpdu_interval_period: LACP update packet interval ( 0 - Auto, 1- Fast, 30 - Slow )
+        lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
@@ -137,9 +190,10 @@ def __tgen_bgp_config(cvg_api,
     lag0 = config.lags.lag(name="lag0")[-1]
     lp = lag0.ports.port(port_name='Test_Port_1')[-1]
     lp.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
+    lp.protocol.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
+    lp.protocol.lacp.lacpdu_timeout = lacpdu_timeout
     lp.ethernet.name= "eth0"
     lp.ethernet.mac = "00:11:02:00:10:01"
-    
     #for loop
     lag1 = config.lags.lag(name="lag1")[-1]
     for i in range(2,port_count+1):
@@ -149,9 +203,16 @@ def __tgen_bgp_config(cvg_api,
         else:
             m = hex(i).split('0x')[1]
         lagport.protocol.lacp.actor_system_id = "00:10:00:00:00:11"
+        #
+        lagport.protocol.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
+        lagport.protocol.lacp.lacpdu_timeout = lacpdu_timeout
+        #
         lagport.ethernet.name = "eth%d"%i
         lagport.ethernet.mac = "00:10:04:00:00:%s" % m
-
+    logger.info('|-------------- LACP Timers --------------|')
+    logger.info('LACPDU Periodic Time Interval :{} - {}'.format(lacpdu_interval_period,lacpdu_interval_dict[lacpdu_interval_period]))
+    logger.info('LACPDU Timeout :{} - {}'.format(lacpdu_timeout,lacpdu_timeout_dict[lacpdu_timeout]))
+    logger.info('|-----------------------------------------|')
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = 'port settings'
@@ -244,7 +305,6 @@ def get_lacp_add_remove_link_physically(cvg_api,
     Args:
         cvg_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
-        config: TGEN config
         iteration: number of iterations for running convergence test on a port
         number_of_routes:  Number of Routes
     """
