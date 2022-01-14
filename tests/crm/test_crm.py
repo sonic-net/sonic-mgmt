@@ -407,10 +407,10 @@ def get_entries_num(used, available):
     return ((used + available) / 100) + 1
 
 @pytest.mark.usefixtures('disable_route_checker')
-@pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "{} route add 2.2.2.0/24 via {}",
-                                                                "{} route del 2.2.2.0/24 via {}"),
-                                                                ("6", "{} -6 route add 2001::/126 via {}",
-                                                                "{} -6 route del 2001::/126 via {}")],
+@pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "{} route add 2.{}.2.0/24 via {}",
+                                                                "{} route del 2.{}.2.0/24 via {}"),
+                                                                ("6", "{} -6 route add 2001:{}::/126 via {}",
+                                                                "{} -6 route del 2001:{}::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
 def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -456,10 +456,17 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     pytest_assert(out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
     nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
 
-    # Add IPv[4/6] route
-    route_add = route_add_cmd.format(asichost.ip_cmd, nh_ip)
-    logging.info("route add cmd: {}".format(route_add))
-    duthost.command(route_add)
+    # Add IPv[4/6] routes 
+    # Cisco platforms need an upward of 10 routes for crm_stats_ipv4_route_available to decrement
+    if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == '4':
+        total_routes = 10
+    else:
+        total_routes = 1
+    for i in range(total_routes):
+        route_add = route_add_cmd.format(asichost.ip_cmd, i, nh_ip)
+        logging.info("route add cmd: {}".format(route_add))
+        duthost.command(route_add)
+    
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -469,16 +476,17 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     
 
     # Verify "crm_stats_ipv[4/6]_route_used" counter was incremented
-    if not (new_crm_stats_route_used - crm_stats_route_used == 1):
-        RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, nh_ip))
-        pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
+    if not (new_crm_stats_route_used - crm_stats_route_used == total_routes):
+        for i in range(total_routes):
+            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
     if not (crm_stats_route_available - new_crm_stats_route_available >= 1):
-        RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, nh_ip))
-        pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
+        for i in range(total_routes):
+            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
 
-    # Remove IPv[4/6] route
-    duthost.command(route_del_cmd.format(asichost.ip_cmd, nh_ip))
+    # Remove IPv[4/6] routes
+    for i in range(total_routes):
+        duthost.command(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
