@@ -122,8 +122,11 @@ class TestContLinkFlap(object):
         logging.info("Memory Status at end: %s", memory_output)
 
         # Record orchagent CPU utilization at end
-        orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-        logging.info("Orchagent CPU Util at end: %s", orch_cpu)
+        orch_cpu = duthost.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $1, $9}'")[
+            "stdout_lines"]
+        for line in orch_cpu:
+            pid, util = line.split(" ")
+            logging.info("Orchagent PID {0} CPU Util at end: {1}".format(pid, util))
 
         # Record Redis Memory at end
         end_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
@@ -143,5 +146,5 @@ class TestContLinkFlap(object):
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
         pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))

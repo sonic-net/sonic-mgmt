@@ -199,8 +199,12 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
     """
-    orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-    return int(float(orch_cpu)) < orch_cpu_threshold
+    orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+    for line in orch_cpu:
+        if int(float(line)) > orch_cpu_threshold:
+           return False
+    return True
+
 
 
 def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
