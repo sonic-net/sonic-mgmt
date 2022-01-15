@@ -249,7 +249,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             if "ipv4 neighbor" or "ipv6 neighbor" in kwargs["crm_cli_res"] and "cisco-8000" in duthost.facts["asic_type"].lower():
-                # Skip the percentage for Cisco-8000 devices
+                # Skip the percentage check for Cisco-8000 devices
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
             if key == "exceeded_percentage":
@@ -637,9 +637,10 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
                                     ip_ver=ip_ver)
     crm_stats_neighbor_used, crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
 
-    # Add neighbor
+    # Add reachability to the neighbor
     if duthost.facts["asic_type"] in ["cisco-8000"]:
          asichost.shell("config interface ip add {} {}".format(crm_interface[0], host))
+    # Add neighbor
     asichost.shell(neighbor_add_cmd)
 
     # Make sure CRM counters updated
@@ -656,10 +657,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     if not (crm_stats_neighbor_available - new_crm_stats_neighbor_available >= 1):
         RESTORE_CMDS["test_crm_neighbor"].append(neighbor_del_cmd)
         pytest.fail("\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
-
-    # Remove neighbor
+    
+    # Remove reachability to the neighbor
     if duthost.facts["asic_type"] in ["cisco-8000"]:
         asichost.shell("config interface ip remove {} {}".format(crm_interface[0], host))
+    # Remove neighbor
     asichost.shell(neighbor_del_cmd)
 
     # Make sure CRM counters updated
