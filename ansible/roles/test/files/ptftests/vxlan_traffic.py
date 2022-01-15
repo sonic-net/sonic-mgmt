@@ -1,9 +1,9 @@
 # ptf --test-dir ptftests vxlan_traffic.VXLAN --platform-dir ptftests --qlen=1000 --platform remote \
-#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True;expect_decap_success=True; \
-#        vxlan_port=4789;topo_file="/tmp/vxlan_topo_file.json";config_file="/tmp/vxlan-config-TC1-v6_in_v4.json";t0_ports=[u"Ethernet42"];decap_required=True' --relax --debug info \
+#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True; \
+#        vxlan_port=4789;topo_file="/tmp/vxlan_topo_file.json";config_file="/tmp/vxlan-config-TC1-v6_in_v4.json";t0_ports=[u"Ethernet42"]' --relax --debug info \
 #        --log-file /tmp/vxlan-tests.TC1.v6_in_v4.log
 
-# The test checks vxlan encapsulation/decapsulation:
+# The test checks vxlan encapsulation:
 # The test runs three tests for each vlan on the DUT:
 # 'test_encap' : Sends regular packets to T0-facing interface and expects to see the encapsulated packets on the T2-facing interfaces.
 #
@@ -59,8 +59,6 @@ class VXLAN(BaseTest):
     self.dut_mac = self.test_params['dut_mac']
     self.vxlan_port = self.test_params['vxlan_port']
     self.expect_encap_success = self.test_params['expect_encap_success']
-    self.expect_decap_success = self.test_params['expect_decap_success']
-    self.decap_required = self.test_params['decap_required']
 
     self.random_mac = "00:aa:bb:cc:dd:ee"
     self.ptf_mac_addrs = read_ptf_macs()
@@ -74,9 +72,6 @@ class VXLAN(BaseTest):
     self.t2_ports = self.test_params['t2_ports']
     self.nbr_info = self.config_data['neighbors']
     self.packets = []
-    if self.decap_required == True:
-      self.generate_arp_responder_config()
-      self.cmd(["supervisorctl", "start", "arp_responder"])
     self.dataplane.flush()
     self.vxlan_enabled = True
     return
