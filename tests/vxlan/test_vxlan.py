@@ -585,7 +585,9 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
                 localhost = localhost,
                 af= outer_layer_version)
 
-    scope = request.config.option.scope
+    # The script only supports default scope for now.
+    # So only one vnet per protocol will be supported.
+    scope = "default"
     increment = num_vnet
     if scope == "default":
       increment = 0
@@ -613,7 +615,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
         encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
       except KeyError:
         if scope == "default":
-        vnet_af_map[outer_layer_version] = create_vnets(data['duthost'],
+            vnet_af_map[outer_layer_version] = create_vnets(data['duthost'],
                 tunnel_name=tunnel_names[outer_layer_version],
                 vnet_count=num_vnet,
                 vnet_name_prefix = "Vnet_" + encap_type,
