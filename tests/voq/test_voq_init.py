@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.redis import AsicDbCli, VoqDbCli
 from voq_helpers import check_voq_remote_neighbor, get_sonic_mac
 from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
-from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup, find_system_port
+from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
 from voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
@@ -173,11 +173,6 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
     voq_intfs = cfg_facts.get('VOQ_INBAND_INTERFACE', [])
     dev_sysports = get_device_system_ports(cfg_facts)
 
-    if 'slot_num' in per_host.facts:
-        slot = per_host.facts['slot_num']
-    else:
-        slot = None
-
     rif_ports_in_asicdb = []
 
     # intf_list = get_router_interface_list(dev_intfs)
@@ -215,11 +210,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
                           "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            if slot is None:
-                sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
-                                'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
-            else:
-                sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, hostif)
+            sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                            'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
 
             if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
                 check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], hostif)
@@ -261,11 +253,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
                           "MAC for rif %s is not %s" % (rif, intf_mac))
 
-            if slot is None:
-                sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
-                                'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
-            else:
-                sysport_info = find_system_port(dev_sysports, slot, asic.asic_index, inband['port'])
+            sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                            'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
 
             if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
                 check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], inband['port'])
@@ -325,6 +314,7 @@ def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_in
     * Repeat with IPv4, IPv6, dual-stack.
 
     """
+
     per_host = duthosts[enum_frontend_dut_hostname]
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
@@ -398,7 +388,7 @@ def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
     per_host = duthosts[enum_frontend_dut_hostname]
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
-    dev_sysports = get_device_system_ports(cfg_facts)
+
     inband_info = get_inband_info(cfg_facts)
     if inband_info == {}:
         logger.info("No inband configuration on this ASIC: %s/%s, skipping", per_host.hostname, asic.asic_index)
@@ -424,12 +414,9 @@ def test_voq_inband_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
         asic_dict = check_local_neighbor_asicdb(asic, neighbor_ip, neighbor_mac)
         encap_idx = asic_dict['encap_index']
 
-        # Check the inband neighbor entry on the supervisor nodes
-        if 'slot_num' in per_host.facts:
-            sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, interface)
-        else:
-            sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
-                            'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+        sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                        'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+
         for sup in duthosts.supervisor_nodes:
             check_voq_neighbor_on_sup(sup, sysport_info['slot'], sysport_info['asic'], interface, neighbor_ip,
                                       encap_idx, inband_mac)
