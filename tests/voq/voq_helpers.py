@@ -487,6 +487,8 @@ def get_inband_info(cfg_facts):
         intf = cfg_facts['VOQ_INBAND_INTERFACE']
         for a_intf in intf:
             for addrs in intf[a_intf]:
+                if "/" not in addrs:
+                    continue
                 ret['port'] = a_intf
 
                 # Skip fields that are not inband address
@@ -557,42 +559,6 @@ def get_port_by_ip(cfg_facts, ipaddr):
     raise Exception("Dod not find port for IP %s" % ipaddr)
 
 
-def find_system_port(dev_sysports, slot, asic_index, hostif):
-    """
-    System key string can be arbitrary text with slot, asic, and port, so try to find the match
-    and return the correct string.  ex.  "Slot1|asic3|Ethernet12" or "Linecard4|Asic1|Portchannel23"
-
-    Args:
-        dev_sysports: dictionary from config_facts with all of the system ports on the system.
-        slot: The slot number of the system port to find.
-        asic_index: The asic number of ths system port to find.
-        hostif: The interface of the system port to find.
-
-    Returns:
-        A dictionary with the system port text strings.
-
-    Raises:
-        KeyError if the system port can't be found in the dictionary.
-
-    """
-
-    if "portchannel" in hostif.lower():
-        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|'.format(slot, asic_index))
-    else:
-        sys_re = re.compile(r'^([a-zA-Z0-9\-]+{})\|([a-zA-Z]+{})\|{}$'.format(slot, asic_index, hostif))
-    sys_info = {}
-
-    for sysport in dev_sysports:
-        match = sys_re.match(sysport)
-        if match:
-            sys_info['slot'] = match.group(1)
-            sys_info['asic'] = match.group(2)
-            sys_info['key'] = sysport
-            return sys_info
-
-    raise KeyError("Could not find system port for {}/{}/{}".format(slot, asic_index, hostif))
-
-
 def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts):
     """
     Verifies a single neighbor entry is present in a voq system on local and remote sonic instances.
@@ -611,7 +577,7 @@ def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all
 
     """
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
-    dev_sysports = get_device_system_ports(cfg_facts)
+
     neighs = cfg_facts['BGP_NEIGHBOR']
     inband_info = get_inband_info(cfg_facts)
     local_ip = neighs[neighbor]['local_addr']
@@ -634,13 +600,8 @@ def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all
     logger.info("Local_dict: %s", local_dict)
 
     # Check the same neighbor entry on the supervisor nodes
-    if "portchannel" in local_port.lower() or per_host.is_multi_asic:
-        slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
-        asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
-    else:
-        sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
-        slotname = sysport_info['slot']
-        asicname = sysport_info['asic']
+    slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
+    asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
 
     if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
         check_voq_neighbor_on_sup(per_host, slotname, asicname, local_port,
@@ -713,7 +674,7 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
     """
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
     neighs = cfg_facts['BGP_NEIGHBOR']
-    dev_sysports = get_device_system_ports(cfg_facts)
+
     fail_cnt = 0
 
     # Grab dumps of the asicdb, appdb, voqdb, and arp table
@@ -744,11 +705,9 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
         neigh_mac = nbr_macs[nbr_vm['vm']][nbr_vm['port']]
         local_ip = neighs[neighbor]['local_addr']
         local_port = get_port_by_ip(cfg_facts, local_ip)
-        if 'slot_num' in per_host.facts:
-            sysport_info = find_system_port(dev_sysports, per_host.facts['slot_num'], asic.asic_index, local_port)
-        else:
-            sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
-                            'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
+
+        sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
+                        'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
 
         # Validate the asic db entries
         for entry in asic_dump:
@@ -1254,6 +1213,9 @@ def eos_ping(eos, ipaddr, count=2, timeout=3, interface=None, size=None, ttl=Non
         logger.info("Result: %s", output['stdout_lines'][-2:])
 
     output['parsed'] = parse_ping(output['stdout_lines'])
+
+    if "Network is unreachable" in output['stderr']:
+        raise AssertionError('Network is unreachable')
 
     if "error code" in output['stdout_lines'][-1]:
         raise AssertionError(output['parsed'])

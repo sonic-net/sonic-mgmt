@@ -311,12 +311,9 @@ class AsicDbCli(RedisCli):
             neighbor_key: The full key of the neighbor table.
             field: The field to get in the neighbor hash table.
         """
-        cmd = ["/usr/bin/redis-cli", "-n", "1", "HGET", neighbor_key, field]
-        if self.host.namespace is not None:
-            cmd = ["/usr/bin/redis-cli", "-h", str(self.ip), "-n", "1", "HGET", neighbor_key, field]
-            cmd = ["sudo", "ip", "netns", "exec"] + [self.host.namespace] + cmd
+        cmd = "%s ASIC_DB HGET '%s' %s" % (self.host.sonic_db_cli, neighbor_key, field)
 
-        result = self.host.sonichost.shell(argv=cmd)
+        result = self.host.sonichost.shell(cmd)
         return result['stdout']
 
     def get_hostif_table(self, refresh=False):
