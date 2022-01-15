@@ -640,7 +640,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
 
     # Add reachability to the neighbor
     if duthost.facts["asic_type"] in ["cisco-8000"]:
-         asichost.shell("config interface ip add {} {}".format(crm_interface[0], host))
+         asichost.config_ip_intf(crm_interface[0], host, "add")
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
 
@@ -661,7 +661,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     
     # Remove reachability to the neighbor
     if duthost.facts["asic_type"] in ["cisco-8000"]:
-        asichost.shell("config interface ip remove {} {}".format(crm_interface[0], host))
+        asichost.config_ip_intf(crm_interface[0], host, "remove")
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)
 
