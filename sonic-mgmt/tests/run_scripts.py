@@ -219,10 +219,8 @@ def main():
     dut_name = args['dut_name']
     topo_name = args['topo_name']
 
-    if device_type == 'sherman':
+    if device_type == 'sherman' and dut_name is None:
         dut_name = 'sherman-01'
-    else:
-        dut_name = 'mathilda-01'
 
     if tstamp is None:        
         tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
