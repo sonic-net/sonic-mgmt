@@ -41,7 +41,7 @@ def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
     # Verify that the command is allowed
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
-    expected = res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr'])
+    expected = res['rc'] == 0 and "Make sure your account has RW permission to current device" not in res['stderr']
     if not expected:
         logger.error("error output=\"{}\"".format(res["stderr"]))
     return expected
