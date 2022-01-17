@@ -5,7 +5,6 @@ import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from log_messages import *
 import tech_support_cmds as cmds 
 
 logger = logging.getLogger(__name__)
@@ -57,6 +56,7 @@ def test_secret_removed_from_show_techsupport(
     snmp_rocommunity = creds_all_duts[duthost]['snmp_rocommunity']
 
     # generate a new dump file. and find latest dump file with ls -t
+    duthost.shell('rm -rf /var/dump/sonic_dump_*')
     duthost.shell('show techsupport')
     dump_file_path = duthost.shell('ls -t /var/dump/sonic_dump_* | tail -1')['stdout']
     dump_file_name = dump_file_path.replace("/var/dump/", "")

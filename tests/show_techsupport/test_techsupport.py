@@ -2,17 +2,14 @@ import os
 import pprint
 import pytest
 import time
-
 import logging
+import tech_support_cmds as cmds 
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until, skip_release
-
-from log_messages import *
-
-import tech_support_cmds as cmds 
+from tests.common.utilities import wait_until
+from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 
 logger = logging.getLogger(__name__)
 
@@ -260,16 +257,6 @@ def config(request):
     e.g. : test_techsupport[acl]
     """
     return request.getfixturevalue(request.param)
-@pytest.fixture
-def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    # Setup TACACS/Radius password
-    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost]['tacacs_passkey'])
-    duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost]['radius_passkey'])
-    yield
-    # Remove TACACS/Radius password
-    duthost.shell("sudo config tacacs default passkey")
-    duthost.shell("sudo config radius default passkey")
 
 def execute_command(duthost, since):
     """
