@@ -552,6 +552,9 @@ class TestSfpApi(PlatformApiTestBase):
                 sfp_skipped += 1
                 continue
 
+        if sfp_skipped == num_sfps:
+            pytest.skip("test_sfp:tx_disable_channel is not supported on all sfps")
+
         for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -589,8 +592,6 @@ class TestSfpApi(PlatformApiTestBase):
                 else:
                     expected_mask = expected_mask >> 1
 
-        if sfp_skipped == num_sfps:
-            pytest.skip("test_sfp:tx_disable_channel is not supported on all sfps")
         self.assert_expectations()
 
     def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
