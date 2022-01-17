@@ -89,7 +89,3 @@ class AnsibleHostBase(object):
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
-
-class NeighborDevice(dict):
-    def __str__(self):
-        return str(self["host"])
