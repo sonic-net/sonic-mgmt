@@ -151,7 +151,8 @@ test_t0() {
       bgp/test_bgpmon.py \
       container_checker/test_container_checker.py \
       process_monitoring/test_critical_process_monitoring.py \
-      system_health/test_system_status.py"
+      system_health/test_system_status.py \
+      show_techsupport/test_techsupport_no_secret.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
