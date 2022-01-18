@@ -1,7 +1,9 @@
 steps:
 - script: |
-    # set -x        
-    cd sonic-metadata/scripts/tests
+    # set -x
+    cd sonic-metadata
+    python purge.py
+    cd scripts/tests
     pytest test_cleanup_firmware.py
     pytest eos_to_sonic_test.py
   displayName: Unit test SONiC metadata scripts
