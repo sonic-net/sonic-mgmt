@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import filecmp
 import os
 
 from mock_for_switch import get_duthost
@@ -15,15 +16,20 @@ def run_test(skip_load=False, skip_clet_test=False,
         hack_apply=False, skip_prepare=False):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
-    set_print()
+    set_print(flush=True)
 
     duthost = get_duthost()
     if not duthost:
         log_error("Wrapper for execution in SONiC switch only")
         return -1
 
-    if not restore_orig_minigraph(duthost):
+    
+    if not os.path.exists("/etc/sonic/orig/minigraph.xml.addRack.orig"):
         backup_minigraph(duthost)
+    elif ((not os.path.exists("/etc/sonic/minigraph.xml")) or
+            (not filecmp.cmp("/etc/sonic/orig/minigraph.xml.addRack.orig",
+                "/etc/sonic/minigraph.xml"))):
+        restore_orig_minigraph(duthost)
     else:
         skip_load = True
 

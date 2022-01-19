@@ -8,6 +8,7 @@ import os
 logger = logging.getLogger(__name__)
 
 do_print = os.path.exists("/etc/sonic/sonic-environment")
+do_flush = False
 
 prefix_msgs = []
 
@@ -56,7 +57,10 @@ def log_msg(lgr_fn, m):
             inspect.stack()[2][2], tstr, get_log_prefix_msg(),m)
     lgr_fn(msg)
     if do_print:
-        print(msg, flush=True)
+        if do_flush:
+            print(msg, flush=True)
+        else:
+            print(msg)
 
 
 def log_error(m):
@@ -75,7 +79,8 @@ def log_debug(m):
     log_msg(logger.debug, m)
 
 
-def set_print():
-    global do_print
+def set_print(flush=False):
+    global do_print, do_flush
 
     do_print = True
+    do_flush = flush

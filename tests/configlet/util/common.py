@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import time
 
 from helpers import *
@@ -53,13 +54,13 @@ files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
 def MINS_TO_SECS(n):
     return n * 60
 
-RELOAD_WAIT_TIME = MINS_TO_SECS(3)      # TODO: Change to 3
+RELOAD_WAIT_TIME = MINS_TO_SECS(3)
 
 PAUSE_INTF_DOWN = MINS_TO_SECS(1)
-PAUSE_INTF_UP = MINS_TO_SECS(3)         # TODO: change to 3
+PAUSE_INTF_UP = MINS_TO_SECS(3)
 PAUSE_CLET_APPLY = MINS_TO_SECS(1)
 
-DB_COMP_WAIT_TIME = MINS_TO_SECS(3)     # TODO: change to 5
+DB_COMP_WAIT_TIME = MINS_TO_SECS(5)     # TODO: change to 5
 
 
 def do_pause(secs, msg):
@@ -92,14 +93,16 @@ scan_dbs = {
                 "NEIGH_TABLE_DEL_SET",
                 "ROUTE_TABLE:fe80:",
                 "ROUTE_TABLE:FE80:",
-                "TUNNEL_DECAP_TABLE"},
+                "TUNNEL_DECAP_TABLE",
+                # BUFFER_PG.*3-4 is an auto created entry by buffermgr
+                # configlet skips it. So skip verification too.
+                "BUFFER_PG_TABLE:Ethernet[0-9][0-9]*:3-4"},
             "keys_skip_val_comp": set()
         },
         "state-db": {
             "db_no": 6,
             "keys_to_compare": {
                 "NEIGH_STATE_TABLE",
-                "PORT_TABLE",
                 "TRANSCEIVER_DOM_SENSOR",
                 "TRANSCEIVER_INFO",
                 "TRANSCEIVER_STATUS",
@@ -107,7 +110,9 @@ scan_dbs = {
                 "VLAN_TABLE"
             },
             "keys_to_skip_comp": set(),
-            "keys_skip_val_comp": set()
+            "keys_skip_val_comp": {
+                "PORT_TABLE"
+            }
         }
     }
 
@@ -159,6 +164,8 @@ def report_error(m):
 def match_key(key, kset):
     for k in kset:
         if key.startswith(k):
+            return True
+        elif re.match(k, key):
             return True
     return False
 
@@ -366,8 +373,10 @@ def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
 
 
 def chk_bgp_session(duthost, ip, msg):
-    # info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
-    info = duthost.get_bgp_neighbor_info(ip)
+    if type(ip) == str:
+        info = duthost.get_bgp_neighbor_info(ip)
+    else:
+        info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
     bgp_state = info.get("bgpState", "")
     assert bgp_state == "Established", \
             "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)

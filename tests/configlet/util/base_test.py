@@ -91,7 +91,7 @@ def init(duthost):
     init_data["files_dir"] = files_dir 
     init_data["data_dir"] = data_dir
     init_data["orig_db_dir"] = orig_db_dir
-    init_data["switch_name"] = duthost.duthost_name
+    init_data["switch_name"] = duthost.hostname
 
     init_data["version"] = duthost.os_version
     log_debug("Created data_dir={} version={}".format(data_dir, init_data["version"]))
@@ -235,8 +235,9 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
     fpath = "/usr/local/lib/python3.9/dist-packages/generic_config_updater/services_validator.py"
     ret = duthost.stat(path=fpath)
     if not ret["stat"]["exists"]:
-        log_info("Skipping test as file does not exist: {}".format(fpath))
-        return
+        log_info("Skipping generic patch test as file does not exist: {}".format(fpath))
+        skip_generic_add = True
+        skip_generic_rm = True
 
     set_log_prefix_msg("init")
     if not skip_load:
@@ -247,10 +248,6 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         # Loads original minigraph with all T0s & get dumps
 
         load_minigraph(duthost)
-
-        # Ensure BGP session is up before we apply stripped minigraph
-        chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
-        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
 
     if not skip_prepare:
         log_info("config reloaded; Taking dumps ...")
@@ -265,6 +262,10 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         # Create minigraph w/o a T0 & configlet, apply & take dump
         files_create(is_mlnx = duthost.facts["asic_type"] == "mellanox",
                 is_storage_backend = is_storage_backend)
+
+        # Ensure BGP session is up before we apply stripped minigraph
+        chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
+        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
 
         set_log_prefix_msg("test prepare")
         prepare_for_test(duthost)

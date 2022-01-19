@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 
 import pytest
+import sys
 
 sys.path.append("./configlet/util")
 
-from test_base import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from helpers import log_info
 
 pytestmark = [
         pytest.mark.topology("t1")
@@ -31,6 +33,7 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     duthost_name = rand_one_dut_hostname
 
+    log_info("sys.version={}".format(sys.version))
     do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'],
             hack_apply=True)
 
