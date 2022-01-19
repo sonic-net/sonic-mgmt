@@ -99,7 +99,7 @@ Verify that switch supports 512 remote VTEPs.
   Verify that switch supports total 4K L2 VNI's.
 
 <p float="left">
-  <img src="Img/Max_L2_VNI_Per_Switch.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2VNI_Per_Switch.png" width="1000"  hspace="50"/>
 </p>
 
 
@@ -124,7 +124,7 @@ Verify that switch supports 512 remote VTEPs.
 Verify that switch supports total 4K L2 VNI's per tunnel.
 
 <p float="left">
-  <img src="Img/Max_L2_VNI_Per_Tunnel.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2VNI_Per_Tunnel.png" width="1000"  hspace="50"/>
 </p>
 
 
