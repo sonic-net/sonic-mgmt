@@ -98,7 +98,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             return
         duthost = duthosts[rand_one_dut_hostname]
 
-        default_traffic_port_type = "tor" if dest_port_type == "spine" else "spine"
+        default_traffic_port_type = DOWN_STREAM if dest_port_type == UP_STREAM else UP_STREAM
         rx_port = setup_info[default_traffic_port_type]["dest_port"][0]
         nexthop_ip = everflow_utils.get_neighbor_info(duthost, rx_port, tbinfo)
         
