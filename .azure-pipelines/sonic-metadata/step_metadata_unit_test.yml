@@ -1,7 +1,16 @@
+parameters:
+- name: TEST_PURGE_MANIFEST
+  default: false
+  type: boolean
+
 steps:
 - script: |
-    # set -x        
-    cd sonic-metadata/scripts/tests
+    # set -x
+    cd sonic-metadata
+    if [[ ${{ parameters.TEST_PURGE_MANIFEST }} == True ]]; then
+        python purge.py
+    fi
+    cd scripts/tests
     pytest test_cleanup_firmware.py
     pytest eos_to_sonic_test.py
   displayName: Unit test SONiC metadata scripts
