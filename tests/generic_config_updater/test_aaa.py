@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 AAA_CATEGORY = ["authentication", "authorization", "accounting"]
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
+def setup_env(duthosts, rand_one_dut_hostname):
     """
     Setup/teardown fixture for each loopback interface test.
     rollback to check if it goes back to starting config
@@ -36,29 +36,37 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     finally:
         delete_checkpoint(duthost)
 
-
-
-def verify_aaa_sub_options(duthost, aaa_type, option, value):
+def get_aaa_sub_options_value(duthost, aaa_type, option):
     """ Verify if AAA sub type's options match with expected value
 
     Sample output:
-    admin@vlab-01:~/tacacs$ show aaa
-    AAA authentication login local (default)
-    AAA authentication failthrough False (default)
-    AAA authorization login local (default)
-    AAA accounting login disable (default)
+    admin@vlab-01:~$ show aaa | grep -Po "AAA authentication login \K.*"
+    local (default)
     """
     output = duthost.shell('show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
-    logger.info("{}".format(output))
+
     pytest_assert(not output['rc'],
         "Failed to grep AAA {}".format(option)
     )
-    pytest_assert(output['stdout'] == value,
-        "AAA {} {} failed to apply".format(aaa_type, option)
+    return output['stdout']
+
+def aaa_add_init_config_without_table(duthost):
+    """ Add initial config not containing AAA table
+
+    Configure to default setting which doesn't contain AAA table
+    Sample configDB without table:
+    admin@vlab-01:~$ show run all | grep AAA
+    admin@vlab-01:~$
+    """
+    cmds = 'sonic-db-cli CONFIG_DB keys "AAA|*" | xargs -r sonic-db-cli CONFIG_DB del'
+
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "AAA init config failed"
     )
 
-def aaa_add_init_config(duthost):
-    """ Add initial config for AAA
+def aaa_add_init_config_with_table(duthost):
+    """ Add initial config containing AAA table
 
     Though AAA has default value in setup. But the config does not
     included in configDB. So to make change on AAA table, the init
@@ -88,35 +96,36 @@ def aaa_add_init_config(duthost):
             "AAA init config failed"
         )
 
-def verify_tacacs_global_config(duthost, tacacs_global_type, value):
-    """ Verify tacacs global config match with expected value
+def get_tacacs_global_type_value(duthost, tacacs_global_type):
+    """ Get tacacs global config by type
 
     Sample output in t0:
-    admin@vlab-01:~/tacacs$ show tacacs
-    TACPLUS global auth_type pap (default)
-    TACPLUS global timeout 5 (default)
-    TACPLUS global passkey <EMPTY_STRING> (default)
-
-    TACPLUS_SERVER address 10.0.0.8
-                   priority 1
-                   tcp_port 49
-
-    TACPLUS_SERVER address 10.0.0.9
-                   priority 1
-                   tcp_port 49
-
+    admin@vlab-01:~$ show tacacs | grep -Po "TACPLUS global auth_type \K.*"
+    pap (default)
     """
     output = duthost.shell('show tacacs | grep -Po "TACPLUS global {} \K.*"'.format(tacacs_global_type))
-    logger.info("{}".format(output))
+
     pytest_assert(not output['rc'],
         "Failed to grep TACACS {}".format(tacacs_global_type)
     )
-    pytest_assert(output['stdout'] == value,
-        "TACACS global {} failed to apply".format(tacacs_global_type)
+    return output['stdout']
+
+def tacacs_add_init_config_without_table(duthost):
+    """ Add initial config not containing tacacs table
+
+    Sample configDB without table:
+    admin@vlab-01:~/cacl$ show run all | grep -w TACPLUS
+    admin@vlab-01:~$
+    """
+    cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS|*" | xargs -r sonic-db-cli CONFIG_DB del'
+
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "TACACS init config failed"
     )
 
-def tacacs_add_init_config(duthost):
-    """ Add initial config for tacacs
+def tacacs_add_init_config_with_table(duthost):
+    """ Add initial config containing tacacs table
 
     Same with AAA config. The default tacacs config does not
     included in configDB. So to make change, the initial
@@ -172,8 +181,9 @@ def parse_tacacs_server(duthost):
                 tacacs_server = {}
                 address = ""
             else:
-                pytest_assert(len(line.strip().split(" ")) == 2)
-                k, v = line.strip().split(" ")
+                fields = line.strip().split(" ")
+                pytest_assert(len(fields) == 2)
+                k, v = fields[0], fields[1]
                 tacacs_server[k] = v
 
     if address:
@@ -207,7 +217,11 @@ def parse_tacacs_server(duthost):
 ])
 def test_aaa_tc1_add_config(duthost, aaa_type, aaa_sub_options):
     """ Test AAA add initial config for its sub type
+
+    This test is for default setting when configDB doesn't
+    contian AAA table. So we remove AAA config at first.
     """
+    aaa_add_init_config_without_table(duthost)
     json_patch = [
         {
             "op": "add",
@@ -226,14 +240,17 @@ def test_aaa_tc1_add_config(duthost, aaa_type, aaa_sub_options):
         expect_op_success(duthost, output)
 
         for option, value in aaa_sub_options.items():
-            verify_aaa_sub_options(duthost, aaa_type, option, value)
+            pytest_assert(
+                get_aaa_sub_options_value(duthost, aaa_type, option) == value,
+                "Failed to verify AAA {} {}".format(aaa_type, option)
+            )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 def test_aaa_tc2_replace(duthost):
     """ Test replace option value in each AAA sub type
     """
-    aaa_add_init_config(duthost)
+    aaa_add_init_config_with_table(duthost)
     json_patch = [
         {
             "op": "replace",
@@ -260,14 +277,17 @@ def test_aaa_tc2_replace(duthost):
         expect_op_success(duthost, output)
 
         for aaa_type in AAA_CATEGORY:
-            verify_aaa_sub_options(duthost, aaa_type, "login", "tacacs+")
+            pytest_assert(
+                get_aaa_sub_options_value(duthost, aaa_type, "login") == "tacacs+",
+                "Failed to verify AAA {} {}".format(aaa_type, "login")
+            )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 def test_aaa_tc3_add_duplicate(duthost):
     """ Test add duplicate config in AAA sub type
     """
-    aaa_add_init_config(duthost)
+    aaa_add_init_config_with_table(duthost)
     json_patch = [
         {
             "op": "add",
@@ -294,14 +314,17 @@ def test_aaa_tc3_add_duplicate(duthost):
         expect_op_success(duthost, output)
 
         for aaa_type in AAA_CATEGORY:
-            verify_aaa_sub_options(duthost, aaa_type, "login", "local")
+            pytest_assert(
+                get_aaa_sub_options_value(duthost, aaa_type, "login") == "local",
+                "Failed to verify AAA {} {}".format(aaa_type, "login")
+            )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 def test_aaa_tc4_remove(duthost):
     """ Test remove AAA config check if it returns to default setup
     """
-    aaa_add_init_config(duthost)
+    aaa_add_init_config_with_table(duthost)
     json_patch = [
         {
             "op": "remove",
@@ -331,7 +354,11 @@ def test_aaa_tc4_remove(duthost):
 
 def test_tacacs_global_tc5_add_config(duthost):
     """ Test add tacacs global config
+
+    This test is for default setting when configDB doesn't
+    contian TACACS table. So we remove TACACS config at first.
     """
+    tacacs_add_init_config_without_table(duthost)
     TACACS_ADD_CONFIG = {
         "auth_type": "login",
         "passkey": "testing123",
@@ -354,7 +381,10 @@ def test_tacacs_global_tc5_add_config(duthost):
         expect_op_success(duthost, output)
 
         for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
-            verify_tacacs_global_config(duthost, tacacs_global_type, value)
+            pytest_assert(
+                get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
+                "TACACS global {} failed to apply".format(tacacs_global_type)
+            )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -395,7 +425,7 @@ def test_tacacs_global_tc6_invalid_input(duthost, tacacs_global_type, invalid_in
 def test_tacacs_global_tc7_duplicate_input(duthost):
     """ Test tacacs global duplicate input
     """
-    tacacs_add_init_config(duthost)
+    tacacs_add_init_config_with_table(duthost)
 
     TACACS_ADD_CONFIG = {
         "auth_type": "pap",
@@ -419,14 +449,17 @@ def test_tacacs_global_tc7_duplicate_input(duthost):
         expect_op_success(duthost, output)
 
         for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
-            verify_tacacs_global_config(duthost, tacacs_global_type, value)
+            pytest_assert(
+                get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
+                "TACACS global {} failed to apply".format(tacacs_global_type)
+            )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 def test_tacacs_global_tc8_remove(duthost):
     """ Test tacacs global config removal
     """
-    tacacs_add_init_config(duthost)
+    tacacs_add_init_config_with_table(duthost)
 
     json_patch = [
         {
