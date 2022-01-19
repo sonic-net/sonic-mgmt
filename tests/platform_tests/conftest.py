@@ -310,7 +310,7 @@ def verify_mac_jumping(test_name, timing_data):
         # and ends when SAI is instructed to enable MAC learning (warmboot recovery path)
         logging.info("Mac expiry for unexpected addresses started at {}".format(mac_expiry_start) +\
             " and FDB learning enabled at {}".format(fdb_aging_disable_end))
-        if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start, FMT) and\
+        if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start) and\
             _parse_timestamp(mac_expiry_start) < _parse_timestamp(fdb_aging_disable_end):
             pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
