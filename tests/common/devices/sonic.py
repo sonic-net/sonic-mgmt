@@ -1147,10 +1147,14 @@ Totals               6450                 6449
             tokens = line.split()
             if len(tokens) > 1:
                 key = tokens[0]
-                val = {}
+                if key in ret:
+                    val = ret[key]
+                else:
+                    val = {'routes': 0, 'FIB': 0}
                 if tokens[1].isdigit():
-                    val['routes'] = tokens[1]
-                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    val['routes'] += int(tokens[1])
+                    if len(tokens) > 2 and tokens[2].isdigit():
+                        val['FIB'] += int(tokens[2])
                     ret[key] = val
         return ret
 
