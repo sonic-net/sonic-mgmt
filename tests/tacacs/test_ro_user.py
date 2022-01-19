@@ -41,7 +41,7 @@ def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
     # Verify that the command is allowed
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
-    expected = res['rc'] == 0 or (res['rc'] != 0 and "Make sure your account has RW permission to current device" not in res['stderr'])
+    expected = "Make sure your account has RW permission to current device" not in res['stderr']
     if not expected:
         logger.error("error output=\"{}\"".format(res["stderr"]))
     return expected
@@ -121,8 +121,12 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "show interface status",
             "show interface portchannel",
             "show ip bgp summary",
+            "show ip bgp neighbors",
+            "show ip bgp network",
             "show ip interface",
             "show ipv6 interface",
+            "show ipv6 bgp neighbors",
+            "show ipv6 bgp network",
             "show lldp table",
         ],
     }
