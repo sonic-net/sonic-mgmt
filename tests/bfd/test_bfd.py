@@ -184,3 +184,37 @@ def test_bfd(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_r
         stop_ptf_bfd(ptfhost)
         del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False)
         remove_bfd_sessions(duthost, vlan_addr, neighbor_addrs)
+
+
+@pytest.mark.skip(reason="Test may currently fail due to lack of hardware support")
+def test_bfd_ipv6(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+    duthost = rand_selected_dut
+    bfd_session_cnt = 5
+    skip_201911_and_older(duthost)
+    vlan_addr, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6=True, count = bfd_session_cnt)
+
+    try:
+        init_ptf_bfd(ptfhost)
+        add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=True)
+        create_bfd_sessions(ptfhost, duthost, vlan_addr, neighbor_addrs)
+
+        time.sleep(1)
+
+        for neighbor_addr in neighbor_addrs:
+            check_dut_bfd_statue(duthost, neighbor_addr, "Up")
+            check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+
+        update_idx = random.choice(range(bfd_session_cnt))
+        update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], vlan_addr, "down")
+
+        for idx in range(bfd_session_cnt):
+            if idx == update_idx:
+                check_dut_bfd_statue(duthost, neighbor_addr, "Down")
+                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Down")
+            else:
+                check_dut_bfd_statue(duthost, neighbor_addr, "Up")
+                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+    finally:
+        stop_ptf_bfd(ptfhost)
+        del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=True)
+        remove_bfd_sessions(duthost, vlan_addr, neighbor_addrs)
