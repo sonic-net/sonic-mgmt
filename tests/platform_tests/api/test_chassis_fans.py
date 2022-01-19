@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan
 
 from platform_api_test_base import PlatformApiTestBase
+from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -48,7 +49,7 @@ class TestChassisFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, platform_api_conn, duthost):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
@@ -57,6 +58,9 @@ class TestChassisFans(PlatformApiTestBase):
             else:
                 if self.num_fans == 0:
                     pytest.skip("No fans found on device")
+        stop_thermal_control_daemon(duthost)
+        yield
+        start_thermal_control_daemon(duthost) 
 
     #
     # Helper functions
