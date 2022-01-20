@@ -431,6 +431,7 @@ def get_test_server_visible_vars(inv_files, server):
 
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
+    ip_address = unicode(ip_address)
     try:
         ipaddress.IPv4Address(ip_address)
         return True
