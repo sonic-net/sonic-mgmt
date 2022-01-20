@@ -542,3 +542,19 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
     reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version"
     conditions:
       - "asic_type=='cisco-8000' and release in ['202012']"
+      
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json: 
+  #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file, 
+  #hence the test case needs to be skipped 
+  skip:
+    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
+    conditions:
+      - "asic_type=='cisco-8000'"
+
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:  
+  #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file, 
+  #hence the test case needs to be skipped  
+  skip:
+    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
+    conditions:
+      - "asic_type=='cisco-8000'"
