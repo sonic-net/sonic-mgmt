@@ -152,6 +152,7 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
+    dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if len(mg_facts["minigraph_portchannel_interfaces"]) < 2:
         pytest.skip("Skip test due to there isn't enough port channel exists in current topology.")
 
