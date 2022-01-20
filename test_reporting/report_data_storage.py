@@ -12,7 +12,12 @@ except ImportError:
     from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
 
 from azure.kusto.ingest import IngestionProperties
-from azure.kusto.ingest import DataFormat
+
+# Resolve azure.kusto.ingest compatibility issue
+try:
+    from azure.kusto.ingest import DataFormat
+except ImportError:
+    from azure.kusto.data.data_format import DataFormat
 
 from utilities import validate_json_file
 from datetime import datetime
