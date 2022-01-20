@@ -370,7 +370,7 @@
         pause:
           seconds: 10
     become: true
-    when: proxy_env['https_proxy'] is defined
+    when: proxy_env is defined
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
