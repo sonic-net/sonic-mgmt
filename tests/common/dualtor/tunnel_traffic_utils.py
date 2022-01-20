@@ -76,13 +76,20 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     return addr.split("/")[0]
 
         @staticmethod
-        def _build_tunnel_packet(outer_src_ip, outer_dst_ip):
+        def _build_tunnel_packet(outer_src_ip, outer_dst_ip, inner_packet=None):
             """Build the expected tunnel packet."""
-            exp_pkt = testutils.simple_ip_packet(
-                ip_src=outer_src_ip,
-                ip_dst=outer_dst_ip,
-                pktlen=20
-            )
+            if inner_packet is None:
+                exp_pkt = testutils.simple_ip_packet(
+                    ip_src=outer_src_ip,
+                    ip_dst=outer_dst_ip,
+                    pktlen=20
+                )
+            else:
+                exp_pkt = testutils.simple_ipv4ip_packet(
+                    ip_src=outer_src_ip,
+                    ip_dst=outer_dst_ip,
+                    inner_frame=inner_packet
+                )
             exp_pkt = mask.Mask(exp_pkt)
             exp_pkt.set_do_not_care_scapy(Ether, "dst")
             exp_pkt.set_do_not_care_scapy(Ether, "src")
@@ -95,7 +102,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             exp_pkt.set_do_not_care_scapy(IP, "ttl")
             exp_pkt.set_do_not_care_scapy(IP, "proto")
             exp_pkt.set_do_not_care_scapy(IP, "chksum")
-            exp_pkt.set_ignore_extra_bytes()
+            if inner_packet is None:
+                exp_pkt.set_ignore_extra_bytes()
             return exp_pkt
 
         @staticmethod
@@ -166,7 +174,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             pytest_assert(wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue))
             return check_res
 
-        def __init__(self, standby_tor, active_tor=None, existing=True):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None):
             """
             Init the tunnel traffic monitor.
 
@@ -192,9 +200,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
                 ][0]
 
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr)
-            self.rec_pkt = None
             self.existing = existing
+            self.inner_packet = None
+            if self.existing:
+                self.inner_packet = inner_packet
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.rec_pkt = None
 
         def __enter__(self):
             # clear queue counters before IO to ensure _check_queue could get more precise result
