@@ -542,3 +542,15 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
     reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version"
     conditions:
       - "asic_type=='cisco-8000' and release in ['202012']"
+
+platform_tests/api/test_watchdog.py:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara']"
+
+qos/test_qos_sai.py:
+  skip:
+    reason: "qos_sai tests not supported on t1 topo"
+    conditions:
+      - "asic_type in ['barefoot'] and topo_type in ['t1']"
