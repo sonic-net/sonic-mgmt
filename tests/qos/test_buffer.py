@@ -2524,9 +2524,21 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     pause_quanta_per_speed_dict = {400000: 905, 200000: 453, 100000: 394, 50000: 147, 40000: 118, 25000: 80, 10000: 67,
                                    1000: 2, 100: 1}
 
-    # Get port speed from config DB
-    # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'speed'
-    port_speed_raw = duthost.shell('redis-cli -n 4 hget "PORT|{}" "speed"'.format(port_to_test))['stdout']
+    # Get effective speed
+    # If auto neg is off, effective speed is configured speed
+    # elif advertised speeds is configured or supported speeds is fetched
+    # effective speed is the maximum speed in the speeds list
+    # else the effective speed can not be conducted and the test fail
+    port_info = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port_to_test))['stdout'].split('\n'))
+    if port_info.get('autoneg') == 'on':
+        adv_speeds = port_info.get('adv_speeds')
+        if adv_speeds and adv_speeds != 'all':
+            available_speeds = adv_speeds
+        else:
+            available_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" "supported_speeds"'.format(port_to_test))['stdout']
+        port_speed_raw = natsorted(available_speeds.split(','))[-1]
+    else:
+        port_speed_raw = port_info.get('speed')
     if port_speed_raw:
         port_speed = int(port_speed_raw)
     else:
