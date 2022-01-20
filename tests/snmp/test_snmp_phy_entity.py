@@ -501,6 +501,12 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
         name_to_snmp_facts[values['entPhysName']] = values
+
+    transceiver_rev_key = "vendor_rev"
+    release_list = ["201911", "202012", "202106", "202111"]
+    if any(release in duthost.os_version for release in release_list):
+        transceiver_rev_key = "hardware_rev"
+
     for key in keys:
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         assert name in name_to_snmp_facts, 'Cannot find port {} in physical entity mib'.format(name)
@@ -511,7 +517,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1
         assert transceiver_snmp_fact['entPhysName'] == name
-        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['vendor_rev']
+        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info[transceiver_rev_key]
         assert transceiver_snmp_fact['entPhysFwVer'] == ''
         assert transceiver_snmp_fact['entPhysSwVer'] == ''
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial']
