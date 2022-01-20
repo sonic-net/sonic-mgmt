@@ -45,7 +45,7 @@ def testbed_setup(ip_version, ptfhost, rand_selected_dut, rand_unselected_dut, t
         server_ip = testbed_params["target_server_ip"]
     elif ip_version == "ipv6":
         server_ip = testbed_params["target_server_ipv6"]
-        # setup arp_responder to answert ipv6 neighbor solicitation messages
+        # setup arp_responder to answer ipv6 neighbor solicitation messages
         request.getfixturevalue("run_arp_responder_ipv6")
     else:
         raise ValueError("Unknown IP version '%s'" % ip_version)

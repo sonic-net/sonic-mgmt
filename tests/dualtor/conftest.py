@@ -97,4 +97,4 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
 
     yield
 
-    ptfhost.shell('supervisorctl restart arp_responder')
+    ptfhost.shell('supervisorctl stop arp_responder')
