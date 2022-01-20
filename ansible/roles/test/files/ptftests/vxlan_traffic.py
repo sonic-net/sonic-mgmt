@@ -68,7 +68,6 @@ class VXLAN(BaseTest):
             self.topo_data = json.load(fp)
 
         self.fill_loopback_ip()
-        self.routes_removed = self.test_params.get('routes_removed', False)
         self.t2_ports = self.test_params['t2_ports']
         self.nbr_info = self.config_data['neighbors']
         self.packets = []
@@ -256,7 +255,7 @@ class VXLAN(BaseTest):
                         verify_no_packet_any(self, masked_exp_pkt, self.t2_ports)
 
             # Verify ECMP:
-            if check_ecmp and not self.routes_removed:
+            if check_ecmp:
                 if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
                     print ("Each address has been used")
                 else:

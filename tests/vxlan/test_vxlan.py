@@ -14,7 +14,13 @@
     ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan.py' \
                     -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=128000'
 
+    To keep the temporary config files created in the DUT:
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files -c 'vxlan/test_vxlan.py'
+
     Other options:
+        keep_temp_files             : Keep the temporary files created in the DUT. Default: False
+        debug_enabled               : Enable debug mode, for debugging script. The temp files will not have timestamped names. Default: False
+        dut_hostid                  : An integer in the range of 1 - 100 to be used as the host part of the IP address for DUT. Default: 1
         ecmp_nhs_per_destination    : Number of ECMP next-hops per destination.
         total_number_of_endpoints : Number of Endpoints (a pool of this number of ip addresses will used for next-hops).
         total_number_of_nexthops    : Maximum number of all nexthops for every destination combined(per encap_type).
@@ -39,27 +45,16 @@ Logger = logging.getLogger(__name__)
 
 # Some of the Constants used in this script.
 Constants = {}
-# Should I keep the temporary files copied to DUT or PTF ?
-Constants['KEEP_TEMP_FILES'] = False
-# Is debugging going on, or is it a production run? If it is a
-# production run, use time-stamped file names for temp files.
-Constants['DEBUG'] = False
-# The host id in the ip addresses for DUT. It can be anything,
-# but helps to keep as a single number that is easy to identify
-# as DUT.
-Constants['DUT_HOSTID'] = 1
 
 # Mapping the version to the python module.
 IP_TYPE = {
     'v4' : ipaddress.IPv4Address,
     'v6' : ipaddress.IPv6Address
 }
+
 # This is the mask values to use for destination
 # in the vnet routes.
 HOST_MASK = {'v4' : 32, 'v6' : 128}
-
-# This is the mask to use in the DUT ip address
-NET_MASK = {'v4' : 24, 'v6' : 100}
 
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
@@ -69,7 +64,7 @@ SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
     pytest.mark.topology("t1"),
-    pytest.mark.sanity_check(post_check=False),
+    pytest.mark.sanity_check(post_check=True),
     pytest.mark.asic("cisco-8000")
 ]
 
@@ -361,10 +356,8 @@ def apply_config_in_swss(duthost, config, name="swss_"):
         filename = name + "-" + str(time.time()) + ".json"
 
     duthost.copy(content=config, dest="/tmp/{}".format(filename))
-    duthost.shell("docker cp /tmp/{} swss:/".format(filename))
-    duthost.shell("docker exec swss sh -c \"swssconfig /{}\"".format(filename))
+    result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(filename))
     if not Constants['KEEP_TEMP_FILES']:
-        duthost.shell("docker exec swss sh -c \"rm /{}\"".format(filename))
         duthost.shell("rm /tmp/{}".format(filename))
     time.sleep(1)
 
@@ -507,6 +500,22 @@ def get_ethernet_ports(intf_list, minigraph_data):
 @pytest.fixture(scope="module")
 def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
           tbinfo, localhost):
+
+    global Constants
+    # Should I keep the temporary files copied to DUT?
+    Constants['KEEP_TEMP_FILES'] = request.config.option.keep_temp_files
+
+    # Is debugging going on, or is it a production run? If it is a
+    # production run, use time-stamped file names for temp files.
+    Constants['DEBUG'] = request.config.option.debug_enabled
+
+    # The host id in the ip addresses for DUT. It can be anything,
+    # but helps to keep as a single number that is easy to identify
+    # as DUT.
+    Constants['DUT_HOSTID'] = request.config.option.dut_hostid
+
+    Logger.info("Constants to be used in the script:{}".format(Constants))
+
     data = {}
     data['ptfhost'] = ptfhost
     data['tbinfo'] = tbinfo

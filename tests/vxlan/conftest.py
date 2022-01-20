@@ -96,6 +96,25 @@ def pytest_addoption(parser):
         help="ECMP: Number of tunnel endpoints to provide for each tunnel destination"
     )
 
+    vxlan_group.addoption(
+        "--debug_enabled",
+        action="store_true",
+        help="Enable debugging the script. The config file names will *not* be time-stamped, every run of the script will over-write the previously created config files."
+    )
+
+    vxlan_group.addoption(
+        "--keep_temp_files",
+        action="store_true",
+        help="This will keep the config files in the DUT and PTF."
+    )
+
+    vxlan_group.addoption(
+        "--dut_hostid",
+        default=1,
+        type=int,
+        help="This is the host part of the IP addresses for interfaces in the DUT to be used in this script."
+    )
+
     # This will decide the number of destinations.
     vxlan_group.addoption(
         "--total_number_of_nexthops",
