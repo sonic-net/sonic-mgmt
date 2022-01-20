@@ -25,7 +25,7 @@ class DutHost:
 
         self.os_version = self.facts["sonic_version"]
         self.hostname = socket.gethostname()
-        self.duthost_name = socket.gethostname()
+        self.hostname = socket.gethostname()
 
         log_debug("mock duthost created")
         log_debug("facts: {}".format(str(self.facts)))

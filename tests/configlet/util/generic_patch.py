@@ -48,6 +48,29 @@ CMD_APPLY = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -i /CABLE
 #
 
 def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
+    # Some keys could get updated by some control plane components
+    # Use this filter to mimic patch from NDM generated golden config.
+    #
+    filter = {
+            "ACL_TABLE",
+            "BGP_NEIGHBOR",
+            "BUFFER_PG",
+            "BUFFER_PORT_EGRESS_PROFILE_LIST",
+            "BUFFER_PORT_INGRESS_PROFILE_LIST",
+            "BUFFER_QUEUE",
+            "CABLE_LENGTH",
+            "DEVICE_NEIGHBOR",
+            "DEVICE_NEIGHBOR_METADATA",
+            "INTERFACE",
+            "PFC_WD",
+            "PORT",
+            "PORTCHANNEL",
+            "PORTCHANNEL_INTERFACE",
+            "PORTCHANNEL_MEMBER",
+            "PORT_QOS_MAP",
+            "QUEUE",
+            "VLAN_SUB_INTERFACE"
+    }
     with open(os.path.join(src_dir, "config_db.json"), "r") as s:
         src_json = json.load(s)
 
@@ -61,7 +84,8 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
     # Golden config will never add this. So required for test only
     rm_pattern = "^/BUFFER_PG/Ethernet[0-9][0-9]*\|3-4"
     for e in diff_patch:
-        if not re.search(rm_pattern, e["path"]):
+        if ((e["path"].split("/")[1] in filter) and
+                (not re.search(rm_pattern, e["path"]))):
             jpatch.append(e)
 
     if not hack_apply:
