@@ -127,10 +127,10 @@ def setup(duthost, tbinfo, ptfadapter):
 
     yield setup_information
 
-    #duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_POP_ROUTES)))
-    #duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_SWAP_ROUTES)))
-    #duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_PUSH_ROUTES1)))
-    #duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_DEL_ROUTES)))
+    duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_POP_ROUTES)))
+    duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_SWAP_ROUTES)))
+    duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_PUSH_ROUTES1)))
+    duthost.command('rm -rf {}'.format(os.path.join(DUT_TMP_DIR, LABEL_DEL_ROUTES)))
 
 def port_up(dut, interface):
     intf_facts = dut.interface_facts()['ansible_facts']
@@ -153,25 +153,13 @@ class BaseMplsTest(object):
 
 
     @abstractmethod
-    def setup_rules(self, dut, setup, acl_table):
+    def setup_rules(self, dut, setup):
         """
         setup rules for test
         :param dut: dut host
         :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
-        host_facts = duthost.setup()['ansible_facts']
-        route_file_dir = duthost.shell('mktemp')['stdout']
-        # Copy json file to DUT
-        myFile=open('mpls/label_routes.json', 'r')
-        myLabels=myFile.read()
-        duthost.copy(content=myLabels, dest=route_file_dir, verbose=False)
-        # Apply routes with swssconfig
-        result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(route_file_dir),
-                           module_ignore_errors=True)
-        if result['rc'] != 0:
-            pytest.fail('Failed to apply labelroute configuration file: {}'.format(result['stderr']))
         pass
 
     def post_setup_hook(self, dut, localhost):
@@ -594,16 +582,15 @@ class BaseMplsTest(object):
 
 class TestBasicMpls(BaseMplsTest):
     """
-    Basic ACL rules traffic tests.
+    Basic MPLS label traffic tests.
     Setup rules using full update, run traffic tests cases.
     """
 
-    def setup_rules(self, dut, setup, acl_table):
+    def setup_rules(self, dut, setup):
         """
         setup rules on DUT
         :param dut: dut host
         :param setup: setup information
-        :param acl_table: acl table creating fixture
         :return:
         """
         
