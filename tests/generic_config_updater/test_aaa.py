@@ -610,7 +610,7 @@ def test_tacacs_server_tc12_add_duplicate(duthost):
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
-        pytest_assert('10.0.0.9' in tacacs_servers,
+        pytest_assert('10.0.0.8' in tacacs_servers,
             "tacacs server add duplicate failed."
         )
 
