@@ -123,23 +123,28 @@ def disable_fdb_aging(duthost):
     switch_config_template = Template(switch_config)
     duthost.copy(content=switch_config_template.render(aging_time=0),
                  dest=TMP_SWITCH_CONFIG_FILE)
+    if duthost.is_multi_asic:
+        ns = duthost.get_asic_namespace_list()[0]
+        asic_id = duthost.get_asic_id_from_namespace(ns)
+    else:
+        asic_id = ''
+
     # Generate and load config with swssconfig
     cmds = [
-        "docker cp {} swss:{}".format(TMP_SWITCH_CONFIG_FILE, DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss swssconfig {}".format(DST_SWITCH_CONFIG_FILE)
+        "docker cp {} swss{}:{}".format(TMP_SWITCH_CONFIG_FILE, asic_id, DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss{} swssconfig {}".format(asic_id, DST_SWITCH_CONFIG_FILE)
     ]
     duthost.shell_cmds(cmds=cmds)
- 
+
     yield
     # Recover default aging time
     DEFAULT_SWITCH_CONFIG_FILE = "/etc/swss/config.d/switch.json"
     cmds = [
-        "docker exec -i swss rm {}".format(DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss swssconfig {}".format(DEFAULT_SWITCH_CONFIG_FILE)
+        "docker exec -i swss{} rm {}".format(asic_id, DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss{} swssconfig {}".format(asic_id, DEFAULT_SWITCH_CONFIG_FILE)
     ]
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
-
 
 @pytest.fixture(scope="module")
 def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
