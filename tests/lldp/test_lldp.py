@@ -58,6 +58,8 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
     if tbinfo["topo"]["type"] != "t2":
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
         switch_mac = duthost.get_dut_iface_mac(mgmt_alias)
+    elif tbinfo["topo"]["type"] == "t2":
+        switch_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
     else:
         switch_mac = duthost.facts['router_mac']
 
