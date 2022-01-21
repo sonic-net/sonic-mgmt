@@ -72,7 +72,7 @@ IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will b
 Verify that switch supports 512 remote VTEPs.
 
 <p float="left">
-  <img src="Img/Max_VTEP.png"  width="600"  hspace="50"/>
+  <img src="Img/Max_VTEP.png"  width="750"  hspace="50"/>
 </p>
 
 
