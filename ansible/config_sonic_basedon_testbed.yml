@@ -346,6 +346,32 @@
         cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
+  - name: Set docker proxy
+    block:
+      - name: Ensures /etc/systemd/system/docker.service.d dir exists
+        file:
+          path: /etc/systemd/system/docker.service.d
+          state: directory
+          recurse: yes
+
+      - name: Render docker proxy config
+        template:
+          src: 'templates/docker_http_proxy.j2'
+          dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+          force: yes
+
+      - name: restart docker service, let docker proxy takes effect
+        systemd:
+          state: restarted
+          daemon_reload: yes
+          name: docker
+
+      - name: Wait 10s for docker containers to restart
+        pause:
+          seconds: 10
+    become: true
+    when: proxy_env is defined
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
