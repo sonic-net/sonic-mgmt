@@ -10,6 +10,24 @@ from mock_for_switch import get_duthost
 from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
 from helpers import *
 
+# To run test in switch:
+# Copy all files in this dir (tests/configlet/util) into switch
+# chmod +x run_test_in_switch.py
+# run it.
+# A sample helper script below.
+#
+# admin@vlab-03:~/try$ cat t.sh
+# #! /bin/bash
+#
+# set -x
+#
+# sudo rm -rf ~/data/*
+#
+# sudo ./run_test_in_switch.py -d ~/data -k -c | tee ~/data/log.out
+#
+# sudo chmod -R a+rx ~/data/
+#
+#
 
 def run_test(skip_load=False, skip_clet_test=False,
         skip_generic_add=False, skip_generic_rm=False,
@@ -23,7 +41,7 @@ def run_test(skip_load=False, skip_clet_test=False,
         log_error("Wrapper for execution in SONiC switch only")
         return -1
 
-    
+
     if not os.path.exists("/etc/sonic/orig/minigraph.xml.addRack.orig"):
         backup_minigraph(duthost)
     elif ((not os.path.exists("/etc/sonic/minigraph.xml")) or
@@ -39,7 +57,7 @@ def run_test(skip_load=False, skip_clet_test=False,
             skip_generic_rm=skip_generic_rm,
             hack_apply=hack_apply,
             skip_prepare=skip_prepare)
-    
+
 
 def main():
     if os.geteuid() != 0:
@@ -47,21 +65,21 @@ def main():
 
     parser=argparse.ArgumentParser(description="Sample for argparse")
     parser.add_argument("-d", "--dir", help="Test Data dir", required=True)
-    parser.add_argument("-w", "--use-exist", help="Use data dir as working dir", 
+    parser.add_argument("-w", "--use-exist", help="Use data dir as working dir",
             action='store_true', default=False)
-    parser.add_argument("-l", "--skip-load", help="skip initial minigraph loading", 
+    parser.add_argument("-l", "--skip-load", help="skip initial minigraph loading",
             action='store_true', default=False)
     parser.add_argument("-c", "--skip-clet-test",
-            help="skip clet testing; create clet files only", 
+            help="skip clet testing; create clet files only",
             action='store_true', default=False)
     parser.add_argument("-a", "--skip-generic-add",
-            help="skip add via generic updater testing", 
+            help="skip add via generic updater testing",
             action='store_true', default=False)
     parser.add_argument("-r", "--skip-generic-rm",
-            help="skip remove via generic updater testing", 
+            help="skip remove via generic updater testing",
             action='store_true', default=False)
     parser.add_argument("-k", "--hack-apply",
-            help="skip any hack to cover generic-updater issues", 
+            help="skip any hack to cover generic-updater issues",
             action='store_true', default=False)
 
     args = parser.parse_args()
