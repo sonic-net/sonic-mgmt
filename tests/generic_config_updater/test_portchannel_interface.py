@@ -9,18 +9,18 @@ from tests.generic_config_updater.gu_utils import create_path, check_show_ip_int
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "PORTCHANNEL_INTERFACE": {
-#     "PortChannel0001": {},
-#     "PortChannel0001|10.0.0.56/31": {},
-#     "PortChannel0001|FC00::71/126": {},
-#     "PortChannel0002": {},
-#     "PortChannel0002|10.0.0.58/31": {},
-#     "PortChannel0002|FC00::75/126": {},
-#     "PortChannel0003": {},
-#     "PortChannel0003|10.0.0.60/31": {},
-#     "PortChannel0003|FC00::79/126": {},
-#     "PortChannel0004": {},
-#     "PortChannel0004|10.0.0.62/31": {},
-#     "PortChannel0004|FC00::7D/126": {}
+#     "PortChannel101": {},
+#     "PortChannel101|10.0.0.56/31": {},
+#     "PortChannel101|FC00::71/126": {},
+#     "PortChannel102": {},
+#     "PortChannel102|10.0.0.58/31": {},
+#     "PortChannel102|FC00::75/126": {},
+#     "PortChannel103": {},
+#     "PortChannel103|10.0.0.60/31": {},
+#     "PortChannel103|FC00::79/126": {},
+#     "PortChannel104": {},
+#     "PortChannel104|10.0.0.62/31": {},
+#     "PortChannel104|FC00::7D/126": {}
 # }
 
 pytestmark = [
@@ -30,19 +30,19 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 T0_PORTCHANNEL_TABLE = {
-    "PortChannel0001": {
+    "PortChannel101": {
         "ip": "10.0.0.56/31",
         "ipv6": "fc00::71/126"
     },
-    "PortChannel0002": {
+    "PortChannel102": {
         "ip": "10.0.0.58/31",
         "ipv6": "fc00::75/126"
     },
-    "PortChannel0003": {
+    "PortChannel103": {
         "ip": "10.0.0.60/31",
         "ipv6": "fc00::79/126"
     },
-    "PortChannel0004": {
+    "PortChannel104": {
         "ip": "10.0.0.62/31",
         "ipv6": "fc00::7d/126"
     }
@@ -58,7 +58,7 @@ def check_portchannel_table(duthost):
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
-    Setup/teardown fixture for portchannel  interface config
+    Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
@@ -136,12 +136,12 @@ def test_portchannel_interface_tc2_add_duplicate(duthost):
     json_patch = [
         {
             "op": "add",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|10.0.0.56/31"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|10.0.0.56/31"]),
             "value": {}
         },
         {
             "op": "add",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|FC00::71/126"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|FC00::71/126"]),
             "value": {}
         }
     ]
@@ -155,25 +155,25 @@ def test_portchannel_interface_tc2_add_duplicate(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_show_ip_intf(duthost, "PortChannel0001", ["10.0.0.56/31"], [], is_ipv4=True)
-        check_show_ip_intf(duthost, "PortChannel0001", ["fc00::71/126"], [], is_ipv4=False)
+        check_show_ip_intf(duthost, "PortChannel101", ["10.0.0.56/31"], [], is_ipv4=True)
+        check_show_ip_intf(duthost, "PortChannel101", ["fc00::71/126"], [], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("op, name, dummy_portchannel_interface_v4, dummy_portchannel_interface_v6", [
-    ("add", "PortChannel0001", "10.0.0.256/31", "FC00::71/126"),
-    ("add", "PortChannel0001", "10.0.0.56/31", "FC00::xyz/126"),
-    ("remove", "PortChannel0001", "10.0.0.57/31", "FC00::71/126"),
-    ("remove", "PortChannel0001", "10.0.0.56/31", "FC00::72/126")
+    ("add", "PortChannel101", "10.0.0.256/31", "FC00::71/126"),
+    ("add", "PortChannel101", "10.0.0.56/31", "FC00::xyz/126"),
+    ("remove", "PortChannel101", "10.0.0.57/31", "FC00::71/126"),
+    ("remove", "PortChannel101", "10.0.0.56/31", "FC00::72/126")
 ])
 def test_portchannel_interface_tc2_xfail(duthost, op, name,
         dummy_portchannel_interface_v4, dummy_portchannel_interface_v6):
     """ Test invalid ip address and remove unexited interface
 
-    ("add", "PortChannel0001", "10.0.0.256/31", "FC00::71/126"), ADD Invalid IPv4 address
-    ("add", "PortChannel0001", "10.0.0.56/31", "FC00::xyz/126"), ADD Invalid IPv6 address
-    ("remove", "PortChannel0001", "10.0.0.57/31", "FC00::71/126"), REMOVE Unexist IPv4 address
-    ("remove", "PortChannel0001", "10.0.0.56/31", "FC00::72/126"), REMOVE Unexist IPv6 address
+    ("add", "PortChannel101", "10.0.0.256/31", "FC00::71/126"), ADD Invalid IPv4 address
+    ("add", "PortChannel101", "10.0.0.56/31", "FC00::xyz/126"), ADD Invalid IPv6 address
+    ("remove", "PortChannel101", "10.0.0.57/31", "FC00::71/126"), REMOVE Unexist IPv4 address
+    ("remove", "PortChannel101", "10.0.0.56/31", "FC00::72/126"), REMOVE Unexist IPv6 address
     """
 
     dummy_portchannel_interface_v4 = name + "|" + dummy_portchannel_interface_v4
@@ -206,20 +206,20 @@ def test_portchannel_interface_tc3_replace(duthost):
     json_patch = [
         {
             "op": "remove",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|FC00::71/126"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|FC00::71/126"]),
         },
         {
             "op": "remove",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|10.0.0.56/31"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|10.0.0.56/31"]),
         },
         {
             "op": "add",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|10.0.0.156/31"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|10.0.0.156/31"]),
             "value": {}
         },
         {
             "op": "add",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel0001|FC00::171/126"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|FC00::171/126"]),
             "value": {}
         }
     ]
@@ -233,8 +233,8 @@ def test_portchannel_interface_tc3_replace(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_show_ip_intf(duthost, "PortChannel0001", ["10.0.0.156/31"], ["10.0.0.56/31"], is_ipv4=True)
-        check_show_ip_intf(duthost, "PortChannel0001", ["fc00::171/126"], ["fc00::71/126"], is_ipv4=False)
+        check_show_ip_intf(duthost, "PortChannel101", ["10.0.0.156/31"], ["10.0.0.56/31"], is_ipv4=True)
+        check_show_ip_intf(duthost, "PortChannel101", ["fc00::171/126"], ["fc00::71/126"], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -275,8 +275,8 @@ def verify_attr_change(duthost, name, attr, value):
     """
     attr:
         mtu: check if "mtu 3324" exists
-            admin@vlab-01:~$ show interfaces status | grep -w ^PortChannel0001
-            PortChannel0001              N/A      40G   3324    N/A             N/A           routed      up       up     N/A         N/A
+            admin@vlab-01:~$ show interfaces status | grep -w ^PortChannel101
+            PortChannel101              N/A      40G   3324    N/A             N/A           routed      up       up     N/A         N/A
         min_links:
             TODO: further check
         admin_status: check if 3rd column start with "down"
@@ -284,7 +284,7 @@ def verify_attr_change(duthost, name, attr, value):
             Interface        Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
             ---------------  --------  -------------------  ------------  --------------  -------------
             ...
-            PortChannel0001            10.0.0.56/31         up/up         ARISTA01T1      10.0.0.57
+            PortChannel101            10.0.0.56/31         up/up         ARISTA01T1      10.0.0.57
             ...
     """
     if attr == "mtu":
@@ -303,16 +303,16 @@ def verify_attr_change(duthost, name, attr, value):
         )
 
 @pytest.mark.parametrize("op, name, attr, value", [
-    ("replace", "PortChannel0001", "mtu", "3324"),
-    ("replace", "PortChannel0001", "min_links", "2"),
-    ("replace", "PortChannel0001", "admin_status", "down")
+    ("replace", "PortChannel101", "mtu", "3324"),
+    ("replace", "PortChannel101", "min_links", "2"),
+    ("replace", "PortChannel101", "admin_status", "down")
 ])
 def test_portchannel_interface_tc5_modify_attribute(duthost, op, name, attr, value):
     """Test PortChannelXXXX attribute change
 
-    ("replace", "PortChannel0001", "mtu", "3324"), mtu change
-    ("replace", "PortChannel0001", "min_links", "2"), min_link change
-    ("replace", "PortChannel0001", "admin_status", "down"), admin_status change
+    ("replace", "PortChannel101", "mtu", "3324"), mtu change
+    ("replace", "PortChannel101", "min_links", "2"), min_link change
+    ("replace", "PortChannel101", "admin_status", "down"), admin_status change
     """
     json_patch = [
         {
@@ -342,8 +342,8 @@ def test_portchannel_interface_tc6_incremental_change(duthost):
     json_patch = [
         {
          "op": "add",
-         "path": "/PORTCHANNEL/PortChannel0001/description",
-         "value": "Description for PortChannel0001"
+         "path": "/PORTCHANNEL/PortChannel101/description",
+         "value": "Description for PortChannel101"
         }
     ]
 
