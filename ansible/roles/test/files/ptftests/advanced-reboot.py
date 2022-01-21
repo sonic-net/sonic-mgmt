@@ -278,9 +278,13 @@ class ReloadTest(BaseTest):
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
 
+        active_portchannels = list()
+        for neighbor_info in list(self.vm_dut_map.values()):
+            active_portchannels.append(neighbor_info["dut_portchannel"])
+
         pc_ifaces = []
         for pc in portchannel_content.values():
-            if not pc['name'] in pc_in_vlan:
+            if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
         return ports_per_vlan, pc_ifaces
@@ -532,12 +536,12 @@ class ReloadTest(BaseTest):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
+        self.build_peer_mapping()
         self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
         if self.sad_oper:
-            self.build_peer_mapping()
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.default_ip_range = self.test_params['default_ip_range']

@@ -37,11 +37,19 @@ function get_dut_from_testbed_file() {
         if [[ $TESTBED_FILE == *.csv ]];
         then
             LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+            if [[ -z ${LINE} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=',' read -ra ARRAY <<< "$LINE"
-            DUT_NAME=${ARRAY[9]}
+            DUT_NAME=${ARRAY[9]//[\[\] ]/}
         elif [[ $TESTBED_FILE == *.yaml ]];
         then
             content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            if [[ -z ${content} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
@@ -102,6 +110,8 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins 
+    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
 
     # Kill pytest and ansible-playbook process
     pkill --signal 9 pytest

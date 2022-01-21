@@ -54,6 +54,9 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
             except:
                 pytest.fail("num_fans is not an integer")
+            else:
+                if self.num_fan_drawers == 0:
+                    pytest.skip("No fan drawers found on device")
 
     #
     # Helper functions
@@ -342,6 +345,12 @@ class TestFanDrawerFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
+                led_available = self.get_fan_facts(duthost, j, i, True, "status_led", "available")
+                if not led_available:
+                    logger.info("test_set_fans_led: Skipping fandrawer {} fan {} (LED not available)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
                 led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
                 led_supported_colors = self.get_fan_facts(duthost, j, i, None, "status_led", "colors")
 
@@ -381,6 +390,6 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 fan_drawers_skipped += 1
 
         if fan_drawers_skipped == self.num_fan_drawers:
-            pytest.skip("skipped as all fandrawer fans' LED is not controllable/no supported colors")
+            pytest.skip("skipped as all fandrawer fans' LED is not available/controllable/no supported colors")
 
         self.assert_expectations()

@@ -549,9 +549,10 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " switch_type not found")
 
-                        try: #get slot_num                                                                                                                                                                                           slot_num = dev.get("slot_num")                                           
-                            if slot_num is not None:                                                 
-                               entry += "\tslot_num=" + str( slot_num )                              
+                        try: #get slot_num
+                            slot_num = dev.get("slot_num")
+                            if slot_num is not None:
+                               entry += "\tslot_num=" + str( slot_num )
                         except AttributeError:
                             print("\t\t" + host + " slot_num not found")
 
@@ -561,6 +562,27 @@ def makeLab(data, devices, testbed, outfile):
                                entry += "\tos=" + str( os )
                         except AttributeError:
                             print("\t\t" + host + " os not found")
+
+                        try: #get model
+                            model=dev.get("model")
+                            if model is not None:
+                                entry += "\tmodel=" + str( model )
+                        except AttributeError:
+                            print("\t\t" + host + " model not found")
+
+                        try: #get base_mac
+                            base_mac=dev.get("base_mac")
+                            if base_mac is not None:
+                                entry += "\tbase_mac=" + str( base_mac )
+                        except AttributeError:
+                            print("\t\t" + host + " base_mac not found")
+
+                        try: #get serial
+                            serial=dev.get("serial")
+                            if serial is not None:
+                                entry += "\tserial=" + str( serial )
+                        except AttributeError:
+                            print("\t\t" + host + " serial not found")
 
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
@@ -593,6 +615,7 @@ def makeLabYAML(data, devices, testbed, outfile):
     fanoutDict = dict()
     ptfDict = dict()
     dutDict = dict()
+    serverDict = dict()
 
     if "sonic" in deviceGroup['lab']['children']:
         for group in deviceGroup['sonic']['children']:
@@ -612,21 +635,39 @@ def makeLabYAML(data, devices, testbed, outfile):
                         'ptf_host': devices[dut].get("ptf_host"),
                         'serial': devices[dut].get("serial"),
                         'os': devices[dut].get("os"),
-                        'model': devices[dut].get("model")
+                        'model': devices[dut].get("model"),
+                        'syseeprom_info': {"0x21": devices[dut].get("syseeprom_info").get("0x21"),
+                                           "0x22": devices[dut].get("syseeprom_info").get("0x22"),
+                                           "0x23": devices[dut].get("syseeprom_info").get("0x23"),
+                                           "0x24": devices[dut].get("syseeprom_info").get("0x24"),
+                                           "0x25": devices[dut].get("syseeprom_info").get("0x25"),
+                                           "0x26": devices[dut].get("syseeprom_info").get("0x26"),
+                                           "0x2A": devices[dut].get("syseeprom_info").get("0x2A"),
+                                           "0x2B": devices[dut].get("syseeprom_info").get("0x2B"),
+                                           "0xFE": devices[dut].get("syseeprom_info").get("0xFE")}
                         }
                     })
                     sonicDict[group]['hosts'].update(dutDict)
     if "fanout" in deviceGroup['lab']['children']:
-        for fanout in deviceGroup['fanout']['host']:
-            if fanout in devices:
-                fanoutDict.update({fanout:
-                    {'ansible_host': devices[fanout].get("ansible").get("ansible_host"),
-                    'ansible_ssh_user': devices[fanout].get("ansible").get("ansible_ssh_user"),
-                    'ansible_ssh_pass': devices[fanout].get("ansible").get("ansible_ssh_pass"),
-                    'os': devices[fanout].get("os"),
-                    'device_type': devices[fanout].get("device_type")
-                    }
-                })
+        for fanoutType in deviceGroup['fanout']['children']:
+            for fanout in deviceGroup[fanoutType]['host']:
+                if fanout in devices:
+                    fanoutDict.update({fanout:
+                        {'ansible_host': devices[fanout].get("ansible").get("ansible_host"),
+                        'ansible_ssh_user': devices[fanout].get("ansible").get("ansible_ssh_user"),
+                        'ansible_ssh_pass': devices[fanout].get("ansible").get("ansible_ssh_pass"),
+                        'os': devices[fanout].get("os"),
+                        'device_type': devices[fanout].get("device_type")
+                        }
+                    })
+    for server in deviceGroup['servers']['host']:
+        if server in devices:
+            serverDict.update({server:
+                        {'ansible_host': devices[server].get("ansible").get("ansible_host"),
+                        'ansible_ssh_user': devices[server].get("ansible").get("ansible_ssh_user"),
+                        'ansible_ssh_pass': devices[server].get("ansible").get("ansible_ssh_pass"),
+                        'device_type': devices[server].get("device_type")
+                        }})
     if 'ptf' in deviceGroup:
         for ptfhost in deviceGroup['ptf']['host']:
             if ptfhost in testbed:
@@ -645,7 +686,8 @@ def makeLabYAML(data, devices, testbed, outfile):
                                 'fanout': {'hosts': fanoutDict}
                                 }
                             },
-                        'ptf': {'hosts': ptfDict}
+                        'ptf': {'hosts': ptfDict},
+                        'server': serverDict
                         }
                     }
     })
