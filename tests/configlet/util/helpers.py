@@ -4,6 +4,7 @@ import datetime
 import inspect
 import logging
 import os
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +58,9 @@ def log_msg(lgr_fn, m):
             inspect.stack()[2][2], tstr, get_log_prefix_msg(),m)
     lgr_fn(msg)
     if do_print:
+        print(msg)
         if do_flush:
-            print(msg, flush=True)
-        else:
-            print(msg)
+            sys.stdout.flush()
 
 
 def log_error(m):

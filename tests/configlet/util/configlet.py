@@ -183,6 +183,10 @@ def get_port_related_data(is_mlnx, is_storage_backend):
     
     log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
+    if "CABLE_LENGTH|AZURE" not in orig_config:
+        # no port related data is present. Bail out
+        return ret
+
     for local_port in sonic_local_ports:
         # Hard coded as 300m per discussion with Neetha
 

@@ -33,7 +33,7 @@ class DutHost:
 
 
 
-    def shell(self, cmd):
+    def shell(self, cmd, module_ignore_errors=False):
         log_debug("mocked shell: {}".format(cmd))
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, shell=True)

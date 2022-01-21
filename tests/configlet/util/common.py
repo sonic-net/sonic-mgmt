@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sys
 import time
 
 from helpers import *
@@ -373,7 +374,7 @@ def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
 
 
 def chk_bgp_session(duthost, ip, msg):
-    if type(ip) == str:
+    if sys.version_info[0] > 2:
         info = duthost.get_bgp_neighbor_info(ip)
     else:
         info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
