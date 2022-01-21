@@ -629,7 +629,7 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_ipv6, target_server_port, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_ipv6, target_server_port, ptf_portchannel_indices, check_ipv6=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -643,6 +643,7 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
         target_server_port: PTF port indice on which server is connected
         ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
+        check_ipv6: if True, check ipv6 traffic, if False, check ipv4 traffic
     Returns:
         None.
     """
@@ -657,6 +658,9 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         "ptf_portchannel_indices": ptf_portchannel_indices,
         "hash_key_list": HASH_KEYS
     }
+    if check_ipv6:
+        params["server_ip"] = target_server_ipv6
+
     logging.info("run ptf test for verifying IPinIP tunnel balance")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
