@@ -72,7 +72,7 @@ IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will b
 Verify that switch supports 512 remote VTEPs.
 
 <p float="left">
-  <img src="Img/Max_VTEP.png"  width="750"  hspace="50"/>
+  <img src="Img/Max_VTEP1.png"  width="750"  hspace="50"/>
 </p>
 
 
@@ -99,7 +99,7 @@ Verify that switch supports 512 remote VTEPs.
   Verify that switch supports total 4K L2 VNI's.
 
 <p float="left">
-  <img src="Img/Max_L2VNI_Per_Switch.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2VNI_Per_Switch1.png" width="1000"  hspace="50"/>
 </p>
 
 
@@ -124,7 +124,7 @@ Verify that switch supports 512 remote VTEPs.
 Verify that switch supports total 4K L2 VNI's per tunnel.
 
 <p float="left">
-  <img src="Img/Max_L2VNI_Per_Tunnel.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_L2VNI_Per_Tunnel1.png" width="1000"  hspace="50"/>
 </p>
 
 
@@ -148,7 +148,7 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 Verify that swich supports upto 512 VRF instances.
 
 <p float="left">
-  <img src="Img/Max_VRF.png" width="1000"  hspace="50"/>
+  <img src="Img/Max_VRF1.png" width="1000"  hspace="50"/>
 </p>
 
 
@@ -172,7 +172,7 @@ Verify that swich supports upto 512 VRF instances.
 Verify that swich supports host mobility and learns the informtion through new VTEP.
 
 <p float="left">
-  <img src="Img/Host_Mobility.png" width="1000"  hspace="50"/>
+  <img src="Img/Host_Mobility1.png" width="1000"  hspace="50"/>
 </p>
 
 
