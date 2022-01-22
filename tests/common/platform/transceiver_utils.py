@@ -78,7 +78,11 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     """
     asichost = dut.asic_instance(asic_index)
     logging.info("Check detailed transceiver information of each connected port")
-    expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
+    if dut.sonic_release == "202012":
+        expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
+    else:
+        expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
+
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname]:
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf
