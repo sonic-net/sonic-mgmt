@@ -245,6 +245,12 @@ class TestSfpApi(PlatformApiTestBase):
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
                     actual_keys = info_dict.keys()
+                    
+                    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+                    if duthost.sonic_release == "202012":
+                        EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
+                            self.EXPECTED_XCVR_INFO_KEYS]
+                        self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
 
                     missing_keys = set(self.EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
                     for key in missing_keys:
