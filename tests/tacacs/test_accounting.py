@@ -36,7 +36,7 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
     """
     sed_command = "sed -nE '/	{0}	.*	cmd=.*{1}/P' /var/log/tac_plus.acct".format(username, command)
     res = ptfhost.command(sed_command)
-    logger.info(sed_command)
+    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
 
@@ -49,7 +49,7 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     """
     sed_command = "sed -nE '/	{0}	/D;/.*/P' /var/log/tac_plus.acct".format(username)
     res = ptfhost.command(sed_command)
-    logger.info(sed_command)
+    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) == 0)
 
@@ -63,7 +63,7 @@ def check_local_log_exist(rw_user_client, tacacs_creds, command):
     sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},.*, command: .*{1},/P' /var/log/syslog".format(username, command)
     exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)
-    logger.info(sed_command)
+    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
     logger.info(stdout)
     pytest_assert(len(stdout) > 0)
 
@@ -78,7 +78,7 @@ def check_local_no_other_user_log(rw_user_client, tacacs_creds):
     sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P' /var/log/syslog".format(username)
     exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
     pytest_assert(exit_code == 0)
-    logger.info(sed_command)
+    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
     logger.info(stdout)
     pytest_assert(len(stdout) == 0)
 
