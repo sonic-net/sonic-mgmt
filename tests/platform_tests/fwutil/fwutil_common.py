@@ -72,7 +72,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot=F
         
         logger.info("Waiting on switch to shutdown...")
         # Wait for ssh flap
-        localhost.wait_for(host=hn, port=22, state='stopped', delay=10, timeout=timeout)
+        localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=timeout)
         logger.info("Letting switch get through ONIE / BIOS before pinging....")
         time.sleep(300)
         logger.info("Waiting on switch to come up....")
@@ -253,7 +253,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
 
     time.sleep(2) # Give a little bit of time in case of no-op install for mounts to complete
     final_versions = show_firmware(duthost)
-    assert validate_versions(init_versions, final_versions, paths, chassis, boot_type)
+    test_result = validate_versions(init_versions, final_versions, paths, chassis, boot_type)
 
     if next_image is None:
         duthost.copy(src=os.path.join("firmware", "platform_components_backup.json"), 
@@ -270,5 +270,5 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
         logger.info("Latest firmware not installed after test. Installing....")
         call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot, os.path.join("/", DEVICES_PATH, duthost.facts['platform']) if basepath is not None else None)
 
-    return True
+    return test_result
 
