@@ -13,6 +13,7 @@ def _port_alias_to_name_map_50G(all_ports, s100G_ports,):
     return new_map
 
 def get_port_alias_to_name_map(hwsku, asic_id=None):
+    asic_name = None
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils  import load_db_config
@@ -21,12 +22,15 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         for key, list in namespace_list.items():
             asic_ids = []
             for ns in list:
+                if multi_asic.get_asic_id_from_name(ns) == asic_id:
+                    asic_name = ns
                 asic_ids.append(multi_asic.get_asic_id_from_name(ns))
             namespace_list[key] = asic_ids
     except ImportError:
         namespace_list = ['']
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
+    port_name_to_index_map = {} 
     if hwsku == "Force10-S6000":
         for i in range(0, 128, 4):
             port_alias_to_name_map["fortyGigE0/%d" % i] = "Ethernet%d" % i
@@ -200,28 +204,13 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         for i in range(0, 64):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "8800-LC-48H-O":
-        for j in range(0,8):
-            for i in range(0, 13):
-                port_alias_to_name_map["Eth%d/0/%d" % (j,i)] = "Ethernet%d" % i
-            for i in range(13,47,3):
-                if i > 15:
-                    port_alias_to_name_map["Eth%d/0/%d" % (j,i-1)] = "Ethernet%d" % (i-1)
-                for i in range(i,i+2):
-                    port_alias_to_name_map["Eth%d/1/%d" % (j,i)] = "Ethernet%d" % i
-        for i in range(0, 13):
-            port_alias_asic_map["Eth%d-ASIC0" % i] = "Ethernet%d" % i
-        for i in range(13,47,3):
-            if i > 15:
-                port_alias_asic_map["Eth%d-ASIC0" % (i-1)] = "Ethernet%d" % (i-1)
-            for i in range(i,i+2):
-                port_alias_asic_map["Eth%d-ASIC1" % i] = "Ethernet%d" % i
-        port_alias_to_name_map["Eth2064-ASIC0"] = "Ethernet-BP2064"
-        for i in range(2154,2264,2):
-            port_alias_to_name_map["Eth%d-ASIC0" % i] = "Ethernet-BP%d" % i
-        port_alias_to_name_map["Eth2320-ASIC1"] = "Ethernet-BP2320"
-        for i in range(2410,2520,2):
-            port_alias_to_name_map["Eth%d-ASIC1" % i] = "Ethernet-BP%d" % i
-    elif hwsku == "msft_multi_asic_vs":
+        try:
+            from portconfig import get_port_config
+            (_,port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map) = get_port_config(hwsku=hwsku, platform=None, port_config_file=None, hwsku_config_file=None, asic_name=asic_name)
+        except:
+            for i in range(0, 48, 1):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku in ["msft_multi_asic_vs", "Nexus-3164"]:
         if asic_id is not None and asic_id in namespace_list['front_ns']:
             asic_offset = int(asic_id) * 16
             backplane_offset = 15
@@ -267,7 +256,7 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
         for i in range(0, 128, 4):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
-    return port_alias_to_name_map, port_alias_asic_map
+    return port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map
 
 
 def get_port_indices_for_asic(asic_id, port_name_list_sorted):
