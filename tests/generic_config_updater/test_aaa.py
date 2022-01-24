@@ -7,12 +7,13 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
 
 AAA_CATEGORY = ["authentication", "authorization", "accounting"]
+DEFAULT_TACACS_SERVER = "100.127.20.21"
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -151,10 +152,36 @@ def tacacs_add_init_config_with_table(duthost):
             "TACACS init config failed"
         )
 
+def cleanup_tacacs_server(duthost):
+    """ Clean up tacacs server
+    """
+    cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS_SERVER|*" | xargs -r sonic-db-cli CONFIG_DB del'
+
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "Cleanup TACPLUS_SERVER failed"
+    )
+
+def add_tacacs_server(duthost, server_ip):
+    """ tc13 requires at least one existed server to do the removal
+
+    Even the server added is existed, it won't be treated as error.
+    Sample output:
+    admin@vlab-01:~$ sudo config tacacs add 100.127.20.21
+    server 100.127.20.21 already exists
+    eadmin@vlab-01:~$ echo $?
+    0
+    """
+    cmds = 'config tacacs add {}'.format(server_ip)
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "Add tacacs server failed"
+    )
+
 def parse_tacacs_server(duthost):
     """ Parse tacacs server
 
-    Sample output in t0:
+    Sample output in kvm t0:
     {u'10.0.0.9': {u'priority': u'1', u'tcp_port': u'49'}, 
     u'10.0.0.8': {u'priority': u'1', u'tcp_port': u'49'}}
     """
@@ -198,7 +225,7 @@ def parse_tacacs_server(duthost):
             "debug": "True",
             "failthrough": "True",
             "fallback": "True",
-            "login": "local,tacacs+",
+            "login": "tacacs+",
             "trace": "True"
         }
     ),
@@ -485,11 +512,16 @@ def test_tacacs_global_tc8_remove(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-@pytest.mark.parametrize("ip_address", ["10.0.0.10", "fc10::10"])
-def test_tacacs_server_tc9_add(duthost, ip_address):
+@pytest.mark.parametrize("ip_address", ["100.127.20.21", "fc10::21"])
+def test_tacacs_server_tc9_add_init(duthost, ip_address):
     """ Test tacacs server addition
+
+    Due to kvm t0 and testbed t0 has different tacacs server predefined,
+    so we cleanup tacacs servers then test on mannual setup.
     """
-    TACACS_SERVER_ADD = {
+    cleanup_tacacs_server(duthost)
+
+    TACACS_SERVER_OPTION = {
         "auth_type": "login",
         "passkey": "testing123",
         "priority": "10",
@@ -499,8 +531,11 @@ def test_tacacs_server_tc9_add(duthost, ip_address):
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS_SERVER/{}".format(ip_address),
-            "value": TACACS_SERVER_ADD
+            "path": "/TACPLUS_SERVER",
+            "value": {
+                ip_address:
+                    TACACS_SERVER_OPTION
+            }
         }
     ]
 
@@ -516,7 +551,7 @@ def test_tacacs_server_tc9_add(duthost, ip_address):
             "tacacs server failed to add to config."
         )
         tacacs_server = tacacs_servers[ip_address]
-        for opt, value in TACACS_SERVER_ADD.items():
+        for opt, value in TACACS_SERVER_OPTION.items():
             pytest_assert(opt in tacacs_server and tacacs_server[opt] == value,
                 "tacacs server failed to add to config completely."
             )
@@ -525,22 +560,19 @@ def test_tacacs_server_tc9_add(duthost, ip_address):
 
 def test_tacacs_server_tc10_add_max(duthost):
     """ Test tacacs server reach maximum 8 servers
-
-    The t0 has two servers 10.0.0.8 and 10.0.0.9. Need to add 7 more
-    servers to exceed the max.
     """
-    json_patch = []
-    for i in range(10, 17):
-        server = {
+    cleanup_tacacs_server(duthost)
+
+    servers = {}
+    for i in range(10, 19): # Add 9 servers
+        servers["10.0.0.{}".format(i)] = {}
+    json_patch = [
+        {
             "op": "add",
-            "path": "/TACPLUS_SERVER/10.0.0.{}".format(i),
-            "value": {
-                "priority": "1",
-                "tcp_port": "49"
-            }
+            "path": "/TACPLUS_SERVER",
+            "value": servers
         }
-        json_patch.append(server)
-    logger.info(json_patch)
+    ]
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -569,12 +601,16 @@ def test_tacacs_server_tc11_add_invalid(duthost, tacacs_server_options, invalid_
         tcp_port: [0, 65535]
         timeout: range[1, 60]
     """
+    cleanup_tacacs_server(duthost)
+
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS_SERVER/10.0.0.10",
+            "path": "/TACPLUS_SERVER",
             "value": {
-                tacacs_server_options: invalid_input
+                DEFAULT_TACACS_SERVER: {
+                    tacacs_server_options: invalid_input
+                }
             }
         }
     ]
@@ -590,11 +626,15 @@ def test_tacacs_server_tc11_add_invalid(duthost, tacacs_server_options, invalid_
 
 def test_tacacs_server_tc12_add_duplicate(duthost):
     """ Test tacacs server add duplicate server
+
+    Mannually add DEFAULT_TACACS_SERVER, then add duplicate for test.
     """
+    add_tacacs_server(duthost, DEFAULT_TACACS_SERVER)
+
     json_patch = [
         {
             "op": "add",
-            "path": "/TACPLUS_SERVER/10.0.0.8",
+            "path": "/TACPLUS_SERVER/{}".format(DEFAULT_TACACS_SERVER),
             "value": {
                 "priority": "1",
                 "tcp_port": "49"
@@ -610,7 +650,7 @@ def test_tacacs_server_tc12_add_duplicate(duthost):
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
-        pytest_assert('10.0.0.8' in tacacs_servers,
+        pytest_assert(DEFAULT_TACACS_SERVER in tacacs_servers,
             "tacacs server add duplicate failed."
         )
 
@@ -620,6 +660,8 @@ def test_tacacs_server_tc12_add_duplicate(duthost):
 def test_tacacs_server_tc13_remove(duthost):
     """ Test tacasc server removal
     """
+    add_tacacs_server(duthost, DEFAULT_TACACS_SERVER)
+
     json_patch = [
         {
             "op": "remove",
