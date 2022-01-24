@@ -147,7 +147,7 @@ def test_pmon_thermalctld_stop_and_start_status(check_daemon_status, duthosts, r
     pytest_assert(post_daemon_status == expected_running_status,
                           "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                          "{} expected pid is not -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     
@@ -174,7 +174,7 @@ def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts, r
     pytest_assert(post_daemon_status == expected_running_status,
                           "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                          "{} expected pid is not -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
@@ -201,7 +201,7 @@ def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts, r
     pytest_assert(post_daemon_status == expected_running_status,
                           "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                          "{} expected pid is not -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
