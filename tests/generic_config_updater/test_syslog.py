@@ -189,7 +189,7 @@ def test_syslog_server_tc1_add_init(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -231,7 +231,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -304,7 +304,7 @@ def test_syslog_server_tc4_remove(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, [], unexpected_content_list)
@@ -354,7 +354,7 @@ def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(replace_syslog_server_v4), "[{}]".format(replace_syslog_server_v6)]
         unexpected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER), "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
