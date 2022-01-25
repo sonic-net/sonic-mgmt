@@ -465,13 +465,12 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == '4':
         total_routes = 10
     else:
-        total_routes = 1
-       
+        total_routes = 1   
     for i in range(total_routes):
         route_add = route_add_cmd.format(asichost.ip_cmd, i, nh_ip)
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
-        
+
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -483,7 +482,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     # Verify "crm_stats_ipv[4/6]_route_used" counter was incremented
     if not (new_crm_stats_route_used - crm_stats_route_used == total_routes):
         for i in range(total_routes):
-            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))  
+            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
     if not (crm_stats_route_available - new_crm_stats_route_available >= 1):
         for i in range(total_routes):
@@ -658,7 +657,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     if not (crm_stats_neighbor_available - new_crm_stats_neighbor_available >= 1):
         RESTORE_CMDS["test_crm_neighbor"].append(neighbor_del_cmd)
         pytest.fail("\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
-    
+
     # Remove reachability to the neighbor
     if duthost.facts["asic_type"] in ["cisco-8000"]:
         asichost.config_ip_intf(crm_interface[0], host, "remove")
