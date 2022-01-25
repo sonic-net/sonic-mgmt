@@ -687,7 +687,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                                 }
                             },
                         'ptf': {'hosts': ptfDict},
-                        'server': serverDict
+                        'server': {'hosts': serverDict}
                         }
                     }
     })
