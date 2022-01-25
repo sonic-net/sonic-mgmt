@@ -129,16 +129,19 @@ def check_sysfs(dut):
                 assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
 
-            # Check consistency between voltage capability and sysfs
-            all_capabilities = platform_data["psus"].get("capabilities")
-            if all_capabilities:
-                for capabilities in all_capabilities:
-                    psu_cmd_prefix = 'cat /var/run/hw-management/power/{}_'.format(capabilities.format(psu_id))
-                    psu_capability = dut.command(psu_cmd_prefix + 'capability')['stdout'].split()
-                    for capability in psu_capability:
-                        # Each capability should exist
-                        output = dut.command(psu_cmd_prefix + capability)['stdout']
-                        assert output, "PSU capability {} doesn't not exist".format(capability)
+            if "201911" not in dut.os_version and "202012" not in dut.os_version:
+                # Check consistency between voltage capability and sysfs
+                all_capabilities = platform_data["psus"].get("capabilities")
+                if all_capabilities:
+                    for capabilities in all_capabilities:
+                        psu_cmd_prefix = 'cat /var/run/hw-management/power/{}_'.format(capabilities.format(psu_id))
+                        psu_capability = dut.command(psu_cmd_prefix + 'capability')['stdout'].split()
+                        for capability in psu_capability:
+                            # Each capability should exist
+                            output = dut.command(psu_cmd_prefix + capability)['stdout']
+                            assert output, "PSU capability {} doesn't not exist".format(capability)
+            else:
+                logging.info("PSU sensors' capability checking ignored")
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():
