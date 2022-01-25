@@ -91,7 +91,7 @@ def collect_ignored_rules(duthosts, rand_one_dut_hostname, rand_one_frontend_asi
     # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
     if rand_one_frontend_asic_index is not None:
         # For multi-asic, it has to wait enough long to sync rules
-        time.sleep(120)
+        time.sleep(150)
     else:
         time.sleep(10)
 
@@ -128,8 +128,12 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, ra
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     # recover ACL configuration
     duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SNMP_ACL")
+    # sleep 1s to avoid the issue on multi-asic: https://github.com/Azure/sonic-buildimage/issues/9824
+    time.sleep(1)
     duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete NTP_ACL")
+    time.sleep(1)
     duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SSH_ONLY")
+    time.sleep(1)
 
     logger.info('Waiting all rules to be cleaned')
     wait_until(60, 2, 2, is_acl_rule_empty, duthost, rand_one_frontend_asic_index)
@@ -137,7 +141,7 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, ra
     # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
     if rand_one_frontend_asic_index is not None:
         # For multi-asic, it has to wait enough long to sync rules
-        time.sleep(120)
+        time.sleep(150)
     else:
         time.sleep(10)
 
