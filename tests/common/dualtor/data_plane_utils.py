@@ -1,5 +1,6 @@
 import pytest
 import json
+import time
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
@@ -150,6 +151,7 @@ def run_test(duthosts, activehost, ptfhost, ptfadapter, action,
         # IO threads (sender and sniffer) are ready
         logger.info("Sender and sniffer threads started, ready to execute the "\
             "callback action")
+        time.sleep(15)
         action()
     # do not time-wait the test, if early stop is not requested (when stop_after=None)
     if stop_after is not None:
