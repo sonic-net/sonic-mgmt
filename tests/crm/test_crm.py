@@ -465,12 +465,12 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == '4':
         total_routes = 10
     else:
-        total_routes = 1   
+        total_routes = 1
     for i in range(total_routes):
         route_add = route_add_cmd.format(asichost.ip_cmd, i, nh_ip)
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
-
+    
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -681,7 +681,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     if used_percent < 1:
         #  Add 3k neighbors instead of 1 percentage for Cisco-8000 devices
         neighbours_num = get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available) if duthost.facts["asic_type"] not in ["cisco-8000"] else CISCO_8000_ADD_NEIGHBORS
-
+        
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver, asichost=asichost,
             test_name="test_crm_neighbor")
