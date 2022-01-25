@@ -1145,10 +1145,6 @@ def duthost_console(localhost, conn_graph_facts, creds, request):
     console_type = "console_" + console_type
 
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
-    sonic_username = creds['sonicadmin_user']
-    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
-    console_username = creds['console_user']
-    console_password = creds['console_password']
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
