@@ -154,6 +154,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
         clean_setup()
     elif init_dhcp_server_config == CONFIG_ADD_DEFAULT:
         default_setup(duthost, vlan_intfs_list)
+    else:
+        pytest.fail("Not supported initial dhcp_relay config: {}".format(init_dhcp_server_config))
 
     dhcp_relay_info_before_test = get_dhcp_relay_info_from_all_vlans(duthost)
     create_checkpoint(duthost, SETUP_ENV_CP)
@@ -218,7 +220,7 @@ def dhcp_severs_by_vlanid(duthost, vlanid):
     UID          PID    PPID  C STIME TTY          TIME CMD
     root          73       1  0 06:39 pts/0    00:00:00 /usr/sbin/dhcrelay -d -m discard -a %h:%p %P --name-alias-map-file /tmp/port-name-alias-map.txt -id Vlan1000 -iu Vlan100 -iu PortChannel0001 -iu PortChannel0002 -iu PortChannel0003 -iu PortChannel0004 192.0.0.1 192.0.0.2 192.0.0.3 192.0.0.4
     """
-    cmds = "docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay \
+    cmds = "docker exec dhcp_relay supervisorctl status \
         | grep 'dhcpv4-relay-Vlan{} ' | awk '{{print $4}}'".format(vlanid)
     output = duthost.shell(cmds)
     pytest_assert(
