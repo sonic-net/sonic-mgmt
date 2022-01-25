@@ -28,6 +28,10 @@ Purpose of the test is to verify MPLS on a SONiC system bringing up the ingress,
 T1
 
 ## Setup configuration
+MPLS will be enabled/disabled on interface command:
+```
+config interface mpls <add|remove> <interface>
+```
 MPLS configuration will be set on DUT dynamically.
 
 #### Setup of DUT switch
@@ -49,23 +53,11 @@ label_pop_routes.json
         "OP": "SET"
     },
     {
-        "INTF_TABLE:Ethernet10": {
-            "mpls": "enable"
-        },
-        "OP": "SET"
-    },
-    {
         "LABEL_ROUTE_TABLE:1000003": {
             "nexthop": "10.0.0.21",
             "ifname": "Ethernet10",
             "mpls_pop": "1",
             "weight": "1"
-        },
-        "OP": "SET"
-    },
-    {
-        "INTF_TABLE:Ethernet25": {
-            "mpls": "enable"
         },
         "OP": "SET"
     }
@@ -82,12 +74,6 @@ label_pop_routes.json
             "ifname": "Ethernet25",
             "mpls_nh": "push1000001",
             "weight": "1"
-        },
-        "OP": "SET"
-    },
-    {
-        "INTF_TABLE:Ethernet25": {
-            "mpls": "enable"
         },
         "OP": "SET"
     }
@@ -108,24 +94,12 @@ label_swap_routes.json
         "OP": "SET"
     },
     {
-        "INTF_TABLE:Ethernet10": {
-            "mpls": "enable"
-        },
-        "OP": "SET"
-    },
-    {
         "LABEL_ROUTE_TABLE:1000003": {
             "nexthop": "10.0.0.21",
             "ifname": "Ethernet10",
             "mpls_nh": "swap1000004",
             "mpls_pop": "1",
             "weight": "1"
-        },
-        "OP": "SET"
-    },
-    {
-        "INTF_TABLE:Ethernet25": {
-            "mpls": "enable"
         },
         "OP": "SET"
     }
@@ -141,17 +115,7 @@ label_del_routes.json
         "OP": "DEL"
     },
     {
-        "INTF_TABLE:Ethernet10": {
-        },
-        "OP": "DEL"
-    },
-    {
         "LABEL_ROUTE_TABLE:1000003": {
-        },
-        "OP": "DEL"
-    },
-    {
-        "INTF_TABLE:Ethernet25": {
         },
         "OP": "DEL"
     },
