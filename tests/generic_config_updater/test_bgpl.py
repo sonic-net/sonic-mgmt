@@ -135,6 +135,33 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+def bgpmon_tc1_admin_change(duthost):
+    """ Test to admin down bgpmon config
+    """
+    peer_addr, _, _ = bgpmon_setup_info
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/BGP_MONITORS/{}/admin_status".format(peer_addr),
+            "value": "down"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        cmds = "show ip bgp summary | grep -w {}".format(peer_addr)
+        output = duthost.shell(cmds)
+        pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
+            "BGPMonitor with addr {} failed to admin down.".format(peer_addr)
+        )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
 def bgpmon_tc1_remove(duthost):
     """ Test to remove bgpmon config
     """
