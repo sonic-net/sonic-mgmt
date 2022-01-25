@@ -83,13 +83,6 @@ class TestContLinkFlap(object):
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
-        config_facts = duthost.get_running_config_facts()
-
-        if config_facts and 'PORTCHANNEL' in config_facts:
-            for portchannel in config_facts['PORTCHANNEL'].keys():
-                pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
-                              "Fail: dut interface {}: link operational down".format(portchannel))
-
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
             endv4, endv6 = duthost.get_ip_route_summary()
@@ -99,8 +92,16 @@ class TestContLinkFlap(object):
                                                                                                                 sumv6,
                                                                                                                 endv4,
                                                                                                                 endv6))
+            config_facts = duthost.get_running_config_facts()
             nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
-            for k in nei_meta.keys():
+            dut_type = None
+            dev_meta = config_facts.get('DEVICE_METADATA', {})
+            if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
+                dut_type = dev_meta["localhost"]["type"]
+
+            for k, v in nei_meta.items():
+                if v['type'] in ['SmartCable', 'Server', 'Asic'] or dut_type == v['type']:
+                    continue
                 nbrhost = nbrhosts[k]['host']
                 if isinstance(nbrhost, EosHost):
                     res = nbrhost.eos_command(commands=['show ip bgp sum'])
