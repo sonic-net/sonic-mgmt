@@ -10,9 +10,9 @@ Usage:          Examples of how to start this script
 #---------------------------------------------------------------------
 import logging
 import random
-from ipaddress import ip_address
+from ipaddress import ip_address, IPv4Address
 import ptf
-from scapy.all import IP, Ether
+from scapy.all import IP, IPv6, Ether
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
@@ -25,6 +25,7 @@ PACKET_NUM_FOR_NEGATIVE_CHECK = 100
 
 DIFF = 0.25 # The valid range for balance check
 SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
+SRC_IPV6_RANGE = [unicode('20D0:A800:0:00::'), unicode('20D0:FFFF:0:00::FFFF')]
 TIMEOUT = 1
 
 class IpinIPTunnelTest(BaseTest):
@@ -56,6 +57,7 @@ class IpinIPTunnelTest(BaseTest):
 
         self.hash_key_list = self.test_params['hash_key_list']
         self.dataplane = ptf.dataplane_instance
+        self.is_ipv4 = isinstance(ip_address(self.server_ip), IPv4Address)
 
     def runTest(self):
         """
@@ -75,40 +77,71 @@ class IpinIPTunnelTest(BaseTest):
         Generate a packet to server. The value of field in packet is filled with random value according to hash_key
         """
         base_src_mac = self.dataplane.get_mac(0, 0)
-        ip_src = self.random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
         ip_dst = self.server_ip
         sport = random.randint(1, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(1, 65535) if hash_key == 'dst-port' else 80
         src_mac = (base_src_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) if hash_key == 'src-mac' else base_src_mac
         dst_mac = self.standby_tor_mac
         vlan_id = random.randint(1, 4094) if hash_key == 'vlan-id' else 0
-        pkt = simple_tcp_packet(pktlen=128 if vlan_id == 0 else 132,
-                            eth_dst=dst_mac,
-                            eth_src=src_mac,
-                            dl_vlan_enable=False if vlan_id == 0 else True,
-                            vlan_vid=vlan_id,
-                            vlan_pcp=0,
-                            ip_src=ip_src,
-                            ip_dst=ip_dst,
-                            tcp_sport=sport,
-                            tcp_dport=dport,
-                            ip_ttl=64)
-        return pkt
 
+        if self.is_ipv4:
+            ip_src = self.random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if hash_key == 'src-ip' else SRC_IP_RANGE[0]
+            pkt = simple_tcp_packet(
+                pktlen=128 if vlan_id == 0 else 132,
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                dl_vlan_enable=False if vlan_id == 0 else True,
+                vlan_vid=vlan_id,
+                vlan_pcp=0,
+                ip_src=ip_src,
+                ip_dst=ip_dst,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ip_ttl=64
+            )
+            return pkt
+        else:
+            ip_src = self.random_ip(*SRC_IPV6_RANGE) if hash_key == 'src-ip' else SRC_IPV6_RANGE[0]
+            pkt = simple_tcpv6_packet(
+                pktlen=128 if vlan_id == 0 else 132,
+                eth_dst=dst_mac,
+                eth_src=src_mac,
+                dl_vlan_enable=False if vlan_id == 0 else True,
+                vlan_vid=vlan_id,
+                vlan_pcp=0,
+                ipv6_src=ip_src,
+                ipv6_dst=ip_dst,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                ipv6_hlim=64
+            )
+            return pkt
 
     def generate_expected_packet(self, inner_packet):
         """
         Generate ip_in_ip packet for verifying.
         """
-        inner_packet.ttl = inner_packet.ttl - 1
-        exp_tunnel_pkt = simple_ipv4ip_packet(
-            eth_dst="aa:aa:aa:aa:aa:aa",
-            eth_src=self.standby_tor_mac,
-            ip_src=self.standby_tor_ip,
-            ip_dst=self.active_tor_ip,
-            inner_frame=inner_packet[scapy.IP]
-        )
-        inner_packet.ttl = 64
+        if self.is_ipv4:
+            inner_packet.ttl = inner_packet.ttl - 1
+            exp_tunnel_pkt = simple_ipv4ip_packet(
+                eth_dst="aa:aa:aa:aa:aa:aa",
+                eth_src=self.standby_tor_mac,
+                ip_src=self.standby_tor_ip,
+                ip_dst=self.active_tor_ip,
+                inner_frame=inner_packet[scapy.IP]
+            )
+            inner_packet.ttl = 64
+        else:
+            inner_packet.hlim = inner_packet.hlim - 1
+            exp_tunnel_pkt = simple_ipv4ip_packet(
+                eth_dst="aa:aa:aa:aa:aa:aa",
+                eth_src=self.standby_tor_mac,
+                ip_src=self.standby_tor_ip,
+                ip_dst=self.active_tor_ip,
+                inner_frame=inner_packet[scapy.IPv6]
+            )
+            inner_packet.hlim = 64
+
         exp_tunnel_pkt[scapy.TCP] = inner_packet[scapy.TCP]
         exp_tunnel_pkt = Mask(exp_tunnel_pkt)
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -127,13 +160,17 @@ class IpinIPTunnelTest(BaseTest):
         pkt = inner_pkt.copy()
         pkt[Ether].src = self.vlan_mac
         # TTL of packets from active tor to server is decreased by 1
-        pkt[IP].ttl -= 1
+        if self.is_ipv4:
+            pkt[IP].ttl -= 1
+        else:
+            pkt[IPv6].hlim -= 1
         unexpected_packet = Mask(pkt)
         # Ignore dst mac
         unexpected_packet.set_do_not_care_scapy(scapy.Ether, 'dst')
 
-        # Ignore check sum
-        unexpected_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+        if self.is_ipv4:
+            # Ignore check sum
+            unexpected_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
         #Ignore extra bytes
         unexpected_packet.set_ignore_extra_bytes()
@@ -181,8 +218,9 @@ class IpinIPTunnelTest(BaseTest):
             for i in range(0, PACKET_NUM):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
+                l3packet = inner_pkt.getlayer(IP) or inner_pkt.getlayer(IPv6)
                 self.logger.debug("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
-                    .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, inner_pkt[IP].dst, inner_pkt[IP].src, src_port))
+                    .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, l3packet.dst, l3packet.src, src_port))
                 self.dataplane.flush()
                 send_packet(self, src_port, inner_pkt)
                 # Verify packet is received from IPinIP tunnel
