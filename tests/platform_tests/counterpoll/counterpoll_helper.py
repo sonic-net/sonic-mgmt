@@ -28,15 +28,6 @@ class ConterpollHelper:
         return parsed_counterpoll
 
     @staticmethod
-    def restore_counterpoll_interval(duthost, counterpoll_before, counterpoll_after):
-        for counterpoll, value in counterpoll_before.items():
-            if counterpoll_after[counterpoll] != counterpoll_before[counterpoll]:
-                duthost.command(
-                    CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(
-                        CounterpollConstants.COUNTERPOLL_MAPPING[counterpoll],
-                        re.search('\d+', value[CounterpollConstants.INTERVAL]).group()))
-
-    @staticmethod
     def restore_counterpoll_status(duthost, counterpoll_before, counterpoll_after):
         for counterpoll, value in counterpoll_after.items():
             if counterpoll not in counterpoll_before:
@@ -52,3 +43,12 @@ class ConterpollHelper:
     def disable_counterpoll(duthost, counter_type_list):
         for counterpoll_type in counter_type_list:
             duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+
+    @staticmethod
+    def enable_counterpoll(duthost, counter_type_list):
+        for counterpoll_type in counter_type_list:
+            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+
+    @staticmethod
+    def set_counterpoll_interval(duthost, counterpoll_type, interval):
+        duthost.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(counterpoll_type, interval))

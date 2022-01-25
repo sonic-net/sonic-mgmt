@@ -2,6 +2,7 @@
 class CounterpollConstants:
     COUNTERPOLL_SHOW = 'counterpoll show'
     COUNTERPOLL_DISABLE = 'counterpoll {} disable'
+    COUNTERPOLL_ENABLE = 'counterpoll {} enable'
     COUNTERPOLL_RESTORE = 'counterpoll {} {}'
     COUNTERPOLL_INTERVAL_STR = 'counterpoll {} interval {}'
     COUNTERPOLL_QUEST = 'counterpoll --help'
@@ -38,4 +39,3 @@ class CounterpollConstants:
     PORT_BUFFER_DROP_INTERVAL = '10000'
     COUNTERPOLL_INTERVAL = {PORT_BUFFER_DROP: 10000}
     SX_SDK = 'sx_sdk'
-    MLNX_PLATFORM_STR = "x86_64-mlnx_msn"

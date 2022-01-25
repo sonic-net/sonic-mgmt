@@ -72,13 +72,13 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
 
 
 @pytest.fixture(scope='module')
-def get_counterpoll_cpu_threshold(duthosts, request):
+def counterpoll_cpu_threshold(duthosts, request):
     counterpoll_cpu_usage_threshold = {"port-buffer-drop":  request.config.getoption("--port_buffer_drop_cpu_usage_threshold")}
     return counterpoll_cpu_usage_threshold
 
 
 def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname,
-                                      setup_thresholds, restore_counter_poll, counterpoll_type, get_counterpoll_cpu_threshold):
+                                      setup_thresholds, restore_counter_poll, counterpoll_type, counterpoll_cpu_threshold):
     """Check DUT memory usage and process cpu usage are within threshold.
     Disable all counterpoll types except tested one
     Collect memory and CPUs usage for 60 secs
@@ -92,7 +92,7 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
         pytest.skip("Skip no program is offered to check")
 
     memory_threshold, _, _ = setup_thresholds
-    counterpoll_cpu_usage_threshold = get_counterpoll_cpu_threshold[counterpoll_type]
+    counterpoll_cpu_usage_threshold = counterpoll_cpu_threshold[counterpoll_type]
 
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     disable_all_counterpoll_type_except_tested(duthost, counterpoll_type)
