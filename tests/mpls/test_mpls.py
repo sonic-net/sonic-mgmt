@@ -42,9 +42,6 @@ def setup(duthost, tbinfo, ptfadapter):
     :param tbinfo: fixture provides information about testbed
     :return: dictionary with all test required information
     """
-    if tbinfo['topo']['name'] not in ('t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'):
-        pytest.skip('Unsupported topology')
-
     # gather ansible facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     int_facts = duthost.interface_facts()['ansible_facts']
