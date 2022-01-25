@@ -512,7 +512,7 @@ def vmhost(ansible_adhoc, request, tbinfo):
 def eos():
     """ read and yield eos configuration """
     with open('eos/eos.yml') as stream:
-        eos = yaml.safe_loadsafe_load(stream)
+        eos = yaml.safe_load(stream)
         return eos
 
 
