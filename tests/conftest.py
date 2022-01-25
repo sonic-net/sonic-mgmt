@@ -512,7 +512,7 @@ def vmhost(ansible_adhoc, request, tbinfo):
 def eos():
     """ read and yield eos configuration """
     with open('eos/eos.yml') as stream:
-        eos = yaml.safe_load(stream)
+        eos = yaml.safe_loadsafe_load(stream)
         return eos
 
 
@@ -1133,20 +1133,33 @@ def pytest_generate_tests(metafunc):
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
 
+
 @pytest.fixture(scope="module")
-def duthost_console(localhost, creds, request):
+def duthost_console(localhost, conn_graph_facts, creds, request):
     dut_hostname = request.config.getoption("ansible_host_pattern")
 
-    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
-    # console password and sonic_password are lists, which may contain more than one password
+    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
+    console_type = conn_graph_facts['device_console_info'][dut_hostname]['Protocol']
+
+    console_type = "console_" + console_type
+
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
-    host = ConsoleHost(console_type=vars['console_type'],
-                       console_host=vars['console_host'],
-                       console_port=vars['console_port'],
+    sonic_username = creds['sonicadmin_user']
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+    console_username = creds['console_user']
+    console_password = creds['console_password']
+
+    # console password and sonic_password are lists, which may contain more than one password
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
+        "ansible_altpassword")
+    host = ConsoleHost(console_type=console_type,
+                       console_host=console_host,
+                       console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=creds['console_user'][vars['console_type']],
-                       console_password=creds['console_password'][vars['console_type']])
+                       console_username=creds['console_user'][console_type],
+                       console_password=creds['console_password'][console_type])
     yield host
     host.disconnect()
 
