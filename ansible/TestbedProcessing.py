@@ -584,6 +584,13 @@ def makeLab(data, devices, testbed, outfile):
                         except AttributeError:
                             print("\t\t" + host + " serial not found")
 
+                        try: #get asic_type
+                            asic_type=dev.get("asic_type")
+                            if asic_type is not None:
+                                entry += "\tasic_type=" + str( asic_type )
+                        except AttributeError:
+                            print("\t\t" + host + " asic_type not found")
+
                     toWrite.write(entry + "\n")
                 toWrite.write("\n")
 
@@ -636,6 +643,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                         'serial': devices[dut].get("serial"),
                         'os': devices[dut].get("os"),
                         'model': devices[dut].get("model"),
+                        'asic_type': devices[dut].get("asic_type"),
                         'syseeprom_info': {"0x21": devices[dut].get("syseeprom_info").get("0x21"),
                                            "0x22": devices[dut].get("syseeprom_info").get("0x22"),
                                            "0x23": devices[dut].get("syseeprom_info").get("0x23"),
