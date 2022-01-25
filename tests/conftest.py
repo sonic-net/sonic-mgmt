@@ -562,7 +562,10 @@ def creds_on_dut(duthost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    console_login_creds = hostvars["console_login"]
+    if "console_login" not in hostvars.keys():
+        console_login_creds = {}
+    else:
+        console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
 
@@ -1140,11 +1143,10 @@ def duthost_console(localhost, conn_graph_facts, creds, request):
 
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
-    console_type = conn_graph_facts['device_console_info'][dut_hostname]['Protocol']
+    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
     console_type = "console_" + console_type
-
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
@@ -1154,7 +1156,7 @@ def duthost_console(localhost, conn_graph_facts, creds, request):
                        console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=creds['console_user'][console_type],
+                       console_username=console_username,
                        console_password=creds['console_password'][console_type])
     yield host
     host.disconnect()
