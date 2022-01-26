@@ -569,4 +569,4 @@ qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo"
     conditions:
-      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+      - "asic_type in ['barefoot'] and topo_name in ['t1']"
