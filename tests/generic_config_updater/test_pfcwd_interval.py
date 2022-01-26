@@ -7,13 +7,16 @@ from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.asic('mellanox')
 ]
 
 logger = logging.getLogger(__name__)
+
+READ_FLEXCOUNTER_DB_TIMEOUT = 480
+READ_FLEXCOUNTER_DB_INTERVAL = 20
 
 
 @pytest.fixture(scope="module")
@@ -24,19 +27,33 @@ def ensure_dut_readiness(duthost):
     Args:
         duthost: DUT host object
     """
-    config_tmpfile = generate_tmpfile(duthost)
-    logger.info("config_tmpfile {}".format(config_tmpfile))
-    logger.info("Backing up config_db.json")
-    duthost.shell("sudo cp /etc/sonic/config_db.json {}".format(config_tmpfile))
+    create_checkpoint(duthost)
 
     yield
- 
-    logger.info("Restoring config_db.json")
-    duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
-    delete_tmpfile(duthost, config_tmpfile)
-    config_reload(duthost)
 
-    logger.info("TEARDOWN COMPLETED")
+    try:
+        logger.info("Rolled back to original  checkpoint")
+        rollback_or_reload(duthost)
+    finally:
+        delete_checkpoint(duthost)
+
+
+def ensure_application_of_updated_config(duthost, value):
+    """
+    Ensures application of the JSON patch config update by verifying field value presence in FLEX COUNTER DB
+
+    Args:
+        duthost: DUT host object
+        value: expected value of POLL_INTERVAL
+    """
+    def _confirm_value_in_flex_counter_db():
+        poll_interval = duthost.shell('redis-cli -n 5 hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
+        return value == poll_interval
+
+    pytest_assert(
+        wait_until(READ_FLEXCOUNTER_DB_TIMEOUT, READ_FLEXCOUNTER_DB_INTERVAL, 0, _confirm_value_in_flex_counter_db),
+        "FLEX COUNTER DB does not properly reflect newly POLL_INTERVAL expected value: {}".format(value)
+    )
 
 
 def prepare_pfcwd_interval_config(duthost, value):
@@ -97,12 +114,12 @@ def get_new_interval(duthost, is_valid):
 
     detection_time, restoration_time = get_detection_restoration_times(duthost)
     if is_valid:
-        return max(detection_time, restoration_time) + 10
+        return max(detection_time, restoration_time) - 10
     else:
-        return min(detection_time, restoration_time) - 10
+        return min(detection_time, restoration_time) + 10
 
 
-@pytest.mark.parametrize("operation", ["add", "replace", "remove"])
+@pytest.mark.parametrize("operation", ["add", "replace"])
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
 def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation, field_pre_status, is_valid_config_update):
@@ -131,5 +148,6 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     
     if is_valid_config_update:
         expect_op_success(duthost, output)
+        ensure_application_of_updated_config(duthost, value)
     else:
         expect_op_failure(output)
