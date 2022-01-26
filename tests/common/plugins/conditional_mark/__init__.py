@@ -38,6 +38,13 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore the conditional mark plugin. No conditional mark will be added.")
 
+    parser.addoption(
+        '--customize_inventory_file',
+        action='store',
+        dest='customize_inventory_file',
+        default=False,
+        help="Location of your custom inventory file. If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
+
 def load_conditions(session):
     """Load the content from mark conditions file
 
@@ -103,7 +110,13 @@ def load_dut_basic_facts(session):
         results['topo_name'] = tbinfo['topo']['name']
 
         dut_name = tbinfo['duts'][0]
-        inv_name = tbinfo['inv_name']
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
         ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
