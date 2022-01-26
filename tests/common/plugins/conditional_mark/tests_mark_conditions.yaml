@@ -641,10 +641,6 @@ platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s', 'x86_64-arista_7260cx3_64']"
 
-platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
-  xfail:
-    reason: "Test flaky"
-
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   xfail:
     reason: "Image issue on Arista platforms"
