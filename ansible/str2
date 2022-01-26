@@ -828,7 +828,7 @@ sonic_arista_lc_100G:
   vars:
     max_cores: 16
     switch_type: voq
-    voq_inband_intf: Ethernet-IB0
+    voq_inband_intf: [Ethernet-IB0]
     voq_inband_type: port
     num_asics: 1
   hosts:
@@ -836,7 +836,7 @@ sonic_arista_lc_100G:
       hwsku: Arista-7800R3-48CQ2-C4
       sonic_hwsku: Arista-7800R3-48CQ2-C4
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: 3
+      slot_num: slot3
       switchids: [0]
       voq_inband_ip: [3.3.3.3/32]
       voq_inband_ipv6: [3333::3:3/128]
@@ -849,7 +849,7 @@ sonic_arista_lc_100G:
       hwsku: Arista-7800R3-48CQM2-C48
       sonic_hwsku: Arista-7800R3-48CQM2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cqm2_lc
-      slot_num: 6
+      slot_num: slot6
       switchids: [2]
       voq_inband_ip: [3.3.3.6/32]
       voq_inband_ipv6: [3333::3:6/128]
@@ -862,7 +862,7 @@ sonic_arista_lc_100G:
       hwsku: Arista-7800R3-48CQ2-C4
       sonic_hwsku: Arista-7800R3-48CQ2-C4
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: 7
+      slot_num: slot7
       switchids: [4]
       voq_inband_ip: [3.3.3.7/32]
       voq_inband_ipv6: [3333::3:7/128]
@@ -908,7 +908,7 @@ sonic_arista_sup:
     HwSku:  Arista-7808R3A-FM
     sonic_hwsku:  Arista-7808R3A-FM
     sonic_hw_platform:  x86_64-arista_7800_sup
-    slot_num: 1
+    slot_num: slot1
     num_asics: 12
     num_fabric_asics: 12
     switchids: [300,301,302,303,304,305,306,307,308,309,310,311]
