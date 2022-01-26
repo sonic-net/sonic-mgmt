@@ -25,6 +25,12 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
     conditions:
       - "asic_type=='cisco-8000'"
 
+dut_console/test_escape_character.py::test_console_escape:
+  skip:
+    reason: "Console is only support on pyhsical testbed"
+    conditions:
+      - "asic_type == 'vs'"
+
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
   # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details. 
   # Due to this Cisco currently does not expose serial and model number under sysfs path

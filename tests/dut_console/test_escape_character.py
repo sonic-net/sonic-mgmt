@@ -6,11 +6,6 @@ import re
 
 from tests.common.helpers.assertions import pytest_assert
 
-pytestmark = [
-    pytest.mark.device_type("physical")
-
-]
-
 TOTAL_PACKETS = 100
 logger = logging.getLogger(__name__)
 

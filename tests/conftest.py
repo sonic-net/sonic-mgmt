@@ -1138,7 +1138,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds, request):
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
     dut_hostname = duthosts[rand_one_dut_hostname].hostname
 
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
