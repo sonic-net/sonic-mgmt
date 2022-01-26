@@ -86,7 +86,7 @@ def get_detection_restoration_times(duthost):
     
     for line in pfcwd_config['stdout_lines']:
         if line.startswith('Ethernet'):
-            interface = line.split()[0] #Since line starts with Ethernet, we can safely use 0 index
+            interface = line.split()[0] # Since line starts with Ethernet, we can safely use 0 index
 
             cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"detection_time\" ".format(interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
