@@ -64,40 +64,34 @@ def docker_network(duthost):
     return docker_network
 
 @pytest.fixture(scope="function")
-def collect_ignored_rules(duthosts, rand_one_dut_hostname, rand_one_frontend_asic_index):
+def collect_ignored_rules(duthosts, rand_one_dut_hostname):
     """
     Collect existing iptables rules before test, set them as ignored as they are not related to CACL test cases.
 
     Args:
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
-        rand_one_frontend_asic_index: asic index of random chosen frontend.
 
     Returns:
         None
     """
     duthost = duthosts[rand_one_dut_hostname]
     # clear other control ACL rules before test to avoid miscalucation
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SNMP_ACL")
-    # sleep 1s to avoid the issue on multi-asic: https://github.com/Azure/sonic-buildimage/issues/9824
-    time.sleep(1)
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete NTP_ACL")
-    time.sleep(1)
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SSH_ONLY")
-    time.sleep(1)
+    duthost.command("acl-loader delete SNMP_ACL")
+    duthost.command("acl-loader delete NTP_ACL")
+    duthost.command("acl-loader delete SSH_ONLY")
 
     logger.info('Waiting all rules to be cleaned')
-    wait_until(60, 2, 2, is_acl_rule_empty, duthost, rand_one_frontend_asic_index)
+    wait_until(60, 2, 2, is_acl_rule_empty, duthost)
     # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
-    if rand_one_frontend_asic_index is not None:
-        # For multi-asic, it has to wait enough long to sync rules
-        time.sleep(150)
+    if duthost.is_multi_asic:
+        time.sleep(60)
     else:
         time.sleep(10)
 
     duthost = duthosts[rand_one_dut_hostname]
-    ignored_rules_v4 = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("iptables -S")["stdout_lines"]
-    ignored_rules_v6 = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("ip6tables -S")["stdout_lines"]
+    ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
+    ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
 
     ignored_rules = {}
     ignored_rules["v4"] = ignored_rules_v4
@@ -105,7 +99,7 @@ def collect_ignored_rules(duthosts, rand_one_dut_hostname, rand_one_frontend_asi
     return ignored_rules
 
 @pytest.fixture(scope="function")
-def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, rand_one_frontend_asic_index):
+def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
     """
     Clear other control ACL rules before test to avoid miscalucation,
     delete ACL template json file and clean ACL rules, recover configuration after test.
@@ -114,7 +108,6 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, ra
         duthosts: All DUTs belong to the testbed.
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
         collect_ignored_rules: ignored iptable/ip6table rules.
-        rand_one_frontend_asic_index: asic index of random chosen frontend.
 
     Returns:
         None
@@ -127,35 +120,30 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, ra
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     # recover ACL configuration
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SNMP_ACL")
-    # sleep 1s to avoid the issue on multi-asic: https://github.com/Azure/sonic-buildimage/issues/9824
-    time.sleep(1)
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete NTP_ACL")
-    time.sleep(1)
-    duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("acl-loader delete SSH_ONLY")
-    time.sleep(1)
+    duthost.command("acl-loader delete SNMP_ACL")
+    duthost.command("acl-loader delete NTP_ACL")
+    duthost.command("acl-loader delete SSH_ONLY")
 
     logger.info('Waiting all rules to be cleaned')
-    wait_until(60, 2, 2, is_acl_rule_empty, duthost, rand_one_frontend_asic_index)
+    wait_until(60, 2, 2, is_acl_rule_empty, duthost)
 
     # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
-    if rand_one_frontend_asic_index is not None:
-        # For multi-asic, it has to wait enough long to sync rules
-        time.sleep(150)
+    if duthost.is_multi_asic:
+        time.sleep(60)
     else:
         time.sleep(10)
 
     # remove the SSH ACCEPT rule
-    iptables_rule_list = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("iptables -L -n --line-number")["stdout_lines"]
+    iptables_rule_list = duthost.command("iptables -L -n --line-number")["stdout_lines"]
     if "3   ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22" in iptables_rule_list:
-        duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("iptables -D INPUT 3")
+        duthost.command("iptables -D INPUT 3")
 
     # The following code to check if clean CACL rules are cleaned clearly
-    ignored_rules_v4 = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("iptables -S")["stdout_lines"]
-    ignored_rules_v6 = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("ip6tables -S")["stdout_lines"]
+    ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
+    ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
 
     try:
-        pytest_assert(len(set(collect_ignored_rules["v4"]) - set(ignored_rules_v4)) == 0 and len(set(collect_ignored_rules["v6"]) - set(ignored_rules_v6)) == 0, 
+        pytest_assert(len(set(ignored_rules_v4) - set(collect_ignored_rules["v4"])) == 0 and len(set(ignored_rules_v6) - set(collect_ignored_rules["v6"])) == 0, 
                         "Some iptables/ip6tables rules are not cleaned!")
     except:
         logger.info("Some iptalbes/ip6tables rules are not cleaned clearly. Config reload to recover testbed and make sure not impact the following tests.")
@@ -163,18 +151,17 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules, ra
         raise
 
 
-def is_acl_rule_empty(duthost, asic_index=None):
+def is_acl_rule_empty(duthost):
     """
     Check the output of "show acl rule", return True if rules are cleaned.
 
     Args:
         duthosts: All DUTs belong to the testbed.
-        asic_index: asic index
 
     Returns:
         boolean: True of False
     """
-    stdout_lines = duthost.get_asic_or_sonic_host(asic_index).command("show acl rule")["stdout_lines"]
+    stdout_lines = duthost.command("show acl rule")["stdout_lines"]
 
     stdout_lines = stdout_lines[2:]
     if len(stdout_lines) != 0:
@@ -182,6 +169,20 @@ def is_acl_rule_empty(duthost, asic_index=None):
 
     return True
 
+def check_iptable_rules(duthost):
+    """
+    It's used to keep ssh session not timeout, otherwise reconnection will be failed due to default CACL DENY rule.
+
+    Args:
+        duthosts: All DUTs belong to the testbed.
+
+    Returns:
+        boolean: False
+    """
+    duthost.command("iptables -S")
+    duthost.command("ip6tables -S")
+
+    return False
 # To specify a port range instead of a single port, use iptables format:
 # separate start and end ports with a colon, e.g., "1000:2000"
 ACL_SERVICES = {
@@ -232,7 +233,7 @@ def parse_int_to_tcp_flags(hex_value):
     return tcp_flags_str
 
 
-def get_cacl_tables_and_rules(duthost, asic_index=None):
+def get_cacl_tables_and_rules(duthost):
     """
     Gathers control plane ACL tables and rules configured on the device via
     `show acl table` and `show acl rule` commands.
@@ -255,7 +256,7 @@ def get_cacl_tables_and_rules(duthost, asic_index=None):
 
     # The output of `show acl table` and `show acl rule` are difficult to parse well :(
     # We should consider modifying the output format to make it more easily parsable.
-    stdout_lines = duthost.get_asic_or_sonic_host(asic_index).command("show acl table")["stdout_lines"]
+    stdout_lines = duthost.shell("show acl table")["stdout_lines"]
 
     previous_table_ctrlplane = False
     for line in stdout_lines:
@@ -280,7 +281,7 @@ def get_cacl_tables_and_rules(duthost, asic_index=None):
 
     # Process the rules for each table
     for table in cacl_tables:
-        stdout_lines = duthost.get_asic_or_sonic_host(asic_index).command("show acl rule {}".format(table["name"]))["stdout_lines"]
+        stdout_lines = duthost.shell("show acl rule {}".format(table["name"]))["stdout_lines"]
         # First two lines make up the table header. Get rid of them.
         stdout_lines = stdout_lines[2:]
         for line in stdout_lines:
@@ -413,7 +414,7 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Generate control plane rules from device config
     rules_applied_from_config = 0
 
-    cacl_tables = get_cacl_tables_and_rules(duthost, asic_index)
+    cacl_tables = get_cacl_tables_and_rules(duthost)
 
     # Walk the ACL tables and generate an iptables rule for each rule
     for table in cacl_tables:
@@ -552,7 +553,7 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
 
     return iptables_natrules, ip6tables_natrules
 
-def generate_expected_cacl_rules(duthost, ip_type, asic_index=None):
+def generate_expected_cacl_rules(duthost, ip_type):
     """
     Generate expected iptables rules for control ACL based on cacl tables and rules.
 
@@ -567,7 +568,7 @@ def generate_expected_cacl_rules(duthost, ip_type, asic_index=None):
     rules_applied_from_config = 0
     iptables_rules = []
 
-    cacl_tables = get_cacl_tables_and_rules(duthost, asic_index)
+    cacl_tables = get_cacl_tables_and_rules(duthost)
 
     # Walk the ACL tables and generate an iptables rule for each rule
     for table in cacl_tables:
@@ -630,7 +631,7 @@ def generate_expected_cacl_rules(duthost, ip_type, asic_index=None):
 
     return iptables_rules
 
-def generate_scale_rules(duthost, ip_type, asic_index=None):
+def generate_scale_rules(duthost, ip_type):
     """
     Generate scale rules for SNMP-ACL, ssh-only, NTP-ACL tables with template json file
 
@@ -707,17 +708,18 @@ def generate_scale_rules(duthost, ip_type, asic_index=None):
     duthost.copy(content=json.dumps(rules_data, indent=4), dest=SCALE_ACL_FILE)
 
     cmds = 'acl-loader update full {}'.format(SCALE_ACL_FILE)
-    duthost.get_asic_or_sonic_host(asic_index).command(cmds)
+    duthost.command(cmds)
 
     logger.info('Waiting all rules to be applied')
-    # It will take more than 5 mins to sync iptable rules on multi-asic platform
-    if asic_index is not None:
+    # Sometimes, it will take more than 3 mins to sync iptable rules on multi-asic platform
+    # ssh timeout is 30s. If sleep too long, reconnection will be failed, use check_iptable_rules to keep session active
+    if duthost.is_multi_asic:
         # For multi-asic, it has to wait enough long
-        time.sleep(360)
+        wait_until(200, 10, 2, check_iptable_rules, duthost)
     else:
-        time.sleep(30)
-    # add ACCEPT rule for SSH to make sure testbed access, update full will refresh iptables, so add it here.
-    duthost.get_asic_or_sonic_host(asic_index).command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+        wait_until(30, 10, 2, check_iptable_rules, duthost)
+    # add ACCEPT rule for SSH to make sure testbed access
+    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 
 def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
@@ -807,7 +809,7 @@ def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, 
     verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
-def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, rand_one_frontend_asic_index, collect_ignored_rules, clean_scale_rules):
+def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv4
 
@@ -818,18 +820,17 @@ def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, rand_one_fronten
     duthost = duthosts[rand_one_dut_hostname]
     ignored_iptable_rules_v4 = collect_ignored_rules["v4"]
 
-    generate_scale_rules(duthost, "ipv4", rand_one_frontend_asic_index)
+    generate_scale_rules(duthost, "ipv4")
 
-    expected_iptables_rules = generate_expected_cacl_rules(duthost, "ipv4", rand_one_frontend_asic_index)
+    expected_iptables_rules = generate_expected_cacl_rules(duthost, "ipv4")
 
     # add the SSH ACCEPT rule into expected_iptables_rules list
     expected_iptables_rules.append("-A INPUT -p tcp -m tcp --dport 22 -j ACCEPT")
 
     # Append rules which block "ip2me" traffic on p2p interfaces, only for null multi-asic
-    if rand_one_frontend_asic_index is None:
-        generate_and_append_block_ip2me_traffic_rules(duthost, expected_iptables_rules, [], None)
+    generate_and_append_block_ip2me_traffic_rules(duthost, expected_iptables_rules, [], None)
 
-    actual_iptables_rules = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("iptables -S")["stdout_lines"]
+    actual_iptables_rules = duthost.command("iptables -S")["stdout_lines"]
 
     # Ensure all expected iptables rules are present on the DuT
     logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}, number of ignored_iptable_rules_v4 rules:{}"
@@ -842,7 +843,7 @@ def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, rand_one_fronten
     unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules) - set(ignored_iptable_rules_v4)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}".format(repr(unexpected_iptables_rules)))
 
-def test_cacl_scale_rules_ipv6(duthosts, rand_one_dut_hostname, rand_one_frontend_asic_index, collect_ignored_rules, clean_scale_rules):
+def test_cacl_scale_rules_ipv6(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv6
 
@@ -853,15 +854,14 @@ def test_cacl_scale_rules_ipv6(duthosts, rand_one_dut_hostname, rand_one_fronten
     duthost = duthosts[rand_one_dut_hostname]
     ignored_iptable_rules_v6 = collect_ignored_rules["v6"]
 
-    generate_scale_rules(duthost, "ipv6", rand_one_frontend_asic_index)
+    generate_scale_rules(duthost, "ipv6")
 
-    expected_ip6tables_rules = generate_expected_cacl_rules(duthost, "ipv6", rand_one_frontend_asic_index)
+    expected_ip6tables_rules = generate_expected_cacl_rules(duthost, "ipv6")
 
     # Append rules which block "ip2me" traffic on p2p interfaces, only for null multi-asic
-    if rand_one_frontend_asic_index is None:
-        generate_and_append_block_ip2me_traffic_rules(duthost, [], expected_ip6tables_rules, None)
+    generate_and_append_block_ip2me_traffic_rules(duthost, [], expected_ip6tables_rules, None)
 
-    actual_ip6tables_rules = duthost.get_asic_or_sonic_host(rand_one_frontend_asic_index).command("ip6tables -S")["stdout_lines"]
+    actual_ip6tables_rules = duthost.command("ip6tables -S")["stdout_lines"]
 
     # Ensure all expected ip6tables rules are present on the DuT
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
