@@ -114,16 +114,13 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
         neighbor_to_type_map[neighbor] = neighbor_data['type']
 
     for interface in interfaces_data:
-        logger.info('interface: {}, interfaces_data for interface: {}'.format(interface, interfaces_data[interface]))
         for neighbor in neighbor_set:
             if neighbor in json.dumps(interfaces_data[interface]):
-                logger.info('found neighbor in {}'.format(interfaces_data[interface]))
                 neighbor_to_interface_map[neighbor] = interface
                 break
 
     for neighbor in neighbor_set:
         interface = neighbor_to_interface_map[neighbor]
-        logger.info("found interface {} for neighbor {}".format(interface, neighbor))
 
         cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(interface))['stdout']
         port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(interface))['stdout']
@@ -131,13 +128,10 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
         expected_profile = 'pg_lossless_{}_{}_profile'.format(port_speed, cable_length)
 
         xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(expected_profile))['stdout'])
-        logger.info("found xoff value {}".format(xoff))
         xon = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xon'.format(expected_profile))['stdout'])
-        logger.info("found xon value {}".format(xon))
         pg_headroom = (xoff + xon) / 1024
 
         neighbor_type = neighbor_to_type_map[neighbor]
-        logger.info("found neighbor type {} for neighbor {}".format(neighbor_type, neighbor))
         neighbor_type_to_pg_headroom_map[neighbor_type] = pg_headroom
 
     return neighbor_type_to_pg_headroom_map
@@ -195,9 +189,7 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
         elif "egress_lossy_pool" in configdb_field:
             buffer_pool = "egress_lossy_pool"
         oid = duthost.shell('redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP {}'.format(buffer_pool))["stdout"]
-        logger.info("CHECKING ASIC DB FOR FIELD: {} VALUE: {}".format(configdb_field, value))
         buffer_pool_data = duthost.shell('redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(oid))["stdout"]
-        logger.info("ASIC DB CONTENTS FOR POOL: {} ARE AS FOLLOWS: {}".format(buffer_pool, buffer_pool_data))
         return str(value) in buffer_pool_data
 
     pytest_assert(
