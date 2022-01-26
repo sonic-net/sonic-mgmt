@@ -43,6 +43,7 @@ func (i *arrayFlags) Set(value string) error {
 var (
 	xPathFlags        arrayFlags
 	pbPathFlags       arrayFlags
+	pbModelDataFlags  arrayFlags
 	targetAddr        = flag.String("target_addr", ":9339", "The target address in the format of host:port")
 	connectionTimeout = flag.Duration("timeout", 0, "The timeout for a request in seconds, 0 seconds by default (no timeout), e.g 10s")
 	subscriptionOnce  = flag.Bool("once", false, "If true, the target sends values once off")
@@ -58,6 +59,7 @@ var (
 func main() {
 	flag.Var(&xPathFlags, "xpath", "xpath of the config node to be fetched")
 	flag.Var(&pbPathFlags, "pbpath", "protobuf format path of the config node to be fetched")
+	flag.Var(&pbModelDataFlags, "model_data", "Data models to be used by the target in the format of 'name,organization,version'")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
@@ -76,6 +78,8 @@ func main() {
 		ctx, cancel = context.WithTimeout(ctx, *connectionTimeout)
 		defer cancel()
 	}
+
+	ctx = credentials.AttachToContext(ctx)
 
 	subscribeClient, err := client.Subscribe(ctx)
 	if err != nil {
@@ -98,6 +102,11 @@ func main() {
 		log.Exitf("Error parsing paths: %v", err)
 	}
 
+	pbModelDataList, err := parseModelData(pbModelDataFlags)
+	if err != nil {
+		log.Exitf("Error parsing models: %v", err)
+	}
+
 	subscriptions, err := assembleSubscriptions(*streamOnChange, *sampleInterval, pbPathList)
 	if err != nil {
 		log.Exitf("Error assembling subscriptions: %v", err)
@@ -110,6 +119,7 @@ func main() {
 				Mode:         subscriptionListMode,
 				Subscription: subscriptions,
 				UpdatesOnly:  *updatesOnly,
+				UseModels:    pbModelDataList,
 			},
 		},
 	}
@@ -153,7 +163,7 @@ func stream(subscribeClient gnmi.GNMI_SubscribeClient) error {
 func poll(subscribeClient gnmi.GNMI_SubscribeClient, updatesOnly bool, pollInput func()) error {
 	ready := make(chan bool, 1)
 	ready <- true
-	pollRequest := &pb.SubscribeRequest{Request: &pb.SubscribeRequest_Poll{}}
+	pollRequest := &pb.SubscribeRequest{Request: &pb.SubscribeRequest_Poll{&pb.Poll{}}}
 	if updatesOnly {
 		res, err := subscribeClient.Recv()
 		if err != nil {
@@ -268,6 +278,26 @@ func parsePaths(xPathFlags, pbPathFlags arrayFlags) ([]*pb.Path, error) {
 		pbPathList = append(pbPathList, &pbPath)
 	}
 	return pbPathList, nil
+}
+
+func parseModelData(pbModelDataFlags arrayFlags) ([]*pb.ModelData, error) {
+	var pbModelDataList []*pb.ModelData
+
+	for _, textPbModelData := range pbModelDataFlags {
+		pbModelData := new(pb.ModelData)
+		modelDataVars := strings.Split(textPbModelData, ",")
+		if len(modelDataVars) != 3 {
+			return pbModelDataList, fmt.Errorf("Unable to parse string")
+		}
+		pbModelData = &pb.ModelData{
+			Name:         modelDataVars[0],
+			Organization: modelDataVars[1],
+			Version:      modelDataVars[2],
+		}
+		pbModelDataList = append(pbModelDataList, pbModelData)
+	}
+
+	return pbModelDataList, nil
 }
 
 func parseEncoding(encodingFormat string) (gnmi.Encoding, error) {
