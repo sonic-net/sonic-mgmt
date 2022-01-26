@@ -761,6 +761,9 @@ sonic_nexus_3164:
     str-n3164-acs-2:
       ansible_host: 10.3.147.150
       num_asics: 6
+      model: 73-16477-04
+      serial: FDO215109NN
+      base_mac: 00:be:75:3a:ef:50
       frontend_asics: [0, 1, 2, 3]
   vars:
     hwsku: Nexus-3164

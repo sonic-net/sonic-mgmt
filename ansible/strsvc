@@ -44,6 +44,9 @@ sonic_nexus_3164:
       ansible_host: 10.206.144.15
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
+      model: 73-16477-04
+      serial: FDO22142JK8
+      base_mac: 70:0f:6a:61:01:40
     svcstr-n3164-acs-2:
       ansible_host: 10.206.144.14
       num_asics: 6

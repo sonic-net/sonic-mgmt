@@ -297,7 +297,7 @@ class TestThermalApi(PlatformApiTestBase):
     def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
-        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista", "x86_64-n3164"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
@@ -327,7 +327,7 @@ class TestThermalApi(PlatformApiTestBase):
     def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
-        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista", "x86_64-n3164"])
 
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):

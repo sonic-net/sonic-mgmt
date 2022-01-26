@@ -394,15 +394,24 @@ sonic_nexus_3164:
   hosts:
     str2-n3164-acs-4:
       ansible_host: 10.3.146.124
+      model: 73-16477-04
+      serial: SAL185060V4
+      base_mac: 88:1d:fc:c4:4e:82
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
     str2-n3164-acs-3:
       ansible_host: 10.3.146.132
       num_asics: 6
+      model: 73-16477-04
+      serial: SAL2025S727
+      base_mac: 00:81:c4:1d:91:68
       frontend_asics: [0, 1, 2, 3]
     str2-n3164-acs-1:
       ansible_host: 10.3.147.149
       ansible_hostv6: 2a01:111:e210:3000::12
+      model: 73-16477-04
+      serial: FDO22101QN0
+      base_mac: 70:79:b3:07:60:50
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
 

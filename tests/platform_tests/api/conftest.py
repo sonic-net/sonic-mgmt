@@ -16,7 +16,6 @@ IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT
 def skip_unsupported_hwskus(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Skip the test on platform which don't support platform APIs yet
-    """
     unsupported_hwskus = ['Nexus-3164']
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hwsku = duthost.facts['hwsku']
@@ -24,6 +23,7 @@ def skip_unsupported_hwskus(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip(
             'Platform APIs not supported on this {} , skipping...'.format(
                 hwsku))
+    """
 
 
 @pytest.fixture(scope='function')

@@ -13,7 +13,7 @@ from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.platform.interface_utils import get_physical_port_indices
-
+from tests.common.utilities import skip_release_for_platform
 from platform_api_test_base import PlatformApiTestBase
 
 logger = logging.getLogger(__name__)
@@ -215,6 +215,7 @@ class TestChassisApi(PlatformApiTestBase):
         ]
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012"], ["x86_64-n3164"])
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         # Convert all keys of syseeprom_info_dict into lower case
         syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}

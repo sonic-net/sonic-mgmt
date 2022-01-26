@@ -9,6 +9,7 @@ import yaml
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan_drawer
 
+from tests.common.utilities import skip_release_for_platform
 from platform_api_test_base import PlatformApiTestBase
 
 ###################################################
@@ -247,6 +248,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         max_power_skipped = 0
+        skip_release_for_platform(duthost, ["202012"], ["x86_64-n3164"])
 
         for i in range(self.num_fan_drawers):
             max_power_supported = self.get_fan_drawer_facts(duthost, i, True, "max_consumed_power")
