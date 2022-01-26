@@ -87,7 +87,7 @@ def get_current_syslog_servers(duthost):
         current_syslog_servers.append(line[1:-1])
     return current_syslog_servers
 
-def check_rollback_res(duthost, output, init_syslog_config):
+def check_syslog_after_rollback(duthost, output, init_syslog_config):
     pytest_assert(
         not output['rc'] and "Config rolled back successfull" in output['stdout'],
         "Rollback to previous setup env failed."
@@ -116,10 +116,13 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, or
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
-    syslog_config_cleanup(duthost, cfg_facts)
-
-    if init_syslog_config == CONFIG_ADD_DEFAULT:
+    if init_syslog_config == CONFIG_CLEANUP:
+        syslog_config_cleanup(duthost, cfg_facts)
+    elif init_syslog_config == CONFIG_ADD_DEFAULT:
+        syslog_config_cleanup(duthost, cfg_facts)
         syslog_config_add_default(duthost)
+    else:
+        pytest.fail("Not supported initial syslog config: {}".format(init_syslog_config))
 
     create_checkpoint(duthost, SETUP_ENV_CP)
 
@@ -129,7 +132,7 @@ def setup_env(duthosts, rand_one_dut_hostname, cfg_facts, init_syslog_config, or
     # Second rollback is to back to original setup
     try:
         output = rollback(duthost, SETUP_ENV_CP)
-        check_rollback_res(duthost, output, init_syslog_config)
+        check_syslog_after_rollback(duthost, output, init_syslog_config)
 
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
@@ -186,7 +189,7 @@ def test_syslog_server_tc1_add_init(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -228,7 +231,7 @@ def test_syslog_server_tc2_add_duplicate(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, expected_content_list, [])
@@ -301,7 +304,7 @@ def test_syslog_server_tc4_remove(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         unexpected_content_list = ["[{}]".format(dummy_syslog_server_v4), "[{}]".format(dummy_syslog_server_v6)]
         expect_res_success_syslog(duthost, [], unexpected_content_list)
@@ -351,7 +354,7 @@ def test_syslog_server_tc5_replace(duthost, init_syslog_config, op,
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost,output)
+        expect_op_success(duthost, output)
 
         expected_content_list = ["[{}]".format(replace_syslog_server_v4), "[{}]".format(replace_syslog_server_v6)]
         unexpected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER), "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
