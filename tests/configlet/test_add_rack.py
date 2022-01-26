@@ -61,8 +61,7 @@ ORIG_DB_SUB_DIR = "orig"
 CLET_DB_SUB_DIR = "clet"
 FILES_SUB_DIR = "files"
 
-base_dir    = "logs/configlet"
-data_dir    = "{}/AddRack".format(base_dir)
+data_dir    = "logs/configlet/AddRack"
 orig_db_dir = "{}/{}".format(data_dir, ORIG_DB_SUB_DIR)
 clet_db_dir = "{}/{}".format(data_dir, CLET_DB_SUB_DIR)
 files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
@@ -79,13 +78,10 @@ def do_pause(secs, msg):
 
 def init(duthost, duthost_name):
     global init_data
-
-    if not os.path.exists(base_dir):
-        os.mkdir(base_dir)
-
-    for i in [ data_dir, orig_db_dir, clet_db_dir, files_dir ]:
-        if not os.path.exists(i):
-            os.mkdir(i)
+    import shutil
+    shutil.rmtree(data_dir)
+    for i in [ orig_db_dir, clet_db_dir, files_dir ]:
+        os.makedirs(i)
 
     init_data["files_dir"] = files_dir 
     init_data["data_dir"] = data_dir
@@ -211,8 +207,8 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     download_sonic_files(duthost, files_dir)
 
     # Create minigraph w/o a T0 & configlet, apply & take dump
-    files_create.do_run(is_mlnx = duthost.facts["asic_type"] == "mellanox",
-            is_storage_backend = 'backend' in tbinfo['topo']['name'])
+
+    files_create.do_run(is_storage_backend = 'backend' in tbinfo['topo']['name'])
 
     # Ensure BGP session is up before we apply stripped minigraph
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
