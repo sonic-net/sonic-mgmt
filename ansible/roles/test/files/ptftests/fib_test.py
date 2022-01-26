@@ -72,8 +72,7 @@ class FibTest(BaseTest):
 
     _required_params = [
         'fib_info_files',
-        'ptf_test_port_map',
-        'router_macs'
+        'ptf_test_port_map'
     ]
 
     def __init__(self):
@@ -117,7 +116,6 @@ class FibTest(BaseTest):
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
 
-        self.router_macs = self.test_params.get('router_macs')
         self.pktlen = self.test_params.get('testbed_mtu', 1500)
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
@@ -245,7 +243,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -298,7 +296,7 @@ class FibTest(BaseTest):
 
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
@@ -323,7 +321,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
@@ -374,7 +372,7 @@ class FibTest(BaseTest):
 
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
             actual_src_mac = Ether(rcvd_pkt).src
             if actual_src_mac != exp_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
