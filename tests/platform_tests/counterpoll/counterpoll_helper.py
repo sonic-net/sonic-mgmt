@@ -1,5 +1,3 @@
-import re
-
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 
 

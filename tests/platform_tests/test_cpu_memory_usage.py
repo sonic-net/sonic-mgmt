@@ -5,7 +5,6 @@ from collections import namedtuple, Counter
 from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll, counterpoll_type
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.mellanox_data import is_mellanox_device
 
 
@@ -114,7 +113,7 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
     cpu_usage_average = caculate_cpu_usge_average_value(extract_valid_cpu_usage_data(cpu_usage_program_to_check, poll_interval), cpu_usage_program_to_check)
     logging.info("Average cpu_usage is {}".format(cpu_usage_average))
     assert cpu_usage_average < counterpoll_cpu_usage_threshold, "cpu_usage_average of {} exceeds the cpu threshold:{}".format(program_to_check, counterpoll_cpu_usage_threshold)
-    assert not outstanding_mem_polls, " Memory exceeds the memory threshold {} ".format(outstanding_mem_polls, memory_threshold)
+    assert not outstanding_mem_polls, " Memory {} exceeds the memory threshold {} ".format(outstanding_mem_polls, memory_threshold)
 
 
 def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):
@@ -178,7 +177,7 @@ def extract_valid_cpu_usage_data(program_to_check_cpu_usage, poll_interval):
 
 def caculate_cpu_usge_average_value(valid_cpu_usage_center_index_list, program_to_check_cpu_usage):
     len_valid_cpu_usage = len(valid_cpu_usage_center_index_list)
-    cpu_usage_average = 0
+    cpu_usage_average = 0.0
     for i in valid_cpu_usage_center_index_list:
         cpu_usage_average += sum(program_to_check_cpu_usage[i-1: i+2])
         logging.info("cpu usage center index:{}: cpu usage:{}".format(i, program_to_check_cpu_usage[i-1:i+2]))
