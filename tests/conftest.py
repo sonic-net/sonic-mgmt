@@ -1138,8 +1138,8 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(localhost, conn_graph_facts, creds, request):
-    dut_hostname = request.config.getoption("ansible_host_pattern")
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds, request):
+    dut_hostname = duthosts[rand_one_dut_hostname].hostname
 
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
