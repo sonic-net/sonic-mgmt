@@ -260,3 +260,23 @@ def verify_features_state(duthost):
         logger.info("The state of '{}' is valid.".format(feature_name))
 
     return True
+
+
+def verify_orchagent_running_or_assert(duthost):
+    """
+    Verifies that orchagent is running, asserts otherwise
+
+    Args: 
+        duthost: Device Under Test (DUT)
+    """
+   
+    def _orchagent_running():
+        cmds = 'docker exec swss supervisorctl status orchagent' 
+        output = duthost.shell(cmds, module_ignore_errors=True)
+        pytest_assert(not output['rc'], "Unable to check orchagent status output")
+        return 'RUNNING' in output['stdout']
+
+    pytest_assert(
+        wait_until(120, 10, 0, _orchagent_running),
+        "Orchagent is not running"
+    )
