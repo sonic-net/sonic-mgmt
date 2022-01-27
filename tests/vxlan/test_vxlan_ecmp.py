@@ -136,20 +136,6 @@ def select_required_interfaces(duthost, number_of_required_interfaces, minigraph
     else:
         raise RuntimeError("Couldn't find a viable interface: No Ethernet, No PortChannels in the minigraph file.")
 
-#    # First map the interface names to the local and remote IP addresses.
-#    map_intf_to_bgp_ips = {}
-#    for intf_struct in available_interfaces:
-#        try:
-#            map_intf_to_bgp_ips[intf_struct['attachto']]
-#        except KeyError:
-#            map_intf_to_bgp_ips[intf_struct['attachto']] = {}
-#
-#        neigh_ip = intf_struct['peer_addr']
-#        if isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v4']):
-#            map_intf_to_bgp_ips[intf_struct['attachto']]['v4'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
-#        elif isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v6']):
-#            map_intf_to_bgp_ips[intf_struct['attachto']]['v6'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
-
     # Randomly pick the interface from the above list
     list_of_bgp_ips = []
     for neigh_ip_address in bgp_interfaces.keys():
