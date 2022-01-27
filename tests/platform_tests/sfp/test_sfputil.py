@@ -28,7 +28,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, shutdown_ebgp):
+def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -46,7 +46,7 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
 @pytest.mark.parametrize("cmd_sfp_error_status", ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
-def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list, shutdown_ebgp):
+def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list):
     """
     @summary: Check SFP error status using 'sfputil show error-status' and 'sfputil show error-status --fetch-from-hardware'
               This feature is supported on 202106 and above
@@ -69,7 +69,7 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
             assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
 
 
-def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, shutdown_ebgp):
+def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """

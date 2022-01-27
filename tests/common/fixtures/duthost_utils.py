@@ -190,7 +190,7 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     return rtn_val
 
 @pytest.fixture(scope="module")
-def shutdown_ebgp(duthosts, request):
+def shutdown_ebgp(duthosts):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
