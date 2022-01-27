@@ -70,15 +70,15 @@ def parse_asic_internal_link(link, asic_name, hostname):
     bandwidth = bandwidth_node.text if bandwidth_node is not None else None
     if ((enddevice.lower() == asic_name.lower()) and
             (startdevice.lower() != hostname.lower())):
-        if endport in port_alias_to_name_map:
-            endport = port_alias_to_name_map[endport]
+        if endport in port_alias_asic_map:
+            endport = port_alias_asic_map[endport]
             neighbors[endport] = {'name': startdevice, 'port': startport}
             if bandwidth:
                 port_speeds[endport] = bandwidth
     elif ((startdevice.lower() == asic_name.lower()) and
             (enddevice.lower() != hostname.lower())):
-        if startport in port_alias_to_name_map:
-            startport = port_alias_to_name_map[startport]
+        if startport in port_alias_asic_map:
+            startport = port_alias_asic_map[startport]
             neighbors[startport] = {'name': enddevice, 'port': endport}
             if bandwidth:
                 port_speeds[startport] = bandwidth
@@ -101,16 +101,16 @@ def parse_asic_external_link(link, asic_name, hostname):
         if ((endport in port_alias_asic_map) and
                 (asic_name.lower() in port_alias_asic_map[endport].lower())):
             endport = port_alias_asic_map[endport]
-            neighbors[port_alias_to_name_map[endport]] = {'name': startdevice, 'port': startport}
+            neighbors[port_name_to_alias_map[endport]] = {'name': startdevice, 'port': startport}
             if bandwidth:
-                port_speeds[port_alias_to_name_map[endport]] = bandwidth
+                port_speeds[port_alias_map[endport]] = bandwidth
     elif (startdevice.lower() == hostname.lower()):
         if ((startport in port_alias_asic_map) and
                 (asic_name.lower() in port_alias_asic_map[startport].lower())):
             startport = port_alias_asic_map[startport]
-            neighbors[port_alias_to_name_map[startport]] = {'name': enddevice, 'port': endport}
+            neighbors[port_name_to_alias_map[startport]] = {'name': enddevice, 'port': endport}
             if bandwidth:
-                port_speeds[port_alias_to_name_map[startport]] = bandwidth
+                port_speeds[port_name_to_alias_map[startport]] = bandwidth
 
     return neighbors, port_speeds
 
@@ -642,7 +642,7 @@ def parse_xml(filename, hostname, asic_name=None):
     port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(hwsku, asic_id)
 
     # Create inverse mapping between port name and alias
-    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items() if not ("ASIC" in k and "BP" not in v) }
+    port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
 
     for child in root:
         if asic_name is None:
