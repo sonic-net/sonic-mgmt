@@ -32,7 +32,6 @@ import re
 import ipaddress
 import json
 import logging
-import random
 from datetime import datetime
 from sys import getsizeof
 
@@ -126,7 +125,7 @@ def select_required_interfaces(duthost, number_of_required_interfaces, minigraph
     '''
      Pick the required number of interfaces to use for tests.
      These interfaces will be selected based on if they are currently running a established BGP.
-     The interfaces will be randomly picked for the T2 facing side.
+     The interfaces will be picked from the T1 facing side.
     '''
     bgp_interfaces = get_all_interfaces_running_bgp(duthost, minigraph_data)
     interface_ip_table = minigraph_data['minigraph_interfaces']
@@ -137,37 +136,36 @@ def select_required_interfaces(duthost, number_of_required_interfaces, minigraph
     else:
         raise RuntimeError("Couldn't find a viable interface: No Ethernet, No PortChannels in the minigraph file.")
 
-    # First map the interface names to the local and remote IP addresses.
-    map_intf_to_bgp_ips = {}
-    for intf_struct in available_interfaces:
-        try:
-            map_intf_to_bgp_ips[intf_struct['attachto']]
-        except KeyError:
-            map_intf_to_bgp_ips[intf_struct['attachto']] = {}
-
-        neigh_ip = intf_struct['peer_addr']
-        if isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v4']):
-            map_intf_to_bgp_ips[intf_struct['attachto']]['v4'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
-        elif isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v6']):
-            map_intf_to_bgp_ips[intf_struct['attachto']]['v6'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
+#    # First map the interface names to the local and remote IP addresses.
+#    map_intf_to_bgp_ips = {}
+#    for intf_struct in available_interfaces:
+#        try:
+#            map_intf_to_bgp_ips[intf_struct['attachto']]
+#        except KeyError:
+#            map_intf_to_bgp_ips[intf_struct['attachto']] = {}
+#
+#        neigh_ip = intf_struct['peer_addr']
+#        if isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v4']):
+#            map_intf_to_bgp_ips[intf_struct['attachto']]['v4'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
+#        elif isinstance(ipaddress.ip_address(neigh_ip), IP_TYPE['v6']):
+#            map_intf_to_bgp_ips[intf_struct['attachto']]['v6'] = {'local' : intf_struct['subnet'], 'neigh': neigh_ip}
 
     # Randomly pick the interface from the above list
-    list_of_bgp_ips = bgp_interfaces.keys()
+    list_of_bgp_ips = []
+    for neigh_ip_address in bgp_interfaces.keys():
+        if isinstance(ipaddress.ip_address(neigh_ip_address), IP_TYPE[af]):
+            list_of_bgp_ips.append(neigh_ip_address)
+
     ret_interface_list = []
     available_number = len(list_of_bgp_ips)
-    # Confirm there are enough interfaces (basicaly more than or equal to the number of    vnets).
+    # Confirm there are enough interfaces (basicaly more than or equal to the number of vnets).
     if available_number <= number_of_required_interfaces+1:
         raise RuntimeError('''There are not enough interfaces needed to perform the test.
             We need atleast {} interfaces, but only {} are available.'''.format(number_of_required_interfaces+1, available_number))
-    while len(ret_interface_list) < number_of_required_interfaces:
-        if not list_of_bgp_ips:
-            break
-        index = random.randint(0, len(list_of_bgp_ips)-1)
+    for index in range(number_of_required_interfaces):
         neigh_ip_address = list_of_bgp_ips[index]
         current_interface_name = bgp_interfaces[neigh_ip_address].keys()[0]
-        del list_of_bgp_ips[index]
-        if isinstance(ipaddress.ip_address(neigh_ip_address), IP_TYPE[af]):
-            ret_interface_list.append(current_interface_name)
+        ret_interface_list.append(current_interface_name)
 
     if ret_interface_list:
         return ret_interface_list
@@ -222,7 +220,7 @@ def get_ethernet_to_neighbors(neighbor_type, minigraph_data):
 def assign_intf_ip_address(selected_interfaces, af):
     intf_ip_map = {}
     for intf in selected_interfaces:
-        ip = random_ip_address(af=af, hostid=Constants['DUT_HOSTID'], net_id=201)
+        ip = get_ip_address(af=af, hostid=Constants['DUT_HOSTID'], netid=201)
         intf_ip_map[intf] = ip
     return intf_ip_map
 
@@ -355,28 +353,18 @@ def apply_config_in_swss(duthost, config, name="swss_"):
         filename = name + "-" + str(time.time()) + ".json"
 
     duthost.copy(content=config, dest="/tmp/{}".format(filename))
-    result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(filename))
+    duthost.shell('docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(filename))
     if not Constants['KEEP_TEMP_FILES']:
         duthost.shell("rm /tmp/{}".format(filename))
     time.sleep(1)
 
-def generate_random_mac():
-    return "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
-                                        random.randint(0, 255),
-                                        random.randint(0, 255))
-
-def get_list_of_nexthops(number, af, prefix=None):
-    if prefix is None:
-        prefix = random.randint(0, 220)
+def get_list_of_nexthops(number, af, prefix=100):
     nexthop_list = []
     for i in range(number):
-        if af == "v4":
-            nexthop_list.append("{}.{}.{}.{}".format(prefix, random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
-        if af == "v6":
-            nexthop_list.append("fddd::{}:{}:{}:{}".format(prefix, random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+        nexthop_list.append(get_ip_address(af=af, netid=prefix, hostid=10))
     return nexthop_list
 
-def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000):
+def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000, dest_net_prefix=100):
     '''
         This configures the VNET_TUNNEL_ROUTES structure. It precalculates the required number of
         destinations based on the given "number_of_ecmp_nhs" and the "nhs_per_destination".
@@ -394,7 +382,7 @@ def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1
     dest_to_nh_map = {}
     for vnet in vnet_list:
         for i in range(no_of_dests_per_vnet):
-            dest = random_ip_address(af=dest_af)
+            dest = get_ip_address(af=dest_af, netid=dest_net_prefix)
             my_nhs = []
             for j in range(nhs_per_destination):
                 my_nhs.append(available_nexthops[available_nexthop_count % number_of_available_nexthops])
@@ -436,15 +424,18 @@ def create_single_route(vnet, dest, mask, nhs, op):
         "OP": "{}"
     }}'''.format(vnet, dest, mask, ",".join(nhs), op)
 
-def random_ip_address(af='v4', hostid=None, net_id=None):
-    if net_id is None:
-        net_id = random.randint(1, 220)
-    if hostid is None:
-        hostid = random.randint(1, 150)
+Address_Count = 0
+def get_ip_address(af, hostid=1, netid=100):
+    global Address_Count
+    third_octet = Address_Count % 255
+    second_octet = (Address_Count / 255) % 255
+    first_octet = netid + (Address_Count / 65025)
+    Address_Count = Address_Count + 1
     if af == 'v4':
-        return "{}.{}.{}.{}".format(net_id, random.randint(0, 255), random.randint(0, 255), hostid)
+        return "{}.{}.{}.{}".format(first_octet, second_octet, third_octet, hostid)
     if af == 'v6':
-        return "fddd:{}:{}::{}:{}".format('%x' % random.randint(0, 65535), '%x' % random.randint(0, 65535), '%x' % random.randint(0, 65535), '%x' % random.randint(0, 65535))
+        # :0: gets removed in the IPv6 addresses. Adding a to octets, to avoid it.
+        return "fddd:a{}:a{}::a{}:{}".format(first_octet, second_octet, third_octet, hostid)
 
 def set_routes_in_dut(duthost, dest_to_nh_map, dest_af, op):
     config_list = []
@@ -498,7 +489,7 @@ def get_ethernet_ports(intf_list, minigraph_data):
 
 @pytest.fixture(scope="module")
 def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
-          tbinfo, localhost):
+          tbinfo):
 
     global Constants
     # Should I keep the temporary files copied to DUT?
@@ -513,7 +504,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     # as DUT.
     Constants['DUT_HOSTID'] = request.config.option.dut_hostid
 
-    Logger.info("Constants to be used in the script:{}".format(Constants))
+    Logger.info("Constants to be used in the script:%s", Constants)
 
     data = {}
     data['ptfhost'] = ptfhost
