@@ -205,8 +205,8 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
     elif hwsku == "8800-LC-48H-O":
         try:
-            from portconfig import get_port_config
-            (_,port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map) = get_port_config(hwsku=hwsku, platform=None, port_config_file=None, hwsku_config_file=None, asic_name=asic_name)
+            from portconfig import get_port_info_from_config_db
+            (port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map) = get_port_info_from_config_db(asic_name=asic_name)
         except:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
