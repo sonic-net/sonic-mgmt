@@ -350,7 +350,7 @@ def get_list_of_nexthops(number, af, prefix=100):
         nexthop_list.append(get_ip_address(af=af, netid=prefix, hostid=10))
     return nexthop_list
 
-def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000, dest_net_prefix=100):
+def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000, dest_net_prefix=150, nexthop_prefix=100):
     '''
         This configures the VNET_TUNNEL_ROUTES structure. It precalculates the required number of
         destinations based on the given "number_of_ecmp_nhs" and the "nhs_per_destination".
@@ -360,7 +360,7 @@ def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1
             nhs_per_destination                    : Number of ECMP nexthops to use per destination.
             number_of_ecmp_nhs                     : Maximum number of all NextHops put together(for all destinations).
     '''
-    available_nexthops = get_list_of_nexthops(number_of_available_nexthops, af=nh_af)
+    available_nexthops = get_list_of_nexthops(number=number_of_available_nexthops, af=nh_af, prefix=nexthop_prefix)
 
     number_of_destinations = int(number_of_ecmp_nhs / nhs_per_destination)
     no_of_dests_per_vnet = int(number_of_destinations / len(vnet_list))
@@ -549,6 +549,8 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
                                                                number_of_available_nexthops=request.config.option.total_number_of_endpoints,
                                                                number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
                                                                dest_af=payload_version,
+                                                               dest_net_prefix=150, # Hardcoded to avoid conflicts with topology networks.
+                                                               nexthop_prefix=100, # Hardcoded to avoid conflicts with topology networks.
                                                                nh_af=outer_layer_version)
 
         data[encap_type] = encap_type_data
