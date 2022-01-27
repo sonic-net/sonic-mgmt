@@ -143,8 +143,10 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
     ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
 
     try:
-        pytest_assert(len(set(ignored_rules_v4) - set(collect_ignored_rules["v4"])) == 0 and len(set(ignored_rules_v6) - set(collect_ignored_rules["v6"])) == 0, 
-                        "Some iptables/ip6tables rules are not cleaned!")
+        uncleaned_iptables_rules = set(ignored_rules_v4) - set(collect_ignored_rules["v4"])
+        pytest_assert(len(uncleaned_iptables_rules) == 0, "Some iptables rules are not cleaned: {}".format(repr(uncleaned_iptables_rules)))
+        uncleaned_ip6tables_rules = set(ignored_rules_v6) - set(collect_ignored_rules["v6"])
+        pytest_assert(len(uncleaned_ip6tables_rules) == 0, "Some ip6tables rules are not cleaned: {}".format(repr(uncleaned_ip6tables_rules)))
     except:
         logger.info("Some iptalbes/ip6tables rules are not cleaned clearly. Config reload to recover testbed and make sure not impact the following tests.")
         config_reload(duthost, wait=60)
