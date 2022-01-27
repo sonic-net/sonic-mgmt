@@ -23,7 +23,7 @@ class BGPNeighbor(object):
 
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
-                 dut_ip, dut_asn, port, neigh_type, is_multihop=False):
+                 dut_ip, dut_asn, port, neigh_type, is_multihop=False, is_passive=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -35,32 +35,34 @@ class BGPNeighbor(object):
         self.port = port
         self.type = neigh_type
         self.is_multihop = is_multihop
+        self.is_passive = is_passive
 
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
 
-        _write_variable_from_j2_to_configdb(
-            self.duthost,
-            "bgp/templates/neighbor_metadata_template.j2",
-            save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % self.name,
-            neighbor_name=self.name,
-            neighbor_lo_addr=self.ip,
-            neighbor_mgmt_addr=self.ip,
-            neighbor_hwsku=None,
-            neighbor_type=self.type
-        )
+        if not self.is_passive:
+            _write_variable_from_j2_to_configdb(
+                self.duthost,
+                "bgp/templates/neighbor_metadata_template.j2",
+                save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % self.name,
+                neighbor_name=self.name,
+                neighbor_lo_addr=self.ip,
+                neighbor_mgmt_addr=self.ip,
+                neighbor_hwsku=None,
+                neighbor_type=self.type
+            )
 
-        _write_variable_from_j2_to_configdb(
-            self.duthost,
-            "bgp/templates/bgp_template.j2",
-            save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
-            db_table_name="BGP_NEIGHBOR",
-            peer_addr=self.ip,
-            asn=self.asn,
-            local_addr=self.peer_ip,
-            peer_name=self.name
-        )
+            _write_variable_from_j2_to_configdb(
+                self.duthost,
+                "bgp/templates/bgp_template.j2",
+                save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
+                db_table_name="BGP_NEIGHBOR",
+                peer_addr=self.ip,
+                asn=self.asn,
+                local_addr=self.peer_ip,
+                peer_name=self.name
+            )
 
         self.ptfhost.exabgp(
             name=self.name,
@@ -88,8 +90,9 @@ class BGPNeighbor(object):
     def stop_session(self):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
-        self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
-        self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
+        if not self.is_passive:
+            self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
+            self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
         self.ptfhost.exabgp(name=self.name, state="absent")
 
     def announce_route(self, route):
