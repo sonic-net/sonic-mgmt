@@ -86,7 +86,7 @@ def del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=Fa
             ptfhost.shell("ip addr del {}/{} dev eth{}".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx]), module_ignore_errors=True)
 
 
-def check_ptf_bfd_statue(ptfhost, neighbor_addr, local_addr, expected_state):
+def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
     bfd_state = ptfhost.shell("bfdd-control status local {} remote {}".format(neighbor_addr, local_addr))["stdout"].split("\n")
     for line in bfd_state:
         field = line.split('=')[0].strip()
@@ -94,7 +94,7 @@ def check_ptf_bfd_statue(ptfhost, neighbor_addr, local_addr, expected_state):
             assert line.split('=')[1].strip() == expected_state
 
 
-def check_dut_bfd_statue(duthost, neighbor_addr, expected_state):
+def check_dut_bfd_status(duthost, neighbor_addr, expected_state):
     bfd_state = duthost.shell("sonic-db-cli STATE_DB HGET 'BFD_SESSION_TABLE|default|default|{}' 'state'".format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
     assert bfd_state[0] == expected_state
 
@@ -167,19 +167,19 @@ def test_bfd(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_r
         time.sleep(1)
 
         for neighbor_addr in neighbor_addrs:
-            check_dut_bfd_statue(duthost, neighbor_addr, "Up")
-            check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+            check_dut_bfd_status(duthost, neighbor_addr, "Up")
+            check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Up")
 
         update_idx = random.choice(range(bfd_session_cnt))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], vlan_addr, "down")
 
         for idx in range(bfd_session_cnt):
             if idx == update_idx:
-                check_dut_bfd_statue(duthost, neighbor_addr, "Down")
-                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Down")
+                check_dut_bfd_status(duthost, neighbor_addr, "Down")
+                check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Down")
             else:
-                check_dut_bfd_statue(duthost, neighbor_addr, "Up")
-                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+                check_dut_bfd_status(duthost, neighbor_addr, "Up")
+                check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Up")
     finally:
         stop_ptf_bfd(ptfhost)
         del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False)
@@ -201,19 +201,19 @@ def test_bfd_ipv6(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports
         time.sleep(1)
 
         for neighbor_addr in neighbor_addrs:
-            check_dut_bfd_statue(duthost, neighbor_addr, "Up")
-            check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+            check_dut_bfd_status(duthost, neighbor_addr, "Up")
+            check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Up")
 
         update_idx = random.choice(range(bfd_session_cnt))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], vlan_addr, "down")
 
         for idx in range(bfd_session_cnt):
             if idx == update_idx:
-                check_dut_bfd_statue(duthost, neighbor_addr, "Down")
-                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Down")
+                check_dut_bfd_status(duthost, neighbor_addr, "Down")
+                check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Down")
             else:
-                check_dut_bfd_statue(duthost, neighbor_addr, "Up")
-                check_ptf_bfd_statue(ptfhost, neighbor_addr, vlan_addr, "Up")
+                check_dut_bfd_status(duthost, neighbor_addr, "Up")
+                check_ptf_bfd_status(ptfhost, neighbor_addr, vlan_addr, "Up")
     finally:
         stop_ptf_bfd(ptfhost)
         del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=True)
