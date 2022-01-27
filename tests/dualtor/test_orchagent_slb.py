@@ -126,10 +126,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
 
 
 @pytest.fixture
-def bgp_neighbors(upper_tor_host, lower_tor_host, ptfhost, setup_interfaces):
+def bgp_neighbors(ptfhost, setup_interfaces):
     """Build the bgp neighbor objects used to start new bgp sessions."""
     # allow ebgp neighbors that are multiple hops away
-    is_quagga = True
     connections = setup_interfaces
     neighbors = {}
     for dut, conn in connections.items():
