@@ -5,17 +5,17 @@
     https://github.com/Azure/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
 
     To test functionality:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan.py'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py'
 
     To test ECMP with 2 paths per destination:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan.py' -e '--nhs_per_destination=2'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py' -e '--nhs_per_destination=2'
 
     To test ECMP+Scale:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan.py' \
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py' \
                     -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=128000'
 
     To keep the temporary config files created in the DUT:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files -c 'vxlan/test_vxlan.py'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files -c 'vxlan/test_vxlan_ecmp.py'
 
     Other options:
         keep_temp_files             : Keep the temporary files created in the DUT. Default: False
