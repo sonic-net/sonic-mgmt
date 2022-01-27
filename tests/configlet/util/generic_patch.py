@@ -20,7 +20,7 @@ else:
     from tests.common.utilities import wait_until
 
 CMD_APPLY_HACK = "config apply-patch -n -i '' -v {}"
-CMD_APPLY = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -i /CABLE_LENGTH -i /ACL_TABLE/E -v {}"
+CMD_APPLY = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -i /CABLE_LENGTH -i /ACL_TABLE -v {}"
 
 # HACKS summary:
 #
@@ -89,7 +89,7 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
             jpatch.append(e)
 
     if not hack_apply:
-        patch_file = os.path.join(patch_dir, "patch_0.json")
+        patch_file = os.path.join(patch_dir, "patch_0_all.json")
         with open(patch_file, "w") as s:
             s.write(json.dumps(jpatch, indent=4))
     else:
