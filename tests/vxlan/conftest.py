@@ -1,5 +1,3 @@
-from tests.arp.args.wr_arp_args import add_wr_arp_args
-
 def pytest_addoption(parser):
     """
     Adds pytest options that are used by VxLAN tests
@@ -73,4 +71,3 @@ def pytest_addoption(parser):
         help="Highest expected src port for VXLAN UPD packet"
     )
 
-    add_wr_arp_args(parser)
