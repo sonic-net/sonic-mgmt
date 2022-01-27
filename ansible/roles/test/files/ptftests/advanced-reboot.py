@@ -175,12 +175,16 @@ class ReloadTest(BaseTest):
         else:
             self.logfile_suffix = self.sad_oper
 
-        if self.logfile_suffix:
-           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.logfile_suffix)
-           self.report_file_name = '/tmp/%s-%s.json' % (self.test_params['reboot_type'], self.logfile_suffix)
+        if "warm-reboot" in self.test_params['reboot_type']:
+            reboot_log_prefix = "warm-reboot"
         else:
-           self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
-           self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
+            reboot_log_prefix = self.test_params['reboot_type']
+        if self.logfile_suffix:
+           self.log_file_name = '/tmp/%s-%s.log' % (reboot_log_prefix, self.logfile_suffix)
+           self.report_file_name = '/tmp/%s-%s-report.json' % (reboot_log_prefix, self.logfile_suffix)
+        else:
+           self.log_file_name = '/tmp/%s.log' % reboot_log_prefix
+           self.report_file_name = '/tmp/%s-report.json' % reboot_log_prefix
         self.report = dict()
         self.log_fp = open(self.log_file_name, 'w')
 
