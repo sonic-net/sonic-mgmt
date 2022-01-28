@@ -28,9 +28,6 @@ pytestmark = [
 
 
 TEST_DEVICE_INTERFACE = "Loopback3"
-NEIGHBOR_TYPE = "LeafRouter"
-NEIGHBOR_ASN_UPPER_TOR = 61000
-NEIGHBOR_ASN_LOWER_TOR = 61000
 EXABGP_PORT_UPPER_TOR = 11000
 EXABGP_PORT_LOWER_TOR = 11001
 ANNOUNCED_SUBNET = u"10.10.100.0/27"
@@ -89,6 +86,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
     lower_tor_asn = lower_tor_mg_facts["minigraph_bgp_asn"]
     assert upper_tor_asn == lower_tor_asn
 
+    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")["stdout"]
+    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")["stdout"]
+
     connections = {
         "upper_tor": {
             "localhost": upper_tor_host,
@@ -98,8 +98,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
             "test_intf": test_iface,
             "neighbor_intf": upper_tor_server_ptf_intf,
             "neighbor_addr": upper_tor_server_ip,
-            "neighbor_asn": NEIGHBOR_ASN_UPPER_TOR,
-            "neighbor_type": NEIGHBOR_TYPE,
+            "neighbor_asn": upper_tor_slb_asn,
             "exabgp_port": EXABGP_PORT_UPPER_TOR,
         },
         "lower_tor": {
@@ -110,8 +109,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
             "test_intf": test_iface,
             "neighbor_intf": lower_tor_server_ptf_intf,
             "neighbor_addr": lower_tor_server_ip,
-            "neighbor_asn": NEIGHBOR_ASN_LOWER_TOR,
-            "neighbor_type": NEIGHBOR_TYPE,
+            "neighbor_asn": lower_tor_slb_asn,
             "exabgp_port": EXABGP_PORT_LOWER_TOR,
         }
     }
@@ -128,10 +126,9 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
 
 
 @pytest.fixture
-def bgp_neighbors(upper_tor_host, lower_tor_host, ptfhost, setup_interfaces):
+def bgp_neighbors(ptfhost, setup_interfaces):
     """Build the bgp neighbor objects used to start new bgp sessions."""
     # allow ebgp neighbors that are multiple hops away
-    is_quagga = True
     connections = setup_interfaces
     neighbors = {}
     for dut, conn in connections.items():
@@ -144,8 +141,7 @@ def bgp_neighbors(upper_tor_host, lower_tor_host, ptfhost, setup_interfaces):
             conn["local_addr"].split("/")[0],
             conn["local_asn"],
             conn["exabgp_port"],
-            conn["neighbor_type"],
-            is_multihop=is_quagga
+            is_passive=True
         )
     return neighbors
 
