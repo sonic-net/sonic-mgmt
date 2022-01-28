@@ -1319,7 +1319,7 @@
   group-name: vms29-1
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: vms26-1
+  ptf: vms29-1
   ptf_ip: 10.64.246.244/23
   ptf_ipv6:
   server: server_29
