@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "00 23 * * SUN"
+  - cron: "00 23 * * FRI"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_201911)
+    default: ""
     displayName: "Image URL"
 
   # Test Parameters
@@ -39,3 +39,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
