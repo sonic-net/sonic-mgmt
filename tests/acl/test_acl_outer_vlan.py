@@ -18,7 +18,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from abc import abstractmethod
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
