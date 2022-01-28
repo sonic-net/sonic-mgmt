@@ -10,11 +10,11 @@ import strip
 import configlet
 
 
-def do_run(is_mlnx, is_storage_backend):
+def do_run(is_storage_backend):
     init_global_data()
 
     strip.main(init_data["files_dir"])
-    configlet.main(init_data["files_dir"], is_mlnx, is_storage_backend)
+    configlet.main(init_data["files_dir"], is_storage_backend)
 
     log_info("Managed files: {}".format(json.dumps(managed_files, indent=4)))
 
