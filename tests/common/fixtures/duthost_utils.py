@@ -181,11 +181,12 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
 
 
 def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
+    MAX_DIFF = 5
     sumv4, sumv6 = duthost.get_ip_route_summary()
     rtn_val = True
-    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and sumv4['ebgp']['routes'] != num_v4_routes:
+    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
         rtn_val = False
-    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and sumv6['ebgp']['routes'] != num_v6_routes:
+    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
         rtn_val = False
     return rtn_val
 
