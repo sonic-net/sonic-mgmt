@@ -441,7 +441,7 @@ def apply_tunnel_table_to_dut(duthost, apply_route_config):
 
 
 @pytest.fixture()
-def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf, tbinfo):
     """
     Apply balancing configuration on the DUT and remove after tests
     Args:
@@ -459,7 +459,12 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
-    src_ports = tuple(set(ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map").values()).difference(ptf_ports))
+    # Selectonly up ports as src_ports 
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    all_up_ports = set()
+    for port in mg_facts['minigraph_ports'].keys():
+        all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
+    src_ports = tuple(all_up_ports.difference(ptf_ports))
 
     network = u'1.1.1.0/24'
     network = ipaddress.ip_network(network)
