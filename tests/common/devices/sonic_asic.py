@@ -560,3 +560,8 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
+
+    def get_router_mac(self):
+        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' -n {}".format(self.namespace))["stdout_lines"][0].encode()
+               .decode("utf-8").lower())
+ 
