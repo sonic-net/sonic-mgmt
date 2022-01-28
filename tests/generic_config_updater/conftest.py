@@ -4,7 +4,7 @@ from tests.common.utilities import skip_release
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
-    """Skips this test if the SONiC image installed on DUT is older than 202106
+    """Skips this test if the SONiC image installed on DUT is older than 202112
 
     Args:
         duthost: Hostname of DUT.
@@ -12,7 +12,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911", "202012", "202106"])
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
