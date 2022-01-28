@@ -1,11 +1,7 @@
-import os
-import pprint
 import pytest
-import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-import tech_support_cmds as cmds 
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +19,8 @@ def check_image_version(duthost):
 def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Setup TACACS/Radius password
-    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost]['tacacs_passkey'])
-    duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost]['radius_passkey'])
+    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost.hostname]['tacacs_passkey'])
+    duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost.hostname]['radius_passkey'])
     yield
     # Remove TACACS/Radius password
     duthost.shell("sudo config tacacs default passkey")
@@ -51,9 +47,9 @@ def test_secret_removed_from_show_techsupport(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    tacacs_passkey = creds_all_duts[duthost]['tacacs_passkey']
-    radius_passkey = creds_all_duts[duthost]['radius_passkey']
-    snmp_rocommunity = creds_all_duts[duthost]['snmp_rocommunity']
+    tacacs_passkey = creds_all_duts[duthost.hostname]['tacacs_passkey']
+    radius_passkey = creds_all_duts[duthost.hostname]['radius_passkey']
+    snmp_rocommunity = creds_all_duts[duthost.hostname]['snmp_rocommunity']
 
     # generate a new dump file. and find latest dump file with ls -t
     duthost.shell('rm -rf /var/dump/sonic_dump_*')
@@ -64,36 +60,36 @@ def test_secret_removed_from_show_techsupport(
     # extract for next step check
     duthost.shell("tar -xf {0}".format(dump_file_path))
     dump_extract_path="./{0}".format(dump_file_name.replace(".tar.gz", ""))
-    
+
     # check Tacacs key
     sed_command = "sed -nE '/secret={0}/P' {1}/etc/tacplus_nss.conf".format(tacacs_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
 
     sed_command = "sed -nE '/secret={0}/P' {1}/etc/pam.d/common-auth-sonic".format(radius_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
-    
+
     # check Radius key
     sed_command = "sed -nE '/secret={0}/P' {1}/etc/radius_nss.conf".format(radius_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
 
     sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.conf".format(radius_passkey, dump_extract_path)
     check_no_result(duthost, sed_command)
-    
+
     # Check Radius passkey from per-server conf file /etc/pam_radius_auth.d/{ip}_{port}.conf
     list_command = "ls {0}/etc/pam_radius_auth.d/*.conf || true".format(dump_extract_path)
     config_file_list = duthost.shell(list_command)["stdout_lines"]
     for config_file in config_file_list:
         sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{1}".format(radius_passkey, dump_extract_path, config_file)
         check_no_result(duthost, sed_command)
-    
+
     # check snmp community string not exist
     sed_command = "sed -nE '/\s*snmp_rocommunity\s*:\s{0}/P' {1}/etc/sonic/snmp.yml".format(snmp_rocommunity, dump_extract_path)
     check_no_result(duthost, sed_command)
-    
+
     # check /etc/shadow not exist
     test_command = "test -f {0}/etc/shadow && echo \"/etc/shadow exist\" || true".format(dump_extract_path)
     check_no_result(duthost, test_command)
-    
+
     # check *.cer *.crt *.pem *.key not exist in dump files
     find_command = "find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)".format(dump_extract_path)
     check_no_result(duthost, find_command)

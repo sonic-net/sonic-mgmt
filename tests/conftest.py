@@ -4,6 +4,7 @@ import json
 import logging
 import getpass
 import random
+import re
 
 import pytest
 import yaml
@@ -537,12 +538,24 @@ def creds_on_dut(duthost):
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    exclude_regex_patterns = [
+        'topo_.*\.yml',
+        'sku-sensors-data\.yml',
+        'breakout_speed\.yml',
+        'lag_fanout_ports_test_vars\.yml',
+        'qos\.yml',
+        'mux_simulator_http_port_map\.yml'
+        ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
+    filtered_files = [
+        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
+    ]
+
     creds = {}
-    for f in files:
+    for f in filtered_files:
         with open(f) as stream:
             v = yaml.safe_load(stream)
             if v is not None:
@@ -582,7 +595,7 @@ def creds(duthosts, rand_one_dut_hostname):
 def creds_all_duts(duthosts):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
     return creds_all_duts
 
 

@@ -84,7 +84,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, utils_vlan_ports_list, toggle_all_simu
     ptfadapter.dataplane.flush()
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     assert 'snmp_fdb' in snmp_facts
     assert 'snmp_interfaces' in snmp_facts
     dummy_mac_cnt = 0
