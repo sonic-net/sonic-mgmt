@@ -62,7 +62,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     # Allow the test to retry a few times before claiming failure.
     for _ in range(3):
         snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
-                                    community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+                                    community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
         facts = collect_memory(duthost)
         # Verify correct behaviour of sysTotalMemery
         pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
@@ -93,7 +93,7 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
-                                community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+                                community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
     pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemery'], mem_free) < percent,
                   "sysTotalFreeMemery differs by more than {}".format(percent))

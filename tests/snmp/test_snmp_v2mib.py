@@ -18,7 +18,7 @@ def test_snmp_v2mib(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
-                                community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+                                community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_facts = duthost.setup()['ansible_facts']
     debian_ver = duthost.shell('cat /etc/debian_version')['stdout']
     cmd = 'docker exec snmp grep "sysContact" /etc/snmp/snmpd.conf'
