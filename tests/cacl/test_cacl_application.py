@@ -2,7 +2,6 @@ import ipaddress
 import json
 import logging
 import pytest
-import time
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
@@ -76,18 +75,6 @@ def collect_ignored_rules(duthosts, rand_one_dut_hostname):
         None
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # clear other control ACL rules before test to avoid miscalucation
-    duthost.command("acl-loader delete SNMP_ACL")
-    duthost.command("acl-loader delete NTP_ACL")
-    duthost.command("acl-loader delete SSH_ONLY")
-
-    logger.info('Waiting all rules to be cleaned')
-    wait_until(60, 2, 2, is_acl_rule_empty, duthost)
-    # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
-    if duthost.is_multi_asic:
-        time.sleep(60)
-    else:
-        time.sleep(10)
 
     duthost = duthosts[rand_one_dut_hostname]
     ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
@@ -119,39 +106,8 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
     logger.info("delete tmp file and recover ACL configuration")
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
-    # recover ACL configuration
-    duthost.command("acl-loader delete SNMP_ACL")
-    duthost.command("acl-loader delete NTP_ACL")
-    duthost.command("acl-loader delete SSH_ONLY")
-
-    logger.info('Waiting all rules to be cleaned')
-    wait_until(60, 2, 2, is_acl_rule_empty, duthost)
-
-    # acl-loader delete operation only deletes acl rules, it still has to wait some time for synchronizing iptables rules
-    if duthost.is_multi_asic:
-        time.sleep(60)
-    else:
-        time.sleep(10)
-
-    # remove the SSH ACCEPT rule
-    iptables_rule_list = duthost.command("iptables -L -n --line-number")["stdout_lines"]
-    if "3   ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22" in iptables_rule_list:
-        duthost.command("iptables -D INPUT 3")
-
-    # The following code to check if clean CACL rules are cleaned clearly
-    ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
-    ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
-
-    try:
-        uncleaned_iptables_rules = set(ignored_rules_v4) - set(collect_ignored_rules["v4"])
-        pytest_assert(len(uncleaned_iptables_rules) == 0, "Some iptables rules are not cleaned: {}".format(repr(uncleaned_iptables_rules)))
-        uncleaned_ip6tables_rules = set(ignored_rules_v6) - set(collect_ignored_rules["v6"])
-        pytest_assert(len(uncleaned_ip6tables_rules) == 0, "Some ip6tables rules are not cleaned: {}".format(repr(uncleaned_ip6tables_rules)))
-    except:
-        logger.info("Some iptalbes/ip6tables rules are not cleaned clearly. Config reload to recover testbed and make sure not impact the following tests.")
-        config_reload(duthost, wait=60)
-        raise
-
+    logger.info("Reload config to recover configuration.")
+    config_reload(duthost)
 
 def is_acl_rule_empty(duthost):
     """
@@ -173,7 +129,9 @@ def is_acl_rule_empty(duthost):
 
 def check_iptable_rules(duthost):
     """
-    It's used to keep ssh session not timeout, otherwise reconnection will be failed due to default CACL DENY rule.
+    It just calls duthost.commmand to show iptables.
+    The function is used to keep ssh session not timeout, otherwise reconnection
+    will be failed due to default CACL DENY rule.
 
     Args:
         duthosts: All DUTs belong to the testbed.
@@ -713,8 +671,17 @@ def generate_scale_rules(duthost, ip_type):
     duthost.command(cmds)
 
     logger.info('Waiting all rules to be applied')
-    # Sometimes, it will take more than 3 mins to sync iptable rules on multi-asic platform
-    # ssh timeout is 30s. If sleep too long, reconnection will be failed, use check_iptable_rules to keep session active
+    # "acl-loader update full **.json" command will refresh iptables, we have to
+    # add the ACCEPT SSH iptables rule after acl-loader command. But on multi-asic
+    # testbed, it always costs minutes to sync iptables rules after updating cacl
+    # rules, if sleep for more than 3 mins with time.sleep, then, the process tries to
+    # add the ACCEPT SSH rule, at this point, SSH connection is disconnected now
+    # because the default SSH timeout is 30s, next duthost.command will try to reconnect
+    # to DUT, it will trigger ssh login, it will be rejected by default CACL DENY rule,
+    # test will fail. We have wait_until to solve this problem, here add wail_until
+    # to call check_iptable_rules every 10s to keep ssh session alive, it just calls
+    # duthost.command to active ssh connection.
+    # In this way, we can active ssh connection and wait as long as we want.
     if duthost.is_multi_asic:
         # For multi-asic, it has to wait enough long
         wait_until(200, 10, 2, check_iptable_rules, duthost)
