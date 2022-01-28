@@ -85,7 +85,7 @@ This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN membe
 '''
 def test_data_path(construct_url, vlan_members):
     # Create Default VxLan Tunnel
-    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 409:
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
         logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
         r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
