@@ -43,6 +43,7 @@ class TestContLinkFlap(object):
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        duthost.command("sonic-clear arp")
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
 
         # Record memory status at start
