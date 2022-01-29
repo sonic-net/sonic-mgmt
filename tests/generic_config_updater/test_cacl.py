@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
@@ -94,6 +95,7 @@ def expect_acl_table_match(duthost, table_name, expected_content_list):
 def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list):
     """Check if acl rule added as expected
     """
+    time.sleep(1) # Sleep 1 sec to ensure caclmgrd does update in case of its UPDATE_DELAY_SECS 0.5s
     cmds = "iptables -S"
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'],
