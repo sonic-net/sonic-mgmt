@@ -75,8 +75,11 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
-    def __repr__(self):
+    def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def facts(self):
