@@ -6,6 +6,9 @@
 """
 import re
 import logging
+import json
+
+from tests.common.config_reload import config_reload
 
 DEFAULT_NN_TARGET_PORT = 3
 
@@ -22,7 +25,7 @@ _TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
 _COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
 _SWSS_COPP_TEMPLATE = ":" + _COPP_TEMPLATE_PATH
 _DEFAULT_COPP_TEMPLATE = "/usr/share/sonic/templates/copp_cfg.j2"
-_BASE_COPP_TEMPLATE = "/tmp/copp_cfg_base.j2"
+_BASE_COPP_TEMPLATE = "/home/admin/copp_cfg_base.j2"
 
 _PTF_NN_TEMPLATE = "templates/ptf_nn_agent.conf.ptf.j2"
 _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
@@ -30,6 +33,10 @@ _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
 _SYNCD_NN_TEMPLATE = "templates/ptf_nn_agent.conf.dut.j2"
 _SYNCD_NN_DEST = "/tmp/ptf_nn_agent.conf"
 _SYNCD_NN_FILE = "ptf_nn_agent.conf"
+
+_CONFIG_DB = "/etc/sonic/config_db.json"
+_TEMP_CONFIG_DB = "/home/admin/config_db_copp_backup.json"
+
 
 def limit_policer(dut, pps_limit, nn_target_namespace):
     """
@@ -236,3 +243,126 @@ def _get_http_and_https_proxy_ip(creds):
 
     return (re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0],
             re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0])
+
+
+def configure_always_enabled_for_trap(dut, trap_id, always_enabled):
+    """
+    Configure the always_enabled to true or false for the specified trap id.
+    Args:
+        dut (SonicHost): The target device
+        trap_id (str): The trap id (e.g. bgp)
+        always_enabled (str): true or false
+    """
+    copp_trap_config_json = "/tmp/copp_{}.json".format(trap_id)
+    cmd_copp_trap_always_enabled_config = """
+cat << EOF >  %s
+{
+   "COPP_TRAP": {
+       "%s": {
+       "always_enabled": "%s"
+       }
+    }
+}
+EOF
+""" % (copp_trap_config_json, trap_id, always_enabled)
+
+    dut.shell(cmd_copp_trap_always_enabled_config)
+    dut.command("sudo config load {} -y".format(copp_trap_config_json))
+
+
+def get_config_db_json_obj(dut):
+    """
+    Get config_db content from dut
+    Args:
+        dut (SonicHost): The target device
+    """
+    config_db_json = dut.shell("sudo sonic-cfggen -d --print-data")["stdout"]
+    return json.loads(config_db_json)
+
+
+def remove_feature_entry(dut, feature_name):
+    """
+    Remove feature entry from dut
+    Args:
+        dut (SonicHost): The target device
+        feature_name (str): feature name (e.g bgp)
+    """
+    dut.command('redis-cli -n 4 del "FEATURE|{}"'.format(feature_name))
+
+
+def disable_feature_entry(dut, feature_name):
+    """
+    Disable feature entry on dut
+    Args:
+        dut (SonicHost): The target device
+        feature_name (str): feature name (e.g bgp)
+    """
+    dut.command(' sudo config feature state {} disabled'.format(feature_name))
+
+
+def enable_feature_entry(dut, feature_name):
+    """
+    Enabled feature entry dut
+    Args:
+        dut (SonicHost): The target device
+        feature_name (str): feature name (e.g bgp)
+    """
+    dut.command(' sudo config feature state {} enabled'.format(feature_name))
+
+
+def backup_config_db(dut):
+    """
+    Backup config db to /home/admin/
+    Args:
+        dut (SonicHost): The target device
+    """
+    dut.command("sudo cp {} {}".format(_CONFIG_DB, _TEMP_CONFIG_DB))
+
+
+def restore_config_db(dut):
+    """
+    Restore config db
+    Args:
+        dut (SonicHost): The target device
+    """
+    dut.command("sudo cp {} {}".format(_TEMP_CONFIG_DB, _CONFIG_DB))
+    dut.command("sudo rm -f {}".format(_TEMP_CONFIG_DB))
+    config_reload(dut)
+
+
+def uninstall_trap(dut, feature_name, trap_id):
+    """
+    Uninstall trap by disabling feature and set always_enable to false
+
+    Args:
+        dut (SonicHost): The target device
+        feature_name (str): feature name corresponding to the trap
+        trap_id (str): trap id
+    """
+    disable_feature_entry(dut, feature_name)
+    configure_always_enabled_for_trap(dut, trap_id, "false")
+
+
+def verify_always_enable_value(dut, trap_id, always_enable_value):
+    """
+    Verify the value of always_enable for the specified trap is expected one
+
+    Args:
+        dut (SonicHost): The target device
+        trap_id (str): trap id
+        always_enable_value (str): true or false
+    """
+    config_db_json = get_config_db_json_obj(dut)
+    assert config_db_json["COPP_TRAP"][trap_id]["always_enabled"] == always_enable_value, \
+        "The value of always_enable not match. The expected value is:{}, the actual value is :{}".format(
+            always_enable_value, config_db_json["COPP_TRAP"][trap_id]["always_enabled"])
+
+
+def install_trap(dut, feature_name):
+    """
+    Install trap by enabling feature status
+    Args:
+        dut (SonicHost): The target device
+        feature_name (str): feature name
+    """
+    enable_feature_entry(dut, feature_name)
