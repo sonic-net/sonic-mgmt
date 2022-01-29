@@ -8,7 +8,6 @@ import ptf.testutils as testutils
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-import time
 
 IPv6 = scapy.layers.inet6.IPv6
 
@@ -377,7 +376,6 @@ class DHCPTest(DataplaneBaseTest):
 
         # Mask off fields we don't care about matching
         masked_packet = Mask(relayed_relay_forward_count)
-        masked_packet.set_do_not_care_scapy(packet.Ether, "src")
         masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
         masked_packet.set_do_not_care_scapy(IPv6, "src")
         masked_packet.set_do_not_care_scapy(IPv6, "dst")
