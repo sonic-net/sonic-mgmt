@@ -1,6 +1,7 @@
 import pytest
 import logging
 import time
+from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,9 @@ def test_restore_container_autorestart(duthosts, enum_dut_hostname, enable_conta
     time.sleep(SNMP_RELOADING_TIME)
 
 def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
-
     duthost = duthosts[enum_dut_hostname]
+    # We don't need to recover the rate limit on vs testbed
+    pytest_require(duthost.facts['asic_type'] != 'vs', "Skip on vs testbed")
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
