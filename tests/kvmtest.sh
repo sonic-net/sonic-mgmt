@@ -127,7 +127,13 @@ test_t0() {
       snmp/test_snmp_pfc_counters.py \
       snmp/test_snmp_queue.py \
       snmp/test_snmp_loopback.py \
-      snmp/test_snmp_default_route.py"
+      snmp/test_snmp_default_route.py \
+      tacacs/test_rw_user.py \
+      tacacs/test_ro_user.py \
+      tacacs/test_ro_disk.py \
+      tacacs/test_jit_user.py \
+      tacacs/test_authorization.py \
+      tacacs/test_accounting.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -137,12 +143,6 @@ test_t0() {
       ssh/test_ssh_stress.py \
       ssh/test_ssh_ciphers.py \
       syslog/test_syslog.py\
-      tacacs/test_rw_user.py \
-      tacacs/test_ro_user.py \
-      tacacs/test_ro_disk.py \
-      tacacs/test_jit_user.py \
-      tacacs/test_authorization.py \
-      tacacs/test_accounting.py \
       telemetry/test_telemetry.py \
       test_features.py \
       test_procdockerstatsd.py \
