@@ -76,7 +76,6 @@ def collect_ignored_rules(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    duthost = duthosts[rand_one_dut_hostname]
     ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
     ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
 
