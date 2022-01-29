@@ -86,6 +86,10 @@
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
     become: yes
 
+  - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
+    become: yes
+
   - name: Get dut ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
