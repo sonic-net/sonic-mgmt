@@ -93,3 +93,6 @@ class AnsibleHostBase(object):
 class NeighborDevice(dict):
     def __str__(self):
         return str(self["host"])
+
+    def __repr__(self):
+        return self.__str__()
