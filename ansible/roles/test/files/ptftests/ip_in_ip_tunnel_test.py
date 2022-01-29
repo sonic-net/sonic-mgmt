@@ -219,7 +219,7 @@ class IpinIPTunnelTest(BaseTest):
                 inner_pkt = self.generate_packet_to_server(hash_key)
                 tunnel_pkt = self.generate_expected_packet(inner_pkt)
                 l3packet = inner_pkt.getlayer(IP) or inner_pkt.getlayer(IPv6)
-                self.logger.debug("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
+                self.logger.info("Sending packet dst_mac = {} src_mac = {} dst_ip = {} src_ip = {} from port {}" \
                     .format(inner_pkt[Ether].dst, inner_pkt[Ether].src, l3packet.dst, l3packet.src, src_port))
                 self.dataplane.flush()
                 send_packet(self, src_port, inner_pkt)
