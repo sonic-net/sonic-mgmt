@@ -369,9 +369,9 @@ class DHCPTest(DataplaneBaseTest):
         testutils.verify_packet(self, masked_packet, self.client_port_index)
 
 
-    # Verify that the DHCPv6 RELAY would be received by our simulated server
+    # Verify that the DHCPv6 RELAYED RELAY would be received by our simulated server
     def verify_relayed_relay_forward(self):
-        # Create a packet resembling a DHCPv6 REPLY packet
+        # Create a packet resembling a DHCPv6 RELAYED RELAY FORWARD packet
         relayed_relay_forward_count = self.create_dhcp_relayed_relay_packet()
 
         # Mask off fields we don't care about matching
