@@ -77,7 +77,7 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 
 
 #### Test steps
-* Configure the same number of vteps across all leafs. Number of vteps will be taken as user input while running the script.
+* Configure the same number of leafs across all spines. Number of leafs will be taken as user input while running the script with each leaf having single vtep.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
