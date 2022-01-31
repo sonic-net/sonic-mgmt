@@ -253,7 +253,6 @@ def sync_reboot_history_queue_with_dut(dut):
             # If received, set flag and break out of for loop
 
             dut_reboot_history_queue = dut.show_and_parse("show reboot-cause history")
-            dut_reboot_type_history_len = len(dut_reboot_history_queue)
             dut_reboot_history_received = True
             break
         except Exception as e:
