@@ -4,7 +4,6 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
@@ -63,14 +62,14 @@ def get_uplink_downlink_count(duthost, tbinfo):
         uplink count, downlink count
 
     """
-    config_db_json = json.loads(duthost.shell("show runningconfig all")["stdout"])
-    device_neighbor_metadata = config_db_json["DEVICE_NEIGHBOR_METADATA"]
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
     topo = tbinfo['topo']['name']
 
-    if "t1" in topo:
+    if topo.startswith('topo_t1-'):
         spine_router_count = 0
         tor_router_count = 0
-        for neighbor in device_neighbor_metadata:
+        for neighbor in device_neighbor_metadata.keys():
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "SpineRouter":
                 spine_router_count += 1
@@ -81,7 +80,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     elif "t0" in topo:
         leaf_router_count = 0
         server_count = 0
-        for neighbor in device_neighbor_metadata:
+        for neighbor in device_neighbor_metadata.keys():
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "LeafRouter":
                 leaf_router_count += 1
@@ -100,20 +99,20 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
     Returns:
         A map of neighbor type to its corresponding pg headroom value
     """
-    config_db_json = json.loads(duthost.shell("show runningconfig all")["stdout"])
-    device_neighbor_metadata = config_db_json["DEVICE_NEIGHBOR_METADATA"]
-    interfaces_data = config_db_json["PORT"]
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
+    interfaces_data = config_facts['PORT']
     neighbor_set = set()
     neighbor_to_interface_map = {}
     neighbor_to_type_map =  {}
     neighbor_type_to_pg_headroom_map = {}
 
-    for neighbor in device_neighbor_metadata:
+    for neighbor in device_neighbor_metadata.keys():
         neighbor_set.add(neighbor)
         neighbor_data = device_neighbor_metadata[neighbor]
         neighbor_to_type_map[neighbor] = neighbor_data['type']
 
-    for interface in interfaces_data:
+    for interface in interfaces_data.keys():
         for neighbor in neighbor_set:
             if neighbor in json.dumps(interfaces_data[interface]):
                 neighbor_to_interface_map[neighbor] = interface
@@ -188,8 +187,8 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
             buffer_pool = "ingress_lossless_pool"
         elif "egress_lossy_pool" in configdb_field:
             buffer_pool = "egress_lossy_pool"
-        oid = duthost.shell('redis-cli -n 2 HGET COUNTERS_BUFFER_POOL_NAME_MAP {}'.format(buffer_pool))["stdout"]
-        buffer_pool_data = duthost.shell('redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(oid))["stdout"]
+        oid = duthost.shell('sonic-db-cli COUNTERS_DB HGET COUNTERS_BUFFER_POOL_NAME_MAP {}'.format(buffer_pool))["stdout"]
+        buffer_pool_data = duthost.shell('sonic-db-cli ASIC_DB hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'.format(oid))["stdout"]
         return str(value) in buffer_pool_data
 
     pytest_assert(
@@ -217,6 +216,9 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "value": "{}".format(value)
         }]
 
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    expect_op_success(duthost, output)
-    ensure_application_of_updated_config(duthost, configdb_field, value)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        ensure_application_of_updated_config(duthost, configdb_field, value)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
