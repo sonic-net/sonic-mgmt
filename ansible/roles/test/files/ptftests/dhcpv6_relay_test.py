@@ -254,14 +254,14 @@ class DHCPTest(DataplaneBaseTest):
         return relay_relay_reply_packet
 
     def create_dhcp_relay_reply_packet(self):
-        reply_relay_reply_packet = Ether(src=self.relay_iface_mac, dst=self.client_mac)
-        reply_relay_reply_packet /= IPv6(src=self.relay_link_local, dst=self.client_link_local)
-        reply_relay_reply_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_CLIENT_PORT)
-        reply_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
-        reply_relay_reply_packet /= DHCP6OptRelayMsg()
-        reply_relay_reply_packet /= DHCP6_Reply(trid=12345)
+        relay_reply_packet = Ether(src=self.relay_iface_mac, dst=self.client_mac)
+        relay_reply_packet /= IPv6(src=self.relay_link_local, dst=self.client_link_local)
+        relay_reply_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_CLIENT_PORT)
+        relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
+        relay_reply_packet /= DHCP6OptRelayMsg()
+        relay_reply_packet /= DHCP6_Reply(trid=12345)
 
-        return reply_relay_reply_packet
+        return relay_reply_packet
 
     """
      Send/receive functions
