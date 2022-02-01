@@ -145,10 +145,13 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
             "value": "{}".format(value)
         }]
     
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
     
-    if is_valid_config_update:
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, value)
-    else:
-        expect_op_failure(output)
+        if is_valid_config_update:
+            expect_op_success(duthost, output)
+            ensure_application_of_updated_config(duthost, value)
+        else:
+            expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
