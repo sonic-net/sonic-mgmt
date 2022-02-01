@@ -23,7 +23,7 @@ from tests.common.utilities import compose_dict_from_cli, skip_release, wait_unt
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t2'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer
 ]
