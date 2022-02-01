@@ -1015,12 +1015,22 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
 
     # Verify "crm_stats_fdb_entry_used" counter was incremented
-    pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used == 1, \
-        "Counter 'crm_stats_fdb_entry_used' was not incremented")
-
-    # Verify "crm_stats_fdb_entry_available" counter was decremented
-    pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available == 1, \
-        "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    # For Cisco-8000 devices, "crm_stats_fdb_entry_used" counter increments by more than 1 
+    if duthost.facts["asic_type"] in ["cisco-8000"]:
+        pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used >= 1, \
+            "Counter 'crm_stats_fdb_entry_used' was not incremented")
+    else: 
+        pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used == 1, \
+            "Counter 'crm_stats_fdb_entry_used' was not incremented")
+        
+    # Verify "crm_stats_fdb_entry_available" counter was decremented   
+    # For Cisco-8000 devices, "crm_stats_fdb_entry_available" counter decreases by more than 1
+    if duthost.facts["asic_type"] in ["cisco-8000"]: 
+        pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available >= 1, \
+            "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    else:
+        pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available == 1, \
+            "Counter 'crm_stats_fdb_entry_available' was not incremented")
 
     used_percent = get_used_percent(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
     if used_percent < 1:
