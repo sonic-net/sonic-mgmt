@@ -17,7 +17,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pytest_require('backend' not in tbinfo['topo']['name'], "Skip this testcase since this topology {} has no default routes".format(tbinfo['topo']['name']))
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_result = duthost.shell('show ip route 0.0.0.0/0 | grep "\*"')
 
     dut_result_nexthops = []

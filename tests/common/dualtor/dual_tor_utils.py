@@ -629,7 +629,7 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_port, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_ipv6, target_server_port, ptf_portchannel_indices, check_ipv6=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -643,6 +643,7 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
         target_server_port: PTF port indice on which server is connected
         ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
+        check_ipv6: if True, check ipv6 traffic, if False, check ipv4 traffic
     Returns:
         None.
     """
@@ -657,6 +658,9 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         "ptf_portchannel_indices": ptf_portchannel_indices,
         "hash_key_list": HASH_KEYS
     }
+    if check_ipv6:
+        params["server_ip"] = target_server_ipv6
+
     logging.info("run ptf test for verifying IPinIP tunnel balance")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
@@ -733,6 +737,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
             dl_vlan_enable=False,
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
+            ipv6_hlim=64,
             tcp_sport=sport,
             tcp_dport=dport
         )
@@ -741,7 +746,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
         exp_pkt.set_do_not_care_scapy(scapyall.IPv6, "hlim")
 
-        inner_packet = send_pkt[IPv6].copy()
+        inner_packet = send_pkt[IPv6]
         inner_packet[IPv6].hlim -= 1
         exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
             eth_dst=dst_mac,
@@ -750,6 +755,8 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
             ip_dst="10.1.0.33",
             inner_frame=inner_packet
         )
+        send_pkt.hlim = 64
+        exp_tunnel_pkt[TCP] = inner_packet[TCP]
         exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
         exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
         exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
