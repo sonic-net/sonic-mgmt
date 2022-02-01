@@ -4,7 +4,6 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -47,7 +46,7 @@ def ensure_application_of_updated_config(duthost, value):
         value: expected value of POLL_INTERVAL
     """
     def _confirm_value_in_flex_counter_db():
-        poll_interval = duthost.shell('redis-cli -n 5 hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
+        poll_interval = duthost.shell('sonic-db-cli PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
         return value == poll_interval
 
     pytest_assert(
@@ -68,9 +67,11 @@ def prepare_pfcwd_interval_config(duthost, value):
     logger.info("Setting configdb entry pfcwd poll interval to value: {}".format(value))
    
     if value:
-        cmd = "sudo pfcwd interval {}".format(value)
+        cmd = "pfcwd interval {}".format(value)
     else:
         cmd = "sonic-db-cli CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
+    
+    duthost.shell(cmd)
 
 
 def get_detection_restoration_times(duthost):
