@@ -12,6 +12,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
                                                 copy_arp_responder_py, copy_ptftests_directory
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
+import tests.arp.test_wr_arp as test_wr_arp
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -95,14 +97,14 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
 
     return minigraph_facts
 
-@pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
+@pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
     Args:
         setup: Pytest fixture that provides access to minigraph facts
-        request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
+        request: Contains the parameter (Disabled, Enabled, WR_ARP, or Cleanup) for the current test iteration
         duthost: DUT host object
 
     Returns:
@@ -135,8 +137,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
         cleanup_vnet_routes(duthost, vnet_config)
         cleanup_dut_vnets(duthost, setup, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
-    return vxlan_enabled, request.param
+    elif request.param == "WR_ARP":
+        testWrArp = test_wr_arp.TestWrArp()
+        test_wr_arp.TestWrArp.testWrArp(testWrArp, request, duthost, ptfhost, creds)
 
+    return vxlan_enabled, request.param
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
