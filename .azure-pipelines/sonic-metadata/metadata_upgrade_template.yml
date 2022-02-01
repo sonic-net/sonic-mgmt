@@ -32,7 +32,7 @@ stages:
   - job:
     pool: nightly
     displayName: "Test SONiC Metadata Files"
-    timeoutInMinutes: 720
+    timeoutInMinutes: 1800    # minutes, totally 30 hours
     variables:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SECRETS

@@ -369,17 +369,22 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        if "warm" in self.rebootType:
+            # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
+            reboot_file_prefix = "warm-reboot"
+        else:
+            reboot_file_prefix = self.rebootType
         if rebootOper is None:
-            rebootLog = '/tmp/{0}.log'.format(self.rebootType)
-            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
+            rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
+            rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
             swssRec = '/tmp/swss.rec'
         else:
-            rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
-            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
+            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)

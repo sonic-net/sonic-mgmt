@@ -14,6 +14,10 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore  # lgtm[py/unused-import]
+from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.common.utilities import wait_until
@@ -45,28 +49,14 @@ def skip_cancelled_case(request, upgrade_type_params):
 
 
 def pytest_generate_tests(metafunc):
-  upgrade_types = metafunc.config.getoption("upgrade_type")
-  upgrade_types = upgrade_types.split(",")
-
-  if "upgrade_type_params" in metafunc.fixturenames:
-      params = upgrade_types
-      metafunc.parametrize("upgrade_type_params", params, scope="module")
-
-
-@pytest.fixture
-def skip_cancelled_case(request, upgrade_type_params):
-    if "test_cancelled_upgrade_path" in request.node.name\
-        and upgrade_type_params not in ["warm", "fast"]:
-        pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
-
-
-def pytest_generate_tests(metafunc):
-  upgrade_types = metafunc.config.getoption("upgrade_type")
-  upgrade_types = upgrade_types.split(",")
-
-  if "upgrade_type_params" in metafunc.fixturenames:
-      params = upgrade_types
-      metafunc.parametrize("upgrade_type_params", params, scope="module")
+    upgrade_types = metafunc.config.getoption("upgrade_type")
+    upgrade_types = upgrade_types.split(",")
+    if "upgrade_type_params" in metafunc.fixturenames:
+        params = upgrade_types
+        metafunc.parametrize("upgrade_type_params", params, scope="module")
+    if "sad_case_type" in metafunc.fixturenames:
+        sad_cases = SAD_CASE_LIST
+        metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
 def sonic_update_firmware(duthost, image_url, upgrade_type):
@@ -99,8 +89,10 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
 
 
 def run_upgrade_test(duthost, localhost, ptfhost, from_image, to_image,
-        tbinfo, metadata_process, upgrade_type, create_hole=False, create_hole_in_tcam=None,
-        modify_reboot_script=None, allow_fail=False):
+        tbinfo, metadata_process, upgrade_type, get_advanced_reboot, advanceboot_loganalyzer,
+        create_hole=False, create_hole_in_tcam=None,
+        modify_reboot_script=None, allow_fail=False,
+        sad_preboot_list=None, sad_inboot_list=None):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
     # Install base image
     logger.info("Installing {}".format(from_image))
@@ -120,42 +112,34 @@ def run_upgrade_test(duthost, localhost, ptfhost, from_image, to_image,
         target_version = sonic_update_firmware(duthost, to_image, upgrade_type)
     else:
         target_version = install_sonic(duthost, to_image, tbinfo)
-    test_params = ptf_params
-    test_params['target_version'] = target_version
-    test_params['reboot_type'] = get_reboot_command(duthost, upgrade_type)
-    prepare_testbed_ssh_keys(duthost, ptfhost, test_params['dut_username'])
 
     if create_hole:
         setup_ferret(duthost, ptfhost, tbinfo)
         ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-        test_params['reboot_type'] = "warm-reboot -c {}".format(ptf_ip)
+        reboot_type = "warm-reboot -c {}".format(ptf_ip)
+    else:
+        reboot_type = get_reboot_command(duthost, upgrade_type)
 
-    log_file = "/tmp/advanced-reboot.ReloadTest.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script
         modify_reboot_script(upgrade_type)
 
-    if test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_COLD).get("command") or\
-        test_params['reboot_type'] == reboot_ctrl_dict.get(REBOOT_TYPE_SOFT).get("command"):
+    if upgrade_type == REBOOT_TYPE_COLD:
         # advance-reboot test (on ptf) does not support cold reboot yet
         reboot(duthost, localhost)
     else:
-        ptf_runner(ptfhost,
-                "ptftests",
-                "advanced-reboot.ReloadTest",
-                platform_dir="ptftests",
-                params=test_params,
-                platform="remote",
-                qlen=10000,
-                log_file=log_file,
-                module_ignore_errors=allow_fail)
+        advancedReboot = get_advanced_reboot(rebootType=reboot_type,\
+            advanceboot_loganalyzer=advanceboot_loganalyzer, allow_fail=allow_fail)
+        advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list)
 
     if create_hole:
         ptfhost.shell('supervisorctl stop ferret')
 
 
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, skip_cancelled_case, tbinfo, request, add_fail_step_to_reboot, verify_dut_health):
+        upgrade_path_lists, skip_cancelled_case, tbinfo, request,
+        get_advanced_reboot, advanceboot_loganalyzer,
+        add_fail_step_to_reboot, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
@@ -167,11 +151,13 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         for to_image in to_list:
             run_upgrade_test(duthost, localhost, ptfhost,
                 from_image, to_image, tbinfo, metadata_process, upgrade_type,
+                get_advanced_reboot, advanceboot_loganalyzer,
                 modify_reboot_script=modify_reboot_script, allow_fail=True)
 
 
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, tbinfo, request, create_hole_in_tcam):
+        upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
+        verify_dut_health, create_hole_in_tcam):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -183,10 +169,38 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
         for to_image in to_list:
             run_upgrade_test(duthost, localhost, ptfhost,
                 from_image, to_image, tbinfo, metadata_process, upgrade_type,
+                get_advanced_reboot, advanceboot_loganalyzer,
                 create_hole=create_hole, create_hole_in_tcam=create_hole_in_tcam)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             networking_uptime = duthost.get_networking_uptime().seconds
             timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
             pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                 "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-            check_services(duthost)
+
+
+def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
+        upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
+        verify_dut_health, nbrhosts, fanouthosts, backup_and_restore_config_db,
+        advanceboot_neighbor_restore, sad_case_type):
+    duthost = duthosts[rand_one_dut_hostname]
+    upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
+    metadata_process = request.config.getoption('metadata_process')
+    create_hole = request.config.getoption('tcam_hole')
+    from_list = from_list_images.split(',')
+    to_list = to_list_images.split(',')
+    assert (from_list and to_list)
+    for from_image in from_list:
+        for to_image in to_list:
+            sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
+                fanouthosts, tbinfo, sad_case_type)
+            run_upgrade_test(duthost, localhost, ptfhost,
+                from_image, to_image, tbinfo, metadata_process, upgrade_type,
+                get_advanced_reboot, advanceboot_loganalyzer,
+                create_hole=create_hole, create_hole_in_tcam=create_hole_in_tcam,
+                sad_preboot_list=sad_preboot_list, sad_inboot_list=sad_inboot_list)
+            logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
+            networking_uptime = duthost.get_networking_uptime().seconds
+            timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                "Reboot cause {} did not match the trigger - {}".format(
+                    get_reboot_cause(duthost), upgrade_type))
