@@ -81,6 +81,9 @@ MAX_NUM_REBOOT_CAUSE_HISTORY = 10
 REBOOT_TYPE_HISTOYR_QUEUE = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
 REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 
+# Retry logic config
+MAX_RETRIES = 3
+RETRY_BACKOFF_TIME = 15
 
 def get_warmboot_finalizer_state(duthost):
     try:
@@ -236,6 +239,51 @@ def check_reboot_cause(dut, reboot_cause_expected):
     logging.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected
 
+def sync_reboot_history_queue_with_dut(dut):
+    """
+    @summary: Sync DUT and internal history queues
+    @param dut: The AnsibleHost object of DUT.
+    """
+
+    # Retry logic for increased robustness
+    dut_reboot_history_received = False
+    for retry_count in range(MAX_RETRIES):
+        try:
+            # Try and get the current reboot history from DUT
+            # If received, set flag and break out of for loop
+
+            dut_reboot_history_queue = dut.show_and_parse("show reboot-cause history")
+            dut_reboot_history_received = True
+            break
+        except Exception as e:
+            e_type, e_value, e_traceback = sys.exc_info()
+            logging.info("Exception type: %s" % e_type.__name__)
+            logging.info("Exception message: %s" % e_value)
+            logging.info("Backing off for %d seconds before retrying", ((retry_count+1) * RETRY_BACKOFF_TIME))
+            
+            time.sleep(((retry_count+1) * RETRY_BACKOFF_TIME))
+            continue
+
+    # If retry logic did not yield reboot cause history from DUT, 
+    # return without clearing the existing reboot history queue.
+    if not dut_reboot_history_received:
+        return
+
+    # Clear the current reboot history queue
+    REBOOT_TYPE_HISTOYR_QUEUE.clear()
+
+    # For each item in the DUT reboot queue,
+    # iterate through every item in the reboot dict until
+    # a "cause" match is found. Then add that key to the
+    # reboot history queue REBOOT_TYPE_HISTOYR_QUEUE
+    # NB: appendleft used because queue received from DUT
+    # NB: is in reverse-chronological order.
+
+    for reboot_type in (dut_reboot_history_queue):
+        for dict_iter in (reboot_ctrl_dict):
+            if re.search(reboot_ctrl_dict[dict_iter]["cause"], reboot_type["cause"]):
+                REBOOT_TYPE_HISTOYR_QUEUE.appendleft(dict_iter)
+                break
 
 def check_reboot_cause_history(dut, reboot_type_history_queue):
     """
@@ -270,6 +318,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     reboot_type_history_len = len(reboot_type_history_queue)
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
+            logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" % (index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]))
             if not re.search(reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]):
                 logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
                     index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index]["cause"]))
