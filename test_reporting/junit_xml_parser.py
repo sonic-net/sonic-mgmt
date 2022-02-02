@@ -47,8 +47,7 @@ REQUIRED_TESTSUITE_ATTRIBUTES = {
     ("tests", int),
     ("skipped", int),
     ("failures", int),
-    ("errors", int),
-    ("xfails", int)
+    ("errors", int)
 }
 
 # Fields found in the metadata/properties section of the JUnit XML file.
