@@ -1,8 +1,9 @@
+from __future__ import division
 import logging
 import json
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
@@ -66,7 +67,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
     topo = tbinfo['topo']['name']
 
-    if topo.startswith('topo_t1-'):
+    if "t1" in topo:
         spine_router_count = 0
         tor_router_count = 0
         for neighbor in device_neighbor_metadata.keys():
@@ -128,7 +129,7 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(expected_profile))['stdout'])
         xon = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xon'.format(expected_profile))['stdout'])
-        pg_headroom = (xoff + xon) / 1024
+        pg_headroom = int((xoff + xon) / 1024)
 
         neighbor_type = neighbor_to_type_map[neighbor]
         neighbor_type_to_pg_headroom_map[neighbor_type] = pg_headroom
@@ -163,7 +164,7 @@ def calculate_field_value(duthost, tbinfo, field):
             config_headroom_int_sum = downlink * config_headroom_downlink_multiplier + config_headroom_int_sum
     config_headroom = LOSSLESS_PGS * config_headroom_int_sum
 
-    headroom_pool = (config_headroom - private_headroom) / HEADROOM_POOL_OVERSUB
+    headroom_pool = int((config_headroom - private_headroom) / HEADROOM_POOL_OVERSUB)
 
     if ("xoff" in field):
         return headroom_pool
@@ -200,6 +201,7 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("operation", ["add", "replace", "remove"])
 def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, operation):
+    pytest_require('2700' in duthost.facts['hwsku'], "This test only runs on Mellanox 2700 devices")
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}".format(tmpfile, configdb_field, operation))
 
