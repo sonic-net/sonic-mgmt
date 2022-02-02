@@ -32,20 +32,20 @@ def stop_tacacs_server(ptfhost):
     ptfhost.service(name="tacacs_plus", state="stopped")
     check_all_services_status(ptfhost)
 
-def setup_local_user(duthost, creds_all_duts):
+def setup_local_user(duthost, tacacs_creds):
     try:
-        duthost.shell("sudo deluser {}".format(creds_all_duts[duthost]['local_user']))
+        duthost.shell("sudo deluser {}".format(tacacs_creds['local_user']))
     except RunAnsibleModuleFail:
         logger.info("local user not exist")
-    
-    duthost.shell("sudo useradd {}".format(creds_all_duts[duthost]['local_user']))
-    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(creds_all_duts[duthost]['local_user'],creds_all_duts[duthost]['local_user_passwd']))
 
-def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
+    duthost.shell("sudo useradd {}".format(tacacs_creds['local_user']))
+    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(tacacs_creds['local_user'],tacacs_creds['local_user_passwd']))
+
+def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
 
     # configure tacacs client
-    duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost]['tacacs_passkey'])
+    duthost.shell("sudo config tacacs passkey %s" % tacacs_creds[duthost.hostname]['tacacs_passkey'])
 
     # get default tacacs servers
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -63,7 +63,7 @@ def setup_tacacs_client(duthost, creds_all_duts, tacacs_server_ip):
         duthost.shell("sudo config aaa accounting disable")
 
     # setup local user
-    setup_local_user(duthost, creds_all_duts)
+    setup_local_user(duthost, tacacs_creds)
 
 def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path):
     """
@@ -72,25 +72,25 @@ def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path):
     """
     read_link_command = "readlink -f {0}".format(symbolic_link_path)
     target_path = duthost.shell(read_link_command)['stdout']
-    # Escape path string, will use it as regex in sed command. 
+    # Escape path string, will use it as regex in sed command.
     link_path_regex = re.escape(symbolic_link_path)
     target_path_regex = re.escape(target_path)
     ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
 
-def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
+def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     """setup tacacs server"""
 
     # configure tacacs server
-    extra_vars = {'tacacs_passkey': creds_all_duts[duthost]['tacacs_passkey'],
-                  'tacacs_rw_user': creds_all_duts[duthost]['tacacs_rw_user'],
-                  'tacacs_rw_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_rw_user_passwd'], 'abc'),
-                  'tacacs_ro_user': creds_all_duts[duthost]['tacacs_ro_user'],
-                  'tacacs_ro_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_ro_user_passwd'], 'abc'),
-                  'tacacs_authorization_user': creds_all_duts[duthost]['tacacs_authorization_user'],
-                  'tacacs_authorization_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_authorization_user_passwd'], 'abc'),
-                  'tacacs_jit_user': creds_all_duts[duthost]['tacacs_jit_user'],
-                  'tacacs_jit_user_passwd': crypt.crypt(creds_all_duts[duthost]['tacacs_jit_user_passwd'], 'abc'),
-                  'tacacs_jit_user_membership': creds_all_duts[duthost]['tacacs_jit_user_membership']}
+    extra_vars = {'tacacs_passkey': tacacs_creds[duthost.hostname]['tacacs_passkey'],
+                  'tacacs_rw_user': tacacs_creds['tacacs_rw_user'],
+                  'tacacs_rw_user_passwd': crypt.crypt(tacacs_creds['tacacs_rw_user_passwd'], 'abc'),
+                  'tacacs_ro_user': tacacs_creds['tacacs_ro_user'],
+                  'tacacs_ro_user_passwd': crypt.crypt(tacacs_creds['tacacs_ro_user_passwd'], 'abc'),
+                  'tacacs_authorization_user': tacacs_creds['tacacs_authorization_user'],
+                  'tacacs_authorization_user_passwd': crypt.crypt(tacacs_creds['tacacs_authorization_user_passwd'], 'abc'),
+                  'tacacs_jit_user': tacacs_creds['tacacs_jit_user'],
+                  'tacacs_jit_user_passwd': crypt.crypt(tacacs_creds['tacacs_jit_user_passwd'], 'abc'),
+                  'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership']}
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
@@ -110,7 +110,7 @@ def setup_tacacs_server(ptfhost, creds_all_duts, duthost):
     check_all_services_status(ptfhost)
 
 
-def cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip):
+def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     # stop tacacs server
     stop_tacacs_server(ptfhost)
 
@@ -125,14 +125,14 @@ def cleanup_tacacs(ptfhost, creds_all_duts, duthost, tacacs_server_ip):
         duthost.shell("sudo config aaa authorization local")
         duthost.shell("sudo config aaa accounting disable")
 
-    duthost.user(name=creds_all_duts[duthost]['tacacs_ro_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
-    duthost.user(name=creds_all_duts[duthost]['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
-    duthost.user(name=creds_all_duts[duthost]['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=tacacs_creds['tacacs_ro_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=tacacs_creds['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
+    duthost.user(name=tacacs_creds['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
 
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
-    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"' 
+    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'
     server_list = duthost.shell(find_server_command)['stdout']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
