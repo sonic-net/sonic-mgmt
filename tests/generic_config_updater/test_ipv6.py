@@ -97,7 +97,7 @@ def test_delete_ipv6_neighbor(duthost, ensure_dut_readiness):
 
     json_patch = [
         {
-            "op": "delete",
+            "op": "remove",
             "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address)
         }
     ]
