@@ -34,7 +34,7 @@ pytestmark = [
 def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):
     sfp_setup = {}
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    
+
     if duthost.is_supervisor_node():
         pytest.skip("skipping for supervisor node")
 
@@ -42,7 +42,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
-  
+
     sfp_port_indices = set([physical_port_index_map[intf] \
         for intf in physical_port_index_map.keys()])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
@@ -149,8 +149,9 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X":
-            if xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X" \
+        or xcvr_info_dict["type_abbrv_name"] == "QSFP+C":
+            if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable":
                return False
         else:
             spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
@@ -162,6 +163,10 @@ class TestSfpApi(PlatformApiTestBase):
                 compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
                 if compliance_code == "40GBASE-CR4":
                    return False
+                if compliance_code == "Extended":
+                    extended_code = spec_compliance_dict.get("Extended Specification Compliance")
+                    if "CR" in extended_code:
+                        return False
         return True
 
     def is_xcvr_resettable(self, xcvr_info_dict):
