@@ -1,5 +1,5 @@
 # ptf --test-dir ptftests vxlan_traffic.VXLAN --platform-dir ptftests --qlen=1000 --platform remote \
-#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True; \
+#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True;packet_count=10; \
 #        vxlan_port=4789;topo_file="/tmp/vxlan_topo_file.json";config_file="/tmp/vxlan-config-TC1-v6_in_v4.json";t0_ports=[u"Ethernet42"]' --relax --debug info \
 #        --log-file /tmp/vxlan-tests.TC1.v6_in_v4.log
 
@@ -36,7 +36,10 @@ TEST_ECN = False
 def get_incremental_value(key):
 
     global VARS
-    VARS[key] = VARS[key] + 1
+    VARS[key] = (VARS[key] + 1) % 65535
+    # We would like to use the ports from 1234 to 65535
+    if VARS[key] < 1234:
+        VARS[key] = 1234
     return VARS[key]
 
 def read_ptf_macs():
@@ -59,6 +62,12 @@ class VXLAN(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vxlan_port = self.test_params['vxlan_port']
         self.expect_encap_success = self.test_params['expect_encap_success']
+        self.packet_count = self.test_params['packet_count']
+        # The ECMP check fails occasionally if there is not enough packets.
+        # We should keep the packet count atleast 4.
+        if self.packet_count < 4:
+            print("WARN: packet_count is below minimum, resetting to 4")
+            self.packet_count = 4
 
         self.random_mac = "00:aa:bb:cc:dd:ee"
         self.ptf_mac_addrs = read_ptf_macs()
@@ -139,12 +148,11 @@ class VXLAN(BaseTest):
             else:
                 tagged = False
 
-            
-            options =  {'ip_tos' : 0}
-            options_v6 = {'ipv6_tc' : 0}
+            options =  {'ip_ecn' : 0}
+            options_v6 = {'ipv6_ecn' : 0}
             if test_ecn:
-                options = {'ip_tos' : random.randint(0, 3)}
-                options_v6 = {'ipv6_tos' : random.randint(0, 3)}
+                options = {'ip_ecn' : random.randint(0, 3)}
+                options_v6 = {'ipv6_ecn' : random.randint(0, 3)}
 
             # ECMP support, assume it is a string of comma seperated list of addresses.
             returned_ip_addresses = {}
@@ -152,7 +160,7 @@ class VXLAN(BaseTest):
             for host_address in nhs:
                 check_ecmp = True
                 # This will ensure that every nh is used atleast once.
-                for i in range(4):
+                for i in range(self.packet_count):
                     tcp_sport = get_incremental_value('tcp_sport')
                     tcp_dport = 5000
                     valid_combination = True
@@ -190,7 +198,6 @@ class VXLAN(BaseTest):
                         exp_pkt = simple_tcpv6_packet(**pkt_opts)
                     else:
                         valid_combination = False
-                        print("Unusable combination:src:{} and dst:{}".format(src, destination))
                     udp_sport = 1234 # Use entropy_hash(pkt), it will be ignored in the test later.
                     udp_dport = self.vxlan_port
                     if isinstance(ip_address(host_address), ipaddress.IPv4Address):
@@ -205,7 +212,8 @@ class VXLAN(BaseTest):
                             udp_dport=udp_dport,
                             with_udp_chksum=False,
                             vxlan_vni=vni,
-                            inner_frame=exp_pkt)
+                            inner_frame=exp_pkt,
+                            **options)
                         encap_pkt[IP].flags = 0x2
                     elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
                         encap_pkt = simple_vxlanv6_packet(
@@ -217,8 +225,9 @@ class VXLAN(BaseTest):
                             udp_dport=udp_dport,
                             with_udp_chksum=False,
                             vxlan_vni=vni,
-                            inner_frame=exp_pkt)
-                    send_packet(self, ptf_port, str(pkt), count=2)
+                            inner_frame=exp_pkt,
+                            **options_v6)
+                    send_packet(self, ptf_port, str(pkt))
 
                     masked_exp_pkt = Mask(encap_pkt)
                     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -256,8 +265,24 @@ class VXLAN(BaseTest):
 
             # Verify ECMP:
             if check_ecmp:
+                # Check #1 : All addresses have been used.
                 if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
-                    print ("Each address has been used")
+                    print ("    Each address has been used")
+                    print ("Packets sent:{} distribution:".format(self.packet_count))
+                    for nh_address in returned_ip_addresses.keys():
+                        print ("      {} : {}".format(nh_address, returned_ip_addresses[nh_address]))
+                    # Check #2 : The packets are almost equally distributed.
+                    # We calculate the total number of packets sent, and average it across the number of ECMP hops.
+                    # Every next-hop should have received within 1% of the packets that we sent per nexthop.
+                    # This check is valid only if there are large enough number of packets.
+                    if self.packet_count > 300:
+                        tolerance = 0.01
+                        for nh_address in returned_ip_addresses.keys():
+                            if ((1.0-tolerance) * self.packet_count > returned_ip_addresses[nh_address]
+                                or (1.0+tolerance) * self.packet_count < returned_ip_addresses[nh_address]):
+                                    raise RuntimeError("ECMP nexthop address: {} received too less or too many of the "
+                                        "packets expected. Expected:{}, received on that address:{}".format(nh_address, self.packet_count, returned_ip_addresses[nh_address]))
+
                 else:
                     raise RuntimeError('''ECMP might have failed for:{}, we expected every ip address in the nexthop group({} of them) 
                         to be used, but only {} are used:\nUsed addresses:{}\nUnused Addresses:{}'''.format(destination,
