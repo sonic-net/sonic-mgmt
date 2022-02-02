@@ -675,7 +675,6 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         # Copy the new set of configs to the PTF and run the tests.
         self.dump_self_info_and_run_ptf("tc2", encap_type, True)
 
-    @pytest.mark.skip(reason="causes syncd restarts and failures of later tests.")
     def test_vxlan_remove_all_route(self, setUp, encap_type):
         Logger.info("tc3: remove the tunnel route. send packets to the route prefix dst. packets should not be received at any ports with dst ip of b")
         self.setup = setUp
@@ -943,7 +942,6 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         apply_config_in_swss(self.setup['duthost'], tc11_config, "vnet_route_tc11_"+encap_type)
         self.dump_self_info_and_run_ptf("tc11", encap_type, True, packet_count=1000)
 
-@pytest.mark.skip(reason="All cases fail due to syncd crash and docker container restarts.")
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
     def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):
