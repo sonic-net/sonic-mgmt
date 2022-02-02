@@ -53,7 +53,7 @@ def check_neighbor_existence(duthost, neighbor_address):
     ipv6_bgp_su = duthost.shell('show ipv6 bgp su')['stdout']
     return neighbor_address in ipv6_bgp_su
 
-"""
+
 def test_add_deleted_ipv6_neighbor(duthost, ensure_dut_readiness):
     ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
     neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
@@ -90,7 +90,7 @@ def test_add_deleted_ipv6_neighbor(duthost, ensure_dut_readiness):
         pytest_assert(neighbor_exists, "GCU failed to add back deleted ipv6 BGP neighbor")
     finally:
         delete_tmpfile(duthost, tmpfile)
-"""
+
 
 def test_delete_ipv6_neighbor(duthost, ensure_dut_readiness):
     ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
