@@ -1,4 +1,3 @@
-
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -153,7 +152,7 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -174,6 +173,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vl
 
             res = duthost.command('show int portchannel')
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+            populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
@@ -281,6 +282,18 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet was not received")
         raise
+
+
+def populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict):
+    # send icmp packet from each tagged and untagged port in each test vlan to populate fdb
+    for vlan in vlan_intfs_dict:
+        for vlan_port in work_vlan_ports_list:
+            if vlan in vlan_port['permit_vlanid']:
+                vlan_id = 0 if vlan == vlan_port['pvid'] else vlan  # vlan_id: 0 - untagged, vlan = tagged
+                port_id = vlan_port['port_index'][0]
+                src_mac = ptfadapter.dataplane.get_mac(0, port_id)
+                pkt = build_icmp_packet(vlan_id=vlan_id, src_mac=src_mac)
+                testutils.send(ptfadapter, port_id, pkt)
 
 
 @pytest.mark.bsl
@@ -414,7 +427,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
         if len(ports_for_test) < 2:
             continue
 
-        #take two tagged ports for test
+        #take two untagged ports for test
         src_port = ports_for_test[0]
         dst_port = ports_for_test[-1]
 

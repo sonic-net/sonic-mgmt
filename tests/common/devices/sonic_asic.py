@@ -42,6 +42,12 @@ class SonicAsic(object):
         self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
         self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
 
+    def __str__(self):
+        return '<SonicAsic {}>'.format(self.asic_index)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_critical_services(self):
         """This function returns the list of the critical services
            for the namespace(asic)

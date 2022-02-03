@@ -10,6 +10,7 @@ from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
     enable_packet_aging, start_pfcwd
 from tests.common.snappi.port import select_ports, select_tx_port
+from tests.common.snappi.snappi_helpers import wait_for_arp
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +270,10 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
         per-flow statistics (list)
     """
     api.set_config(config)
+
+    logger.info('Wait for Arp to Resolve ...')
+    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+    
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START

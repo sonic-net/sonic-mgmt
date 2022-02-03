@@ -10,6 +10,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
 from device_mocker import device_mocker_factory
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -384,3 +385,6 @@ class ProcessExitContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         logging.info('Starting {}:{}'.format(self.container_name, self.process_name))
         self.dut.command('docker exec -it {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
+        # check with delay in which the dockers can be restarted
+        pytest_assert(wait_until(300, 20, 8, self.dut.critical_services_fully_started),
+                      "Not all critical services are fully started")

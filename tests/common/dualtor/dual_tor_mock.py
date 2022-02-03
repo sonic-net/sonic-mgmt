@@ -25,6 +25,7 @@ __all__ = [
     'mock_peer_switch_loopback_ip',
     'mock_server_base_ip_addr',
     'mock_server_ip_mac_map',
+    'mock_server_ipv6_mac_map',
     'set_dual_tor_state_to_orchagent',
     'del_dual_tor_state_from_orchagent',
     'is_t0_mocked_dualtor',
@@ -253,7 +254,30 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map):
+def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
+    dut = rand_selected_dut
+    _, server_ipv6_base_addr = mock_server_base_ip_addr
+    server_ipv6_mac_map = {}
+    dut_ptf_intf_map = dut.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+
+    for i, intf in enumerate(tor_mux_intfs):
+        # For each VLAN interface, get the corresponding PTF interface MAC
+        ptf_port_index = dut_ptf_intf_map[intf]
+        for retry in range(10):
+            ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
+            if ptf_mac != None:
+                break
+            else:
+                time.sleep(2)
+        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+
+    return server_ipv6_mac_map
+
+
+@pytest.fixture(scope='module')
+def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map, mock_server_ipv6_mac_map):
     '''
     Apply neighbor table entries for servers
     '''
@@ -268,6 +292,9 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
+
+    for ipv6, mac in mock_server_ipv6_mac_map.items():
+        cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
     return

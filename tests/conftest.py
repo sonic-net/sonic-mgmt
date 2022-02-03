@@ -4,6 +4,7 @@ import json
 import logging
 import getpass
 import random
+import re
 
 import pytest
 import yaml
@@ -21,6 +22,7 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
+from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 
 from tests.common.helpers.constants import (
@@ -38,6 +40,10 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.utilities import str2bool
+from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +103,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
@@ -128,24 +134,18 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
 
+    ##################################
+    # advance-reboot,upgrade options #
+    ##################################
+    add_advanced_reboot_args(parser)
+    add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
+
     ############################
-    # upgrade_path options     #
+    #   loop_times options     #
     ############################
-    parser.addoption("--upgrade_type", default="warm",
-        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
-    )
-
-    parser.addoption("--base_image_list", default="",
-        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--target_image_list", default="",
-        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--restore_to_image", default="",
-        help="Specify the target image to restore to, or stay in target image if empty",
-    )
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -364,9 +364,12 @@ def k8smasters(ansible_adhoc, request):
     k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
+    k8s_inv_file = None
     for inv_file in inv_files:
         if "k8s" in inv_file:
             k8s_inv_file = inv_file
+    if not k8s_inv_file:
+        pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
@@ -397,6 +400,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     vm_base = int(tbinfo['vm_base'][2:])
+    vm_name_fmt = 'VM%0{}d'.format(len(tbinfo['vm_base']) - 2)
     neighbor_type = request.config.getoption("--neighbor_type")
 
     if not 'VMs' in tbinfo['topo']['properties']['topology']:
@@ -404,22 +408,26 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         return devices
 
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
-            devices[k] = {'host': EosHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
-                                        creds['eos_login'],
-                                        creds['eos_password'],
-                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+            device = NeighborDevice({'host': EosHost(ansible_adhoc,
+                                                     vm_name,
+                                                     creds['eos_login'],
+                                                     creds['eos_password'],
+                                                     shell_user=creds[
+                                                         'eos_root_user'] if 'eos_root_user' in creds else None,
+                                                     shell_passwd=creds[
+                                                         'eos_root_password'] if 'eos_root_password' in creds else None),
+                                     'conf': tbinfo['topo']['properties']['configuration'][k]})
         elif neighbor_type == "sonic":
-            devices[k] = {'host': SonicHost(ansible_adhoc,
-                                        "VM%04d" % (vm_base + v['vm_offset']),
+            device = NeighborDevice({'host': SonicHost(ansible_adhoc,
+                                        vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+                                    'conf': tbinfo['topo']['properties']['configuration'][k]})
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+        devices[k] = device
     return devices
 
 
@@ -476,8 +484,15 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
 
                 # Add port name to fanout port mapping port if dut_port is alias.
                 if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
-                    fanout.add_port_map(encode_dut_port_name(
-                       dut_host, mg_facts['minigraph_port_alias_to_name_map'][dut_port]), fanout_port)
+                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                    # it happens when an interface has the same name with another alias, for example:
+                    # Interface     Alias
+                    # --------------------
+                    # Ethernet108   Ethernet32
+                    # Ethernet32    Ethernet13/1
+                    if mapped_port not in value.keys():
+                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
                 if dut_host not in fanout.dut_hostnames:
                     fanout.dut_hostnames.append(dut_host)
@@ -523,12 +538,24 @@ def creds_on_dut(duthost):
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    exclude_regex_patterns = [
+        'topo_.*\.yml',
+        'sku-sensors-data\.yml',
+        'breakout_speed\.yml',
+        'lag_fanout_ports_test_vars\.yml',
+        'qos\.yml',
+        'mux_simulator_http_port_map\.yml'
+        ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
+    filtered_files = [
+        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
+    ]
+
     creds = {}
-    for f in files:
+    for f in filtered_files:
         with open(f) as stream:
             v = yaml.safe_load(stream)
             if v is not None:
@@ -552,7 +579,7 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.iteritems():
+    for k, v in console_login_creds.items():
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -568,7 +595,7 @@ def creds(duthosts, rand_one_dut_hostname):
 def creds_all_duts(duthosts):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
     return creds_all_duts
 
 
@@ -576,7 +603,7 @@ def creds_all_duts(duthosts):
 def pytest_runtest_makereport(item, call):
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
 
     # execute all other hooks to obtain the report object
     outcome = yield
@@ -1079,21 +1106,27 @@ def pytest_generate_tests(metafunc):
         # parameterize on both - create tuple for each
         tuple_list = []
         for a_dut_index, a_dut in enumerate(duts_selected):
-            for a_asic in asics_selected[a_dut_index]:
-                # Create tuple of dut and asic index
-                tuple_list.append((a_dut, a_asic))
+            if len(asics_selected):
+                for a_asic in asics_selected[a_dut_index]:
+                    # Create tuple of dut and asic index
+                    tuple_list.append((a_dut, a_asic))
+            else:
+                tuple_list.append((a_dut, None))
         metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
     elif dut_fixture_name:
         # parameterize only on DUT
         metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
-        metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        if len(asics_selected):
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+        else:
+            metafunc.parametrize(asic_fixture_name, [None], scope="module")
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module")
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module", indirect=True)
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -1142,9 +1175,15 @@ def cleanup_cache_for_session(request):
     This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
     """
     tbname, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
     cache.cleanup(zone=tbname)
     for a_dut in tbinfo['duts']:
         cache.cleanup(zone=a_dut)
+    inv_data = get_host_visible_vars(inv_files, a_dut)
+    if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
+            for asic_id in range(inv_data['num_asics']):
+                cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
+
 
 def get_l2_info(dut):
     """

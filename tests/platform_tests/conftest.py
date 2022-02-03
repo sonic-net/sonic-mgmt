@@ -13,9 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
-from .args.advanced_reboot_args import add_advanced_reboot_args
-from .args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from .args.normal_reboot_args import add_normal_reboot_args
+
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
@@ -94,7 +92,7 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     elif first_after_offset:
         # capture the first occurence as the one after offset timestamp and ignore the ones before
         # this is useful to find time after a specific instance, for eg. - kexec time or FDB disable time.
-        if datetime.strptime(first_after_offset, FMT) < datetime.strptime(time, FMT):
+        if _parse_timestamp(first_after_offset) < _parse_timestamp(time):
             timestamps[state_status] = time
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
@@ -273,9 +271,15 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
     result["offset_from_kexec"] = offset_from_kexec
 
 
-def get_data_plane_report(analyze_result, reboot_type):
+def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     report = {"controlplane": {"arp_ping": "", "downtime": ""}, "dataplane": {"lost_packets": "", "downtime": ""}}
-    files = glob.glob('/tmp/{}-reboot-report.json'.format(reboot_type))
+    reboot_report_path = re.sub('([\[\]])','[\\1]',log_dir) # escaping, as glob utility does not work well with "[","]"
+    if reboot_oper:
+        reboot_report_file_name = "{}-reboot-{}-report.json".format(reboot_type, reboot_oper)
+    else:
+        reboot_report_file_name = "{}-reboot-report.json".format(reboot_type)
+    reboot_report_file = "{}/{}".format(reboot_report_path, reboot_report_file_name)
+    files = glob.glob(reboot_report_file)
     if files:
         filepath = files[0]
         with open(filepath) as json_file:
@@ -312,8 +316,8 @@ def verify_mac_jumping(test_name, timing_data):
         # and ends when SAI is instructed to enable MAC learning (warmboot recovery path)
         logging.info("Mac expiry for unexpected addresses started at {}".format(mac_expiry_start) +\
             " and FDB learning enabled at {}".format(fdb_aging_disable_end))
-        if datetime.strptime(mac_expiry_start, FMT) > datetime.strptime(fdb_aging_disable_start, FMT) and\
-            datetime.strptime(mac_expiry_start, FMT) < datetime.strptime(fdb_aging_disable_end, FMT):
+        if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start) and\
+            _parse_timestamp(mac_expiry_start) < _parse_timestamp(fdb_aging_disable_end):
             pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
 
@@ -345,62 +349,80 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
                     additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
-    marker = loganalyzer.init()
-    loganalyzer.load_common_config()
 
-    ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
-    expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
-    ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
-    expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
+    def pre_reboot_analysis():
+        marker = loganalyzer.init()
+        loganalyzer.load_common_config()
 
-    loganalyzer.ignore_regex.extend(ignore_reg_exp)
-    loganalyzer.expect_regex = []
-    loganalyzer.expect_regex.extend(expect_reg_exp)
-    loganalyzer.match_regex = []
+        ignore_file = os.path.join(TEMPLATES_DIR, "ignore_boot_messages")
+        expect_file = os.path.join(TEMPLATES_DIR, "expect_boot_messages")
+        ignore_reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+        expect_reg_exp = loganalyzer.parse_regexp_file(src=expect_file)
 
-    yield
+        loganalyzer.ignore_regex.extend(ignore_reg_exp)
+        loganalyzer.expect_regex = []
+        loganalyzer.expect_regex.extend(expect_reg_exp)
+        loganalyzer.match_regex = []
+        return marker
 
-    result = loganalyzer.analyze(marker, fail=False)
-    analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
-    offset_from_kexec = dict()
+    def post_reboot_analysis(marker, reboot_oper=None, log_dir=None):
+        result = loganalyzer.analyze(marker, fail=False)
+        analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
+        offset_from_kexec = dict()
 
-    for key, messages in result["expect_messages"].items():
-        if "syslog" in key:
-            get_kexec_time(duthost, messages, analyze_result)
-            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
-        elif "bgpd.log" in key:
-            analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
-        elif "sairedis.rec" in key:
-            analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
+        for key, messages in result["expect_messages"].items():
+            if "syslog" in key:
+                get_kexec_time(duthost, messages, analyze_result)
+                reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                if not reboot_start_time or reboot_start_time == "N/A":
+                    logging.error("kexec regex \"Rebooting with /sbin/kexec\" not found in syslog. " +\
+                    "Skipping log_analyzer checks..")
+                    return
+                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+            elif "bgpd.log" in key:
+                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+            elif "sairedis.rec" in key:
+                analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
 
-    for marker, time_data in analyze_result["offset_from_kexec"].items():
-        marker_start_time = time_data.get("timestamp", {}).get("Start")
-        reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
-        if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
-            time_data["time_taken"] = (_parse_timestamp(marker_start_time) -\
-                _parse_timestamp(reboot_start_time)).total_seconds()
+        for marker, time_data in analyze_result["offset_from_kexec"].items():
+            marker_start_time = time_data.get("timestamp", {}).get("Start")
+            reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+            if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:
+                time_data["time_taken"] = (_parse_timestamp(marker_start_time) -\
+                    _parse_timestamp(reboot_start_time)).total_seconds()
+            else:
+                time_data["time_taken"] = "N/A"
+
+        get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper)
+        result_summary = get_report_summary(analyze_result, reboot_type)
+        logging.info(json.dumps(analyze_result, indent=4))
+        logging.info(json.dumps(result_summary, indent=4))
+        if reboot_oper and not isinstance(reboot_oper, str):
+            reboot_oper = type(reboot_oper).__name__
+        if reboot_oper:
+            report_file_name = request.node.name + "_" + reboot_oper + "_report.json"
+            summary_file_name = request.node.name + "_" + reboot_oper + "_summary.json"
         else:
-            time_data["time_taken"] = "N/A"
+            report_file_name = request.node.name + "_report.json"
+            summary_file_name = request.node.name + "_summary.json"
 
-    get_data_plane_report(analyze_result, reboot_type)
-    result_summary = get_report_summary(analyze_result, reboot_type)
-    logging.info(json.dumps(analyze_result, indent=4))
-    logging.info(json.dumps(result_summary, indent=4))
-    report_file_name = request.node.name + "_report.json"
-    summary_file_name = request.node.name + "_summary.json"
-    report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
-        "../logs/platform_tests/")))
-    report_file_path = report_file_dir + "/" + report_file_name
-    summary_file_path = report_file_dir + "/" + summary_file_name
-    if not os.path.exists(report_file_dir):
-        os.makedirs(report_file_dir)
-    with open(report_file_path, 'w') as fp:
-        json.dump(analyze_result, fp, indent=4)
-    with open(summary_file_path, 'w') as fp:
-        json.dump(result_summary, fp, indent=4)
 
-    # After generating timing data report, do some checks on the timing data
-    verify_mac_jumping(test_name, analyze_result)
+        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+            "../logs/platform_tests/")))
+        report_file_path = report_file_dir + "/" + report_file_name
+        summary_file_path = report_file_dir + "/" + summary_file_name
+        if not os.path.exists(report_file_dir):
+            os.makedirs(report_file_dir)
+        with open(report_file_path, 'w') as fp:
+            json.dump(analyze_result, fp, indent=4)
+        with open(summary_file_path, 'w') as fp:
+            json.dump(result_summary, fp, indent=4)
+
+        # After generating timing data report, do some checks on the timing data
+        verify_mac_jumping(test_name, analyze_result)
+
+    yield pre_reboot_analysis, post_reboot_analysis
+
 
 @pytest.fixture()
 def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
@@ -461,12 +483,6 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stderr')
         outputs.append(res)
     logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
-
-
-def pytest_addoption(parser):
-    add_advanced_reboot_args(parser)
-    add_cont_warm_reboot_args(parser)
-    add_normal_reboot_args(parser)
 
 
 def pytest_generate_tests(metafunc):

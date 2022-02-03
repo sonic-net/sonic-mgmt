@@ -1,7 +1,7 @@
 # Increase netdev_max_backlog to mitigate the packet drop issue
 # Ref https://www.kernel.org/doc/Documentation/sysctl/net.txt
 - name: Increase netdev_max_backlog
-  shell: echo 65535 > /proc/sys/net/core/netdev_max_backlog
+  shell: echo 250000 > /proc/sys/net/core/netdev_max_backlog
   become: yes
 
 - name: set "PTF" container type, by default
@@ -84,6 +84,10 @@
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    become: yes
+
+  - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
     become: yes
 
   - name: Get dut ports

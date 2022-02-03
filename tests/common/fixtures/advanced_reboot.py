@@ -5,6 +5,7 @@ import json
 import logging
 import pytest
 import time
+import os
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -39,7 +40,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot'], (
+        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
             "Please set rebootType var."
         )
 
@@ -76,6 +77,7 @@ class AdvancedReboot:
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
+        self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer" in kwargs else None
         self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
@@ -352,6 +354,17 @@ class AdvancedReboot:
         '''
         Fetch test logs from duthost and ptfhost after individual test run
         '''
+        if rebootOper:
+            dir_name = "{}_{}".format(self.request.node.name, rebootOper)
+        else:
+            dir_name = self.request.node.name
+        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
+            "../../logs/platform_tests/")))
+        log_dir = os.path.join(report_file_dir, dir_name)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        log_dir = log_dir + "/"
+
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(self.rebootType)
             rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
@@ -381,20 +394,21 @@ class AdvancedReboot:
         logger.info('Fetching log files from ptf and dut hosts')
         logFiles = {
             self.ptfhost: [
-                {'src': rebootLog, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': rebootReport, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': capturePcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
-                {'src': filterPcap, 'dest': '/tmp/', 'flat': True, 'fail_on_missing': False},
+                {'src': rebootLog, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': rebootReport, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': capturePcap, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
+                {'src': filterPcap, 'dest': log_dir, 'flat': True, 'fail_on_missing': False},
             ],
             self.duthost: [
-                {'src': syslogFile, 'dest': '/tmp/', 'flat': True},
-                {'src': sairedisRec, 'dest': '/tmp/', 'flat': True},
-                {'src': swssRec, 'dest': '/tmp/', 'flat': True},
+                {'src': syslogFile, 'dest': log_dir, 'flat': True},
+                {'src': sairedisRec, 'dest': log_dir, 'flat': True},
+                {'src': swssRec, 'dest': log_dir, 'flat': True},
             ],
         }
         for host, logs in logFiles.items():
             for log in logs:
                 host.fetch(**log)
+        return log_dir
 
     def imageInstall(self, prebootList=None, inbootList=None, prebootFiles=None):
         '''
@@ -430,6 +444,9 @@ class AdvancedReboot:
         for rebootOper in self.rebootData['sadList']:
             count += 1
             try:
+                if self.advanceboot_loganalyzer:
+                    pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
+                    marker = pre_reboot_analysis()
                 self.__setupRebootOper(rebootOper)
                 result = self.__runPtfRunner(rebootOper)
                 self.__verifyRebootOper(rebootOper)
@@ -437,16 +454,19 @@ class AdvancedReboot:
                 failed_list.append(rebootOper)
             finally:
                 # always capture the test logs
-                self.__fetchTestLogs(rebootOper)
+                log_dir = self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
+                if self.advanceboot_loganalyzer:
+                    post_reboot_analysis(marker, reboot_oper=rebootOper, log_dir=log_dir)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         pytest_assert(len(failed_list) == 0,\
-            "Advanced-reboot failure. Failed cases: {}".format(failed_list))
+            "Advanced-reboot failure. Failed test: {}, sub-cases: {}".format(self.request.node.name, failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles=None):
+    def runRebootTestcase(self, prebootList=None, inbootList=None,
+        prebootFiles='peer_dev_info,neigh_port_info'):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
@@ -518,7 +538,9 @@ class AdvancedReboot:
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
             "asic_type": self.duthost.facts["asic_type"],
-            "allow_mac_jumping": self.allowMacJump
+            "allow_mac_jumping": self.allowMacJump,
+            "preboot_files" : self.prebootFiles,
+            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword")
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -529,7 +551,6 @@ class AdvancedReboot:
             # presence of routing in reboot operation indicates it is during reboot operation (inboot)
             inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
             params.update({
-                "preboot_files" : self.prebootFiles,
                 "preboot_oper" : prebootOper,
                 "inboot_oper" : inbootOper,
             })
@@ -538,7 +559,9 @@ class AdvancedReboot:
 
         self.__updateAndRestartArpResponder(rebootOper)
 
-        logger.info('Run advanced-reboot ReloadTest on the PTF host')
+
+        logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
+            self.request.node.name, str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
             "ptftests",

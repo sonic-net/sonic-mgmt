@@ -45,8 +45,11 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
+    def __str__(self):
+        return '<MultiAsicSonicHost {}>'.format(self.hostname)
+
     def __repr__(self):
-        return '<MultiAsicSonicHost> {}'.format(self.hostname)
+        return self.__str__()
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
@@ -437,7 +440,6 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             bgp_facts = asic.bgp_facts()['ansible_facts']
-            logging.info("bgp_facts: {}".format(bgp_facts))
             for k, v in bgp_facts['bgp_neighbors'].items():
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
@@ -470,7 +472,7 @@ class MultiAsicSonicHost(object):
     def check_bgp_default_route(self, ipv4=True,  ipv6=True):
         """
         @summary: check if bgp default route is present.
-        
+
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
         """

@@ -1,3 +1,4 @@
+import sys
 import logging
 
 from tests.common.devices.multi_asic import MultiAsicSonicHost
@@ -69,9 +70,10 @@ class DutHosts(object):
         Returns:
             [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
         """
+        unicode_type = str if sys.version_info.major == 3 else unicode
         if type(index) == int:
             return self.nodes[index]
-        elif type(index) in [ str, unicode ]:
+        elif type(index) in [ str, unicode_type ]:
             for node in self.nodes:
                 if node.hostname == index:
                     return node
