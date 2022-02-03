@@ -74,11 +74,17 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci):
     set_macsec_profile(duthost, profile_name, default_priority,
                        cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+    i = 0
     for dut_port, nbr in ctrl_links.items():
         enable_macsec_port(duthost, dut_port, profile_name)
-        set_macsec_profile(nbr["host"], profile_name, default_priority,
+        if i % 2 == 0:
+            priority = default_priority - 1
+        else:
+            priority = default_priority + 1
+        set_macsec_profile(nbr["host"], profile_name, priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        i += 1
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -463,7 +469,7 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
 
 
 class TestDataPlane():
-    BATCH_COUNT = 1000
+    BATCH_COUNT = 100
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
         down_port, down_link = downstream_links.items()[0]
@@ -480,6 +486,7 @@ class TestDataPlane():
             testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
                 nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
             macsec_attr = get_macsec_attr(duthost, ctrl_port)
+            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
             check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
                              ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
 
