@@ -715,22 +715,30 @@ class TestConfigInterface():
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-        if tbinfo['topo']['type'] == 't2':
-            logger.info("Dealing with T2 topology which typically has ports that don't support setting speed to 10G - causes orchagent crash. So, not setting speed to 10G")
-        else:
-            out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} 10000'.format(
-                ifmode,cli_ns_option, test_intf))
-            if out['rc'] != 0:
-                pytest.fail()
-
-            db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
-            	.format(duthost.asic_instance(asic_index).sonic_db_cli,
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
                     interface)
+        supported_speeds = duthost.get_supported_speeds(test_intf)
+        if supported_speeds:
+            supported_speeds.remove(native_speed)
+            if len(supported_speeds):
+                speed_to_configure = supported_speeds[0]
+                out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
+                    ifmode, cli_ns_option, test_intf, speed_to_configure))
 
-            speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
-            logger.info('speed: {}'.format(speed))
+                if out['rc'] != 0:
+                    pytest.fail()
 
-            assert speed == '10000'
+                speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
+                logger.info('speed: {}'.format(speed))
+
+                assert speed == speed_to_configure
+            else:
+                logger.info("{} on {} only supports one speed. So not changing speed".format(test_intf, duthost))
+
+        else:
+            logger.info("Could not get supported speed on {} on {}. So not changing speed".format(test_intf, duthost))
+
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
