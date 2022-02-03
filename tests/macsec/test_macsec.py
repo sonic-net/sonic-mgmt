@@ -88,7 +88,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(duthost, ctrl_links, unctrl_links, profile_name, default_priority, cipher_suite,
+def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
           primary_cak, primary_ckn, policy, send_sci, request):
     if request.session.testsfailed > 0:
         return
