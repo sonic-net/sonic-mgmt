@@ -717,7 +717,8 @@ class TestConfigInterface():
         # Get supported speeds for interface
         supported_speeds = duthost.get_supported_speeds(interface)
         # Remove native speed from supported speeds
-        supported_speeds.remove(native_speed)
+        if supported_speeds != None:
+            supported_speeds.remove(native_speed)
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
