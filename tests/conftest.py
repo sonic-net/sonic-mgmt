@@ -540,7 +540,6 @@ def creds_on_dut(duthost):
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     exclude_regex_patterns = [
         'topo_.*\.yml',
-        'sku-sensors-data\.yml',
         'breakout_speed\.yml',
         'lag_fanout_ports_test_vars\.yml',
         'qos\.yml',
