@@ -127,8 +127,8 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         expected_profile = 'pg_lossless_{}_{}_profile'.format(port_speed, cable_length)
 
-        xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(expected_profile))['stdout'])
-        xon = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xon'.format(expected_profile))['stdout'])
+        xoff = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(expected_profile))['stdout'])
+        xon = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xon'.format(expected_profile))['stdout'])
         pg_headroom = int((xoff + xon) / 1024)
 
         neighbor_type = neighbor_to_type_map[neighbor]
