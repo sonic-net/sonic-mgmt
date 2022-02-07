@@ -1315,8 +1315,8 @@ def duts_minigraph_facts(duthosts, tbinfo):
 
 @pytest.fixture(scope="module", autouse=True)
 def get_reboot_cause(duthost):
-    uptime_start = duthost.get_uptime().total_seconds()
+    uptime_start = duthost.get_up_time()
     yield
-    uptime_end = duthost.get_uptime().total_seconds()
-    if uptime_end < uptime_start:
+    uptime_end = duthost.get_up_time()
+    if not uptime_end == uptime_start:
         duthost.show_and_parse("show reboot-cause history")
