@@ -64,6 +64,8 @@ interface Management 1
 mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
+# EAPOL packets pass through
+mac address-table reserved forward 0180.c200.0003
 !
 ip route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
 ip route vrf management 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
