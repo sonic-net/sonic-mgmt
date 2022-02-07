@@ -185,6 +185,16 @@ class SonicHost(AnsibleHostBase):
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
 
+    def _get_namespace_for_port(self, port_name):
+        out = self.shell("python -c \"from sonic_py_common import multi_asic; print(multi_asic.get_num_asics())\"", module_ignore_errors=True)
+        if not out["failed"]:
+            if int(out["stdout"]) > 1:
+                out = self.shell("python -c \"from sonic_py_common import multi_asic; import swsscommon; \
+                        swsscommon.swsscommon.SonicDBConfig.load_sonic_global_db_config(); \
+                        print(multi_asic.get_namespace_for_port('{}')); exit()\"".format(port_name), module_ignore_errors=True)
+                return "" if out["failed"] else out["stdout"]
+        return ""
+
     def _get_mgmt_interface(self):
         """
         Gets the IPs of management interface
@@ -890,7 +900,7 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to shutdown
         """
         logging.info("Shutting down {}".format(ifname))
-        return self.command("sudo config interface shutdown {}".format(ifname))
+        return self.command("sudo config interface -n \"{}\" shutdown {}".format(self._get_namespace_for_port(ifname), ifname))
 
     def shutdown_multiple(self, ifnames):
         """
@@ -918,7 +928,7 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to bring up
         """
         logging.info("Starting up {}".format(ifname))
-        return self.command("sudo config interface startup {}".format(ifname))
+        return self.command("sudo config interface -n \"{}\" startup {}".format(self._get_namespace_for_port(ifname), ifname))
 
     def no_shutdown_multiple(self, ifnames):
         """
