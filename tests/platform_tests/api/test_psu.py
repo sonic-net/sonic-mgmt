@@ -48,6 +48,9 @@ class TestPsuApi(PlatformApiTestBase):
                 self.num_psus = int(chassis.get_num_psus(platform_api_conn))
             except:
                 pytest.fail("num_psus is not an integer")
+            else:
+                if self.num_psus == 0:
+                    pytest.skip("No psus found on device")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         self.psu_skip_list = get_skip_mod_list(duthost, ['psus'])
@@ -393,6 +396,9 @@ class TestPsuApi(PlatformApiTestBase):
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
 
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                continue
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
                 for color in led_type:

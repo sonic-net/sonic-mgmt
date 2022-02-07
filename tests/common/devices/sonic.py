@@ -75,8 +75,11 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
-    def __repr__(self):
+    def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def facts(self):
@@ -1147,10 +1150,14 @@ Totals               6450                 6449
             tokens = line.split()
             if len(tokens) > 1:
                 key = tokens[0]
-                val = {}
+                if key in ret:
+                    val = ret[key]
+                else:
+                    val = {'routes': 0, 'FIB': 0}
                 if tokens[1].isdigit():
-                    val['routes'] = tokens[1]
-                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    val['routes'] += int(tokens[1])
+                    if len(tokens) > 2 and tokens[2].isdigit():
+                        val['FIB'] += int(tokens[2])
                     ret[key] = val
         return ret
 

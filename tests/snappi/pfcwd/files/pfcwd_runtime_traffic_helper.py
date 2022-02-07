@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import start_pfcwd, stop_pfcwd
 from tests.common.snappi.port import select_ports, select_tx_port
+from tests.common.snappi.snappi_helpers import wait_for_arp
 
 DATA_FLOW_NAME = "Data Flow"
 DATA_PKT_SIZE = 1024
@@ -177,6 +178,10 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
         per-flow statistics (list)
     """
     api.set_config(config)
+
+    logger.info('Wait for Arp to Resolve ...')
+    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
+
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START

@@ -133,7 +133,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 def setup_arpresponder(ptfhost, ip_to_port):
     logger.info("Copy arp_responder to ptfhost")
     # Stop existing arp responder if running
-    ptfhost.command('supervisorctl stop arp_responder')
+    ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
 
     d = defaultdict(list)
 
@@ -578,7 +578,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
 
 def cleanup(duthost, ptfhost):
     logger.info("Start cleanup")
-    ptfhost.command('rm /tmp/fg_ecmp_persist_map.json')
+    ptfhost.command('rm -f /tmp/fg_ecmp_persist_map.json')
     config_reload(duthost)
 
 

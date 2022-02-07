@@ -816,7 +816,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
-                logging.info("Dropped packet counters on port #{} :{} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], dscp))
+                logging.info("Dropped packet counters on port #{} :{} {} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], pg_dropped_cntrs_old[dscp], dscp))
                 # Check that counters per lossless PG increased
                 assert pg_dropped_cntrs[dscp] > pg_dropped_cntrs_old[dscp]
 
@@ -2084,7 +2084,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # On TH2 using scheduler-based TX enable, we find the Q min being inflated
         # to have 0x10 = 16 cells. This effect is captured in lossy traffic queue
         # shared test, so the margin here actually means extra capacity margin
-        margin = 8
+        margin = int(self.test_params['pkts_num_margin']) if self.test_params.get('pkts_num_margin') else 8
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in self.test_params.keys():

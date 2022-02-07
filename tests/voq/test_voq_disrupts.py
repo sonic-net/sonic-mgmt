@@ -105,7 +105,7 @@ def check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
             dump_and_verify_neighbors_on_asic(duthosts, host, asic, neighs, nbrhosts, all_cfg_facts, nbr_macs)
 
 
-def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts):
+def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
     """
     Checks basic IP connectivity through the voq system.
 
@@ -117,7 +117,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts):
     for porttype in ["ethernet", "portchannel"]:
         for version in [4, 6]:
 
-            ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, port_type_a=porttype, version=version)
+            ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
 
             for ttl, size in [(2, 64), (1, 1450)]:
                 # local interfaces

@@ -55,7 +55,10 @@ class SadPath(object):
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
-        self.dut_connection = DeviceConnection(test_args['dut_hostname'], test_args['dut_username'], password=test_args['dut_password'])
+        self.dut_connection = DeviceConnection(test_args['dut_hostname'],
+            test_args['dut_username'],
+            password=test_args['dut_password'],
+            alt_password=test_args.get('alt_password'))
         self.vlan_ports = vlan_ports
         self.ports_per_vlan = ports_per_vlan
         self.vlan_if_port = self.test_args['vlan_if_port']
@@ -214,7 +217,7 @@ class SadOper(SadPath):
             self.dut_bgps['changed_state'] = 'Active'
             [self.dut_needed.update({vm:None}) for vm in self.neigh_vms]
         elif self.oper_type == 'dut_bgp_down':
-            self.neigh_bgps['changed_state'] = 'Active,OpenSent'
+            self.neigh_bgps['changed_state'] = 'Active,OpenSent,Connect'
             self.dut_bgps['changed_state'] = 'Idle'
         elif 'neigh_lag' in self.oper_type:
             # on the DUT side, bgp states are different pre and post boot. hence passing multiple values
