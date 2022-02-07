@@ -37,24 +37,14 @@
     vm_set_name: "{{ testbed_facts['group-name'] }}"
     dut_side: "{% if dut_index|int == 0 %}upper_tor{% else %}lower_tor{% endif %}"
 
-# Legacy - inject simulated y cable driver
-- block:
-  - name: Generate y_cable_simulator driver to DUTs
-    template: src=dualtor/y_cable_simulator_client.j2
-              dest=/tmp/y_cable_simulator_client.py
-    become: true
-
-  - name: Copy y_cable_simulator to pmon container in DUTs
-    shell: docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages
-
-# New - inject mux simulator config
+# Inject mux simulator config
 # Below step is required after these PRs are merged:
 # * https://github.com/Azure/sonic-platform-common/pull/213
 # * https://github.com/Azure/sonic-platform-daemons/pull/197
 # For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
 # When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
-# File /etc/sonic/mux_simulator.json can co-exist with the 'y_cable_simulator_client.py' file injected above.
-# Process xcvrd will determine which one to load or use.
+# Otherwise, xcvrd will try to get cable vendor and model, then load corresponding y_cable driver based on
+# actual vendor/model of connected cable.
 - name: Generate mux simulator configuration for DUTs
   template: src=dualtor/mux_simulator.json.j2
             dest=/etc/sonic/mux_simulator.json
