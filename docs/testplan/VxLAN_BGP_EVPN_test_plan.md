@@ -88,9 +88,6 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 * Traffic should flow without any loss at line rate.
 
 #### Test results
-* It supports only upto 128 VTEPs. 
-* If we go beyond 128, VxLAN tunnel's are not coming up.
-* Vxlan tunnel destination IP's are not seen in community images.
 
 
 ## Test cases
