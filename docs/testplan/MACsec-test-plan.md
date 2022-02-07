@@ -22,10 +22,23 @@
     - [Periodic Rekey](#periodic-rekey)
       - [Test steps](#test-steps-2)
     - [Primary/Fallback CAK](#primaryfallback-cak)
+  - [Protocol](#protocol)
+    - [LLDP](#lldp)
+    - [LACP(Port Channel)](#lacpport-channel)
+    - [BGP](#bgp)
     - [PFC in MACsec](#pfc-in-macsec)
       - [Bypass mode](#bypass-mode)
       - [Encrypt mode](#encrypt-mode)
       - [Strict mode](#strict-mode)
+    - [SNMP](#snmp)
+  - [Negative Testing](#negative-testing)
+    - [Recovering from unexpected link down](#recovering-from-unexpected-link-down)
+    - [MACsec session cannot be established under wrong MKA configuration](#macsec-session-cannot-be-established-under-wrong-mka-configuration)
+  - [Others](#others)
+    - [COPP](#copp)
+    - [MACsec on T2 topology](#macsec-on-t2-topology)
+      - [One port-channel has four members enabled MACsec](#one-port-channel-has-four-members-enabled-macsec)
+      - [Scale tests](#scale-tests)
 
 ## Testbed
 
@@ -301,6 +314,21 @@ This testcase is only available if the field *rekey_period* in configuration is 
 
 TODO
 
+### Protocol
+
+#### LLDP
+
+Existing test can be passed under MACsec enabled environment.
+
+#### LACP(Port Channel)
+
+1. Existing test can be passed under MACsec enabled environment.
+2. If the MACsec enabled port was removed from a port-channel, this port can be used as a valid ethernet port for communication.
+
+#### BGP
+
+Existing test can be passed under MACsec enabled environment.
+
 #### PFC in MACsec
 
 ![MACsec_PFC_test](images/MACsec_PFC_test.png)  
@@ -342,3 +370,27 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
    - The DUT expects to no any PFC packet
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
+
+#### SNMP
+
+Existing test can be passed under MACsec enabled environment.
+
+### Negative Testing
+
+#### Recovering from unexpected link down
+
+MKA session can be recovered from the link flap.
+
+#### MACsec session cannot be established under wrong MKA configuration
+
+If the CAK is mis-matched, the MACsec cannot be established.
+
+### Others
+
+#### COPP
+
+#### MACsec on T2 topology
+
+##### One port-channel has four members enabled MACsec
+
+##### Scale tests
