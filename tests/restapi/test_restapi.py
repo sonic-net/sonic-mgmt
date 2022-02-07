@@ -79,11 +79,18 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     response = r.json()
     pytest_assert(response['reset_status'] == post_reboot_status)
 
+@pytest.fixture
+def cleanup_after_testing(rand_selected_dut):
+    """
+    Cleanup DUT by config reload after test running.
+    """
+    yield
+    config_reload(rand_selected_dut)
 
 '''
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
-def test_data_path(construct_url, vlan_members):
+def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -311,7 +318,7 @@ def test_data_path(construct_url, vlan_members):
     logger.info("Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
-def test_data_path_sad(construct_url, vlan_members):
+def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -461,7 +468,7 @@ def test_data_path_sad(construct_url, vlan_members):
 '''
 This test creates a VNET. It adds routes to the VNET and deletes them
 '''
-def test_create_vrf(construct_url):
+def test_create_vrf(construct_url, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -528,7 +535,7 @@ def test_create_vrf(construct_url):
 '''
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
-def test_create_interface(construct_url, vlan_members):
+def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -643,7 +650,7 @@ def test_create_interface(construct_url, vlan_members):
     logger.info(r.json())
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
 
-def test_create_interface_sad(construct_url, vlan_members):
+def test_create_interface_sad(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
