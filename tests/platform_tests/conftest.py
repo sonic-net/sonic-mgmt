@@ -131,10 +131,19 @@ def get_report_summary(analyze_result, reboot_type):
                               _parse_timestamp(marker_first_time)).total_seconds()
         time_spans_summary.update({entity.lower(): str(time_taken)})
 
+    lacp_sessions_waittime = analyze_result.get(\
+        "controlplane", {"lacp_sessions": []}).pop("lacp_sessions")
+    controlplane_summary = {"downtime": "", "arp_ping": "", "lacp_session_max_wait": ""}
+    if len(lacp_sessions_waittime) > 0:
+        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+        analyze_result.get(\
+            "controlplane", controlplane_summary).update(
+                {"lacp_session_max_wait": max_lacp_session_wait})
+
     result_summary = {
         "reboot_type": reboot_type,
         "dataplane": analyze_result.get("dataplane", {"downtime": "", "lost_packets": ""}),
-        "controlplane": analyze_result.get("controlplane", {"downtime": "", "arp_ping": ""}),
+        "controlplane": analyze_result.get("controlplane", controlplane_summary),
         "time_span": time_spans_summary,
         "offset_from_kexec": kexec_offsets_summary
     }
