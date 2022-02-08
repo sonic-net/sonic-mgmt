@@ -50,7 +50,9 @@ REQUIRED_TESTSUITE_ATTRIBUTES = {
     ("errors", int),
     ("xfails", int)
 }
-
+EXTRA_XML_SUMMARY_ATTRIBUTES = {
+    ("xfails", int)
+}
 # Fields found in the metadata/properties section of the JUnit XML file.
 # FIXME: These are specific to pytest, needs to be extended to support spytest.
 PROPERTIES_TAG = "properties"
@@ -418,6 +420,9 @@ def _update_test_summary(current, update):
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
+
+    for attribute, attr_type in EXTRA_XML_SUMMARY_ATTRIBUTES:
         new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
 
     return new_summary
