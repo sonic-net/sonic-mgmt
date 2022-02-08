@@ -3,7 +3,6 @@ import time
 import re
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
-from tests.common.errors import RunAnsibleModuleFail
 from collections import deque
 
 logger = logging.getLogger(__name__)
