@@ -3738,69 +3738,69 @@ vms_svc_1:
     VM10023:
       ansible_host: 10.206.144.45
     VM10024:
-      ansible_host: 172.16.139.56
+      ansible_host: 10.206.144.46
     VM10025:
-      ansible_host: 172.16.139.57
+      ansible_host: 10.206.144.47
     VM10026:
-      ansible_host: 172.16.139.58
+      ansible_host: 10.206.144.48
     VM10027:
-      ansible_host: 172.16.139.59
+      ansible_host: 10.206.144.49
     VM10028:
-      ansible_host: 172.16.139.60
+      ansible_host: 10.206.144.50
     VM10029:
-      ansible_host: 172.16.139.61
+      ansible_host: 10.206.144.51
     VM10030:
-      ansible_host: 172.16.139.62
+      ansible_host: 10.206.144.52
     VM10031:
-      ansible_host: 172.16.139.63
+      ansible_host: 10.206.144.53
     VM10032:
-      ansible_host: 172.16.139.64
+      ansible_host: 10.206.144.54
     VM10033:
-      ansible_host: 172.16.139.65
+      ansible_host: 10.206.144.55
     VM10034:
-      ansible_host: 172.16.139.66
+      ansible_host: 10.206.144.56
     VM10035:
-      ansible_host: 172.16.139.67
+      ansible_host: 10.206.144.57
     VM10036:
-      ansible_host: 172.16.139.68
+      ansible_host: 10.206.144.58
     VM10037:
-      ansible_host: 172.16.139.69
+      ansible_host: 10.206.144.59
     VM10038:
-      ansible_host: 172.16.139.70
+      ansible_host: 10.206.144.60
     VM10039:
-      ansible_host: 172.16.139.71
+      ansible_host: 10.206.144.61
     VM10040:
-      ansible_host: 172.16.139.72
+      ansible_host: 10.206.144.62
     VM10041:
-      ansible_host: 172.16.139.73
+      ansible_host: 10.206.144.63
     VM10042:
-      ansible_host: 172.16.139.74
+      ansible_host: 10.206.144.64
     VM10043:
-      ansible_host: 172.16.139.75
+      ansible_host: 10.206.144.65
     VM10044:
-      ansible_host: 172.16.139.76
+      ansible_host: 10.206.144.66
     VM10045:
-      ansible_host: 172.16.139.77
+      ansible_host: 10.206.144.67
     VM10046:
-      ansible_host: 172.16.139.78
+      ansible_host: 10.206.144.68
     VM10047:
-      ansible_host: 172.16.139.79
+      ansible_host: 10.206.144.69
     VM10048:
-      ansible_host: 172.16.139.80
+      ansible_host: 10.206.144.70
     VM10049:
-      ansible_host: 172.16.139.81
+      ansible_host: 10.206.144.71
     VM10050:
-      ansible_host: 172.16.139.82
+      ansible_host: 10.206.144.72
     VM10051:
-      ansible_host: 172.16.139.83
+      ansible_host: 10.206.144.73
     VM10052:
-      ansible_host: 172.16.139.84
+      ansible_host: 10.206.144.74
     VM10053:
-      ansible_host: 172.16.139.85
+      ansible_host: 10.206.144.75
     VM10054:
-      ansible_host: 172.16.139.86
+      ansible_host: 10.206.144.76
     VM10055:
-      ansible_host: 172.16.139.87
+      ansible_host: 10.206.144.77
     VM10056:
       ansible_host: 172.16.139.88
     VM10057:

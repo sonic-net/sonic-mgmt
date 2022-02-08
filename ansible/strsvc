@@ -17,6 +17,10 @@ all:
           ansible_host: 10.206.144.19
         svc1-2:
           ansible_host: 10.206.144.20  
+        svc1-3:
+          ansible_host: 10.206.144.138
+        svc1-4:
+          ansible_host: 10.206.144.139
 
 fanout:
   hosts:
@@ -25,13 +29,20 @@ fanout:
     svcstr-7260cx3-acs-2:
       ansible_host: 10.206.144.9
     svcstr-7260cx3-acs-3:
-      ansible_host: 10.206.144.10 
+      ansible_host: 10.206.144.10
+    svcstr-7260cx3-acs-6:
+      ansible_host: 10.206.144.135
+    svcstr-7260cx3-acs-7:
+      ansible_host: 10.206.144.136
+    svcstr-7260cx3-acs-8:
+      ansible_host: 10.206.144.137
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 24
   children:
     sonic_nexus_3164:
+    sonic_arista:
 
 sonic_nexus_3164:
   vars:
@@ -51,3 +62,80 @@ sonic_nexus_3164:
       ansible_host: 10.206.144.14
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
+
+sonic_arista:
+  vars:
+    iface_speed: 100000
+  hosts:
+    svcstr-7050-acs-1:
+      ansible_host: 10.206.144.131
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21131230
+      base_mac: 2c:dd:e9:0f:4e:50
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21131230"
+        "0x24": "2c:dd:e9:0f:4e:50"
+        "0x25": "2020/09/24 18:43:41"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18917935"
+        "0x2F": "JPE21131230"
+    svcstr-7050-acs-2:
+      ansible_host: 10.206.144.132
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21131315
+      base_mac: 2c:dd:e9:0f:3d:4c
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21131315"
+        "0x24": "2c:dd:e9:0f:3d:4c"
+        "0x25": "2020/09/25 19:14:47"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18917935"
+        "0x2F": "JPE21131315"
+    svcstr-7050-acs-3:
+      ansible_host: 10.206.144.133
+      hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21130688
+      base_mac: 2c:dd:e9:0f:59:24
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21130688"
+        "0x24": "2c:dd:e9:0f:59:24"
+        "0x25": "2020/09/24 20:29:39"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18917935"
+        "0x2F": "JPE21130688"
+    svcstr-7050-acs-4:
+      ansible_host: 10.206.144.134
+      hwsku: Arista-7050CX3-32S-D48C8
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21131246
+      base_mac: 2c:dd:e9:0f:3e:d8
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21131246"
+        "0x24": "2c:dd:e9:0f:3e:d8"
+        "0x25": "2020/09/25 00:34:03"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18917935"
+        "0x2F": "JPE21131246"

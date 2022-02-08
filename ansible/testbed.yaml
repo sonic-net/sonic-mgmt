@@ -1382,6 +1382,38 @@
   auto_recover: 'False'
   comment: genhwa
 
+- conf-name: vmsvc1-dual-t0-7050-1
+  group-name: svc1-3
+  topo: dualtor
+  ptf_image_name: docker-ptf
+  ptf: svc1-3
+  ptf_ip: 10.206.144.138/24
+  ptf_ipv6:
+  server: server_svc_1
+  vm_base: VM10048
+  dut:
+    - svcstr-7050-acs-1
+    - svcstr-7050-acs-2
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: v-saidia
+
+- conf-name: vmsvc1-dual-t0-7050-2
+  group-name: svc1-4
+  topo: dualtor-56
+  ptf_image_name: docker-ptf
+  ptf: svc1-4
+  ptf_ip: 10.206.144.139/24
+  ptf_ipv6:
+  server: server_svc_1
+  vm_base: VM10052
+  dut:
+    - svcstr-7050-acs-3
+    - svcstr-7050-acs-4
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: v-saidia
+
 - conf-name: vms-example-ixia-1
   group-name: vms6-1
   topo: t0-64

@@ -37,7 +37,17 @@
     vm_set_name: "{{ testbed_facts['group-name'] }}"
     dut_side: "{% if dut_index|int == 0 %}upper_tor{% else %}lower_tor{% endif %}"
 
-# Inject mux simulator config
+# Legacy - inject simulated y cable driver
+#- block:
+#  - name: Generate y_cable_simulator driver to DUTs
+#    template: src=dualtor/y_cable_simulator_client.j2
+#              dest=/tmp/y_cable_simulator_client.py
+#   become: true
+#
+#  - name: Copy y_cable_simulator to pmon container in DUTs
+#   shell: docker cp /tmp/y_cable_simulator_client.py pmon:/usr/lib/python3/dist-packages
+
+# New - inject mux simulator config
 # Below step is required after these PRs are merged:
 # * https://github.com/Azure/sonic-platform-common/pull/213
 # * https://github.com/Azure/sonic-platform-daemons/pull/197
