@@ -6,8 +6,8 @@ ZERO_ADDR = r'0.0.0.0/0'
 def generate_ips(num, prefix, exclude_ips):
     """ Generate random ips within prefix """
     prefix = IPNetwork(prefix)
-    exclude_ips.append(prefix.broadcast)
-    exclude_ips.append(prefix.network)
+    exclude_ips.append(prefix.broadcast) # lgtm [py/modification-of-default-value]
+    exclude_ips.append(prefix.network)   # lgtm [py/modification-of-default-value]
     available_ips = list(prefix)
 
     if len(available_ips) - len(exclude_ips)< num:
