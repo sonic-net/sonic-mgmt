@@ -2,6 +2,7 @@ import pytest
 import ipaddress
 import logging
 
+
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -71,7 +72,7 @@ def verify_default_route_in_app_db(asichost, tbinfo, af):
     Verify the nexthops for the default routes match the ip interfaces
     configured on the peer device 
     """
-    default_route = asichost.get_def_route_frm_app_db(af)
+    default_route = asichost.get_default_route_from_app_db(af)
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
     # There is only one default route in app_db
@@ -160,6 +161,9 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    
     af_list = ['ipv4', 'ipv6']
 
     # verify the default route is correct in the app db
@@ -172,11 +176,10 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
             'BGP Shutdown Timeout: BGP sessions not shutdown after 120 seconds')
 
     # give some more time for default route to be removed
-    time.sleep(120)
-    try:
-        for af in af_list:
-            default_route = asichost.get_def_route_frm_app_db(af)
-            pytest_assert(not default_route, \
-                "default route present after bgp shutdown: {}".format(default_route))
-    finally:
-        config_reload(duthost)
+    if not wait_until(120, 2, 0, asichost.is_default_route_removed_from_app_db):
+        pytest.fail(
+            'Default route is not removed from APP_DB')
+
+    duthost.command("sudo config bgp startup all")
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        pytest.fail("not all bgp sessions are up after config reload")

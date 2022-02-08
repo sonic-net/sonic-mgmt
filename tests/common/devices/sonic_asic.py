@@ -562,7 +562,7 @@ class SonicAsic(object):
         val = self.get_bgp_statistic(stat)
         return val == value
 
-    def get_def_route_frm_app_db(self, af='ipv4'):
+    def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':
             def_rt_str = 'ROUTE_TABLE:0.0.0.0/0'
@@ -575,3 +575,11 @@ class SonicAsic(object):
         if def_rt_entry is not None:
             def_rt_json = json.loads(def_rt_entry)
         return def_rt_json
+
+    def is_default_route_removed_from_app_db(self):
+        af_list = ['ipv4', 'ipv6']
+        for af in af_list:
+            def_rt_json = self.get_default_route_from_app_db(af)
+            if def_rt_json:
+                return False
+        return True
