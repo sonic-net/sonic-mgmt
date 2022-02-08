@@ -9,6 +9,7 @@ DUT_AS_NUM = 65100
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
+NG_LIST = []
 
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
@@ -297,6 +298,7 @@ def __tgen_bgp_config(cvg_api,
         route_type: IPv4 or IPv6 routes
         port_speed: speed of the port used for test
     """
+    global NG_LIST
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
     for i in range(1, port_count+1):
@@ -312,7 +314,6 @@ def __tgen_bgp_config(cvg_api,
         lp.ethernet.name = "lag_Ethernet %s" % i
         lp.ethernet.mac = "00:10:01:00:00:%s" % m
         config.devices.device(name='Topology %d' % i)
-        config.devices[i-1].container_name = c_lag.name
 
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
@@ -325,66 +326,84 @@ def __tgen_bgp_config(cvg_api,
     layer1.auto_negotiate = False
 
     def create_v4_topo():
-        config.devices[0].ethernet.name = 'Ethernet 1'
-        config.devices[0].ethernet.mac = "00:00:00:00:00:01"
-        config.devices[0].ethernet.ipv4.name = 'IPv4 1'
-        config.devices[0].ethernet.ipv4.address = temp_tg_port[0]['ip']
-        config.devices[0].ethernet.ipv4.gateway = temp_tg_port[0]['peer_ip']
-        config.devices[0].ethernet.ipv4.prefix = int(temp_tg_port[0]['prefix'])
+        eth = config.devices[0].ethernets.add()
+        eth.port_name = config.lags[0].name
+        eth.name = 'Ethernet 1'
+        eth.mac = "00:00:00:00:00:01"
+        ipv4 = eth.ipv4_addresses.add()
+        ipv4.name = 'IPv4 1'
+        ipv4.address = temp_tg_port[0]['ip']
+        ipv4.gateway = temp_tg_port[0]['peer_ip']
+        ipv4.prefix = int(temp_tg_port[0]['prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
+            NG_LIST.append('Network_Group%s'%i)
             if len(str(hex(i).split('0x')[1])) == 1:
                 m = '0'+hex(i).split('0x')[1]
             else:
                 m = hex(i).split('0x')[1]
-            ethernet_stack = config.devices[i-1].ethernet
+
+            ethernet_stack = config.devices[i-1].ethernets.add()
+            ethernet_stack.port_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
-            ipv4_stack = ethernet_stack.ipv4
+            ipv4_stack = ethernet_stack.ipv4_addresses.add()
             ipv4_stack.name = 'IPv4 %d' % i
             ipv4_stack.address = temp_tg_port[i-1]['ip']
             ipv4_stack.gateway = temp_tg_port[i-1]['peer_ip']
             ipv4_stack.prefix = int(temp_tg_port[i-1]['prefix'])
-            bgpv4_stack = ipv4_stack.bgpv4
-            bgpv4_stack.name = 'BGP %d' % i
-            bgpv4_stack.as_type = BGP_TYPE
-            bgpv4_stack.dut_address = temp_tg_port[i-1]['peer_ip']
-            bgpv4_stack.local_address = temp_tg_port[i-1]['ip']
-            bgpv4_stack.as_number = int(TGEN_AS_NUM)
-            route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group %d" % i)[-1]
-            route_range.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=number_of_routes)
+            bgpv4 = config.devices[i-1].bgp
+            bgpv4.router_id = temp_tg_port[i-1]['peer_ip']
+            bgpv4_int = bgpv4.ipv4_interfaces.add()
+            bgpv4_int.ipv4_name = ipv4_stack.name
+            bgpv4_peer = bgpv4_int.peers.add()
+            bgpv4_peer.name = 'BGP %d' % i
+            bgpv4_peer.as_type = BGP_TYPE
+            bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
+            bgpv4_peer.as_number = int(TGEN_AS_NUM)
+            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
+            route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
             rx_flow_name.append(route_range.name)
         return rx_flow_name
 
     def create_v6_topo():
-        config.devices[0].ethernet.name = 'Ethernet 1'
-        config.devices[0].ethernet.mac = "00:00:00:00:00:01"
-        config.devices[0].ethernet.ipv6.name = 'IPv6 1'
-        config.devices[0].ethernet.ipv6.address = temp_tg_port[0]['ipv6']
-        config.devices[0].ethernet.ipv6.gateway = temp_tg_port[0]['peer_ipv6']
-        config.devices[0].ethernet.ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
+        eth = config.devices[0].ethernets.add()
+        eth.port_name = config.lags[0].name
+        eth.name = 'Ethernet 1'
+        eth.mac = "00:00:00:00:00:01"
+        ipv6 = eth.ipv6_addresses.add()
+        ipv6.name = 'IPv6 1'
+        ipv6.address = temp_tg_port[0]['ipv6']
+        ipv6.gateway = temp_tg_port[0]['peer_ipv6']
+        ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
+            NG_LIST.append('Network_Group%s'%i)
             if len(str(hex(i).split('0x')[1])) == 1:
                 m = '0'+hex(i).split('0x')[1]
             else:
                 m = hex(i).split('0x')[1]
-            ethernet_stack = config.devices[i-1].ethernet
+            ethernet_stack = config.devices[i-1].ethernets.add()
+            ethernet_stack.port_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
-            ipv6_stack = ethernet_stack.ipv6
+            ipv6_stack = ethernet_stack.ipv6_addresses.add()
             ipv6_stack.name = 'IPv6 %d' % i
             ipv6_stack.address = temp_tg_port[i-1]['ipv6']
             ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
             ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-            bgpv6_stack = ipv6_stack.bgpv6
-            bgpv6_stack.name = r'BGP+ %d' % i
-            bgpv6_stack.as_type = BGP_TYPE
-            bgpv6_stack.dut_address = temp_tg_port[i-1]['peer_ipv6']
-            bgpv6_stack.local_address = temp_tg_port[i-1]['ipv6']
-            bgpv6_stack.as_number = int(TGEN_AS_NUM)
-            route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group %d" % i)[-1]
-            route_range.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=number_of_routes)
+            
+            bgpv6 = config.devices[i-1].bgp
+            bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
+            bgpv6_int = bgpv6.ipv6_interfaces.add()
+            bgpv6_int.ipv6_name = ipv6_stack.name
+            bgpv6_peer = bgpv6_int.peers.add()
+            bgpv6_peer.name  = 'BGP+_%d' % i
+            bgpv6_peer.as_type = BGP_TYPE
+            bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
+            bgpv6_peer.as_number = int(TGEN_AS_NUM)
+            route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
+            route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
             rx_flow_name.append(route_range.name)
         return rx_flow_name
 
@@ -432,6 +451,14 @@ def get_convergence_for_local_link_failover(cvg_api,
         rx_port_names.append(bgp_config.config.ports[i].name)
     bgp_config.rx_rate_threshold = 90/(multipath-1)
     cvg_api.set_config(bgp_config)
+
+    """ Starting Protocols """
+    logger.info("Starting all protocols ...")
+    cs = cvg_api.convergence_state()
+    cs.protocol.state = cs.protocol.START
+    cvg_api.set_state(cs)
+    wait(TIMEOUT, "For Protocols To start")
+
     def get_avg_dpdp_convergence_time(port_name):
         """
         Args:
@@ -508,19 +535,9 @@ def get_convergence_for_remote_link_failover(cvg_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
     """
-    route_names = []
-    for device in bgp_config.config.devices:
-        if device.name not in ['Topology 1']:
-            if route_type == 'IPv4':
-                for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
-                    route_names.append(route.name)
-            else:
-                for route in device.ethernet.ipv6.bgpv6.bgpv6_routes:
-                    route_names.append(route.name)
+    route_names = NG_LIST
     bgp_config.rx_rate_threshold = 90/(multipath-1)
     cvg_api.set_config(bgp_config)
-
-
     def get_avg_cpdp_convergence_time(route_name):
         """
         Args:
@@ -528,9 +545,14 @@ def get_convergence_for_remote_link_failover(cvg_api,
 
         """
         table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
             logger.info('|---- {} Route Withdraw Iteration : {} ----|'.format(route_name, i+1))
-
             """ Starting Traffic """
             logger.info('Starting Traffic')
             cs = cvg_api.convergence_state()
@@ -601,18 +623,9 @@ def get_rib_in_convergence(cvg_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
     """
-    route_names = []
-    for device in bgp_config.config.devices:
-        if device.name not in ['Topology 1']:
-            if route_type == 'IPv4':
-                for route in device.ethernet.ipv4.bgpv4.bgpv4_routes:
-                    route_names.append(route.name)
-            else:
-                for route in device.ethernet.ipv6.bgpv6.bgpv6_routes:
-                    route_names.append(route.name)
+    route_names = NG_LIST
     bgp_config.rx_rate_threshold = 90/(multipath)
     cvg_api.set_config(bgp_config)
-
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
         logger.info('|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
@@ -622,8 +635,13 @@ def get_rib_in_convergence(cvg_api,
         cs.route.names = route_names
         cs.route.state = cs.route.WITHDRAW
         cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Routes to be withdrawn")
-
+        wait(TIMEOUT-25, "For Routes to be withdrawn")
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Protocols To start")
         """ Start Traffic """
         logger.info('Starting Traffic')
         cs = cvg_api.convergence_state()
@@ -642,7 +660,7 @@ def get_rib_in_convergence(cvg_api,
         cs.route.names = route_names
         cs.route.state = cs.route.ADVERTISE
         cvg_api.set_state(cs)
-        wait(TIMEOUT, "For all routes to be ADVERTISED")
+        wait(TIMEOUT-25, "For all routes to be ADVERTISED")
         flows = get_flow_stats(cvg_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
@@ -663,7 +681,13 @@ def get_rib_in_convergence(cvg_api,
         cs = cvg_api.convergence_state()
         cs.transmit.state = cs.transmit.STOP
         cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
+        wait(TIMEOUT-20, "For Traffic To stop")
+        """ Stopping Protocols """
+        logger.info("Stopping all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.STOP
+        cvg_api.set_state(cs)
+        wait(TIMEOUT-20, "For Protocols To STOP")
     table.append('Advertise All BGP Routes')
     table.append(route_type)
     table.append(number_of_routes)
@@ -706,7 +730,6 @@ def get_RIB_IN_capacity(cvg_api,
             lp.ethernet.name = "lag_Ethernet %s" % i
             lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)
-            config.devices[i-1].container_name = c_lag.name
 
         config.options.port_options.location_preemption = True
         layer1 = config.layer1.layer1()[-1]
@@ -719,66 +742,81 @@ def get_RIB_IN_capacity(cvg_api,
         layer1.auto_negotiate = False
 
         def create_v4_topo():
-            config.devices[0].ethernet.name = 'Ethernet 1_%d' % routes
-            config.devices[0].ethernet.mac = "00:00:00:00:00:01"
-            config.devices[0].ethernet.ipv4.name = 'IPv4 1_%d' % routes
-            config.devices[0].ethernet.ipv4.address = temp_tg_port[0]['ip']
-            config.devices[0].ethernet.ipv4.gateway = temp_tg_port[0]['peer_ip']
-            config.devices[0].ethernet.ipv4.prefix = int(temp_tg_port[0]['prefix'])
+            eth = config.devices[0].ethernets.add()
+            eth.port_name = config.lags[0].name
+            eth.name = 'Ethernet 1'
+            eth.mac = "00:00:00:00:00:01"
+            ipv4 = eth.ipv4_addresses.add()
+            ipv4.name = 'IPv4 1'
+            ipv4.address = temp_tg_port[0]['ip']
+            ipv4.gateway = temp_tg_port[0]['peer_ip']
+            ipv4.prefix = int(temp_tg_port[0]['prefix'])
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
                     m = '0'+hex(i).split('0x')[1]
                 else:
                     m = hex(i).split('0x')[1]
-                ethernet_stack = config.devices[i-1].ethernet
-                ethernet_stack.name = 'Ethernet_%d_%d' % (i, routes)
+                ethernet_stack = config.devices[i-1].ethernets.add()
+                ethernet_stack.port_name = config.lags[i-1].name
+                ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
-                ipv4_stack = ethernet_stack.ipv4
-                ipv4_stack.name = 'IPv4_%d_%d' % (i, routes)
+                ipv4_stack = ethernet_stack.ipv4_addresses.add()
+                ipv4_stack.name = 'IPv4 %d' % i
                 ipv4_stack.address = temp_tg_port[i-1]['ip']
                 ipv4_stack.gateway = temp_tg_port[i-1]['peer_ip']
                 ipv4_stack.prefix = int(temp_tg_port[i-1]['prefix'])
-                bgpv4_stack = ipv4_stack.bgpv4
-                bgpv4_stack.name = 'BGP_%d_%d' % (i, routes)
-                bgpv4_stack.as_type = BGP_TYPE
-                bgpv4_stack.dut_address = temp_tg_port[i-1]['peer_ip']
-                bgpv4_stack.local_address = temp_tg_port[i-1]['ip']
-                bgpv4_stack.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group %d_%d" % (i, routes))[-1]
-                route_range.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=routes)
+                bgpv4 = config.devices[i-1].bgp
+                bgpv4.router_id = temp_tg_port[i-1]['peer_ip']
+                bgpv4_int = bgpv4.ipv4_interfaces.add()
+                bgpv4_int.ipv4_name = ipv4_stack.name
+                bgpv4_peer = bgpv4_int.peers.add()
+                bgpv4_peer.name = 'BGP %d' % i
+                bgpv4_peer.as_type = BGP_TYPE
+                bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
+                bgpv4_peer.as_number = int(TGEN_AS_NUM)
+                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) #snappi object named Network Group 2 not found in internal db
+                route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
 
         def create_v6_topo():
-            config.devices[0].ethernet.name = 'Ethernet 1'
-            config.devices[0].ethernet.mac = "00:00:00:00:00:01"
-            config.devices[0].ethernet.ipv6.name = 'IPv6 1'
-            config.devices[0].ethernet.ipv6.address = temp_tg_port[0]['ipv6']
-            config.devices[0].ethernet.ipv6.gateway = temp_tg_port[0]['peer_ipv6']
-            config.devices[0].ethernet.ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
+            eth = config.devices[0].ethernets.add()
+            eth.port_name = config.lags[0].name
+            eth.name = 'Ethernet 1'
+            eth.mac = "00:00:00:00:00:01"
+            ipv6 = eth.ipv6_addresses.add()
+            ipv6.name = 'IPv6 1'
+            ipv6.address = temp_tg_port[0]['ipv6']
+            ipv6.gateway = temp_tg_port[0]['peer_ipv6']
+            ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
                     m = '0'+hex(i).split('0x')[1]
                 else:
                     m = hex(i).split('0x')[1]
-                ethernet_stack = config.devices[i-1].ethernet
+                ethernet_stack = config.devices[i-1].ethernets.add()
+                ethernet_stack.port_name = config.lags[i-1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
-                ipv6_stack = ethernet_stack.ipv6
+                ipv6_stack = ethernet_stack.ipv6_addresses.add()
                 ipv6_stack.name = 'IPv6 %d' % i
                 ipv6_stack.address = temp_tg_port[i-1]['ipv6']
                 ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
                 ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-                bgpv6_stack = ipv6_stack.bgpv6
-                bgpv6_stack.name = r'BGP+ %d' % i
-                bgpv6_stack.as_type = BGP_TYPE
-                bgpv6_stack.dut_address = temp_tg_port[i-1]['peer_ipv6']
-                bgpv6_stack.local_address = temp_tg_port[i-1]['ipv6']
-                bgpv6_stack.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group %d_%d" % (routes, i))[-1]
-                route_range.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=routes)
+                
+                bgpv6 = config.devices[i-1].bgp
+                bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
+                bgpv6_int = bgpv6.ipv6_interfaces.add()
+                bgpv6_int.ipv6_name = ipv6_stack.name
+                bgpv6_peer = bgpv6_int.peers.add()
+                bgpv6_peer.name  = 'BGP+_%d' % i
+                bgpv6_peer.as_type = BGP_TYPE
+                bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
+                bgpv6_peer.as_number = int(TGEN_AS_NUM)
+                route_range = bgpv6_peer.v6_routes.add(name="Network Group %d" % i)
+                route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
         conv_config.rx_rate_threshold = 90/(multipath)
@@ -798,12 +836,16 @@ def get_RIB_IN_capacity(cvg_api,
         flow.metrics.loss = True
         return conv_config
 
-
     def run_traffic(routes):
         logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
         conv_config = tgen_capacity(routes)
         cvg_api.set_config(conv_config)
-
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Protocols To start")
         """ Starting Traffic """
         logger.info('Starting Traffic')
         cs = cvg_api.convergence_state()
@@ -850,6 +892,7 @@ def get_RIB_IN_capacity(cvg_api,
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             if float(flow_stats[0].loss) <= 0.001:
+                max_routes = start_value
                 pass
             else:
                 max_routes = l[i]-int(step_value/8)
@@ -859,6 +902,12 @@ def get_RIB_IN_capacity(cvg_api,
             cs.transmit.state = cs.transmit.STOP
             cvg_api.set_state(cs)
             wait(TIMEOUT-20, "For Traffic To stop")
+            """ Stopping Protocols """
+            logger.info("Stopping all protocols ...")
+            cs = cvg_api.convergence_state()
+            cs.protocol.state = cs.protocol.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Protocols To STOP")
     except Exception as e:
         logger.info(e)
     finally:
