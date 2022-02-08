@@ -2,8 +2,11 @@ import pytest
 import ipaddress
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
+
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
+from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -13,7 +16,88 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index):
+
+def get_upstream_neigh(tb):
+    """
+    Get the information for upstream neighbors present in the testbed
+    
+    returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)} 
+    """
+
+    def get_upstream_neigh_type(topo):
+        if 't0' in topo or 'dualtor' in topo:
+            return 't1'
+        elif 't1' in topo:
+            return 't2'
+        elif 't2' in topo:
+            return 't3'
+        else:
+            return None
+
+    upstream_neighbors = {}
+    neigh_type = get_upstream_neigh_type(tb['topo']['name'])
+    logging.info("testbed topo {} upstream neigh type {}".format(
+        tb['topo']['name'], neigh_type))
+
+    topo_cfg_facts = tb['topo']['properties'].get('configuration', None)
+    if topo_cfg_facts is None:
+        return upstream_neighbors
+
+    for neigh_name, neigh_cfg in topo_cfg_facts.iteritems():
+        if neigh_type not in neigh_name.lower():
+            continue
+        interfaces = neigh_cfg.get('interfaces', {})
+        ipv4_addr = None
+        ipv6_addr = None
+        for intf, intf_cfg in interfaces.iteritems():
+            if 'Port-Channel' in intf:
+                if 'ipv4' in intf_cfg:
+                    ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
+                if 'ipv6' in intf_cfg:
+                    ipv6_addr = interfaces[intf]['ipv6'].split('/')[0]
+            elif 'Ethernet' in intf:
+                if 'ipv4' in intf_cfg:
+                    ipv4_addr = interfaces[intf]['ipv4']
+                if 'ipv6' in intf_cfg:
+                    ipv6_addr = interfaces[intf]['ipv6']
+            else:
+                continue
+
+        upstream_neighbors.update({neigh_name: (ipv4_addr, ipv6_addr)})
+    return upstream_neighbors
+
+
+def verify_default_route_in_app_db(asichost, tbinfo, af):
+    """
+    Verify the nexthops for the default routes match the ip interfaces
+    configured on the peer device 
+    """
+    default_route = asichost.get_default_route_from_app_db(af)
+    pytest_assert(default_route, "default route not present in APP_DB")
+    logging.info("default route from app db {}".format(default_route))
+    # There is only one default route in app_db
+    key = default_route.keys()[0]
+
+    nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
+    pytest_assert(nexthop_list is not None, "Default route has not nexthops")
+    logging.info("nexthop list in app_db {}".format(nexthop_list) )
+    nexthops = set(nexthop_list.split(','))
+    upstream_neigh = get_upstream_neigh(tbinfo)
+    pytest_assert(upstream_neigh is not None, "No upstream neighbors in the testbed")
+
+    if af == 'ipv4':
+        upstream_neigh_ip = set([upstream_neigh[neigh][0]  for neigh in upstream_neigh])
+    elif af == 'ipv6':
+        upstream_neigh_ip= set([upstream_neigh[neigh][1]  for neigh in upstream_neigh])
+
+    logging.info("peer intf ip from tb {}".format(upstream_neigh_ip))
+    pytest_assert(len(nexthops) == len(upstream_neigh_ip), \
+                    "Default route nexthops doesn't match the testbed topology")
+
+
+
+
+def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
 
@@ -62,3 +146,40 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_
     for nh in rtinfo['nexthops']:
         pytest_assert(not nh[0].is_link_local, \
                 "use link local address {} for nexthop".format(nh[0]))
+
+
+def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+    """
+    Check the default route present in app_db has the correct nexthops ip
+    Check the default route is removed when the bgp sessions are shutdown
+     
+    """
+
+    pytest_require('t1-backend' not in tbinfo['topo']['name'], \
+            "Skip this testcase since this topology {} has no default routes"\
+                .format(tbinfo['topo']['name']))
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_asic_index)
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    
+    af_list = ['ipv4', 'ipv6']
+
+    # verify the default route is correct in the app db
+    for af in af_list:
+        verify_default_route_in_app_db(asichost, tbinfo, af)
+
+    duthost.command("sudo config bgp shutdown all")
+    if not wait_until(120, 2, 0, duthost.is_bgp_state_idle):
+        pytest.fail(
+            'BGP Shutdown Timeout: BGP sessions not shutdown after 120 seconds')
+
+    # give some more time for default route to be removed
+    if not wait_until(120, 2, 0, asichost.is_default_route_removed_from_app_db):
+        pytest.fail(
+            'Default route is not removed from APP_DB')
+
+    duthost.command("sudo config bgp startup all")
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        pytest.fail("not all bgp sessions are up after config reload")
