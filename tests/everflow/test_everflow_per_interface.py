@@ -90,7 +90,7 @@ def apply_mirror_session(rand_selected_dut):
 def ip_ver(request):
     return request.param
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     """
     Apply ACL rule for matching input_ports
