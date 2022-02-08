@@ -194,7 +194,6 @@ def __tgen_bgp_config(cvg_api,
     lp.protocol.lacp.lacpdu_timeout = lacpdu_timeout
     lp.ethernet.name= "eth0"
     lp.ethernet.mac = "00:11:02:00:10:01"
-    #for loop
     lag1 = config.lags.lag(name="lag1")[-1]
     for i in range(2,port_count+1):
         lagport = lag1.ports.port(port_name='Test_Port_%d' % i)[-1]
@@ -224,55 +223,61 @@ def __tgen_bgp_config(cvg_api,
     layer1.auto_negotiate = False
 
     #Source
-    d1 = config.devices.device(name='Tx')[-1]
-    d1.container_name = lag0.name
-    eth_1 = d1.ethernet
+    config.devices.device(name='Tx')
+    eth_1 = config.devices[0].ethernets.add()
+    eth_1.port_name = lag0.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
-    ipv4_1 = d1.ethernet.ipv4
+    ipv4_1 = eth_1.ipv4_addresses.add()
     ipv4_1.name = 'IPv4_1'
     ipv4_1.address = temp_tg_port[0]['ip']
     ipv4_1.gateway = temp_tg_port[0]['peer_ip']
-    ipv4_1.prefix = 24
-    ipv6_1 = d1.ethernet.ipv6
+    ipv4_1.prefix = int(temp_tg_port[0]['prefix'])
+    ipv6_1 = eth_1.ipv6_addresses.add()
     ipv6_1.name = 'IPv6_1'
     ipv6_1.address = temp_tg_port[0]['ipv6']
     ipv6_1.gateway = temp_tg_port[0]['peer_ipv6']
-    ipv6_1.prefix = 64
+    ipv6_1.prefix = int(temp_tg_port[0]['ipv6_prefix'])
 
     #Destination
-    d2 = config.devices.device(name="Rx")[-1]
-    d2.container_name = lag1.name
-    eth_2 = d2.ethernet
+    config.devices.device(name="Rx")
+    eth_2 = config.devices[1].ethernets.add()
+    eth_2.port_name = lag1.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
-    ipv4_2 = eth_2.ipv4
+    ipv4_2 = eth_2.ipv4_addresses.add()
     ipv4_2.name = 'IPv4_2'
     ipv4_2.address = temp_tg_port[1]['ip']
     ipv4_2.gateway = temp_tg_port[1]['peer_ip']
-    ipv4_2.prefix = 24
-    ipv6_2 = eth_2.ipv6
+    ipv4_2.prefix = int(temp_tg_port[1]['prefix'])
+    ipv6_2 = eth_2.ipv6_addresses.add()
     ipv6_2.name = 'IPv6_2'
-
     ipv6_2.address = temp_tg_port[1]['ipv6']
     ipv6_2.gateway = temp_tg_port[1]['peer_ipv6']
-    ipv6_2.prefix = 64
-    bgpv4_stack = ipv4_2.bgpv4
-    bgpv4_stack.name = 'BGP 2'
-    bgpv4_stack.as_type = BGP_TYPE
-    bgpv4_stack.dut_address = temp_tg_port[1]['peer_ip']
-    bgpv4_stack.local_address = temp_tg_port[1]['ip']
-    bgpv4_stack.as_number = int(TGEN_AS_NUM)
-    route_range1 = bgpv4_stack.bgpv4_routes.bgpv4route(name="IPv4_Routes")[-1]
-    route_range1.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=24, count=number_of_routes)
-    bgpv6_stack = ipv6_2.bgpv6
-    bgpv6_stack.name = r'BGP+_2'
-    bgpv6_stack.as_type = BGP_TYPE
-    bgpv6_stack.dut_address = temp_tg_port[1]['peer_ipv6']
-    bgpv6_stack.local_address = temp_tg_port[1]['ipv6']
-    bgpv6_stack.as_number = int(TGEN_AS_NUM)
-    route_range2 = bgpv6_stack.bgpv6_routes.bgpv6route(name="IPv6_Routes")[-1]
-    route_range2.addresses.bgpv6routeaddress(address='3000::1', prefix=64, count=number_of_routes)
+    ipv6_2.prefix = int(temp_tg_port[1]['ipv6_prefix'])
+    
+    bgpv4 = config.devices[1].bgp
+    bgpv4.router_id = temp_tg_port[1]['peer_ip']
+    bgpv4_int = bgpv4.ipv4_interfaces.add()
+    bgpv4_int.ipv4_name = ipv4_2.name
+    bgpv4_peer = bgpv4_int.peers.add()
+    bgpv4_peer.name = 'BGP %d' % i
+    bgpv4_peer.as_type = BGP_TYPE
+    bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv4_peer.as_number = int(TGEN_AS_NUM)
+    route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes") 
+    route_range1.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+    bgpv6 = config.devices[1].bgp
+    bgpv6.router_id = temp_tg_port[1]['peer_ip']
+    bgpv6_int = bgpv6.ipv6_interfaces.add()
+    bgpv6_int.ipv6_name = ipv6_2.name
+    bgpv6_peer = bgpv6_int.peers.add()
+    bgpv6_peer.name  = r'BGP+_2'
+    bgpv6_peer.as_type = BGP_TYPE
+    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
+    bgpv6_peer.as_number = int(TGEN_AS_NUM)
+    route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
+    route_range2.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
 
     def createTrafficItem(traffic_name, src, dest):
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
@@ -319,8 +324,13 @@ def get_lacp_add_remove_link_physically(cvg_api,
         Args:
             port_name: Name of the port
         """
-
         table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
             logger.info('|---- {} Link Flap Iteration : {} ----|'.format(port_name, i+1))
 
