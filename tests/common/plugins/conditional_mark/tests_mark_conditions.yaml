@@ -196,6 +196,12 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 #######################################
 #####     sub_port_interfaces     #####
 #######################################
+sub_port_interfaces:
+  skip:
+    reason: "sub port interfaces test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"

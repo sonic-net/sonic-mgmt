@@ -79,6 +79,8 @@ class HostManager():
         @param limit: The host patterns (None and empty string mean no limit)
         @return: A dict {hostname:vars}
         """
+        if limit and limit.lower() == 'all':
+            limit = '*'
         if not limit or limit == '':
             limit = '*'
         res = {}
