@@ -1,85 +1,70 @@
-drop_packets/test_drop_counters.py::test_loopback_filter:
-  # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
-  # Default SONiC behavior is to forward the traffic, so loop-back filter does not triggers for IP packets.
-  # All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
-  # To enable loop-back filter drops - need to disable that attribute when create RIF.
-  # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
-  skip:
-    reason: "SONiC can't enable loop-back filter feature"
-
-drop_packets/test_drop_counters.py::test_src_ip_link_local:
-  skip:
-    reason: "Cisco 8000 platform does not drop SIP link local packets"
-    conditions:
-      - "asic_type=='cisco-8000'"
-
-drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
-  skip:
-    reason: "Cisco 8000 platform does not drop packets with source IP address in class E"
-    conditions:
-      - "asic_type=='cisco-8000'"
-
-drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
-  skip:
-    reason: "Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
-    conditions:
-      - "asic_type=='cisco-8000'"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
-  # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details. 
-  # Due to this Cisco currently does not expose serial and model number under sysfs path
-  skip:
-    reason: "test_get_model is not supported in cisco and mellanox platform"
-    conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
-  # Hardware components that we use for our sensors does not have IDPROM to store model and serial number details.
-  # Due to this Cisco currently does not expose serial and model number under sysfs path
-  skip:
-    reason: "test_get_serial is not supported in cisco and mellanox platform"
-    conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
-  #Fan tray serial numbers cannot be retrieved through software in cisco platform
-  #there is no fan tray idprom
-  skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
-    conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
-  #Fan tray serial numbers cannot be retrieved through software in cisco platform
-  #there is no fan tray idprom
-  skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
-    conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
-  #Fan tray serial numbers cannot be retrieved through software in cisco platform
-  #there is no fan tray idprom
-  skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
-    conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-ntp/test_ntp.py::test_ntp_long_jump_disabled:
-  # Due to NTP code bug, long jump will still happen after disable it.
-  # Set xfail flag for this test case
+#######################################
+#####            cacl             #####
+#######################################
+cacl/test_cacl_application.py::test_cacl_application:
   xfail:
+    reason: "Image issue on Boradcom dualtor testbeds"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+#######################################
+#####            decap            #####
+#######################################
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
+  skip:
+    reason: "Not supported on backend"
+    conditions:
+      - "topo_name in ['t1-backend', 't0-backend']"
+
+#######################################
+#####         dhcp_relay          #####
+#######################################
+dhcp_relay/test_dhcpv6_relay.py:
+  xfail:
+    reason: "Generic internal image feature missing"
     strict: True
-    reason: "Known NTP bug"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
-platform_tests/test_sequential_restart.py::test_restart_syncd:
+#######################################
+#####           dualtor           #####
+#######################################
+dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
+  xfail:
+    reason: "Image issue on Boradcom platforms, but not consistently failing"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on:
+  xfail:
+    reason: "Image issue on Boradcom platforms, only fail on some dscp values"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+dualtor/test_tor_ecn.py::test_ecn_during_decap_on:
+  xfail:
+    reason: "Test flaky"
+
+#######################################
+#####             ecmp            #####
+#######################################
+ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "Restarting syncd is not supported yet"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    conditions:
+      - "branch not in ['master']"
 
-platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
+ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "Command not yet merged into sonic-utilites"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    conditions:
+      - "branch not in ['master']"
 
+#######################################
+#####         everflow            #####
+#######################################
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
     strict: True
@@ -87,24 +72,54 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "asic_type=='cisco-8000'"
 
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
-   skip:
-     reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
-     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_led:
-  skip:
-    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
+#######################################
+#####      iface_namingmode       #####
+#######################################
+iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
-  skip:
-    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
+iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
+iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark:
+  xfail:
+    reason: "Platform specific issue"
+    strict: True
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+#######################################
+#####           ntp               #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  # Due to NTP code bug, long jump will still happen after disable it.
+  # Set xfail flag for this test case
+  xfail:
+    strict: True
+    reason: "Known NTP bug"
+
+#######################################
+#####         pfcwd               #####
+#######################################
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+  xfail:
+    reason: "Test flaky"
+
+pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
+  xfail:
+    reason: "Test flaky"
+
+#######################################
+#####           qos               #####
+#######################################
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -114,6 +129,42 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
+qos/test_qos_sai.py:
+  skip:
+    reason: "qos_sai tests not supported on t1 topo"
+    conditions:
+      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+
+#######################################
+#####         restapi             #####
+#######################################
+restapi/test_restapi.py:
+  skip:
+    reason: "Only supported on Mellanox"
+    conditions:
+      - "asic_type not in ['mellanox']"
+
+#######################################
+#####           route             #####
+#######################################
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/Azure/sonic-buildimage/issues/4930.
   # Temporarily disabling the test case due to the this issue.
@@ -121,6 +172,20 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/Azure/sonic-buildimage/issues/4930
 
+#######################################
+#####      show_techsupport       #####
+#######################################
+show_techsupport/test_techsupport.py::test_techsupport[:
+  xfail:
+    reason: "Generic internal image issue"
+    strict: True
+    conditions:
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.33'"
+
+#######################################
+#####             ssh             #####
+#######################################
 ssh/test_ssh_stress.py::test_ssh_stress:
   # This test is not stable, skip it for now.
   # known issue: https://github.com/paramiko/paramiko/issues/1508
@@ -128,403 +193,9 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
-  # Skip unsupported API test on Mellanox platform
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_components:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_my_slot:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_fan_drawers:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_power:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_fans:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_name:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_position_in_parent:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_fault:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_temperature:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_name:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_presence:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_model:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_serial:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_position_in_parent:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_is_replaceable:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_description:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_version:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmware_version:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_update_notification:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_install_firmware:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_minimum_recorded:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_maximum_recorded:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
+#######################################
+#####     sub_port_interfaces     #####
+#######################################
 sub_port_interfaces:
   skip:
     reason: "sub port interfaces test is not yet supported on multi-ASIC platform"
@@ -536,43 +207,28 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
     conditions:
       - "asic_type=='cisco-8000'"
-      
-drop_packets/test_drop_counters.py::test_dst_ip_link_local:
-  skip:
-    reason: "Cisco 8000 platform does not drop DIP linklocal packets in 202012 version"
-    conditions:
-      - "asic_type=='cisco-8000' and release in ['202012']"
 
-drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
-  skip:
-    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version"
+#######################################
+#####             syslog          #####
+#######################################
+syslog/test_syslog.py:
+  xfail:
+    reason: "Generic internal image issue"
     conditions:
-      - "asic_type=='cisco-8000' and release in ['202012']"
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.33'"
+  skip:
+    reason: "Testcase enhancements needed for backend topo"
+    conditions:
+      - "topo_name in ['t0-backend', 't1-backend']"
+      - https://github.com/Azure/sonic-mgmt/issues/4469
 
-platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json: 
-  #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file, 
-  #hence the test case needs to be skipped 
-  skip:
-    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
+#######################################
+#####         system_health       #####
+#######################################
+system_health/test_system_health.py::test_service_checker_with_process_exit:
+  xfail:
+    strict: True
     conditions:
-      - "asic_type=='cisco-8000'"
-
-platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:  
-  #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file, 
-  #hence the test case needs to be skipped  
-  skip:
-    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
-    conditions:
-      - "asic_type=='cisco-8000'"
-
-platform_tests/api/test_watchdog.py:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara']"
-
-qos/test_qos_sai.py:
-  skip:
-    reason: "qos_sai tests not supported on t1 topo"
-    conditions:
-      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+      - "branch in ['internal-202012']"
+      - "build_version <= '20201231.44'"
