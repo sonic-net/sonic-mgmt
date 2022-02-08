@@ -4,6 +4,7 @@ import json
 import logging
 import getpass
 import random
+import re
 
 import pytest
 import yaml
@@ -21,6 +22,7 @@ from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
+from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 
 from tests.common.helpers.constants import (
@@ -39,6 +41,9 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
+from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 
 
 logger = logging.getLogger(__name__)
@@ -129,24 +134,13 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
 
-    ############################
-    # upgrade_path options     #
-    ############################
-    parser.addoption("--upgrade_type", default="warm",
-        help="Specify the type (warm/fast/cold/soft) of upgrade that is needed from source to target image",
-    )
+    ##################################
+    # advance-reboot,upgrade options #
+    ##################################
+    add_advanced_reboot_args(parser)
+    add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
 
-    parser.addoption("--base_image_list", default="",
-        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--target_image_list", default="",
-        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
-    )
-
-    parser.addoption("--restore_to_image", default="",
-        help="Specify the target image to restore to, or stay in target image if empty",
-    )
     ############################
     #   loop_times options     #
     ############################
@@ -370,9 +364,12 @@ def k8smasters(ansible_adhoc, request):
     k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
+    k8s_inv_file = None
     for inv_file in inv_files:
         if "k8s" in inv_file:
             k8s_inv_file = inv_file
+    if not k8s_inv_file:
+        pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
@@ -413,21 +410,24 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
         vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
-            devices[k] = {'host': EosHost(ansible_adhoc,
-                                        vm_name,
-                                        creds['eos_login'],
-                                        creds['eos_password'],
-                                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+            device = NeighborDevice({'host': EosHost(ansible_adhoc,
+                                                     vm_name,
+                                                     creds['eos_login'],
+                                                     creds['eos_password'],
+                                                     shell_user=creds[
+                                                         'eos_root_user'] if 'eos_root_user' in creds else None,
+                                                     shell_passwd=creds[
+                                                         'eos_root_password'] if 'eos_root_password' in creds else None),
+                                     'conf': tbinfo['topo']['properties']['configuration'][k]})
         elif neighbor_type == "sonic":
-            devices[k] = {'host': SonicHost(ansible_adhoc,
+            device = NeighborDevice({'host': SonicHost(ansible_adhoc,
                                         vm_name,
                                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
-                        'conf': tbinfo['topo']['properties']['configuration'][k]}
+                                    'conf': tbinfo['topo']['properties']['configuration'][k]})
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+        devices[k] = device
     return devices
 
 
@@ -538,12 +538,23 @@ def creds_on_dut(duthost):
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    exclude_regex_patterns = [
+        'topo_.*\.yml',
+        'breakout_speed\.yml',
+        'lag_fanout_ports_test_vars\.yml',
+        'qos\.yml',
+        'mux_simulator_http_port_map\.yml'
+        ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
+    filtered_files = [
+        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
+    ]
+
     creds = {}
-    for f in files:
+    for f in filtered_files:
         with open(f) as stream:
             v = yaml.safe_load(stream)
             if v is not None:
@@ -583,7 +594,7 @@ def creds(duthosts, rand_one_dut_hostname):
 def creds_all_duts(duthosts):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
     return creds_all_duts
 
 
@@ -1100,16 +1111,16 @@ def pytest_generate_tests(metafunc):
                     tuple_list.append((a_dut, a_asic))
             else:
                 tuple_list.append((a_dut, None))
-        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module", indirect=True)
     elif dut_fixture_name:
         # parameterize only on DUT
-        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module", indirect=True)
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
         if len(asics_selected):
-            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module", indirect=True)
         else:
-            metafunc.parametrize(asic_fixture_name, [None], scope="module")
+            metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1133,6 +1144,44 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+
+### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
+@pytest.fixture(scope="module")
+def enum_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_supervisor_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_frontend_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_backend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_asic_index(request):
+    return request.param
 
 @pytest.fixture(scope="module")
 def duthost_console(localhost, creds, request):
@@ -1301,3 +1350,11 @@ def duts_minigraph_facts(duthosts, tbinfo):
         }
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
+
+@pytest.fixture(scope="module", autouse=True)
+def get_reboot_cause(duthost):
+    uptime_start = duthost.get_up_time()
+    yield
+    uptime_end = duthost.get_up_time()
+    if not uptime_end == uptime_start:
+        duthost.show_and_parse("show reboot-cause history")

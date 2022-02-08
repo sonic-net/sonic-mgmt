@@ -40,7 +40,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot'], (
+        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
             "Please set rebootType var."
         )
 
@@ -408,6 +408,7 @@ class AdvancedReboot:
         for host, logs in logFiles.items():
             for log in logs:
                 host.fetch(**log)
+        return log_dir
 
     def imageInstall(self, prebootList=None, inbootList=None, prebootFiles=None):
         '''
@@ -453,15 +454,15 @@ class AdvancedReboot:
                 failed_list.append(rebootOper)
             finally:
                 # always capture the test logs
-                self.__fetchTestLogs(rebootOper)
+                log_dir = self.__fetchTestLogs(rebootOper)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
                 if self.advanceboot_loganalyzer:
-                    post_reboot_analysis(marker, reboot_oper=rebootOper)
+                    post_reboot_analysis(marker, reboot_oper=rebootOper, log_dir=log_dir)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
         pytest_assert(len(failed_list) == 0,\
-            "Advanced-reboot failure. Failed cases: {}".format(failed_list))
+            "Advanced-reboot failure. Failed test: {}, sub-cases: {}".format(self.request.node.name, failed_list))
         return result
 
     def runRebootTestcase(self, prebootList=None, inbootList=None,
@@ -538,7 +539,8 @@ class AdvancedReboot:
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
-            "preboot_files" : self.prebootFiles
+            "preboot_files" : self.prebootFiles,
+            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword")
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -557,7 +559,9 @@ class AdvancedReboot:
 
         self.__updateAndRestartArpResponder(rebootOper)
 
-        logger.info('Run advanced-reboot ReloadTest on the PTF host')
+
+        logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
+            self.request.node.name, str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
             "ptftests",

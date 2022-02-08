@@ -101,7 +101,7 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
         __recover_with_command(dut, method['cmd'], wait_time)
 
 @reset_ansible_local_tmp
-def neighbor_vm_recover_bgpd(node=None):
+def neighbor_vm_recover_bgpd(node=None, results=None):
     nbr_host = node['host']
     intf_list = node['conf']['interfaces'].keys()
     # restore interfaces and portchannels
@@ -109,9 +109,14 @@ def neighbor_vm_recover_bgpd(node=None):
         nbr_host.no_shutdown(intf)
     asn = node['conf']['bgp']['asn']
     # start BGPd
-    nbr_host.start_bgpd()
+    out = nbr_host.start_bgpd()
+    if out['failed'] and results:
+        results[nbr_host.hostname] = out['results']
+        return
     # restore BGP session
-    nbr_host.no_shutdown_bgp(asn)
+    out = nbr_host.no_shutdown_bgp(asn)
+    if results:
+        results[nbr_host.hostname] = out['results']
 
 def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
