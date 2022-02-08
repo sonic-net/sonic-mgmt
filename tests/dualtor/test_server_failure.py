@@ -24,7 +24,7 @@ def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_c
         
     upper_tor = duthosts[tbinfo['duts'][0]]
     lower_tor = duthosts[tbinfo['duts'][1]]
-    PAUSE_TIME = 5
+    PAUSE_TIME = 10
 
     itfs, _ = rand_selected_interface
     # Set upper_tor as active
