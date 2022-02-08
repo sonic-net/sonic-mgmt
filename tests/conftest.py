@@ -1111,16 +1111,16 @@ def pytest_generate_tests(metafunc):
                     tuple_list.append((a_dut, a_asic))
             else:
                 tuple_list.append((a_dut, None))
-        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module", indirect=True)
     elif dut_fixture_name:
         # parameterize only on DUT
-        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module", indirect=True)
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
         if len(asics_selected):
-            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module", indirect=True)
         else:
-            metafunc.parametrize(asic_fixture_name, [None], scope="module")
+            metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1144,6 +1144,44 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+
+### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
+@pytest.fixture(scope="module")
+def enum_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_supervisor_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_frontend_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_backend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_asic_index(request):
+    return request.param
 
 @pytest.fixture(scope="module")
 def duthost_console(localhost, creds, request):
