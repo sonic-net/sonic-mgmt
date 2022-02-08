@@ -167,70 +167,97 @@ def get_device_info():
     return ret
 
 
-def get_cable_len(ifname):
-    return {ifname: config_db_data_orig['CABLE_LENGTH']['AZURE'][ifname]}
-
-def get_pg_profile(ifname):
-    def target_if_pg_only(key):
-        return ifname in key
-    res = {}
-    pgs = config_db_data_orig['BUFFER_PG']
-    for pg in filter(target_if_pg_only, pgs):
-        res[pg] = pgs[pg]
-    return res
-
-def get_queue_cfg(ifname):
-    def target_if_queue_only(key):
-        return ifname in key
-    res = {}
-    queues = config_db_data_orig['QUEUE']
-    for key in filter(target_if_queue_only, queues):
-        res[key] = queues[key]
-    return res
-
-def get_queue_profile(ifname):
-    def target_if_queue_only(key):
-        return ifname in key 
-    res = {}
-    queues = config_db_data_orig['BUFFER_QUEUE']
-    for key in filter(target_if_queue_only, queues):
-        q_range = key[key.rindex('|')+1:]
-        res[ifname + '|' + q_range] = queues[key]
-    return res
-
-def get_qos_map(ifname):
-    return {ifname: config_db_data_orig['PORT_QOS_MAP'][ifname]}
-    
-def get_pfcwd_config(ifname):
-    pfc_wd = {}
-    pfc_time = get_pfc_time()
-    if pfc_time:
-            # "PFC_WD"
-            pfc_wd[ifname] = {
-                    "action": "drop",
-                    "detection_time": pfc_time,
-                    "restoration_time": pfc_time }
-    return pfc_wd
-
-def get_port_qos_config():
+def get_port_related_data(is_mlnx, is_storage_backend):
     ret = []
     cable = {}
     queue = {}
     buffer_pg = {}
     buffer_q = {}
+    buffer_port_ingress = {}
+    buffer_port_egress = {}
     qos = {}
-    pfc_wd = {}    
+    pfc_wd = {}
+    pfc_time = get_pfc_time()
     
     log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
     for local_port in sonic_local_ports:
-        cable.update(get_cable_len(local_port))
-        buffer_pg.update(get_pg_profile(local_port))
-        queue.update(get_queue_cfg(local_port))
-        buffer_q.update(get_queue_profile(local_port))
-        qos.update(get_qos_map(local_port))
-        pfc_wd.update(get_pfcwd_config(local_port))
+        # Hard coded as 300m per discussion with Neetha
 
+        #  "CABLE_LENGTH"
+        cable[local_port] = "300m"
+
+        # "BUFFER_PG"
+        buffer_pg["{}|0".format(local_port)] = {
+                "profile": "[BUFFER_PROFILE|ingress_lossy_profile]" }
+
+        # "QUEUE"
+        for i in range(3):
+            queue["{}|{}".format(local_port, i)] = {
+                    "scheduler": "[SCHEDULER|scheduler.0]"}
+
+        for i in range(3, 5):
+            queue["{}|{}".format(local_port, i)] = {
+                    "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+                    "scheduler": "[SCHEDULER|scheduler.1]"}
+        
+        for i in range(5,7):
+            queue["{}|{}".format(local_port, i)] = {
+                    "scheduler": "[SCHEDULER|scheduler.0]"}
+
+        # "BUFFER_QUEUE"
+        lossy_profile = "[BUFFER_PROFILE|{}]".format(
+                    "q_lossy_profile" if is_mlnx else "egress_lossy_profile")
+
+        buffer_q["{}|0-2".format(local_port)] = {"profile": lossy_profile}
+
+        buffer_q["{}|3-4".format(local_port)] = {
+                "profile": "[BUFFER_PROFILE|egress_lossless_profile]" }
+
+        buffer_q["{}|5-6".format(local_port)] = {"profile": lossy_profile}
+
+        if is_mlnx:
+            # "BUFFER_PORT_INGRESS_PROFILE_LIST"
+            if is_version_2019_higher():
+                buffer_port_ingress[local_port] = {
+                        "profile_list": "[BUFFER_PROFILE|ingress_lossless_profile]"
+                        }
+            else:
+                buffer_port_ingress[local_port] = {
+                        "profile_list": "[BUFFER_PROFILE|ingress_lossless_profile],[BUFFER_PROFILE|ingress_lossy_profile]"
+                        }
+            # "BUFFER_PORT_EGRESS_PROFILE_LIST"
+            buffer_port_egress[local_port] = {
+                    "profile_list": "[BUFFER_PROFILE|egress_lossless_profile],[BUFFER_PROFILE|egress_lossy_profile]"
+                    }
+            ret.append({ "BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress })
+            ret.append({ "BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress })
+
+        # "PORT_QOS_MAP"
+        qos[local_port] = {
+                "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
+                "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
+                "pfc_enable": "3,4",
+                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]"
+                }
+
+        if is_storage_backend:
+            qos[local_port]["dot1p_to_tc_map"] = "[DOT1P_TO_TC_MAP|AZURE]"
+        else:
+            qos[local_port]["dscp_to_tc_map"]  = "[DSCP_TO_TC_MAP|AZURE]"
+
+        if is_mlnx:
+            qos[local_port]["pfc_to_pg_map"] = "[PFC_PRIORITY_TO_PRIORITY_GROUP_MAP|AZURE]"
+
+        if pfc_time:
+            # "PFC_WD"
+            pfc_wd[local_port] = {
+                    "action": "drop",
+                    "detection_time": pfc_time,
+                    "restoration_time": pfc_time }
+
+
+        
     ret.append({ "CABLE_LENGTH": { "AZURE": cable } })
     ret.append({ "QUEUE": queue })
     ret.append({ "BUFFER_PG": buffer_pg })
@@ -240,7 +267,7 @@ def get_port_qos_config():
         ret.append({ "PFC_WD": pfc_wd })
 
     return ret
-
+         
 
 def get_bgp_neighbor():
     bgp = {}
@@ -274,7 +301,7 @@ def write_out(lst, tmpdir):
     managed_files["configlet"] = fpath
 
 
-def main(tmpdir, is_storage_backend):
+def main(tmpdir, is_mlnx, is_storage_backend):
     global sonic_local_ports
     ret = []
 
@@ -288,7 +315,21 @@ def main(tmpdir, is_storage_backend):
         ret += get_vlan_sub_interface()
     ret += get_acl()
     ret += get_device_info()
-    ret += get_port_qos_config()
+    ret += get_port_related_data(is_mlnx, is_storage_backend)
     ret += get_bgp_neighbor()
 
     write_out(ret, tmpdir)
+
+    return 0
+
+
+
+    
+    
+
+
+
+
+
+
+
