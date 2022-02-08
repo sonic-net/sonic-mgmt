@@ -11,7 +11,7 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox')
+    pytest.mark.asic('mellanox', 'barefoot')
 ]
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def ensure_dut_readiness(duthost):
     verify_orchagent_running_or_assert(duthost)
 
     yield
- 
+
     verify_orchagent_running_or_assert(duthost)
     logger.info("Restoring config_db.json")
     duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(config_tmpfile))
@@ -44,7 +44,7 @@ def ensure_dut_readiness(duthost):
 
 def prepare_configdb_field(duthost, configdb_field, value):
     """
-    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty string or None, delete the current entry. 
+    Prepares config db by setting BUFFER_POOL key and field to specified value. If value is empty string or None, delete the current entry.
 
     Args:
         duthost: DUT host object
@@ -58,12 +58,12 @@ def prepare_configdb_field(duthost, configdb_field, value):
     key = configdb_field_elements[0]
     field = configdb_field_elements[1]
     logger.info("Setting configdb key: {} field: {} to value: {}".format(key, field, value))
-   
+
     if value:
         cmd = "sonic-db-cli CONFIG_DB hset \"BUFFER_POOL|{}\" \"{}\" \"{}\" ".format(key, field, value)
     else:
         cmd = "sonic-db-cli CONFIG_DB del \"BUFFER_POOL|{}\" \"{}\" ".format(key, field)
-   
+
     verify_orchagent_running_or_assert(duthost)
 
 
@@ -73,16 +73,16 @@ def prepare_configdb_field(duthost, configdb_field, value):
 def test_incremental_qos_config_updates(duthost, ensure_dut_readiness, configdb_field, operation, field_pre_status):
     operation_to_new_value_map = {"add": "678", "replace": "789", "remove": ""}
     field_pre_status_to_value_map = {"existing": "567", "nonexistent": ""}
-    
-    prepare_configdb_field(duthost, configdb_field, field_pre_status_to_value_map[field_pre_status]) 
+
+    prepare_configdb_field(duthost, configdb_field, field_pre_status_to_value_map[field_pre_status])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}".format(tmpfile, configdb_field, operation))
 
     json_patch = [
         {
-            "op": "{}".format(operation), 
-            "path": "/BUFFER_POOL/{}".format(configdb_field), 
+            "op": "{}".format(operation),
+            "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(operation_to_new_value_map[operation])
         }
     ]
