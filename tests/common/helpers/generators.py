@@ -41,14 +41,15 @@ def route_through_default_routes(host, ip_addr):
     return ret
 
 
-def generate_ip_through_default_route(host):
+def generate_ip_through_default_route(host, exclude_ips=[]):
     """
     @summary: Generate a random IP address routed through default routes
     @param host: The duthost
+    @param exclude_ips: IPs to exclude, default empty
     @return: A str, on None if non ip is found in given range
     """
     for leading in range(11, 255):
-        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), [])[0]
+        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips)[0]
         if route_through_default_routes(host, ip_addr):
             return ip_addr
     return None
