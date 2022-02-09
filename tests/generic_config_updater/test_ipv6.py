@@ -1,5 +1,7 @@
 import logging
 import pytest
+import ipaddress
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
@@ -44,14 +46,14 @@ def get_ipv6_neighbor(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors_data = config_facts['BGP_NEIGHBOR']
     for neighbor_address in bgp_neighbors_data.keys():
-        if "::" in neighbor_address:
+        if ipaddress.ip_address(unicode(neighbor_address)).version == 6:
             return neighbor_address, bgp_neighbors_data[neighbor_address]
     pytest_assert(True, "No existing ipv6 neighbor")
 
 
 def check_neighbor_existence(duthost, neighbor_address):
     ipv6_bgp_su = duthost.shell('show ipv6 bgp su')['stdout']
-    return neighbor_address in ipv6_bgp_su
+    return re.search(r'\b{}\b'.format(neighbor_address), ipv6_bgp_su)
 
 
 def test_add_deleted_ipv6_neighbor(duthost, ensure_dut_readiness):
@@ -67,16 +69,7 @@ def test_add_deleted_ipv6_neighbor(duthost, ensure_dut_readiness):
         {
             "op": "add",
             "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address),
-            "value": {
-                "admin_status": "up",
-                "asn": "{}".format(ipv6_neighbor_config['asn']),
-                "holdtime": "{}".format(ipv6_neighbor_config['holdtime']),
-                "keepalive": "{}".format(ipv6_neighbor_config['keepalive']),
-                "local_addr": "{}".format(ipv6_neighbor_config['local_addr']),
-                "name": "{}".format(ipv6_neighbor_config['name']),
-                "nhopself": "{}".format(ipv6_neighbor_config['nhopself']),
-                "rrclient": "{}".format(ipv6_neighbor_config['rrclient'])
-            }
+            "value": ipv6_neighbor_config
         }
     ]
     
@@ -121,16 +114,7 @@ def test_add_duplicate_ipv6_neighbor(duthost, ensure_dut_readiness):
         {
             "op": "add",
             "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address),
-            "value": {
-                "admin_status": "{}".format(ipv6_neighbor_config['admin_status']),
-                "asn": "{}".format(ipv6_neighbor_config['asn']),
-                "holdtime": "{}".format(ipv6_neighbor_config['holdtime']),
-                "keepalive": "{}".format(ipv6_neighbor_config['keepalive']),
-                "local_addr": "{}".format(ipv6_neighbor_config['local_addr']),
-                "name": "{}".format(ipv6_neighbor_config['name']),
-                "nhopself": "{}".format(ipv6_neighbor_config['nhopself']),
-                "rrclient": "{}".format(ipv6_neighbor_config['rrclient'])
-            }
+            "value": ipv6_neighbor_config
         }
     ]
 
