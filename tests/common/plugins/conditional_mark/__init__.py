@@ -18,7 +18,7 @@ from .issue import check_issues
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions.yaml'
+DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 
 
 def pytest_addoption(parser):
