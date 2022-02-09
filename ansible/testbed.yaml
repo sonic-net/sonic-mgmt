@@ -1342,7 +1342,7 @@
   ptf_ip: 10.64.246.245/23
   ptf_ipv6:
   server: server_29
-  vm_base: VM29000
+  vm_base: VM29072
   dut:
     - str2-7250-lc1-1
     - str2-7250-lc2-1
