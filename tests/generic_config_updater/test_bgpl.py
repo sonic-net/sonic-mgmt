@@ -163,7 +163,7 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
         delete_tmpfile(duthost, tmpfile)
 
 def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
-    """ Test to replance bgpmon ip address
+    """ Test to replace bgpmon ip address
     """
     peer_addr, local_addr, bgp_asn = bgpmon_setup_info
     peer_addr_replaced = generate_ip_through_default_route(duthost, [IPNetwork(peer_addr).ip])
