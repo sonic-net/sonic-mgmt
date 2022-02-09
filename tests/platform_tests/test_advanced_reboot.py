@@ -1,4 +1,5 @@
 import pytest
+import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -14,8 +15,16 @@ pytestmark = [
 
 
 def pytest_generate_tests(metafunc):
+    input_sad_cases = metafunc.config.getoption("sad_case_list")
+    input_sad_list = list()
+    for input_case in input_sad_cases.split(","):
+        input_case = input_case.strip()
+        if input_case.lower() not in SAD_CASE_LIST:
+            logging.warn("Unknown SAD case ({}) - skipping it.".format(input_case))
+            continue
+        input_sad_list.append(input_case.lower())
     if "sad_case_type" in metafunc.fixturenames:
-        sad_cases = SAD_CASE_LIST
+        sad_cases = input_sad_list
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
