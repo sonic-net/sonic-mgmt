@@ -468,7 +468,7 @@ class MultiAsicSonicHost(object):
             #find out which ASIC has the neighbor
             for asic in self.frontend_asics:
                 bgp_facts = asic.bgp_facts()['ansible_facts']
-                if kwargs.get('neighbor')in bgp_facts['bgp_neighbors']:
+                if kwargs.get('neighbor') in bgp_facts['bgp_neighbors']:
                     asic_index = asic.asic_index
                     break
 
