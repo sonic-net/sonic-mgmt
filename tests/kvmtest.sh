@@ -107,7 +107,6 @@ test_t0() {
       bgp/test_bgp_fact.py \
       bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
       bgp/test_bgp_speaker.py \
-      bgp/test_bgp_slb.py \
       bgp/test_bgp_update_timer.py \
       cacl/test_ebtables_application.py \
       cacl/test_cacl_application.py \
@@ -128,7 +127,13 @@ test_t0() {
       snmp/test_snmp_pfc_counters.py \
       snmp/test_snmp_queue.py \
       snmp/test_snmp_loopback.py \
-      snmp/test_snmp_default_route.py"
+      snmp/test_snmp_default_route.py \
+      tacacs/test_rw_user.py \
+      tacacs/test_ro_user.py \
+      tacacs/test_ro_disk.py \
+      tacacs/test_jit_user.py \
+      tacacs/test_authorization.py \
+      tacacs/test_accounting.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -138,12 +143,6 @@ test_t0() {
       ssh/test_ssh_stress.py \
       ssh/test_ssh_ciphers.py \
       syslog/test_syslog.py\
-      tacacs/test_rw_user.py \
-      tacacs/test_ro_user.py \
-      tacacs/test_ro_disk.py \
-      tacacs/test_jit_user.py \
-      tacacs/test_authorization.py \
-      tacacs/test_accounting.py \
       telemetry/test_telemetry.py \
       test_features.py \
       test_procdockerstatsd.py \
@@ -153,7 +152,6 @@ test_t0() {
       container_checker/test_container_checker.py \
       process_monitoring/test_critical_process_monitoring.py \
       system_health/test_system_status.py \
-      generic_config_updater/test_cacl.py \
       generic_config_updater/test_lo_interface.py \
       generic_config_updater/test_vlan_interface.py \
       generic_config_updater/test_portchannel_interface.py \
