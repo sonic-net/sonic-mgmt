@@ -7,6 +7,8 @@
 # ARPTest
 # DHCPTest
 # DHCPTopoT1Test
+# DHCPIP2METest
+# DHCPOTHERIPTest
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -21,6 +23,9 @@ import ptf
 import signal
 import threading
 import time
+import random
+import socket
+import struct
 
 import ptf.testutils as testutils
 
@@ -336,6 +341,76 @@ class DHCPTest(NoPolicyTest):
             dl_vlan_cfi=0,
             ip_src='0.0.0.0',
             ip_dst='255.255.255.255',
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=68,
+            udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+class DHCPIP2METest(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCPIP2METest")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        dst_mac = self.peer_mac[port_number]
+        dst_ip = self.peerip
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_src=src_mac,
+            eth_dst=dst_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='0.0.0.0',
+            ip_dst=dst_ip,
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=68,
+            udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+class DHCPOTHERIPTest(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # Police rate is expected to be 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
+
+    def runTest(self):
+        self.log("DHCPOTHERIPTest")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        dst_mac = self.peer_mac[port_number]
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='0.0.0.0',
+            ip_dst=socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff))),
             ip_tos=0,
             ip_ttl=64,
             udp_sport=68,

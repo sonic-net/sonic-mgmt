@@ -64,7 +64,8 @@ class TestCOPP(object):
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
                                           "SNMP",
-                                          "SSH"])
+                                          "SSH",
+                                          "DHCPOTHERIP"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
@@ -81,6 +82,7 @@ class TestCOPP(object):
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
+                                          "DHCPIP2ME",
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
