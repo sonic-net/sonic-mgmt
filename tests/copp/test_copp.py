@@ -214,13 +214,14 @@ def copp_testbed(
     creds,
     ptfhost,
     tbinfo,
+    duts_minigraph_facts,
     request
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    test_params = _gather_test_params(tbinfo, duthost, request)
+    test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
 
     if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
@@ -287,7 +288,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
     return True
 
 
-def _gather_test_params(tbinfo, duthost, request):
+def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     """
         Fetches the test parameters from pytest.
     """
@@ -295,34 +296,38 @@ def _gather_test_params(tbinfo, duthost, request):
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
-    # filter out server peer port and only bgp peer ports remain, to support T0 topologies
-    bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
-    # get the port_index_map using the ptf_indicies to support multi DUT topologies
-    port_index_map = {
-        k: v
-        for k, v in mg_facts["minigraph_ptf_indices"].items()
-        if k in mg_facts["minigraph_ports"] and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
-    }
+    mg_fact = duts_minigraph_facts[duthost.hostname]
+
+    port_index_map = {}
+    for index, mg_facts in enumerate(mg_fact):
+        # filter out server peer port and only bgp peer ports remain, to support T0 topologies
+        bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
+        # get the port_index_map using the ptf_indicies to support multi DUT topologies
+        port_index_map.update({
+           k: v
+           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           if k in mg_facts["minigraph_ports"] and not duthost.is_backend_port(k, mg_facts) and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
+        })
     # use randam sonic interface for testing
     nn_target_interface = random.choice(port_index_map.keys())
     #get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None
     peerip = None
+    nn_target_vlanid = None
 
-    for bgp_peer in mg_facts["minigraph_bgp"]:
-        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
-            myip = bgp_peer["addr"]
-            peerip = bgp_peer["peer_addr"]
-            break
-
-    nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
-    if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
-        nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-    else:
-        nn_target_vlanid = None
+    for index, mg_facts in enumerate(mg_fact):
+        if nn_target_interface not in mg_facts["minigraph_neighbors"]:
+            continue
+        for bgp_peer in mg_facts["minigraph_bgp"]:
+            if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+                myip = bgp_peer["addr"]
+                peerip = bgp_peer["peer_addr"]
+                nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+                is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+	        if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+		    nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+                break
 
 
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}".format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
