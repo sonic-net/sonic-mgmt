@@ -39,7 +39,7 @@ During testrun, Ansible will copy JSON file containing configuration for MPLS to
 
 JSON Sample:
 
-label_pop_routes.json
+label_pop_routes.j2
 
 ```
 [
@@ -64,7 +64,7 @@ label_pop_routes.json
 ]
  ```
  
- label_push_routes.json
+ label_push_routes.j2
  
  ```
  [
@@ -79,7 +79,7 @@ label_pop_routes.json
     }
 ]
 ```
-label_swap_routes.json
+label_swap_routes.j2
 
 ```
 [
@@ -105,7 +105,7 @@ label_swap_routes.json
     }
 ]
 ```
-label_del_routes.json
+label_del_routes.j2
 
 ```
 [
