@@ -281,14 +281,14 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
     3. Update the next_pn of egress SA to `threshold - 5000`.
     4. Sleep for 30 seconds.
     5. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
-    6. The background thread shouldn't obverse the remarkable packet loss (packet loss lesser than 1%).
+    6. The background thread shouldn't obverse any packet loss.
 
 - Periodic Rekey, this testcase is only available if the field *rekey_period* in configuration is more than 0.
     1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.01` to simulate continuous traffic.
     2. Record the SAK in APP DB.
     3. Sleep for 30 seconds.
     4. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
-    5. The background thread shouldn't obverse the remarkable packet loss (packet loss lesser than 1%).
+    5. The background thread shouldn't obverse any packet loss.
 
 #### MACsec Key rotation, Primary/Fallback CAK
    TODO
