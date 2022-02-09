@@ -122,6 +122,7 @@ class ReloadTest(BaseTest):
         self.info = {}
         self.cli_info = {}
         self.logs_info = {}
+        self.lacp_pdu_times = {}
         self.log_lock = threading.RLock()
         self.vm_handle = None
         self.sad_handle = None
@@ -833,8 +834,10 @@ class ReloadTest(BaseTest):
         self.total_disrupt_packets = None
         self.total_disrupt_time = None
         self.ssh_jobs = []
+        self.lacp_session_pause = dict()
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
+            self.lacp_session_pause[addr] = None
             thr = threading.Thread(target=self.peer_state_check, kwargs={'ip': addr, 'queue': q})
             thr.setDaemon(True)
             self.ssh_jobs.append((thr, q))
@@ -1169,6 +1172,7 @@ class ReloadTest(BaseTest):
             controlplane_downtime = ""
         controlplane_report["downtime"] = str(controlplane_downtime)
         controlplane_report["arp_ping"] = "" # TODO
+        controlplane_report["lacp_sessions"] = self.lacp_session_pause
         self.report["dataplane"] = dataplane_report
         self.report["controlplane"] = controlplane_report
         with open(self.report_file_name, 'w') as reportfile:
@@ -1309,22 +1313,43 @@ class ReloadTest(BaseTest):
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
         ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
+        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
+
+        lacp_pdu_times = self.lacp_pdu_times[ip]
+        lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
+        lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
+        lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
+            lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
+        lacp_pdu_after_reboot = float(lacp_pdu_up_times[-1]) if\
+            lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
+        if 'warm-reboot' in self.reboot_type and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
+            lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
+            if lacp_time_diff >= 90 and not self.kvm_test:
+                self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\
+                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(lacp_time_diff))
+        else:
+            lacp_time_diff = None
+        self.lacp_session_pause[ip] = lacp_time_diff
+
 
     def wait_until_cpu_port_down(self, signal):
         while not signal.is_set():
             for _, q in self.ssh_jobs:
-                self.put_nowait(q, 'cpu_down')
+                self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
+                for _, q in self.ssh_jobs:
+                    q.put('cpu_down')
                 break
             time.sleep(self.TIMEOUT)
 
     def wait_until_cpu_port_up(self, signal):
         while not signal.is_set():
             for _, q in self.ssh_jobs:
-                self.put_nowait(q, 'cpu_up')
+                self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
+                for _, q in self.ssh_jobs:
+                    q.put('cpu_up')
                 break
             time.sleep(self.TIMEOUT)
 
