@@ -159,7 +159,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     # pool for executing tasks asynchronously
     pool = ThreadPool()
-    dut_ip = duthost.mgmt_ip
     hostname = duthost.hostname
     try:
         reboot_ctrl = reboot_ctrl_dict[reboot_type]
@@ -189,14 +188,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         reboot_res = pool.apply_async(execute_reboot_helper)
 
     logger.info('waiting for ssh to drop on {}'.format(hostname))
-    check_ssh_drop(duthost, localhost, delay=delay, timeout=timeout)
+    check_ssh_drop(duthost, localhost, reboot_res, delay=delay, timeout=timeout)
 
-    logger.info('waiting for ssh to start on {}'.format(hostname))
-    check_ssh_startup(duthost, localhost, delay=delay, timeout=timeout)
+    if not wait_for_ssh:
+        return
 
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
+
+    logger.info('waiting for ssh to start on {}'.format(hostname))
+    check_ssh_startup(duthost, localhost, delay=delay, timeout=timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
@@ -210,7 +212,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
-def check_ssh_drop(duthost, localhost, delay=10, timeout=0, wait_for_ssh=True):
+def check_ssh_drop(duthost, localhost, reboot_res, delay=10, timeout=0, wait_for_ssh=True):
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
@@ -223,10 +225,9 @@ def check_ssh_drop(duthost, localhost, delay=10, timeout=0, wait_for_ssh=True):
                              module_ignore_errors=True)
 
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        if reboot_res.ready():
+            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
-
-    if not wait_for_ssh:
-        return
 
 
 def check_ssh_startup(duthost, localhost, delay=10, timeout=0):
