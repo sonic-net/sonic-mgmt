@@ -176,6 +176,8 @@ ACL_SERVICES = {
     }
 }
 
+# Template json file used to test scale rules
+SCALE_ACL_FILE = "/tmp/scale_cacl.json"
 
 def parse_int_to_tcp_flags(hex_value):
     tcp_flags_str = ""
@@ -708,6 +710,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     actual_iptables_rules = stdout.strip().split("\n")
 
     # Ensure all expected iptables rules are present on the DuT
+    logger.info("Number of expected iptable rules:{}, number of acutal iptables rules:{}".format(len(set(expected_iptables_rules)), len(set(actual_iptables_rules))))
     missing_iptables_rules = set(expected_iptables_rules) - set(actual_iptables_rules)
     pytest_assert(len(missing_iptables_rules) == 0, "Missing expected iptables rules: {}".format(repr(missing_iptables_rules)))
 
@@ -727,6 +730,7 @@ def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
     actual_ip6tables_rules = stdout.strip().split("\n")
 
     # Ensure all expected ip6tables rules are present on the DuT
+    logger.info("Number of expected ip6table rules:{}, number of acutal ip6tables rules:{}".format(len(set(expected_ip6tables_rules)), len(set(actual_ip6tables_rules))))
     missing_ip6tables_rules = set(expected_ip6tables_rules) - set(actual_ip6tables_rules)
     pytest_assert(len(missing_ip6tables_rules) == 0, "Missing expected ip6tables rules: {}".format(repr(missing_ip6tables_rules)))
 
