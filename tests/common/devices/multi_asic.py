@@ -451,6 +451,32 @@ class MultiAsicSonicHost(object):
 
         return False
 
+    def get_bgp_route(self, *args, **kwargs):
+        """
+            @summary: return BGP routes information from BGP docker. On
+                      single ASIC platform ansible module is called directly.
+                      On multi ASIC platform one of the frontend ASIC is
+                      used unless a neighbor is provided, in which case it
+                      fetches from the ASIC where neighbor is present
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.bgp_route(*args, **kwargs)
+
+        asic_index = self.frontend_asics[0].asic_index
+
+        if kwargs.get('neighbor') is not None:
+            #find out which ASIC has the neighbor
+            for asic in self.frontend_asics:
+                bgp_facts = asic.bgp_facts()['ansible_facts']
+                if kwargs.get('neighbor') in bgp_facts['bgp_neighbors']:
+                    asic_index = asic.asic_index
+                    break
+
+        # return from one of the frontend asics or the one where
+        # the given neighbor exists
+        kwargs['namespace_id'] = asic_index
+        return self.bgp_route(*args, **kwargs)
+
     def get_bgp_route_info(self, prefix, ns=None):
         """
         @summary: return BGP routes information.

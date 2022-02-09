@@ -336,7 +336,8 @@ def main():
             argument_spec=dict(
                 neighbor=dict(required=False, default=None),
                 direction=dict(required=False, choices=['adv', 'rec']),
-                prefix=dict(required=False, default=None)
+                prefix=dict(required=False, default=None),
+                namespace_id=dict(required=False, type='int', default=None)
                 ),
             supports_check_mode=False
             )
@@ -347,9 +348,13 @@ def main():
     neighbor = m_args['neighbor']
     direction = m_args['direction']
     prefix = m_args['prefix']
+    ns_id = "" if m_args['namespace_id'] is None else m_args['namespace_id']
     regex_ip = re.compile('[0-9a-fA-F.:]+')
     regex_iprange = re.compile('[0-9a-fA-F.:]+\/\d+')
     regex_ipv4 = re.compile('[12][0-9]{0,2}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\/?\d+?')
+
+    vtysh_cmd = "docker exec -i bgp{} vtysh -c".format(ns_id)
+
     if neighbor == None and direction == None and prefix == None:
         module.fail_json(msg="No support of parsing 'show ip bgp' full prefix table yet")
         return
@@ -364,7 +369,7 @@ def main():
     try:
         bgproute = BgpRoutes(neighbor, direction, prefix)
 
-        command = "docker exec -i bgp vtysh -c 'show version'"
+        command = "{} 'show version'".format(vtysh_cmd)
         rc, out, err = module.run_command(command)
         if rc != 0:
             err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
@@ -376,9 +381,13 @@ def main():
 
         if prefix:
             if regex_ipv4.match(prefix):
-                command = "docker exec -i bgp vtysh -c 'show ip bgp {} {}'".format(str(prefix), use_json)
+                command = "{} 'show ip bgp {} {}'".format(
+                    vtysh_cmd, str(prefix), use_json
+                )
             else:
-                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp {} {}'".format(str(prefix), use_json)
+                command = "{} 'show ipv6 bgp {} {}'".format(
+                    vtysh_cmd, str(prefix), use_json
+                )
             rc, out, err = module.run_command(command)
             if rc != 0:
                 err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)
@@ -391,9 +400,13 @@ def main():
 
         elif neighbor:
             if netaddr.valid_ipv4(neighbor):
-                command = "docker exec -i bgp vtysh -c 'show ip bgp neighbor {} {} {}'".format(str(neighbor), str(direction), use_json)
+                command = "{} 'show ip bgp neighbor {} {} {}'".format(
+                    vtysh_cmd, str(neighbor), str(direction), use_json
+                )
             else:
-                command = "docker exec -i bgp vtysh -c 'show ipv6 bgp neighbor {] {} {}'".format(str(neighbor), str(direction), use_json)
+                command = "{} 'show ipv6 bgp neighbor {] {} {}'".format(
+                    vtysh_cmd, str(neighbor), str(direction), use_json
+                )
             rc, out, err = module.run_command(command)
             if rc !=  0:
                 err_message = "command %s failed rc=%d, out=%s, err=%s" %(command, rc, out, err)

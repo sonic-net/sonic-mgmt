@@ -89,7 +89,9 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
 
     vips_prefix = get_vips_prefix(dut_t0_neigh, topo_config)
 
-    logger.info("vips_prefix = {}".format(vips_prefix))
+    logger.info("vips_prefix = {}, DUT T2 neighbor = {}".format(
+        vips_prefix, dut_t2_neigh
+    ))
 
     # find all paths of the prefix for test
     vips_t0, vips_asn = get_vips_prefix_paths(dut_t0_neigh, vips_prefix, topo_config)
@@ -99,7 +101,9 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
     pytest_assert((vips_t0 > 1), "Did not find preconfigured multipath for the vips prefix under test")
 
     # Get the route from the DUT for the prefix
-    bgp_route = duthost.bgp_route(prefix=vips_prefix)['ansible_facts']['bgp_route']
+    bgp_route = duthost.get_bgp_route(
+        prefix=vips_prefix
+    )['ansible_facts']['bgp_route']
 
     logger.info("Bgp route from DUT for prefix {} is {}".format(vips_prefix,bgp_route))
 
@@ -116,7 +120,9 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
             pytest_assert((str(asn) in  aspath))
 
     # gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath
-    bgp_route_neiadv = duthost.bgp_route(neighbor=bgp_v4nei[dut_t2_neigh[0]], direction="adv")['ansible_facts']['bgp_route_neiadv']
+    bgp_route_neiadv = duthost.get_bgp_route(
+        neighbor=bgp_v4nei[dut_t2_neigh[0]], direction="adv"
+    )['ansible_facts']['bgp_route_neiadv']
 
     logger.info("Bgp neighbor adv from DUT for neigh {} and prefix {} is {}".
                 format(bgp_v4nei[dut_t2_neigh[0]],
