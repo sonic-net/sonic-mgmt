@@ -120,9 +120,9 @@ Check the process, `wpa_supplicant`, for the target port is running in the devic
 ##### Check the following fields in MACsec SC table and MACsec SA table are consistent
 
 1. There should be a MACsec SA in MACsec SA table with the same AN of *encoding_an* in MACsec SC.
-2. The count of ingress MACsec SA shouldn't lesser than the count of egress MACsec SA in the peer side.
+2. The count of ingress MACsec SA shouldn't be lesser than the count of egress MACsec SA in the peer side.
 3. The corresponding ingress and egress MACsec SA should have same *sak* and *auth_key*.
-4. The *next_pn* of egress MACsec SA shouldn't lesser than the *lowest_acceptable_pn* of the corresponding ingress MACsec SA in the peer side.
+4. The *next_pn* of egress MACsec SA shouldn't be lesser than the *lowest_acceptable_pn* of the corresponding ingress MACsec SA in the peer side.
 
 #### Check MKA session
 
