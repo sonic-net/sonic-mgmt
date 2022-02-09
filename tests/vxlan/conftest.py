@@ -64,19 +64,17 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
-        "--lower_bound_udp_port",
+        "--udp_src_port",
         action="store",
-        default=0,
         type=int,
-        help="Lowest expected src port for VXLAN UPD packet"
+        help="Expected base VXLAN UDP src port"
     )
 
     vxlan_group.addoption(
-        "--upper_bound_udp_port",
+        "--udp_src_port_mask",
         action="store",
-        default=65535,
         type=int,
-        help="Highest expected src port for VXLAN UPD packet"
+        help="Expected base VXLAN UDP src port mask"
     )
 
     # ECMP options
