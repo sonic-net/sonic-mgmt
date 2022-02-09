@@ -9,7 +9,6 @@ import ptf.testutils as testutils
 from conftest import PCH_Param
 from conftest import evpn_neighbor_list
 from conftest import DUT_VTEP_IP, NUM_CONTINUOUS_PKT_COUNT
-from conftest import get_bcmcmd
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -45,18 +44,18 @@ class Test_Unicast_BUM_in_L2_VNI():
             logging.info("Create portchannel in ptf and dut.")
             evpn_env.create_portchannels_and_start(pch_param_list=[self.pch_param])
             logging.info("Restart ptf_nn_agent.")
-            evpn_env.ptf_cmd.restart_ptf_nn_agent()
+            evpn_env.ptf_helper.restart_ptf_nn_agent()
             logging.info("portchannel vlan setup")
-            evpn_env.dut_cmd.add_portchannel_to_vlan(self.pch_param.dut_pch_name, vlanid=1000, untagged=True)
+            evpn_env.dut_helper.add_portchannel_to_vlan(self.pch_param.dut_pch_name, vlanid=1000, untagged=True)
             time.sleep(5)
         yield
         if access_ports_type == "with_portchannel":
             logging.info("portchannel vlan teardown")
-            evpn_env.dut_cmd.del_portchannel_from_vlan(self.pch_param.dut_pch_name, vlanid=1000)
+            evpn_env.dut_helper.del_portchannel_from_vlan(self.pch_param.dut_pch_name, vlanid=1000)
             logging.info("Remove portchannel in ptf and dut")
             evpn_env.remove_portchannel(pch_param_list=[self.pch_param])
             logging.info("Restart ptf_nn_agent.")
-            evpn_env.ptf_cmd.restart_ptf_nn_agent()
+            evpn_env.ptf_helper.restart_ptf_nn_agent()
             time.sleep(5)
 
     @pytest.fixture(scope="class", autouse=True)
@@ -68,7 +67,7 @@ class Test_Unicast_BUM_in_L2_VNI():
             port = item.gobgp_port
             as_number = item.as_number_ptf
             ip = str(item.ip_ptf.ip)
-            evpn_env.gobgp_cmd.add_type3(as_ptf=as_number, vni=self.vni, vtep_ip=ip, gobgp_port=port)
+            evpn_env.gobgp_helper.add_type3(as_ptf=as_number, vni=self.vni, vtep_ip=ip, gobgp_port=port)
 
         yield
 
@@ -77,7 +76,7 @@ class Test_Unicast_BUM_in_L2_VNI():
             port = item.gobgp_port
             as_number = item.as_number_ptf
             ip = str(item.ip_ptf.ip)
-            evpn_env.gobgp_cmd.del_type3(as_ptf=as_number, vni=self.vni, vtep_ip=ip, gobgp_port=port)
+            evpn_env.gobgp_helper.del_type3(as_ptf=as_number, vni=self.vni, vtep_ip=ip, gobgp_port=port)
 
     test_data = [("FF:FF:FF:FF:FF:FF", "255.255.255.255"),
                  ("00:11:22:33:55:99", "192.168.0.99"),
@@ -120,10 +119,10 @@ class Test_Unicast_BUM_in_L2_VNI():
         for item in neighbor_list:
             ptf_vtep_index = item[0]
             # mac for vxlan tunnel
-            dut_mac = evpn_env.dut_cmd.get_index_mac(ptf_vtep_index)
-            ptf_mac = evpn_env.ptf_cmd.get_index_mac(ptf_vtep_index)
+            dut_mac = evpn_env.dut_helper.get_index_mac(ptf_vtep_index)
+            ptf_mac = evpn_env.ptf_helper.get_index_mac(ptf_vtep_index)
             ip = str(item[1].ip)
-            pkt_expected_vxlan = evpn_env.pkt_cmd.compose_expected_vxlan_packet(
+            pkt_expected_vxlan = evpn_env.pkt_helper.compose_expected_vxlan_packet(
                 outer_sa=dut_mac,
                 outer_da=ptf_mac,
                 outer_sip=DUT_VTEP_IP,
@@ -144,7 +143,7 @@ class Test_Unicast_BUM_in_L2_VNI():
 
         # send packet from remote
         logging.info("BUM decap: remote to local; BUM encap: remote to remote")
-        pkt_vxlan, pkt_untagged = evpn_env.pkt_cmd.create_vxlan_packet(
+        pkt_vxlan, pkt_untagged = evpn_env.pkt_helper.create_vxlan_packet(
             outer_da=dut_mac,
             outer_sa=ptf_mac,
             outer_dip=DUT_VTEP_IP,
@@ -172,7 +171,7 @@ class Test_Unicast_BUM_in_L2_VNI():
             for j in range(0, NUM_CONTINUOUS_PKT_COUNT):
                 pkt_vxlan['UDP'].sport = pkt_vxlan['UDP'].sport + 1
                 testutils.send(ptfadapter, index_of_port_vxlan, pkt_vxlan)
-                index, _ = evpn_env.pkt_cmd.verify_packet_count(pkt_untagged, self.pch_param.member_index_list[0])
+                index, _ = evpn_env.pkt_helper.verify_packet_count(pkt_untagged, self.pch_param.member_index_list[0])
                 packet_count = packet_count + index
             assert packet_count != 0
             # FIXME
@@ -198,11 +197,11 @@ class Test_Unicast_BUM_in_L2_VNI():
             ptf_vtep_ip = str(item.ip_ptf.ip)
             ptf_vtep_as = item.as_number_ptf
             gobgp_port = item.gobgp_port
-            dut_mac = evpn_env.dut_cmd.get_index_mac(ptf_vtep_index)
-            ptf_mac = evpn_env.ptf_cmd.get_index_mac(ptf_vtep_index)
+            dut_mac = evpn_env.dut_helper.get_index_mac(ptf_vtep_index)
+            ptf_mac = evpn_env.ptf_helper.get_index_mac(ptf_vtep_index)
             logging.info("encap test: local to remote, index:{}, gobgp port:{}".format(ptf_vtep_index, gobgp_port))
             # let dut learn mac route from remote
-            evpn_env.gobgp_cmd.add_type2(dst_mac_1, dst_ip_1, None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
+            evpn_env.gobgp_helper.add_type2(dst_mac_1, dst_ip_1, None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
 
             # tagged packet is for sending
             pkt_untagged = testutils.simple_udp_packet(
@@ -213,7 +212,7 @@ class Test_Unicast_BUM_in_L2_VNI():
             )
 
             # expected packet is for receiving
-            pkt_expected = evpn_env.pkt_cmd.compose_expected_vxlan_packet(
+            pkt_expected = evpn_env.pkt_helper.compose_expected_vxlan_packet(
                 outer_sa=dut_mac,
                 outer_da=ptf_mac,
                 outer_sip=DUT_VTEP_IP,
@@ -222,15 +221,13 @@ class Test_Unicast_BUM_in_L2_VNI():
                 pkt=pkt_untagged,
                 GPE_flag=False)
 
-            logging.info("l2 show {}:".format(get_bcmcmd(duthost, "l2 show")))
             for port in access_port_list:
                 ptfadapter.dataplane.flush()
                 testutils.send(ptfadapter, port, pkt_untagged)
-                logging.info("l2 show {}:".format(get_bcmcmd(duthost, "l2 show")))
                 testutils.verify_packets(ptfadapter, pkt_expected, [ptf_vtep_index])
 
             # recover
-            evpn_env.gobgp_cmd.del_type2(dst_mac_1, dst_ip_1, None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
+            evpn_env.gobgp_helper.del_type2(dst_mac_1, dst_ip_1, None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
 
         # remote -> local #
         # let dut learn mac route from local
@@ -250,10 +247,10 @@ class Test_Unicast_BUM_in_L2_VNI():
             ptf_vtep_as = item.as_number_ptf
             gobgp_port = item.gobgp_port
 
-            dut_mac = evpn_env.dut_cmd.get_index_mac(ptf_vtep_index)
-            ptf_mac = evpn_env.ptf_cmd.get_index_mac(ptf_vtep_index)
+            dut_mac = evpn_env.dut_helper.get_index_mac(ptf_vtep_index)
+            ptf_mac = evpn_env.ptf_helper.get_index_mac(ptf_vtep_index)
 
-            pkt_vxlan, pkt_expected = evpn_env.pkt_cmd.create_vxlan_packet(
+            pkt_vxlan, pkt_expected = evpn_env.pkt_helper.create_vxlan_packet(
                 outer_da=dut_mac,
                 outer_sa=ptf_mac,
                 outer_dip=DUT_VTEP_IP,
@@ -270,10 +267,8 @@ class Test_Unicast_BUM_in_L2_VNI():
 
             for send_port in access_port_list:
                 testutils.send(ptfadapter, send_port, pkt)
-                evpn_env.gobgp_cmd.add_type2("00:11:22:33:55:66", "192.168.0.44", None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
-                logging.info("l2 show {}:".format(get_bcmcmd(duthost, "l2 show")))
+                evpn_env.gobgp_helper.add_type2("00:11:22:33:55:66", "192.168.0.44", None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
                 try:
-                    evpn_env.pkt_cmd.verify_decap_receive_packet(ptf_vtep_index, access_port_list, pkt_vxlan, pkt_expected)
+                    evpn_env.pkt_helper.verify_decap_receive_packet(ptf_vtep_index, access_port_list, pkt_vxlan, pkt_expected)
                 finally:
-                    logging.info("l2 show {}:".format(get_bcmcmd(duthost, "l2 show")))
-                    evpn_env.gobgp_cmd.del_type2("00:11:22:33:55:66", "192.168.0.44", None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
+                    evpn_env.gobgp_helper.del_type2("00:11:22:33:55:66", "192.168.0.44", None, as_ptf=ptf_vtep_as, vni=self.vni, vtep_ip=ptf_vtep_ip, gobgp_port=gobgp_port)
