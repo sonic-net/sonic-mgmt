@@ -54,6 +54,8 @@ class Arista(object):
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
+        self.lacp_pdu_time_on_down = list()
+        self.lacp_pdu_time_on_up = list()
 
     def __del__(self):
         self.disconnect()
@@ -159,6 +161,7 @@ class Arista(object):
         portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
         sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
+        collect_lacppdu_time = False
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -169,6 +172,17 @@ class Arista(object):
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
+                if cmd == 'cpu_down':
+                    last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
+                    self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
+                if cmd == 'cpu_up' or collect_lacppdu_time:
+                    # control plane is back up, start polling for new lacp-pdu
+                    last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
+                    if last_lacppdu_time_after_reboot != last_lacppdu_time_before_reboot:
+                        self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
+                        collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
+                    else: # Until post-reboot lacp-pdu is not received, keep polling for it
+                        collect_lacppdu_time = True
 
             cur_time = time.time()
             info = {}
@@ -213,7 +227,7 @@ class Arista(object):
                     'show ip route bgp' : bgp_route_v4_output,
                     'show ipv6 route bgp' : bgp_route_v6_output,
                 }
-            time.sleep(5)
+            time.sleep(1)
 
         attempts = 60
         log_present = False
@@ -272,7 +286,7 @@ class Arista(object):
                 self.fails.add(msg)
 
         self.log('Finishing run()')
-        return self.fails, self.info, cli_data, log_data
+        return self.fails, self.info, cli_data, log_data, {"lacp_down": self.lacp_pdu_time_on_down, "lacp_up": self.lacp_pdu_time_on_up}
 
     def extract_from_logs(self, regexp, data):
         raw_data = []
@@ -498,6 +512,57 @@ class Arista(object):
 
         return ok, output
 
+
+    def check_last_lacppdu_time(self):
+        """
+        ARISTA01T1#show lacp internal detailed
+        LACP System-identifier: 8000,22-3f-8e-9e-4b-c4
+        State: A = Active, P = Passive; S=ShortTimeout, L=LongTimeout;
+            G = Aggregable, I = Individual; s+=InSync, s-=OutOfSync;
+            C = Collecting (aggregating incoming frames), X = state machine expired,
+            D = Distributing (aggregating outgoing frames),
+            d = default neighbor state
+            Status  |         | Partner                                    Actor                                 Last             State Machines
+        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier
+        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------
+        Port Channel Port-Channel1:
+        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3
+
+        The above output is JSON formatted by EOS, and below is example (with irrelevant fileds removed for simplify example)
+
+        ARISTA01T1# show lacp internal detailed | json
+        {
+            "systemId": "8000,22-3f-8e-9e-4b-c4",
+            "portChannels": {
+                "Port-Channel1": {
+                    "interfaces": {
+                        "Ethernet1": {
+                            "partnerSystemId": "FFFF,00-e0-ec-c2-af-7a",
+                            "details": {
+                                "actorChurnState": "noChurn",
+                                "lastRxTime": 1643936422.4998167,
+                            }
+                        }
+                    }
+                }
+            },
+            "miscLacpSysIds": []
+        }
+
+        """
+        cmd = "show lacp internal detailed | json"
+        output = self.do_cmd(cmd)
+        data = "\n".join(output.split("\r\n")[1:-1])
+        json_output = json.loads(data)
+        last_lacp_pdu_time = json_output.get("portChannels", {})\
+            .get("Port-Channel1", {})\
+                .get("interfaces", {})\
+                    .get("Ethernet1", {})\
+                        .get("details", {})\
+                            .get("lastRxTime")
+        return last_lacp_pdu_time
+
+
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
         neigh_bgp = {}
@@ -618,7 +683,7 @@ class Arista(object):
         if not self.ipv6_gr_enabled:
             pass # ToDo:
         if self.gr_timeout < 120: # bgp graceful restart timeout less then 120 seconds
-            self.fails.add("bgp graceful restart timeout is less then 120 seconds")
+            self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
         for when, other in sorted(output.items(), key = lambda x : x[0]):
             gr_active, timer = other['bgp_neig']
