@@ -10,9 +10,6 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True)
-]
 
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthost):
