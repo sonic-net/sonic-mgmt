@@ -212,7 +212,7 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     @reset_ansible_local_tmp
     def reboot_node(lh, node=None, results=None):
         node_results = []
-        node_results.append(reboot(node, lh, wait=600))
+        reboot(node, lh, wait=600)
         results[node.hostname] = node_results
 
     logger.info("=" * 80)
