@@ -159,3 +159,13 @@ A new pytest command line option is added for specifying location of the conditi
 The plugin is open for extension in couple of areas:
 * Collect more facts. Then more variables can be used in condition string for evaluation.
 * Add more arguments for marks, not just the current `reason` argument.
+
+## How to use pre-commit hooks to check the order in the yaml files
+We keep the test cases in alphabetical order in the yaml files, and we use pre-commit hook to check if the test cases in correct order.
+In order to use git hook, we should specify the hook folder using`git config core.hooksPath 'path'` before commit. And we should also install `ruamel.yaml` using `pip install ruamel.yaml`.
+
+Assume we use git under the `sonic-mgmt` folder, we can use `git config core.hooksPath 'tests/common/plugins/conditional_mark/hooks'` to specify the hook folder.
+
+Accordingly, we should modify the path of the file `pre-commit.py` in `hooks/pre-commit` if we don't use git under the `sonic-mgmt` folder.
+
+If we add a test case in one of the yaml files and break the alphabetical order, we can not commit successfully and will get the prompt `Pleace check the order in tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml`.
