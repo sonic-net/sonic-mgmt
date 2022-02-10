@@ -112,9 +112,12 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
 
             critical_process = random.sample(running_critical_process, 1)[0]
             with ProcessExitContext(duthost, container, critical_process):
-                time.sleep(DEFAULT_INTERVAL)
-                value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, '{}:{}'.format(container, critical_process))
-                assert value == "'{}' is not running".format(critical_process), 'Got value {}'.format(value)
+                # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
+                # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
+                category = '{}:{}'.format(container, critical_process)
+                expected_value = "'{}' is not running".format(critical_process)
+                result = wait_until(90, 10, 2, check_system_health_info, duthost, category, expected_value)
+                assert result == True, '{} is not recorded'.format(critical_process)
                 summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
                 assert summary == SUMMARY_NOT_OK
             break
@@ -256,9 +259,10 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, EXTERNAL_CHECK_CONFIG_FILE)):
         duthost.copy(src=os.path.join(FILES_DIR, EXTERNAL_CHECKER_MOCK_FILE),
                      dest=os.path.join('/tmp', EXTERNAL_CHECKER_MOCK_FILE))
-        time.sleep(DEFAULT_INTERVAL)
-        value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ExternalService')
-        assert value == 'Service is not working', 'External checker does not work, value={}'.format(value)
+        # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
+        # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
+        result = wait_until(90, 10, 2, check_system_health_info, duthost, 'ExternalService', 'Service is not working')
+        assert result == True, 'External checker does not work'
         value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ExternalDevice')
         assert value == 'Device is broken', 'External checker does not work, value={}'.format(value)
 
@@ -335,6 +339,11 @@ def redis_get_field_value(duthost, db_id, key, field_name):
     content = output['stdout'].strip()
     return content
 
+def check_system_health_info(duthost, category, expected_value):
+    value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)
+    if value == expected_value:
+        return True
+    return False
 
 class ConfigFileContext:
     """
