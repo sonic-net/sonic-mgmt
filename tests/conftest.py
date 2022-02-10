@@ -994,10 +994,9 @@ def generate_dut_feature_container_list(request):
             continue
         for feature in val["features"].keys():
             dut_info = meta[dut]
-            services = dut_info["asic_services"].get(feature)
 
-            if services is not None:
-                for service in services:
+            if "asic_services" in dut_info and dut_info["asic_services"].get(feature) is not None:
+                for service in dut_info["asic_services"].get(feature):
                     container_list.append(encode_dut_and_container_name(dut, service))
             else:
                 container_list.append(encode_dut_and_container_name(dut, feature))
