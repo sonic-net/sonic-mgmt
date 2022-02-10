@@ -135,7 +135,7 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def bgpmon_tc1_admin_change(duthost):
+def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
     """ Test to admin down bgpmon config
     """
     peer_addr, _, _ = bgpmon_setup_info
@@ -159,6 +159,44 @@ def bgpmon_tc1_admin_change(duthost):
         pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
             "BGPMonitor with addr {} failed to admin down.".format(peer_addr)
         )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
+    """ Test to replace bgpmon ip address
+    """
+    peer_addr, local_addr, bgp_asn = bgpmon_setup_info
+    peer_addr_replaced = generate_ip_through_default_route(duthost, [IPNetwork(peer_addr).ip])
+    peer_addr_replaced = str(IPNetwork(peer_addr_replaced).ip)
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/BGP_MONITORS/{}".format(peer_addr)
+        },
+        {
+            "op": "add",
+            "path": "/BGP_MONITORS/{}".format(peer_addr_replaced),
+            "value": {
+                "admin_status": "up",
+                "asn": bgp_asn,
+                "holdtime": "180",
+                "keepalive": "60",
+                "local_addr": local_addr,
+                "name": "BGPMonitor",
+                "nhopself": "0",
+                "rrclient": "0"
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        check_bgpmon_with_addr(duthost, peer_addr_replaced)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -194,4 +232,6 @@ def test_bgpmon_tc1_add_and_remove(duthost, bgpmon_setup_info):
     """
     bgpmon_tc1_add_init(duthost, bgpmon_setup_info)
     bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info)
+    bgpmon_tc1_admin_change(duthost, bgpmon_setup_info)
+    bgpmon_tc1_ip_change(duthost, bgpmon_setup_info)
     bgpmon_tc1_remove(duthost)
