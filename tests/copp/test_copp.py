@@ -23,12 +23,17 @@ import ipaddr
 import logging
 import pytest
 import json
+import random
 from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
+from tests.common.reboot import reboot
+from tests.common.utilities import skip_release
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -55,11 +60,15 @@ _SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
 _TEST_RATE_LIMIT = 600
 
+logger = logging.getLogger(__name__)
+
 
 class TestCOPP(object):
     """
         Tests basic COPP functionality in SONiC.
     """
+    trap_id = "bgp"
+    feature_name = "bgp"
 
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
@@ -97,6 +106,93 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type)
+
+    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
+        """
+        Validates that one new trap(bgp) can be installed
+
+        1. The trap(bgp) should be uninstalled
+        2. Set always_enabled of bgp to true
+        3. Verify the trap status is installed by sending traffic
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        logger.info("Uninstall trap {}".format(self.trap_id))
+        copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
+
+        logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
+        _copp_runner(duthost,
+                     ptfhost,
+                     self.trap_id.upper(),
+                     copp_testbed,
+                     dut_type,
+                     has_trap=False)
+
+        logger.info("Set always_enabled of {} to true".format(self.trap_id))
+        copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
+
+        logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            "Installing {} trap fail".format(self.trap_id))
+
+    @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
+                                                  "disable_feature_status"])
+    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
+        """
+        Validates that The trap(bgp) can be uninstalled after deleting the corresponding entry from the feature table
+
+        1. Pre condition: make the tested trap installed and always_enable is false
+        2. Remove trap according to remove trap type
+        4. Verify the trap status is uninstalled by sending traffic
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
+        pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
+
+        if remove_trap_type == "delete_feature_entry":
+            logger.info("Remove feature entry: {}".format(self.feature_name))
+            copp_utils.remove_feature_entry(duthost, self.feature_name)
+        else:
+            logger.info("Disable {} in feature table".format(self.feature_name))
+            copp_utils.disable_feature_entry(duthost, self.feature_name)
+
+        logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
+            "uninstalling {} trap fail".format(self.trap_id))
+
+    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
+        """
+        Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
+
+        1. Set always_enabled of a trap(e.g. bgp) to true
+        2. Config save -y
+        3. Do reboot according to the specified parameter of copp_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
+        4. Verify configuration are saved successfully
+        5. Verify the trap status is installed by sending traffic
+        """
+
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        logger.info("Set always_enabled of {} to true".format(self.trap_id))
+        copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
+
+        logger.info("Config save")
+        duthost.command("sudo config save -y")
+
+        reboot_type = request.config.getoption("--copp_reboot_type")
+        logger.info("Do {}".format(reboot_type))
+        reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
+
+        logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
+        copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
+        logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            "Installing {} trap fail".format(self.trap_id))
+
 
 @pytest.fixture(scope="class")
 def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -157,7 +253,8 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
-def _copp_runner(dut, ptf, protocol, test_params, dut_type):
+
+def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
     """
         Configures and runs the PTF test cases.
     """
@@ -166,7 +263,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip,
-              "send_rate_limit": test_params.send_rate_limit}
+              "send_rate_limit": test_params.send_rate_limit,
+              "has_trap": has_trap}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -186,6 +284,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
                relax=None,
                debug_level=None,
                device_sockets=device_sockets)
+    return True
+
 
 def _gather_test_params(tbinfo, duthost, request):
     """
@@ -331,3 +431,36 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
     dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
+
+
+@pytest.fixture(scope="function", autouse=False)
+def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    copp_utils.backup_config_db(duthost)
+
+    yield
+    copp_utils.restore_config_db(duthost)
+
+
+def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
+    copp_utils.install_trap(duthost, feature_name)
+    logger.info("Set always_enabled of {} to false".format(trap_id))
+    copp_utils.configure_always_enabled_for_trap(duthost, trap_id, "false")
+
+    logger.info("Verify {} trap status is installed by sending traffic in pre_condition".format(trap_id))
+    pytest_assert(
+        wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type),
+        "Installing {} trap fail".format(trap_id))
+
+
+@pytest.fixture(autouse=False, scope="class")
+def check_image_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Skips this test because new copp management logic works on 202012 branch and above
+
+    Args:
+        duthost: Hostname of DUT.
+
+    Returns:
+        None.
+    """
+    skip_release(duthosts[enum_rand_one_per_hwsku_frontend_hostname], ["201911"])
