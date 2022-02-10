@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 
 class AosHost():
@@ -48,6 +49,12 @@ class AosHost():
         os.system("rm {}".format(ansible_root + playbook_name))
 
         return res
+
+    def __str__(self):
+        return '<AosHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
 
     def shutdown(self, interface_name):
         task_name = 'Shutdown interface {}'.format(interface_name)

@@ -131,10 +131,19 @@ def get_report_summary(analyze_result, reboot_type):
                               _parse_timestamp(marker_first_time)).total_seconds()
         time_spans_summary.update({entity.lower(): str(time_taken)})
 
+    lacp_sessions_waittime = analyze_result.get(\
+        "controlplane", {"lacp_sessions": []}).pop("lacp_sessions")
+    controlplane_summary = {"downtime": "", "arp_ping": "", "lacp_session_max_wait": ""}
+    if len(lacp_sessions_waittime) > 0:
+        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+        analyze_result.get(\
+            "controlplane", controlplane_summary).update(
+                {"lacp_session_max_wait": max_lacp_session_wait})
+
     result_summary = {
         "reboot_type": reboot_type,
         "dataplane": analyze_result.get("dataplane", {"downtime": "", "lost_packets": ""}),
-        "controlplane": analyze_result.get("controlplane", {"downtime": "", "arp_ping": ""}),
+        "controlplane": analyze_result.get("controlplane", controlplane_summary),
         "time_span": time_spans_summary,
         "offset_from_kexec": kexec_offsets_summary
     }
@@ -271,9 +280,15 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
     result["offset_from_kexec"] = offset_from_kexec
 
 
-def get_data_plane_report(analyze_result, reboot_type):
+def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     report = {"controlplane": {"arp_ping": "", "downtime": ""}, "dataplane": {"lost_packets": "", "downtime": ""}}
-    files = glob.glob('/tmp/{}-reboot-report.json'.format(reboot_type))
+    reboot_report_path = re.sub('([\[\]])','[\\1]',log_dir) # escaping, as glob utility does not work well with "[","]"
+    if reboot_oper:
+        reboot_report_file_name = "{}-reboot-{}-report.json".format(reboot_type, reboot_oper)
+    else:
+        reboot_report_file_name = "{}-reboot-report.json".format(reboot_type)
+    reboot_report_file = "{}/{}".format(reboot_report_path, reboot_report_file_name)
+    files = glob.glob(reboot_report_file)
     if files:
         filepath = files[0]
         with open(filepath) as json_file:
@@ -359,7 +374,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         loganalyzer.match_regex = []
         return marker
 
-    def post_reboot_analysis(marker, reboot_oper=None):
+    def post_reboot_analysis(marker, reboot_oper=None, log_dir=None):
         result = loganalyzer.analyze(marker, fail=False)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
@@ -387,7 +402,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             else:
                 time_data["time_taken"] = "N/A"
 
-        get_data_plane_report(analyze_result, reboot_type)
+        get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper)
         result_summary = get_report_summary(analyze_result, reboot_type)
         logging.info(json.dumps(analyze_result, indent=4))
         logging.info(json.dumps(result_summary, indent=4))

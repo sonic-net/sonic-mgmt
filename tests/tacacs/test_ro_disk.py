@@ -1,9 +1,7 @@
 import pytest
-import crypt
-import json
 import logging
-from pkg_resources import parse_version
 
+from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
@@ -49,7 +47,7 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
     wait_time = 120
     retries = 3
     for i in range(retries):
-        # Regular reboot command would not work, as it would try to 
+        # Regular reboot command would not work, as it would try to
         # collect show tech, which will fail in RO state.
         #
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
@@ -64,19 +62,19 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
 
-def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_tacacs):
+def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_release(duthost, ["201911", "201811"])
 
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    dutip = duthost.mgmt_ip
 
-    ro_user = creds_all_duts[duthost]['tacacs_ro_user']
-    ro_pass = creds_all_duts[duthost]['tacacs_ro_user_passwd']
+    ro_user = tacacs_creds['tacacs_ro_user']
+    ro_pass = tacacs_creds['tacacs_ro_user_passwd']
 
-    rw_user = creds_all_duts[duthost]['tacacs_rw_user']
-    rw_pass = creds_all_duts[duthost]['tacacs_rw_user_passwd']
+    rw_user = tacacs_creds['tacacs_rw_user']
+    rw_pass = tacacs_creds['tacacs_rw_user_passwd']
 
     res = duthost.shell("ls -l /home/{}".format(ro_user), module_ignore_errors=True)
     if  res["rc"] == 0:
@@ -91,7 +89,7 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
     try:
         # Ensure rw user can get in, as we need this to be able to reboot
         ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
-        
+
         assert ret, "Failed to ssh as rw user"
 
         # Set disk in RO state
@@ -109,5 +107,3 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, creds_al
         assert wait_until(600, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-
-       

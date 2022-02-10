@@ -11,8 +11,8 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
-    pytest.mark.asic('mellanox')
+    pytest.mark.topology('t0'),
+    pytest.mark.asic('mellanox', 'barefoot')
 ]
 
 logger = logging.getLogger(__name__)
