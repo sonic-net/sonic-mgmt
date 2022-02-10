@@ -559,9 +559,15 @@ class BaseAclTest(object):
         logger.info("Selected source port {}".format(src_port))
         self.src_port = src_port
 
-    def get_dst_ports(self, setup, direction):
+    def get_dst_ports(self, setup, direction, dst_ip=None):
         """Get the set of possible destination ports for the current test."""
-        return setup["upstream_port_ids"] if direction == "downlink->uplink" else setup["downstream_port_ids"]
+        if direction == "downlink->uplink":
+            return setup["upstream_port_ids"]
+        else:
+            dst_port = DOWNSTREAM_IP_PORT_MAP.get(dst_ip)
+            pytest_assert(dst_port is not None,
+                          "Can't find dst port for IP {}".format(dst_ip))
+            return dst_port
 
     def get_dst_ip(self, direction, ip_version):
         """Get the default destination IP for the current test."""
@@ -866,14 +872,10 @@ class BaseAclTest(object):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.src_port, pkt)
         if direction == "uplink->downlink":
-            dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IP].dst)
-            pytest_assert(dst_port != None,
-                          "Can't find dst port for IP {}".format(pkt[packet.IP].dst))
-
             if dropped:
-                testutils.verify_no_packet(ptfadapter, exp_pkt, dst_port)
+                testutils.verify_no_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
             else:
-                testutils.verify_packet(ptfadapter, exp_pkt, dst_port)
+                testutils.verify_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
         else:
             if dropped:
                 testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
