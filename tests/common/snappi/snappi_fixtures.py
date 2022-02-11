@@ -13,7 +13,6 @@ from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_p
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 
-
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
@@ -474,29 +473,26 @@ def tgen_ports(duthost,
 
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
-
     for port in snappi_ports:
         port['location'] = get_snappi_port_location(port)
         port['speed'] = speed_type[port['speed']]
-
-    for port in snappi_ports:
-        peer_port = port['peer_port']
-        int_addrs = config_facts['INTERFACE'][peer_port].keys()
-        try:
+    try:
+        for port in snappi_ports:
+            peer_port = port['peer_port']
+            int_addrs = config_facts['INTERFACE'][peer_port].keys()
             ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
             if not ipv4_subnet:
-                raise Exception("IPv4 is not configured on the interface {}"
-                                .format(peer_port))
+                raise Exception("IPv4 is not configured on the interface {}".format(peer_port))
             port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
             port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
             ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
             if not ipv6_subnet:
-                raise Exception("IPv6 is not configured on the interface {}"
-                                .format(peer_port))
+                raise Exception("IPv6 is not configured on the interface {}".format(peer_port))
             port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
             port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
-        except:
-            raise Exception('Configure IPv4 and IPv6 on DUT interfaces')
+    except:
+        raise Exception('Configure IPv4 and IPv6 on DUT interfaces')
+
     return snappi_ports
 
 
@@ -507,3 +503,4 @@ def cvg_api(snappi_api_serv_ip,
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
+    
