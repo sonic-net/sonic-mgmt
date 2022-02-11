@@ -13,6 +13,8 @@ def main():
 
     for file in stage_files:
         with open(file) as f:
+            if not f.read():
+                sys.exit(0)
             conditions = list(yaml.round_trip_load(f).keys())
             pre = conditions[0]
             for condition in conditions[1:]:
