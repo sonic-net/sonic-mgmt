@@ -10,6 +10,7 @@ TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
 NG_LIST = []
+aspaths = [65002, 65003]
 
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
@@ -363,6 +364,10 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_peer.as_number = int(TGEN_AS_NUM)
             route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
             route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+            as_path = route_range.as_path
+            as_path_segment = as_path.segments.add()
+            as_path_segment.type = as_path_segment.AS_SEQ
+            as_path_segment.as_numbers = aspaths
             rx_flow_name.append(route_range.name)
         return rx_flow_name
 
@@ -404,6 +409,10 @@ def __tgen_bgp_config(cvg_api,
             bgpv6_peer.as_number = int(TGEN_AS_NUM)
             route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+            as_path = route_range.as_path
+            as_path_segment = as_path.segments.add()
+            as_path_segment.type = as_path_segment.AS_SEQ
+            as_path_segment.as_numbers = aspaths
             rx_flow_name.append(route_range.name)
         return rx_flow_name
 
@@ -777,6 +786,10 @@ def get_RIB_IN_capacity(cvg_api,
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) #snappi object named Network Group 2 not found in internal db
                 route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+                as_path = route_range.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
 
@@ -817,6 +830,10 @@ def get_RIB_IN_capacity(cvg_api,
                 bgpv6_peer.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv6_peer.v6_routes.add(name="Network Group %d" % i)
                 route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+                as_path = route_range.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
         conv_config.rx_rate_threshold = 90/(multipath)
