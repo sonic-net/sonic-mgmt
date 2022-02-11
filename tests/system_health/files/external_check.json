@@ -1,5 +1,5 @@
 {
-    "services_to_ignore": [],
+    "services_to_ignore": ["acms"],
     "devices_to_ignore": [],
     "user_defined_checkers": ["cat /tmp/mock_valid_external_checker.txt"],
     "polling_interval": 10,

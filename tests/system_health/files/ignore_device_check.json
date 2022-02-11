@@ -1,5 +1,5 @@
 {
-    "services_to_ignore": [],
+    "services_to_ignore": ["acms"],
     "devices_to_ignore": ["asic","fan","psu"],
     "user_defined_checkers": [],
     "polling_interval": 10,
