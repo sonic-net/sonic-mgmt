@@ -136,7 +136,7 @@ class FibTest(BaseTest):
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
-        self.single_fib = self.test_params.get('single_fib_for_duts', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', "multiple-fib")
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, fib in enumerate(self.fibs):
@@ -160,10 +160,10 @@ class FibTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == "multiple-fib":
                 active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
@@ -196,6 +196,14 @@ class FibTest(BaseTest):
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
                 src_port, exp_port_list, next_hop = self.get_src_and_exp_ports(dst_ip)
+                if self.single_fib == "single-fib-multi-hop":
+                    updated_exp_port_list = []
+                    for port in exp_port_list:
+                        if (self.ptf_test_port_map[str(port)]['target_dut'] == self.ptf_test_port_map[str(src_port)]['target_dut'] and
+                            self.ptf_test_port_map[str(port)]['asic_idx'] == self.ptf_test_port_map[str(src_port)]['asic_idx']):
+                            updated_exp_port_list.append(port)
+                    if updated_exp_port_list:
+                        exp_port_list = updated_exp_port_list
                 if len(exp_port_list) <= 1:
                     # Only 1 expected output port is not enough for balancing test.
                     continue

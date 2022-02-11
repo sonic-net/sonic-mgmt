@@ -324,9 +324,12 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 
 @pytest.fixture(scope="module")
-def single_fib_for_duts(tbinfo):
+def single_fib_for_duts(tbinfo, duthosts):
     # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
     if tbinfo['topo']['type'] == "t2":
-        return True
-    return False
+        if duthosts[0].facts['switch_type'] == "voq":
+            return "single-fib-single-hop"
+        else:
+            return "single-fib-multi-hop"
+    return "multiple-fib"
  
