@@ -1,3 +1,4 @@
+import allure
 import pytest
 import os
 import json
@@ -204,6 +205,7 @@ def validate_versions(init, final, config, chassis, boot):
     return True
 
 def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=None, boot=None, basepath=None):
+    allure.step("Collect firmware versions")
     logger.info("Calling fwutil with component: {} | next_image: {} | boot: {} | basepath: {}".format(component, next_image, boot, basepath))
     init_versions = show_firmware(duthost)
     logger.info("Initial Versions: {}".format(init_versions))
@@ -211,9 +213,11 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     paths = get_install_paths(duthost, fw, init_versions, chassis, component)
     current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
+    allure.step("Upload firmware to DUT")
     generate_config(duthost, paths, init_versions)
     upload_platform(duthost, paths, next_image)
 
+    allure.step("Execute fwutil command")
     command = "fwutil"
     if basepath is not None:
         command += " install"
@@ -247,14 +251,17 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     task, res = duthost.command(command, module_ignore_errors=True, module_async=True)
     boot_type = boot if boot else paths[component]["reboot"][0]
 
+    allure.step("Perform Neccesary Reboot")
     timeout = max([v.get("timeout", TIMEOUT) for k, v in paths.items()])
     pdu_delay = fw["chassis"][chassis].get("power_cycle_delay", 60)
     complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image, timeout, pdu_delay)
 
+    allure.step("Collect Updated Firmware Versions")
     time.sleep(2) # Give a little bit of time in case of no-op install for mounts to complete
     final_versions = show_firmware(duthost)
     test_result = validate_versions(init_versions, final_versions, paths, chassis, boot_type)
 
+    allure.step("Begin Switch Restoration")
     if next_image is None:
         duthost.copy(src=os.path.join("firmware", "platform_components_backup.json"), 
                 dest=os.path.join("/", DEVICES_PATH, duthost.facts["platform"], "platform_components.json"))
