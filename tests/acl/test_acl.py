@@ -21,6 +21,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +59,19 @@ DEFAULT_SRC_IP = {
 # TODO: These routes don't match the VLAN interface from the T0 topology.
 # This needs to be addressed before we can enable the v6 tests for T0
 DOWNSTREAM_DST_IP = {
-    "ipv4": "192.168.0.2",
+    "ipv4": "192.168.0.253",
     "ipv6": "20c0:a800::2"
 }
 DOWNSTREAM_IP_TO_ALLOW = {
-    "ipv4": "192.168.0.4",
+    "ipv4": "192.168.0.252",
     "ipv6": "20c0:a800::4"
 }
 DOWNSTREAM_IP_TO_BLOCK = {
-    "ipv4": "192.168.0.8",
+    "ipv4": "192.168.0.251",
     "ipv6": "20c0:a800::8"
 }
+
+DOWNSTREAM_IP_PORT_MAP = {}
 
 UPSTREAM_DST_IP = {
     "ipv4": "192.168.128.1",
@@ -244,6 +247,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
         port = random.choice(setup["vlan_ports"])
         addr = addr_list[i]
         vlan_host_map[port][str(addr)] = mac
+        DOWNSTREAM_IP_PORT_MAP[addr] = port
 
     arp_responder_conf = {}
     for port in vlan_host_map:
@@ -260,12 +264,13 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     ptfhost.shell("supervisorctl restart arp_responder")
 
     def populate_arp_table():
-        duthost.command("sonic-clear fdb all")
-        duthost.command("sonic-clear arp")
-        # Wait some time to ensure the async call of clear is completed
-        time.sleep(20)
-        for addr in addr_list:
-            duthost.command("ping {} -c 3".format(addr), module_ignore_errors=True)
+        for dut in duthosts:
+            dut.command("sonic-clear fdb all")
+            dut.command("sonic-clear arp")
+            # Wait some time to ensure the async call of clear is completed
+            time.sleep(20)
+            for addr in addr_list:
+                dut.command("ping {} -c 3".format(addr), module_ignore_errors=True)
 
     populate_arp_table()
 
@@ -554,9 +559,15 @@ class BaseAclTest(object):
         logger.info("Selected source port {}".format(src_port))
         self.src_port = src_port
 
-    def get_dst_ports(self, setup, direction):
+    def get_dst_ports(self, setup, direction, dst_ip=None):
         """Get the set of possible destination ports for the current test."""
-        return setup["upstream_port_ids"] if direction == "downlink->uplink" else setup["downstream_port_ids"]
+        if direction == "downlink->uplink":
+            return setup["upstream_port_ids"]
+        else:
+            dst_port = DOWNSTREAM_IP_PORT_MAP.get(dst_ip)
+            pytest_assert(dst_port is not None,
+                          "Can't find dst port for IP {}".format(dst_ip))
+            return dst_port
 
     def get_dst_ip(self, direction, ip_version):
         """Get the default destination IP for the current test."""
@@ -860,11 +871,17 @@ class BaseAclTest(object):
 
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.src_port, pkt)
-
-        if dropped:
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+        if direction == "uplink->downlink":
+            if dropped:
+                testutils.verify_no_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
+            else:
+                testutils.verify_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
         else:
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction), timeout=20)
+            if dropped:
+                testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+            else:
+                testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction),
+                                                 timeout=20)
 
 
 class TestBasicAcl(BaseAclTest):
