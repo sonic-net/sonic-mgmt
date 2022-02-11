@@ -12,6 +12,7 @@ TIMEOUT = 40
 BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
 NG_LIST = []
+aspaths = [65002, 65003]
 
 def run_bgp_convergence_performance(cvg_api,
                                     duthost,
@@ -459,6 +460,10 @@ def __tgen_bgp_config(cvg_api,
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes") 
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=v4_routes)
+    as_path = route_range1.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
     bgpv6 = config.devices[1].bgp
     bgpv6.router_id = temp_tg_port[1]['peer_ip']
     bgpv6_int = bgpv6.ipv6_interfaces.add()
@@ -470,6 +475,10 @@ def __tgen_bgp_config(cvg_api,
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
     route_range2.addresses.add(address='3000::1', prefix=64, count=v6_routes)
+    as_path = route_range2.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
     def createTrafficItem(traffic_name, src, dest, rate):
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
         flow1.tx_rx.device.tx_names = [src]
@@ -583,6 +592,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
                 route_range.addresses.add(address='200.1.0.1', prefix=32, count=routes)
+                as_path = route_range.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
 
@@ -624,6 +637,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 bgpv6_peer.as_number = int(TGEN_AS_NUM)
                 route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
                 route_range.addresses.add(address='3000::1', prefix=64, count=routes)
+                as_path = route_range.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = aspaths                
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
 
