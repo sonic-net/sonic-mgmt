@@ -516,7 +516,7 @@ class MultiAsicSonicHost(object):
 
     def update_ip_route(self, ip, nexthop, op="", namespace=DEFAULT_NAMESPACE):
         """
-        Update route to add/remove for a given IP <ip> towards BGP peer
+        Update route to add/remove for a given IP <ip> with nexthop IP address
 
          Args:
             duthost(Ansible Fixture): instance of SonicHost class of DUT
