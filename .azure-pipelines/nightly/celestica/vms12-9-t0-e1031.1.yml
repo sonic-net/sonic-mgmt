@@ -63,7 +63,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf" --device_type physical'
+    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf"'
     displayName: Testbed specific
 
 stages:
@@ -75,3 +75,4 @@ stages:
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: "--device_type physical"
