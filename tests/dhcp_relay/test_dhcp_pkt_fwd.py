@@ -144,13 +144,13 @@ class DhcpPktFwdBase:
             tbinfo
         )
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp)
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp)
 
         yield {"upstream": upstreamLags, "downstream": downstreamLags}
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
 
     @classmethod
     def createDhcpDiscoverRelayedPacket(self, dutMac):
@@ -315,7 +315,7 @@ class TestDhcpPktFwd(DhcpPktFwdBase):
 
         # Update fields of the forwarded packet
         dhcpPacket[scapy.Ether].src = duthost.facts["router_mac"]
-        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - 1
+        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - duthost.ttl_decr_value
 
         expectedDhcpPacket = Mask(dhcpPacket)
         expectedDhcpPacket.set_do_not_care_scapy(scapy.Ether, "dst")

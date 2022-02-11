@@ -204,6 +204,12 @@ class MultiAsicSonicHost(object):
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
         return ns_cmd
 
+    @property
+    def ttl_decr_value(self):
+        if not self.sonichost.is_multi_asic:
+            return 1
+        return 3
+
     def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
         asic_id = self.get_asic_id_from_namespace(namespace)
         if asic_id == DEFAULT_ASIC_ID:
@@ -507,3 +513,32 @@ class MultiAsicSonicHost(object):
         if ipv6 and len(self.get_bgp_route_info("::/0")) == 0:
             return False
         return True
+
+    def update_ip_route(self, ip, nexthop, op="", namespace=DEFAULT_NAMESPACE):
+        """
+        Update route to add/remove for a given IP <ip> towards BGP peer
+
+         Args:
+            duthost(Ansible Fixture): instance of SonicHost class of DUT
+            ip(str): IP to add/remove route for
+            nexthp(str): Nexthop IP
+            op(str): operation add/remove to be performed, default add
+            namespace: ASIC namespace
+
+        Returns:
+            None
+        """
+        logger.info("{0} route to '{1}' via '{2}'".format(
+            "Deleting" if "no" == op else "Adding", ip, nexthop
+        ))
+
+        vty_cmd_args = "-c \"configure terminal\" -c \"{} ip route {} {}\"".format(
+            op, ipaddress.ip_interface(unicode(ip + "/24")).network, nexthop
+        )
+
+        if namespace != DEFAULT_NAMESPACE:
+            dutasic = self.asic_instance_from_namespace(namespace)
+            dutasic.run_vtysh(vty_cmd_args)
+        else:
+            for dutasic in self.asics:
+                dutasic.run_vtysh(vty_cmd_args)
