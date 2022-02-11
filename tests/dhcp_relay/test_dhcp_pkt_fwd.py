@@ -1,7 +1,6 @@
 import logging
 import random
 import ipaddr
-import ipaddress
 import pytest
 
 import ptf.testutils as testutils
