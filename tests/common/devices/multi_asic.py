@@ -206,6 +206,10 @@ class MultiAsicSonicHost(object):
 
     @property
     def ttl_decr_value(self):
+        """
+        Decrement in TTL value for L3 forwarding. On Multi ASIC TTL value
+        decreases by 3 when forwarding across tiers (e.g. T0 to T2).
+        """
         if not self.sonichost.is_multi_asic:
             return 1
         return 3
