@@ -6,6 +6,7 @@ import logging
 from random import randrange
 
 from fwutil_common import show_firmware
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,8 @@ def next_image(duthost, fw_pkg):
 
     logger.info("Attempting to stage test firware onto newly-installed image.")
     try:
+        wait_until(10, 1, 0, check_path_exists, fs_rw)
+
         duthost.command("mkdir -p {}".format(fs_mountpoint))
         duthost.command("mkdir -p {}".format(fs_rw))
         duthost.command("mkdir -p {}".format(fs_work))

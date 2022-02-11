@@ -6,17 +6,15 @@ import requests
 import ipaddress
 import json
 
+from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
-from tests.common.dualtor.mux_simulator_control import mux_server_url     # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
-from tests.common.dualtor.dual_tor_utils import map_hostname_to_tor_side
 from tests.common.helpers.assertions import pytest_require
-from tests.common import constants
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -67,14 +65,11 @@ def skip_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, toggle_all_simulator_ports):
+def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
 
     logger.info("########### Setup for bgp speaker testing ###########")
 
     duthost = duthosts[rand_one_dut_hostname]
-
-    if 'dualtor' in tbinfo['topo']['name']:
-        toggle_all_simulator_ports(map_hostname_to_tor_side(tbinfo, rand_one_dut_hostname))
 
     ptfip = ptfhost.mgmt_ip
     logger.info("ptfip=%s" % ptfip)
@@ -244,6 +239,14 @@ def get_dut_vlan_ptf_ports(mg_facts):
     return ports
 
 
+def is_all_neighbors_learned(duthost, speaker_ips):
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
+    for ip in speaker_ips:
+        if not str(ip.ip) in bgp_facts['bgp_neighbors']:
+            return False
+    return True
+
+
 def bgp_speaker_announce_routes_common(common_setup_teardown,
                                        tbinfo, duthost, ptfhost, ipv4, ipv6, mtu,
                                        family, prefix, nexthop_ips, vlan_mac):
@@ -263,7 +266,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    time.sleep(30)
+    assert wait_until(90, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), "Not all dynamic neighbors were learned"
 
     logger.info("Verify accepted prefixes of the dynamic neighbors are correct")
     bgp_facts = duthost.bgp_facts()['ansible_facts']

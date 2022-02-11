@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, component
 
 from platform_api_test_base import PlatformApiTestBase
+from tests.common.utilities import skip_release_for_platform
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -49,6 +50,9 @@ class TestComponentApi(PlatformApiTestBase):
                 self.num_components = int(chassis.get_num_components(platform_api_conn))
             except:
                 pytest.fail("num_components is not an integer")
+            else:
+                if self.num_components == 0:
+                    pytest.skip("No components found on device")
 
     #
     # Helper functions
@@ -72,8 +76,6 @@ class TestComponentApi(PlatformApiTestBase):
 
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             name = component.get_name(platform_api_conn, i)
@@ -83,8 +85,6 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             presence = component.get_presence(platform_api_conn, i)
@@ -95,8 +95,6 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             model = component.get_model(platform_api_conn, i)
@@ -105,8 +103,6 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             serial = component.get_serial(platform_api_conn, i)
@@ -115,8 +111,6 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             status = component.get_status(platform_api_conn, i)
@@ -144,8 +138,6 @@ class TestComponentApi(PlatformApiTestBase):
 
 
     def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             description = component.get_description(platform_api_conn, i)
@@ -154,8 +146,6 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
 
         for i in range(self.num_components):
             fw_version = component.get_firmware_version(platform_api_conn, i)
@@ -164,8 +154,8 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_available_firmware_version(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
         for i in range(self.num_components):
             for image in image_list:
@@ -175,8 +165,8 @@ class TestComponentApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_firmware_update_notification(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
         for i in range(self.num_components):
             for image in image_list:
@@ -185,8 +175,8 @@ class TestComponentApi(PlatformApiTestBase):
                 pytest_assert(isinstance(notif, STRING_TYPE), "Component {}: Firmware update notification appears to be incorrect from image {}".format(i, image))
 
     def test_install_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
         for i in range(self.num_components):
             for image in image_list:
@@ -197,8 +187,8 @@ class TestComponentApi(PlatformApiTestBase):
 
 
     def test_update_firmware(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        if self.num_components == 0:
-            pytest.skip("No components found on device")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["nokia"])
 
         for i in range(self.num_components):
             for image in image_list:

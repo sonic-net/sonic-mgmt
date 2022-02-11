@@ -214,11 +214,11 @@ class QosSaiBase(QosBase):
         if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
-            bufkeystr = "BUFFER_POOL_TABLE:"
+            bufkeystr = "BUFFER_PROFILE_TABLE:"
         else:
             db = "4"
             keystr = "{0}|{1}|{2}".format(table, port, priorityGroup)
-            bufkeystr = "BUFFER_POOL|"
+            bufkeystr = "BUFFER_PROFILE|"
 
         if check_qos_db_fv_reference_with_table(dut_asic) == True:
             bufferProfileName = dut_asic.run_redis_cmd(
@@ -545,7 +545,7 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
-            for iface,addr in dut_asic.get_active_ip_interfaces().items():
+            for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
                     if "." in iface:
@@ -741,10 +741,6 @@ class QosSaiBase(QosBase):
 
         yield
 
-        enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
-        if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
-
         for service in services:
             updateDockerService(duthost, action="start", **service)
 
@@ -753,6 +749,7 @@ class QosSaiBase(QosBase):
            try:
                duthost.shell("ls %s" % backup_file)
                duthost.shell("sudo cp {} {}".format(backup_file,file))
+               duthost.shell("sudo chmod +x {}".format(file))
                duthost.shell("sudo rm {}".format(backup_file))
            except:
                pytest.skip('file {} not found'.format(backup_file))
@@ -760,6 +757,11 @@ class QosSaiBase(QosBase):
            duthost.shell('sudo config feature state mux enabled')
            duthost_lower.shell('sudo config feature state mux enabled')
            logger.info("Start mux container for dual ToR testbed")
+
+        enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
+        if 'dualtor' in tbinfo['topo']['name']:
+            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, rand_one_dut_hostname, loganalyzer):
@@ -955,6 +957,14 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope='class', autouse=True)
+    def dut_disable_ipv6(self, duthosts, rand_one_dut_hostname):
+        duthost = duthosts[rand_one_dut_hostname]
+        duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+
+        yield
+        duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -1322,7 +1332,7 @@ class QosSaiBaseMasic(QosBase):
                 # wait for port status to change
                 pytest_assert(
                     wait_until(
-                        10, 1, is_intf_status, frontend_asic, intf,
+                        10, 1, 0, is_intf_status, frontend_asic, intf,
                         oper_state
                     ),
                     "Failed to update port status {} {}".format(
@@ -1442,7 +1452,7 @@ class QosSaiBaseMasic(QosBase):
         pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ip_ifaces = duthost.get_active_ip_interfaces(asic_index="all")
+        ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
 
         port_ips = dict()
         for idx in range(len(ip_ifaces)):

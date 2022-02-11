@@ -1,3 +1,5 @@
+import logging
+
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
@@ -35,7 +37,6 @@ def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ig
 
     global global_snmp_facts
 
-    pytest_assert(wait_until(timeout, interval, _update_snmp_facts, localhost, host, version,
+    pytest_assert(wait_until(timeout, interval, 0, _update_snmp_facts, localhost, host, version,
                              community, is_dell), "Timeout waiting for SNMP facts")
     return global_snmp_facts
-

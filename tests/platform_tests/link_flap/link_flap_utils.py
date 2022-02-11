@@ -113,7 +113,26 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     return candidates
 
 
-def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
+def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
+    """
+    Check portchannel status on the DUT.
+
+    Args:
+        dut: DUT host object
+        dut_port_channel: Portchannel of DUT
+        exp_state: State of DUT's port ('up' or 'down')
+        verbose: Logging port state.
+
+    Returns:
+        Bool value which confirm port state
+    """
+    status = __get_dut_if_status(dut, dut_port_channel)[dut_port_channel]
+    if verbose:
+        logger.debug("Portchannel status : %s", status)
+    return status['oper_state'] == exp_state
+
+
+def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_status=True):
     """
     Toggle one link on the fanout.
 
@@ -125,15 +144,16 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
         watch: Logging system state
     """
     logger.info("Testing link flap on %s", dut_port)
-
-    pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
+    if check_status:
+        pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
 
     logger.info("Shutting down fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
 
     need_recovery = True
     try:
         fanout.shutdown(fanout_port)
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+        if check_status:
+            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
         if watch:
             time.sleep(1)
@@ -142,11 +162,13 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False):
         logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
         fanout.no_shutdown(fanout_port)
         need_recovery = False
-        pytest_assert(wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+        if check_status:
+            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
-            wait_until(30, 1, __check_if_status, dut, dut_port, 'up', True)
+            if check_status:
+                wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True)
 
 
 def watch_system_status(dut):
@@ -177,8 +199,12 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
     """
-    orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-    return int(float(orch_cpu)) < orch_cpu_threshold
+    orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+    for line in orch_cpu:
+        if int(float(line)) > orch_cpu_threshold:
+           return False
+    return True
+
 
 
 def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):

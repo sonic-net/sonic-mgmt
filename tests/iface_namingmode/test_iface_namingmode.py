@@ -256,7 +256,7 @@ class TestShowInterfaces():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        regex_int = re.compile(r'(\S+)\s+(\w)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)')
+        regex_int = re.compile(r'(\S+)(\d+)')
         interfaces = list()
 
         show_intf_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces counter'.format(ifmode))
@@ -265,7 +265,9 @@ class TestShowInterfaces():
         for line in show_intf_counter['stdout_lines']:
             line = line.strip()
             if regex_int.match(line):
-                interfaces.append(regex_int.match(line).group(1))
+                interfaces.append(regex_int.match(line).group(0))
+
+        assert(len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
@@ -688,14 +690,14 @@ class TestConfigInterface():
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
                         "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                         "Interface {} should be admin up".format(test_intf))
 
 
@@ -858,7 +860,7 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def spine_ports(self, setup):
+    def spine_ports(self, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
@@ -874,7 +876,8 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if (key in setup['physical_interfaces']) and ('T2' in value['name']):
+            if (key in setup['physical_interfaces'] 
+                    and ('T2' in value['name'] or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
 

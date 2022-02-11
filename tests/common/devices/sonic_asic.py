@@ -1,3 +1,4 @@
+import json
 import logging
 import socket
 
@@ -42,6 +43,12 @@ class SonicAsic(object):
         self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
         self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
 
+    def __str__(self):
+        return '<SonicAsic {}>'.format(self.asic_index)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_critical_services(self):
         """This function returns the list of the critical services
            for the namespace(asic)
@@ -53,8 +60,8 @@ class SonicAsic(object):
         """
         a_service = []
         for service in self.sonichost.DEFAULT_ASIC_SERVICES:
-           a_service.append("{}{}".format(
-               service, self.asic_index if self.sonichost.is_multi_asic else ""))
+            a_service.append("{}{}".format(
+                service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
     def is_it_frontend(self):
@@ -268,7 +275,7 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self):
+    def get_active_ip_interfaces(self, tbinfo):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -277,7 +284,9 @@ class SonicAsic(object):
             Dict of Interfaces and their IPv4 address
         """
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        return self.sonichost.active_ip_interfaces(ip_ifs, self.ns_arg)
+        return self.sonichost.active_ip_interfaces(
+            ip_ifs, tbinfo, self.namespace
+        )
 
     def bgp_drop_rule(self, ip_version, state="present"):
         """
@@ -458,7 +467,7 @@ class SonicAsic(object):
         return queue_oid
 
     def get_extended_minigraph_facts(self, tbinfo):
-          return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
+        return self.sonichost.get_extended_minigraph_facts(tbinfo, self.namespace)
 
     def startup_interface(self, interface_name):
         return self.sonichost.shell("sudo config interface {ns} startup {intf}".
@@ -558,3 +567,25 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
+
+    def get_default_route_from_app_db(self, af='ipv4'):
+        def_rt_json = None
+        if af == 'ipv4':
+            def_rt_str = 'ROUTE_TABLE:0.0.0.0/0'
+        else:
+            def_rt_str = 'ROUTE_TABLE:::/0'
+
+        def_rt_entry = self.sonichost.shell(
+            "{} redis-dump -y -k \"{}\" --pretty".format(
+                self.ns_arg, def_rt_str))['stdout']
+        if def_rt_entry is not None:
+            def_rt_json = json.loads(def_rt_entry)
+        return def_rt_json
+
+    def is_default_route_removed_from_app_db(self):
+        af_list = ['ipv4', 'ipv6']
+        for af in af_list:
+            def_rt_json = self.get_default_route_from_app_db(af)
+            if def_rt_json:
+                return False
+        return True

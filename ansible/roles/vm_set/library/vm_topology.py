@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-import datetime
-import logging
 import hashlib
 import json
 import re
@@ -9,9 +7,10 @@ import subprocess
 import shlex
 import time
 import traceback
-
+import logging
 import docker
 
+from ansible.module_utils.debug_utils import config_module_logging
 from ansible.module_utils.basic import *
 
 DOCUMENTATION = '''
@@ -126,6 +125,8 @@ PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
 RETRIES = 10
+# name of interface must be less than or equal to 15 bytes.
+MAX_INTF_LEN = 15
 
 VS_CHASSIS_INBAND_BRIDGE_NAME = "br-T2Inband"
 VS_CHASSIS_MIDPLANE_BRIDGE_NAME = "br-T2Midplane"
@@ -136,12 +137,13 @@ SUB_INTERFACE_SEPARATOR = '.'
 SUB_INTERFACE_VLAN_ID = '10'
 
 
-def config_logging():
-    curtime = datetime.datetime.now().isoformat()
-    logging.basicConfig(filename=CMD_DEBUG_FNAME % curtime,
-                        format='%(asctime)s %(levelname)s %(name)s#%(lineno)d: %(message)s',
-                        level=logging.DEBUG)
-
+def construct_log_filename(cmd, vm_set_name):
+    log_filename = 'vm_topology'
+    if cmd:
+        log_filename += '_' + cmd
+    if vm_set_name:
+        log_filename += '_' + vm_set_name
+    return log_filename
 
 def adaptive_name(template, host, index):
     """
@@ -390,16 +392,9 @@ class VMTopology(object):
             self.pid = api_server_pid
         if VMTopology.intf_not_exists(MGMT_PORT_NAME, self.pid):
             if api_server_pid is None:
-                tmp_mgmt_if = hashlib.md5((PTF_NAME_TEMPLATE % self.vm_set_name).encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
-                self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, tmp_mgmt_if)
+                self.add_br_if_to_docker(mgmt_bridge, PTF_MGMT_IF_TEMPLATE % self.vm_set_name, MGMT_PORT_NAME)
             else:
-                tmp_mgmt_if = hashlib.md5(('apiserver').encode("utf-8")).hexdigest()[0:6] + MGMT_PORT_NAME
-                self.add_br_if_to_docker(mgmt_bridge, 'apiserver', tmp_mgmt_if)
-
-            VMTopology.iface_down(tmp_mgmt_if, self.pid)
-            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_mgmt_if, MGMT_PORT_NAME))
-
-        VMTopology.iface_up(MGMT_PORT_NAME, self.pid)
+                self.add_br_if_to_docker(mgmt_bridge, 'apiserver', MGMT_PORT_NAME)
         self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr, mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6, api_server_pid=api_server_pid)
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
@@ -408,9 +403,11 @@ class VMTopology(object):
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
-        logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker' % (ext_if, bridge, int_if))
+        # add unique suffix to int_if to support multiple tasks run concurrently
+        tmp_int_if = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+        logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, int_if))
+            VMTopology.cmd("ip link add %s type veth peer name %s" % (ext_if, tmp_int_if))
 
         _, if_to_br = VMTopology.brctl_show(bridge)
         if ext_if not in if_to_br:
@@ -418,8 +415,9 @@ class VMTopology(object):
 
         VMTopology.iface_up(ext_if)
 
-        if VMTopology.intf_exists(int_if) and VMTopology.intf_not_exists(int_if, self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, int_if))
+        if VMTopology.intf_exists(tmp_int_if) and VMTopology.intf_not_exists(tmp_int_if, self.pid):
+            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, tmp_int_if))
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_int_if, int_if))
 
         VMTopology.iface_up(int_if, self.pid)
 
@@ -851,6 +849,19 @@ class VMTopology(object):
                     self.remove_dut_vlan_subif_from_docker(ptf_if, vlan_separator, vlan_id)
 
     @staticmethod
+    def _generate_fingerprint(name, digit=6):
+        """
+            Generate fingerprint
+            Args:
+                name (str): name
+                digit (int): digit of fingerprint, e.g. 6
+
+            Returns:
+                str: fingerprint, e.g. a9d24d
+            """
+        return hashlib.md5(name.encode("utf-8")).hexdigest()[0:digit]
+
+    @staticmethod
     def _intf_cmd(intf, pid=None):
         if pid:
             cmdline = 'nsenter -t %s -n ifconfig -a %s' % (pid, intf)
@@ -1203,15 +1214,16 @@ def main():
         supports_check_mode=False)
 
     cmd = module.params['cmd']
+    vm_set_name = module.params['vm_set_name']
     vm_names = module.params['vm_names']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
 
+    config_module_logging(construct_log_filename(cmd, vm_set_name))
+
     if cmd == 'bind_keysight_api_server_ip':
         vm_names = []
-
-    config_logging()
 
     try:
 

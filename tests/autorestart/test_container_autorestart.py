@@ -21,9 +21,9 @@ pytestmark = [
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
-CONTAINER_STOP_THRESHOLD_SECS = 30
-CONTAINER_RESTART_THRESHOLD_SECS = 180
-CONTAINER_NAME_REGEX = (r"([a-zA-Z_]+)(\d*)$")
+CONTAINER_STOP_THRESHOLD_SECS = 60
+CONTAINER_RESTART_THRESHOLD_SECS = 300
+CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 
@@ -218,6 +218,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     duthost.shell("sudo systemctl start {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
@@ -240,6 +241,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' was stopped".format(container_name))
@@ -247,6 +249,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is restarted...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
         if is_hiting_start_limit(duthost, container_name):
@@ -275,6 +278,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Waiting to ensure container '{}' does not stop...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(not stopped, "Container '{}' was stopped unexpectedly".format(container_name))
     logger.info("Container '{}' did not stop".format(container_name))
@@ -302,22 +306,10 @@ def check_all_critical_processes_status(duthost):
 
     return True
 
-def post_test_check(duthost, up_bgp_neighbors):
-    """Checks whether critical processes are running and BGP sessions are established.
-
-    Args:
-      duthost: An ansible object of DuT.
-      up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
-
-    Returns:
-      Ture if critical processes are running and BGP sessions are up; Otherwise False.
-    """
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
-
 
 def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
     """Restarts the containers which hit the restart limitation. Then post checks
-       to see whether all the critical processes are alive and 
+       to see whether all the critical processes are alive and
        expected BGP sessions are up after testing the autorestart feature.
 
     Args:
@@ -333,8 +325,17 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
         if is_hiting_start_limit(duthost, container_name):
             clear_failed_flag_and_restart(duthost, container_name)
 
-    return wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS,
-                      post_test_check, duthost, up_bgp_neighbors)
+    critical_proceses = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
+    bgp_check = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        duthost.check_bgp_session_state, up_bgp_neighbors, "established"
+    )
+
+    return critical_proceses, bgp_check
 
 
 def run_test_on_single_container(duthost, container_name, tbinfo):
@@ -408,9 +409,33 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
         duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
-    if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
+    critical_proceses, bgp_check = postcheck_critical_processes_status(
+        duthost, container_autorestart_states, up_bgp_neighbors
+    )
+    if not (critical_proceses and bgp_check):
         config_reload(duthost)
-        pytest.fail("Some post check failed after testing feature {}".format(container_name))
+        failed_check = "[Critical Process] " if not critical_proceses else ""
+        failed_check += "[BGP] " if not bgp_check else ""
+        processes_status = duthost.all_critical_process_status()
+        pstatus = [
+            {
+                k:{
+                    "status": v["status"],
+                    "exited_critical_process": processes["exited_critical_process"]
+                }
+            } for k, v in processes_status.items() if v[
+                "status"
+            ] is False and len(v["exited_critical_process"]) > 0
+        ]
+
+        pytest.fail(
+            ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
+             "\nProcess status {}").format(
+                failed_check, container_name,
+                [{x: v['state']} for x, v in duthost.get_bgp_neighbors().items() if v['state'] != 'established'],
+                up_bgp_neighbors, pstatus
+            )
+        )
 
     logger.info("End of testing the container '{}'".format(container_name))
 

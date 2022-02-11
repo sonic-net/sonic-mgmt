@@ -80,6 +80,7 @@ import sys
 import hashlib
 import logging
 import logging.handlers
+import traceback
 from datetime import datetime
 from functools import cmp_to_key
 from ansible.module_utils.basic import *
@@ -91,7 +92,7 @@ def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
     file = None
     if 'gz' in path:
-        file = gzip.GzipFile(path)
+        file = gzip.open(path, mode='rt')
     else:
         file = open(path)
     result = None
@@ -102,7 +103,7 @@ def extract_lines(directory, filename, target_string):
         # Prehandle lines to remove these sub-strings
         dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
         sz = os.path.getsize(path)
-        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'nsible' not in line]
+        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'extract_log' not in line]
 
     return result
 
@@ -233,7 +234,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
-                file = gzip.GzipFile(path)
+                file = gzip.open(path, mode='rt')
             else:
                 file = open(path)
 
@@ -258,7 +259,7 @@ def extract_log(directory, prefixname, target_string, target_filename):
     logger.debug("extract_log from files {}".format(filenames))
     file_with_latest_line, file_create_time, latest_line, file_size = extract_latest_line_with_string(directory, filenames, target_string)
     m = hashlib.md5()
-    m.update(latest_line)
+    m.update(latest_line.encode('utf-8'))
     logger.debug("extract_log start file {} size {}, ctime {}, latest line md5sum {}".format(file_with_latest_line, file_size, file_create_time, m.hexdigest()))
     files_to_copy = calculate_files_to_copy(filenames, file_with_latest_line)
     logger.debug("extract_log subsequent files {}".format(files_to_copy))
@@ -286,8 +287,8 @@ def main():
     try:
         extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])
     except:
-        err = str(sys.exc_info())
-        module.fail_json(msg="Error: %s" % err)
+        tb = traceback.format_exc()
+        module.fail_json(msg=tb)
     module.exit_json()
 
 

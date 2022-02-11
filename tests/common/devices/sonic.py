@@ -17,6 +17,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
+from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -74,8 +75,11 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
+    def __str__(self):
+        return '<SonicHost {}>'.format(self.hostname)
+
     def __repr__(self):
-        return '<SonicHost> {}'.format(self.hostname)
+        return self.__str__()
 
     @property
     def facts(self):
@@ -214,8 +218,6 @@ class SonicHost(AnsibleHostBase):
         res = "False" if out["failed"] else out["stdout"]
         return res
 
-
-
     def _get_asic_count(self, platform):
         """
         Gets the number of asics for this device.
@@ -239,9 +241,8 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-
 
     def _get_platform_info(self):
         """
@@ -264,7 +265,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in platform_info.iteritems():
+                for key, value in platform_info.items():
                     result[key] = value
 
             except Exception:
@@ -292,6 +293,9 @@ class SonicHost(AnsibleHostBase):
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
         if len(output['stdout_lines']) == 0:
+            # get release from OS version
+            if self.os_version:
+                return self.os_version.split('.')[0][0:6]
             return 'none'
         return output["stdout_lines"][0].strip()
 
@@ -387,10 +391,22 @@ class SonicHost(AnsibleHostBase):
         return len(status["stdout_lines"]) > 1
 
     def critical_services_status(self):
-        result = {}
+        # Initialize service status
+        services = {}
         for service in self.critical_services:
-            result[service] = self.is_service_fully_started(service)
-        return result
+            services[service] = False
+
+        # Check and update service status
+        try:
+            results = self.command("docker ps --filter status=running --format \{\{.Names\}\}")['stdout_lines']
+            for service in self.critical_services:
+                if service in results:
+                    services[service] = True
+        except Exception as e:
+            logging.info("Critical service status: {}".format(json.dumps(services)))
+            logging.info("Get critical service status failed with error {}".format(repr(e)))
+
+        return services
 
     def critical_services_fully_started(self):
         """
@@ -485,6 +501,48 @@ class SonicHost(AnsibleHostBase):
 
         return critical_group_list, critical_process_list, succeeded
 
+    def critical_group_process(self):
+        # Get critical group and process definitions by running cmds in batch to save overhead
+        cmds = []
+        for service in self.critical_services:
+            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
+                  " && cat /etc/supervisor/critical_processes'".format(service)
+
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical group and service definition of all services
+        group_process_results = {}
+        for service in self.critical_services:
+            if service not in service_results or service_results[service]['rc'] != 0:
+                continue
+
+            service_group_process = {'groups': [], 'processes': []}
+
+            file_content = service_results[service]['stdout_lines']
+            for line in file_content:
+                line_info = line.strip().split(':')
+                if len(line_info) != 2:
+                    if '201811' in self._os_version and len(line_info) == 1:
+                        process_name = line_info[0].strip()
+                        service_group_process['processes'].append(process_name)
+                else:
+                    group_or_process = line_info[0].strip()
+                    group_process_name = line_info[1].strip()
+                    if group_or_process == 'group' and group_process_name:
+                        service_group_process['groups'].append(group_process_name)
+                    elif group_or_process == 'program' and group_process_name:
+                        service_group_process['processes'].append(group_process_name)
+            group_process_results[service] = service_group_process
+
+        return group_process_results
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -529,10 +587,50 @@ class SonicHost(AnsibleHostBase):
         """
         @summary: Check whether all critical processes status for all critical services
         """
-        result = {}
+        # Get critical process definition of all services
+        group_process_results = self.critical_group_process()
+
+        # Get process status of all services. Run cmds in batch to save overhead
+        cmds = []
         for service in self.critical_services:
-            result[service] = self.critical_process_status(service)
-        return result
+            cmd = 'docker exec {} supervisorctl status'.format(service)
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical process status of all services
+        all_critical_process = {}
+        for service in self.critical_services:
+            service_critical_process = {
+                'status': True,
+                'exited_critical_process': [],
+                'running_critical_process': []
+            }
+            if service not in group_process_results or service not in service_results:
+                service_critical_process['status'] = False
+                all_critical_process[service] = service_critical_process
+                continue
+
+            service_group_process = group_process_results[service]
+
+            service_result = service_results[service]
+            for line in service_result['stdout_lines']:
+                pname, status, _ = re.split('\s+', line, 2)
+                if status != 'RUNNING':
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['exited_critical_process'].append(pname)
+                        service_critical_process['status'] = False
+                else:
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['running_critical_process'].append(pname)
+            all_critical_process[service] = service_critical_process
+
+        return all_critical_process
 
     def get_crm_resources(self):
         """
@@ -761,7 +859,7 @@ class SonicHost(AnsibleHostBase):
         start_time = self.get_service_props("networking", props=["ExecMainStartTimestamp",])
         try:
             return self.get_now_time() - datetime.strptime(start_time["ExecMainStartTimestamp"],
-                                                           "%a %Y-%m-%d %H:%M:%S UTC")
+                                                           "%a %Y-%m-%d %H:%M:%S %Z")
         except Exception as e:
             logging.error("Exception raised while getting networking restart time: %s" % repr(e))
             return None
@@ -804,8 +902,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to shutdown
         """
-        intf_str = ','.join(ifnames)
-        return self.shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces shutdown
+        # Change the batch shutdown call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.shutdown(intf_str)
 
     def no_shutdown(self, ifname):
         """
@@ -824,8 +930,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to bring up
         """
-        intf_str = ','.join(ifnames)
-        return self.no_shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces startup
+        # Change the batch startup call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.no_shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
@@ -1039,10 +1153,14 @@ Totals               6450                 6449
             tokens = line.split()
             if len(tokens) > 1:
                 key = tokens[0]
-                val = {}
+                if key in ret:
+                    val = ret[key]
+                else:
+                    val = {'routes': 0, 'FIB': 0}
                 if tokens[1].isdigit():
-                    val['routes'] = tokens[1]
-                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    val['routes'] += int(tokens[1])
+                    if len(tokens) > 2 and tokens[2].isdigit():
+                        val['FIB'] += int(tokens[2])
                     ret[key] = val
         return ret
 
@@ -1170,6 +1288,10 @@ Totals               6450                 6449
             headers.append(header_line[left:right].strip().lower())
 
         for content_line in content_lines:
+            # When an empty line is encountered while parsing the tabulate content, it is highly possible that the
+            # tabulate content has been drained. The empty line and rest of the lines should not be parsed.
+            if len(content_line) == 0:
+                break
             item = {}
             for idx, (left, right) in enumerate(positions):
                 k = headers[idx]
@@ -1657,23 +1779,26 @@ Totals               6450                 6449
         except socket.error:
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
         try:
             self.shell("{}ping -q -c{} {} > /dev/null".format(
-                ns_arg, count, ipv4
+                netns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
         return True
 
-    def is_backend_portchannel(self, port_channel):
-        mg_facts = self.minigraph_facts(host = self.hostname)['ansible_facts']
+    def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
         if ports is None:
             return True
         return False if "Ethernet-BP" not in ports["members"][0] else True
 
-    def active_ip_interfaces(self, ip_ifs, ns_arg=""):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -1681,11 +1806,12 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
         for k,v in ip_ifs.items():
-            if (k.startswith("Ethernet") or
+            if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
-                self.is_backend_portchannel(k))
+                self.is_backend_portchannel(k, mg_facts))
             ):
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.

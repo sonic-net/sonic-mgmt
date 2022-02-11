@@ -6,11 +6,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't0-56-po2vlan')
 ]
 
 logger = logging.getLogger(__name__)
 
+DISABLE_REFRESH = "disable_refresh"
+REFRESH_DEST_MAC = "refresh_with_dest_mac"
 class TestFdbMacExpire:
     """
         TestFdbMacExpire Verifies FDb aging timer is respected
@@ -125,6 +127,7 @@ class TestFdbMacExpire:
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
             "minigraph_port_indices": mgFacts["minigraph_ptf_indices"],
+            "minigraph_portchannels": mgFacts["minigraph_portchannels"],
             "minigraph_vlans": mgFacts["minigraph_vlans"],
         })
 
@@ -200,7 +203,8 @@ class TestFdbMacExpire:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost):
+    @pytest.mark.parametrize("refresh_type", [DISABLE_REFRESH, REFRESH_DEST_MAC])
+    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost, refresh_type):
         """
             TestFdbMacExpire Verifies FDb aging timer is respected
 
@@ -229,6 +233,8 @@ class TestFdbMacExpire:
             "router_mac": rand_selected_dut.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+            "refresh_type":  refresh_type,
+            "aging_time": fdbAgingTime
         }
         self.__runPtfTest(ptfhost, "fdb_mac_expire_test.FdbMacExpireTest", testParams)
 
