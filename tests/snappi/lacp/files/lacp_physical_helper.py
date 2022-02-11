@@ -11,6 +11,8 @@ BGP_TYPE = 'ebgp'
 temp_tg_port=dict()
 lacpdu_interval_dict = { 0:'Auto',1:'Fast',30:'Slow'}
 lacpdu_timeout_dict = { 0:'Auto',3:'Short',90:'Long'}
+aspaths = [65002, 65003]
+
 def run_lacp_add_remove_link_physically(cvg_api,
                                         duthost,
                                         tgen_ports,
@@ -267,6 +269,10 @@ def __tgen_bgp_config(cvg_api,
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes") 
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+    as_path = route_range1.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
     bgpv6 = config.devices[1].bgp
     bgpv6.router_id = temp_tg_port[1]['peer_ip']
     bgpv6_int = bgpv6.ipv6_interfaces.add()
@@ -278,6 +284,10 @@ def __tgen_bgp_config(cvg_api,
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
     route_range2.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+    as_path = route_range2.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
 
     def createTrafficItem(traffic_name, src, dest):
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
