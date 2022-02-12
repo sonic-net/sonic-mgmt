@@ -644,7 +644,7 @@ def parse_xml(filename, hostname, asic_name=None):
     global port_alias_to_port_asic_alias_map
     global port_name_to_index_map
 
-    port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(hwsku, asic_id)
+    port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(hwsku, asic_name)
 
     # Create inverse mapping between port name and alias
     port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
