@@ -540,7 +540,6 @@ def creds_on_dut(duthost):
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     exclude_regex_patterns = [
         'topo_.*\.yml',
-        'sku-sensors-data\.yml',
         'breakout_speed\.yml',
         'lag_fanout_ports_test_vars\.yml',
         'qos\.yml',
@@ -995,10 +994,9 @@ def generate_dut_feature_container_list(request):
             continue
         for feature in val["features"].keys():
             dut_info = meta[dut]
-            services = dut_info["asic_services"].get(feature)
 
-            if services is not None:
-                for service in services:
+            if "asic_services" in dut_info and dut_info["asic_services"].get(feature) is not None:
+                for service in dut_info["asic_services"].get(feature):
                     container_list.append(encode_dut_and_container_name(dut, service))
             else:
                 container_list.append(encode_dut_and_container_name(dut, feature))
@@ -1112,16 +1110,16 @@ def pytest_generate_tests(metafunc):
                     tuple_list.append((a_dut, a_asic))
             else:
                 tuple_list.append((a_dut, None))
-        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module")
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module", indirect=True)
     elif dut_fixture_name:
         # parameterize only on DUT
-        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module")
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module", indirect=True)
     elif asic_fixture_name:
         # We have no duts selected, so need asic list for the first DUT
         if len(asics_selected):
-            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module")
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module", indirect=True)
         else:
-            metafunc.parametrize(asic_fixture_name, [None], scope="module")
+            metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1145,6 +1143,44 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+
+### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
+@pytest.fixture(scope="module")
+def enum_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_supervisor_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_frontend_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_backend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_asic_index(request):
+    return request.param
 
 @pytest.fixture(scope="module")
 def duthost_console(localhost, creds, request):
@@ -1313,3 +1349,11 @@ def duts_minigraph_facts(duthosts, tbinfo):
         }
     """
     return duthosts.get_extended_minigraph_facts(tbinfo)
+
+@pytest.fixture(scope="module", autouse=True)
+def get_reboot_cause(duthost):
+    uptime_start = duthost.get_up_time()
+    yield
+    uptime_end = duthost.get_up_time()
+    if not uptime_end == uptime_start:
+        duthost.show_and_parse("show reboot-cause history")
