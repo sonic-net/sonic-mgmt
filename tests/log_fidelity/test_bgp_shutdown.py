@@ -26,8 +26,8 @@ def check_syslog(duthost, prefix, trigger_action, expected_log, restore_action):
     finally:
         duthost.command(restore_action)
 
-def test_bgp_shutdown(duthosts, rand_one_dut_hostname):
-    duthost=duthosts[rand_one_dut_hostname]
+def test_bgp_shutdown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost=duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     BGP_DOWN_EXPECTED_LOG_MESSAGE = "admin state is set to 'down'"
     BGP_DOWN_COMMAND = "config bgp shutdown all"

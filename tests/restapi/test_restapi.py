@@ -60,7 +60,7 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     check_reset_status_after_reboot('cold', "false", "true", duthost, localhost, construct_url)
     # Check reset status post warm reboot
     check_reset_status_after_reboot('warm', "false", "false", duthost, localhost, construct_url)
-
+    
 def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_status, duthost, localhost, construct_url):
     logger.info("Checking for RESTAPI reset status after "+reboot_type+" reboot")
     params = '{"reset_status":"false"}'
@@ -71,7 +71,13 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     logger.info(r.json())
     response = r.json()
     pytest_assert(response['reset_status'] == pre_reboot_status)
-    reboot(duthost, localhost, reboot_type)
+    # Add extra wait for warm-reboot to ensure warmboot-finalizer is done
+    # Otherwise, the warmboot-finalizer will write the testing vnet and vlan config
+    # into config_db.json and cause unrecoverable errors
+    wait_warmboot_finalizer = False
+    if reboot_type == 'warm':
+        wait_warmboot_finalizer = True
+    reboot(duthost, localhost, reboot_type, wait_warmboot_finalizer=wait_warmboot_finalizer)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
@@ -79,13 +85,20 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     response = r.json()
     pytest_assert(response['reset_status'] == post_reboot_status)
 
+@pytest.fixture
+def cleanup_after_testing(rand_selected_dut):
+    """
+    Cleanup DUT by config reload after test running.
+    """
+    yield
+    config_reload(rand_selected_dut)
 
 '''
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
-def test_data_path(construct_url, vlan_members):
+def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
-    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 409:
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
         logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
         r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
@@ -311,7 +324,7 @@ def test_data_path(construct_url, vlan_members):
     logger.info("Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
-def test_data_path_sad(construct_url, vlan_members):
+def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -461,7 +474,7 @@ def test_data_path_sad(construct_url, vlan_members):
 '''
 This test creates a VNET. It adds routes to the VNET and deletes them
 '''
-def test_create_vrf(construct_url):
+def test_create_vrf(construct_url, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -528,7 +541,7 @@ def test_create_vrf(construct_url):
 '''
 This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN member, VLAN neighbor and routes to each VNET
 '''
-def test_create_interface(construct_url, vlan_members):
+def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
