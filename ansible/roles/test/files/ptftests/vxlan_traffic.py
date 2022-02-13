@@ -93,22 +93,15 @@ class VXLAN(BaseTest):
             # find the list of neigh addresses for the t0_ports. For each neigh address(Addr1):
             # for each destination address(Addr2) in the same Vnet as t0_intf,
             # send traffic from Add1 to it. If there
-            # are multiple nexthops for the Addr2, then send that many different 
+            # are multiple nexthops for the Addr2, then send that many different
             # streams(different tcp ports).
             neighbors = [self.config_data['neighbors'][t0_intf]]
-            ptf_port = self.get_ptf_port(t0_intf)
+            ptf_port = self.topo_data['minigraph_facts']['minigraph_ptf_indices'][t0_intf]
             vnet = self.config_data['vnet_intf_map'][t0_intf]
             vni  = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination,nh in self.config_data['dest_to_nh_map'][vnet].iteritems():
                     self.test_encap(ptf_port, vni, addr, destination, nh, test_ecn=TEST_ECN)
-
-    def get_ptf_port(self, dut_port):
-        m = re.search('Ethernet([0-9]+)', dut_port)
-        if m:
-            return self.topo_data['tbinfo']['topo']['ptf_dut_intf_map'][m.group(1)]['0']
-        else:
-            raise RuntimeError("dut_intf:{} doesn't match 'EthernetNNN'".format(dut_port))
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
