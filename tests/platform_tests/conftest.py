@@ -335,7 +335,7 @@ def verify_mac_jumping(test_name, timing_data):
             pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
 
 
-def overwrite_script_to_backup_logs(duthost, reboot_type):
+def overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log):
     # find the fast/warm-reboot script path
     reboot_script_path = duthost.shell('which {}'.format("{}-reboot".format(reboot_type)))['stdout']
     # backup original script
@@ -346,7 +346,7 @@ def overwrite_script_to_backup_logs(duthost, reboot_type):
     backup_log_cmds ="cp /var/log/syslog /host/syslog.99;" +\
         "cp /var/log/swss/sairedis.rec /host/sairedis.rec.99;" +\
         "cp /var/log/swss/swss.rec /host/swss.rec.99;" +\
-            "cp /var/log/frr/bgpd.log /host/bgpd.log.99"
+            "cp {} /host/bgpd.log.99".format(bgpd_log)
     # Do find-and-replace on fast/warm-reboot script to insert the backup_log_cmds string
     insert_backup_command = "sed -i '/{}/a {}' {}".format(rebooting_log_line, backup_log_cmds, reboot_script_path)
     duthost.shell(insert_backup_command)
@@ -378,16 +378,22 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
 
+    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    if 'SONiC-OS-201811' in current_os_version:
+        bgpd_log = "/var/log/quagga/bgpd.log"
+    else:
+        bgpd_log = "/var/log/frr/bgpd.log"
+
     hwsku = duthost.facts["hwsku"]
     if hwsku in SMALL_DISK_SKUS:
         # For small disk devices, /var/log in mounted in tmpfs.
         # Hence, after reboot the preboot logs are lost.
         # For log_analyzer to work, it needs logs from the shutdown path
         # Below method inserts a step in reboot script to back up logs to /host/
-        overwrite_script_to_backup_logs(duthost, reboot_type)
+        overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log)
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
-                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', '/var/log/frr/bgpd.log': ''})
+                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''})
 
     def pre_reboot_analysis():
         marker = loganalyzer.init()
@@ -410,11 +416,21 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                     "mv /host/swss.rec.99 /var/log/swss/; " +\
                         "mv /host/bgpd.log.99 /var/log/frr/"
+            duthost.shell(restore_backup, module_ignore_errors=True)
             # find the fast/warm-reboot script path
             reboot_script_path = duthost.shell('which {}'.format("{}-reboot".format(reboot_type)))['stdout']
-            # restore original script
-            duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path))
-            duthost.shell(restore_backup, module_ignore_errors=True)
+            # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
+            duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path), module_ignore_errors=True)
+
+        # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
+        current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        if 'SONiC-OS-201811' in current_os_version:
+            bgpd_log = "/var/log/quagga/bgpd.log"
+        else:
+            bgpd_log = "/var/log/frr/bgpd.log"
+        additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''}
+        loganalyzer.additional_files = list(additional_files.keys())
+        loganalyzer.additional_start_str = list(additional_files.values())
 
         result = loganalyzer.analyze(marker, fail=False)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
