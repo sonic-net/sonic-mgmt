@@ -10,7 +10,6 @@ from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from tests.common import constants
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
@@ -461,12 +460,21 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
-    # Select src ports from uplinks
-    src_ports = get_t1_ptf_ports(duthost, tbinfo)
-    if "t0-backend" in tbinfo["topo"]["name"]:
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if "backend" in tbinfo["topo"]["name"]:
+        src_ports = set()
+        for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
+            sub_intf_name = vlan_sub_interface['attachto']
+            port = sub_intf_name.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
+            vlan_id = vlan_sub_interface['vlan']
+            src_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id))
+        src_ports = tuple(src_ports)
+    else:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        vlan_id = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-        src_ports = [_ + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id for _ in src_ports]
+        all_up_ports = set()
+        for port in mg_facts['minigraph_ports'].keys():
+            all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
+        src_ports = tuple(all_up_ports.difference(ptf_ports))
 
     network = u'1.1.1.0/24'
     network = ipaddress.ip_network(network)

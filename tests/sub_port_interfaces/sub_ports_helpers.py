@@ -330,7 +330,7 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
     dl_vlan_enable = False
     send_pkt_length = pktlen
     if constants.VLAN_SUB_INTERFACE_SEPARATOR in src_port:
-        vlan_vid = int(src_port.split('.')[1])
+        vlan_vid = int(src_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[1])
         dl_vlan_enable = True
         send_pkt_length += len(scapyall.Dot1Q())
 
