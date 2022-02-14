@@ -166,9 +166,15 @@ def stop_container(duthost, container_name):
     Returns:
       None
     """
+    re_str = re.compile("([a-zA-Z]+)([0-9]+)")
 
+    asic_service_name = container_name
+    if re_str.match(container_name):
+        service_name, asic_index = re_str.match(container_name).groups()
+        asic_service_name = duthost.asic_instance(int(asic_index)).get_service_name(service_name)
+ 
     logger.info("Stopping the container '{}' on DuT '{}' ...".format(container_name, duthost.hostname))
-    duthost.shell("sudo systemctl stop {}.service".format(container_name))
+    duthost.shell("sudo systemctl stop {}.service".format(asic_service_name))
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
@@ -230,8 +236,13 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
 
-    pytest_require(container_name not in skip_containers,
-                   "Container '{}' is skipped for testing.".format(container_name))
+    re_str = re.compile("([a-zA-Z]+)([0-9]+)")
+ 
+    service_name = container_name
+    if re_str.match(container_name):
+        service_name, asic_index = re_str.match(container_name).groups()
+    pytest_require(service_name not in skip_containers,
+                   "Container '{}' is skipped for testing.".format(service_name))
     stop_container(duthost, container_name)
 
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
