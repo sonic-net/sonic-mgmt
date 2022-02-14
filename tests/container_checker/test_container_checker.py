@@ -156,25 +156,18 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
                       post_test_check, duthost, up_bgp_neighbors)
 
 
-def stop_container(duthost, container_name):
+def stop_container(duthost, container_name, service_name):
     """Stops the running container.
 
     Args:
       duthost: Host DUT.
-      container_name: A string represents the container which will be stopped.
+      service_name: A string represents the container which will be stopped.
 
     Returns:
       None
     """
-    re_str = re.compile("([a-zA-Z]+)([0-9]+)")
-
-    asic_service_name = container_name
-    if re_str.match(container_name):
-        service_name, asic_index = re_str.match(container_name).groups()
-        asic_service_name = duthost.asic_instance(int(asic_index)).get_service_name(service_name)
- 
     logger.info("Stopping the container '{}' on DuT '{}' ...".format(container_name, duthost.hostname))
-    duthost.shell("sudo systemctl stop {}.service".format(asic_service_name))
+    duthost.shell("sudo systemctl stop {}.service".format(service_name))
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
@@ -182,7 +175,6 @@ def stop_container(duthost, container_name):
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' on DuT '{}' was stopped".format(container_name, duthost.hostname))
-
 
 def get_expected_alerting_message(container_name):
     """Generates the expected alerting message from the stopped container.
@@ -237,13 +229,15 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
         skip_containers.append("radv")
 
     re_str = re.compile("([a-zA-Z]+)([0-9]+)")
- 
+    asic_service_name = container_name
     service_name = container_name
     if re_str.match(container_name):
         service_name, asic_index = re_str.match(container_name).groups()
+        asic_service_name = duthost.asic_instance(int(asic_index)).get_service_name(service_name)
+
     pytest_require(service_name not in skip_containers,
-                   "Container '{}' is skipped for testing.".format(service_name))
-    stop_container(duthost, container_name)
+                   "Container '{}' is skipped for testing.".format(container_name))
+    stop_container(duthost, container_name, asic_service_name)
 
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
     with loganalyzer:
