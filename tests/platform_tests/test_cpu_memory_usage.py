@@ -2,7 +2,8 @@ import logging
 import pytest
 
 from collections import namedtuple, Counter
-from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll, counterpoll_type
+from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll  # lgtm [py/unused-import]
+from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type      # lgtm [py/unused-import]
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 from tests.common.mellanox_data import is_mellanox_device
