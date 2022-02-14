@@ -1,7 +1,6 @@
 import json
 import logging
 import pytest
-import random
 
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
