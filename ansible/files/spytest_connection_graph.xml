@@ -5856,6 +5856,49 @@
       <DeviceConsoleInfo Hostname="console-199" HwSku="Cisco" ManagementIp="10.3.145.199" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
+    <ConsoleLinksInfo>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-01" Proxy="sonic" StartDevice="console-212" StartPort="18"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-02" Proxy="sonic" StartDevice="console-212" StartPort="24"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-03" Proxy="sonic" StartDevice="console-212" StartPort="23"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-06" Proxy="sonic" StartDevice="console-212" StartPort="49"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-07" Proxy="sonic" StartDevice="console-212" StartPort="47"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-08" Proxy="sonic" StartDevice="console-212" StartPort="45"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-09" Proxy="sonic" StartDevice="console-194" StartPort="24"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-10" Proxy="sonic" StartDevice="console-199" StartPort="15"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050qx-32s-acs-01" Proxy="sonic" StartDevice="console-212" StartPort="19"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060cx-32s-29" Proxy="sonic" StartDevice="console-212" StartPort="21"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060-spy-1" Proxy="sonic" StartDevice="console-212" StartPort="2006"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060-spy-2" Proxy="sonic" StartDevice="console-212" StartPort="2007"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060-spy-3" Proxy="sonic" StartDevice="console-212" StartPort="4"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060-spy-4" Proxy="sonic" StartDevice="console-212" StartPort="5"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7260cx3-acs-9" Proxy="sonic" StartDevice="console-199" StartPort="5"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn2700-spy-1" Proxy="sonic" StartDevice="console-199" StartPort="12"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn2700-spy-2" Proxy="sonic" StartDevice="console-199" StartPort="14"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-n3164-acs-1" Proxy="admin" StartDevice="console-80" StartPort="45"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-n3164-acs-3" Proxy="sonic" StartDevice="console-194" StartPort="2022"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-n3164-acs-4" Proxy="sonic" StartDevice="console-194" StartPort="2021"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-sn3800-02" Proxy="sonic" StartDevice="console-212" StartPort="10"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-sn3800-azd" Proxy="sonic" StartDevice="console-212" StartPort="13"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-z9332f-05" Proxy="admin" StartDevice="console-199" StartPort="8"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-z9332f-02" Proxy="admin" StartDevice="console-199" StartPort="7"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-z9332f-01" Proxy="admin" StartDevice="console-199" StartPort="9"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-dx010-acs-6" Proxy="sonic" StartDevice="console-194" StartPort="2010"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-dx010-acs-7" Proxy="sonic" StartDevice="console-194" StartPort="2031"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-01" Proxy="sonic" StartDevice="console-194" StartPort="2024"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-02" Proxy="sonic" StartDevice="console-194" StartPort="2033"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-03" Proxy="sonic" StartDevice="console-212" StartPort="35"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-04" Proxy="sonic" StartDevice="console-212" StartPort="25"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-04" Proxy="sonic" StartDevice="console-212" StartPort="32"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050qx-32s-acs-02" Proxy="admin" StartDevice="console-199" StartPort="32"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050qx-32s-acs-03" Proxy="admin" StartDevice="console-199" StartPort="33"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-1" Proxy="admin" StartDevice="console-199" StartPort="3"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-2" Proxy="sonic" StartDevice="console-212" StartPort="2037"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-3" Proxy="sonic" StartDevice="console-212" StartPort="37"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-4" Proxy="sonic" StartDevice="console-212" StartPort="38"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7260cx3-acs-10" Proxy="admin" StartDevice="console-199" StartPort="24"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7260cx3-acs-11" Proxy="admin" StartDevice="console-199" StartPort="23"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-a7280cr3-3" Proxy="admin" StartDevice="console-212" StartPort="41"/>
+    </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
