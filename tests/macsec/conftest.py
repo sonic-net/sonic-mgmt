@@ -1,13 +1,14 @@
 import pytest
 import logging
-# import random
 import ipaddress
 import collections
 import time
 from multiprocessing.pool import ThreadPool
+
 import natsort
 
 from tests.common import config_reload
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,22 @@ def recover_configuration(duthost, nbrhosts):
         pool.apply_async(config_reload, args=(nbr["host"], "config_db"))
     pool.close()
     pool.join()
-    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
-    time.sleep(30)
+    def check_macsec_enabled():
+        for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
+                return False
+            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
+                return False
+        return True
+    assert wait_until(180, 1, 1, check_macsec_enabled)
     logger.info("Enable MACsec feature")
+    yield
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disable")
 
 
 @pytest.fixture(scope="module")

@@ -1,5 +1,3 @@
-from tests.common.helpers.assertions import pytest_assert
-
 import logging
 import time
 import ast
@@ -16,6 +14,7 @@ import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +62,17 @@ def disable_macsec_port(host, port):
 
 
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
+    devices = set()
+    devices.add(duthost)
     for dut_port, nbr in ctrl_links.items():
         disable_macsec_port(duthost, dut_port)
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], profile_name)
+        devices.add(nbr["host"])
     delete_macsec_profile(duthost, profile_name)
+    # Waiting for all mka session were cleared in all devices
+    for d in devices:
+        assert wait_until(30, 1, 0, lambda: not get_mka_session(d))
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
@@ -96,25 +101,22 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
     cleanup_macsec_configuration(duthost, all_links, profile_name)
-    time.sleep(10)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
-    time.sleep(300)
     yield
     if request.session.testsfailed > 0:
         return
     cleanup_macsec_configuration(duthost, all_links, profile_name)
-    time.sleep(60)
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
     cmd = "ps aux | grep 'wpa_supplicant' | grep '{}' | grep -v 'grep'".format(
         ctrl_port_name)
     output = host.shell(cmd)["stdout_lines"]
-    pytest_assert(len(output) == 1, "The wpa_supplicant for the port {} wasn't started on the host {}".format(
-        host, ctrl_port_name))
+    assert len(output) == 1, "The wpa_supplicant for the port {} wasn't started on the host {}".format(
+        host, ctrl_port_name)
 
 
 def get_sci(macaddress, port_identifer=1, order="network"):
@@ -319,6 +321,13 @@ def get_macsec_infname(host, port_name):
     return macsec_infname
 
 
+def get_platform(host):
+    for line in host.command("show platform summary")["stdout_lines"]:
+        if "Platform" == line.split(":")[0]:
+            return line.split(":")[1].strip()
+    pytest.fail("No platform was found.")
+
+
 def check_mka_sc(egress_sc, ingress_sc):
     assert egress_sc["enabled"]
     assert ingress_sc["enabled"]
@@ -355,30 +364,47 @@ def check_mka_session(dut_mka_session, dut_sci, nbr_mka_session, nbr_sci, policy
 
 class TestControlPlane():
     def test_wpa_supplicant_processes(self, duthost, ctrl_links):
-        for port_name, nbr in ctrl_links.items():
-            check_wpa_supplicant_process(duthost, port_name)
-            check_wpa_supplicant_process(nbr["host"], nbr["port"])
+        def _test_wpa_supplicant_processes():
+            for port_name, nbr in ctrl_links.items():
+                check_wpa_supplicant_process(duthost, port_name)
+                check_wpa_supplicant_process(nbr["host"], nbr["port"])
+            return True
+        assert wait_until(300, 1, 1, lambda: _test_wpa_supplicant_processes())
 
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
-        for port_name, nbr in ctrl_links.items():
-            check_appl_db(duthost, port_name, nbr["host"],
-                          nbr["port"], policy, cipher_suite, send_sci)
+        def _test_appl_db():
+            for port_name, nbr in ctrl_links.items():
+                check_appl_db(duthost, port_name, nbr["host"],
+                            nbr["port"], policy, cipher_suite, send_sci)
+            return True
+        assert wait_until(300, 6, 12, lambda: _test_appl_db())
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
-        dut_mka_session = get_mka_session(duthost)
-        assert len(dut_mka_session) == len(ctrl_links)
-        for port_name, nbr in ctrl_links.items():
-            nbr_mka_session = get_mka_session(nbr["host"])
-            dut_macsec_port = get_macsec_infname(duthost, port_name)
-            nbr_macsec_port = get_macsec_infname(
-                nbr["host"], nbr["port"])
-            dut_macaddress = duthost.get_dut_iface_mac(port_name)
-            nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
-            dut_sci = get_sci(dut_macaddress, order="host")
-            nbr_sci = get_sci(nbr_macaddress, order="host")
-            check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
-                              nbr_mka_session[nbr_macsec_port], nbr_sci,
-                              policy, cipher_suite, send_sci)
+        def _test_mka_session():
+            # If the DUT isn't a virtual switch that cannot support "get mka session" by "ip macsec show"
+            # So, skip this test for physical switch
+            # TODO: Support "get mka session" in the physical switch
+            # import pdb
+            # pdb.set_trace()
+            if u"x86_64-kvm_x86_64" not in get_platform(duthost):
+                logging.info("Skip to check mka session due to the DUT isn't a virtual switch")
+                return True
+            dut_mka_session = get_mka_session(duthost)
+            assert len(dut_mka_session) == len(ctrl_links)
+            for port_name, nbr in ctrl_links.items():
+                nbr_mka_session = get_mka_session(nbr["host"])
+                dut_macsec_port = get_macsec_infname(duthost, port_name)
+                nbr_macsec_port = get_macsec_infname(
+                    nbr["host"], nbr["port"])
+                dut_macaddress = duthost.get_dut_iface_mac(port_name)
+                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
+                dut_sci = get_sci(dut_macaddress, order="host")
+                nbr_sci = get_sci(nbr_macaddress, order="host")
+                check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
+                                nbr_mka_session[nbr_macsec_port], nbr_sci,
+                                policy, cipher_suite, send_sci)
+            return True
+        assert wait_until(300, 1, 1, lambda: _test_mka_session())
 
 
 def create_pkt(eth_dst, ip_src, ip_dst, payload=None):
