@@ -559,15 +559,9 @@ class BaseAclTest(object):
         logger.info("Selected source port {}".format(src_port))
         self.src_port = src_port
 
-    def get_dst_ports(self, setup, direction, dst_ip=None):
+    def get_dst_ports(self, setup, direction):
         """Get the set of possible destination ports for the current test."""
-        if direction == "downlink->uplink":
-            return setup["upstream_port_ids"]
-        else:
-            dst_port = DOWNSTREAM_IP_PORT_MAP.get(dst_ip)
-            pytest_assert(dst_port is not None,
-                          "Can't find dst port for IP {}".format(dst_ip))
-            return dst_port
+        return setup["upstream_port_ids"] if direction == "downlink->uplink" else setup["downstream_port_ids"]
 
     def get_dst_ip(self, direction, ip_version):
         """Get the default destination IP for the current test."""
@@ -869,13 +863,17 @@ class BaseAclTest(object):
     def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version):
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
 
+        if ip_version == "ipv4":
+            downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IP].dst)
+        else:
+            downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IPv6].dst)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.src_port, pkt)
-        if direction == "uplink->downlink":
+        if direction == "uplink->downlink" and downstream_dst_port:
             if dropped:
-                testutils.verify_no_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
+                testutils.verify_no_packet(ptfadapter, exp_pkt, downstream_dst_port)
             else:
-                testutils.verify_packet(ptfadapter, exp_pkt, self.get_dst_ports(setup, direction, pkt[packet.IP].dst))
+                testutils.verify_packet(ptfadapter, exp_pkt, downstream_dst_port)
         else:
             if dropped:
                 testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
