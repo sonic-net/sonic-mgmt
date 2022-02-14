@@ -69,6 +69,9 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
     duthost.command("mkdir /tmp/anpscripts")
     duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
 
+    logger.info("perform a purge based on manifest.json to make sure it is correct")
+    duthost.command("python3 /tmp/anpscripts/tests/purge.py")
+
     logger.info("Step 2 Copy the image to /tmp/")
     image_name = image_url.split("/")[-1]
     image_path = "/tmp/" + image_name

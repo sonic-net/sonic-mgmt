@@ -81,10 +81,6 @@ parameters:
   - $(IMAGE_MLNX_202012)
   - $(IMAGE_MLNX_PUBLIC)
 
-- name: TEST_PURGE_MANIFEST
-  default: false
-  type: boolean
-
 stages:
 - stage: SONiCMetadataPreTest
   jobs:
@@ -96,8 +92,6 @@ stages:
     - checkout: self
     - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
     - template: step_metadata_unit_test.yml
-    - parameters:
-        TEST_PURGE_MANIFEST: ${{ parameters.TEST_PURGE_MANIFEST }}
 
   - job:
     pool: nightly
