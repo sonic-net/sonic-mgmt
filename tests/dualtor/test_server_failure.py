@@ -36,15 +36,15 @@ def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_c
     itfs, _ = rand_selected_interface
     # Set upper_tor as active
     toggle_simulator_port_to_upper_tor(itfs)
-    wait_until(10, 1, 0, upper_tor_mux_state_verification, 'active', 'healthy')
+    wait_until(30, 1, 0, upper_tor_mux_state_verification, 'active', 'healthy')
     mux_flap_counter_0 = simulator_flap_counter(itfs)
     # Server down
     simulator_server_down(itfs)
     # Verify mux_cable state on upper_tor is active
-    pytest_assert(wait_until(10, 1, 0, upper_tor_mux_state_verification, 'active', 'unhealthy'), 
+    pytest_assert(wait_until(20, 1, 0, upper_tor_mux_state_verification, 'active', 'unhealthy'), 
                     "mux_cable status is unexpected. Should be (active, unhealthy)")
     # Verify mux_cable state on lower_tor is standby
-    pytest_assert(wait_until(10, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'), 
+    pytest_assert(wait_until(20, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'), 
                     "mux_cable status is unexpected. Should be (standby, unhealthy)")
     # Verify that mux_cable flap_counter should be no larger than 3
     # lower_tor(standby) -> active -> standby
