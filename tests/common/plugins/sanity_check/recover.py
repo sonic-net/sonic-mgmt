@@ -1,4 +1,4 @@
-
+import json
 import logging
 
 from . import constants
@@ -100,27 +100,53 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
     else:
         __recover_with_command(dut, method['cmd'], wait_time)
 
+
 @reset_ansible_local_tmp
 def neighbor_vm_recover_bgpd(node=None, results=None):
-    nbr_host = node['host']
-    intf_list = node['conf']['interfaces'].keys()
-    # restore interfaces and portchannels
-    for intf in intf_list:
-        nbr_host.no_shutdown(intf)
-    asn = node['conf']['bgp']['asn']
-    # start BGPd
-    out = nbr_host.start_bgpd()
-    if out['failed'] and results:
-        results[nbr_host.hostname] = out['results']
+    """Function for restoring BGP on neighbor VMs using the parallel_run tool.
+
+    Args:
+        node (dict, optional): Neighbor host object. Defaults to None.
+        results (Proxy to shared dict, optional): An instance of multiprocessing.Manager().dict(). Proxy to a dict
+                shared by all processes for returning execution results. Defaults to None.
+    """
+    if node is None or results is None:
+        logger.error('Missing kwarg "node" or "results"')
         return
-    # restore BGP session
-    out = nbr_host.no_shutdown_bgp(asn)
-    if results:
-        results[nbr_host.hostname] = out['results']
+
+    nbr_host = node['host']
+    asn = node['conf']['bgp']['asn']
+    result = {}
+
+    # restore interfaces and portchannels
+    intf_list = node['conf']['interfaces'].keys()
+    result['restore_intfs'] = []
+    for intf in intf_list:
+        result['restore_intfs'].append(nbr_host.no_shutdown(intf))
+
+    # start BGPd
+    result['start_bgpd'] = nbr_host.start_bgpd()
+
+    # restore BGP
+    result['no_shut_bgp'] = nbr_host.no_shutdown_bgp(asn)
+
+    # no shut bgp neighbors
+    peers = node['conf'].get('bgp', {}).get('peers', {})
+    neighbors = []
+    for key, value in peers.items():
+        if key == 'asn':
+            continue
+        if isinstance(value, list):
+            neighbors.extend(value)
+    result['no_shut_bgp_neighbors'] = nbr_host.no_shutdown_bgp_neighbors(asn, neighbors)
+
+    results[nbr_host.hostname] = result
+
 
 def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        parallel_run(neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+        results = parallel_run(neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+        logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
