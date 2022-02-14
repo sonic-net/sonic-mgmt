@@ -204,9 +204,9 @@ then groupmod -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 else groupadd -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 fi
 
-# Environment configuration
+# Environment configuration, skip python virtual environments
 RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
-/bin/bash -c 'cp -a -f /var/AzDevOps/* /home/{{ USER_NAME }}/'; \
+/bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/{{ USER_NAME }}/'; \
 /bin/bash -c 'cp -a -f /var/AzDevOps/{.profile,.local,.ssh} /home/{{ USER_NAME }}/'; \
 fi
 
@@ -236,6 +236,13 @@ RUN cat ${HOME}/.ssh/id_rsa.pub >> ${HOME}/.ssh/authorized_keys
 RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
+
+# Setup python3 virtual env
+RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
+/bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze)'; \
+fi
 
 EOF
 
