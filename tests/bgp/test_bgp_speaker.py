@@ -244,6 +244,8 @@ def is_all_neighbors_learned(duthost, speaker_ips):
     for ip in speaker_ips:
         if not str(ip.ip) in bgp_facts['bgp_neighbors']:
             return False
+        if not bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1:
+            return False
     return True
 
 
@@ -267,11 +269,6 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
     assert wait_until(90, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), "Not all dynamic neighbors were learned"
-
-    logger.info("Verify accepted prefixes of the dynamic neighbors are correct")
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
-    for ip in speaker_ips:
-        assert bgp_facts['bgp_neighbors'][str(ip.ip)]['accepted prefixes'] == 1
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(unicode(prefix)))
