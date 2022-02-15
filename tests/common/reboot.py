@@ -3,8 +3,8 @@ import time
 import re
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
-from tests.common.errors import RunAnsibleModuleFail
 from collections import deque
+from utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,7 @@ reboot_ctrl_dict = {
         "command": "warm-reboot",
         "timeout": 300,
         "wait": 90,
+        "warmboot_finalizer_timeout": 180,
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
@@ -85,16 +86,16 @@ REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 MAX_RETRIES = 3
 RETRY_BACKOFF_TIME = 15
 
-def get_warmboot_finalizer_state(duthost):
-    try:
-        res = duthost.command('systemctl is-active warmboot-finalizer.service',module_ignore_errors=True)
-        finalizer_state = res['stdout'].strip() if 'stdout' in res else ""
-    except RunAnsibleModuleFail as err:
-        finalizer_state = err.results
-    return finalizer_state
+def check_warmboot_finalizer_inactive(duthost):
+    """
+    Check if warmboot finalizer service is exited
+    """
+    stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
+    return 'inactive' == stdout.strip()
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10, \
-    timeout=0, wait=0, wait_for_ssh=True, reboot_helper=None, reboot_kwargs=None):
+    timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
+    reboot_helper=None, reboot_kwargs=None):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -103,6 +104,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     :param delay: delay between ssh availability checks
     :param timeout: timeout for waiting ssh port state change
     :param wait: time to wait for DUT to initialize
+    :param wait_for_ssh: Wait for SSH startup
+    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
     :return:
@@ -119,6 +122,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
+        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
+            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
@@ -172,39 +177,18 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise Exception('DUT {} did not startup'.format(hostname))
 
     logger.info('ssh has started up on {}'.format(hostname))
-
+    
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
-    if reboot_type == 'warm':
-        logger.info('waiting for warmboot-finalizer service to become activating on {}'.format(hostname))
-        # Check if finalizer state reaches "activating" before the "wait" period,
-        # the default wait is 90s since issue of warm-reboot).
-        # If the finalizer state is activating, however time passed is greater than "wait",
-        # then fail the testcase. Start with empty value to verify time passed before
-        # checking finalizer state for the first time.
-        finalizer_state = ''
-        while finalizer_state != 'activating':
-            dut_datetime_after_ssh = duthost.get_now_time()
-            time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
-            if time_passed > wait:
-                raise Exception('warmboot-finalizer never reached state "activating" on {}'.format(hostname))
-            time.sleep(1)
-            finalizer_state = get_warmboot_finalizer_state(duthost)
+    time.sleep(wait)
+    
+    # Wait warmboot-finalizer service
+    if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
-        finalizer_state = get_warmboot_finalizer_state(duthost)
-        logger.info('warmboot finalizer service state {} on {}'.format(finalizer_state, hostname))
-        count = 0
-        while finalizer_state == 'activating':
-            finalizer_state = get_warmboot_finalizer_state(duthost)
-            logger.info('warmboot finalizer service state {} on {}'.format(finalizer_state, hostname))
-            time.sleep(delay)
-            if count * delay > timeout:
-                raise Exception('warmboot-finalizer.service did not finish on {}'.format(hostname))
-            count += 1
-        logger.info('warmboot-finalizer service finished on {}'.format(hostname))
-    else:
-        time.sleep(wait)
-
+        ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
+        if not ret:
+            raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
+    
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
