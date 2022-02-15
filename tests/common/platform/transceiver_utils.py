@@ -78,7 +78,7 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     """
     asichost = dut.asic_instance(asic_index)
     logging.info("Check detailed transceiver information of each connected port")
-    if dut.sonic_release == "202012":
+    if dut.sonic_release in ["202012", "202106", "202111"]:
         expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
     else:
         expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
