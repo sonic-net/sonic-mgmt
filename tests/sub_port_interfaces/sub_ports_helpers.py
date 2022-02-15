@@ -6,6 +6,7 @@ import ipaddress
 from collections import OrderedDict
 
 import pytest
+import scapy.all as scapyall
 
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -325,14 +326,23 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
     ip_src = '10.0.0.1'
     ip_dst = ip_dst.split('/')[0]
 
+    vlan_vid = None
+    dl_vlan_enable = False
+    send_pkt_length = pktlen
+    if constants.VLAN_SUB_INTERFACE_SEPARATOR in src_port:
+        vlan_vid = int(src_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[1])
+        dl_vlan_enable = True
+        send_pkt_length += len(scapyall.Dot1Q())
+
     pkt = create_packet(eth_src=src_mac,
                         eth_dst=router_mac,
                         ip_src=ip_src,
                         ip_dst=ip_dst,
-                        vlan_vid=None,
-                        dl_vlan_enable=False,
+                        vlan_vid=vlan_vid,
+                        dl_vlan_enable=dl_vlan_enable,
                         tr_type='TCP',
-                        ttl=64)
+                        ttl=64,
+                        pktlen=send_pkt_length)
 
     ptfadapter.dataplane.flush()
     time.sleep(2)
@@ -355,11 +365,15 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
     config_port_indices = {v: k for k, v in ifaces_map.items()}
     dst_port_numbers = [config_port_indices[k] for k in config_port_indices if k in dst_port]
 
+    ignore_fields=[("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")]
+    if dl_vlan_enable:
+        ignore_fields.append(("Ether", "type"))
+
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
                                  dst_port_numbers=dst_port_numbers,
                                  match_fields=[("Ethernet", "src"), ("IP", "dst"), ('TCP', "dport")],
-                                 ignore_fields=[("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")])
+                                 ignore_fields=ignore_fields)
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
 
