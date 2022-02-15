@@ -596,6 +596,21 @@ sonic_arista64_100:
     str-7260cx3-acs-7:
       ansible_host: 10.64.246.78
       hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: SSJ17450492
+      base_mac: 74:83:ef:0a:c9:5c
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504C0"
+        "0x23": "SSJ17450492"
+        "0x24": "74:83:ef:0a:c9:5c"
+        "0x25": "2017/11/21 00:16:01"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "SSJ17450492"
   vars:
     iface_speed: 100000
 
