@@ -403,9 +403,13 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 nhop_ip = re.split("/", conn["local_addr"])[0]
                 try:
                     socket.inet_aton(nhop_ip)
-                    ptfhost.shell("ip route add {}/32 via {}".format(
-                        conn["loopback_ip"], nhop_ip
+                    result = ptfhost.shell("ip route show {}/32".format(
+                        conn["loopback_ip"]
                     ))
+                    if len(result['stdout_lines']) == 0:
+                        ptfhost.shell("ip route add {}/32 via {}".format(
+                            conn["loopback_ip"], nhop_ip
+                        ))
                 except socket.error:
                     raise Exception("Invalid V4 address {}".format(nhop_ip))
 
