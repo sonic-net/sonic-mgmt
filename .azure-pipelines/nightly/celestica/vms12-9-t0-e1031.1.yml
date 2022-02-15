@@ -57,7 +57,8 @@ parameters:
               route/test_route_perf.py \
               vxlan/test_vnet_vxlan.py \
               vxlan/test_vxlan_decap.py \
-              vxlan/test_vnet_route_leak.py"
+              vxlan/test_vnet_route_leak.py \
+              console/test_console_availability.py"
     displayName: "Skip test scripts"
 
   # Testbed specific, to skip and/or include directories
@@ -75,4 +76,3 @@ stages:
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      EXTRA_PARAMS: "--device_type physical"
