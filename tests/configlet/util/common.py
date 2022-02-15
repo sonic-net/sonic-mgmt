@@ -224,7 +224,7 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
 
     if clet_data == orig_data:
         log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
-        return 0
+        return 0, ""
 
     orig_keys = set(sorted(orig_data.keys()))
     clet_keys = set(sorted(clet_data.keys()))
