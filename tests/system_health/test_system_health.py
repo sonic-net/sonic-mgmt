@@ -262,6 +262,7 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
         assert value == 'Device is broken', 'External checker does not work, value={}'.format(value)
 
 
+@pytest.mark.disable_loganalyzer
 def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname, device_mocker_factory):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
