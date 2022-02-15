@@ -35,7 +35,7 @@ else:
 
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
-REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9]+$'
+REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
 
 # Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
 # https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
