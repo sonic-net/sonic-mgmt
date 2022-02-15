@@ -182,6 +182,9 @@ def get_port_alias_to_name_map(hwsku, asic_id=None):
     elif hwsku == "32x100Gb":
         for i in range(0, 32):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+    elif hwsku == "32x400Gb":
+        for i in range(0, 32):
+            port_alias_to_name_map["Eth0/0/%d" % i] = "Ethernet%d" % i
     elif hwsku == "36x100Gb":
         for i in range(0, 36):
             port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
