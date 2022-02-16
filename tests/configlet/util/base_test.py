@@ -1,12 +1,7 @@
 #! /usr/bin/env python
 
-import argparse
 import json
-import jsonpatch
 import os
-import sys
-import time
-import yaml
 
 from helpers import *
 from common import *

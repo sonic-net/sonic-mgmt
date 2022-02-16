@@ -140,7 +140,7 @@ def config_reload(duthost, config_source="config_db", wait=60, start_bgp=False):
     assert ret["rc"] == 0, "failed to run err:{}".format(str(ret["stderr"]))
     
     if start_bgp:
-        res = duthost.shell("config bgp startup all")
+        duthost.shell("config bgp startup all")
         log_debug("config_reload started BGP")
 
     log_debug("wait for {}".format(wait))
@@ -180,7 +180,6 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
             time.sleep(interval)
             elapsed_time = time.time() - start_time
 
-    if elapsed_time >= timeout:
-        log_debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
-        return False
+    log_debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+    return False
 
