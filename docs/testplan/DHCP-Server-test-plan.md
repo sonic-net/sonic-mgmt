@@ -5,7 +5,7 @@
   - [Testbed](#testbed)
 - [Setup configuration](#setup-configuration)
 - [Test Cases](#test-cases)
-  - [Server/Relay test case](#server-relay-test-case)
+  - [Server/Relay test case](#serverrelay-test-case)
   - [Default test case](#default-test-case)
   - [Emulate port change](#emulate-port-change)
 
