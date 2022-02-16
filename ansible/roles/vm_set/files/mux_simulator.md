@@ -16,7 +16,7 @@ To further simulate mux Y cable active/standby querying and setting, a process n
 
 The mux_simulator.py script is for such purpose. It is a [Flask](https://flask.palletsprojects.com/en/1.1.x/) based program exposing HTTP API. While running `testbed-cli.sh add-topo`, it is deployed to test server and started as a systemd service.
 
-On SONiC DUT side, script [y_cable_simulator_client.py](https://github.com/Azure/sonic-mgmt/blob/master/ansible/dualtor/y_cable_simulator_client.j2) will be injected to DUT during `testbed-cli.sh deploy-mg`. The [y_cable driver](https://github.com/Azure/sonic-platform-common/blob/master/sonic_y_cable/y_cable.py) has been enhanced to call the simulator client if it is available.
+On SONiC DUT side, xcvrd will firstly check configuration file `/etc/sonic/mux_simulator.json`. This configuration file contains information of reaching the mux simulator server. If the configuration file is found, xcvrd will try to load simulated y-cable driver based on information in it. If the configuration file is not found, xcvrd will try to read the actual cable's vendor/model information and load corresponding y-cable driver.
 
 ## Configuration
 

@@ -95,7 +95,8 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     urllib3.disable_warnings()
 
     yield
-    config_reload(duthost)
+    # Perform a config load_minigraph to ensure config_db is not corrupted
+    config_reload(duthost, config_source='minigraph')
     # Delete all created certs
     local_command = "rm \
                         restapiCA.* \

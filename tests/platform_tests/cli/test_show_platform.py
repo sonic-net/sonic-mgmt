@@ -197,11 +197,11 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
-def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
+def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
