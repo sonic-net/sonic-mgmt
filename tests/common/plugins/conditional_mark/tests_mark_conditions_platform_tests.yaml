@@ -45,6 +45,21 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
       - "asic_type in ['mellanox']"
 
 #######################################
+#####  cli/test_show_platform.py  #####
+#######################################
+platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
+#######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
