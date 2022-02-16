@@ -88,6 +88,8 @@ all:
           ansible_host: 10.64.246.242
         vms28-6:
           ansible_host: 10.64.246.243
+        vms28-6:
+          ansible_host: 10.64.246.246
         vms29-1:
           ansible_host: 10.64.246.244
         vms29-2:
@@ -264,6 +266,8 @@ fanout:
       ansible_host: 10.3.147.82
     str2-7260cx3-acs-fan-29:
       ansible_host: 10.3.147.55
+    str2-7260cx3-acs-fan-30:
+      ansible_host: 10.3.147.58
     str2-7260cx3-acs-fan-31:
       ansible_host: 10.3.147.53
     str2-7260cx3-acs-fan-32:
@@ -737,6 +741,9 @@ sonic_arista32_100:
   hosts:
     str2-a7280cr3-3:
       ansible_host: 10.3.147.56
+      hwsku: Arista-7280CR3-C40
+    str2-a7280cr3-4:
+      ansible_host: 10.3.147.57
       hwsku: Arista-7280CR3-C40
 
 sonic_arista64_100:
