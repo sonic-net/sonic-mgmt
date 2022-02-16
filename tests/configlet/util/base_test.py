@@ -227,9 +227,9 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
 
     init(duthost)
 
-    ret = duthost.shell("python3 -c 'import generic_config_updater'")
+    ret = duthost.shell("python3 -c 'import generic_config_updater'", module_ignore_errors=True)
     if ret["rc"]:
-        log_info("Skipping generic patch test as file does not exist: {}".format(fpath))
+        log_info("Skipping generic patch test as it does not exist")
         skip_generic_add = True
         skip_generic_rm = True
 
