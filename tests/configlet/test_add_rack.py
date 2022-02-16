@@ -19,7 +19,7 @@ def configure_dut(duthosts, rand_one_dut_hostname):
         if not restore_orig_minigraph(duthosts[rand_one_dut_hostname]):
             backup_minigraph(duthosts[rand_one_dut_hostname])
         log_info("configure_dut fixture DONE for {}".format(rand_one_dut_hostname))
-        yield 0
+        yield
     finally:
         log_info("configure_dut fixture on cleanup for {}".format(rand_one_dut_hostname))
         restore_orig_minigraph(duthosts[rand_one_dut_hostname])

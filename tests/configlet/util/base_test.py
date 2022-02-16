@@ -227,9 +227,8 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
 
     init(duthost)
 
-    fpath = "/usr/local/lib/python3.9/dist-packages/generic_config_updater/services_validator.py"
-    ret = duthost.stat(path=fpath)
-    if not ret["stat"]["exists"]:
+    ret = duthost.shell("python3 -c 'import generic_config_updater'")
+    if ret["rc"]:
         log_info("Skipping generic patch test as file does not exist: {}".format(fpath))
         skip_generic_add = True
         skip_generic_rm = True
