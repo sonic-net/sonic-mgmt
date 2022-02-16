@@ -31,7 +31,6 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     duthost = duthosts[rand_one_dut_hostname]
-    duthost_name = rand_one_dut_hostname
 
     log_info("sys.version={}".format(sys.version))
     do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'],

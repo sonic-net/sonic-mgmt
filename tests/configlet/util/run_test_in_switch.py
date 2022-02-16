@@ -98,7 +98,6 @@ def main():
             return -1
     else:
         work_dir = args.dir
-        skip_load = True
 
     os.chdir(work_dir)
 
