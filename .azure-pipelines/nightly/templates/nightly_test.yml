@@ -196,7 +196,7 @@ stages:
                     for dut in $(DUT_LIST); do
                         echo "Power cycling ${dut} ..."
                         ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
-                        sleep 10
+                        sleep 30
                         ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
                     done
 
@@ -211,7 +211,7 @@ stages:
                         if [[ RC -ne 0 ]]; then
                             echo "Power cycling ${dut} ..."
                             ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
-                            sleep 10
+                            sleep 30
                             ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
                             NEEDS_SLEEP='Yes'
                         fi
