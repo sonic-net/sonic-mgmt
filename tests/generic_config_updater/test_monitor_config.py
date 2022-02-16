@@ -18,6 +18,7 @@ MONITOR_CONFIG_POLICER        = "everflow_policer_test"
 @pytest.fixture(scope='module')
 def get_valid_acl_ports(cfg_facts):
     """ Get valid acl ports that could be added to ACL table
+    valid ports refers to the portchannels and ports not belongs portchannel
     """
     ports = set()
     portchannel_members = set()
