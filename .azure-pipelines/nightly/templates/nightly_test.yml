@@ -111,6 +111,8 @@ stages:
       - job: NightlyTest
         pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+        workspace:
+          clean: all
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
@@ -416,3 +418,15 @@ stages:
               condition: always()
               env:
                 TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_AAD_CLIENT_KEY)
+
+          - task: Bash@3
+            displayName: Cleanup Test Results
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                # Cleanup test logs and collected dumps to free disk space
+                # Otherwise, the host server may have disk pressure and cause container being evicted by k8s.
+                rm -fr tests/logs
+            condition: always()
