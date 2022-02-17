@@ -45,8 +45,11 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
+    def __str__(self):
+        return '<MultiAsicSonicHost {}>'.format(self.hostname)
+
     def __repr__(self):
-        return '<MultiAsicSonicHost> {}'.format(self.hostname)
+        return self.__str__()
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
@@ -200,6 +203,16 @@ class MultiAsicSonicHost(object):
             return cmd
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
         return ns_cmd
+
+    @property
+    def ttl_decr_value(self):
+        """
+        Decrement in TTL value for L3 forwarding. On Multi ASIC TTL value
+        decreases by 3 when forwarding across tiers (e.g. T0 to T2).
+        """
+        if not self.sonichost.is_multi_asic:
+            return 1
+        return 3
 
     def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
         asic_id = self.get_asic_id_from_namespace(namespace)
@@ -448,6 +461,32 @@ class MultiAsicSonicHost(object):
 
         return False
 
+    def get_bgp_route(self, *args, **kwargs):
+        """
+            @summary: return BGP routes information from BGP docker. On
+                      single ASIC platform ansible module is called directly.
+                      On multi ASIC platform one of the frontend ASIC is
+                      used unless a neighbor is provided, in which case it
+                      fetches from the ASIC where neighbor is present
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.bgp_route(*args, **kwargs)
+
+        asic_index = self.frontend_asics[0].asic_index
+
+        if kwargs.get('neighbor') is not None:
+            #find out which ASIC has the neighbor
+            for asic in self.frontend_asics:
+                bgp_facts = asic.bgp_facts()['ansible_facts']
+                if kwargs.get('neighbor') in bgp_facts['bgp_neighbors']:
+                    asic_index = asic.asic_index
+                    break
+
+        # return from one of the frontend asics or the one where
+        # the given neighbor exists
+        kwargs['namespace_id'] = asic_index
+        return self.bgp_route(*args, **kwargs)
+
     def get_bgp_route_info(self, prefix, ns=None):
         """
         @summary: return BGP routes information.
@@ -469,7 +508,7 @@ class MultiAsicSonicHost(object):
     def check_bgp_default_route(self, ipv4=True,  ipv6=True):
         """
         @summary: check if bgp default route is present.
-        
+
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
         """
@@ -478,3 +517,32 @@ class MultiAsicSonicHost(object):
         if ipv6 and len(self.get_bgp_route_info("::/0")) == 0:
             return False
         return True
+
+    def update_ip_route(self, ip, nexthop, op="", namespace=DEFAULT_NAMESPACE):
+        """
+        Update route to add/remove for a given IP <ip> with nexthop IP address
+
+         Args:
+            duthost(Ansible Fixture): instance of SonicHost class of DUT
+            ip(str): IP to add/remove route for
+            nexthp(str): Nexthop IP
+            op(str): operation add/remove to be performed, default add
+            namespace: ASIC namespace
+
+        Returns:
+            None
+        """
+        logger.info("{0} route to '{1}' via '{2}'".format(
+            "Deleting" if "no" == op else "Adding", ip, nexthop
+        ))
+
+        vty_cmd_args = "-c \"configure terminal\" -c \"{} ip route {} {}\"".format(
+            op, ipaddress.ip_interface(unicode(ip + "/24")).network, nexthop
+        )
+
+        if namespace != DEFAULT_NAMESPACE:
+            dutasic = self.asic_instance_from_namespace(namespace)
+            dutasic.run_vtysh(vty_cmd_args)
+        else:
+            for dutasic in self.asics:
+                dutasic.run_vtysh(vty_cmd_args)

@@ -360,6 +360,13 @@ def main():
     if not validate_args(args):
         return
     build_global_vars(args.concurrency, args.inventory)
+    # Add limit argument check for pdu_reboot, pdu_on, pdu_off actions
+    # If no limit argument for these actions, will not execute the process for all devices
+    if args.action in ['pdu_reboot', 'pdu_on', 'pdu_off']:
+        if not args.limit or args.limit == '':
+            print("devutils: error: argument -l/--limit is required for pdu_reboot, pdu_on, pdu_off actions to avoid impacting all devices accidentally.")
+            print("If you are sure to do pdu action to all devices, please use -l/--limit all.")
+            return
     hosts = retrieve_hosts(args.group, args.limit)
     get_conn_graph_facts(hosts)
     actions = {'list': action_list,
