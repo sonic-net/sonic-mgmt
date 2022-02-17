@@ -15,6 +15,9 @@ parameters:
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
+- name: SKIP_SAD_CASES
+  default: true
+  type: boolean
 - name: TEST_TCAM_HOLE
   default: false
   type: boolean
@@ -56,6 +59,11 @@ steps:
     if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
         metadata_process_option=--metadata_process
     fi
+    if [[ ${{ parameters.SKIP_SAD_CASES }} == True ]]; then
+        skip_sad_cases="metadata-scripts/test_metadata_upgrade_path.py::test_warm_upgrade_sad_path"
+    else
+        skip_sad_cases=" "
+    fi
     if [[ ${{ parameters.TEST_TCAM_HOLE }} == True ]]; then
         tcam_hole_option=--tcam_hole
     fi
@@ -87,6 +95,7 @@ steps:
           -l INFO \
           -e "$EXTRA_PARAMS" \
           -u \
+          -s "$skip_sad_cases" \
           -c "metadata-scripts/test_metadata_upgrade_path.py"
 
         if [ $? -ne 0 ]; then

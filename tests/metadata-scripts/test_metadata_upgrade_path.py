@@ -52,8 +52,11 @@ def pytest_generate_tests(metafunc):
     upgrade_types = metafunc.config.getoption("upgrade_type")
     upgrade_types = upgrade_types.split(",")
     if "upgrade_type_params" in metafunc.fixturenames:
-        params = upgrade_types
-        metafunc.parametrize("upgrade_type_params", params, scope="module")
+        if "sad_case_type" not in metafunc.fixturenames:
+            params = upgrade_types
+            metafunc.parametrize("upgrade_type_params", params, scope="module")
+        else:
+            metafunc.parametrize("upgrade_type_params", ["warm"], scope="module")
     if "sad_case_type" in metafunc.fixturenames:
         sad_cases = SAD_CASE_LIST
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
