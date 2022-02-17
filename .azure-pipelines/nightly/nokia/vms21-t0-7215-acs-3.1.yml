@@ -42,6 +42,7 @@ parameters:
     type: string
     default: "arp/test_arp_dualtor.py \
               arp/test_wr_arp.py \
+              bgp/test_bgp_slb.py \
               iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_persistent_watermark_headroom \
               iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_persistent_watermark_shared \
               iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_watermark_headroom \
@@ -83,7 +84,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox platform_tests/broadcom qos restapi snappi span sub_port_interfaces vlan vrf"'
+    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox platform_tests/broadcom qos restapi snappi span sub_port_interfaces vlan vrf everflow"'
     displayName: Testbed specific
 
 stages:
