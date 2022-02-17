@@ -94,7 +94,6 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 #### Test results
 
 
-## Test cases
 ### Test case # 2 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with unique L2VNIs configured behind VTEPs - 4K.
 #### Test objective
   Verify that switch supports total 4K L2 VNI's.
@@ -122,7 +121,6 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 #### Test results
 
 
-## Test cases
 ### Test case # 3 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with common L2VNIs configured behind VTEPs - 4K.
 #### Test objective
   Verify that switch supports total 4K L2 VNI's.
@@ -149,7 +147,6 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 #### Test results
 
 
-## Test cases
 ### Test case # 4 – Validate the functionality of L2VNI and the maximum L2VNIs supported per tunnel - 4K.
 #### Test objective
 Verify that switch supports total 4K L2 VNI's per tunnel.
@@ -176,7 +173,6 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 #### Test results
 
 
-## Test cases
 ### Test case # 5 – Validate the functionality of L3VNI/VRF and the maximum L3VNI/VRF supported per switch - 512.
 #### Test objective
 Verify that swich supports upto 512 VRF instances.
@@ -203,7 +199,6 @@ Verify that swich supports upto 512 VRF instances.
 #### Test results
 
 
-## Test cases
 ### Test case # 6 – Host mac mobility from one VTEP to other.
 #### Test objective
 Verify that swich supports host mobility and learns the informtion through new VTEP.
