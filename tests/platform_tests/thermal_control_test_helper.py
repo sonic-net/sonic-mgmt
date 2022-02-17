@@ -265,6 +265,9 @@ def restart_thermal_control_daemon(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return:
     """
+    if dut.is_multi_asic and dut.sonic_release in ["201911"]:
+        logging.info("thermalctl daemon is not present")
+        return
     logging.info('Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)

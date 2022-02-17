@@ -74,6 +74,7 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module", autouse=True)
 def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+    skip_release(duthost, ["201811", "201911"])
     command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
     
     global pcie_devices_status_tbl_key
