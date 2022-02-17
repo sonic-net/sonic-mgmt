@@ -87,7 +87,7 @@ def validate_check_result(check_result, duthosts):
     """
     if not check_result:
         duthosts.shell('show muxcable config')
-        duthosts.shell('show muxcable status')
+        duthosts.shell('show muxcable status --json')
         simulator_muxstatus = get_mux_status()
         if simulator_muxstatus is not None:
             logger.info('Mux status from mux simulator: {}'.format(json.dumps(simulator_muxstatus)))

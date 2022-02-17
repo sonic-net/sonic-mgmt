@@ -233,7 +233,7 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
     """
     yield
     if request.node.rep_call.failed and 'dualtor' in tbinfo['topo']['name']:
-        mux_status = rand_selected_dut.shell("show muxcable status", module_ignore_errors=True)['stdout']
+        mux_status = rand_selected_dut.shell("show muxcable status --json", module_ignore_errors=True)['stdout']
         logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
 
 

@@ -9,7 +9,7 @@ PRINT_LOGS = {
     "bgpv4": "show ip bgp summary",
     "bgpv6": "show ipv6 bgp summary",
     "routes": "ip route | wc -l",
-    "mux_status": "show mux status",
+    "mux_status": "show mux status --json",
     "mux_config": "show mux config",
 }
 
