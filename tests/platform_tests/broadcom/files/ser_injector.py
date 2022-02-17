@@ -339,13 +339,19 @@ SKIP_MEMORY_PER_ASIC = {
 }
 
 
-def run_cmd(cmd):
+def run_cmd(cmd, asic_id=None):
     '''
     @summary: Utility that runs a command in a subprocess
     @param cmd: Command to be run
     @return: stdout of the command run
     @return: stderr of the command run
     '''
+    if asic_id is not None:
+        if cmd[0] == "bcmcmd":
+            cmd = cmd[1:]
+            args = " ".join(cmd)
+            cmd = ["bcmcmd", "-n", str(asic_id), args]
+
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
     return stdout, stderr
@@ -380,17 +386,19 @@ def get_skip_list_per_asic():
 
 class BcmMemory():
     '''
-    @summary: BcmMemory captures different memory tables of the Broadcom ASIC. Memory are split into two categories:
-              cached and uncached. Broadcom SER correction is enabled for cached memory tables. For cached memory tables,
-              memory attributes are also retreived
+    @summary: BcmMemory captures different memory tables of the Broadcom ASIC.
+              Memory are split into two categories: cached and uncached.
+              Broadcom SER correction is enabled for cached memory tables.
+              For cached memory tables, memory attributes are also retreived
     '''
-    def __init__(self):
+    def __init__(self, asic_id=None):
         '''
         @summary: Class constructor
         '''
         self.cached_memory = {}
         self.uncached_memory = {}
         self.memory_address = {}
+        self.asic_id = asic_id
 
     def get_memory_attributes(self, mem):
         '''
@@ -398,7 +406,7 @@ class BcmMemory():
                   number of entries, entry size in bytes and entry size in words. The method uses regex to parse
                   the command output since there is not SAI APIs for it.
         '''
-        stdout, stderr = run_cmd(["bcmcmd",  "list " + mem])
+        stdout, stderr = run_cmd(["bcmcmd",  "list " + mem], self.asic_id)
 
         attributes = stdout.decode("utf-8").split("\n")
 
@@ -449,9 +457,11 @@ class BcmMemory():
 
     def read_memory(self):
         '''
-        @summary: Read different memory tables using cache command. It update both cached_memory and uncached_memory
-                  hash tables. For cached memory, ut aksi creat a reverse index of address to memory table name. This indez
-                  is stored in memory_address hash table
+        @summary: Read different memory tables using cache command. It update
+                  both cached_memory and uncached_memory hash tables. For
+                  cached memory, ut aksi creat a reverse index of address to
+                  memory table name. This indez is stored in memory_address hash
+                  table
 
                   Sample output of bcmcmd 'cache' command:
                   cache
@@ -466,7 +476,7 @@ class BcmMemory():
         if self.read_memory_from_file():
             return
 
-        stdout, stderr = run_cmd(['bcmcmd', 'cache'])
+        stdout, stderr = run_cmd(['bcmcmd', 'cache'], self.asic_id)
 
         cache_flag = False
         memories = stdout.decode("utf-8").split("\n")
@@ -518,7 +528,8 @@ class SerTest(object):
                  stall_indication = DEFAULT_STALL_INDICATION,
                  batch_size = DEFAULT_BATCH_SIZE,
                  injection_slow_sec = DEFAULT_INJECTION_SLOW_SEC,
-                 skip_slow_injections = False):
+                 skip_slow_injections = False,
+                 asic_id = None):
         '''
         @summary: Class constructor
         '''
@@ -529,6 +540,7 @@ class SerTest(object):
         self.batch_size = batch_size
         self.injection_slow_sec = injection_slow_sec
         self.skip_slow_injections = skip_slow_injections
+        self.asic_id = asic_id
         self.test_candidates = []
         self.mem_verification_pending = []
         self.mem_verified = {}
@@ -650,7 +662,13 @@ class SerTest(object):
         @param rate: rate (number of entries) per interval
         '''
         for x in range(3):
-            stdout, stderr = run_cmd(["bcmcmd", cmd + " interval=" + str(interval_usec) + " rate=" + str(rate)])
+            stdout, stderr = run_cmd(
+                [
+                    "bcmcmd",
+                    cmd + " interval=" + str(interval_usec) + " rate=" + str(rate)
+                ],
+                self.asic_id
+            )
             lines = stdout.decode("utf-8").split("\n")
             if lines[1].find('mSCAN: Started on unit 0') > -1:
                 return
@@ -712,7 +730,13 @@ class SerTest(object):
         '''
         if VERBOSE:
             print('--- injecting error at {} index {} tag {}'.format(mem, index, tag))
-        return run_cmd(["bcmcmd",  "ser inject memory=" + mem + " index=" + str(index)])
+        return run_cmd(
+            [
+                "bcmcmd",
+                "ser inject memory=" + mem + " index=" + str(index)
+            ],
+            self.asic_id
+        )
 
     def verify_and_update_test_result(self, entry, line):
         '''
@@ -796,26 +820,67 @@ def main():
     global VERBOSE
 
     parser = argparse.ArgumentParser(description='Completeness level')
-    parser.add_argument('-b', '--batch_size', help='batch size: number of entries to inject at each batch, default {}'.format(DEFAULT_BATCH_SIZE),
-                        type=int, required=False, default=DEFAULT_BATCH_SIZE)
-    parser.add_argument('-c', '--completeness', help='Completeness level: debug, basic, confident, thorough, diagnose',
-                        type=str, required=False, default='basic',
-                        choices=['debug', 'basic', 'confident', 'thorough', 'diagnose'])
-    parser.add_argument('-e', '--skip_slow_injections', help='Skip slow injections, default False', action='store_true', required=False, default=False)
-    parser.add_argument('-i', '--injection_slow_sec', help='injection slow threshold in secs: stall count when stopping test, default {}'.format(DEFAULT_INJECTION_SLOW_SEC),
-                        type=int, required=False, default=DEFAULT_INJECTION_SLOW_SEC)
-    parser.add_argument('-s', '--stall_limit', help='Stall limit: stall count when stopping test, default {}'.format(DEFAULT_STALL_INDICATION),
-                        type=int, required=False, default=DEFAULT_STALL_INDICATION)
-    parser.add_argument('-t', '--test_batch_timeout', help='test batch timeout: max wait time for each batch (in seconds), default {}'.format(DEFAULT_SER_TEST_TIME_SEC),
-                        type=int, required=False, default=DEFAULT_SER_TEST_TIME_SEC)
-    parser.add_argument('-v', '--verbose', help='Set verbose output', action='store_true', required=False, default=False)
+    parser.add_argument(
+        '-b', '--batch_size',
+        help='batch size: number of entries to inject at each batch, default {}'.format(
+            DEFAULT_BATCH_SIZE
+        ),
+        type=int, required=False, default=DEFAULT_BATCH_SIZE
+    )
+    parser.add_argument(
+        '-c', '--completeness',
+        help='Completeness level: debug, basic, confident, thorough, diagnose',
+        type=str, required=False, default='basic',
+        choices=['debug', 'basic', 'confident', 'thorough', 'diagnose']
+    )
+    parser.add_argument(
+        '-e', '--skip_slow_injections',
+        help='Skip slow injections, default False', action='store_true',
+        required=False, default=False
+    )
+    parser.add_argument(
+        '-i', '--injection_slow_sec',
+        help='injection slow threshold in secs: stall count when stopping test, default {}'.format(
+            DEFAULT_INJECTION_SLOW_SEC
+        ),
+        type=int, required=False, default=DEFAULT_INJECTION_SLOW_SEC
+    )
+    parser.add_argument(
+        '-s', '--stall_limit',
+        help='Stall limit: stall count when stopping test, default {}'.format(
+            DEFAULT_STALL_INDICATION
+        ),
+        type=int, required=False, default=DEFAULT_STALL_INDICATION
+    )
+    parser.add_argument(
+        '-t', '--test_batch_timeout',
+        help='test batch timeout: max wait time for each batch (in seconds), default {}'.format(
+            DEFAULT_SER_TEST_TIME_SEC
+        ),
+        type=int, required=False, default=DEFAULT_SER_TEST_TIME_SEC
+    )
+    parser.add_argument(
+        '-v', '--verbose', help='Set verbose output', action='store_true',
+        required=False, default=False
+    )
+    parser.add_argument(
+        '-n', '--asic_id',
+        help='ASIC ID on multi ASIC platform, default is None',
+        type=int, required=False, default=None
+    )
     args = parser.parse_args()
 
     VERBOSE = args.verbose
 
     start_time = time.time()
-    serTest = SerTest(test_time_sec=args.test_batch_timeout, stall_indication=args.stall_limit, batch_size=args.batch_size,
-                      injection_slow_sec = args.injection_slow_sec, skip_slow_injections=args.skip_slow_injections)
+    serTest = SerTest(
+        test_time_sec=args.test_batch_timeout,
+        stall_indication=args.stall_limit,
+        batch_size=args.batch_size,
+        injection_slow_sec = args.injection_slow_sec,
+        skip_slow_injections=args.skip_slow_injections,
+        asic_id=args.asic_id
+    )
     rc = serTest.test_memory(args.completeness)
     print("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc))
     sys.exit(rc)
