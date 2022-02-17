@@ -18,7 +18,7 @@
       - [Test objective](#test-objective-1)
       - [Test steps](#test-steps-1)
       - [Test results](#test-results-1)
-  - [Test case # 3 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with common L2VNIs configured behind VTEPs - 4K.](#test-case--2--validate-the-functionality-of-L2VNI-and-the-maximum-L2VNIs-supported-per-switch-with-common-L2VNIs-configured-behind-VTEPs---4k)
+    - [Test case # 3 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with common L2VNIs configured behind VTEPs - 4K.](#test-case--2--validate-the-functionality-of-L2VNI-and-the-maximum-L2VNIs-supported-per-switch-with-common-L2VNIs-configured-behind-VTEPs---4k)
       - [Test objective](#test-objective-2)
       - [Test steps](#test-steps-2)
       - [Test results](#test-results-2)
