@@ -10,9 +10,11 @@ from natsort import natsorted
 import pytest
 
 from tests.common import config_reload
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
@@ -291,6 +293,9 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     duthost = duthosts[rand_one_dut_hostname]
+    if not is_mellanox_device(duthost):
+        yield
+        return
 
     # Disable BGP neighbors
     # There are a lot of routing entries learnt with BGP neighbors enabled.
@@ -2359,6 +2364,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         return result
 
     duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.get_asic_name()
 
     # Skip the legacy branches
     skip_release(duthost, ["201811", "201911"])
@@ -2382,6 +2388,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
                                         ]
     }
 
+    if not is_mellanox_device(duthost):
+        buffer_items_to_check_dict["up"][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_items_to_check_dict["up"][3] = ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+
     if check_qos_db_fv_reference_with_table(duthost):
         profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
         is_qos_db_reference_with_table = True
@@ -2404,18 +2414,23 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     for port in configdb_ports:
         logging.info("Checking port buffer information: {}".format(port))
         port_config = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port))['stdout'].split())
+        cable_length = cable_length_map[port]
+        speed = port_config['speed']
+        expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
             admin_up_ports.add(port)
-            cable_length = cable_length_map[port]
-            speed = port_config['speed']
             buffer_items_to_check = buffer_items_to_check_dict["up"]
-            expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
             buffer_items_to_check[-1] = ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))
         else:
-            buffer_items_to_check = buffer_items_to_check_dict["down"]
+            if is_mellanox_device(duthost):
+                buffer_items_to_check = buffer_items_to_check_dict["down"]
+            elif is_broadcom_device(duthost) and asic_type in ['td2']:
+                buffer_items_to_check = [(None, None, None)]
+            else:
+                buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]
 
         for table, ids, expected_profile in buffer_items_to_check:
             logging.info("Checking buffer item {}:{}:{}".format(table, port, ids))
@@ -2471,11 +2486,15 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     if not BUFFER_MODEL_DYNAMIC:
         port_to_shutdown = admin_up_ports.pop()
         expected_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port))['stdout']
+        if is_mellanox_device(duthost):
+            profile_to_check = None
+        else:
+            profile_to_check = expected_profile
         try:
             # Shutdown the port and check whether the lossless PG has been remvoed
             logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, None)
+            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, profile_to_check)
 
             # Startup the port and check whether the lossless PG has been reconfigured
             logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
