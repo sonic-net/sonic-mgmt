@@ -510,6 +510,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
 #######################################
 #####  daemon/test_syseepromd.py  #####
 #######################################
+platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
+  skip:
+    reason: "LEDD daemon auto restart not included in 201911"
+    conditions:
+      - "release in ['201911']"
+
 platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
   xfail:
     reason: "Image issue on Arista platforms"
@@ -526,6 +532,12 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 #####    test_platform_info.py    #####
 #######################################
+platform_tests/test_platform_info.py::test_thermal_control_fan_status:
+  skip:
+    reason: "Thermal control daemon is not present"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
@@ -533,6 +545,10 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
     conditions:
       - "asic_type=='cisco-8000'"
+  skip:
+    reason: "Multi ASIC platfrom running 201911 release doesn't have thermalctld"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   xfail:
@@ -546,6 +562,10 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
     conditions:
       - "asic_type=='cisco-8000'"
+  skip:
+    reason: "Multi ASIC platfrom running 201911 release doesn't have thermalctld"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
 
 #######################################
 #####        test_reboot.py       #####
