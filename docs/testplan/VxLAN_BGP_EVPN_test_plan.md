@@ -26,7 +26,7 @@
       - [Test objective](#test-objective-3)
       - [Test steps](#test-steps-3)
       - [Test results](#test-results-3)
-    - [Test case # 5 – Validate the functionality of L3VNI/VRF and the maximum L3VNI/VRF supported per switch - 512.](#test-case--5--validate-the-functionality-of-l3vni/vrf-and-the-maximum-l3vni/vrf-supported-per-switch---512)
+    - [Test case # 5 – Validate the functionality of L3VNI(VRF) and the maximum L3VNI(VRF) supported per switch - 512.](#test-case--5--validate-the-functionality-of-l3vni(vrf)-and-the-maximum-l3vni(vrf)-supported-per-switch---512)
       - [Test objective](#test-objective-4)
       - [Test steps](#test-steps-4)
       - [Test results](#test-results-4)
