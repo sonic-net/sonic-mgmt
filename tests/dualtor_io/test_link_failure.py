@@ -145,7 +145,7 @@ def test_active_tor_downlink_down_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=3, action=shutdown_upper_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_upper_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -164,7 +164,7 @@ def test_active_tor_downlink_down_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=3, action=shutdown_upper_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_upper_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -184,7 +184,7 @@ def test_active_tor_downlink_down_downstream_standby(
     """
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=3, action=shutdown_upper_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_upper_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -204,7 +204,7 @@ def test_standby_tor_downlink_down_upstream(
     """
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=2, action=shutdown_lower_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_lower_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -224,7 +224,7 @@ def test_standby_tor_downlink_down_downstream_active(
     """
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=2, action=shutdown_lower_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_lower_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -244,7 +244,7 @@ def test_standby_tor_downlink_down_downstream_standby(
     """
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=2, action=shutdown_lower_tor_downlink_intfs
+        allowed_disruption=0, action=shutdown_lower_tor_downlink_intfs
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
