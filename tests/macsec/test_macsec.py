@@ -228,7 +228,7 @@ def convert_on_off_to_boolean(obj):
 
 
 def get_mka_session(host):
-    cmd = "ip macsec show"
+    cmd = "docker exec syncd ip macsec show"
     '''
     Here is an output example of `ip macsec show`
     admin@vlab-01:~$ ip macsec show
@@ -348,8 +348,12 @@ def check_mka_session(dut_mka_session, dut_sci, nbr_mka_session, nbr_sci, policy
     else:
         assert not dut_mka_session["encrypt"]
         assert not nbr_mka_session["encrypt"]
-    # assert dut_mka_session["send_sci"] == send_sci
-    # assert nbr_mka_session["send_sci"] == send_sci
+    if send_sci == "true":
+        assert dut_mka_session["send_sci"]
+        assert nbr_mka_session["send_sci"]
+    else:
+        assert not dut_mka_session["send_sci"]
+        assert not nbr_mka_session["send_sci"]
     assert dut_mka_session["cipher_suite"] == cipher_suite
     assert nbr_mka_session["cipher_suite"] == cipher_suite
     assert dut_sci in nbr_mka_session["ingress_scs"]
@@ -384,8 +388,6 @@ class TestControlPlane():
             # If the DUT isn't a virtual switch that cannot support "get mka session" by "ip macsec show"
             # So, skip this test for physical switch
             # TODO: Support "get mka session" in the physical switch
-            # import pdb
-            # pdb.set_trace()
             if u"x86_64-kvm_x86_64" not in get_platform(duthost):
                 logging.info("Skip to check mka session due to the DUT isn't a virtual switch")
                 return True
@@ -407,9 +409,9 @@ class TestControlPlane():
         assert wait_until(300, 1, 1, lambda: _test_mka_session())
 
 
-def create_pkt(eth_dst, ip_src, ip_dst, payload=None):
+def create_pkt(eth_src, eth_dst, ip_src, ip_dst, payload=None):
     pkt = testutils.simple_ipv4ip_packet(
-        eth_dst=eth_dst, ip_src=ip_src, ip_dst=ip_dst, inner_frame=payload)
+        eth_src = eth_src, eth_dst=eth_dst, ip_src=ip_src, ip_dst=ip_dst, inner_frame=payload)
     return pkt
 
 
@@ -429,10 +431,11 @@ def get_macsec_attr(host, port):
         encrypt = 1
     else:
         encrypt = 0
-    # if macsec_port["send_sci"] == "true":
-    #     send_sci = 1
-    # else:
-    #     send_sci = 0
+    if macsec_port["send_sci"] == "true":
+        send_sci = 1
+    else:
+        send_sci = 0
+    xpn_en = "XPN" in macsec_port["cipher_suite"]
     sci = get_sci(eth_src)
     macsec_sc = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SC.format(port, sci))
@@ -441,17 +444,26 @@ def get_macsec_attr(host, port):
         host, QUERY_MACSEC_EGRESS_SA.format(port, sci, an))
     sak = binascii.unhexlify(macsec_sa["sak"])
     sci = int(get_sci(eth_src, order="host"), 16)
-    return sci, an, sak, encrypt, 1 # send_sci
+    if xpn_en:
+        ssci = struct.pack('!I', int(macsec_sa["ssci"]))
+        salt = binascii.unhexlify(macsec_sa["salt"])
+    else:
+        ssci = None
+        salt = None
+    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt
 
 
-def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn):
+def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
     sa = scapy_macsec.MACsecSA(sci=sci,
                                an=an,
                                pn=pn,
                                key=sak,
                                icvlen=16,
                                encrypt=encrypt,
-                               send_sci=send_sci)
+                               send_sci=send_sci,
+                               xpn_en = xpn_en,
+                               ssci = ssci,
+                               salt = salt)
     try:
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
@@ -464,7 +476,7 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn):
 def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     device, ptf_port = testutils.port_to_tuple(ptf_port_id)
     received_packets = []
-    sci, an, sak, encrypt, send_sci = macsec_attr
+    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_attr
     end_time = time.time() + timeout
     while True:
         cur_time = time.time()
@@ -481,8 +493,8 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
         received_packets.append(pkt)
     for i in range(len(received_packets)):
         pkt = received_packets[i]
-        pn = struct.unpack_from("!L", scapy.raw(pkt), 0x10)[0]
-        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, pn)
+        pn = 0
+        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
         if not pkt:
             continue
         received_packets[i] = pkt
@@ -504,8 +516,9 @@ class TestDataPlane():
             dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
             payload = "{} -> {}".format(down_link["name"], up_link["name"])
             logging.info(payload)
+            # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
             pkt = create_pkt(
-                dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
             testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
             nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
@@ -517,16 +530,17 @@ class TestDataPlane():
                              ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        for ctrl_port in ctrl_links.keys():
+        for ctrl_port, nbr in ctrl_links.items():
             for up_port, up_link in upstream_links.items():
                 if up_port == ctrl_port:
                     continue
                 ctrl_link = upstream_links[ctrl_port]
                 dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
                 payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
                 logging.info(payload)
                 pkt = create_pkt(
-                    dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
+                    nbr_macaddress, dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
                 nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
                 testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
                 exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)

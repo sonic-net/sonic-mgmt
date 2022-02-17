@@ -71,8 +71,7 @@ def profile_name():
 def default_priority():
     return 64
 
-
-@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256"])
+@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
     return request.param
 
@@ -86,16 +85,18 @@ def primary_ckn():
 @pytest.fixture(scope="module")
 def primary_cak(cipher_suite):
     ckn = "0123456789ABCDEF0123456789ABCDEF"
-    if cipher_suite == "GCM-AES-128":
+    if "128" in cipher_suite:
         ckn = ckn * 1
-    elif cipher_suite == "GCM-AES-256":
+    elif "256" in cipher_suite:
         ckn = ckn * 2
     else:
         raise ValueError("Unknown cipher suite {}".format(cipher_suite))
     return ckn
 
 
-@pytest.fixture(scope="module", params=["integrity_only", "security"])
+# Some platform cannot support "integrity_only" mode, skip this option
+# @pytest.fixture(scope="module", params=["integrity_only", "security"])
+@pytest.fixture(scope="module", params=["security"])
 def policy(request):
     return request.param
 
