@@ -2,7 +2,6 @@ import pytest
 import logging
 import ipaddress
 import collections
-import time
 from multiprocessing.pool import ThreadPool
 
 import natsort
