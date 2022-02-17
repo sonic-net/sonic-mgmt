@@ -7,6 +7,8 @@ from helpers import *
 from common import *
 import strip
 
+orig_config = None
+
 sonic_local_ports = set()
 
 def is_version_2019_higher():
@@ -181,83 +183,49 @@ def get_port_related_data(is_mlnx, is_storage_backend):
     
     log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
+    if "CABLE_LENGTH|AZURE" not in orig_config:
+        # no port related data is present. Bail out
+        return ret
+
     for local_port in sonic_local_ports:
         # Hard coded as 300m per discussion with Neetha
 
         #  "CABLE_LENGTH"
-        cable[local_port] = "300m"
+        cable[local_port] = orig_config["CABLE_LENGTH|AZURE"]['value'][local_port]
 
         # "BUFFER_PG"
-        buffer_pg["{}|0".format(local_port)] = {
-                "profile": "[BUFFER_PROFILE|ingress_lossy_profile]" }
+        buffer_pg["{}|0".format(local_port)] = orig_config["BUFFER_PG|Ethernet64|0"]['value']
 
         # "QUEUE"
-        for i in range(3):
-            queue["{}|{}".format(local_port, i)] = {
-                    "scheduler": "[SCHEDULER|scheduler.0]"}
-
-        for i in range(3, 5):
-            queue["{}|{}".format(local_port, i)] = {
-                    "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
-                    "scheduler": "[SCHEDULER|scheduler.1]"}
-        
-        for i in range(5,7):
-            queue["{}|{}".format(local_port, i)] = {
-                    "scheduler": "[SCHEDULER|scheduler.0]"}
+        for i in range(7):
+            queue["{}|{}".format(local_port, i)] = orig_config["QUEUE|{}|{}".format(
+                local_port, i)]["value"]
 
         # "BUFFER_QUEUE"
-        lossy_profile = "[BUFFER_PROFILE|{}]".format(
-                    "q_lossy_profile" if is_mlnx else "egress_lossy_profile")
+        buffer_q["{}|0-2".format(local_port)] = orig_config["BUFFER_QUEUE|{}|0-2".
+                format(local_port)]['value']
 
-        buffer_q["{}|0-2".format(local_port)] = {"profile": lossy_profile}
+        buffer_q["{}|3-4".format(local_port)] = orig_config["BUFFER_QUEUE|{}|3-4".
+                format(local_port)]['value']
 
-        buffer_q["{}|3-4".format(local_port)] = {
-                "profile": "[BUFFER_PROFILE|egress_lossless_profile]" }
-
-        buffer_q["{}|5-6".format(local_port)] = {"profile": lossy_profile}
+        buffer_q["{}|5-6".format(local_port)] = orig_config["BUFFER_QUEUE|{}|5-6".
+                format(local_port)]['value']
 
         if is_mlnx:
             # "BUFFER_PORT_INGRESS_PROFILE_LIST"
-            if is_version_2019_higher():
-                buffer_port_ingress[local_port] = {
-                        "profile_list": "[BUFFER_PROFILE|ingress_lossless_profile]"
-                        }
-            else:
-                buffer_port_ingress[local_port] = {
-                        "profile_list": "[BUFFER_PROFILE|ingress_lossless_profile],[BUFFER_PROFILE|ingress_lossy_profile]"
-                        }
+            buffer_port_ingress[local_port] = orig_config["BUFFER_PORT_INGRESS_PROFILE_LIST|{}".
+                    format(local_port)]['value']
+
             # "BUFFER_PORT_EGRESS_PROFILE_LIST"
-            buffer_port_egress[local_port] = {
-                    "profile_list": "[BUFFER_PROFILE|egress_lossless_profile],[BUFFER_PROFILE|egress_lossy_profile]"
-                    }
-            ret.append({ "BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress })
-            ret.append({ "BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress })
+            buffer_port_egress[local_port] = orig_config["BUFFER_PORT_EGRESS_PROFILE_LIST|{}".
+                    format(local_port)]['value']
 
         # "PORT_QOS_MAP"
-        qos[local_port] = {
-                "tc_to_pg_map": "[TC_TO_PRIORITY_GROUP_MAP|AZURE]",
-                "tc_to_queue_map": "[TC_TO_QUEUE_MAP|AZURE]",
-                "pfc_enable": "3,4",
-                "pfc_to_queue_map": "[MAP_PFC_PRIORITY_TO_QUEUE|AZURE]"
-                }
-
-        if is_storage_backend:
-            qos[local_port]["dot1p_to_tc_map"] = "[DOT1P_TO_TC_MAP|AZURE]"
-        else:
-            qos[local_port]["dscp_to_tc_map"]  = "[DSCP_TO_TC_MAP|AZURE]"
-
-        if is_mlnx:
-            qos[local_port]["pfc_to_pg_map"] = "[PFC_PRIORITY_TO_PRIORITY_GROUP_MAP|AZURE]"
+        qos[local_port] = orig_config["PORT_QOS_MAP|{}".format(local_port)]['value']
 
         if pfc_time:
-            # "PFC_WD"
-            pfc_wd[local_port] = {
-                    "action": "drop",
-                    "detection_time": pfc_time,
-                    "restoration_time": pfc_time }
+            pfc_wd[local_port] = orig_config.get("PFC_WD|{}".format(local_port), {}).get("value", {})
 
-
-        
     ret.append({ "CABLE_LENGTH": { "AZURE": cable } })
     ret.append({ "QUEUE": queue })
     ret.append({ "BUFFER_PG": buffer_pg })
@@ -265,6 +233,10 @@ def get_port_related_data(is_mlnx, is_storage_backend):
     ret.append({ "PORT_QOS_MAP": qos })
     if pfc_wd:
         ret.append({ "PFC_WD": pfc_wd })
+    if buffer_port_ingress:
+        ret.append({ "BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress })
+    if buffer_port_egress:
+        ret.append({ "BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress })
 
     return ret
          
@@ -302,8 +274,12 @@ def write_out(lst, tmpdir):
 
 
 def main(tmpdir, is_mlnx, is_storage_backend):
-    global sonic_local_ports
+    global sonic_local_ports, orig_config
     ret = []
+
+    with open("{}/config-db.json".format(init_data["orig_db_dir"]), "r") as s:
+        orig_config = json.load(s)
+
 
     _, sonic_local_ports = strip.get_local_ports()
 
@@ -321,15 +297,5 @@ def main(tmpdir, is_mlnx, is_storage_backend):
     write_out(ret, tmpdir)
 
     return 0
-
-
-
-    
-    
-
-
-
-
-
 
 
