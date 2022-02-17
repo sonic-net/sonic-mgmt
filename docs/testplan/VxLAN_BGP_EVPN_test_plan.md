@@ -22,7 +22,7 @@
       - [Test objective](#test-objective-2)
       - [Test steps](#test-steps-2)
       - [Test results](#test-results-2)
-    - [Test case # 4 – Validate the functionality of L2VNI and the maximum L2VNIs supported per tunnel - 4K.](#test-case--4--validate-the-functionality-of-L2VNI-and-the-maxmimum-l2vnis-supported-per-tunnel---4k)
+    - [Test case # 4 – Validate the functionality of L2VNI and the maximum L2VNIs supported per tunnel - 4K.](#test-case--4--validate-the-functionality-of-L2VNI-and-the-maximum-l2vnis-supported-per-tunnel---4k)
       - [Test objective](#test-objective-3)
       - [Test steps](#test-steps-3)
       - [Test results](#test-results-3)
