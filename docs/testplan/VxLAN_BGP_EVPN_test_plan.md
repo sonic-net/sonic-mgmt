@@ -82,16 +82,20 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
+* Measure how long it is taking to learn remote VTEP's while doing scale testing. 
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Also send traffic from remote host to remote host and verify the statistics.
+* Match the tunnel counters with traffic statistics. 
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
+* Do warm, fast, soft and cold reboots while traffic is running.
 
 #### Test results
 
 
 ## Test cases
-### Test case # 2 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch - 4K.
+### Test case # 2 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with unique L2VNIs configured behind VTEPs - 4K.
 #### Test objective
   Verify that switch supports total 4K L2 VNI's.
 
@@ -101,21 +105,52 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 
 
 #### Test steps
-* Configure one L2VNI per leaf and check the functionality. Scale the config such that each spine has multiple leafs connected and each leaf has multiple L2VNIs configured to test the max scale of the switch.
+* Configure one L2VNI per leaf and check the functionality. Scale the config such that each spine has multiple leafs connected and each leaf has multiple unique L2VNIs configured to test the max scale of the switch.
 * Configure EBGP/IBGP as underlay protocol.
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
-* Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
+* Verify that switch is able to learn all configured L2VNI's and measure the CPU utilization and memory usage.
+* Measure the time it takes to learn configured L2VNI's while doing scale testing.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Also send traffic from remote host to remote host and verify the statistics.
+* Match the tunnel counters with traffic statistics. 
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
+* Do warm, fast, soft and cold reboots while traffic is running.
 
 #### Test results
 
 
 ## Test cases
-### Test case # 3 – Validate the functionality of L2VNI and the maximum L2VNIs supported per tunnel - 4K.
+### Test case # 3 – Validate the functionality of L2VNI and the maximum L2VNIs supported per switch with common L2VNIs configured behind VTEPs - 4K.
+#### Test objective
+  Verify that switch supports total 4K L2 VNI's.
+
+<p float="left">
+  <img src="Img/Max_L2VNI_Per_Switch.png" width="600"  hspace="50"/>
+</p>
+
+
+#### Test steps
+* Configure one L2VNI per leaf and check the functionality. Scale the config such that each spine has multiple leafs connected and each leaf has multiple L2VNIs configured and some are common between remote VTEPs configured to test the max scale of the switch.
+* Configure EBGP/IBGP as underlay protocol.
+* Configure EBGP as overlay protocol for remote mac learning.
+* Start all protocols.
+* Verify that switch is able to learn all configured L2VNI's and measure the CPU utilization and memory usage.
+* Measure the time it takes to learn configured L2VNI's while doing scale testing.
+* Verify that different route types are learned and shown in database.
+* Send traffic from local host to remote hosts configured behind these VTEPs.
+* Match the tunnel counters with traffic statistics. 
+* Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
+* Traffic should flow without any loss at line rate.
+* Do warm, fast, soft and cold reboots while traffic is running.
+
+#### Test results
+
+
+## Test cases
+### Test case # 4 – Validate the functionality of L2VNI and the maximum L2VNIs supported per tunnel - 4K.
 #### Test objective
 Verify that switch supports total 4K L2 VNI's per tunnel.
 
@@ -130,16 +165,19 @@ Verify that switch supports total 4K L2 VNI's per tunnel.
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
+* Measure the time it takes to learn configured L2VNI's while doing scale testing.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Match the tunnel counters with traffic statistics.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
-* Traffic should flow without any loss at line rate
+* Traffic should flow without any loss at line rate.
+* Do warm, fast, soft and cold reboots while traffic is running.
 
 #### Test results
 
 
 ## Test cases
-### Test case # 4 – Validate the functionality of L3VNI/VRF and the maximum L3VNI/VRF supported per switch - 512.
+### Test case # 5 – Validate the functionality of L3VNI/VRF and the maximum L3VNI/VRF supported per switch - 512.
 #### Test objective
 Verify that swich supports upto 512 VRF instances.
 
@@ -154,16 +192,19 @@ Verify that swich supports upto 512 VRF instances.
 * Configure IBGP as overlay protocol for remote mac learning.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
+* Measure the time it takes to learn configured L3VNI's while doing scale testing.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Match the tunnel counters with traffic statistics.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
+* Do warm, fast, soft and cold reboots while traffic is running.
 
 #### Test results
 
 
 ## Test cases
-### Test case # 5 – Host mac mobility from one VTEP to other.
+### Test case # 6 – Host mac mobility from one VTEP to other.
 #### Test objective
 Verify that swich supports host mobility and learns the informtion through new VTEP.
 
@@ -181,6 +222,8 @@ Verify that swich supports host mobility and learns the informtion through new V
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
+* Match the tunnel counters with traffic statistics.
+* Similarly move the host from remote VTEP to local VTEP while traffic is running.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 
