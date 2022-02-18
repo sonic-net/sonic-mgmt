@@ -173,7 +173,7 @@ def get_expected_alerting_message(container_name):
     return expected_alerting_messages
 
 
-def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_dut, tbinfo):
+def test_container_checker(duthosts, enum_dut_feature, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, tbinfo):
     """Tests the feature of container checker.
 
     This function will check whether the container names will appear in the Monit
@@ -188,39 +188,25 @@ def test_container_checker(duthosts, enum_dut_feature_container, rand_selected_d
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_selected_dut.hostname and container_name != "unknown",
-                   "Skips testing container_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_selected_dut.hostname))
-    duthost = duthosts[dut_name]
+    service_name = enum_dut_feature
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(service_name)
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
 
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_containers = disabled_containers[:]
-    skip_containers.append("gbsyncd")
-    skip_containers.append("database")  
-    skip_containers.append("database-chassis")
 
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
 
-    re_str = re.compile("([a-zA-Z]+)([0-9]+)")
-    asic_service_name = container_name
-    service_name = container_name
-    asic_index = 0
-
-    if re_str.match(container_name):
-        service_name, asic_index = re_str.match(container_name).groups()
-        asic_service_name = duthost.asic_instance(int(asic_index)).get_service_name(service_name)
-
     pytest_require(service_name not in skip_containers,
                    "Container '{}' is skipped for testing.".format(container_name))
 
-    # stop service
-    duthost.asic_instance(int(asic_index)).stop_service(asic_service_name)
+    asic.stop_service(service_name)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,

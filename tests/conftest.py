@@ -1004,6 +1004,42 @@ def generate_dut_feature_container_list(request):
     return container_list
 
 
+def generate_dut_feature_list(request, duts_selected, asics_selected):
+    """
+    Generate a list of features.
+    The list of features willl be obtained from
+    metadata file.
+    This list will be features that can be stopped
+    or restarted.
+    """
+    meta = get_testbed_metadata(request)
+    tuple_list = []
+
+    if meta is None:
+        return tuple_list
+
+    skip_feature_list = ['database', 'database-chassis', 'gbsyncd']
+
+    for a_dut_index, a_dut in enumerate(duts_selected):
+        if len(asics_selected):
+            for a_asic in asics_selected[a_dut_index]:
+                # Create tuple of dut and asic index
+                if "features" in meta[a_dut]:
+                    for a_feature in meta[a_dut]["features"].keys():
+                        if a_feature not in skip_feature_list:
+                            tuple_list.append((a_dut, a_asic, a_feature))
+                else:
+                    tuple_list.append((a_dut, a_asic, None))
+        else:
+            if "features" in meta[dut]:
+                for a_feature in meta[dut]["features"].keys():
+                    if a_feature not in skip_feature_list:
+                        tuple_list.append((a_dut, None, a_feature))
+            else:
+                tuple_list.append((a_dut, None, None))
+    return tuple_list
+
+
 def generate_dut_backend_asics(request, duts_selected):
     dut_asic_list = []
 
@@ -1099,8 +1135,13 @@ def pytest_generate_tests(metafunc):
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
 
+    # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
+    if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
+        tuple_list = generate_dut_feature_list(metafunc, duts_selected, asics_selected)
+        feature_fixture = "enum_dut_feature"
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name + "," + feature_fixture, tuple_list, scope="module", indirect=True)
     # Create parameterization tuple of dut_fixture_name and asic_fixture_name to parameterize
-    if dut_fixture_name and asic_fixture_name:
+    elif dut_fixture_name and asic_fixture_name:
         # parameterize on both - create tuple for each
         tuple_list = []
         for a_dut_index, a_dut in enumerate(duts_selected):
@@ -1180,6 +1221,10 @@ def enum_backend_asic_index(request):
 
 @pytest.fixture(scope="module")
 def enum_rand_one_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_dut_feature(request):
     return request.param
 
 @pytest.fixture(scope="module")
