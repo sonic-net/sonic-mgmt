@@ -98,19 +98,19 @@ def parse_asic_external_link(link, asic_name, hostname):
     # if chassis internal is false, the interface name will be
     # interface alias which should be converted to asic port name
     if (enddevice.lower() == hostname.lower()):
-        if ((endport in port_alias_asic_map) and
-                (asic_name.lower() in port_alias_asic_map[endport].lower())):
-            endport = port_alias_asic_map[endport]
-            neighbors[port_name_to_alias_map[endport]] = {'name': startdevice, 'port': startport}
+        if ((endport in port_alias_to_port_asic_alias_map) and
+                (asic_name.lower() in port_alias_to_port_asic_alias_map[endport].lower())):
+            endport = port_alias_to_port_asic_alias_map[endport]
+            neighbors[port_alias_asic_map[endport]] = {'name': startdevice, 'port': startport}
             if bandwidth:
                 port_speeds[port_alias_map[endport]] = bandwidth
     elif (startdevice.lower() == hostname.lower()):
-        if ((startport in port_alias_asic_map) and
-                (asic_name.lower() in port_alias_asic_map[startport].lower())):
-            startport = port_alias_asic_map[startport]
-            neighbors[port_name_to_alias_map[startport]] = {'name': enddevice, 'port': endport}
+        if ((startport in port_alias_to_port_asic_alias_map) and
+                (asic_name.lower() in port_alias_to_port_asic_alias_map[startport].lower())):
+            startport = port_alias_to_port_asic_alias_map[startport]
+            neighbors[port_alias_asic_map[startport]] = {'name': enddevice, 'port': endport}
             if bandwidth:
-                port_speeds[port_name_to_alias_map[startport]] = bandwidth
+                port_speeds[port_alias_asic_map[startport]] = bandwidth
 
     return neighbors, port_speeds
 
@@ -161,6 +161,10 @@ def parse_asic_png(png, asic_name, hostname):
                         hwsku = node.text
 
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
+
+    for k, v in neighbors.items():
+         v['namespace'] = asic_name
+
     return (neighbors, devices, port_speeds)
 
 
@@ -637,11 +641,18 @@ def parse_xml(filename, hostname, asic_name=None):
     global port_alias_to_name_map
     global port_name_to_alias_map
     global port_alias_asic_map
+    global port_alias_to_port_asic_alias_map
+    global port_name_to_index_map
 
-    port_alias_to_name_map, port_alias_asic_map = get_port_alias_to_name_map(hwsku, asic_id)
+    port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(hwsku, asic_name)
 
     # Create inverse mapping between port name and alias
     port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
+
+    for k, v in port_alias_to_name_map.items():
+        for i, j in port_alias_asic_map.items():
+            if v == j:
+                port_alias_to_port_asic_alias_map[k] = i
 
     for child in root:
         if asic_name is None:
@@ -686,7 +697,7 @@ def parse_xml(filename, hostname, asic_name=None):
     port_name_list_sorted = natsorted(port_name_list)
 
     # Create mapping between port alias and physical index
-    port_index_map = get_port_indices_for_asic(asic_id, port_name_list_sorted)
+    port_index_map = port_name_to_index_map if port_name_to_index_map else get_port_indices_for_asic(asic_id, port_name_list_sorted)
 
     # Generate results
     Tree = lambda: defaultdict(Tree)
@@ -791,6 +802,8 @@ ports = {}
 port_alias_to_name_map = {}
 port_name_to_alias_map = {}
 port_alias_asic_map = {}
+port_name_to_index_map = {}
+port_alias_to_port_asic_alias_map = {}
 
 def main():
     module = AnsibleModule(
