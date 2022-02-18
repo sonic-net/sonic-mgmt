@@ -1247,6 +1247,10 @@ def enum_dut_feature(request):
     return request.param
 
 @pytest.fixture(scope="module")
+def enum_rand_one_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
 def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
     duthost = duthosts[rand_one_dut_hostname]
     dut_hostname = duthost.hostname
