@@ -65,6 +65,26 @@ PTF<->DUT   down link
 
 In this topology, We pick two VMs (MACsec support) that act as the MACsec participants of the DUT. These two pairs of MACsec participant belong to different MACsec connectivity association(CA).
 
+In the current, we use the vSONiC as the neighbor devices. But in the future, we plan to support a larger scale topology (T2) and neighbor devices will be cEOS.
+
+## Instruction to run MACsec test
+
+### Setup MACsec testbed
+
+About the detail to set the testbed, please refer the doc: https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md firstly.
+
+``` bash
+./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt
+./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic add-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
+```
+
+### Run MACsec test
+
+``` bash
+./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_macsec.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
+```
+
 ## Common Configuration
 
 ### Dynamic Key(MKA)
