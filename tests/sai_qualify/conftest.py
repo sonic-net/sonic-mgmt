@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 OPT_DIR = "/opt"
 USR_BIN_DIR = "/usr/bin"
-SAISERVER_SCRIPT = "saiserver.sh"
+SAISERVER_SCRIPT = "prepare_saiserver_service.sh"
 SCRIPTS_SRC_DIR = "scripts/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 SAI_PRC_PORT = 9092
