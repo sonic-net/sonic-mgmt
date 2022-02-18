@@ -1,6 +1,6 @@
 import pytest
 from tests.common.utilities import str2bool
-
+from tests.platform_tests.warmboot_sad_cases import SAD_CASE_LIST
 
 def add_advanced_reboot_args(parser):
     '''
@@ -122,7 +122,7 @@ def add_advanced_reboot_args(parser):
     )
 
     parser.addoption("--sad_case_list",
-        default="sad, multi_sad, sad_bgp, sad_lag_member, sad_lag, sad_vlan_port, sad_inboot",
+        default=", ".join(SAD_CASE_LIST),
         help="Specify the list of warmboot SAD cases (case-insensitive). Useful if SAD cases are alternated daily " +\
             "which helps to keep total runtime within desired limits. Avg time per case: " +\
             "sad(3h45m), multi_sad(5h), sad_bgp(1h5m), sad_lag_member(1h15m), sad_lag(1h15m), sad_vlan_port(1h10m), sad_inboot(1h20m)",
