@@ -235,11 +235,9 @@ class Parse_Lab_Graph():
                     for consolelink in allconsolelinks:
                         start_dev = consolelink.attrib['StartDevice']
                         end_dev = consolelink.attrib['EndDevice']
-                        try:
-                            console_proxy = consolelink.attrib['Proxy']
-                            console_type = consolelink.attrib['Console_type']
-                        except:
-                            console_proxy = console_type = " "
+                        console_proxy = consolelink.attrib['Proxy']
+                        console_type = consolelink.attrib['Console_type']
+
                         if start_dev:
                             if start_dev not in self.consolelinks:
                                 self.consolelinks.update({start_dev : {}})
