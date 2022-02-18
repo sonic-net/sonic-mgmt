@@ -44,6 +44,8 @@ MCLAG test must use two DUTs, you can connect those two DUTs to two different le
 # Logical topologies
 Testbeds t0-mclag is modified based on the Testbeds t0
 
+![152551826-d1e37522-94d7-447e-8097-56cf25194018](https://user-images.githubusercontent.com/73100001/154721286-c3423b73-cdd8-434f-80de-20a3640437bf.png)
+
 
 - Requires 2 VMs
 - 2 DUT ports areconnected to VMs
@@ -52,6 +54,7 @@ Testbeds t0-mclag is modified based on the Testbeds t0
 
 
 # Mclag logical topology
+![152551603-482a945e-482a-4b2e-881b-87a014bb056f](https://user-images.githubusercontent.com/73100001/154721388-a2973228-9b9c-4c28-a3b1-24c846b6d551.png)
 
 
 ### Application scenarios
