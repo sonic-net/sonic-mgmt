@@ -146,12 +146,26 @@ class TestSfpApi(PlatformApiTestBase):
     # Helper functions
     #
 
+
+    def get_sfp_attributes(self, duthost, sfp_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            sfps = duthost.facts.get("chassis").get("sfps")
+            if sfps:
+                sfp_value = sfps[sfp_idx]
+                for key in keys:
+                    value = sfp_value.get(key)
+                    if value is None:
+                        return def_value
+                return value
+        return def_value
+
     def is_xcvr_dac(self, xcvr_info_dict):
         conn_type = xcvr_info_dict.get("connector")
         comp_type = xcvr_info_dict.get("specification_compliance")
         if conn_type == "No separable connector" and 'copper' in comp_type:
             return True
         return False
+
 
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
@@ -344,7 +358,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_get_rx_los: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
@@ -362,7 +376,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_get_tx_fault: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
@@ -380,7 +394,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_get_temperature: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
@@ -397,7 +411,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_get_voltage: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
@@ -454,7 +468,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_get_tx_power: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
@@ -554,7 +568,7 @@ class TestSfpApi(PlatformApiTestBase):
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             # Skip if transceiver ia a dac
-            if self.is_xcvr_dac(info_dict):
+            if not self.is_xcvr_optical(info_dict):
                 logger.info("test_lpmod: Skipping transceiver {} (not supported on this platform)".format(i))
                 continue
 
