@@ -7,6 +7,8 @@ from helpers import *
 from common import *
 import strip
 
+orig_config = None
+
 sonic_local_ports = set()
 
 def is_version_2019_higher():
@@ -167,69 +169,62 @@ def get_device_info():
     return ret
 
 
-def get_cable_len(ifname):
-    return {ifname: config_db_data_orig['CABLE_LENGTH']['AZURE'][ifname]}
-
-def get_pg_profile(ifname):
-    def target_if_pg_only(key):
-        return ifname in key
-    res = {}
-    pgs = config_db_data_orig['BUFFER_PG']
-    for pg in filter(target_if_pg_only, pgs):
-        res[pg] = pgs[pg]
-    return res
-
-def get_queue_cfg(ifname):
-    def target_if_queue_only(key):
-        return ifname in key
-    res = {}
-    queues = config_db_data_orig['QUEUE']
-    for key in filter(target_if_queue_only, queues):
-        res[key] = queues[key]
-    return res
-
-def get_queue_profile(ifname):
-    def target_if_queue_only(key):
-        return ifname in key 
-    res = {}
-    queues = config_db_data_orig['BUFFER_QUEUE']
-    for key in filter(target_if_queue_only, queues):
-        q_range = key[key.rindex('|')+1:]
-        res[ifname + '|' + q_range] = queues[key]
-    return res
-
-def get_qos_map(ifname):
-    return {ifname: config_db_data_orig['PORT_QOS_MAP'][ifname]}
-    
-def get_pfcwd_config(ifname):
-    pfc_wd = {}
-    pfc_time = get_pfc_time()
-    if pfc_time:
-            # "PFC_WD"
-            pfc_wd[ifname] = {
-                    "action": "drop",
-                    "detection_time": pfc_time,
-                    "restoration_time": pfc_time }
-    return pfc_wd
-
-def get_port_qos_config():
+def get_port_related_data(is_mlnx, is_storage_backend):
     ret = []
     cable = {}
     queue = {}
     buffer_pg = {}
     buffer_q = {}
+    buffer_port_ingress = {}
+    buffer_port_egress = {}
     qos = {}
-    pfc_wd = {}    
+    pfc_wd = {}
+    pfc_time = get_pfc_time()
     
     log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
+    if "CABLE_LENGTH|AZURE" not in orig_config:
+        # no port related data is present. Bail out
+        return ret
+
     for local_port in sonic_local_ports:
-        cable.update(get_cable_len(local_port))
-        buffer_pg.update(get_pg_profile(local_port))
-        queue.update(get_queue_cfg(local_port))
-        buffer_q.update(get_queue_profile(local_port))
-        qos.update(get_qos_map(local_port))
-        pfc_wd.update(get_pfcwd_config(local_port))
+        # Hard coded as 300m per discussion with Neetha
+
+        #  "CABLE_LENGTH"
+        cable[local_port] = orig_config["CABLE_LENGTH|AZURE"]['value'][local_port]
+
+        # "BUFFER_PG"
+        buffer_pg["{}|0".format(local_port)] = orig_config["BUFFER_PG|Ethernet64|0"]['value']
+
+        # "QUEUE"
+        for i in range(7):
+            queue["{}|{}".format(local_port, i)] = orig_config["QUEUE|{}|{}".format(
+                local_port, i)]["value"]
+
+        # "BUFFER_QUEUE"
+        buffer_q["{}|0-2".format(local_port)] = orig_config["BUFFER_QUEUE|{}|0-2".
+                format(local_port)]['value']
+
+        buffer_q["{}|3-4".format(local_port)] = orig_config["BUFFER_QUEUE|{}|3-4".
+                format(local_port)]['value']
+
+        buffer_q["{}|5-6".format(local_port)] = orig_config["BUFFER_QUEUE|{}|5-6".
+                format(local_port)]['value']
+
+        if is_mlnx:
+            # "BUFFER_PORT_INGRESS_PROFILE_LIST"
+            buffer_port_ingress[local_port] = orig_config["BUFFER_PORT_INGRESS_PROFILE_LIST|{}".
+                    format(local_port)]['value']
+
+            # "BUFFER_PORT_EGRESS_PROFILE_LIST"
+            buffer_port_egress[local_port] = orig_config["BUFFER_PORT_EGRESS_PROFILE_LIST|{}".
+                    format(local_port)]['value']
+
+        # "PORT_QOS_MAP"
+        qos[local_port] = orig_config["PORT_QOS_MAP|{}".format(local_port)]['value']
+
+        if pfc_time:
+            pfc_wd[local_port] = orig_config.get("PFC_WD|{}".format(local_port), {}).get("value", {})
 
     ret.append({ "CABLE_LENGTH": { "AZURE": cable } })
     ret.append({ "QUEUE": queue })
@@ -238,9 +233,13 @@ def get_port_qos_config():
     ret.append({ "PORT_QOS_MAP": qos })
     if pfc_wd:
         ret.append({ "PFC_WD": pfc_wd })
+    if buffer_port_ingress:
+        ret.append({ "BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress })
+    if buffer_port_egress:
+        ret.append({ "BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress })
 
     return ret
-
+         
 
 def get_bgp_neighbor():
     bgp = {}
@@ -274,9 +273,13 @@ def write_out(lst, tmpdir):
     managed_files["configlet"] = fpath
 
 
-def main(tmpdir, is_storage_backend):
-    global sonic_local_ports
+def main(tmpdir, is_mlnx, is_storage_backend):
+    global sonic_local_ports, orig_config
     ret = []
+
+    with open("{}/config-db.json".format(init_data["orig_db_dir"]), "r") as s:
+        orig_config = json.load(s)
+
 
     _, sonic_local_ports = strip.get_local_ports()
 
@@ -288,7 +291,11 @@ def main(tmpdir, is_storage_backend):
         ret += get_vlan_sub_interface()
     ret += get_acl()
     ret += get_device_info()
-    ret += get_port_qos_config()
+    ret += get_port_related_data(is_mlnx, is_storage_backend)
     ret += get_bgp_neighbor()
 
     write_out(ret, tmpdir)
+
+    return 0
+
+

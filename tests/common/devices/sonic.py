@@ -75,8 +75,11 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
-    def __repr__(self):
+    def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def facts(self):
@@ -290,6 +293,9 @@ class SonicHost(AnsibleHostBase):
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
         if len(output['stdout_lines']) == 0:
+            # get release from OS version
+            if self.os_version:
+                return self.os_version.split('.')[0][0:6]
             return 'none'
         return output["stdout_lines"][0].strip()
 

@@ -4,13 +4,15 @@ import pytest
 
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, LOWER_BOUND_UDP_PORT_KEY, UPPER_BOUND_UDP_PORT_KEY
+from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY
+
 from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
-from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+
+import tests.arp.test_wr_arp as test_wr_arp
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +24,6 @@ pytestmark = [
 
 vlan_tagging_mode = ""
 
-def get_vxlan_srcport_range_enabled(duthost):
-    if not isMellanoxDevice(duthost):
-	return False
-    dut_platform = duthost.facts["platform"]
-    dut_hwsku = duthost.facts["hwsku"]
-    sai_profile = "/usr/share/sonic/device/%s/%s/sai.profile" % (dut_platform, dut_hwsku)
-    cmd = "grep SAI_VXLAN_SRCPORT_RANGE_ENABLE {} | cut -d'=' -f2".format(sai_profile)
-    vxlan_srcport_range_enabled = duthost.shell(cmd)["stdout"].strip() == "1"
-
-    return vxlan_srcport_range_enabled
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
@@ -95,14 +87,14 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
 
     return minigraph_facts
 
-@pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_params, vnet_config):
+@pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
     Args:
         setup: Pytest fixture that provides access to minigraph facts
-        request: Contains the parameter (Disabled, Enabled, or Cleanup) for the current test iteration
+        request: Contains the parameter (Disabled, Enabled, WR_ARP, or Cleanup) for the current test iteration
         duthost: DUT host object
 
     Returns:
@@ -135,8 +127,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, vnet_test_para
         cleanup_vnet_routes(duthost, vnet_config)
         cleanup_dut_vnets(duthost, setup, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
-    return vxlan_enabled, request.param
+    elif request.param == "WR_ARP":
+        testWrArp = test_wr_arp.TestWrArp()
+        test_wr_arp.TestWrArp.testWrArp(testWrArp, request, duthost, ptfhost, creds)
 
+    return vxlan_enabled, request.param
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
@@ -150,11 +145,10 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         vnet_test_params: Dictionary containing vnet test parameters
     """
     duthost = duthosts[rand_one_dut_hostname]
-    vxlan_srcport_range_enabled =  get_vxlan_srcport_range_enabled(duthost)
 
     vxlan_enabled, scenario = vxlan_status
 
-    logger.info("vxlan_enabled={}, scenario={}, vxlan_srcport_range_enabled={}".format(vxlan_enabled, scenario, vxlan_srcport_range_enabled))
+    logger.info("vxlan_enabled={}, scenario={}".format(vxlan_enabled, scenario))
 
     log_file = "/tmp/vnet-vxlan.Vxlan.{}.{}.log".format(scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
     ptf_params = {"vxlan_enabled": vxlan_enabled,
@@ -162,10 +156,11 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
                   "sonic_admin_user": creds.get('sonicadmin_user'),
                   "sonic_admin_password": creds.get('sonicadmin_password'),
                   "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
-                  "vxlan_srcport_range_enabled": vxlan_srcport_range_enabled,
-                  "lower_bound_port" : vnet_test_params[LOWER_BOUND_UDP_PORT_KEY],
-                  "upper_bound_port" : vnet_test_params[UPPER_BOUND_UDP_PORT_KEY]
+                  "vxlan_udp_sport" : vnet_test_params[VXLAN_UDP_SPORT_KEY],
+                  "vxlan_udp_sport_mask" : vnet_test_params[VXLAN_UDP_SPORT_MASK_KEY],
+                  "vxlan_range_enable" : vnet_test_params[VXLAN_RANGE_ENABLE_KEY]
                   }
+
     if scenario == "Cleanup":
         ptf_params["routes_removed"] = True
 
