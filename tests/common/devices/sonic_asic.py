@@ -569,7 +569,7 @@ class SonicAsic(object):
         return val == value
 
     def get_router_mac(self):
-        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' -n {}".format(self.namespace))["stdout_lines"][0].encode()
+        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
                .decode("utf-8").lower())
  
     def get_default_route_from_app_db(self, af='ipv4'):
