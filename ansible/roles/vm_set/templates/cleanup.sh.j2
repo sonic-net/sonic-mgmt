@@ -22,6 +22,3 @@ test -z "$(docker ps -q)" || docker stop $(docker ps -q)
 
 # remove all docker containers
 test -z "$(docker ps -a -q)" || docker rm -f $(docker ps -a -q)
-
-# remove all docker images
-test -z "$(docker images -q)" || docker rmi -f $(docker images -q|uniq)
