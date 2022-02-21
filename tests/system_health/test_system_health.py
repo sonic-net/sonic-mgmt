@@ -8,6 +8,7 @@ from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
 from device_mocker import device_mocker_factory
 
@@ -69,6 +70,21 @@ def check_image_version(duthost):
 def config_reload_after_tests(duthost):
     yield
     config_reload(duthost)
+
+
+@pytest.fixture(scope="function")
+def ignore_log_analyzer_by_vendor(request, duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic_type = duthost.facts["asic_type"]
+    ignore_asic_list = request.param
+    if asic_type not in ignore_asic_list:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+        loganalyzer.load_common_config()
+        marker = loganalyzer.init()
+        yield
+        loganalyzer.analyze(marker)
+    else:
+        yield
 
 
 def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -263,7 +279,8 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 @pytest.mark.disable_loganalyzer
-def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname, device_mocker_factory):
+@pytest.mark.parametrize('ignore_log_analyzer_by_vendor', [['mellanox']], indirect=True)
+def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname, device_mocker_factory, ignore_log_analyzer_by_vendor):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
