@@ -246,7 +246,7 @@ All VMs and PTF docker in the host need to install PTF NN agent. So, SONiC-mgmt-
     4. VM1 should receive at least one expected above packet
     5. Check the interface stats with macsec counters.
 
-#### Rekey caused by Packet Number exhaustion
+#### Refresh SAK
 
 The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet number and `0xC000000000000000ULL` to 64bits packet number(XPN). It's impossible to really send many packets to trigger the rekey action. So, We use the attribute `next_pn` of `MACSEC_EGRESS_SA` in APP_DB to cheat MKA protocol for rekey action.
 
@@ -257,7 +257,7 @@ The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet numbe
                 │              │
                 └────┬─────────┘
                      │
-            next_pn=threshold-5000
+            next_pn=threshold-100
                      │    ┌───────────────────────────┐
                      │    │                           │
                      │    │       wpa_supplicant      │
@@ -294,15 +294,15 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
                  └─────────────────────────────────────┘
 ```
 - Steps
-    1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.01` to simulate continuous traffic.
+    1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.1` to simulate continuous traffic.
     2. Record the SAK in APP DB.
-    3. Update the next_pn of egress SA to `threshold - 5000`.
+    3. Update the next_pn of egress SA to `threshold - 100`.
     4. Sleep for 30 seconds.
     5. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
     6. The background thread shouldn't obverse any packet loss.
 
 - Periodic Rekey, this testcase is only available if the field *rekey_period* in configuration is more than 0.
-    1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.01` to simulate continuous traffic.
+    1. Start a background thread on the DUT to ping VM0 `sudo ping VM0_ipv4_address -w 60 -i 0.1` to simulate continuous traffic.
     2. Record the SAK in APP DB.
     3. Sleep for 30 seconds.
     4. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
