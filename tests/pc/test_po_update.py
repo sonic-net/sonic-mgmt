@@ -149,6 +149,8 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # THEN no packets shall loss
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
+    namespace = asichost.namespace
+    is_single_asic = not namespace
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     if len(mg_facts["minigraph_portchannel_interfaces"]) < 2:
@@ -163,7 +165,9 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
     pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
            peer_ip_pc_pair
-           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
+           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2 and
+           (is_single_asic or mg_facts["minigraph_portchannels"][pair[2]]["namespace"] == namespace)
+           ]
 
     if len(pcs) < 2:
         pytest.skip(
