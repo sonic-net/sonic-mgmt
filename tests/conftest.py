@@ -1363,7 +1363,8 @@ def collect_db_dump_on_duts(request, duthosts):
         When test failed, teardown of this fixture will dump all the DB and collect to the test servers
     '''
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
-        db_dump_base = "/tmp/db_dump"
+        db_dump_home = "./logs"
+        db_dump_base = db_dump_home + "/db_dump"
         db_dump_path = os.path.join(db_dump_base, request.module.__name__, request.node.name)
         db_dump_tarfile = "{}.tar.gz".format(db_dump_base)
 
@@ -1380,9 +1381,9 @@ def collect_db_dump_on_duts(request, duthosts):
         for i in dbs:
             duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
         duthosts.shell("tar czf {} {}".format(db_dump_tarfile, db_dump_base))
-        duthosts.fetch(src=db_dump_tarfile, dest="/tmp/")
+        duthosts.fetch(src = db_dump_tarfile, dest = db_dump_base)
 
-        duthosts.shell("rm -rf {} {}".format(db_dump_base, db_dump_tarfile))
+        duthosts.shell("rm -rf {}".format(db_dump_home))
 
 @pytest.fixture(autouse=True)
 def collect_db_dump(request, duthosts):
