@@ -366,9 +366,7 @@ def generate_expected_rules(duthost, docker_network, asic_index):
 
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
     # Generate control plane rules from device config
     rules_applied_from_config = 0
