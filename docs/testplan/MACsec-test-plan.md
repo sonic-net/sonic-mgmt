@@ -9,7 +9,7 @@
       * [Testcase : Macsec Functionality](#testcase--macsec-functionality)
          * [Check Control plane](#check-control-plane)
          * [Check the Data plane](#check-the-data-plane)
-         * [Rekey caused by Packet Number exhaustion](#rekey-caused-by-packet-number-exhaustion)
+         * [Refresh SAK](#refresh-sak)
          * [MACsec Key rotation, Primary/Fallback CAK](#macsec-key-rotation-primaryfallback-cak)
       * [Testcase : Macsec feature interop with other protocols](#testcase--macsec-feature-interop-with-other-protocols)
          * [Verify Port Channel is created with macsec configuration.](#verify-port-channel-is-created-with-macsec-configuration)
