@@ -763,7 +763,7 @@ class SonicHost(AnsibleHostBase):
                     logging.debug("Daemon %s is disabled" % key)
                     exemptions.append(key)
 
-            if self.is_multi_asic and self.sonic_release in ['201911']:
+            if self.sonic_release in ['201911']:
                 exemptions.append('platform_api_server')
         except:
             # if pmon_daemon_control.json not exist, then it's using default setting,
