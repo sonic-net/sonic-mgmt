@@ -7,6 +7,7 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 
 from tests.common import config_reload
+from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.broadcom_data import is_broadcom_device
@@ -21,8 +22,12 @@ logger = logging.getLogger(__name__)
 
 OPT_DIR = "/opt"
 USR_BIN_DIR = "/usr/bin"
-SAISERVER_SCRIPT = "saiserver.sh"
+SAISERVER_SCRIPT = "prepare_saiserver_service.sh"
 SCRIPTS_SRC_DIR = "scripts/"
+SERVICES_DIR = "/lib/systemd/system"
+SONIC_WANTS_DIR = "/etc/systemd/system/sonic.target.wants"
+TMP_SERVICES_DIR = "/tmp_services"
+TMP_SONIC_WANTS_DIR = "/tmp_sonic_wants"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 SAI_PRC_PORT = 9092
 SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
@@ -44,6 +49,7 @@ SYNCD_CONATINER = "syncd"
 
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
 
+
 SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC = 140
 SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC = 35
 RPC_RESTART_INTERVAL_IN_SEC = 32
@@ -57,10 +63,12 @@ def pytest_addoption(parser):
     parser.addoption("--sai_test_report_dir", action="store", default=None, type=str, help="SAI test report directory on mgmt node.")
     parser.addoption("--sai_test_container", action="store", default=None, type=str, help="SAI test container, saiserver or syncd.")
     parser.addoption("--sai_test_keep_test_env", action="store_true", default=False, help="SAI test debug options. If keep the test environment in DUT and PTF.")
-
+    parser.addoption("--enable_ptf_sai_test", action="store_true", help="SAI test debug options. If enable PTF-SAI testing, true or false.")
+    parser.addoption("--use_dev_branch", action="store_true", help="SAI test debug options. If use dev branch, true or false.")
+    parser.addoption("--remove_service_script", action="store_true", help="SAI test debug options. If remove the service script, true or false.")
 
 @pytest.fixture(scope="module")
-def start_sai_test_container(duthost, creds, deploy_sai_test_container, request):
+def start_sai_test_container(duthost, creds, deploy_sai_test_container, request, localhost):
     """
         Starts sai test container docker on DUT.
     """
@@ -74,23 +82,34 @@ def start_sai_test_container(duthost, creds, deploy_sai_test_container, request)
 
 
 @pytest.fixture(scope="module")
-def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saiserver_script, request):
+def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saiserver_script, request, localhost):
     """
         Deploys a sai test container.
     """
+    sai_thrift_version = ""
+    if request.config.option.enable_ptf_sai_test:
+        logger.info("Enable PTF-SAI Testing: {}".format(request.config.option.enable_ptf_sai_test))
+        sai_thrift_version = "v2"
     container_name = request.config.option.sai_test_container
-    prepare_sai_test_container(duthost, creds, container_name)
+    prepare_sai_test_container(duthost, creds, container_name, sai_thrift_version, request)
     yield
     if not request.config.option.sai_test_keep_test_env:
-        revert_sai_test_container(duthost, creds, container_name)
+        revert_sai_test_container(duthost, creds, container_name, sai_thrift_version, request)
 
 
 @pytest.fixture(scope="module")
-def stop_other_services(duthost, request):
-    stop_dockers(duthost)
+def stop_other_services(duthost, request, localhost):
+    if request.config.option.remove_service_script:
+        _remove_services_script(duthost)
+        logger.info("Starting reboot DUT")
+        reboot(duthost, localhost)
+    else:
+        stop_dockers(duthost)
     yield
     if not request.config.option.sai_test_keep_test_env:
-        reload_dut_config(duthost)
+        reload_dut_config(duthost)   
+        if request.config.option.remove_service_script:
+            _reload_services_script(duthost)  
 
 
 @pytest.fixture(scope="module")
@@ -110,7 +129,7 @@ def prepare_ptf_server(ptfhost, duthost, request):
         _delete_sai_port_map_file(ptfhost)
 
 
-def prepare_sai_test_container(duthost, creds, container_name):
+def prepare_sai_test_container(duthost, creds, container_name, sai_thrift_version, request):
     """
         Prepare the sai test container.
     Args:
@@ -122,10 +141,12 @@ def prepare_sai_test_container(duthost, creds, container_name):
     if container_name == SYNCD_CONATINER:
         _deploy_syncd_rpc_as_syncd(duthost, creds)
     else:
-        _deploy_saiserver(duthost, creds)
+        _deploy_saiserver(duthost, creds, sai_thrift_version, request)
+        logger.info("Prepare saiserver.sh")
+        duthost.shell(USR_BIN_DIR + "/" + SAISERVER_SCRIPT + " -v " + sai_thrift_version)
 
 
-def revert_sai_test_container(duthost, creds, container_name):
+def revert_sai_test_container(duthost, creds, container_name, sai_thrift_version, request):
     """
         Reverts the sai test container.
     Args:
@@ -137,7 +158,7 @@ def revert_sai_test_container(duthost, creds, container_name):
     if container_name == SYNCD_CONATINER:
         _restore_default_syncd(duthost, creds)
     else:
-        _remove_saiserver_deploy(duthost, creds)
+        _remove_saiserver_deploy(duthost, creds, sai_thrift_version, request)
 
 
 def get_sai_test_container_name(request):
@@ -238,7 +259,7 @@ def _start_sai_test_container(duthost, container_name):
     duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " start")
 
 
-def _deploy_saiserver(duthost, creds):
+def _deploy_saiserver(duthost, creds, sai_thrift_version, request):
     """Deploy a saiserver docker for SAI testing.
 
     This will stop the swss and syncd, then download a new Docker image to the duthost.
@@ -248,8 +269,7 @@ def _deploy_saiserver(duthost, creds):
         creds (dict): Credentials used to access the docker registry.
     """
     vendor_id = _get_sai_running_vendor_id(duthost)
-
-    docker_saiserver_name = "docker-saiserver-{}".format(vendor_id)
+    docker_saiserver_name = "docker-saiserver{}-{}".format(sai_thrift_version, vendor_id)
     docker_saiserver_image = docker_saiserver_name
 
     # Force image download to go through mgmt network
@@ -263,13 +283,16 @@ def _deploy_saiserver(duthost, creds):
 
     logger.info("Loading docker image: {} ...".format(docker_saiserver_image))
     registry = load_docker_registry_info(duthost, creds)
-    download_image(duthost, registry, docker_saiserver_image, duthost.os_version)
-
+    if request.config.option.use_dev_branch:
+        os_version = _transform_dev_branch_version(duthost)
+    else:
+        os_version = duthost.os_version
+    download_image(duthost, registry, docker_saiserver_image, os_version)
     tag_image(
     duthost,
     "{}:latest".format(docker_saiserver_name),
     "{}/{}".format(registry.host, docker_saiserver_image),
-    duthost.os_version
+    os_version
     )
 
 
@@ -337,7 +360,7 @@ def reload_dut_config(duthost):
     config_reload(duthost)
 
 
-def _remove_saiserver_deploy(duthost, creds):
+def _remove_saiserver_deploy(duthost, creds, sai_thrift_version, request):
     """Reverts the saiserver docker's deployment.
 
     This will stop and remove the saiserver docker.
@@ -347,18 +370,22 @@ def _remove_saiserver_deploy(duthost, creds):
     """
     logger.info("Delete saiserver docker from DUT host '{0}'".format(duthost.hostname))
     vendor_id = _get_sai_running_vendor_id(duthost)
-
-    docker_saiserver_name = "docker-{}-{}".format(SAISERVER_CONTAINER, vendor_id)
+    docker_saiserver_name = "docker-{}{}-{}".format(SAISERVER_CONTAINER, sai_thrift_version, vendor_id)
     docker_saiserver_image = docker_saiserver_name
 
     logger.info("Cleaning the SAI Testing env ...")
     registry = load_docker_registry_info(duthost, creds)
     duthost.delete_container(SAISERVER_CONTAINER)    
 
+    if request.config.option.use_dev_branch:
+        os_version = _transform_dev_branch_version(duthost)
+    else:
+        os_version = duthost.os_version
+
     logger.info("Removing the image '{}'...".format(docker_saiserver_image))
     duthost.shell("docker image rm {}".format(docker_saiserver_image))
     duthost.command(
-        "docker rmi {}/{}:{}".format(registry.host, docker_saiserver_image, duthost.os_version),
+        "docker rmi {}/{}:{}".format(registry.host, docker_saiserver_image, os_version),
         module_ignore_errors=True
     )
 
@@ -506,8 +533,7 @@ def _create_sai_port_map_file(ptfhost, duthost):
         duthost (SonicHost): The target device.
     """
 
-    logger.info("Creating {0} for SAI test on PTF server.".format(PORT_MAP_FILE_PATH))
-    intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
+    intfInfo = _create_sai_test_interface_info(duthost)
     portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
 
     with open(PORT_MAP_FILE_PATH, 'w') as file:
@@ -532,7 +558,6 @@ def _delete_sai_port_map_file(ptfhost):
     logger.info("Deleting {0} file.".format(PORT_MAP_FILE_PATH))
     ptfhost.file(path=PORT_MAP_FILE_PATH, state="absent")
 
-
 def update_saithrift_ptf(request, ptfhost):
     '''
     Install the correct python saithrift package on the ptf
@@ -547,3 +572,104 @@ def update_saithrift_ptf(request, ptfhost):
         pytest.fail("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
+
+def _remove_services_script(duthost):
+    """
+        Removes scripts to shutup services.
+
+        Args:
+            duthost (AnsibleHost): device under test
+
+        Returns:
+            None
+    """
+    duthost.command("sudo rm -rf {}{}".format(OPT_DIR, TMP_SERVICES_DIR))
+    duthost.command("sudo rm -rf {}{}".format(OPT_DIR, TMP_SONIC_WANTS_DIR))
+    duthost.command("sudo mkdir {}{}".format(OPT_DIR, TMP_SERVICES_DIR))
+    duthost.command("sudo mkdir {}{}".format(OPT_DIR, TMP_SONIC_WANTS_DIR))
+    for service in SERVICES_LIST:
+        if(_is_service_script_exist(duthost, SERVICES_DIR, service)):
+            logger.info("Removing service script from{}/{}.service to {}{} ...".format(SERVICES_DIR, service, OPT_DIR, TMP_SERVICES_DIR))
+            duthost.command("sudo mv -f {}/{}.service {}{}".format(SERVICES_DIR, service, OPT_DIR, TMP_SERVICES_DIR))
+           
+        if(_is_service_script_exist(duthost, SONIC_WANTS_DIR, service)):
+            logger.info("Removing service script from{}/{}.service to {}{} ...".format(SONIC_WANTS_DIR, service, OPT_DIR, TMP_SONIC_WANTS_DIR))
+            duthost.command("sudo mv -f {}/{}.service {}{}".format(SONIC_WANTS_DIR, service, OPT_DIR, TMP_SONIC_WANTS_DIR))
+
+def _reload_services_script(duthost):
+    """
+        Reloads scripts to recover services.
+
+        Args:
+            duthost (AnsibleHost): device under test
+
+        Returns:
+            None
+    """
+    for service in SERVICES_LIST:
+        script_path = "{}{}".format(OPT_DIR, TMP_SERVICES_DIR)
+        if(_is_service_script_exist(duthost, script_path, service)):
+            logger.info("Reloading service script from{}{}/{}.service to {} ...".format(OPT_DIR, TMP_SERVICES_DIR, service, SERVICES_DIR))
+            duthost.command("sudo mv -f {}{}/{}.service {}".format(OPT_DIR, TMP_SERVICES_DIR, service, SERVICES_DIR))
+        script_path = "{}{}".format(OPT_DIR, TMP_SONIC_WANTS_DIR)
+        if(_is_service_script_exist(duthost, script_path, service)):
+            logger.info("Reloading service script from{}{}/{}.service to {} ...".format(OPT_DIR, TMP_SONIC_WANTS_DIR, service, SONIC_WANTS_DIR))
+            duthost.command("sudo mv -f {}{}/{}.service {}".format(OPT_DIR, TMP_SONIC_WANTS_DIR, service, SONIC_WANTS_DIR))
+    duthost.command("sudo rm -rf {}{}".format(OPT_DIR, TMP_SERVICES_DIR))
+    duthost.command("sudo rm -rf {}{}".format(OPT_DIR, TMP_SONIC_WANTS_DIR))
+
+def _is_service_script_exist(duthost, script_path ,service_name):
+    """
+        Checks if service script exist
+
+        Args:
+            duthost (AnsibleHost): device under test
+            script_path: the required script path
+            service_name: the required service's name.
+    """
+    try:
+        script_name = "{}.service".format(service_name)
+        result = duthost.shell("ls {} | grep {}".format(script_path, script_name))
+        return bool(result["stdout_lines"][0].strip() == script_name)
+    except Exception:
+        logger.info("Cannot find required service '{}'.".format(service_name))
+    return False
+
+def _transform_dev_branch_version(duthost):
+    """
+        Transforms dev branch version
+
+        Args:
+            duthost (AnsibleHost): device under test
+        
+        Returns:
+            os_version: transformed os version
+    """
+    logger.info("Transforming dev branch verson: {}".format(duthost.os_version))
+    os_version = "{}.bld-{}".format(duthost.os_version.split(".")[1].split("-")[2], duthost.os_version.split(".")[1].split("-")[0])
+    return os_version
+
+def _create_sai_test_interface_info(duthost):
+    """
+        Create sai test interface info
+
+        Args:
+            duthost (SonicHost): The target device.
+    """
+    logger.info("Creating {0} for SAI test on PTF server.".format(PORT_MAP_FILE_PATH))
+    intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
+    return intfInfo
+
+def _create_sai_test_interface(port_numbers):
+    """
+    Create port interface list.
+
+    Args:
+        port_numbers: The port number of DUT.
+    """
+    logger.info("Creating {} port interface list".format(port_numbers))
+    interfaces_str = ""
+    for port_number in range(port_numbers):
+        interface_tmp = "\'0-{0}@eth{0}\'".format(port_number)
+        interfaces_str += "--interface {} ".format(interface_tmp)
+    return interfaces_str

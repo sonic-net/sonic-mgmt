@@ -23,9 +23,6 @@ pytestmark = [
     pytest.mark.topology("ptf")
 ]
 
-TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '2@eth2' \
---interface '3@eth3' --interface '4@eth4' --interface '5@eth5' --interface '6@eth6' \
---interface '7@eth7'"
 SAI_TEST_ENV_RESET_TIMES = 3
 LIVENESS_CHECK_RETRY_TIMES = 12
 LIVENESS_CHECK_INTERVAL_IN_SEC = 5
@@ -42,7 +39,7 @@ def test_sai_from_ptf(
     logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     try:
-        run_case_from_ptf(dut_ip, ptfhost, test_case)
+        run_case_from_ptf(duthost, dut_ip, ptfhost, test_case)
     except BaseException as e:
         logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(test_case, e))               
         stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
@@ -100,10 +97,11 @@ def sai_testbed(
             _teardown_dut(duthost, ptfhost, request)
 
 
-def run_case_from_ptf(dut_ip, ptfhost, test_case):
+def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case):
     """
     Run the sai test cases from ptf.
     Args:
+        duthost (SonicHost): The target device.
         dut_ip: dut ip address.
         ptfhost (AnsibleHost): The PTF server.
         test_case: Test case name used to make test.
@@ -111,12 +109,13 @@ def run_case_from_ptf(dut_ip, ptfhost, test_case):
     logger.info("Running test: {0}".format(test_case))
     logger.info("Sleep {} sec between tests.".format(TEST_INTERVAL_IN_SEC))
     time.sleep(TEST_INTERVAL_IN_SEC)
+    test_interface_params = _create_sai_test_interface(len(_create_sai_test_interface_info(duthost)))
     ptfhost.shell(("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} " + 
         "-t \"server='{4}';port_map_file='{5}'\"")
     .format(
         SAI_TEST_CASE_DIR_ON_PTF, 
         test_case, 
-        TEST_INTERFACE_PARAMS,
+        test_interface_params,
         SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
         dut_ip, 
         PORT_MAP_FILE_PATH))
@@ -158,7 +157,7 @@ def sai_test_container_liveness_check(duthost, ptfhost, test_case, request):
     start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     for retry in range(LIVENESS_CHECK_RETRY_TIMES):
         try:
-            run_case_from_ptf(dut_ip, ptfhost, test_case)
+            run_case_from_ptf(duthost, dut_ip, ptfhost, test_case)
             break
         except BaseException as e:  
             logger.info("Run liveness check [{}], retry: [{}/{}] failed as {}".format(test_case, retry + 1, LIVENESS_CHECK_RETRY_TIMES,  e))
@@ -337,4 +336,3 @@ def _collect_sai_test_report_xml(ptfhost, request):
         src="{0}/result.tar.gz".format(SAI_TEST_REPORT_DIR_ON_PTF), 
         dest=request.config.option.sai_test_report_dir + "/", 
         flat=True)
-
