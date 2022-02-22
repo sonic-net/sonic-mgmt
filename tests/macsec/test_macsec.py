@@ -5,6 +5,7 @@ import struct
 import re
 import binascii
 import sys
+import uuid
 import cryptography.exceptions
 
 import pytest
@@ -23,13 +24,16 @@ pytestmark = [
     pytest.mark.topology("t0"),
 ]
 
+PENDING_PN_EXHAUSTION = 0x00000000C0000000
+PENDING_XPN_EXHAUSTION = 0xC000000000000000
+
 
 def config_all_portchannel_members(portchannel_lists, action):
     for host, portchannel_list in portchannel_lists.items():
         config_portchannel_members(host, portchannel_list, action)
 
 
-def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
+def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
     macsec_profile = {
         "priority": priority,
         "cipher_suite": cipher_suite,
@@ -37,6 +41,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
         "primary_ckn": primary_ckn,
         "policy": policy,
         "send_sci": send_sci,
+        "rekey_period": rekey_period,
     }
     cmd = "sonic-db-cli CONFIG_DB HMSET 'MACSEC_PROFILE|{}' ".format(
         profile_name)
@@ -76,9 +81,9 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy, send_sci):
+                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
     set_macsec_profile(duthost, profile_name, default_priority,
-                       cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
     i = 0
     for dut_port, nbr in ctrl_links.items():
         enable_macsec_port(duthost, dut_port, profile_name)
@@ -87,14 +92,14 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         else:
             priority = default_priority + 1
         set_macsec_profile(nbr["host"], profile_name, priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
         i += 1
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
-          primary_cak, primary_ckn, policy, send_sci, request):
+          primary_cak, primary_ckn, policy, send_sci, rekey_period, request):
     if request.session.testsfailed > 0:
         return
     all_links = {}
@@ -102,7 +107,7 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
     all_links.update(unctrl_links)
     cleanup_macsec_configuration(duthost, all_links, profile_name)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
-                               default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+                               default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
     yield
@@ -149,12 +154,36 @@ QUERY_MACSEC_INGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE
 QUERY_MACSEC_EGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
 
 
+def get_appl_db(host, host_port_name, peer, peer_port_name):
+    port_table = sonic_db_cli(
+        host, QUERY_MACSEC_PORT.format(host_port_name))
+    host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
+    peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
+    egress_sc_table = sonic_db_cli(
+        host, QUERY_MACSEC_EGRESS_SC.format(host_port_name, host_sci))
+    ingress_sc_table = sonic_db_cli(
+        host, QUERY_MACSEC_INGRESS_SC.format(host_port_name, peer_sci))
+    egress_sa_table = {}
+    ingress_sa_table = {}
+    for an in range(4):
+        sa_table = sonic_db_cli(host, QUERY_MACSEC_EGRESS_SA.format(
+            host_port_name, host_sci, an))
+        if sa_table:
+            egress_sa_table[an] = sa_table
+        sa_table = sonic_db_cli(host, QUERY_MACSEC_INGRESS_SA.format(
+            host_port_name, peer_sci, an))
+        if sa_table:
+            ingress_sa_table[an] = sa_table
+    return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
+
+
+
 def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
     # Check MACsec port table
-    dut_port_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_PORT.format(dut_ctrl_port_name))
-    nbr_port_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_PORT.format(nbr_ctrl_port_name))
+    dut_port_table, dut_egress_sc_table, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
+        duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name)
+    nbr_port_table, nbr_egress_sc_table, nbr_ingress_sc_table, nbr_egress_sa_table, nbr_ingress_sa_table = get_appl_db(
+        nbrhost, nbr_ctrl_port_name, duthost, dut_ctrl_port_name)
     assert dut_port_table and nbr_port_table
     for port_table in (dut_port_table, nbr_port_table):
         assert port_table["enable"] == "true"
@@ -167,42 +196,10 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
         assert port_table["send_sci"] == send_sci
 
     # Check MACsec SC table
-    dut_sci = get_sci(duthost.get_dut_iface_mac(dut_ctrl_port_name))
-    nbr_sci = get_sci(nbrhost.get_dut_iface_mac(nbr_ctrl_port_name))
-    dut_ingress_sc_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_INGRESS_SC.format(dut_ctrl_port_name, nbr_sci))
-    nbr_ingress_sc_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_INGRESS_SC.format(nbr_ctrl_port_name, dut_sci))
     assert dut_ingress_sc_table and nbr_ingress_sc_table
-    dut_egress_sc_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_EGRESS_SC.format(dut_ctrl_port_name, dut_sci))
-    nbr_egress_sc_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_EGRESS_SC.format(nbr_ctrl_port_name, nbr_sci))
     assert dut_egress_sc_table and nbr_egress_sc_table
 
     # CHeck MACsec SA Table
-    dut_ingress_sa_table = {}
-    nbr_ingress_sa_table = {}
-    for an in range(4):
-        sa_table = sonic_db_cli(duthost, QUERY_MACSEC_INGRESS_SA.format(
-            dut_ctrl_port_name, nbr_sci, an))
-        if sa_table:
-            dut_ingress_sa_table[an] = sa_table
-        sa_table = sonic_db_cli(nbrhost, QUERY_MACSEC_INGRESS_SA.format(
-            nbr_ctrl_port_name, dut_sci, an))
-        if sa_table:
-            nbr_ingress_sa_table[an] = sa_table
-    dut_egress_sa_table = {}
-    nbr_egress_sa_table = {}
-    for an in range(4):
-        sa_table = sonic_db_cli(duthost, QUERY_MACSEC_EGRESS_SA.format(
-            dut_ctrl_port_name, dut_sci, an))
-        if sa_table:
-            dut_egress_sa_table[an] = sa_table
-        sa_table = sonic_db_cli(nbrhost, QUERY_MACSEC_EGRESS_SA.format(
-            nbr_ctrl_port_name, nbr_sci, an))
-        if sa_table:
-            nbr_egress_sa_table[an] = sa_table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
     assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
@@ -381,7 +378,7 @@ class TestControlPlane():
                 check_appl_db(duthost, port_name, nbr["host"],
                             nbr["port"], policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 6, 12, lambda: _test_appl_db())
+        assert wait_until(300, 1, 12, lambda: _test_appl_db())
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_mka_session():
@@ -407,6 +404,47 @@ class TestControlPlane():
                                 policy, cipher_suite, send_sci)
             return True
         assert wait_until(300, 1, 1, lambda: _test_mka_session())
+
+    def test_rekey_by_period(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period == 0:
+            return
+        for port_name, nbr in ctrl_links.items():
+            _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, last_nbr_egress_sa_table, last_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            up_link = upstream_links[port_name]
+            output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["ipv4_addr"], rekey_period * 2))["stdout_lines"]
+            _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, new_nbr_egress_sa_table, new_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            assert last_dut_egress_sa_table != new_dut_egress_sa_table
+            assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+            assert last_nbr_egress_sa_table != new_nbr_egress_sa_table
+            assert last_nbr_ingress_sa_table != new_nbr_ingress_sa_table
+            assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) == 0
+
+    def test_rekey_by_exhausted_packet_number(self, duthost, ctrl_links, upstream_links, rekey_period):
+        # Only check the rekey triggered by exhausted packet number
+        if rekey_period != 0:
+            return
+        # for port_name, nbr in ctrl_links.items():
+        #     _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+        #         duthost, port_name, nbr["host"], nbr["port"])
+        #     _, _, _, last_nbr_egress_sa_table, last_nbr_ingress_sa_table = get_appl_db(
+        #         nbr["host"], nbr["port"], duthost, port_name)
+        #     up_link = upstream_links[port_name]
+        #     output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["ipv4_addr"], rekey_period * 2))["stdout_lines"]
+        #     _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+        #         duthost, port_name, nbr["host"], nbr["port"])
+        #     _, _, _, new_nbr_egress_sa_table, new_nbr_ingress_sa_table = get_appl_db(
+        #         nbr["host"], nbr["port"], duthost, port_name)
+        #     assert last_dut_egress_sa_table != new_dut_egress_sa_table
+        #     assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+        #     assert last_nbr_egress_sa_table != new_nbr_egress_sa_table
+        #     assert last_nbr_ingress_sa_table != new_nbr_ingress_sa_table
+        #     assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) == 0
 
 
 def create_pkt(eth_src, eth_dst, ip_src, ip_dst, payload=None):
@@ -506,45 +544,45 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     pytest.fail(fail_message)
 
 
-class TestDataPlane():
-    BATCH_COUNT = 100
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
-        down_port, down_link = downstream_links.items()[0]
-        for ctrl_port in ctrl_links.keys():
-            up_link = upstream_links[ctrl_port]
-            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-            payload = "{} -> {}".format(down_link["name"], up_link["name"])
-            logging.info(payload)
-            # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
-            pkt = create_pkt(
-                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
-            exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-            testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
-            macsec_attr = get_macsec_attr(duthost, ctrl_port)
-            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
-                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
+# class TestDataPlane():
+#     BATCH_COUNT = 100
+#     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+#         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
+#         down_port, down_link = downstream_links.items()[0]
+#         for ctrl_port in ctrl_links.keys():
+#             up_link = upstream_links[ctrl_port]
+#             dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+#             payload = "{} -> {}".format(down_link["name"], up_link["name"])
+#             logging.info(payload)
+#             # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
+#             pkt = create_pkt(
+#                 "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+#             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+#             testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+#             nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+#             testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+#                 nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
+#             macsec_attr = get_macsec_attr(duthost, ctrl_port)
+#             testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+#             check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
+#                              ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        for ctrl_port, nbr in ctrl_links.items():
-            for up_port, up_link in upstream_links.items():
-                if up_port == ctrl_port:
-                    continue
-                ctrl_link = upstream_links[ctrl_port]
-                dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
-                payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
-                logging.info(payload)
-                pkt = create_pkt(
-                    nbr_macaddress, dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
-                nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-                testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
-                exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-                nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
-                testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                    nbr_device_numbers[up_link["name"]], nbr_up_port_id))
+#     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+#         for ctrl_port, nbr in ctrl_links.items():
+#             for up_port, up_link in upstream_links.items():
+#                 if up_port == ctrl_port:
+#                     continue
+#                 ctrl_link = upstream_links[ctrl_port]
+#                 dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+#                 nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
+#                 payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
+#                 logging.info(payload)
+#                 pkt = create_pkt(
+#                     nbr_macaddress, dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
+#                 nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+#                 testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
+#                 exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+#                 nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
+#                 testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
+#                     nbr_device_numbers[up_link["name"]], nbr_up_port_id))
 

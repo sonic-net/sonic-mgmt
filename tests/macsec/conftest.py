@@ -70,7 +70,8 @@ def profile_name():
 def default_priority():
     return 64
 
-@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
+# @pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
+@pytest.fixture(scope="module", params=["GCM-AES-128"])
 def cipher_suite(request):
     return request.param
 
@@ -100,8 +101,15 @@ def policy(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=["true", "false"])
+# @pytest.fixture(scope="module", params=["true", "false"])
+@pytest.fixture(scope="module", params=["true"])
 def send_sci(request):
+    return request.param
+
+
+# @pytest.fixture(scope="module", params=[0, 60])
+@pytest.fixture(scope="module", params=[60])
+def rekey_period(request):
     return request.param
 
 
