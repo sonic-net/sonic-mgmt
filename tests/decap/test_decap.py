@@ -72,8 +72,6 @@ def ip_ver(request):
         "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
     }
 
-
-@pytest.fixture(scope='module')
 def loopback_ips(duthosts, duts_running_config_facts):
     lo_ips = []
     lo_ipv6s = []
@@ -90,11 +88,41 @@ def loopback_ips(duthosts, duts_running_config_facts):
                 lo_ipv6 = str(ip)
         lo_ips.append(lo_ip)
         lo_ipv6s.append(lo_ipv6)
-    return {'lo_ips': lo_ips, 'lo_ipv6s': lo_ipv6s}
+    return {'ips': lo_ips, 'ipv6s': lo_ipv6s}
 
+def PortChannel_ips(duthosts, duts_running_config_facts):
+    PortChannel_ips = []
+    PortChannel_ipv6s = []
+    for duthost in duthosts:
+        cfg_facts = duts_running_config_facts[duthost.hostname]
+        PortChannels = cfg_facts[0]["PORTCHANNEL_INTERFACE"]
+
+        PortChannel_ip = None
+        PortChannel_ipv6 = None
+
+        for PortChannel in PortChannels:
+            for addr in PortChannels[PortChannel]:
+                ip = IPNetwork(addr).ip
+                if ip.version == 4 and not PortChannel_ip:
+                    PortChannel_ip = str(ip)
+                elif ip.version == 6 and not PortChannel_ipv6:
+                    PortChannel_ipv6 = str(ip)
+            PortChannel_ips.append(PortChannel_ip)
+            PortChannel_ipv6s.append(PortChannel_ipv6)
+        return {'ips': PortChannel_ips , 'ipv6s': PortChannel_ipv6s}
+
+@pytest.fixture(params=["lo", "PortChannel"], scope='module')
+def get_ips(request, duthosts, duts_running_config_facts):
+    interface = request.param
+    if interface == "lo":
+        logging.info("YT test lo")
+        return loopback_ips(duthosts, duts_running_config_facts)
+    elif interface == "PortChannel":
+        logging.info("YT test PortChannel")
+        return PortChannel_ips(duthosts, duts_running_config_facts)
 
 @pytest.fixture(scope='module')
-def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files, single_fib_for_duts):
+def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, get_ips, fib_info_files, single_fib_for_duts):
 
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
@@ -107,7 +135,7 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     }
 
     setup_info.update(ip_ver)
-    setup_info.update(loopback_ips)
+    setup_info.update(get_ips)
     logger.info(json.dumps(setup_info, indent=2))
 
     # Remove default tunnel
@@ -119,15 +147,15 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     restore_default_decap_cfg(duthosts)
 
 
-def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, op):
+def apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, op):
 
     decap_conf_template = Template(open("../ansible/roles/test/templates/decap_conf.j2").read())
 
     # apply test decap configuration (SET or DEL)
     for idx, duthost in enumerate(duthosts):
         decap_conf_vars = {
-            'lo_ip': loopback_ips['lo_ips'][idx],
-            'lo_ipv6': loopback_ips['lo_ipv6s'][idx],
+            'lo_ip': get_ips['ips'][idx],
+            'lo_ipv6': get_ips['ipv6s'][idx],
             'ttl_mode': ttl_mode,
             'dscp_mode': dscp_mode,
             'ecn_mode': ecn_mode,
@@ -150,7 +178,7 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
 
 
 @pytest.fixture
-def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
+def decap_config(duthosts, ttl_dscp_params, ip_ver, get_ips):
     ecn_mode = "copy_from_outer"
     ttl_mode = ttl_dscp_params['ttl']
     dscp_mode = ttl_dscp_params['dscp']
@@ -158,12 +186,12 @@ def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
         ecn_mode = 'standard'
 
     # Add test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+    apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
     yield ttl_mode, dscp_mode
 
     # Remove test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
+    apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
 
 
 def set_mux_side(tbinfo, mux_server_url, side):
@@ -177,7 +205,6 @@ def set_mux_side(tbinfo, mux_server_url, side):
 @pytest.fixture
 def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
-
 
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_server_url, set_mux_random):
 
@@ -197,8 +224,8 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_serv
                         "outer_ipv6": setup_info["outer_ipv6"],
                         "inner_ipv4": setup_info["inner_ipv4"],
                         "inner_ipv6": setup_info["inner_ipv6"],
-                        "lo_ips": setup_info["lo_ips"],
-                        "lo_ipv6s": setup_info["lo_ipv6s"],
+                        "ips": setup_info["ips"],
+                        "ipv6s": setup_info["ipv6s"],
                         "router_macs": setup_info["router_macs"],
                         "ttl_mode": ttl_mode,
                         "dscp_mode": dscp_mode,
