@@ -615,6 +615,82 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
     for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
 
+def _shutdown_tor_downlink_intfs(tor_host, dut_intfs=None):
+    """Helper function for shutting down DUT downlink interfaces connected to fanout.
+
+    Args:
+        tor_host (object): Host object for the ToR DUT.
+        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All 
+            downlink interfaces on DUT will be shutdown. If dut_intfs is not
+            specified, the function will shutdown all DUT downlink interfaces.
+            Defaults to None.
+
+    Returns:
+        dut_intfs (list): interfaces that were shut down on that host device.
+    """
+    if not dut_intfs:
+        # If no interface is specified, shutdown all VLAN ports
+        vlan_intfs = []
+        vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
+        for vlan_members in vlan_member_table.values():
+            vlan_intfs.extend(list(vlan_members.keys()))
+
+        dut_intfs = vlan_intfs
+
+    dut_intfs = natsorted(dut_intfs)
+
+    logger.debug('dut_intfs: {}'.format(dut_intfs))
+
+    tor_host.shutdown_multiple(dut_intfs)
+
+    return dut_intfs
+
+
+@pytest.fixture
+def shutdown_upper_tor_downlink_intfs(upper_tor_host):
+    """
+    Fixture for shutting down upper tor downlink interfaces connected to fanout.
+
+    Args:
+        upper_tor_host (object): Host object for upper_tor.
+
+    Yields:
+        function: A function for shutting down upper tor downlink interfaces connected to fanout
+    """
+    shut_intfs = []
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown downlink interfaces in upper_tor')
+        shut_intfs.extend(_shutdown_tor_downlink_intfs(upper_tor_host, dut_intfs))
+
+    yield shutdown
+
+    logger.info('Recover upper_tor downlink interfaces connected to fanout')
+
+    upper_tor_host.no_shutdown_multiple(shut_intfs)
+
+@pytest.fixture
+def shutdown_lower_tor_downlink_intfs(lower_tor_host):
+    """
+    Fixture for shutting down lower tor downlink interfaces connected to fanout.
+
+    Args:
+        lower_tor_host (object): Host object for lower_tor.
+
+    Yields:
+        function: A function for shutting down lower tor downlink interfaces connected to fanout
+    """
+    shut_intfs = []
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown downlink interfaces in lower_tor')
+        shut_intfs.extend(_shutdown_tor_downlink_intfs(lower_tor_host, dut_intfs))
+
+    yield shutdown
+
+    logger.info('Recover lower_tor downlink interfaces connected to fanout')
+
+    lower_tor_host.no_shutdown_multiple(shut_intfs)
 
 def mux_cable_server_ip(dut):
     """Function for retrieving all ip of servers connected to mux_cable
