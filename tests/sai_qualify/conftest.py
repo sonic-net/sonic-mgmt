@@ -98,7 +98,7 @@ def prepare_saiserver_script(duthost, request):
     _copy_saiserver_script(duthost)
     yield
     if not request.config.option.sai_test_keep_test_env:
-        delete_saiserver_script(duthost)
+        _delete_saiserver_script(duthost)
 
 
 @pytest.fixture(scope="module")
