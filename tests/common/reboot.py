@@ -75,7 +75,14 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_UNKNOWN: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Unknown",
+        "test_reboot_cause_only": False
     }
+
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
@@ -223,11 +230,30 @@ def check_reboot_cause(dut, reboot_cause_expected):
     logging.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected
 
-def sync_reboot_history_queue_with_dut(dut):
+
+def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
     """
     @summary: Sync DUT and internal history queues
     @param dut: The AnsibleHost object of DUT.
+    @param latest_reboot_type: most recent reboot type 
     """
+
+    global REBOOT_TYPE_HISTOYR_QUEUE
+    global MAX_NUM_REBOOT_CAUSE_HISTORY
+
+    # Initialize local deque for storing DUT reboot cause history
+    dut_reboot_history_queue = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
+
+    # If the SONiC image is < 201911, sync is going to be skipped. 
+    # So append the latest reboot type and then return
+    REBOOT_TYPE_HISTOYR_QUEUE.append(latest_reboot_type)
+
+    # Skip this function if sonic image is 201811 or 201911
+    skip_release(dut, ["201811", "201911"])
+
+
+    # IF control is here it means the SONiC image version is > 201911
+    # Try and get the entire reboot-cause history from DUT
 
     # Retry logic for increased robustness
     dut_reboot_history_received = False
@@ -244,15 +270,19 @@ def sync_reboot_history_queue_with_dut(dut):
             logging.info("Exception type: %s" % e_type.__name__)
             logging.info("Exception message: %s" % e_value)
             logging.info("Backing off for %d seconds before retrying", ((retry_count+1) * RETRY_BACKOFF_TIME))
-            
+
             time.sleep(((retry_count+1) * RETRY_BACKOFF_TIME))
             continue
 
-    # If retry logic did not yield reboot cause history from DUT, 
+    # If retry logic did not yield reboot cause history from DUT,
+    # append the latest reboot cause to the queue and then
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
+        REBOOT_TYPE_HISTOYR_QUEUE.append(latest_reboot_type)
         return
 
+    # If the reboot cause history is received from DUT,
+    # we sync the two queues. TO that end,
     # Clear the current reboot history queue
     REBOOT_TYPE_HISTOYR_QUEUE.clear()
 
@@ -260,14 +290,22 @@ def sync_reboot_history_queue_with_dut(dut):
     # iterate through every item in the reboot dict until
     # a "cause" match is found. Then add that key to the
     # reboot history queue REBOOT_TYPE_HISTOYR_QUEUE
+    # If no cause is found add 'Unknown' as reboot type.
+
     # NB: appendleft used because queue received from DUT
-    # NB: is in reverse-chronological order.
+    #     is in reverse-chronological order.
 
     for reboot_type in (dut_reboot_history_queue):
+        dict_iter_found = False
         for dict_iter in (reboot_ctrl_dict):
             if re.search(reboot_ctrl_dict[dict_iter]["cause"], reboot_type["cause"]):
+                logging.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(dict_iter))
                 REBOOT_TYPE_HISTOYR_QUEUE.appendleft(dict_iter)
+                dict_iter_found = True
                 break
+        if not dict_iter_found:
+            REBOOT_TYPE_HISTOYR_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
+
 
 def check_reboot_cause_history(dut, reboot_type_history_queue):
     """
