@@ -176,7 +176,10 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
-    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    pytest_assert(
+        check_pmon_daemon_status(duthost),
+        "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
