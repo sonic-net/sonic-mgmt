@@ -168,9 +168,17 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
            if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
 
     # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
-    out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+    if duthost.is_multi_asic:
+        # dut is mutliasic, check the namespace of the asichost against the namespace of the first port channel member of a portchannel with 2 or more ports
+        out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
            peer_ip_pc_pair
-           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2 and mg_facts["minigraph_neighbors"][mg_facts["minigraph_portchannels"][pair[2]]["members"][0]]['namespace'] == asichost.namespace]
+           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2 and
+                   mg_facts["minigraph_neighbors"][mg_facts["minigraph_portchannels"][pair[2]]["members"][0]]['namespace'] == asichost.namespace]
+    else:
+        # dut is single asic, pick any portchannel with more than 2 ports.
+        out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+                   peer_ip_pc_pair
+                   if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
 
     if len(pcs) < 2:
         pytest.skip(
