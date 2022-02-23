@@ -1152,8 +1152,12 @@ def parametrise_autoneg_tests():
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
     data = {}
-    with open(filepath) as yf:
-        data = json.load(yf)
+    try:
+        with open(filepath) as yf:
+            data = json.load(yf)
+    except IOError:
+        logger.warning('Cannot find a datafile for autoneg tests at {}. Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
+        return []
         
     def limit_ports(ports):
         return random.sample(ports, min(3, len(ports)))
