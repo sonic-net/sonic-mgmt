@@ -6,6 +6,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from .test_ro_user import ssh_remote_run
+from .utils import setup_tacacs_client
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -36,7 +37,7 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
         res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
         rc = res["rc"]
     finally:
-        logger.debug("ssh rc={}".format(rc))
+        logger.debug("ssh rc={} user={} cmd={}".format(rc, username, cmd))
     return rc == 0
 
 
@@ -44,7 +45,7 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
     #
-    wait_time = 120
+    wait_time = 20
     retries = 3
     for i in range(retries):
         # Regular reboot command would not work, as it would try to
@@ -57,12 +58,28 @@ def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
         except RunAnsibleModuleFail as e:
             logger.error("DUT did not go down, exception: {} attempt:{}/{}".
                     format(repr(e), i, retries))
+
     assert i<3, "Failed to reboot"
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
+    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
+            "All critical services should fully started!"
 
 
-def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
+    logger.info('Upon reboot: setup tacacs_creds')
+    tacacs_server_ip = ptfhost.mgmt_ip
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+
+    ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
+    if 'ansible_hostv6' in ptfhost_vars:
+        tacacs_server_ip = ptfhost_vars['ansible_hostv6']
+        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    logger.info('Upon reboot: complete: setup tacacs_creds')
+
+
+def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
+        tacacs_creds, check_tacacs):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -75,6 +92,17 @@ def test_ro_disk(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
 
     rw_user = tacacs_creds['tacacs_rw_user']
     rw_pass = tacacs_creds['tacacs_rw_user_passwd']
+
+    res = duthost.shell("ls -l /run/mount/*", module_ignore_errors=True)
+    if res["rc"] == 0:
+        # System has some partial state left behind from last run.
+        # reboot to clear it
+        #
+        logger.info("PRETEST: reboot {} to restore system state".
+                format(enum_rand_one_per_hwsku_hostname))
+        do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
+
+        do_setup_tacacs(ptfhost, duthost, tacacs_creds)
 
     res = duthost.shell("ls -l /home/{}".format(ro_user), module_ignore_errors=True)
     if  res["rc"] == 0:
