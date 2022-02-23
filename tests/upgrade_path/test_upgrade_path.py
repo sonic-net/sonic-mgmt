@@ -79,7 +79,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrho
 
 
 @pytest.mark.device_type('vs')
-def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrhosts, fanouthosts, tbinfo,
+def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
                         restore_image, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                         upgrade_path_lists, backup_and_restore_config_db, advanceboot_neighbor_restore,
                         sad_case_type):
@@ -104,7 +104,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
             install_sonic(duthost, to_image, tbinfo)
             advancedReboot = get_advanced_reboot(rebootType=get_reboot_command(duthost, "warm"),\
                 advanceboot_loganalyzer=advanceboot_loganalyzer)
-            sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type)
+            sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
             advancedReboot.runRebootTestcase(
                 prebootList=sad_preboot_list,
                 inbootList=sad_inboot_list
