@@ -70,7 +70,7 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
 
 ### Tetcases to verify reboot procedure with SAD cases ###
 @pytest.mark.device_type('vs')
-def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, tbinfo,
+def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
                         get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                         backup_and_restore_config_db, advanceboot_neighbor_restore,
                         sad_case_type):
@@ -87,7 +87,7 @@ def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts,
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
         advanceboot_loganalyzer=advanceboot_loganalyzer)
 
-    sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type)
+    sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
     advancedReboot.runRebootTestcase(
         prebootList=sad_preboot_list,
         inbootList=sad_inboot_list
