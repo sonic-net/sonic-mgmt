@@ -43,7 +43,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-
+      
 #######################################
 #####           dualtor           #####
 #######################################
