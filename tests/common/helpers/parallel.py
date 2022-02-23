@@ -95,15 +95,15 @@ def parallel_run(
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
-                    logger.debug("Unable to kill {}:{}, error:{}".format(
+                    logger.error("Unable to kill {}:{}, error:{}".format(
                         p.pid, p.name, err
                     ))
 
-            pt_assert(
-                False,
-                """Processes running target "{}" could not be terminated.
-                Tried killing them. But please check""".format(target.__name__)
-            )
+                    pt_assert(
+                        False,
+                        """Processes running target "{}" could not be terminated.
+                        Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
+                    )
 
 
     workers = []
