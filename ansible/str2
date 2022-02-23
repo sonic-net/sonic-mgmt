@@ -298,7 +298,7 @@ sonic:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_sup:
-    sonic_cisco_lc_100G: 
+    sonic_cisco_lc_100G:
     sonic_cisco_sup:
     sonic_nokia_7215:
     sonic_cisco_8102:
@@ -313,8 +313,40 @@ sonic_mlnx:
   hosts:
     str2-msn2700-spy-1:
       ansible_host: 10.3.146.66
+      hwsku: MSN2700
+      model: MSN2700-CS2ROS
+      serial: MT1826X04466
+      base_mac: 50:6B:4B:93:96:00
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2ROS"
+        "0x23": "MT1826X04466"
+        "0x24": "50:6B:4B:93:96:00"
+        "0x25": "06/27/2018 20:20:30"
+        "0x26": "16"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0012-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0xBDAA1AFC"
     str2-msn2700-spy-2:
       ansible_host: 10.3.146.88
+      hwsku: MSN2700
+      model: MSN2700-CS2ROS
+      serial: MT1826X04469
+      base_mac: 50:6B:4B:93:97:80
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2ROS"
+        "0x23": "MT1826X04469"
+        "0x24": "50:6B:4B:93:97:80"
+        "0x25": "06/27/2018 20:04:38"
+        "0x26": "16"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0012-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0x846D53BD"
 
 sonic_mlnx_3800:
   vars:
@@ -323,6 +355,22 @@ sonic_mlnx_3800:
   hosts:
     str2-sn3800-azd:
       ansible_host: 10.3.146.183
+      hwsku: MSN3800
+      model: MSN3800-CS2FO
+      serial: MT2002X14802
+      base_mac: 1C:34:DA:17:9D:00
+      syseeprom_info:
+        "0x21": "MSN3800"
+        "0x22": "MSN3800-CS2FO"
+        "0x23": "MT2002X14802"
+        "0x24": "1C:34:DA:17:9D:00"
+        "0x25": "01/14/2020 00:45:32"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn3800-r0"
+        "0x29": "2019.08-5.2.0016-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x9AC3A8CC"
     str2-sn3800-azd-2:
       ansible_host: 10.3.146.238
 
@@ -392,6 +440,22 @@ sonic_mlnx_3800_50:
   hosts:
     str2-sn3800-02:
       ansible_host: 10.3.146.232
+      hwsku: MSN3800
+      model: MSN3800-CS2FO
+      serial: MT2002X14827
+      base_mac: 1C:34:DA:17:B6:00
+      syseeprom_info:
+        "0x21": "MSN3800"
+        "0x22": "MSN3800-CS2FO"
+        "0x23": "MT2002X14827"
+        "0x24": "1C:34:DA:17:B6:00"
+        "0x25": "01/13/2020 09:25:28"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn3800-r0"
+        "0x29": "2019.08-5.2.0016-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xF19C0FDD"
 
 sonic_nexus_3164:
   vars:
@@ -638,6 +702,25 @@ sonic_arista_QX:
     str2-7050qx-32s-acs-01:
       ansible_host: 10.3.146.158
       hwsku: Arista-7050QX32S-Q32
+      model: DCS-7050QX-32S
+      serial: JPE15072340
+      base_mac: 00:1c:73:ce:6b:18
+      syseeprom_info:
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105904C0"
+        "0x23": "JPE15072340"
+        "0x24": "00:1c:73:ce:6b:18"
+        "0x25": "2015/02/18 08:48:03"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.0.4-2086886"
+        "0x2F": "JPE15072340"
+        "0xFE": 3735928559
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
@@ -1045,6 +1128,22 @@ sonic_nokia_7215:
         "0xFE": "0x330F7F44"
     str2-7215-acs-3:
       ansible_host: 10.3.147.140
+      model: 3HE16794AARA01
+      serial: NK205210083
+      base_mac: 50:E0:EF:7A:F1:91
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARA01"
+        "0x23": "NK205210083"
+        "0x24": "50:E0:EF:7A:F1:91"
+        "0x25": "12/30/2020 09:40:08"
+        "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x36C08764"
 
 sonic_cisco_8102:
   vars:
