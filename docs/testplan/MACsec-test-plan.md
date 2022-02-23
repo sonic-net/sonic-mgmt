@@ -312,6 +312,8 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
  
 ### Testcase : Macsec feature interop with other protocols 
   This testcase covers the behavior of slow protocols when mac security is configured on interfaces 
+  
+  **Note:** Below test expectations are based on assumption that physical interface remains up when macsec profile is attached to an interface.
 
 #### Verify Port Channel is created with macsec configuration.
 - Configure the macsec profile and apply them on interfaces. Let the MKA session be establised 
@@ -319,19 +321,19 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
       - Expect the member interfaces and portchannel interface to be in oper UP state.
     
 - Configure macsec on the member interface of a Portchannel which is already in oper UP state. There is only one member interface.
-    - Expect the portchannel to remain oper UP if the macsec session establishment happens within 3*30sec where 30sec is LACP timeout interval.
+    - Expect the portchannel to remain oper UP if the macsec session establishment happens within 3*30sec, assuming LACP is in slow mode.
     - Expect the portchannel to go down if time taken for macsec session establishment is > 3*30sec. 
         - Portchannel interface goes oper UP after the MKA session is established
  
 #### Verify LLDP neighbors are created with macsec configuration.
 - Configure the macsec profile on interface where LLDP neighborship was already present
-    - Expect the LLDP neighborship is created again over the pair of interfaces.
+    - Expect the LLDP neighborship is maintained as long as macsec session establishment happens within 4*30sec which is default LLDP hold time interval
 - Remove the macsec profile from the interface
     - Check the LLDP neighborship exists even after the removal of macsec config.
 
 #### Verify the BGP neighbourship is created with macsec configuration.
 - Check the behaviour when macsec is enabled on an interface where BGP session was already established with peer.
-    - Expect to see BGP session going down first and then getting established 
+    - Expect to see BGP neighbors remain established state as long as macsec session establishment happens within the BGP hold time interval 
 - Remove the macsec profile from the interface
     - Check the BGP sessions are established again after removal of macsec config.
 
@@ -381,6 +383,8 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
 #### Verify SNMP request/response works across interface with macsec configuration.
 - Configure the macsec profile on interface and check if the snmp walk succeeds from the peer VM.
 
+
+
 ### Testcase : Deployment usecases and fault handling scenario's
   This testcase covers the various fault scenario's and the expected behavior.
 
@@ -405,7 +409,7 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
 
 #### Everflow, port mirroring on macsec enabled interfaces.
 - This test is to verify port mirroring on interfaces where macsec is configured
-    - Expected that the captured packets is encrypted. 
+    - TODO
 
 ### Testcase : Scale tests
 
