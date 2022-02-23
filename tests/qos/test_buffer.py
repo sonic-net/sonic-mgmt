@@ -293,6 +293,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     duthost = duthosts[rand_one_dut_hostname]
+    detect_buffer_model(duthost)
     if not is_mellanox_device(duthost):
         yield
         return
@@ -312,7 +313,6 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         logging.info("Shutting down BGP neighbors and waiting for all routing entries withdrawn")
         time.sleep(60)
 
-    detect_buffer_model(duthost)
     enable_shared_headroom_pool = request.config.getoption("--enable_shared_headroom_pool")
     need_to_disable_shared_headroom_pool_after_test = False
     if BUFFER_MODEL_DYNAMIC:
