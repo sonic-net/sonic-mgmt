@@ -2,6 +2,9 @@
 # MACsec Test plan
 
    * [Testbed](#testbed)
+   * [Instruction to run MACsec test](#instruction-to-run-macsec-test)
+      * [Setup MACsec testbed](#setup-macsec-testbed)
+      * [Run MACsec test](#run-macsec-test)
    * [Common Configuration](#common-configuration)
       * [Dynamic Key(MKA)](#dynamic-keymka)
    * [Common test steps](#common-test-steps)
@@ -26,9 +29,10 @@
          * [MACsec session cannot be established under wrong MKA configuration](#macsec-session-cannot-be-established-under-wrong-mka-configuration)
          * [Config reload done on DUT with macsec configuration](#config-reload-done-on-dut-with-macsec-configuration)
          * [Everflow, port mirroring on macsec enabled interfaces.](#everflow-port-mirroring-on-macsec-enabled-interfaces)
+      * [Testcase : Macsec scenario's for multi-asic, multi-dut](#testcase--macsec-scenarios-for-multi-asic-multi-dut)
       * [Testcase : Scale tests](#testcase--scale-tests)
          * [Large number of interfaces having macsec enabled on the DUT/linecard](#large-number-of-interfaces-having-macsec-enabled-on-the-dutlinecard)
-         * [Rekeying in all macsec sessions happens at the same time](#rekeying-in-all-macsec-sessions-happens-at-the-same-time)
+         * [Simultaneous rekeying in all macsec sessions](#simultaneous-rekeying-in-all-macsec-sessions)
          * [Macsec enabled on all interfaces and the DUT is rebooted.](#macsec-enabled-on-all-interfaces-and-the-dut-is-rebooted)
 
 ## Testbed
@@ -64,8 +68,6 @@ PTF<->DUT   down link
 ```
 
 In this topology, We pick two VMs (MACsec support) that act as the MACsec participants of the DUT. These two pairs of MACsec participant belong to different MACsec connectivity association(CA).
-
-In the current, we use the vSONiC as the neighbor devices. But in the future, we plan to support a larger scale topology (T2) and neighbor devices will be cEOS.
 
 ## Instruction to run MACsec test
 
@@ -316,24 +318,24 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
   **Note:** Below test expectations are based on assumption that physical interface remains up when macsec profile is attached to an interface.
 
 #### Verify Port Channel is created with macsec configuration.
-- Configure the macsec profile and apply them on interfaces. Let the MKA session be establised 
-    - Add those macsec enabled interfaces as members of a Portchannel
-      - Expect the member interfaces and portchannel interface to be in oper UP state.
+- Configure the macsec profile and apply them on a selected interface. Let the MKA session be establised 
+    - Add this macsec enabled interface as member of a Portchannel
+      - Expect the member interface and portchannel to be in oper UP state.
     
 - Configure macsec on the member interface of a Portchannel which is already in oper UP state. There is only one member interface.
-    - Expect the portchannel to remain oper UP if the macsec session establishment happens within 3*30sec, assuming LACP is in slow mode.
-    - Expect the portchannel to go down if time taken for macsec session establishment is > 3*30sec. 
+    - Expect the portchannel to remain oper UP if the mka session establishment happens within 3*30sec, assuming LACP is in slow mode.
+    - Expect the portchannel to go down if time taken for mka session establishment is > 3*30sec. 
         - Portchannel interface goes oper UP after the MKA session is established
  
 #### Verify LLDP neighbors are created with macsec configuration.
 - Configure the macsec profile on interface where LLDP neighborship was already present
-    - Expect the LLDP neighborship is maintained as long as macsec session establishment happens within 4*30sec which is default LLDP hold time interval
+    - Expect the LLDP neighborship is maintained as long as mka session establishment happens within 4*30sec which is default LLDP hold time interval
 - Remove the macsec profile from the interface
     - Check the LLDP neighborship exists even after the removal of macsec config.
 
 #### Verify the BGP neighbourship is created with macsec configuration.
 - Check the behaviour when macsec is enabled on an interface where BGP session was already established with peer.
-    - Expect to see BGP neighbors remain established state as long as macsec session establishment happens within the BGP hold time interval 
+    - Expect to see BGP neighbors remain established state as long as mka session establishment happens within the BGP hold time interval 
 - Remove the macsec profile from the interface
     - Check the BGP sessions are established again after removal of macsec config.
 
@@ -376,7 +378,7 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
    - The neighbor expect to capture the clear PFC packet
    - The inject port expects to capture the encrypted PFC packet
 3. Send clear PFC frame on the PTF injected port
-   - The DUT expects to no any PFC packet
+   - The DUT expects to drop any PFC packet
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
 
@@ -399,29 +401,37 @@ Use PTF to generate and capture PFC packets and set the same mode between DUT an
     - Expect Portchannel to remain up.
  
 #### MACsec session cannot be established under wrong MKA configuration
-- If the CAK is mis-matched, the MACsec cannot be established.
-    - In this scenario, check the behaviour of interface state, If the interface status stays UP,
-      how is control plane protocols behave, eg: BGP session will not be established.
+- If the CAK is mis-matched between DUT and peer, the MKA session cannot be established.
+    - Control plane protocols eg: BGP session will not be established.
 
 #### Config reload done on DUT with macsec configuration
 - The macsec sessions will be reconfigured, MKA session created again with a new SAK key. 
 - The control protocol sessions like LACP, LLDP, BGP get established again over the macsec configured interfaces.
 
 #### Everflow, port mirroring on macsec enabled interfaces.
-- This test is to verify port mirroring on interfaces where macsec is configured
-    - TODO
+- This test is to verify 2 cases 
+    - configure mirroring on interfaces where macsec is configured.
+    - configure macsec on the outgoing interface ( in case of Everflow ).
+      - TODO add expected behavior
+
+### Testcase : Macsec scenario's for multi-asic, multi-dut
+- Verify that macsec dockers are coming up in different namespaces.
+- Verify macsec packet flow where the Ingress and Egress ports are on different Linecards.
+    - TODO add expected behavior
+
 
 ### Testcase : Scale tests
 
 #### Large number of interfaces having macsec enabled on the DUT/linecard
-- Use the configure feature command to turn ON the macsec feature, with all ports having mac-sec enabled.
+- Use the "configure feature macsec enabled" command to turn ON macsec, with all ports having macsec profile attached.
     - Check the CPU, ASIC behavior when there are multiple wpa_supplicant processes being spawned.
-    - Expect the macsec sessions all come up fine, Measure the time taken.
+    - Expect the macsec sessions all come up. Measure the time taken.
 - When all the interfaces flap together, how much time it takes for Portchannels/BGP sessions to be up
-    -Expect the macsec sessions all come up fine. Measure the time taken.
+    -Expect the macsec sessions all come up. Measure the time taken.
 
-#### Rekeying in all macsec sessions happens at the same time
-- Check the sessions are coming back up, Measure the time taken.
+#### Simultaneous rekeying in all macsec sessions
+- Enable macsec on multiple interfaces so that they have same rekey period.
+- Check the sessions are coming back up and there is no traffic loss during h/w progamming. 
 
 #### Macsec enabled on all interfaces and the DUT is rebooted.
 - Check the macsec docker comes up and macsec sessions are established.
