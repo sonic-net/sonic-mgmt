@@ -1,4 +1,13 @@
 #######################################
+#####             api             #####
+#######################################
+platform_tests/api:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
