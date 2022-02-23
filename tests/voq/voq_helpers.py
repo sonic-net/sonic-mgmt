@@ -5,7 +5,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
+from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli
 
 logger = logging.getLogger(__name__)
 

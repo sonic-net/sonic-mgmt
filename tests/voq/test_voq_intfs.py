@@ -7,7 +7,7 @@ from tests.common import config_reload
 
 from test_voq_init import check_voq_interfaces
 
-from tests.common.helpers.redis import VoqDbCli, RedisKeyNotFound
+from tests.common.helpers.sonic_db import VoqDbCli, SonicDbKeyNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
             new_cfgfacts = duthost.config_facts(source='persistent', asic_index='all')[asic.asic_index]['ansible_facts']
             check_voq_interfaces(duthosts, duthost, asic, new_cfgfacts)
 
-        with pytest.raises(RedisKeyNotFound):
+        with pytest.raises(SonicDbKeyNotFound):
             voqdb.get_keys(key)
         logger.info("-- Interface {} deleted from chassisdb on supervisor card".format(key))
 
