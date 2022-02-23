@@ -1407,6 +1407,10 @@ Totals               6450                 6449
                 return True
         return False
 
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
+        cmd = "sonic-db-cli {}".format(sonic_db_cmd)
+        return self.command(cmd, verbose=False)
+
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
