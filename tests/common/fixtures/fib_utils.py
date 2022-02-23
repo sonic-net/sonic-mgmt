@@ -6,7 +6,8 @@ from datetime import datetime
 
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.redis import VoqDbCli
+from tests.common.helpers.sonic_db import VoqDbCli
+
 
 logger = logging.getLogger(__name__)
 

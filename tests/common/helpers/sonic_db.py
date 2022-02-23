@@ -6,31 +6,26 @@ from tests.common.devices.sonic_asic import SonicAsic
 logger = logging.getLogger(__name__)
 
 
-class RedisCli(object):
-    """Base class for interface to RedisDb using redis-cli command.
+class SonicDbCli(object):
+    """Base class for interface to SonicDb using sonic-db-cli command.
 
-    Attributes:
-        host: a SonicHost or SonicAsic.  Commands will be run on this shell.
-        database: Redis database number.
-        pid: Port number of redis db.
-    """
+        Attributes:
+            host: a SonicHost or SonicAsic.  Commands will be run on this shell.
+            database: database number.
+        """
 
-    def __init__(self, host, database=1, pid=6379):
+    def __init__(self, host, database='APPL_DB'):
         """Initializes base class with defaults"""
         self.host = host
         self.database = database
-        self.pid = pid
-        self.ip = None
 
     def _cli_prefix(self):
-        """Builds opening of redis CLI command for other methods."""
-        # return "docker exec -i {docker} redis-cli -p {pid} --raw -n {db} ".format(
-        #     docker=self.docker, db=self.database, pid=self.pid)
-        return " -p {pid} --raw -n {db} ".format(db=self.database, pid=self.pid)
+        """Builds opening of sonic-db-cli command for other methods."""
+        return " {db} ".format(db=self.database)
 
     def _run_and_check(self, cmd):
         """
-        Executes a redis CLI command and checks the output for empty string.
+        Executes a sonic-db CLI command and checks the output for empty string.
 
         Args:
             cmd: Full CLI command to run.
@@ -40,7 +35,7 @@ class RedisCli(object):
             Empty dictionary on error.
 
         """
-        result = self.host.run_redis_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
             logger.error("No command response: %s" % cmd)
@@ -50,7 +45,7 @@ class RedisCli(object):
 
     def _run_and_raise(self, cmd):
         """
-        Executes a redis CLI command and checks the output for empty string.
+        Executes a sonic-db CLI command and checks the output for empty string.
 
         Args:
             cmd: Full CLI command to run.
@@ -62,39 +57,18 @@ class RedisCli(object):
             Exception: If the command had no output.
 
         """
-        logger.debug("REDIS: %s", cmd)
-        result = self.host.run_redis_cli_cmd(cmd)
+        logger.debug("SONIC-DB-CLI: %s", cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
             logger.warning("No command response: %s" % cmd)
-            raise RedisNoCommandOutput("Command: %s returned no response." % cmd)
+            raise SonicDbNoCommandOutput("Command: %s returned no response." % cmd)
 
         return result
 
-    def get_key_value(self, key):
-        """
-        Executes a redis CLI get command.
-
-        Args:
-            key: full name of the key to get.
-
-        Returns:
-            The corresponding value of the key.
-
-        Raises:
-            RedisKeyNotFound: If the key has no value or is not present.
-
-        """
-        cmd = self._cli_prefix() + "get " + key
-        result = self._run_and_check(cmd)
-        if result == {}:
-            raise RedisKeyNotFound("Key: %s not found in rediscmd: %s" % (key, cmd))
-        else:
-            return result['stdout'].decode('unicode-escape')
-
     def hget_key_value(self, key, field):
         """
-        Executes a redis CLI hget command.
+        Executes a sonic-db-cli hget command.
 
         Args:
             key: full name of the key to get.
@@ -103,20 +77,20 @@ class RedisCli(object):
         Returns:
             The corresponding value of the key.
         Raises:
-            RedisKeyNotFound: If the key or field has no value or is not present.
+            SonicDbKeyNotFound: If the key or field has no value or is not present.
 
 
         """
         cmd = self._cli_prefix() + "hget {} {}".format(key, field)
         result = self._run_and_check(cmd)
         if result == {}:
-            raise RedisKeyNotFound("Key: %s, field: %s not found in rediscmd: %s" % (key, field, cmd))
+            raise SonicDbKeyNotFound("Key: %s, field: %s not found in sonic-db cmd: %s" % (key, field, cmd))
         else:
             return result['stdout'].decode('unicode-escape')
 
     def get_and_check_key_value(self, key, value, field=None):
         """
-        Executes a redis CLI get or hget and validates the response against a provided field.
+        Executes a sonic-db CLI get or hget and validates the response against a provided field.
 
         Args:
             key: full name of the key to get.
@@ -127,12 +101,12 @@ class RedisCli(object):
             True if the validation succeeds.
 
         Raises:
-            RedisKeyNotFound: If the key or field has no value or is not present.
-            AssertionError: If the fetched value from redis does not match the provided value.
+            SonicDbKeyNotFound: If the key or field has no value or is not present.
+            AssertionError: If the fetched value from sonic-db does not match the provided value.
 
         """
         if field is None:
-            result = self.get_key_value(key)
+            raise SonicDbKeyNotFound("Can't do a get_and_check_key_value for key {} with field as None".format(key))
         else:
             result = self.hget_key_value(key, field)
 
@@ -140,7 +114,7 @@ class RedisCli(object):
             logger.info("Value {val} matches output {out}".format(val=value, out=result))
             return True
         else:
-            raise AssertionError("redis value error: %s != %s key was: %s" % (result, value, key))
+            raise AssertionError("sonic-db value error: %s != %s key was: %s" % (result, value, key))
 
     def get_keys(self, table):
         """
@@ -153,34 +127,31 @@ class RedisCli(object):
                 list of keys retrieved
 
             Raises:
-                RedisKeyNotFound: If the key or field has no value or is not present.
+                SonicDbKeyNotFound: If the key or field has no value or is not present.
 
         """
         cmd = self._cli_prefix() + " keys {}".format(table)
         result = self._run_and_check(cmd)
         if result == {}:
-            raise RedisKeyNotFound("No keys for %s found in rediscmd: %s" % (table, cmd))
+            raise SonicDbKeyNotFound("No keys for %s found in sonic-db cmd: %s" % (table, cmd))
         else:
             return result['stdout'].decode('unicode-escape')
 
     def dump(self, table):
         """
-        Dumps and entire table with redis-dump.
+        Dumps and entire table with sonic-db-dump.
 
         Args:
             table: The table to dump.
 
         Returns:
-            Dictionary containing the parsed json output of the redis_dump.
+            Dictionary containing the parsed json output of the sonic-db-dump.
 
         """
-        cli = "/usr/local/bin/redis-dump"
+        cli = "sonic-db-dump"
         cmd_str = ""
-        # If an IP is specified, include in cli options.
-        if self.ip is not None:
-            cmd_str += " -H {} ".format(self.ip)
 
-        cmd_str += "-p {pid} -d {db} -y -k *{t}*".format(db=self.database, pid=self.pid, t=table)
+        cmd_str += "-n {db} -y -k *{t}*".format(db=self.database, t=table)
 
         # We are on an asic, it could be single asic card, or multiasic and need a namespace.
         if isinstance(self.host, SonicAsic):
@@ -200,7 +171,7 @@ class RedisCli(object):
         return parsed
 
 
-class AsicDbCli(RedisCli):
+class AsicDbCli(SonicDbCli):
     """
     Class to interface with the ASICDB on a host.
 
@@ -221,7 +192,7 @@ class AsicDbCli(RedisCli):
         """
         Initializes a connection to the ASIC DB (database 1)
         """
-        super(AsicDbCli, self).__init__(host, 1)
+        super(AsicDbCli, self).__init__(host, 'ASIC_DB')
         # cache this to improve speed
         self.hostif_portidlist = []
         self.hostif_table = []
@@ -295,7 +266,7 @@ class AsicDbCli(RedisCli):
                 neighbor_key = key
                 break
         else:
-            raise RedisKeyNotFound("Did not find key: %s*%s* in asicdb" % (AsicDbCli.ASIC_NEIGH_ENTRY_TABLE, ipaddr))
+            raise SonicDbKeyNotFound("Did not find key: %s*%s* in asicdb" % (AsicDbCli.ASIC_NEIGH_ENTRY_TABLE, ipaddr))
 
         return neighbor_key
 
@@ -345,7 +316,7 @@ class AsicDbCli(RedisCli):
         is saved so it can be returned directly in subsequent calls.
 
         Args:
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
 
         """
@@ -367,10 +338,10 @@ class AsicDbCli(RedisCli):
 
         Args:
             portid: A port OID (oid:0x1000000000004)
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
         Raises:
-            RedisKeyNotFound: If no hostif exists with the portid provided.
+            SonicDbKeyNotFound: If no hostif exists with the portid provided.
         """
         hostif_table = self.get_hostif_table(refresh)
 
@@ -379,7 +350,7 @@ class AsicDbCli(RedisCli):
             if hostif_portid == portid:
                 return hostif_key
 
-        raise RedisKeyNotFound("Can't find hostif in asicdb with portid: %s", portid)
+        raise SonicDbKeyNotFound("Can't find hostif in asicdb with portid: %s", portid)
 
     def get_rif_porttype(self, portid, refresh=False):
         """
@@ -387,7 +358,7 @@ class AsicDbCli(RedisCli):
 
         Args:
             portid: the port oid from SAI_ROUTER_INTERFACE_ATTR_PORT_ID (oid:0x6000000000c4d)
-            refresh: Forces the redis DB to be queried after the first time.
+            refresh: Forces the DB to be queried after the first time.
 
         Returns:
             "hostif" if the port ID has a host interface
@@ -425,7 +396,7 @@ class AsicDbCli(RedisCli):
         return self.dump(AsicDbCli.ASIC_NEIGH_ENTRY_TABLE)
 
 
-class AppDbCli(RedisCli):
+class AppDbCli(SonicDbCli):
     """
     Class to interface with the APPDB on a host.
 
@@ -438,7 +409,7 @@ class AppDbCli(RedisCli):
     APP_LAG_MEMBER_TABLE = "LAG_MEMBER_TABLE"
 
     def __init__(self, host):
-        super(AppDbCli, self).__init__(host, 0)
+        super(AppDbCli, self).__init__(host, 'APPL_DB')
 
     def get_neighbor_key_by_ip(self, ipaddr):
         """Returns the key in the neighbor table that is for a specific IP neighbor
@@ -477,7 +448,7 @@ class AppDbCli(RedisCli):
         return self.dump(AppDbCli.APP_NEIGH_TABLE)
 
 
-class VoqDbCli(RedisCli):
+class VoqDbCli(SonicDbCli):
     """
     Class to interface with the Chassis VOQ DB on a supervisor.
 
@@ -491,15 +462,9 @@ class VoqDbCli(RedisCli):
 
     def __init__(self, host):
         """Initializes the class with the database parameters and finds the IP address of the database"""
-        super(VoqDbCli, self).__init__(host, 12, 6380)
+        super(VoqDbCli, self).__init__(host, 'CHASSIS_APP_DB')
         output = host.command("grep chassis_db_address /etc/sonic/chassisdb.conf")
-        # chassis_db_address=10.0.0.16
         self.ip = output['stdout'].split("=")[1]
-
-    def _cli_prefix(self):
-        """Builds opening of redis CLI command for other methods."""
-        return "-h {ip} -p {pid} --raw -n {db} ".format(
-            ip=self.ip, db=self.database, pid=self.pid)
 
     def get_neighbor_key_by_ip(self, ipaddr):
         """Returns the key in the neighbor table that is for a specific IP neighbor
@@ -560,15 +525,15 @@ class VoqDbCli(RedisCli):
         return self.dump(VoqDbCli.SYSTEM_NEIGHBOR_TABLE)
 
 
-class RedisKeyNotFound(KeyError):
+class SonicDbKeyNotFound(KeyError):
     """
-    Raised when requested keys or fields are not found in the redis db.
+    Raised when requested keys or fields are not found in the db.
     """
     pass
 
 
-class RedisNoCommandOutput(Exception):
+class SonicDbNoCommandOutput(Exception):
     """
-    Raised when no output is generated by the redis-cli command.
+    Raised when no output is generated by the sonic-db-cli command.
     """
     pass
