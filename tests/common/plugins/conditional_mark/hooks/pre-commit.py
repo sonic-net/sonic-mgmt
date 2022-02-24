@@ -5,7 +5,6 @@ import logging
 
 def main():
     stage_files = sys.argv[1:]
-    print("YT test stage_files {}".format(stage_files))
     for file in stage_files:
         conditions = []
         with open(file, 'r') as f:
