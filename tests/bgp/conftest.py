@@ -353,13 +353,9 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
-            if "t2" in tbinfo["topo"]["name"]:
-                # in T2 topologies the IP subnet could conflict with interfaces on other linecards. 
-                # use a complete different subnet
-                subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
-            else:
-                _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
-                subnets = (_ for _ in _subnets if _ not in used_subnets)
+            # Use a subnet which doesnt conflict with other subnets used in minigraph
+            subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
