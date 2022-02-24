@@ -17,7 +17,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+
+def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, xcvr_skip_list):
     """This test case is to check SFP using the ethtool.
     """
     duthost = duthosts[rand_one_dut_hostname]
@@ -29,21 +30,22 @@ def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname, conn_graph_fac
     else:
         lanes_divider = 4
     for intf in conn_graph_facts["device_conn"][duthost.hostname]:
-        intf_lanes = ports_config[intf]["lanes"]
-        sfp_id = int(intf_lanes.split(",")[0])/lanes_divider + 1
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            intf_lanes = ports_config[intf]["lanes"]
+            sfp_id = int(intf_lanes.split(",")[0])/lanes_divider + 1
 
-        ethtool_sfp_output = duthost.command("sudo ethtool -m sfp%s" % str(sfp_id))
-        assert ethtool_sfp_output["rc"] == 0, "Failed to read eeprom of sfp%s using ethtool" % str(sfp_id)
-        # QSFP-DD cable case (currenly ethtool not supporting a full parser)
-        if len(ethtool_sfp_output["stdout_lines"]) == 1:
-            assert '0x18' in str(ethtool_sfp_output["stdout_lines"]), \
-                "Does the ethtool output look normal? " + str(ethtool_sfp_output["stdout_lines"])
-        else:
-            assert len(ethtool_sfp_output["stdout_lines"]) >= 5, \
-                "Does the ethtool output look normal? " + str(ethtool_sfp_output["stdout_lines"])
-            for line in ethtool_sfp_output["stdout_lines"]:
-                assert len(line.split(":")) >= 2, \
-                    "Unexpected line %s in %s" % (line, str(ethtool_sfp_output["stdout_lines"]))
+            ethtool_sfp_output = duthost.command("sudo ethtool -m sfp%s" % str(sfp_id))
+            assert ethtool_sfp_output["rc"] == 0, "Failed to read eeprom of sfp%s using ethtool" % str(sfp_id)
+            # QSFP-DD cable case (currenly ethtool not supporting a full parser)
+            if len(ethtool_sfp_output["stdout_lines"]) == 1:
+                assert '0x18' in str(ethtool_sfp_output["stdout_lines"]), \
+                    "Does the ethtool output look normal? " + str(ethtool_sfp_output["stdout_lines"])
+            else:
+                assert len(ethtool_sfp_output["stdout_lines"]) >= 5, \
+                    "Does the ethtool output look normal? " + str(ethtool_sfp_output["stdout_lines"])
+                for line in ethtool_sfp_output["stdout_lines"]:
+                    assert len(line.split(":")) >= 2, \
+                        "Unexpected line %s in %s" % (line, str(ethtool_sfp_output["stdout_lines"]))
 
     logging.info("Check interface status")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
