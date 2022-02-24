@@ -1,4 +1,13 @@
 #######################################
+#####             api             #####
+#######################################
+platform_tests/api:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
@@ -500,6 +509,18 @@ platform_tests/api/test_watchdog.py:
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
+platform_tests/cli/test_show_platform.py::test_show_platform_fan:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
   xfail:
     strict: True
