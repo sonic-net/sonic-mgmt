@@ -78,7 +78,7 @@ def ignore_log_analyzer_by_vendor(request, duthosts, enum_rand_one_per_hwsku_hos
     asic_type = duthost.facts["asic_type"]
     ignore_asic_list = request.param
     if asic_type not in ignore_asic_list:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
         loganalyzer.load_common_config()
         marker = loganalyzer.init()
         yield
