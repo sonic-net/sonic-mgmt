@@ -52,7 +52,7 @@ def xcvr_skip_list(duthosts):
             out = dut.command("cat {}".format(f_path))
             hwsku_info = json.loads(out["stdout"])
             for int_n in hwsku_info['interfaces']:
-                if hwsku_info['interfaces'][int_n]['port_type'] == "RJ45":
+                if hwsku_info['interfaces'][int_n].get('port_type') == "RJ45":
                     intf_skip_list[dut.hostname].append(int_n)
 
         except Exception:
