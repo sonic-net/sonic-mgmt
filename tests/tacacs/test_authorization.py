@@ -1,4 +1,5 @@
 import logging
+import os
 import paramiko
 import pytest
 
@@ -287,10 +288,20 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
     """
         Verify user can't run command with loader:
             /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh
+        Or
+            /lib/arm-linux-gnueabihf/ld-linux-armhf.so.3 sh
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh")
-    pytest_assert(exit_code == 1)
-    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    ld_path_x86 = "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    if os.path.isfile(ld_path_x86):
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, ld_path_x86 + " sh")
+        pytest_assert(exit_code == 1)
+        check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+
+    ld_path_arm = "/lib/arm-linux-gnueabihf/ld-linux-armhf.so.3"
+    if os.path.isfile(ld_path_arm):
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, ld_path_arm + " sh")
+        pytest_assert(exit_code == 1)
+        check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
     """
         Verify user can't run command with prefix/quoting:

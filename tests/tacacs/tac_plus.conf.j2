@@ -59,6 +59,9 @@ user = {{ tacacs_authorization_user }} {
     cmd = /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 {
         deny .*
     }
+    cmd = /lib/arm-linux-gnueabihf/ld-linux-armhf.so.3 {
+        deny .*
+    }
     cmd = /usr/bin/dash {
         deny .*
     }

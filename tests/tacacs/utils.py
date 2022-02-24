@@ -1,5 +1,6 @@
 import crypt
 import logging
+import os
 import re
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -99,7 +100,13 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     fix_symbolic_link_in_config(duthost, ptfhost, "/usr/bin/python")
 
     # Find ld lib symbolic link target, and fix the tac_plus config file
-    fix_symbolic_link_in_config(duthost, ptfhost, "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2")
+    ld_path_x86 = "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+    if os.path.isfile(ld_path_x86):
+        fix_symbolic_link_in_config(duthost, ptfhost, ld_path_x86)
+
+    ld_path_arm = "/lib/arm-linux-gnueabihf/ld-linux-armhf.so.3"
+    if os.path.isfile(ld_path_arm):
+        fix_symbolic_link_in_config(duthost, ptfhost, ld_path_arm)
 
     ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
     check_all_services_status(ptfhost)
