@@ -561,7 +561,9 @@ class DualTorIO:
                 continue
             if packet[scapyall.Ether].src in self.received_pkt_src_mac:
                 # This is a received packet.
-                curr_time = packet.time
+                # scapy 2.4.5 will use Decimal to calulcate time, but json.dumps
+                # can't recognize Decimal, transform to float here
+                curr_time = float(packet.time)
                 curr_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
 
                 # Look back at the previous received packet to check for gaps/duplicates
