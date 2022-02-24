@@ -249,8 +249,9 @@ def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
     REBOOT_TYPE_HISTOYR_QUEUE.append(latest_reboot_type)
 
     # Skip this function if sonic image is 201811 or 201911
-    skip_release(dut, ["201811", "201911"])
-
+    if "201811" in dut.os_version or "201911" in dut.os_version:
+        logging.info("Skip sync reboot-cause history for version before 202012")
+        return
 
     # IF control is here it means the SONiC image version is > 201911
     # Try and get the entire reboot-cause history from DUT
