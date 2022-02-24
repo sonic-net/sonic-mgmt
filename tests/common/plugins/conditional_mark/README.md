@@ -162,10 +162,9 @@ The plugin is open for extension in couple of areas:
 
 ## How to use pre-commit hooks to check the order in the yaml files
 We keep the test cases in alphabetical order in the yaml files, and we use pre-commit hook to check if the test cases in correct order.
-In order to use git hook, we should specify the hook folder using`git config core.hooksPath 'path'` before commit. And we should also install `ruamel.yaml` using `pip install ruamel.yaml`.
+In order to use git hook, we should specify the hook folder using`git config core.hooksPath 'path'` before commit.
 
 Assume we use git under the `sonic-mgmt` folder, we can use `git config core.hooksPath 'tests/common/plugins/conditional_mark/hooks'` to specify the hook folder.
-
-Accordingly, we should modify the path of the file `pre-commit.py` in `hooks/pre-commit` if we don't use git under the `sonic-mgmt` folder.
+And we **must** make sure the script `pre-commit` is executable using `chmod +x tests/common/plugins/conditional_mark/hooks/pre-commit`.
 
 If we add a test case in one of the yaml files and break the alphabetical order, we can not commit successfully and will get the prompt `Pleace check the order in tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml`.
