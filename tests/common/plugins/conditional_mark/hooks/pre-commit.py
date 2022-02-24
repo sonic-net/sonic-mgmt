@@ -1,7 +1,5 @@
-import os
 import re
 import sys
-import logging
 
 def main():
     stage_files = sys.argv[1:]
