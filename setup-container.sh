@@ -264,7 +264,14 @@ EOF
     log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
 
     log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
-    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK}" || \
+    build_args=""
+    if [[ -n ${http_proxy} ]]; then
+        build_args="--build-arg http_proxy=${http_proxy}"
+    fi
+    if [[ -n ${https_proxy} ]]; then
+        build_args="${build_args} --build-arg https_proxy=${https_proxy}"
+    fi
+    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK} ${build_args}" || \
     log_error "failed to build docker image: ${LOCAL_IMAGE}"
 
     log_info "cleanup a temporary dir: ${TMP_DIR}"
