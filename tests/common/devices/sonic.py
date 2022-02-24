@@ -1805,6 +1805,9 @@ Totals               6450                 6449
             return True
         return False if "Ethernet-BP" not in ports["members"][0] else True
 
+    def is_backend_port(self, port, mg_facts):
+        return True if "Ethernet-BP" in port else False
+
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
