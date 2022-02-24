@@ -118,7 +118,7 @@ class FibTest(BaseTest):
             self.ptf_test_port_map = json.load(f)
 
         self.router_macs = self.test_params.get('router_macs')
-        self.pktlen = self.test_params.get('testbed_mtu', 1500)
+        self.pktlen = self.test_params.get('testbed_mtu', 9114)
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
         self.test_balancing = self.test_params.get('test_balancing', True)
@@ -298,6 +298,9 @@ class FibTest(BaseTest):
 
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
+            len_rcvd_pkt = len(rcvd_pkt)
+            logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
+            logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
@@ -374,6 +377,9 @@ class FibTest(BaseTest):
 
         if self.pkt_action == self.ACTION_FWD:
             rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            len_rcvd_pkt = len(rcvd_pkt)
+            logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
+            logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
             actual_src_mac = Ether(rcvd_pkt).src
             if actual_src_mac != exp_src_mac:

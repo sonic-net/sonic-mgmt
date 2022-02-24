@@ -330,7 +330,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     logger.info("Nexthop ip%s tests are done" % family)
 
 
-@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 9114)])
 def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
@@ -340,7 +340,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, ra
     bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
 
 
-@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 1514)])
+@pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 9114)])
 def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
