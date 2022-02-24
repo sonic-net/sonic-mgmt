@@ -1,4 +1,5 @@
 import pytest
+import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -14,8 +15,16 @@ pytestmark = [
 
 
 def pytest_generate_tests(metafunc):
+    input_sad_cases = metafunc.config.getoption("sad_case_list")
+    input_sad_list = list()
+    for input_case in input_sad_cases.split(","):
+        input_case = input_case.strip()
+        if input_case.lower() not in SAD_CASE_LIST:
+            logging.warn("Unknown SAD case ({}) - skipping it.".format(input_case))
+            continue
+        input_sad_list.append(input_case.lower())
     if "sad_case_type" in metafunc.fixturenames:
-        sad_cases = SAD_CASE_LIST
+        sad_cases = input_sad_list
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
@@ -70,7 +79,7 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,
 
 ### Tetcases to verify reboot procedure with SAD cases ###
 @pytest.mark.device_type('vs')
-def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, tbinfo,
+def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
                         get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                         backup_and_restore_config_db, advanceboot_neighbor_restore,
                         sad_case_type):
@@ -87,7 +96,7 @@ def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts,
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
         advanceboot_loganalyzer=advanceboot_loganalyzer)
 
-    sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type)
+    sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
     advancedReboot.runRebootTestcase(
         prebootList=sad_preboot_list,
         inbootList=sad_inboot_list
