@@ -236,21 +236,21 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
     endtime = time.time() + 120
     for dut in duthosts.frontend_nodes:
         for asc in dut.asics:
-            routes = len(asic_cmd(asc, 'redis-cli -n 0 KEYS ROUTE_TABLE*')['stdout_lines'])
+            routes = len(asc.run_sonic_db_cli_cmd('APPL_DB KEYS ROUTE_TABLE*')['stdout_lines'])
             logger.info("Found %d routes in appdb on %s/%s", routes, dut.hostname, asc.asic_index)
 
             while routes > 1000:
                 time.sleep(5)
-                routes = len(asic_cmd(asc, 'redis-cli -n 0 KEYS ROUTE_TABLE*')['stdout_lines'])
+                routes = len(asc.run_sonic_db_cli_cmd('APPL_DB KEYS ROUTE_TABLE*')['stdout_lines'])
                 logger.info("Found %d routes in appdb on %s/%s, polling", routes, dut.hostname, asc.asic_index)
                 if time.time() > endtime:
                     break
 
-            routes = len(asic_cmd(asc, 'redis-cli -n 1 KEYS *ROUTE_ENTRY*')['stdout_lines'])
+            routes = len(asc.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines'])
             logger.info("Found %d routes in asicdb on %s/%s", routes, dut.hostname, asc.asic_index)
             while routes > 1000:
                 time.sleep(5)
-                routes = len(asic_cmd(asc, 'redis-cli -n 1 KEYS *ROUTE_ENTRY*')['stdout_lines'])
+                routes = len(asc.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines'])
                 logger.info("Found %d routes in asicdb on %s/%s, polling", routes, dut.hostname, asc.asic_index)
                 if time.time() > endtime:
                     break
