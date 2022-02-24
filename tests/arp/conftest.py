@@ -142,8 +142,7 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
-        router_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+        router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
 
         # Copy test files
         ptfhost.copy(src="ptftests", dest="/root")
