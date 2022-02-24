@@ -8,6 +8,7 @@ all:
       children:
         sonic:
         fanout:
+        server:
     ptf:
       vars:
         ansible_ssh_user: root
@@ -16,7 +17,7 @@ all:
         svc1-1:
           ansible_host: 10.206.144.19
         svc1-2:
-          ansible_host: 10.206.144.20  
+          ansible_host: 10.206.144.20
         svc1-3:
           ansible_host: 10.206.144.138
         svc1-4:
@@ -139,3 +140,8 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18917935"
         "0x2F": "JPE21131246"
+
+server:
+  hosts:
+    svcstr-server-1:
+      ansible_host: 10.206.144.7
