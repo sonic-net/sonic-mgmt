@@ -37,8 +37,7 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     verify_ip_address(host_facts, mg_facts['minigraph_lo_interfaces'])
 
     topo = tbinfo["topo"]["name"]
-    config_facts = duthost.asic_instance(enum_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    router_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+    router_mac = asic_host.get_router_mac()
 
     verify_mac_address(host_facts, mg_facts['minigraph_portchannel_interfaces'], router_mac)
     if "dualtor" not in topo:
