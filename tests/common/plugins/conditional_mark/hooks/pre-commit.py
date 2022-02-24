@@ -1,21 +1,22 @@
 import os
 import re
-from ruamel import yaml
 import sys
+import logging
 
 def main():
-    with os.popen("git diff --cached --name-only", "r") as p:
-        stage_files = p.read().split()
+    stage_files = sys.argv
 
     for file in stage_files:
-        if not re.match(r'(.*)tests_mark_conditions(.*).yaml', file):
-            stage_files.remove(file)
+        conditions = []
 
-    for file in stage_files:
-        with open(file) as f:
-            if not f.read():
-                pass
-            conditions = list(yaml.round_trip_load(f).keys())
+        with open(file, 'r') as f:
+            file_contents = f.readlines()
+            if not file_contents:
+                continue
+            for line in file_contents:
+                if re.match('[a-zA-Z]', line):
+                    conditions.append(line.splitlines()[0])
+
             pre = conditions[0]
             for condition in conditions[1:]:
                 if condition < pre:

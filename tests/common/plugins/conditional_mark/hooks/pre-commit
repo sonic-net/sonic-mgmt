@@ -1,8 +1,15 @@
 #!/bin/sh
-python tests/common/plugins/conditional_mark/hooks/pre-commit.py
+stage_files=$(git diff --cached --name-only | grep "tests_mark_conditions*")
+echo $stage_files
+if test ${#stage_files} -eq 0;then
+  echo "no yaml file"
+  exit 0
+fi
+echo "test"
+python tests/common/plugins/conditional_mark/hooks/pre-commit.py $stage_files
 if [ $? != 0 ];then
     echo "Pleace check the order in tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml"
-    exit 1
+    exit 0
 else
     exit 0
 fi
