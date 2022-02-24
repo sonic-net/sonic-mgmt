@@ -23,6 +23,7 @@ def main():
                     sys.exit(-1)
                 else:
                     pre = condition
+            print(conditions)
     print("here")
     sys.exit(0)
 

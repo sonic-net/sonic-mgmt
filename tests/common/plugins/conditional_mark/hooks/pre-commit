@@ -7,7 +7,6 @@ if test ${#stage_files} -eq 0;then
 fi
 echo "test"
 python tests/common/plugins/conditional_mark/hooks/pre-commit.py $stage_files
-echo $?
 if [ $? != 0 ];then
     echo "Pleace check the order in tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml"
     exit 1
