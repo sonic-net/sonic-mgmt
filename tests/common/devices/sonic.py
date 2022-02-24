@@ -249,7 +249,7 @@ class SonicHost(AnsibleHostBase):
        try:
            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
                   "utf-8").lower()
-       except:
+       except Exception:
            return ''
 
     def _get_platform_info(self):
