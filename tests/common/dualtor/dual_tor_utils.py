@@ -1129,13 +1129,12 @@ def show_muxcable_status(duthost):
     """
     Show muxcable status and parse into a dict
     """
-    command = "show muxcable status"
-    output = duthost.shell(command)["stdout_lines"]
-    
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+
     ret = {}
-    for i in range(2, len(output)):
-        port, status, health = output[i].split()
-        ret[port] = {'status': status, 'health': health}
+    for port, muxcable in output['MUX_CABLE'].items(): 
+        ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
 
     return ret
 
