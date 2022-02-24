@@ -254,3 +254,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           VxLAN             #####
+#######################################
+vxlan/test_vxlan_ecmp.py:
+  skip:
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
