@@ -47,8 +47,7 @@ REQUIRED_TESTSUITE_ATTRIBUTES = {
     ("tests", int),
     ("skipped", int),
     ("failures", int),
-    ("errors", int),
-    ("xfails", int)
+    ("errors", int)
 }
 EXTRA_XML_SUMMARY_ATTRIBUTES = {
     ("xfails", int)
