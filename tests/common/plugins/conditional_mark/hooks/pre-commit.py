@@ -4,7 +4,7 @@ import sys
 import logging
 
 def main():
-    stage_files = sys.argv
+    stage_files = sys.argv[1:]
     print("YT test stage_files {}".format(stage_files))
     for file in stage_files:
         conditions = []
@@ -19,6 +19,7 @@ def main():
             pre = conditions[0]
             for condition in conditions[1:]:
                 if condition < pre:
+                    logging.info(condition)
                     sys.exit(-1)
                 else:
                     pre = condition
