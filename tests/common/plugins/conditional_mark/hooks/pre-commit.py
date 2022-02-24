@@ -14,17 +14,14 @@ def main():
                 continue
             for line in file_contents:
                 if re.match('[a-zA-Z]', line):
-                    conditions.append(line.splitlines()[0])
-
+                    conditions.append(line.splitlines()[0][:-1])
             pre = conditions[0]
             for condition in conditions[1:]:
+                print(condition)
                 if condition < pre:
-                    logging.info(condition)
                     sys.exit(-1)
                 else:
                     pre = condition
-            print(conditions)
-    print("here")
     sys.exit(0)
 
 if __name__ == "__main__":

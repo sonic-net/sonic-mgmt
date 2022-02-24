@@ -7,7 +7,7 @@ cacl/test_cacl_application.py::test_cacl_application:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-###########
+##################
 #######################################
 #####            copp             #####
 #######################################
@@ -136,6 +136,12 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
 #######################################
 #####           qos               #####
 #######################################
+qos/test_buffer_traditional.py:
+  skip:
+    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -144,12 +150,6 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # traffic generator to generate pause frames, skipping this here.
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
-
-qos/test_buffer_traditional.py:
-  skip:
-    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
 
 qos/test_qos_sai.py:
   skip:

@@ -1,6 +1,5 @@
 #!/bin/sh
 stage_files=$(git diff --cached --name-only | grep "tests_mark_conditions*")
-echo $stage_files
 if test ${#stage_files} -eq 0;then
   echo "no yaml file"
   exit 0
