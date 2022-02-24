@@ -50,6 +50,19 @@
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
+.create table TestCases ingestion json mapping 'TestCasesMappingV1' @'['
+                                                                     '{"column":"Feature","Properties":{"path":"$.feature"}},'
+                                                                     '{"column":"TestCase","Properties":{"path":"$.name"}},'
+                                                                     '{"column":"ModulePath","Properties":{"path":"$.classname"}},'
+                                                                     '{"column":"FilePath","Properties":{"path":"$.file"}},'
+                                                                     '{"column":"StartLine","Properties":{"path":"$.line"}},'
+                                                                     '{"column":"Runtime","Properties":{"path":"$.time"}},'
+                                                                     '{"column":"Result","Properties":{"path":"$.result"}},'
+                                                                     '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                     '{"column":"Error","Properties":{"path":"$.error"}},'
+                                                                     '{"column":"Summary","Properties":{"path":"$.summary"}},'
+                                                                     ']'
+
 ###############################################################################
 # SUMMARY TABLE SETUP                                                         #
 # 1. Create a TestReportSummary table to store test summaries                 #

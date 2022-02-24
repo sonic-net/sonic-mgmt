@@ -91,6 +91,7 @@ class KustoConnector(ReportDBConnector):
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
+    TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
 
     TABLE_FORMAT_LOOKUP = {
@@ -101,6 +102,7 @@ class KustoConnector(ReportDBConnector):
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
+        TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
     }
 
@@ -112,6 +114,7 @@ class KustoConnector(ReportDBConnector):
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
+        TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1"
     }
 
@@ -217,9 +220,8 @@ class KustoConnector(ReportDBConnector):
                     "feature": feature
                 })
                 test_cases.append(case)
-        test_cases = {"cases": test_cases}
 
-        self._ingest_data(self.RAW_CASE_TABLE, test_cases)
+        self._ingest_data(self.TEST_CASE_TABLE, test_cases)
 
     def _ingest_data(self, table, data):
         props = IngestionProperties(
