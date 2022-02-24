@@ -5,10 +5,9 @@ import logging
 
 def main():
     stage_files = sys.argv
-
+    print("YT test stage_files {}".format(stage_files))
     for file in stage_files:
         conditions = []
-
         with open(file, 'r') as f:
             file_contents = f.readlines()
             if not file_contents:
