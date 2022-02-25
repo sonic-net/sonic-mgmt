@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import inspect
 import json
 import os
 import re
@@ -158,7 +159,8 @@ def init_global_data():
 
 
 def report_error(m):
-    log_error("failure: {}".format(m))
+    log_error("failure: {}:{}: {}".format(inspect.stack()[1][1],
+        inspect.stack()[1][2], m))
     assert False, m
 
 
