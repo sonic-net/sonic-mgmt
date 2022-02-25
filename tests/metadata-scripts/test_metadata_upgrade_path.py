@@ -68,15 +68,12 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
     pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"\
             .format(metadata_scripts_path))
 
-    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-
     logger.info("Step 1 Copy the scripts to the DUT")
     duthost.command("mkdir /tmp/anpscripts")
     duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
 
     logger.info("perform a purge based on manifest.json to make sure it is correct")
-    if "SONiC-OS-20201231" in current_os_version:
-        duthost.command("python3 /tmp/anpscripts/tests/purge.py")
+    duthost.command("python /tmp/anpscripts/tests/purge.py")
 
     logger.info("Step 2 Copy the image to /tmp/")
     image_name = image_url.split("/")[-1]
