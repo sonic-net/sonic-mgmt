@@ -194,7 +194,8 @@ def get_port_related_data(is_mlnx, is_storage_backend):
         cable[local_port] = orig_config["CABLE_LENGTH|AZURE"]['value'][local_port]
 
         # "BUFFER_PG"
-        buffer_pg["{}|0".format(local_port)] = orig_config["BUFFER_PG|Ethernet64|0"]['value']
+        buffer_pg["{}|0".format(local_port)] = orig_config["BUFFER_PG|{}|0".format(
+            local_port)]['value']
 
         # "QUEUE"
         for i in range(7):
