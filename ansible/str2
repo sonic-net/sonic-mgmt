@@ -313,7 +313,6 @@ sonic_mlnx:
   hosts:
     str2-msn2700-spy-1:
       ansible_host: 10.3.146.66
-      hwsku: MSN2700
       model: MSN2700-CS2ROS
       serial: MT1826X04466
       base_mac: 50:6B:4B:93:96:00
@@ -331,7 +330,6 @@ sonic_mlnx:
         "0xfe": "0xBDAA1AFC"
     str2-msn2700-spy-2:
       ansible_host: 10.3.146.88
-      hwsku: MSN2700
       model: MSN2700-CS2ROS
       serial: MT1826X04469
       base_mac: 50:6B:4B:93:97:80
@@ -355,7 +353,6 @@ sonic_mlnx_3800:
   hosts:
     str2-sn3800-azd:
       ansible_host: 10.3.146.183
-      hwsku: MSN3800
       model: MSN3800-CS2FO
       serial: MT2002X14802
       base_mac: 1C:34:DA:17:9D:00
@@ -440,7 +437,6 @@ sonic_mlnx_3800_50:
   hosts:
     str2-sn3800-02:
       ansible_host: 10.3.146.232
-      hwsku: MSN3800
       model: MSN3800-CS2FO
       serial: MT2002X14827
       base_mac: 1C:34:DA:17:B6:00
