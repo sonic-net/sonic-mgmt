@@ -172,18 +172,18 @@ def bgp_speaker_tc1_rm_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range):
         delete_tmpfile(duthost, tmpfile)
 
 @pytest.mark.parametrize("ip_version", ["v4", "v6"])
-def test_bgp_speaker_tc1_test_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
+def test_bgp_speaker_tc1_test_config(duthost, lo_intf_ips, vlan_intf_ip_ranges, ip_version):
     """ Test suite for bgp speaker config for v4 and v6
     """
     lo_ip, lo_ipv6 = lo_intf_ips
     ip_range, ip_rangev6 = vlan_intf_ip_ranges
 
-    if "ip_version" == "v4":
+    if ip_version == "v4":
         lo_intf_ip = lo_ip
         vlan_intf_ip_range = ip_range
         bgp_speaker = BGPSPEAKER_V4
         dummy_ip_range = DUMMY_IP_RANGE_V4
-    elif "ip_version" == "v6":
+    elif ip_version == "v6":
         lo_intf_ip = lo_ipv6
         vlan_intf_ip_range = ip_rangev6
         bgp_speaker = BGPSPEAKER_V6
