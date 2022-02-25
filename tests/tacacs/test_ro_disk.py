@@ -125,10 +125,18 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         logger.debug("user={}".format(ro_user))
 
-        assert wait_until(600, 20, 0, chk_ssh_remote_run, localhost, dutip,
+        # Wait for 15 minutes
+        # Reason:
+        #   Monit does not start upon boot for 5 minutes.
+        #   Note: Monit invokes disk check every 5 cycles/minutes
+        #   We need to wait solid +10mins before concluding.
+        #         
+        assert wait_until(900, 20, 0, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
 
     finally:
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls -alrt /run/mount/")
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
