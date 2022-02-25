@@ -1039,6 +1039,7 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 tuple_list.append((a_dut, None, None))
     return tuple_list
 
+
 def generate_dut_backend_asics(request, duts_selected):
     dut_asic_list = []
 
@@ -1093,6 +1094,39 @@ def pytest_generate_tests(metafunc):
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
     # Enumerators for duts are mutually exclusive
     if "enum_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_dut_hostname(metafunc)
+        dut_fixture_name = "enum_dut_hostname"
+    elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_supervisor_hostname(metafunc)
+        dut_fixture_name = "enum_supervisor_dut_hostname"
+    elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_frontend_hostname(metafunc)
+        dut_fixture_name = "enum_frontend_dut_hostname"
+    elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
+            _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_hostname"
+    elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+
+    asics_selected = None
+    asic_fixture_name = None
+
+    if duts_selected is None:
+        tbname, tbinfo = get_tbinfo(metafunc)
+        duts_selected = [tbinfo["duts"][0]]
+
+    if "enum_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
+    elif "enum_frontend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_frontend_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND)
     elif "enum_backend_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_backend_asic_index"
@@ -1192,6 +1226,7 @@ def enum_rand_one_asic_index(request):
 def enum_dut_feature(request):
     return request.param
 
+@pytest.fixture(scope="module")
 def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
     duthost = duthosts[rand_one_dut_hostname]
     dut_hostname = duthost.hostname
@@ -1318,34 +1353,6 @@ def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):
             cmds.append('while [ $(show feature config mux | awk \'{print $2}\' | tail -n 1) != "enabled" ]; do sleep 1; done')
 
         # step 5
-        cmds.append(base_config_db_cmd.format(json.dumps(base_config_db)))
-
-        # step 2
-        cmds.append('sonic-cfggen -H --write-to-db')
-
-        # step 3 is optional and skipped here
-        # step 4
-        if is_dualtor:
-            mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-            all_ports = mg_facts['minigraph_ports'].keys()
-            downlinks = []
-            for vlan_info in mg_facts['minigraph_vlans'].values():
-                downlinks.extend(vlan_info['members'])
-            uplinks = [intf for intf in all_ports if intf not in downlinks]
-            extra_args = {
-                'is_dualtor': 'true',
-                'uplinks': uplinks,
-                'downlinks': downlinks
-            }
-        else:
-            extra_args = {}
-        cmds.append(l2_preset_cmd.format(hwsku, json.dumps(extra_args)))
-
-        # extra step needed to render the feature table correctly
-        if is_dualtor:
-            cmds.append('while [ $(show feature config mux | awk \'{print $2}\' | tail -n 1) != "enabled" ]; do sleep 1; done')
-
-        # step 5
         cmds.append('config save -y')
 
         # step 6
@@ -1403,3 +1410,39 @@ def get_reboot_cause(duthost):
     uptime_end = duthost.get_up_time()
     if not uptime_end == uptime_start:
         duthost.show_and_parse("show reboot-cause history")
+
+def collect_db_dump_on_duts(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        dut_file_path = "/tmp/db_dump"
+        docker_file_path = "./logs/db_dump"
+        db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+        db_dump_tarfile = "{}.tar.gz".format(dut_file_path)
+
+        # Collect DB config
+        dbs = set()
+        result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
+        db_config = json.loads(result['stdout'])
+        for db in db_config['DATABASES']:
+            db_id = db_config['DATABASES'][db]['id']
+            dbs.add(db_id)
+
+        # Collect DB dump
+        duthosts.file(path = db_dump_path, state="directory")
+        for i in dbs:
+            duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
+        duthosts.shell("tar czf {} {}".format(db_dump_tarfile, dut_file_path))
+        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
+
+        #remove dump file from dut
+        duthosts.shell("rm -rf {} {}".format(dut_file_path, db_dump_tarfile))
+
+@pytest.fixture(autouse=True)
+def collect_db_dump(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    yield
+    collect_db_dump_on_duts(request, duthosts)
