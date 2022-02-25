@@ -714,9 +714,16 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # Get supported speeds for interface
+        supported_speeds = duthost.get_supported_speeds(interface)
+        # Remove native speed from supported speeds
+        if supported_speeds != None:
+            supported_speeds.remove(native_speed)
+        # Set speed to configure
+        configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} 10000'.format(
-             ifmode,cli_ns_option, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
+             ifmode,cli_ns_option, test_intf, configure_speed))
 
         if out['rc'] != 0:
             pytest.fail()
@@ -728,7 +735,7 @@ class TestConfigInterface():
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
-        assert speed == '10000'
+        assert speed == configure_speed
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
