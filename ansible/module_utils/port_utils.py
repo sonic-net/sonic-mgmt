@@ -16,6 +16,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {} 
+    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O"]
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils  import load_db_config
@@ -26,7 +27,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map[port_data["alias"]] = port
             if "asic_port_name" in port_data:
                 port_alias_asic_map[port_data["asic_port_name"]] = port
-            if "index" in port_data:
+            if "index" in port_data and hwsku in HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG:
                 port_name_to_index_map[port] = int(port_data["index"])
     except ImportError:
         if hwsku == "Force10-S6000":
