@@ -31,7 +31,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
   skip:
     reason: "Not supported on broadcom after 201911 release and mellanox all releases"
     conditions:
-      - "(asic_type in ['broadcom'] and release in ['202012', 'master']) or (asic_type in ['mellanox'])"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox'])"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
