@@ -161,7 +161,7 @@ class Arista(object):
         portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
         sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
-        collect_lacppdu_time = False
+        self.collect_lacppdu_time = True
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -175,14 +175,12 @@ class Arista(object):
                 if cmd == 'cpu_down':
                     last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
                     self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
-                if cmd == 'cpu_up' or collect_lacppdu_time:
+                if (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
                     # control plane is back up, start polling for new lacp-pdu
                     last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
-                    if last_lacppdu_time_after_reboot != last_lacppdu_time_before_reboot:
+                    if int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
                         self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
-                        collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
-                    else: # Until post-reboot lacp-pdu is not received, keep polling for it
-                        collect_lacppdu_time = True
+                        self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
 
             cur_time = time.time()
             info = {}
