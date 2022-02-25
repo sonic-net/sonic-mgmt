@@ -15,7 +15,7 @@
   become: yes
   ignore_errors: true
 
-- name: Remove arista disk image for {{ vm_name }}
+- name: Remove {{ vm_type }} disk image for {{ vm_name }}
   file: path={{ disk_image }} state=absent
 
 - name: Copy arista disk image for {{ vm_name }}

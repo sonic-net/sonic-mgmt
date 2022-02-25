@@ -9,6 +9,22 @@ cacl/test_cacl_application.py::test_cacl_application:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 #######################################
+#####            copp             #####
+#######################################
+copp/test_copp.py::TestCOPP::test_add_new_trap:
+  xfail:
+    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet, a 'strict' param will remind us to remove this mark condition by setting 'xpass' as 'fail'"
+    strict: True
+    conditions:
+      - "release in ['202012']"
+
+copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
+  skip:
+    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
+    conditions:
+      - "release in ['202012']"
+
+#######################################
 #####            decap            #####
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
@@ -27,7 +43,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-
+      
 #######################################
 #####           dualtor           #####
 #######################################
@@ -128,6 +144,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # traffic generator to generate pause frames, skipping this here.
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
+
+qos/test_buffer_traditional.py:
+  skip:
+    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
 
 qos/test_qos_sai.py:
   skip:
@@ -232,3 +254,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           vxlan             #####
+#######################################
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
+  skip:
+    reason: "This test can only run on 4600c and 8102"
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
