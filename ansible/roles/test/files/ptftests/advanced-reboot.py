@@ -1319,9 +1319,11 @@ class ReloadTest(BaseTest):
         lacp_pdu_times = self.lacp_pdu_times[ip]
         lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
         lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
+        self.log('lacp_pdu_down_times: IP:{}: {}'.format(ip, lacp_pdu_down_times))
+        self.log('lacp_pdu_up_times: IP:{}: {}'.format(ip, lacp_pdu_up_times))
         lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
             lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
-        lacp_pdu_after_reboot = float(lacp_pdu_up_times[-1]) if\
+        lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
             lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
         if 'warm-reboot' in self.reboot_type and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
             lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
