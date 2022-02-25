@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202012
     always: true
 
 variables:
@@ -43,7 +43,7 @@ parameters:
     type: string
     default: '-I "platform_tests"'
     displayName: Testbed specific
-  
+
   - name: SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
