@@ -547,7 +547,6 @@ sonic_mlnx_3800:
   hosts:
     str-sn3800-01:
       ansible_host: 10.3.146.62
-      hwsku: MSN3800
       model: MSN3800-CS2RO
       serial: MT1937X00614
       base_mac: B8:59:9F:A9:60:00
