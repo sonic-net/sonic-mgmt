@@ -14,6 +14,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_
 
 import tests.arp.test_wr_arp as test_wr_arp
 
+from tests.common.config_reload import config_reload
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -24,6 +26,14 @@ pytestmark = [
 
 vlan_tagging_mode = ""
 
+@pytest.fixture(scope='module', autouse=True)
+def load_minigraph_after_test(rand_selected_dut):
+    """
+    Restore config_db as vnet with wram-reboot will write testing config into
+    config_db.json
+    """
+    yield
+    config_reload(rand_selected_dut, config_source='minigraph')
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     """
