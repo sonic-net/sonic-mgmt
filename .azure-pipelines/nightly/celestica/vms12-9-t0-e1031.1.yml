@@ -71,7 +71,7 @@ stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      IMAGE_URL: "http://100.127.20.23/pipelines/Networking-acs-buildimage-Official/broadcom/internal-202012/tagged/sonic-broadcom-slim-20201231.50.bin"
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
