@@ -13,6 +13,7 @@
     - [Check the Data plane](#check-the-data-plane)
     - [Refresh SAK](#refresh-sak)
     - [MACsec Key rotation, Primary/Fallback CAK](#macsec-key-rotation-primaryfallback-cak)
+    - [MACsec Counters](#macsec-counters)
   - [Testcase : Macsec feature interop with other protocols](#testcase--macsec-feature-interop-with-other-protocols)
     - [Verify Port Channel is created with macsec configuration](#verify-port-channel-is-created-with-macsec-configuration)
     - [Verify LLDP neighbors are created with macsec configuration](#verify-lldp-neighbors-are-created-with-macsec-configuration)
@@ -95,7 +96,7 @@ About the detail to set the testbed, please refer the doc: https://github.com/Az
 | Field                 |                                                              Value                                                              |
 | --------------------- | :-----------------------------------------------------------------------------------------------------------------------------: |
 | priority              |                                                  DUT(*64*) VM0(*63*) VM1(*65*)                                                  |
-| cipher suite          |                                                   *GCM-AES-128*/*GCM-AES-256*                                                   |
+| cipher suite          |                                 *GCM-AES-128*/*GCM-AES-256*/*GCM-AES-XPN-128*/*GCM-AES-XPN-256*                                 |
 | CKN                   |                               *6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435*                                |
 | CAK                   | GCM-AES-128(*0123456789ABCDEF0123456789ABCDEF*)/GCM-AES-256(*0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF*) |
 | policy                |                                                           *security*                                                            |
@@ -291,15 +292,21 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
     2. Update the next_pn of egress SA to `threshold - 100`.
     3. Ping VM0 `sudo ping VM0_ipv4_address -c 200 -i 0.1` to simulate continuous traffic.
     4. Check whether the SAK was changed. If no, sleep 6 seconds and check again until waiting more 10 times(60 seconds) and this test fail. If yes, this test pass.
-    5. Expect no packet loss on the ping result.
+    5. Check whether the new AN is next expected AN.
+    6. Expect no packet loss on the ping result.
 
 - Periodic Rekey, this testcase is only available if the field *rekey_period* in configuration is more than 0.
     1. Record the SAK in APP DB.
     2. Ping VM0 `sudo ping VM0_ipv4_address -w 120 -q -i 0.1` to simulate continuous traffic.
     3. Check whether the SAK was changed.
-    4. Expect no packet loss on the ping result.
+    4. Check whether the new AN is next expected AN.
+    5. Expect no packet loss on the ping result.
 
 #### MACsec Key rotation, Primary/Fallback CAK
+
+   TODO
+
+#### MACsec Counters
 
    TODO
 
