@@ -148,44 +148,38 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # GIVEN a lag topology, keep sending packets between 2 port channels
     # WHEN delete/add different members of a port channel
     # THEN no packets shall loss
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    if len(mg_facts["minigraph_portchannel_interfaces"]) < 2:
+
+    if len(dut_mg_facts["minigraph_portchannel_interfaces"]) < 2:
         pytest.skip("Skip test due to there isn't enough port channel exists in current topology.")
 
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"]) for pc in
-                       mg_facts["minigraph_portchannel_interfaces"]
+                       dut_mg_facts["minigraph_portchannel_interfaces"]
                        if
                        ipaddress.ip_address(pc['peer_addr']).version == 4]
     # generate pc tuples, fill in members,
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
-    pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
-           peer_ip_pc_pair
-           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
-
-    # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
-    if duthost.is_multi_asic:
-        # dut is mutliasic, check the namespace of the asichost against the namespace of the first port channel member of a portchannel with 2 or more ports
-        out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
-           peer_ip_pc_pair
-           if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2 and
-                   mg_facts["minigraph_neighbors"][mg_facts["minigraph_portchannels"][pair[2]]["members"][0]]['namespace'] == asichost.namespace]
-    else:
-        # dut is single asic, pick any portchannel with more than 2 ports.
-        out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
-                   peer_ip_pc_pair
-                   if len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
+    pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+           peer_ip_pc_pair]
 
     if len(pcs) < 2:
         pytest.skip(
             "Skip test due to there is no enough port channel with at least 2 members exists in current topology.")
 
+    # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
+    out_pcs = [(pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+           peer_ip_pc_pair
+           if pair[2] in mg_facts['minigraph_portchannels'] and len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
+
     if len(out_pcs) < 1:
-        pytest.skip("Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
+        pytest.skip(
+            "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
     # Select out pc from the port channels that are on the same asic as asichost
     out_pc = random.sample(out_pcs, k=1)[0]
     selected_pcs = random.sample(pcs, k=2)
@@ -194,7 +188,7 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # Make sure the picked in_pc is not the same as the selected out_pc
     if in_pc[2] == out_pc[2]:
         in_pc = selected_pcs[1]
-
+    
     # use first port of in_pc as input port
     # all ports in out_pc will be output/forward ports
     pc, pc_members = out_pc[2], out_pc[3]
