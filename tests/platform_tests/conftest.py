@@ -269,7 +269,15 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                 state_name = state.split("|")[0].strip()
                 reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
                 if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=reboot_time)
+                    if "FDB_EVENT_OTHER_MAC_EXPIRY" in state_name or "FDB_EVENT_SCAPY_MAC_EXPIRY" in state_name:
+                        fdb_aging_disable_start = result.get("time_span", {}).get("FDB_AGING_DISABLE", {})\
+                            .get("timestamp", {}).get("Start")
+                        if not fdb_aging_disable_start:
+                            break
+                        first_after_offset = fdb_aging_disable_start
+                    else:
+                        first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=first_after_offset)
                     offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, sai_redis_state_times, first_after_offset=reboot_time)
