@@ -19,6 +19,7 @@ REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN  = "Unknown"
+REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -81,8 +82,13 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Unknown",
         "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_THERMAL_OVERLOAD: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Thermal Overload",
+        "test_reboot_cause_only": False
     }
-
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
