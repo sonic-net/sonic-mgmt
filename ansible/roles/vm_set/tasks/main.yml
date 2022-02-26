@@ -111,6 +111,11 @@
     pip_executable: pip3
   when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
 
+- name: remove old python packages
+  pip: name=docker-py state=absent executable={{ pip_executable }}
+  environment: "{{ proxy_env | default({}) }}"
+  ignore_errors: yes
+  
 - include_tasks: docker.yml
   when: package_installation|bool
 
