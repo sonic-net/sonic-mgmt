@@ -24,11 +24,6 @@ pytestmark = [
 ]
 
 
-def config_all_portchannel_members(portchannel_lists, action):
-    for host, portchannel_list in portchannel_lists.items():
-        config_portchannel_members(host, portchannel_list, action)
-
-
 def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
     macsec_profile = {
         "priority": priority,

@@ -36,15 +36,6 @@ def global_cmd(duthost, nbrhosts, cmd):
     pool.join()
 
 
-def recover_configuration(duthost, nbrhosts):
-    pool = ThreadPool(1 + len(nbrhosts))
-    pool.apply_async(config_reload, args=(duthost, "minigraph"))
-    for nbr in nbrhosts.values():
-        pool.apply_async(config_reload, args=(nbr["host"], "config_db"))
-    pool.close()
-    pool.join()
-
-
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
