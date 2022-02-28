@@ -28,12 +28,7 @@ PENDING_PN_EXHAUSTION = 0x00000000C0000000
 PENDING_XPN_EXHAUSTION = 0xC000000000000000
 
 
-def config_all_portchannel_members(portchannel_lists, action):
-    for host, portchannel_list in portchannel_lists.items():
-        config_portchannel_members(host, portchannel_list, action)
-
-
-def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
+def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
     macsec_profile = {
         "priority": priority,
         "cipher_suite": cipher_suite,

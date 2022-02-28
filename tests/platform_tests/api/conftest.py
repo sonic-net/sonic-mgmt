@@ -24,7 +24,8 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
                              module_ignore_errors=True)
     if 'exception' in res:
         # TODO: Remove this check once we no longer need to support Python 2
-        if request.cls.__name__ == "TestSfpApi" and duthost.facts.get("asic_type") == "mellanox":
+        if request.cls.__name__ == "TestSfpApi" and duthost.facts.get("asic_type") == "mellanox" \
+                and duthost.sonic_release in ['202012', '202106']:
             # On Mellanox platform, the SFP APIs are not migrated to python3 yet,
             # thus we have to make it as an exception here.
             py3_platform_api_available = False
