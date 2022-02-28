@@ -21,7 +21,7 @@ stages:
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -36,7 +36,7 @@ stages:
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -73,7 +73,7 @@ stages:
   - job:
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
