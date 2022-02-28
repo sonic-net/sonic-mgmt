@@ -368,7 +368,7 @@ class TestControlPlane():
                 check_wpa_supplicant_process(duthost, port_name)
                 check_wpa_supplicant_process(nbr["host"], nbr["port"])
             return True
-        assert wait_until(300, 1, 1, lambda: _test_wpa_supplicant_processes())
+        assert wait_until(300, 1, 1, _test_wpa_supplicant_processes)
 
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_appl_db():
@@ -376,7 +376,7 @@ class TestControlPlane():
                 check_appl_db(duthost, port_name, nbr["host"],
                             nbr["port"], policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 6, 12, lambda: _test_appl_db())
+        assert wait_until(300, 6, 12, _test_appl_db)
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_mka_session():
@@ -401,7 +401,7 @@ class TestControlPlane():
                                 nbr_mka_session[nbr_macsec_port], nbr_sci,
                                 policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 1, 1, lambda: _test_mka_session())
+        assert wait_until(300, 1, 1, _test_mka_session)
 
 
 def create_pkt(eth_src, eth_dst, ip_src, ip_dst, payload=None):
