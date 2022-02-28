@@ -40,6 +40,7 @@ class FanoutHost(object):
             # Use eos host if the os type is unknown
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
+        self.host_vars = self.host.host_vars
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)

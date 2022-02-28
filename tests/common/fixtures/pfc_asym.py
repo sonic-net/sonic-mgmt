@@ -2,6 +2,8 @@ import pytest
 import os
 import time
 
+from natsort import natsorted
+
 from netaddr import IPAddress
 from tests.common.helpers.generators import generate_ips
 
@@ -32,13 +34,6 @@ def get_fanout(fanout_graph_facts, setup):
 
 
 @pytest.fixture(scope="module")
-def ansible_facts(duthosts, rand_one_dut_hostname):
-    """ Ansible facts fixture """
-    duthost = duthosts[rand_one_dut_hostname]
-    yield duthost.setup()['ansible_facts']
-
-
-@pytest.fixture(scope="module")
 def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     """ DUT minigraph facts fixture """
     duthost = duthosts[rand_one_dut_hostname]
@@ -64,7 +59,7 @@ def deploy_pfc_gen(fanouthosts, fanout_graph_facts, setup):
 
 
 @pytest.fixture(scope="function")
-def pfc_storm_template(ansible_facts, fanout_graph_facts, setup):
+def pfc_storm_template(duthost, fanout_graph_facts, setup):
     """
     Compose dictionary which items will be used to start/stop PFC generator on Fanout switch by 'pfc_storm_runner' fixture.
     Dictionary values depends on fanout HWSKU (MLNX-OS, Arista or others)
@@ -79,7 +74,7 @@ def pfc_storm_template(ansible_facts, fanout_graph_facts, setup):
             "pfc_queue_index": PFC_QUEUE_INDEX,
             "pfc_frames_number": PFC_FRAMES_NUMBER,
             "pfc_fanout_interface": "",
-            "ansible_eth0_ipv4_addr": ansible_facts["ansible_eth0"]["ipv4"]["address"],
+            "ansible_eth0_ipv4_addr": duthost.mgmt_ip,
             "pfc_asym": True
             }
     }
@@ -121,8 +116,8 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
                 if p:
                     plist.append(p)
             params["pfc_fanout_interface"] += ",".join([key for key in plist])
-            fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
-                **params)
+            fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, \
+                inventory=fanout_host.host_vars['inventory_file'], **params)
             time.sleep(5)
     fanout_host_name = get_fanout(fanout_graph_facts, setup)
     for host_name, fanout_host in fanouthosts.items():
@@ -134,8 +129,8 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
 
     yield StormRunner()
     params["template_path"] = pfc_storm_template["template"]["pfc_storm_stop"]
-    fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
-        **params)
+    fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, \
+        inventory=fanout_host.host_vars['inventory_file'], **params)
     time.sleep(5)
 
 
@@ -177,7 +172,7 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minigraph_facts, request):
+def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -233,12 +228,11 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minig
             "lossless_priorities": None,
             "lossy_priorities": None
             },
-        "server_ports_oids": [],
-        "fanout_inventory": request.config.getoption("--fanout_inventory")
+        "server_ports_oids": []
     }
 
     server_ports_num = request.config.getoption("--server_ports_num")
-    setup = Setup(duthost, ptfhost, setup_params, ansible_facts, minigraph_facts, server_ports_num)
+    setup = Setup(duthost, ptfhost, setup_params, minigraph_facts, server_ports_num)
     setup.generate_setup()
 
     yield setup_params
@@ -251,11 +245,10 @@ class Setup(object):
     """
     Class defines functionality to fill in 'setup_params' variable defined in 'setup' fixture.
     """
-    def __init__(self, duthost, ptfhost, setup_params, ansible_facts, minigraph_facts, use_port_num):
+    def __init__(self, duthost, ptfhost, setup_params, minigraph_facts, use_port_num):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.mg_facts = minigraph_facts
-        self.ansible_facts = ansible_facts
         self.vars = setup_params
         if not 0 <= use_port_num <= len(self.mg_facts["minigraph_vlans"][self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"]):
             raise Exception("Incorrect number specificed for used server ports: {}".format(use_port_num))
@@ -297,7 +290,7 @@ class Setup(object):
             port_info["oid"] = sai_redis_oid
             self.vars["ptf_test_params"]["server_ports"].append(port_info)
 
-        self.vars["ptf_test_params"]["server"] = self.ansible_facts["ansible_hostname"]
+        self.vars["ptf_test_params"]["server"] = self.duthost.hostname
 
     def generate_non_server_ports(self):
         """ Generate list of port parameters which are connected to VMs """
@@ -327,15 +320,20 @@ class Setup(object):
 
     def prepare_ptf_port_map(self):
         """ Copy 'ptf_portmap' file which is defined in inventory to the PTF host """
-        ptf_portmap = None
-        for item in self.duthost.host.options["inventory_manager"].groups["sonic_latest"].hosts:
-            if item.name == self.duthost.hostname:
-                ptf_portmap = os.path.join(ANSIBLE_ROOT, item.vars["ptf_portmap"])
-                self.ptfhost.copy(src=ptf_portmap, dest=OS_ROOT_DIR)
-                self.vars["ptf_test_params"]["port_map_file"] = os.path.basename(ptf_portmap)
-                break
+
+        duthost_vars = self.duthost.host.options["inventory_manager"].get_host(self.duthost.hostname).vars
+        ptf_portmap_var = duthost_vars.get('ptf_portmap', None)
+        if ptf_portmap_var:
+            ptf_portmap = os.path.join(ANSIBLE_ROOT, ptf_portmap_var)
+            self.ptfhost.copy(src=ptf_portmap, dest=OS_ROOT_DIR)
+            self.vars["ptf_test_params"]["port_map_file"] = os.path.basename(ptf_portmap)
         else:
-            pytest.fail("Unable to find 'ptf_portmap' variable in inventory file for {} DUT".format(self.duthost.hostname))
+            PTF_PORTMAP_FILE = 'ptf_portmap.ini'
+            port_indices = self.mg_facts['minigraph_port_indices']
+            port_names = natsorted(port_indices.keys())
+            portmap = ['{}@{}'.format(port_indices[port_name], port_name) for port_name in port_names]
+            self.ptfhost.copy(content='\n'.join(portmap), dest=os.path.join(OS_ROOT_DIR, PTF_PORTMAP_FILE))
+            self.vars["ptf_test_params"]["port_map_file"] = PTF_PORTMAP_FILE
 
     def generate_priority(self):
         """ Get configuration of lossless and lossy priorities """

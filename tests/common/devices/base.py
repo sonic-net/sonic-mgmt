@@ -37,7 +37,8 @@ class AnsibleHostBase(object):
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
-            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
+            self.host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
+            self.mgmt_ip = self.host_vars["ansible_host"]
         self.hostname = hostname
 
     def __getattr__(self, module_name):

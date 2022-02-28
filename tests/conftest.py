@@ -92,7 +92,6 @@ def pytest_addoption(parser):
     # pfc_asym options         #
     ############################
     parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
-    parser.addoption("--fanout_inventory", action="store", default="lab", help="Inventory with defined fanout hosts")
 
     ############################
     # test_techsupport options #
