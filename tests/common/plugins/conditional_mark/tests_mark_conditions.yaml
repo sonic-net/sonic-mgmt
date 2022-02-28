@@ -43,7 +43,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-      
+
 #######################################
 #####           dualtor           #####
 #######################################
@@ -121,6 +121,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
+
+#######################################
+#####         pfc_asym            #####
+#######################################
+pfc_asym/test_pfc_asym.py:
+  skip:
+    reason: 'pfc_asym test is only supported on Mellanox platform'
+    conditions:
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####         pfcwd               #####
