@@ -62,7 +62,7 @@ SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1"),
+    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
     pytest.mark.sanity_check(post_check=True)
 ]
 
@@ -439,15 +439,15 @@ def get_t2_ports(duthost, minigraph_data):
     '''
     list_of_portchannels_to_T2 = get_portchannels_to_neighbors(duthost, "T2", minigraph_data)
     list_of_interfaces = []
-    for pc_name in list_of_portchannels_to_T2:
-        list_of_interfaces.extend(list_of_portchannels_to_T2[pc_name])
+    if list_of_portchannels_to_T2:
+        for pc_name in list_of_portchannels_to_T2:
+            list_of_interfaces.extend(list_of_portchannels_to_T2[pc_name])
+    else:
+        list_of_interfaces = get_ethernet_to_neighbors("T2", minigraph_data)
 
-    ret_list = [int(x[8:]) for x in list_of_interfaces]
-    if ret_list:
-        return ret_list
-
-    list_of_ethernet_to_T2 = get_ethernet_to_neighbors("T2", minigraph_data)
-    ret_list.extend([int(x[8:]) for x in list_of_ethernet_to_T2])
+    ret_list = []
+    for iface in list_of_interfaces:
+        ret_list.append(minigraph_data["minigraph_ptf_indices"][iface])
     return ret_list
 
 def bgp_established(duthost):
@@ -575,10 +575,11 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
         encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
         set_routes_in_dut(data['duthost'], data[encap_type]['dest_to_nh_map'], payload_version, "DEL")
 
-        for intf in data[encap_type]['vnet_intf_map'].keys():
-            for entry in minigraph_facts['minigraph_interfaces'] + minigraph_facts['minigraph_portchannel_interfaces']:
-                if intf == entry['attachto']:
-                    data['duthost'].shell("sudo config interface ip add {} {}".format(intf, entry['subnet']))
+        for intf in data[encap_type]['selected_interfaces']:
+            redis_string = "INTERFACE"
+            if "PortChannel" in intf > 0:
+                redis_string = "PORTCHANNEL_INTERFACE"
+            data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
 
         for vnet in data[encap_type]['vnet_vni_map'].keys():
             data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))

@@ -253,7 +253,7 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = info_dict.keys()
                     
                     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-                    if duthost.sonic_release == "202012":
+                    if duthost.sonic_release == "202012" or duthost.sonic_release == "202111":
                         EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
                             self.EXPECTED_XCVR_INFO_KEYS]
                         self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS

@@ -4,7 +4,7 @@ import re
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.redis import AsicDbCli, AppDbCli, VoqDbCli
+from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli
 
 TMP_PC = 'PortChannel999'
 
@@ -120,7 +120,7 @@ def verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic):
 def verify_lag_in_app_db(asic, deleted=False):
     """
     Verifies lag in ASIC APP DB.
-    It runs the command e.g. 'redis-cli -n 0 --raw keys "*LAG_TABLE*"'
+    It runs the command e.g. 'sonic-db-cli APPL_DB keys "*LAG_TABLE*"'
     Args:
         asic<obj>: asic
         deleted<bool>: False if lag is not deleted
@@ -230,7 +230,7 @@ def verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, lag_id):
 def verify_lag_member_in_app_db(asic, pc_members, deleted=False):
     """"
     Verifies lag member in asic app db
-    cmd = redis-cli -d 0 KEYS "*LAG_MEMBER_TABLE*"
+    cmd = sonic-db-cli APPL_DB KEYS "*LAG_MEMBER_TABLE*"
     """
     appdb = AppDbCli(asic)
     app_db_lag_member_list = appdb.get_app_db_lag_member_list()
@@ -317,8 +317,7 @@ def verify_lag_member_in_remote_asic_db(remote_dut, lag_id, pc_members, deleted=
 def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
     """
     verifies lag members for a lag exist in chassis db
-    cmd = 'redis-cli -h 10.0.5.16 -p 6380 -n 12 KEYS
-     "*SYSTEM_LAG_MEMBER_TABLE*|PortChannel0051*|Ethernet*"'
+    cmd = 'sonic-db-cli CHASSIS_APP_DB KEYS "*SYSTEM_LAG_MEMBER_TABLE*|PortChannel0051*|Ethernet*"'
     """
     for sup in duthosts.supervisor_nodes:
         voqdb = VoqDbCli(sup)
@@ -356,7 +355,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
 def is_lag_in_app_db(asic):
     """
     Returnes True if lag in app db else False
-    It runs the command e.g. 'redis-cli -n 0 --raw keys "*LAG_TABLE*"'
+    It runs the command e.g. 'sonic-db-cli APPL_DB keys "*LAG_TABLE*"'
     Args:
         asic<obj>: asic
     """

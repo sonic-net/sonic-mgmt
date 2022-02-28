@@ -133,6 +133,17 @@ class EosHost(AnsibleHostBase):
         logging.info('No shut BGP [%s]' % asn)
         return out
 
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+
+        out = self.eos_config(
+            lines=['no neighbor {} shutdown'.format(neighbor) for neighbor in neighbors],
+            parents=['router bgp {}'.format(asn)]
+        )
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return out
+
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state

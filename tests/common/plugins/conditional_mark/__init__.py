@@ -18,7 +18,7 @@ from .issue import check_issues
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions.yaml'
+DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 
 
 def pytest_addoption(parser):
@@ -73,9 +73,10 @@ def load_conditions(session):
         pytest.fail('There is no conditions files')
 
     try:
+        logger.debug('Trying to load test mark conditions files: {}'.format(conditions_files))
         for conditions_file in conditions_files:
             with open(conditions_file) as f:
-                logger.debug('Loaded tests skip conditions from {}'.format(conditions_files))
+                logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
                 for key, value in conditions.items():
                     conditions_list.append({key: value})
