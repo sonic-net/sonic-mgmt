@@ -6,7 +6,6 @@ from multiprocessing.pool import ThreadPool
 
 import natsort
 
-from tests.common import config_reload
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)

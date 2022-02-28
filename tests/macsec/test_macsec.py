@@ -144,12 +144,35 @@ QUERY_MACSEC_INGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE
 QUERY_MACSEC_EGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
 
 
+def get_appl_db(host, host_port_name, peer, peer_port_name):
+    port_table = sonic_db_cli(
+        host, QUERY_MACSEC_PORT.format(host_port_name))
+    host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
+    peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
+    egress_sc_table = sonic_db_cli(
+        host, QUERY_MACSEC_EGRESS_SC.format(host_port_name, host_sci))
+    ingress_sc_table = sonic_db_cli(
+        host, QUERY_MACSEC_INGRESS_SC.format(host_port_name, peer_sci))
+    egress_sa_table = {}
+    ingress_sa_table = {}
+    for an in range(4):
+        sa_table = sonic_db_cli(host, QUERY_MACSEC_EGRESS_SA.format(
+            host_port_name, host_sci, an))
+        if sa_table:
+            egress_sa_table[an] = sa_table
+        sa_table = sonic_db_cli(host, QUERY_MACSEC_INGRESS_SA.format(
+            host_port_name, peer_sci, an))
+        if sa_table:
+            ingress_sa_table[an] = sa_table
+    return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
+
+
 def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
     # Check MACsec port table
-    dut_port_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_PORT.format(dut_ctrl_port_name))
-    nbr_port_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_PORT.format(nbr_ctrl_port_name))
+    dut_port_table, dut_egress_sc_table, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
+        duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name)
+    nbr_port_table, nbr_egress_sc_table, nbr_ingress_sc_table, nbr_egress_sa_table, nbr_ingress_sa_table = get_appl_db(
+        nbrhost, nbr_ctrl_port_name, duthost, dut_ctrl_port_name)
     assert dut_port_table and nbr_port_table
     for port_table in (dut_port_table, nbr_port_table):
         assert port_table["enable"] == "true"
@@ -162,42 +185,10 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
         assert port_table["send_sci"] == send_sci
 
     # Check MACsec SC table
-    dut_sci = get_sci(duthost.get_dut_iface_mac(dut_ctrl_port_name))
-    nbr_sci = get_sci(nbrhost.get_dut_iface_mac(nbr_ctrl_port_name))
-    dut_ingress_sc_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_INGRESS_SC.format(dut_ctrl_port_name, nbr_sci))
-    nbr_ingress_sc_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_INGRESS_SC.format(nbr_ctrl_port_name, dut_sci))
     assert dut_ingress_sc_table and nbr_ingress_sc_table
-    dut_egress_sc_table = sonic_db_cli(
-        duthost, QUERY_MACSEC_EGRESS_SC.format(dut_ctrl_port_name, dut_sci))
-    nbr_egress_sc_table = sonic_db_cli(
-        nbrhost, QUERY_MACSEC_EGRESS_SC.format(nbr_ctrl_port_name, nbr_sci))
     assert dut_egress_sc_table and nbr_egress_sc_table
 
     # CHeck MACsec SA Table
-    dut_ingress_sa_table = {}
-    nbr_ingress_sa_table = {}
-    for an in range(4):
-        sa_table = sonic_db_cli(duthost, QUERY_MACSEC_INGRESS_SA.format(
-            dut_ctrl_port_name, nbr_sci, an))
-        if sa_table:
-            dut_ingress_sa_table[an] = sa_table
-        sa_table = sonic_db_cli(nbrhost, QUERY_MACSEC_INGRESS_SA.format(
-            nbr_ctrl_port_name, dut_sci, an))
-        if sa_table:
-            nbr_ingress_sa_table[an] = sa_table
-    dut_egress_sa_table = {}
-    nbr_egress_sa_table = {}
-    for an in range(4):
-        sa_table = sonic_db_cli(duthost, QUERY_MACSEC_EGRESS_SA.format(
-            dut_ctrl_port_name, dut_sci, an))
-        if sa_table:
-            dut_egress_sa_table[an] = sa_table
-        sa_table = sonic_db_cli(nbrhost, QUERY_MACSEC_EGRESS_SA.format(
-            nbr_ctrl_port_name, nbr_sci, an))
-        if sa_table:
-            nbr_egress_sa_table[an] = sa_table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
     assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
@@ -368,7 +359,7 @@ class TestControlPlane():
                 check_wpa_supplicant_process(duthost, port_name)
                 check_wpa_supplicant_process(nbr["host"], nbr["port"])
             return True
-        assert wait_until(300, 1, 1, lambda: _test_wpa_supplicant_processes())
+        assert wait_until(300, 1, 1, _test_wpa_supplicant_processes)
 
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_appl_db():
@@ -376,7 +367,7 @@ class TestControlPlane():
                 check_appl_db(duthost, port_name, nbr["host"],
                             nbr["port"], policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 6, 12, lambda: _test_appl_db())
+        assert wait_until(300, 6, 12, _test_appl_db)
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_mka_session():
@@ -401,7 +392,7 @@ class TestControlPlane():
                                 nbr_mka_session[nbr_macsec_port], nbr_sci,
                                 policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 1, 1, lambda: _test_mka_session())
+        assert wait_until(300, 1, 1, _test_mka_session)
 
 
 def create_pkt(eth_src, eth_dst, ip_src, ip_dst, payload=None):
