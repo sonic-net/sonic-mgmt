@@ -256,8 +256,14 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "build_version <= '20201231.44'"
 
 #######################################
-#####           vxlan             #####
+#####           VxLAN             #####
 #######################################
+vxlan/test_vxlan_ecmp.py:
+  skip:
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
   skip:
     reason: "This test can only run on 4600c and 8102"
