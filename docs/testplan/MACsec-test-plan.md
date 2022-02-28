@@ -124,16 +124,18 @@ This testcase covers the macsec/MKA protocol functionality
 - Check the process, `wpa_supplicant`, for the target port is running in the devices.
 - Check APP DB, Check the following fields in MACsec port table are consistent with configuration
 
-    | Config DB Field | Config DB Value |  App DB Field  | APP DB Value |
-    | :-------------: | :-------------: | :------------: | :----------: |
-    |                 |                 |     enable     |     true     |
-    |  cipher_suite   |   GCM-AES-128   |  cipher_suite  | GCM-AES-128  |
-    |  cipher_suite   |   GCM-AES-256   |  cipher_suite  | GCM-AES-256  |
-    |                 |                 | enable_protect |     true     |
-    |     policy      |    security     | enable_encrypt |     true     |
-    |     policy      | integrity_only  | enable_encrypt |    false     |
-    |    send_sci     |      true       |    send_sci    |     true     |
-    |    send_sci     |      false      |    send_sci    |    false     |
+    | Config DB Field | Config DB Value |  App DB Field  |  APP DB Value   |
+    | :-------------: | :-------------: | :------------: | :-------------: |
+    |                 |                 |     enable     |      true       |
+    |  cipher_suite   |   GCM-AES-128   |  cipher_suite  |   GCM-AES-128   |
+    |  cipher_suite   |   GCM-AES-256   |  cipher_suite  |   GCM-AES-256   |
+    |  cipher_suite   | GCM-AES-XPN-128 |  cipher_suite  | GCM-AES-XPN-128 |
+    |  cipher_suite   | GCM-AES-XPN-256 |  cipher_suite  | GCM-AES-XPN-256 |
+    |                 |                 | enable_protect |      true       |
+    |     policy      |    security     | enable_encrypt |      true       |
+    |     policy      | integrity_only  | enable_encrypt |      false      |
+    |    send_sci     |      true       |    send_sci    |      true       |
+    |    send_sci     |      false      |    send_sci    |      false      |
 
 - Check the following fields in MACsec SC table and MACsec SA table are consistent
 
@@ -144,10 +146,10 @@ This testcase covers the macsec/MKA protocol functionality
 
 - Check MKA session
 
-    1. Get the MKA session by `ip macsec show`
+    1. Get the MKA session
+       - In the virtual SONiC switch: `ip macsec show`
+       - In the physical SONiC switch: `show macsec` (SONiC CLI)
     2. Check the MACsec session is consistent with configuration.
-
-  Note: This checking is only when DUT is SONiC virtual switch to verify the implementation of virtual SAI. If the neighbor devices(VM0 and VM1) are SONiC virtual switch, do this on the neighbor devices too.
 
 #### Check the Data plane
 
