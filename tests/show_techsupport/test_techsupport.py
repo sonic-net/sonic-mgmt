@@ -264,9 +264,7 @@ def execute_command(duthost, since):
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    opt = ""
-    if duthost.sonic_release not in ["201811", "201911"]:
-        opt = "-r"
+    opt = "-r" if duthost.sonic_release not in ["201811", "201911"] else ""
     result = duthost.command(
         "show techsupport {} --since={}".format(opt, '"' + since + '"'),
         module_ignore_errors=True
