@@ -145,7 +145,7 @@ def find_links_from_nbr(duthost, tbinfo, nbrhosts):
             return
         port = mg_facts["minigraph_neighbors"][interface]["port"]
         links[interface] = {
-            "name": neighbor,
+            "name": neighbor["name"],
             "host": nbrhosts[neighbor["name"]]["host"],
             "port": port
         }
@@ -165,7 +165,9 @@ def ctrl_links(duthost, tbinfo, nbrhosts):
 
 @pytest.fixture(scope="module")
 def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
-    unctrl_nbr_names = set(nbrhosts.keys()) - set(ctrl_links.keys())
+    unctrl_nbr_names = set(nbrhosts.keys())
+    for _, nbr in ctrl_links.items():
+        unctrl_nbr_names.remove(nbr["name"])
     logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)

@@ -87,6 +87,15 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         i += 1
 
 
+def startup_all_ctrl_links(ctrl_links):
+    # The ctrl links may be shutdowned by unexpected exit on the TestFaultHandling
+    # So, startup all ctrl links
+    for _, nbr in ctrl_links.items():
+        nbr_eth_port = get_eth_ifname(
+            nbr["host"], nbr["port"])
+        nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
           primary_cak, primary_ckn, policy, send_sci, request):
@@ -95,6 +104,7 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
     all_links = {}
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
+    startup_all_ctrl_links(ctrl_links)
     cleanup_macsec_configuration(duthost, all_links, profile_name)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
@@ -286,7 +296,7 @@ def get_mka_session(host):
     return mka_session
 
 
-def get_macsec_infname(host, port_name):
+def get_all_ifnames(host):
     cmd = "ls /sys/class/net/"
     output = host.command(cmd)["stdout_lines"]
     ports = {
@@ -300,6 +310,24 @@ def get_macsec_infname(host, port_name):
         ports[type].sort(key=lambda no: int(re.search(r'\d+', no).group(0)))
     # Remove the eth0
     ports["eth"].pop(0)
+    return ports
+
+
+def get_eth_ifname(host, port_name):
+    if u"x86_64-kvm_x86_64" not in get_platform(host):
+        logging.info("Can only get the eth ifname on the virtual SONiC switch")
+        return None
+    ports = get_all_ifnames(host)
+    assert port_name in ports["Ethernet"]
+    return ports["eth"][ports["Ethernet"].index(port_name)]
+
+
+def get_macsec_ifname(host, port_name):
+    if u"x86_64-kvm_x86_64" not in get_platform(host):
+        logging.info(
+            "Can only get the macsec ifname on the virtual SONiC switch")
+        return None
+    ports = get_all_ifnames(host)
     assert port_name in ports["Ethernet"]
     eth_port = ports["eth"][ports["Ethernet"].index(port_name)]
     macsec_infname = "macsec_"+eth_port
@@ -365,7 +393,7 @@ class TestControlPlane():
         def _test_appl_db():
             for port_name, nbr in ctrl_links.items():
                 check_appl_db(duthost, port_name, nbr["host"],
-                            nbr["port"], policy, cipher_suite, send_sci)
+                              nbr["port"], policy, cipher_suite, send_sci)
             return True
         assert wait_until(300, 6, 12, _test_appl_db)
 
@@ -375,29 +403,30 @@ class TestControlPlane():
             # So, skip this test for physical switch
             # TODO: Support "get mka session" in the physical switch
             if u"x86_64-kvm_x86_64" not in get_platform(duthost):
-                logging.info("Skip to check mka session due to the DUT isn't a virtual switch")
+                logging.info(
+                    "Skip to check mka session due to the DUT isn't a virtual switch")
                 return True
             dut_mka_session = get_mka_session(duthost)
             assert len(dut_mka_session) == len(ctrl_links)
             for port_name, nbr in ctrl_links.items():
                 nbr_mka_session = get_mka_session(nbr["host"])
-                dut_macsec_port = get_macsec_infname(duthost, port_name)
-                nbr_macsec_port = get_macsec_infname(
+                dut_macsec_port = get_macsec_ifname(duthost, port_name)
+                nbr_macsec_port = get_macsec_ifname(
                     nbr["host"], nbr["port"])
                 dut_macaddress = duthost.get_dut_iface_mac(port_name)
                 nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
                 dut_sci = get_sci(dut_macaddress, order="host")
                 nbr_sci = get_sci(nbr_macaddress, order="host")
                 check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
-                                nbr_mka_session[nbr_macsec_port], nbr_sci,
-                                policy, cipher_suite, send_sci)
+                                  nbr_mka_session[nbr_macsec_port], nbr_sci,
+                                  policy, cipher_suite, send_sci)
             return True
         assert wait_until(300, 1, 1, _test_mka_session)
 
 
 def create_pkt(eth_src, eth_dst, ip_src, ip_dst, payload=None):
     pkt = testutils.simple_ipv4ip_packet(
-        eth_src = eth_src, eth_dst=eth_dst, ip_src=ip_src, ip_dst=ip_dst, inner_frame=payload)
+        eth_src=eth_src, eth_dst=eth_dst, ip_src=ip_src, ip_dst=ip_dst, inner_frame=payload)
     return pkt
 
 
@@ -447,9 +476,9 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
                                icvlen=16,
                                encrypt=encrypt,
                                send_sci=send_sci,
-                               xpn_en = xpn_en,
-                               ssci = ssci,
-                               salt = salt)
+                               xpn_en=xpn_en,
+                               ssci=ssci,
+                               salt=salt)
     try:
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
@@ -480,13 +509,15 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     for i in range(len(received_packets)):
         pkt = received_packets[i]
         pn = 0
-        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en, ssci, salt)
+        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                               send_sci, pn, xpn_en, ssci, salt)
         if not pkt:
             continue
         received_packets[i] = pkt
         if exp_pkt.pkt_match(pkt):
             return
-    fail_message = "Expect pkt \n{}\n{}\nBut received \n".format(exp_pkt, exp_pkt.exp_pkt.show(dump=True))
+    fail_message = "Expect pkt \n{}\n{}\nBut received \n".format(
+        exp_pkt, exp_pkt.exp_pkt.show(dump=True))
     for packet in received_packets:
         fail_message += "\n{}\n".format(packet.show(dump=True))
     pytest.fail(fail_message)
@@ -494,6 +525,7 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
 
 class TestDataPlane():
     BATCH_COUNT = 100
+
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
         down_port, down_link = downstream_links.items()[0]
@@ -506,13 +538,16 @@ class TestDataPlane():
             pkt = create_pkt(
                 "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+            testutils.send_packet(
+                nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+            nbr_ctrl_port_id = int(
+                re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
             testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
                 nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
             macsec_attr = get_macsec_attr(duthost, ctrl_port)
-            testutils.send_packet(nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            check_macsec_pkt(macsec_attr = macsec_attr, test=nbr_ptfadapter,
+            testutils.send_packet(
+                nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+            check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
                              ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
@@ -527,10 +562,125 @@ class TestDataPlane():
                 logging.info(payload)
                 pkt = create_pkt(
                     nbr_macaddress, dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
-                nbr_ctrl_port_id = int(re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-                testutils.send_packet(nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
+                nbr_ctrl_port_id = int(
+                    re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
+                testutils.send_packet(
+                    nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
                 exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-                nbr_up_port_id = int(re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
+                nbr_up_port_id = int(
+                    re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
                 testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
                     nbr_device_numbers[up_link["name"]], nbr_up_port_id))
 
+
+def get_portchannel(host):
+    '''
+        Here is an output example of `show interfaces portchannel`
+        admin@sonic:~$ show interfaces portchannel
+        Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
+            S - selected, D - deselected, * - not synced
+        No.  Team Dev         Protocol     Ports
+        -----  ---------------  -----------  ---------------------------
+        0001  PortChannel0001  LACP(A)(Up)  Ethernet112(S) Ethernet108(D)
+        0002  PortChannel0002  LACP(A)(Up)  Ethernet116(S)
+        0003  PortChannel0003  LACP(A)(Up)  Ethernet120(S)
+        0004  PortChannel0004  LACP(A)(Up)  N/A
+    '''
+    lines = host.command("show interfaces portchannel")["stdout_lines"]
+    lines = lines[4:]  # Remove the output header
+    portchannel_list = {}
+    for line in lines:
+        items = line.split()
+        portchannel = items[1]
+        portchannel_list[portchannel] = {"status": None, "members": []}
+        if items[-1] == "N/A":
+            continue
+        portchannel_list[portchannel]["status"] = re.search(
+            r"\((Up|Dw)\)", items[2]).group(1)
+        for item in items[3:]:
+            port = re.search(r"(Ethernet.*)\(", item).group(1)
+            portchannel_list[portchannel]["members"].append(port)
+    return portchannel_list
+
+
+def find_portchannel_from_member(port_name, portchannel_list):
+    for k, v in portchannel_list.items():
+        if port_name in v["members"]:
+            return v
+    return None
+
+
+class TestFaultHandling():
+    MKA_TIMEOUT = 6
+    LACP_TIMEOUT = 90
+
+    def test_link_flap(self, duthost, ctrl_links):
+        # Only pick one link for link flap test
+        assert ctrl_links
+        port_name, nbr = ctrl_links.items()[0]
+
+        _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        nbr_eth_port = get_eth_ifname(
+            nbr["host"], nbr["port"])
+
+        # Flap < 6 seconds
+        nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
+            nbr_eth_port, nbr_eth_port))
+        _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        assert dut_egress_sa_table_orig == dut_egress_sa_table_new
+        assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+
+        # Flap > 6 seconds but < 90 seconds
+        nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
+            nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+        _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        assert dut_egress_sa_table_orig != dut_egress_sa_table_new
+        assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
+
+        # Flap > 90 seconds
+        pc = find_portchannel_from_member(
+            port_name, get_portchannel(duthost))
+        assert pc["status"] == "Up"
+        nbr["host"].shell("ifconfig {} down && sleep {}".format(
+            nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
+        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+            port_name, get_portchannel(duthost))["status"] == "Dw")
+        nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
+        pc = find_portchannel_from_member(
+            port_name, get_portchannel(duthost))
+        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+            port_name, get_portchannel(duthost))["status"] == "Up")
+
+    def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
+                                           profile_name, default_priority, cipher_suite,
+                                           primary_cak, primary_ckn, policy, send_sci, request):
+        # Only pick one uncontrolled link for mismatch macsec configuration test
+        assert unctrl_links
+        port_name, nbr = unctrl_links.items()[0]
+
+        disable_macsec_port(duthost, port_name)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        delete_macsec_profile(nbr["host"], profile_name)
+
+        # Set a wrong cak to the profile
+        primary_cak = "0" * len(primary_cak)
+        enable_macsec_port(duthost, port_name, profile_name)
+        set_macsec_profile(nbr["host"], profile_name, default_priority,
+                           cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+
+        def check_mka_establishment():
+            _, _, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            return dut_ingress_sc_table or dut_egress_sa_table or dut_ingress_sa_table
+        # The mka should be establishing or established
+        # To check whether the MKA establishment happened within 90 seconds
+        assert not wait_until(90, 1, 12, check_mka_establishment)
+
+        # Teardown
+        disable_macsec_port(duthost, port_name)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        delete_macsec_profile(nbr["host"], profile_name)
