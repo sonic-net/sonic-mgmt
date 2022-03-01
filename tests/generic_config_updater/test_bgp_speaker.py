@@ -20,6 +20,8 @@ BGPSPEAKER_SRC_ADDR_RE = "neighbor {} update-source {}"
 BGPSPEAKER_IP_RANGE_RE = "bgp listen range {} peer-group {}"
 DUMMY_IP_RANGE_V4      = "10.255.0.0/25"
 DUMMY_IP_RANGE_V6      = "cc98:2008:2012:2022::/64"
+DUMMY_SRC_ADDRESS_V4   = "10.1.0.33"
+DUMMY_SRC_ADDRESS_V6   = "fc00:1::33"
 
 @pytest.fixture(scope="module")
 def vlan_intf_ip_ranges(duthost, tbinfo):
@@ -83,20 +85,30 @@ def bgp_speaker_config_cleanup(duthost):
 def show_bgp_running_config(duthost):
     return duthost.shell("show runningconfiguration bgp")['stdout']
 
-def bgp_speaker_tc1_add_config(duthost, lo_intf_ip, vlan_intf_ip_range, bgp_speaker):
-    """ Test to add desired v4/v6 bgp speaker config
+def bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
+    """ Test to add desired v4&v6 bgp speaker config
     """
+    lo_ip, lo_ipv6 = lo_intf_ips
+    ip_range, ip_rangev6 = vlan_intf_ip_ranges
+
     json_patch = [
         {
             "op": "add",
             "path": "/BGP_PEER_RANGE",
             "value": {
-                "{}".format(bgp_speaker): {
+                "{}".format(BGPSPEAKER_V4): {
                     "ip_range": [
-                        "{}".format(vlan_intf_ip_range)
+                        "{}".format(ip_range)
                     ],
-                    "name": "{}".format(bgp_speaker),
-                    "src_address": "{}".format(lo_intf_ip)
+                    "name": "{}".format(BGPSPEAKER_V4),
+                    "src_address": "{}".format(lo_ip)
+                },
+                "{}".format(BGPSPEAKER_V6): {
+                    "ip_range": [
+                        "{}".format(ip_rangev6)
+                    ],
+                    "name": "{}".format(BGPSPEAKER_V6),
+                    "src_address": "{}".format(lo_ipv6)
                 }
             }
         }
@@ -110,24 +122,33 @@ def bgp_speaker_tc1_add_config(duthost, lo_intf_ip, vlan_intf_ip_range, bgp_spea
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
-        pytest_assert(re.search(BGPSPEAKER_SRC_ADDR_RE.format(bgp_speaker, lo_intf_ip), bgp_config),
+        pytest_assert(
+            re.search(BGPSPEAKER_SRC_ADDR_RE.format(BGPSPEAKER_V4, lo_ip), bgp_config) and
+            re.search(BGPSPEAKER_SRC_ADDR_RE.format(BGPSPEAKER_V6, lo_ipv6), bgp_config),
             "Failed to update bgp speaker src address."
         )
-        pytest_assert(re.search(BGPSPEAKER_IP_RANGE_RE.format(bgp_speaker, vlan_intf_ip_range), bgp_config),
+        pytest_assert(
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, ip_range), bgp_config) and
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, ip_rangev6), bgp_config),
             "Failed to add bgp speaker ip range."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def bgp_speaker_tc1_add_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range):
+def bgp_speaker_tc1_add_dummy_ip_range(duthost):
     """ Test to add dummy ip range to existed config
     """
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(bgp_speaker),
-            "value": "{}".format(dummy_ip_range)
+            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(BGPSPEAKER_V4),
+            "value": "{}".format(DUMMY_IP_RANGE_V4)
+        },
+        {
+            "op": "add",
+            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(BGPSPEAKER_V6),
+            "value": "{}".format(DUMMY_IP_RANGE_V6)
         }
     ]
 
@@ -139,20 +160,26 @@ def bgp_speaker_tc1_add_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range):
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
-        pytest_assert(re.search(BGPSPEAKER_IP_RANGE_RE.format(bgp_speaker, dummy_ip_range), bgp_config),
+        pytest_assert(
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, DUMMY_IP_RANGE_V4), bgp_config) and
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, DUMMY_IP_RANGE_V6), bgp_config),
             "Failed to add bgp speaker dummy ip range."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def bgp_speaker_tc1_rm_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range):
+def bgp_speaker_tc1_rm_dummy_ip_range(duthost):
     """ Test to remove dummy ip range to existed config
     """
     json_patch = [
         {
             "op": "remove",
-            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(bgp_speaker)
+            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(BGPSPEAKER_V4)
+        },
+        {
+            "op": "remove",
+            "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(BGPSPEAKER_V6)
         }
     ]
 
@@ -164,34 +191,53 @@ def bgp_speaker_tc1_rm_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range):
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
-        pytest_assert(not re.search(BGPSPEAKER_IP_RANGE_RE.format(bgp_speaker, dummy_ip_range), bgp_config),
+        pytest_assert(
+            not re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, DUMMY_IP_RANGE_V4), bgp_config) and
+            not re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, DUMMY_IP_RANGE_V6), bgp_config),
             "Failed to remove bgp speaker dummy ip range."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-@pytest.mark.parametrize("ip_version", ["v4", "v6"])
-def test_bgp_speaker_tc1_test_config(duthost, lo_intf_ips, vlan_intf_ip_ranges, ip_version):
+def bgp_speaker_tc1_replace_src_address(duthost):
+    """ Test to replace dummy src_address to existed config
+    """
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/BGP_PEER_RANGE/{}/src_address".format(BGPSPEAKER_V4),
+            "value": "{}".format(DUMMY_SRC_ADDRESS_V4)
+        },
+        {
+            "op": "replace",
+            "path": "/BGP_PEER_RANGE/{}/src_address".format(BGPSPEAKER_V6),
+            "value": "{}".format(DUMMY_SRC_ADDRESS_V6)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        bgp_config = show_bgp_running_config(duthost)
+        pytest_assert(
+            re.search(BGPSPEAKER_SRC_ADDR_RE.format(BGPSPEAKER_V4, DUMMY_SRC_ADDRESS_V4), bgp_config) and
+            re.search(BGPSPEAKER_SRC_ADDR_RE.format(BGPSPEAKER_V6, DUMMY_SRC_ADDRESS_V6), bgp_config),
+            "Failed to replace bgp speaker src address."
+        )
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+def test_bgp_speaker_tc1_test_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
     """ Test suite for bgp speaker config for v4 and v6
     """
-    lo_ip, lo_ipv6 = lo_intf_ips
-    ip_range, ip_rangev6 = vlan_intf_ip_ranges
-
-    if ip_version == "v4":
-        lo_intf_ip = lo_ip
-        vlan_intf_ip_range = ip_range
-        bgp_speaker = BGPSPEAKER_V4
-        dummy_ip_range = DUMMY_IP_RANGE_V4
-    elif ip_version == "v6":
-        lo_intf_ip = lo_ipv6
-        vlan_intf_ip_range = ip_rangev6
-        bgp_speaker = BGPSPEAKER_V6
-        dummy_ip_range = DUMMY_IP_RANGE_V6
-    else:
-        pytest.fail("Invalid ip version!")
-
     bgp_speaker_config_cleanup(duthost)
-    bgp_speaker_tc1_add_config(duthost, lo_intf_ip, vlan_intf_ip_range, bgp_speaker)
-    bgp_speaker_tc1_add_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range)
-    bgp_speaker_tc1_rm_dummy_ip_range(duthost, bgp_speaker, dummy_ip_range)
+    bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges)
+    bgp_speaker_tc1_add_dummy_ip_range(duthost)
+    bgp_speaker_tc1_rm_dummy_ip_range(duthost)
+    bgp_speaker_tc1_replace_src_address(duthost)
