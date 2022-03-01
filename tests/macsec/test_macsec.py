@@ -635,10 +635,15 @@ class TestFaultHandling():
         # Flap > 6 seconds but < 90 seconds
         nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
             nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
-        _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+        def check_new_mka_session():
+            _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
-        assert dut_egress_sa_table_orig != dut_egress_sa_table_new
-        assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
+            assert dut_egress_sa_table_new
+            assert dut_ingress_sa_table_new
+            assert dut_egress_sa_table_orig != dut_egress_sa_table_new
+            assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
+            return True
+        assert wait_until(12, 1, 0, check_new_mka_session)
 
         # Flap > 90 seconds
         pc = find_portchannel_from_member(
@@ -651,7 +656,7 @@ class TestFaultHandling():
         nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         pc = find_portchannel_from_member(
             port_name, get_portchannel(duthost))
-        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+        assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
     def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
