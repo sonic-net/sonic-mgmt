@@ -171,9 +171,9 @@ def test_tunnel_memory_leak(
                 logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
                             .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
 
-                if not validate_neighbor_entry_exist(upper_tor_host, server_ipv4):
-                    pytest.fail("The server ip {} doesn't exist in neighbor table on dut {}. \
-                                tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
+                pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
+                            "The server ip {} doesn't exist in neighbor table on dut {}. \
+                            tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
 
                 check_result = check_memory_leak(upper_tor_host)
                 pytest_assert(check_result == False, "Test failed because there is memory leak on {}".format(upper_tor_host.hostname))
