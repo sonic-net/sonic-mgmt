@@ -574,7 +574,10 @@ def creds_on_dut(duthost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    console_login_creds = getattr(hostvars, "console_login", {})
+    if "console_login" not in hostvars.keys():
+        console_login_creds = {}
+    else:
+        console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
 
@@ -1144,7 +1147,6 @@ def pytest_generate_tests(metafunc):
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
 
-
 ### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
 @pytest.fixture(scope="module")
 def enum_dut_hostname(request):
@@ -1183,19 +1185,28 @@ def enum_rand_one_asic_index(request):
     return request.param
 
 @pytest.fixture(scope="module")
-def duthost_console(localhost, creds, request):
-    dut_hostname = request.config.getoption("ansible_host_pattern")
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_hostname = duthost.hostname
+    if duthost.facts["asic_type"] == "vs":
+        pytest.skip("Real console session is supported on physical testbed.")
+    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
+    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
 
-    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
+    console_type = "console_" + console_type
+
     # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
-    host = ConsoleHost(console_type=vars['console_type'],
-                       console_host=vars['console_host'],
-                       console_port=vars['console_port'],
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
+        "ansible_altpassword")
+    host = ConsoleHost(console_type=console_type,
+                       console_host=console_host,
+                       console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=creds['console_user'][vars['console_type']],
-                       console_password=creds['console_password'][vars['console_type']])
+                       console_username=console_username,
+                       console_password=creds['console_password'][console_type])
     yield host
     host.disconnect()
 
@@ -1357,3 +1368,39 @@ def get_reboot_cause(duthost):
     uptime_end = duthost.get_up_time()
     if not uptime_end == uptime_start:
         duthost.show_and_parse("show reboot-cause history")
+
+def collect_db_dump_on_duts(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        dut_file_path = "/tmp/db_dump"
+        docker_file_path = "./logs/db_dump"
+        db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+        db_dump_tarfile = "{}.tar.gz".format(dut_file_path)
+
+        # Collect DB config
+        dbs = set()
+        result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
+        db_config = json.loads(result['stdout'])
+        for db in db_config['DATABASES']:
+            db_id = db_config['DATABASES'][db]['id']
+            dbs.add(db_id)
+
+        # Collect DB dump
+        duthosts.file(path = db_dump_path, state="directory")
+        for i in dbs:
+            duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
+        duthosts.shell("tar czf {} {}".format(db_dump_tarfile, dut_file_path))
+        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
+
+        #remove dump file from dut
+        duthosts.shell("rm -rf {} {}".format(dut_file_path, db_dump_tarfile))
+
+@pytest.fixture(autouse=True)
+def collect_db_dump(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    yield
+    collect_db_dump_on_duts(request, duthosts)

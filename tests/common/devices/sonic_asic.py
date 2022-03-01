@@ -149,6 +149,10 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
+        cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
+        return self.sonichost.command(cmd, verbose=False)
+
     def run_redis_cli_cmd(self, redis_cmd):
         if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
@@ -568,6 +572,10 @@ class SonicAsic(object):
         val = self.get_bgp_statistic(stat)
         return val == value
 
+    def get_router_mac(self):
+        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
+               .decode("utf-8").lower())
+ 
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':

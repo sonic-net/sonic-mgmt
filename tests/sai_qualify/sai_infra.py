@@ -48,7 +48,7 @@ def test_sai_from_ptf(
         stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
         pytest.fail("Test case [{}] failed".format(test_case), e)
     finally:
-        _store_test_result(ptfhost)
+        __store_test_result(ptfhost)
 
 @pytest.fixture
 def sai_test_env_check(creds, duthost, ptfhost, request):
@@ -92,12 +92,12 @@ def sai_testbed(
         Pytest fixture to handle setup and cleanup for the SAI tests.
     """
     try:        
-        _setup_dut(ptfhost, request)
+        __setup_dut(ptfhost, request)
         yield  
     finally:  
-        _store_test_result(ptfhost)
+        __store_test_result(ptfhost)
         if not request.config.option.sai_test_keep_test_env:
-            _teardown_dut(duthost, ptfhost, request)
+            __teardown_dut(duthost, ptfhost, request)
 
 
 def run_case_from_ptf(dut_ip, ptfhost, test_case):
@@ -170,7 +170,7 @@ def sai_test_container_liveness_check(duthost, ptfhost, test_case, request):
                 raise e
 
 
-def _setup_dut(ptfhost, request):
+def __setup_dut(ptfhost, request):
     """
         Sets up the SAI tests.
     Args:
@@ -179,30 +179,30 @@ def _setup_dut(ptfhost, request):
     """
     logger.info("Set up SAI tests.")
 
-    _prepare_test_cases(ptfhost, request)
+    __prepare_test_cases(ptfhost, request)
 
 
-def _teardown_dut(duthost, ptfhost, request):
+def __teardown_dut(duthost, ptfhost, request):
     """
         Tears down the SAI test.
     """
     logger.info("Teardown SAI tests.")
-    _collect_test_result(duthost, ptfhost, request)
-    _cleanup_ptf(ptfhost)
+    __collect_test_result(duthost, ptfhost, request)
+    __cleanup_ptf(ptfhost)
 
 
-def _cleanup_ptf(ptfhost):
+def __cleanup_ptf(ptfhost):
     """
     Cleanup PTF server, including delete test cases and root test folder.
 
     Args:
         ptfhost (AnsibleHost): The PTF server.
     """
-    _delete_sai_test_cases(ptfhost)
-    _delete_sai_test_folder(ptfhost)
+    __delete_sai_test_cases(ptfhost)
+    __delete_sai_test_folder(ptfhost)
 
 
-def _delete_sai_test_cases(ptfhost):
+def __delete_sai_test_cases(ptfhost):
     """
     Delete SAI test cases on PTF.
 
@@ -213,7 +213,7 @@ def _delete_sai_test_cases(ptfhost):
     ptfhost.file(path="{0}".format(SAI_TEST_CASE_DIR_ON_PTF), state="absent")
 
 
-def _delete_sai_test_folder(ptfhost):
+def __delete_sai_test_folder(ptfhost):
     """
     Delete SAI test root folder on PTF.
 
@@ -224,7 +224,7 @@ def _delete_sai_test_folder(ptfhost):
     ptfhost.file(path=PTF_TEST_ROOT_DIR, state="absent")
 
 
-def _prepare_test_cases(ptfhost, request):
+def __prepare_test_cases(ptfhost, request):
     """
     Prepare SAI test env including create root test folder and copy cases.
 
@@ -232,11 +232,11 @@ def _prepare_test_cases(ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Preparing SAI test environment.")
-    _create_sai_test_folders(ptfhost)
-    _copy_sai_test_cases(ptfhost, request)
+    __create_sai_test_folders(ptfhost)
+    __copy_sai_test_cases(ptfhost, request)
 
 
-def _create_sai_test_folders(ptfhost):
+def __create_sai_test_folders(ptfhost):
     """
     Create SAI test root folder on PTF server.
 
@@ -249,7 +249,7 @@ def _create_sai_test_folders(ptfhost):
     ptfhost.shell("mkdir -p {0}".format(SAI_TEST_REPORT_DIR_ON_PTF))
 
 
-def _copy_sai_test_cases(ptfhost, request):
+def __copy_sai_test_cases(ptfhost, request):
     """
     Copy SAI test cases to PTF server.
 
@@ -260,7 +260,7 @@ def _copy_sai_test_cases(ptfhost, request):
     ptfhost.copy(src=request.config.option.sai_test_dir, dest=PTF_TEST_ROOT_DIR + "/")
 
 
-def _collect_test_result(duthost, ptfhost, request):
+def __collect_test_result(duthost, ptfhost, request):
     """
     Collect SAI test resport from DUT and PTF server.
 
@@ -270,11 +270,11 @@ def _collect_test_result(duthost, ptfhost, request):
     """
     logger.info("Collecting test result and related information.")
     # TODO : collect DUT test report
-    _collect_sonic_os_and_platform_info(duthost, request)
-    _collect_sai_test_report_xml(ptfhost, request)
+    __collect_sonic_os_and_platform_info(duthost, request)
+    __collect_sai_test_report_xml(ptfhost, request)
 
 
-def _collect_sonic_os_and_platform_info(duthost, request):
+def __collect_sonic_os_and_platform_info(duthost, request):
     """
     Collect SONiC OS and Testbed info.
 
@@ -284,10 +284,10 @@ def _collect_sonic_os_and_platform_info(duthost, request):
     logger.info("Getting SONiC OS version and Testbed platform info.")
 
     out = duthost.shell("cd {0} && show version".format(DUT_WORKING_DIR))
-    _parse_info(out['stdout'], request.config.option.sai_test_report_dir)
+    __parse_info(out['stdout'], request.config.option.sai_test_report_dir)
 
 
-def _parse_info(content, report_path):
+def __parse_info(content, report_path):
     OS_VERSION=""
     PLT_VERSION=""
 
@@ -309,7 +309,7 @@ def _parse_info(content, report_path):
     logger.info('##vso[task.setvariable variable=PLT_VERSION]{}'.format(PLT_VERSION))
 
 
-def _store_test_result(ptfhost):
+def __store_test_result(ptfhost):
     """
         Backup the test result
     
@@ -324,7 +324,7 @@ def _store_test_result(ptfhost):
 		SAI_TEST_REPORT_DIR_ON_PTF))
 
 
-def _collect_sai_test_report_xml(ptfhost, request):
+def __collect_sai_test_report_xml(ptfhost, request):
     """
     Collect SAI test report.
 
