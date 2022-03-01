@@ -253,7 +253,9 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = info_dict.keys()
                     
                     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-                    if duthost.sonic_release == "202012" or duthost.sonic_release == "202111":
+                    # NOTE: No more releases to be added here. Platform should use SFP-refactor.
+                    # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
+                    if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
                         EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
                             self.EXPECTED_XCVR_INFO_KEYS]
                         self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
