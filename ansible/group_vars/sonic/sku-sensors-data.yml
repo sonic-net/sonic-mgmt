@@ -2813,6 +2813,48 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
+  x86_64-accton_as9516_32d-r0:
+    alarms:
+      fan: []
+      power: []
+      temp: []
+
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - tmp75-i2c-3-48/Chip Temp/temp1_input
+        - tmp75-i2c-3-48/Chip Temp/temp1_max
+      - - tmp75-i2c-3-49/Exhaust2 Temp/temp1_input
+        - tmp75-i2c-3-49/Exhaust2 Temp/temp1_max
+      - - tmp75-i2c-3-4a/Exhaust Temp/temp1_input
+        - tmp75-i2c-3-4a/Exhaust Temp/temp1_max
+      - - tmp75-i2c-3-4b/Intake Temp/temp1_input
+        - tmp75-i2c-3-4b/Intake Temp/temp1_max
+      - - tmp75-i2c-3-4c/Tofino Temp/temp1_input
+        - tmp75-i2c-3-4c/Tofino Temp/temp1_max
+      - - tmp75-i2c-3-4d/Intake2 Temp/temp1_input
+        - tmp75-i2c-3-4d/Intake2 Temp/temp1_max
+
+    non_zero:
+      fan:
+      - fancpld-i2c-8-66/Fan 1 front/fan1_input
+      - fancpld-i2c-8-66/Fan 1 rear/fan2_input
+      - fancpld-i2c-8-66/Fan 2 front/fan3_input
+      - fancpld-i2c-8-66/Fan 2 rear/fan4_input
+      - fancpld-i2c-8-66/Fan 3 front/fan5_input
+      - fancpld-i2c-8-66/Fan 3 rear/fan6_input
+      - fancpld-i2c-8-66/Fan 4 front/fan7_input
+      - fancpld-i2c-8-66/Fan 4 rear/fan8_input
+      - fancpld-i2c-8-66/Fan 5 front/fan9_input
+      - fancpld-i2c-8-66/Fan 5 rear/fan10_input
+
+      power: []
+      temp: []
+
+    psu_skips: {}
+    sensor_skip_per_version: {}
+
   x86_64-arista_7060_cx32s:
     alarms:
       fan:
