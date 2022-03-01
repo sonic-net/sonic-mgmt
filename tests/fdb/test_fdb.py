@@ -236,11 +236,17 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
         mux_status = rand_selected_dut.shell("show muxcable status", module_ignore_errors=True)['stdout']
         logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
 
+@pytest.fixture
+def is_mark_bsl(request):
+    """
+    Check current mark, return True for bsl mark.
+    """
+    return request.config.option.markexpr == 'bsl'
 
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count, is_mark_bsl):
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -310,6 +316,10 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             for src_mac, dst_mac in itertools.product(fdb[src_ports[0]], fdb[dst_ports[0]]):
                 send_recv_eth(ptfadapter, src_ports, src_mac, dst_ports, dst_mac, src_vlan, dst_vlan)
 
+    # BSL topology is different, do not check fdb
+    if is_mark_bsl:
+        return
+
     # Should we have fdb_facts ansible module for this test?
     fdb_fact = duthost.fdb_facts()['ansible_facts']
     logger.info('fdb facts on DUT:\n{}'.format(pprint.pformat(fdb_fact)))
@@ -318,7 +328,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     total_mac_count = 0
     for k, v in fdb_fact.items():
         assert v['port'] in interface_table
-        assert v['vlan'] in interface_table[ifname]
+        assert v['vlan'] in interface_table[v['port']]
         assert validate_mac(k) == True
         assert v['type'] in ['Dynamic', 'Static']
         if DUMMY_MAC_PREFIX in k.lower():
