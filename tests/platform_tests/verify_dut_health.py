@@ -170,11 +170,12 @@ def add_fail_step_to_reboot(localhost, duthosts, rand_one_dut_hostname):
 
         cmd_format = "sed -i 's/{}/{}/' {}"
         reboot_script_path = duthost.shell('which {}'.format(reboot_script))['stdout']
-        original_line = 'set +e'
-        replaced_line = 'exit -1; set +e'
+        original_line = 'setup_control_plane_assistant'
+        replaced_line = 'exit -1; setup_control_plane_assistant'
         replace_cmd = cmd_format.format(original_line, replaced_line, reboot_script_path)
         logging.info("Modify {} to exit before set +e".format(reboot_script_path))
         duthost.shell(replace_cmd)
+        duthost.shell(cmd_format.format("function exit -1;", "function", reboot_script_path))
         add_exit_to_script.params = (cmd_format, replaced_line, original_line, reboot_script_path, reboot_script_path)
 
 
