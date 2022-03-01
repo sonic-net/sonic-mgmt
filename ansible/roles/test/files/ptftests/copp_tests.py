@@ -23,9 +23,6 @@ import ptf
 import signal
 import threading
 import time
-import random
-import socket
-import struct
 
 import ptf.testutils as testutils
 
@@ -59,6 +56,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
+        self.randip = test_params.get('randip', None)
         self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
@@ -410,7 +408,7 @@ class DHCPOTHERIPTest(PolicyTest):
             vlan_pcp=0,
             dl_vlan_cfi=0,
             ip_src='0.0.0.0',
-            ip_dst=socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff))),
+            ip_dst=self.randip,
             ip_tos=0,
             ip_ttl=64,
             udp_sport=68,

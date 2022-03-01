@@ -29,6 +29,7 @@ from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
+from tests.common.helpers.generators import generate_ip_through_default_route
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -168,6 +169,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type):
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip,
+              "randip": generate_ip_through_default_route(duthost, [test_params.peerip]),
               "send_rate_limit": test_params.send_rate_limit}
 
     dut_ip = dut.mgmt_ip
