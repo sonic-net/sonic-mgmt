@@ -60,6 +60,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
+        self.has_trap = test_params.get('has_trap', True)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -230,8 +231,12 @@ class NoPolicyTest(ControlPlaneBaseTest):
             (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
         )
 
-        assert(rx_pps > self.NO_POLICER_LIMIT)
-        assert(recv_count > pkt_rx_limit)
+        if self.has_trap:
+            assert (rx_pps > self.NO_POLICER_LIMIT)
+            assert (recv_count > pkt_rx_limit)
+        else:
+            assert (rx_pps < self.NO_POLICER_LIMIT)
+            assert (recv_count < pkt_rx_limit)
 
 
 class PolicyTest(ControlPlaneBaseTest):

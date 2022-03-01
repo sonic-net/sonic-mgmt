@@ -52,8 +52,10 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
-
+    if 'switch_type' in dut_vars:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"])
+    else:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
@@ -176,7 +178,10 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
-    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    pytest_assert(
+        check_pmon_daemon_status(duthost),
+        "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -197,11 +202,11 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
-def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
+def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")

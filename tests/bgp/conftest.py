@@ -6,6 +6,8 @@ import logging
 import netaddr
 import pytest
 import random
+import re
+import socket
 
 from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -397,6 +399,20 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
+                # add route to loopback address on PTF host
+                nhop_ip = re.split("/", conn["local_addr"])[0]
+                try:
+                    socket.inet_aton(nhop_ip)
+                    ptfhost.shell(
+                        "ip route del {}/32".format(conn["loopback_ip"]),
+                        module_ignore_errors=True
+                    )
+                    ptfhost.shell("ip route add {}/32 via {}".format(
+                        conn["loopback_ip"], nhop_ip
+                    ))
+                except socket.error:
+                    raise Exception("Invalid V4 address {}".format(nhop_ip))
+
             yield connections
 
         finally:
@@ -404,6 +420,10 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
                 duthost.shell("config interface %s ip remove %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
+                ptfhost.shell(
+                    "ip route del {}/32".format(conn["loopback_ip"]),
+                    module_ignore_errors=True
+                )
 
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:

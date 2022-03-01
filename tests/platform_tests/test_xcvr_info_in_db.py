@@ -32,4 +32,4 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
         all_interfaces = {k:v for k, v in interface_list.items() if k in conn_graph_facts["device_conn"][duthost.hostname]}
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 
-    check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list);
+    check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list)
