@@ -772,7 +772,7 @@ def l3_ecmp_scaling_tc(max_ecmp, use_config_file):
       command = "config vlan member add {} {}".format(index, member4)
       st.config(dut, command)
       (_, tg_intf_ip_addr) = ipfeature.increment_ip_addr(tg_intf_ip_addr, "network")
-      tg_intf_ip_addr_x = tg_intf_ip_addr;
+      tg_intf_ip_addr_x = tg_intf_ip_addr
       tg_formatted_intf_addr = tg_intf_ip_addr_x.replace("/24","")
       tg_formatted_gw_addr = tg_intf_ip_addr_x.replace("10/24","1")
       #ping_formatted_gw_addr = tg_intf_ip_addr_x.replace("10/24","1")

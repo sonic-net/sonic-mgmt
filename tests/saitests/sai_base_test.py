@@ -53,12 +53,12 @@ class ThriftInterface(BaseTest):
             f = open(user_input, 'r')
             for line in f:
                 if (len(line) > 0 and (line[0] == '#' or line[0] == ';' or line[0]=='/')):
-                    continue;
+                    continue
                 interface_front_pair = line.split("@")
                 interface_to_front_mapping[interface_front_pair[0]] = interface_front_pair[1].strip()
         else:
-            exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")	    
-            
+            exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
+
         # Set up thrift client and contact server
         self.transport = TSocket.TSocket(server, 9092)
         self.transport = TTransport.TBufferedTransport(self.transport)

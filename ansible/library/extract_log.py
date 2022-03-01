@@ -282,7 +282,7 @@ def main():
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-    p = module.params;
+    p = module.params
 
     try:
         extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])
