@@ -126,7 +126,7 @@ def test_update_description(duthost, ensure_dut_readiness):
 
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
-def test_ipv6_neighbor_admin_change(duthost, admin_status):
+def test_eth_interface_admin_change(duthost, admin_status):
     json_patch = [
         {
             "op": "add",
