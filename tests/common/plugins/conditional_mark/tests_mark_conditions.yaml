@@ -27,11 +27,17 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 #####            decap            #####
 #######################################
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
+  skip:
+    reason: "Not supported on broadcom after 201911 release and mellanox all releases"
+    conditions:
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox'])"
+
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
-    reason: "Not supported on backend"
+    reason: "Not supported on backend and broadcom before 202012 release"
     conditions:
-      - "topo_name in ['t1-backend', 't0-backend']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 #######################################
 #####         dhcp_relay          #####
