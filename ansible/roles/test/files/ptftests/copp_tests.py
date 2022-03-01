@@ -7,6 +7,7 @@
 # ARPTest
 # DHCPTest
 # DHCPTopoT1Test
+# DHCP6Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -345,6 +346,40 @@ class DHCPTest(NoPolicyTest):
             ip_ttl=64,
             udp_sport=68,
             udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+
+# SONIC configuration has no policer limiting for DHCPv6
+class DHCP6Test(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCP6Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='::1',
+            ip_dst='ff02::1::2',
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=546,
+            udp_dport=547,
             ip_ihl=None,
             ip_options=False,
             with_udp_chksum=True
