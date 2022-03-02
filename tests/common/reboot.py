@@ -76,18 +76,6 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
-    },
-    REBOOT_TYPE_UNKNOWN: {
-        "timeout": 300,
-        "wait": 120,
-        "cause": "Unknown",
-        "test_reboot_cause_only": False
-    },
-    REBOOT_TYPE_THERMAL_OVERLOAD: {
-        "timeout": 300,
-        "wait": 120,
-        "cause": "Thermal Overload",
-        "test_reboot_cause_only": False
     }
 }
 
@@ -250,10 +238,6 @@ def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
     # Initialize local deque for storing DUT reboot cause history
     dut_reboot_history_queue = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
 
-    # If the SONiC image is < 201911, sync is going to be skipped. 
-    # So append the latest reboot type and then return
-    REBOOT_TYPE_HISTOYR_QUEUE.append(latest_reboot_type)
-
     # Skip this function if sonic image is 201811 or 201911
     if "201811" in dut.os_version or "201911" in dut.os_version:
         logging.info("Skip sync reboot-cause history for version before 202012")
@@ -282,10 +266,8 @@ def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
             continue
 
     # If retry logic did not yield reboot cause history from DUT,
-    # append the latest reboot cause to the queue and then
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
-        REBOOT_TYPE_HISTOYR_QUEUE.append(latest_reboot_type)
         return
 
     # If the reboot cause history is received from DUT,
@@ -311,6 +293,7 @@ def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
                 dict_iter_found = True
                 break
         if not dict_iter_found:
+            logging.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(REBOOT_TYPE_UNKNOWN))
             REBOOT_TYPE_HISTOYR_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
 
 
@@ -347,6 +330,9 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     reboot_type_history_len = len(reboot_type_history_queue)
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
+            if reboot_type not in reboot_ctrl_dict:
+                logging.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".format(reboot_type))
+                continue
             logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" % (index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]))
             if not re.search(reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]):
                 logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
