@@ -55,7 +55,10 @@ class SadPath(object):
         self.portchannel_ports = portchannel_ports
         self.vm_dut_map = vm_dut_map
         self.test_args = test_args
-        self.dut_connection = DeviceConnection(test_args['dut_hostname'], test_args['dut_username'], password=test_args['dut_password'])
+        self.dut_connection = DeviceConnection(test_args['dut_hostname'],
+            test_args['dut_username'],
+            password=test_args['dut_password'],
+            alt_password=test_args.get('alt_password'))
         self.vlan_ports = vlan_ports
         self.ports_per_vlan = ports_per_vlan
         self.vlan_if_port = self.test_args['vlan_if_port']
@@ -214,7 +217,7 @@ class SadOper(SadPath):
             self.dut_bgps['changed_state'] = 'Active'
             [self.dut_needed.update({vm:None}) for vm in self.neigh_vms]
         elif self.oper_type == 'dut_bgp_down':
-            self.neigh_bgps['changed_state'] = 'Active,OpenSent'
+            self.neigh_bgps['changed_state'] = 'Active,OpenSent,Connect'
             self.dut_bgps['changed_state'] = 'Idle'
         elif 'neigh_lag' in self.oper_type:
             # on the DUT side, bgp states are different pre and post boot. hence passing multiple values
@@ -435,10 +438,11 @@ class SadOper(SadPath):
                 if key not in ['v4', 'v6']:
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (self.neigh_bgps[vm][key], states))
+                stdout, _, _ = self.dut_connection.execCommand('sudo sonic_installer list | grep Current | cut -f2 -d " "')
                 if key == 'v4':
                     cmd = "show ip bgp neighbors"
                 else:
-                    cmd = "show ipv6 bgp neighbors"
+                    cmd = "show ip bgp neighbors" if (len(stdout) > 0 and "201811" in stdout[0]) else "show ipv6 bgp neighbors"
                 stdout, stderr, return_code = self.dut_connection.execCommand(cmd+' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:

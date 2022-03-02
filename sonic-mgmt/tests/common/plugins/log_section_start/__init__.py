@@ -20,9 +20,10 @@ import pytest
 import logging
 import inspect
 import decorator
-import postimport
 import traceback
 import sys
+
+from . import postimport
 
 
 LOGGER_NAME = "SectionStartLogger"

@@ -49,6 +49,9 @@ class TestFanDrawerApi(PlatformApiTestBase):
                 self.num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
             except:
                 pytest.fail("num_fan_drawers is not an integer")
+            else:
+                if self.num_fan_drawers == 0:
+                    pytest.skip("No fan drawers found on device")
 
     #
     # Helper functions

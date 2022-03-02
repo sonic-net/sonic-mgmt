@@ -25,15 +25,23 @@ from tests.common.cache import FactsCache
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-
-def skip_version(duthost, version_list):
+def check_skip_release(duthost, release_list):
     """
-    @summary: Skip current test if any given version keywords are in os_version
+    @summary: check if need skip current test if any given release keywords are in os_version, match sonic_release.
     @param duthost: The DUT
-    @param version_list: A list of incompatible versions
+    @param release_list: A list of incompatible releases
     """
-    if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
+    if any(release in duthost.os_version for release in release_list):
+        reason = "DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list))
+        logger.info(reason)
+        return (True, reason)
+
+    if any(release == duthost.sonic_release for release in release_list):
+        reason = "DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list))
+        logger.info(reason)
+        return (True, reason)
+
+    return (False, '')
 
 def skip_release(duthost, release_list):
     """
@@ -42,11 +50,9 @@ def skip_release(duthost, release_list):
     @param duthost: The DUT
     @param release_list: A list of incompatible releases
     """
-    if any(release in duthost.os_version for release in release_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
-
-    if any(release == duthost.sonic_release for release in release_list):
-        pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+    (skip, reason) = check_skip_release(duthost, release_list)
+    if skip:
+        pytest.skip(reason)
 
 def skip_release_for_platform(duthost, release_list, platform_list):
     """
@@ -425,6 +431,7 @@ def get_test_server_visible_vars(inv_files, server):
 
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
+    ip_address = unicode(ip_address)
     try:
         ipaddress.IPv4Address(ip_address)
         return True
@@ -521,6 +528,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
 
+
 def check_qos_db_fv_reference_with_table(duthost):
     """
     @summary: Check qos db field value refrence with table name or not.
@@ -531,3 +539,12 @@ def check_qos_db_fv_reference_with_table(duthost):
         logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
+
+
+def str2bool(str):
+    """
+    This is used as a type when add option for pytest
+    :param str: The input string value
+    :return: False if value is 0 or false, else True
+    """
+    return str.lower() not in ["0", "false", "no"]

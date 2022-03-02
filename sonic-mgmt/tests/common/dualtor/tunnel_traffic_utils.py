@@ -6,7 +6,7 @@ import pytest
 import re
 
 from ptf import mask, testutils
-from scapy.all import IP, Ether
+from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
@@ -76,13 +76,20 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     return addr.split("/")[0]
 
         @staticmethod
-        def _build_tunnel_packet(outer_src_ip, outer_dst_ip):
+        def _build_tunnel_packet(outer_src_ip, outer_dst_ip, inner_packet=None):
             """Build the expected tunnel packet."""
-            exp_pkt = testutils.simple_ip_packet(
-                ip_src=outer_src_ip,
-                ip_dst=outer_dst_ip,
-                pktlen=20
-            )
+            if inner_packet is None:
+                exp_pkt = testutils.simple_ip_packet(
+                    ip_src=outer_src_ip,
+                    ip_dst=outer_dst_ip,
+                    pktlen=20
+                )
+            else:
+                exp_pkt = testutils.simple_ipv4ip_packet(
+                    ip_src=outer_src_ip,
+                    ip_dst=outer_dst_ip,
+                    inner_frame=inner_packet
+                )
             exp_pkt = mask.Mask(exp_pkt)
             exp_pkt.set_do_not_care_scapy(Ether, "dst")
             exp_pkt.set_do_not_care_scapy(Ether, "src")
@@ -95,13 +102,21 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             exp_pkt.set_do_not_care_scapy(IP, "ttl")
             exp_pkt.set_do_not_care_scapy(IP, "proto")
             exp_pkt.set_do_not_care_scapy(IP, "chksum")
-            exp_pkt.set_ignore_extra_bytes()
+            if inner_packet is None:
+                exp_pkt.set_ignore_extra_bytes()
             return exp_pkt
 
         @staticmethod
         def _check_ttl(packet):
             """Check ttl field in the packet."""
-            outer_ttl, inner_ttl = packet[IP].ttl, packet[IP].payload[IP].ttl
+            outer_ttl = packet[IP].ttl
+            if IP in packet[IP].payload:
+                inner_ttl = packet[IP].payload[IP].ttl
+            elif IPv6 in packet[IP].payload:
+                inner_ttl = packet[IP].payload[IPv6].hlim
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
+
             logging.info("Outer packet TTL: %s, inner packet TTL: %s", outer_ttl, inner_ttl)
             if outer_ttl != 255:
                 return "outer packet's TTL expected TTL 255, actual %s" % outer_ttl
@@ -114,7 +129,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             def _disassemble_ip_tos(tos):
                 return tos >> 2, tos & 0x3
 
-            outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
+            outer_tos = packet[IP].tos
+            if IP in packet[IP].payload:
+                inner_tos = packet[IP].payload[IP].tos
+            elif IPv6 in packet[IP].payload:
+                inner_tos = packet[IP].payload[IPv6].tc
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
+
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
@@ -133,8 +155,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             def _disassemble_ip_tos(tos):
                 return tos >> 2, tos & 0x3
 
+            outer_tos = packet[IP].tos
+            if IP in packet[IP].payload:
+                inner_tos = packet[IP].payload[IP].tos
+            elif IPv6 in packet[IP].payload:
+                inner_tos = packet[IP].payload[IPv6].tc
+            else:
+                return "Not a valid IPinIP or IPv6inIP tunnel packet"
 
-            outer_tos, inner_tos = packet[IP].tos, packet[IP].payload[IP].tos
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
@@ -146,7 +174,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             pytest_assert(wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue))
             return check_res
 
-        def __init__(self, standby_tor, active_tor=None, existing=True):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None):
             """
             Init the tunnel traffic monitor.
 
@@ -172,9 +200,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
                 ][0]
 
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr)
-            self.rec_pkt = None
             self.existing = existing
+            self.inner_packet = None
+            if self.existing:
+                self.inner_packet = inner_packet
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.rec_pkt = None
 
         def __enter__(self):
             # clear queue counters before IO to ensure _check_queue could get more precise result

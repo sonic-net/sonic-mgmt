@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from pdu_manager import pdu_manager_factory
+from .pdu_manager import pdu_manager_factory
 
 
 logger = logging.getLogger(__name__)

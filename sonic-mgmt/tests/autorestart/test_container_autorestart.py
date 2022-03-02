@@ -22,7 +22,7 @@ pytestmark = [
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 60
-CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_RESTART_THRESHOLD_SECS = 300
 CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
@@ -309,7 +309,7 @@ def check_all_critical_processes_status(duthost):
 
 def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
     """Restarts the containers which hit the restart limitation. Then post checks
-       to see whether all the critical processes are alive and 
+       to see whether all the critical processes are alive and
        expected BGP sessions are up after testing the autorestart feature.
 
     Args:
@@ -335,7 +335,7 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
         duthost.check_bgp_session_state, up_bgp_neighbors, "established"
     )
 
-    return critical_proceses and bgp_check
+    return critical_proceses, bgp_check
 
 
 def run_test_on_single_container(duthost, container_name, tbinfo):
@@ -409,9 +409,33 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
         duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
-    if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
+    critical_proceses, bgp_check = postcheck_critical_processes_status(
+        duthost, container_autorestart_states, up_bgp_neighbors
+    )
+    if not (critical_proceses and bgp_check):
         config_reload(duthost)
-        pytest.fail("Some post check failed after testing feature {}".format(container_name))
+        failed_check = "[Critical Process] " if not critical_proceses else ""
+        failed_check += "[BGP] " if not bgp_check else ""
+        processes_status = duthost.all_critical_process_status()
+        pstatus = [
+            {
+                k:{
+                    "status": v["status"],
+                    "exited_critical_process": processes["exited_critical_process"]
+                }
+            } for k, v in processes_status.items() if v[
+                "status"
+            ] is False and len(v["exited_critical_process"]) > 0
+        ]
+
+        pytest.fail(
+            ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
+             "\nProcess status {}").format(
+                failed_check, container_name,
+                [{x: v['state']} for x, v in duthost.get_bgp_neighbors().items() if v['state'] != 'established'],
+                up_bgp_neighbors, pstatus
+            )
+        )
 
     logger.info("End of testing the container '{}'".format(container_name))
 

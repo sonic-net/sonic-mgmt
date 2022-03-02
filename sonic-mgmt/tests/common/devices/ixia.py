@@ -27,6 +27,12 @@ class IxiaHost (AnsibleHostBase):
         self.device_type   = device_type
         super().__init__(IxiaHost, self)
 
+    def __str__(self):
+        return '<IxiaHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_host_name (self):
         """Returns the Ixia hostname
 

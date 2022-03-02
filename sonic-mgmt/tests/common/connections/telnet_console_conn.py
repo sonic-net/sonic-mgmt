@@ -1,6 +1,6 @@
 import time
 import re
-from base_console_conn import BaseConsoleConn
+from .base_console_conn import BaseConsoleConn
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
 class TelnetConsoleConn(BaseConsoleConn):

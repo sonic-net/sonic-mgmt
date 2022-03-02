@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan
 
 from platform_api_test_base import PlatformApiTestBase
+from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -48,12 +49,18 @@ class TestChassisFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, platform_api_conn, duthost):
         if self.num_fans is None:
             try:
                 self.num_fans = int(chassis.get_num_fans(platform_api_conn))
             except:
                 pytest.fail("num_fans is not an integer")
+            else:
+                if self.num_fans == 0:
+                    pytest.skip("No fans found on device")
+        stop_thermal_control_daemon(duthost)
+        yield
+        start_thermal_control_daemon(duthost) 
 
     #
     # Helper functions
@@ -266,6 +273,12 @@ class TestChassisFans(PlatformApiTestBase):
         fans_skipped = 0
 
         for i in range(self.num_fans):
+            led_available = self.get_fan_facts(duthost, i, True, "status_led", "available")
+            if not led_available:
+                logger.info("test_set_fans_led: Skipping chassis fan {} (LED not available)".format(i))
+                fans_skipped += 1
+                continue
+
             led_controllable = self.get_fan_facts(duthost, i, True, "status_led", "controllable")
             if not led_controllable:
                 logger.info("test_set_fans_led: Skipping chassis fan {} (LED not controllable)".format(i))
@@ -287,6 +300,6 @@ class TestChassisFans(PlatformApiTestBase):
                             color, color_actual, i))
 
         if fans_skipped == self.num_fans:
-            pytest.skip("skipped as all chassis fans' LED is not controllable")
+            pytest.skip("skipped as all chassis fans' LED is not available/controllable")
 
         self.assert_expectations()

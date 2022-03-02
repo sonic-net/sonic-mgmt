@@ -41,11 +41,13 @@ interface {{ intf }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
+   no switchport mac address learning
    no shutdown
 {% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport mode trunk
    switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+   no switchport mac address learning
    no shutdown
 {% else %}
    shutdown
@@ -62,6 +64,8 @@ interface Management 1
 mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
+# EAPOL packets pass through
+mac address-table reserved forward 0180.c200.0003
 !
 ip route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
 ip route vrf management 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}

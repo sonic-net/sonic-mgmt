@@ -84,6 +84,8 @@ class ParseTestbedTopoinfo():
 
     def parse_topo_defintion(self, topo_definition, po_map, dut_num, neigh_type='VMs'):
         vmconfig = dict()
+        if topo_definition['topology'][neigh_type] is None:
+            return vmconfig
         for vm in topo_definition['topology'][neigh_type]:
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
@@ -105,7 +107,6 @@ class ParseTestbedTopoinfo():
                 for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
 
- 
             # physical interface
             if 'configuration' in topo_definition:
                 if 'interfaces' in topo_definition['configuration'][vm]:
@@ -213,13 +214,13 @@ class ParseTestbedTopoinfo():
             raise Exception("cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
         else:
             with open(topo_filename) as f:
-                topo_definition = yaml.load(f)
+                topo_definition = yaml.safe_load(f)
 
         if not os.path.isfile(asic_topo_filename):
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
-                slot_definition = yaml.load(f)
+                slot_definition = yaml.safe_load(f)
 
         ### parse topo file specified in vars/ to reverse as dut config
         dut_num = 1

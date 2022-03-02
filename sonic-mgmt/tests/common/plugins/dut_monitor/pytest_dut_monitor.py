@@ -8,7 +8,7 @@ import yaml
 
 from collections import OrderedDict
 from  datetime import datetime
-from errors import HDDThresholdExceeded, RAMThresholdExceeded, CPUThresholdExceeded
+from .errors import HDDThresholdExceeded, RAMThresholdExceeded, CPUThresholdExceeded
 
 
 logger = logging.getLogger(__name__)

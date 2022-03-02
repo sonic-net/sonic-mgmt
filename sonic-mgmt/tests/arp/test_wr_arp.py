@@ -20,6 +20,7 @@ pytestmark = [
 # Globals
 PTFRUNNER_QLEN = 1000
 VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
+DEFAULT_TEST_DURATION = 370
 
 class TestWrArp:
     '''
@@ -194,7 +195,7 @@ class TestWrArp:
             Returns:
                 None
         '''
-        testDuration = request.config.getoption('--test_duration')
+        testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
         ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
         dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 

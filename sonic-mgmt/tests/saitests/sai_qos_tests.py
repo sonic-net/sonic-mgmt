@@ -816,7 +816,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
-                logging.info("Dropped packet counters on port #{} :{} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], dscp))
+                logging.info("Dropped packet counters on port #{} :{} {} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], pg_dropped_cntrs_old[dscp], dscp))
                 # Check that counters per lossless PG increased
                 assert pg_dropped_cntrs[dscp] > pg_dropped_cntrs_old[dscp]
 
@@ -1818,9 +1818,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
         if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
-            margin = 10
+            margin = int(self.test_params['pkts_num_margin'])
         else:
-            margin = 2
+            margin = int(self.test_params['pkts_num_margin']) if self.test_params.get("pkts_num_margin") else 2
 
         # Get a snapshot of counter values
         xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
@@ -1836,21 +1836,21 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
                 pkts_num_leak_out = pkts_num_leak_out - margin 
 
             # send packets to fill pg min but not trek into shared pool
             # so if pg min is zero, it directly treks into shared pool by 1
             # this is the case for lossy traffic
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
-                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min)
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min + margin)
             else:
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 if actual_pkts_num_leak_out > pkts_num_leak_out:
@@ -1933,6 +1933,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
         cell_size = int(self.test_params['cell_size'])
+        hwsku = self.test_params['hwsku']
 
         # Prepare TCP packet data
         ttl = 64
@@ -1965,12 +1966,20 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             margin = 0
 
+        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        if 'pkts_num_egr_mem' in self.test_params.keys():
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
         # send packets
         try:
             # send packets to trigger pfc but not trek into headroom
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - margin)
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+                send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc - margin)
+            else:
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - margin)
+
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[src_port_id])
             assert(pg_headroom_wm_res[pg] == 0)
@@ -2075,7 +2084,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # On TH2 using scheduler-based TX enable, we find the Q min being inflated
         # to have 0x10 = 16 cells. This effect is captured in lossy traffic queue
         # shared test, so the margin here actually means extra capacity margin
-        margin = 8
+        margin = int(self.test_params['pkts_num_margin']) if self.test_params.get('pkts_num_margin') else 8
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in self.test_params.keys():

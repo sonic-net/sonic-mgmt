@@ -12,7 +12,12 @@ except ImportError:
     from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
 
 from azure.kusto.ingest import IngestionProperties
-from azure.kusto.ingest import DataFormat
+
+# Resolve azure.kusto.ingest compatibility issue
+try:
+    from azure.kusto.ingest import DataFormat
+except ImportError:
+    from azure.kusto.data.data_format import DataFormat
 
 from utilities import validate_json_file
 from datetime import datetime
@@ -68,6 +73,14 @@ class ReportDBConnector(ABC):
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
 
+    @abstractmethod
+    def upload_expected_runs(self, expected_runs: List) -> None:
+        """Upload expected test runs to the back-end data store.
+
+        Args:
+            expected_runs: A list of expected runs.
+        """
+
 class KustoConnector(ReportDBConnector):
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
 
@@ -78,6 +91,8 @@ class KustoConnector(ReportDBConnector):
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
+    TEST_CASE_TABLE = "TestCases"
+    EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -86,7 +101,9 @@ class KustoConnector(ReportDBConnector):
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
-        REBOOT_TIMING_TABLE: DataFormat.MULTIJSON
+        REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
+        TEST_CASE_TABLE: DataFormat.JSON,
+        EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -96,7 +113,9 @@ class KustoConnector(ReportDBConnector):
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
-        REBOOT_TIMING_TABLE: "RebootTimingDataMapping"
+        REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
+        TEST_CASE_TABLE: "TestCasesMappingV1",
+        EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1"
     }
 
     def __init__(self, db_name: str):
@@ -171,6 +190,9 @@ class KustoConnector(ReportDBConnector):
         elif "reboot_report" in path_name:
              self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
+    def upload_expected_runs(self, expected_runs: List) -> None:
+        self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
+
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
             "id": report_guid,
@@ -198,9 +220,8 @@ class KustoConnector(ReportDBConnector):
                     "feature": feature
                 })
                 test_cases.append(case)
-        test_cases = {"cases": test_cases}
 
-        self._ingest_data(self.RAW_CASE_TABLE, test_cases)
+        self._ingest_data(self.TEST_CASE_TABLE, test_cases)
 
     def _ingest_data(self, table, data):
         props = IngestionProperties(
@@ -211,6 +232,9 @@ class KustoConnector(ReportDBConnector):
         )
 
         with tempfile.NamedTemporaryFile(mode="w+") as temp:
-            temp.write(json.dumps(data))
+            if isinstance(data, list):
+                temp.writelines('\n'.join([json.dumps(entry) for entry in data]))
+            else:
+                temp.write(json.dumps(data))
             temp.seek(0)
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)

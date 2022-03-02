@@ -92,7 +92,7 @@ class ContinuousReboot:
 
     @handle_test_error
     def run_reboot_testcase(self):
-        result = self.advancedReboot.runRebootTest()
+        result = self.advancedReboot.runRebootTestcase()
         if result is not True:
             # Create a failure report
             error = result.get("stderr")

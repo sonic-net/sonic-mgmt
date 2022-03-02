@@ -3,9 +3,9 @@ import pytest
 import yaml
 
 from os import path
-from vnet_utils import combine_dicts, safe_open_template
+from .vnet_utils import combine_dicts, safe_open_template
 
-from vnet_constants import *
+from .vnet_constants import *
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def scaled_vnet_params(request):
     return params
 
 @pytest.fixture(scope="module")
-def vnet_test_params(request):
+def vnet_test_params(duthost, request):
     """
     Fixture to get CLI parameters for vnet testing
 
@@ -45,20 +45,25 @@ def vnet_test_params(request):
     """
 
     params = {}
+    params[VXLAN_UDP_SPORT_KEY] = 0
+    params[VXLAN_UDP_SPORT_MASK_KEY] = 0
+
+    vxlan_range_enable = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" vxlan_port_range')['stdout'] == "enable"
+
+    if request.config.option.udp_src_port is not None or request.config.option.udp_src_port_mask is not None:
+        vxlan_range_enable = True
+
+    if request.config.option.udp_src_port:
+        params[VXLAN_UDP_SPORT_KEY] = request.config.option.udp_src_port
+
+    if request.config.option.udp_src_port_mask:
+        params[VXLAN_UDP_SPORT_MASK_KEY] = request.config.option.udp_src_port_mask
+
+    params[VXLAN_RANGE_ENABLE_KEY] = vxlan_range_enable
+    params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
     params[CLEANUP_KEY] = not request.config.option.skip_cleanup
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
-    params[LOWER_BOUND_UDP_PORT_KEY] = request.config.option.lower_bound_udp_port
-    params[UPPER_BOUND_UDP_PORT_KEY] = request.config.option.upper_bound_udp_port
-    # ECMP
-    params[TOTAL_NUMBER_OF_ENDPOINTS] = request.config.option.total_number_of_endpoints
-    params[ECMP_NHS_PER_DESTINATION] = request.config.option.ecmp_nhs_per_destination
-    params[TOTAL_NUMBER_OF_NEXTHOPS] = request.config.option.total_number_of_nexthops
-    params['number_of_destinations'] = int(params[TOTAL_NUMBER_OF_NEXTHOPS] / params[ECMP_NHS_PER_DESTINATION])
-    params[IPV4_IN_IPV4] = request.config.option.ipv4_in_ipv4
-    params[IPV6_IN_IPV4] = request.config.option.ipv6_in_ipv4
-    params[IPV4_IN_IPV6] = request.config.option.ipv4_in_ipv6
-    params[IPV6_IN_IPV6] = request.config.option.ipv6_in_ipv6
     return params
 
 @pytest.fixture(scope="module")

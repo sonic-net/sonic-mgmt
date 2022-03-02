@@ -65,7 +65,7 @@ class VlanPort(object):
     def destroy_vlan_port(self, vlan_port):
         if VlanPort.iface_exists(vlan_port):
             VlanPort.iface_down(vlan_port)
-            VlanPort.cmd('vconfig rem %s' % vlan_port)
+            VlanPort.cmd('ip link del %s' % vlan_port)
 
         return
 
@@ -104,7 +104,10 @@ class VlanPort(object):
 
     @staticmethod
     def iface_exists(iface_name):
-        iface = VlanPort.ifconfig("ifconfig -a %s" % iface_name)
+        try:
+            iface = VlanPort.ifconfig("ifconfig -a %s" % iface_name)
+        except Exception:
+            iface = None
         return bool(iface)
 
     @staticmethod

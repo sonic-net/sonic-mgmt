@@ -1,7 +1,6 @@
 import logging
 import random
 import ipaddr
-import ipaddress
 import pytest
 
 import ptf.testutils as testutils
@@ -67,30 +66,6 @@ class DhcpPktFwdBase:
 
         return lags, peerIp
 
-    def __updateRoute(self, duthost, ip, peerIp, op=""):
-        """
-        Update route to add/remove for a given IP <ip> towards BGP peer
-
-         Args:
-            duthost(Ansible Fixture): instance of SonicHost class of DUT
-            ip(str): IP to add/remove route for
-            peerIp(str): BGP peer IP
-            op(str): operation add/remove to be performed, default add
-
-        Returns:
-            None
-        """
-        logger.info("{0} route to '{1}' via '{2}'".format(
-            "Deleting" if "no" == op else "Adding",
-            ip,
-            peerIp
-        ))
-        duthost.shell("vtysh -c \"configure terminal\" -c \"{} ip route {} {}\"".format(
-            op,
-            ipaddress.ip_interface(unicode(ip + "/24")).network,
-            peerIp
-        ))
-
     @pytest.fixture(scope="class")
     def dutPorts(self, duthosts, rand_one_dut_hostname, tbinfo):
         """
@@ -144,13 +119,13 @@ class DhcpPktFwdBase:
             tbinfo
         )
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp)
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp)
 
         yield {"upstream": upstreamLags, "downstream": downstreamLags}
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
 
     @classmethod
     def createDhcpDiscoverRelayedPacket(self, dutMac):
@@ -315,7 +290,7 @@ class TestDhcpPktFwd(DhcpPktFwdBase):
 
         # Update fields of the forwarded packet
         dhcpPacket[scapy.Ether].src = duthost.facts["router_mac"]
-        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - 1
+        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - duthost.ttl_decr_value
 
         expectedDhcpPacket = Mask(dhcpPacket)
         expectedDhcpPacket.set_do_not_care_scapy(scapy.Ether, "dst")

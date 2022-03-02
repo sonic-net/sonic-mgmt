@@ -17,6 +17,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import is_ipv4_address
 
 from tests.common.fixtures.fib_utils import fib_info_files_per_function
+from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
@@ -55,14 +56,6 @@ def ignore_ttl(duthosts):
     for duthost in duthosts:
         if duthost.sonichost.is_multi_asic:
             return True
-    return False
-
-
-@pytest.fixture(scope="module")
-def single_fib_for_duts(tbinfo):
-    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
-    if tbinfo['topo']['type'] == "t2":
-        return True
     return False
 
 
@@ -153,6 +146,8 @@ def hash_keys(duthost):
     if duthost.facts['asic_type'] in ["barefoot"]:
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # removing ingress-port and ip-proto from hash_keys not supported by Marvell SAI
     if duthost.facts['platform'] in ['armhf-nokia_ixs7215_52x-r0']:
         if 'ip-proto' in hash_keys:

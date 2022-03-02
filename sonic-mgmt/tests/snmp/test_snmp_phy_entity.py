@@ -170,7 +170,7 @@ def is_sensor_test_supported(duthost):
     The new sensor test is not supported in 201811, 201911 and 202012
     The assumption is that image under test always has a correct version.
     If image version doesn't including above "version keyword", it will be considered
-    as a newer version which support the new sensor test. 
+    as a newer version which support the new sensor test.
     """
     if "201811" in duthost.os_version or "201911" in duthost.os_version or "202012" in duthost.os_version:
         logging.info("Image doesn't support new sensor test, image version {}, test will be skipped".format(duthost.os_version))
@@ -203,7 +203,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
@@ -472,7 +472,7 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         assert thermal_snmp_fact['entPhysMfgName'] == ''
         assert thermal_snmp_fact['entPhysModelName'] == ''
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
-        
+
         # snmp_entity_sensor_info is only supported in image newer than 202012
         if is_sensor_test_supported(duthost):
             thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
@@ -501,6 +501,12 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
         name_to_snmp_facts[values['entPhysName']] = values
+
+    transceiver_rev_key = "vendor_rev"
+    release_list = ["201911", "202012", "202106", "202111"]
+    if any(release in duthost.os_version for release in release_list):
+        transceiver_rev_key = "hardware_rev"
+
     for key in keys:
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         assert name in name_to_snmp_facts, 'Cannot find port {} in physical entity mib'.format(name)
@@ -511,7 +517,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1
         assert transceiver_snmp_fact['entPhysName'] == name
-        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['hardware_rev']
+        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info[transceiver_rev_key]
         assert transceiver_snmp_fact['entPhysFwVer'] == ''
         assert transceiver_snmp_fact['entPhysSwVer'] == ''
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial']

@@ -6,9 +6,11 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config
+from tests.common.snappi.snappi_helpers import wait_for_arp
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.qos_fixtures import prio_dscp_map
 
+SNAPPI_POLL_DELAY_SEC = 2
 
 @pytest.mark.topology("snappi")
 @pytest.mark.disable_loganalyzer
@@ -123,6 +125,9 @@ def test_snappi(snappi_api,
 
     # """ Apply configuration """
     snappi_api.set_config(config)
+
+    # """Wait for Arp"""
+    wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=2)
 
     # """ Start traffic """
     ts = snappi_api.transmit_state()

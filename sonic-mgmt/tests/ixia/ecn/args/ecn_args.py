@@ -1,3 +1,6 @@
+from tests.common.utilities import str2bool
+
+
 def add_ecn_args(parser):
     """
     Add arguments required for ECN test cases
@@ -12,7 +15,7 @@ def add_ecn_args(parser):
     ecn_group.addoption(
         "--disable_ecn_test",
         action="store",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Control execution of ECN tests",
     )

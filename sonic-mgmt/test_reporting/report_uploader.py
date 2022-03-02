@@ -62,6 +62,13 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 pdu_data.extend(json.load(f))
 
         kusto_db.upload_pdu_status_data(pdu_data)
+    elif args.category == 'expected_runs':
+        expected_runs = []
+        for path_name in args.path_list:
+            with open(path_name) as f:
+                expected_runs.extend(json.load(f))
+        kusto_db.upload_expected_runs(expected_runs)
+
     else:
         print('Unknown category "{}"'.format(args.category))
         sys.exit(1)

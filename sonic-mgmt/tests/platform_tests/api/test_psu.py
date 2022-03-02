@@ -5,7 +5,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform
@@ -48,6 +48,9 @@ class TestPsuApi(PlatformApiTestBase):
                 self.num_psus = int(chassis.get_num_psus(platform_api_conn))
             except:
                 pytest.fail("num_psus is not an integer")
+            else:
+                if self.num_psus == 0:
+                    pytest.skip("No psus found on device")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         self.psu_skip_list = get_skip_mod_list(duthost, ['psus'])
@@ -120,7 +123,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_version(duthost, ["201811", "201911", "202012"])
+        skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
@@ -298,7 +301,10 @@ class TestPsuApi(PlatformApiTestBase):
         psus_skipped = 0
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
+            led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
+            if led_support == "N/A":
+                logger.info("led not supported for this psu {}".format(name))
+            elif name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
                 psus_skipped += 1
             else:
@@ -388,11 +394,21 @@ class TestPsuApi(PlatformApiTestBase):
             1: "normal",
             2: "off"
         }
-
+        supported_colors = []
         if self.num_psus == 0:
             pytest.skip("No psus found on device skipping for device {}".format(duthost))
 
+        supported_colors = duthost.facts.get("chassis").get("master_psu_led_color")
+        if supported_colors:
+            for index, colors in enumerate(LED_COLOR_TYPES):
+                for color in colors:
+                    if color not in supported_colors:
+                        LED_COLOR_TYPES[index].remove(color)
+
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                continue
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
                 for color in led_type:

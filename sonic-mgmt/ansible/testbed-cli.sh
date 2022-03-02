@@ -208,7 +208,8 @@ function start_topo_vms
 
   echo "Starting VMs for testbed '${testbed_name}' on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
+	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
 function stop_topo_vms
@@ -225,7 +226,8 @@ function stop_topo_vms
 
   echo "Stopping VMs for testbed '${testbed_name}' on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e VM_base="$vm_base" -e topo="$topo" $@
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
+	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
 function add_topo
