@@ -184,7 +184,9 @@ test_t0_sonic() {
     # Run tests_1vlan on vlab-01 virtual switch
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=t0-sonic
-    tests="bgp/test_bgp_fact.py"
+    tests="\
+      bgp/test_bgp_fact.py \
+      macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
