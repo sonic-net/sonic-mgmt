@@ -14,6 +14,7 @@
     - [Refresh SAK](#refresh-sak)
     - [MACsec Key rotation, Primary/Fallback CAK](#macsec-key-rotation-primaryfallback-cak)
     - [MACsec Counters](#macsec-counters)
+    - [COPP](#copp)
   - [Testcase : Macsec feature interop with other protocols](#testcase--macsec-feature-interop-with-other-protocols)
     - [Verify Port Channel is created with macsec configuration](#verify-port-channel-is-created-with-macsec-configuration)
     - [Verify LLDP neighbors are created with macsec configuration](#verify-lldp-neighbors-are-created-with-macsec-configuration)
@@ -26,6 +27,7 @@
   - [Testcase : Deployment usecases and fault handling scenario's](#testcase--deployment-usecases-and-fault-handling-scenarios)
     - [Link flap on an interface with macsec configured](#link-flap-on-an-interface-with-macsec-configured)
     - [Link flap on a portchannel member which has macsec configured](#link-flap-on-a-portchannel-member-which-has-macsec-configured)
+    - [Testcases: Operation portchannel remove and re-add members to fix CRC error](#testcases-operation-portchannel-remove-and-re-add-members-to-fix-crc-error)
     - [MACsec session cannot be established under wrong MKA configuration](#macsec-session-cannot-be-established-under-wrong-mka-configuration)
     - [Config reload done on DUT with macsec configuration](#config-reload-done-on-dut-with-macsec-configuration)
     - [Everflow, port mirroring on macsec enabled interfaces](#everflow-port-mirroring-on-macsec-enabled-interfaces)
@@ -312,6 +314,10 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
 
    TODO
 
+#### COPP
+
+   TODO
+
 ### Testcase : Macsec feature interop with other protocols
 
   This testcase covers the behavior of slow protocols when mac security is configured on interfaces
@@ -397,7 +403,7 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 
 ### Testcase : Deployment usecases and fault handling scenario's
 
-  This testcase covers the various fault scenario's and the expected behavior.
+  This testcase covers the various fault scenario's and the expected behavior. The link flap will happen in both local and remote interface down/up.
 
 #### Link flap on an interface with macsec configured
 
@@ -410,6 +416,11 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
    - Expect the Portchannel to go down and come up depending on whether the member port comes back in 6 secs (MKA lietime)
 - When one member interface flaps, but the Portchannel has more member ports which are macsec enabled.
    - Expect Portchannel to remain up.
+
+#### Testcases: Operation portchannel remove and re-add members to fix CRC error
+
+  The portchannel member is removed from the portchannel, add/remove IP address. Add the interface back to portchannel with macsec enabled.
+  Check the behavior back
 
 #### MACsec session cannot be established under wrong MKA configuration
 
