@@ -10,58 +10,61 @@
     - [Case 1 - Sanity test for warm boot - happy path](#case-1---sanity-test-for-warm-boot---happy-path)
       - [Test objective](#test-objective)
       - [Test steps](#test-steps)
-    - [Case 2 - Sanity test for warm boot - failed path, ?expected behivor?](#case-2---sanity-test-for-warm-boot---failed-path-expected-behivor)
+    - [Case 2 - Sanity test for warm boot - failed path, error code and restart interval](#case-2---sanity-test-for-warm-boot---failed-path-error-code-and-restart-interval)
       - [Test objective](#test-objective-1)
       - [Test steps](#test-steps-1)
     - [Case 3 - switch OID consistence](#case-3---switch-oid-consistence)
       - [Test objective](#test-objective-2)
       - [Test steps](#test-steps-2)
-    - [Case 4 - IPv4 entry](#case-4---ipv4-entry)
+    - [Case 3 - switch mac learning disable](#case-3---switch-mac-learning-disable)
       - [Test objective](#test-objective-3)
       - [Test steps](#test-steps-3)
-    - [Case 5 - IPv6 entry](#case-5---ipv6-entry)
+    - [Case 4 - IPv4 entry](#case-4---ipv4-entry)
       - [Test objective](#test-objective-4)
       - [Test steps](#test-steps-4)
-    - [Case 6 - IPv4 Next hop entry](#case-6---ipv4-next-hop-entry)
+    - [Case 5 - IPv6 entry](#case-5---ipv6-entry)
       - [Test objective](#test-objective-5)
       - [Test steps](#test-steps-5)
-    - [Case 7 - IPv6 Next hop entry](#case-7---ipv6-next-hop-entry)
+    - [Case 6 - IPv4 Next hop entry](#case-6---ipv4-next-hop-entry)
       - [Test objective](#test-objective-6)
       - [Test steps](#test-steps-6)
-    - [Case 8 - IPv4 Neighbor entry](#case-8---ipv4-neighbor-entry)
+    - [Case 7 - IPv6 Next hop entry](#case-7---ipv6-next-hop-entry)
       - [Test objective](#test-objective-7)
       - [Test steps](#test-steps-7)
-    - [Case 9 - IPv6 Neighbor entry](#case-9---ipv6-neighbor-entry)
+    - [Case 8 - IPv4 Neighbor entry](#case-8---ipv4-neighbor-entry)
       - [Test objective](#test-objective-8)
       - [Test steps](#test-steps-8)
-    - [Case 10 - Next hop group entry](#case-10---next-hop-group-entry)
+    - [Case 9 - IPv6 Neighbor entry](#case-9---ipv6-neighbor-entry)
       - [Test objective](#test-objective-9)
       - [Test steps](#test-steps-9)
-    - [Case 11 - Next hop group  member entry](#case-11---next-hop-group--member-entry)
+    - [Case 10 - Next hop group entry](#case-10---next-hop-group-entry)
       - [Test objective](#test-objective-10)
       - [Test steps](#test-steps-10)
-    - [Case 12 - Fdb entry](#case-12---fdb-entry)
+    - [Case 11 - Next hop group  member entry](#case-11---next-hop-group--member-entry)
       - [Test objective](#test-objective-11)
       - [Test steps](#test-steps-11)
-    - [Case 13 - ACL table](#case-13---acl-table)
+    - [Case 12 - Fdb entry](#case-12---fdb-entry)
       - [Test objective](#test-objective-12)
       - [Test steps](#test-steps-12)
-    - [Case 14 - SNAT entry](#case-14---snat-entry)
-      - [Test steps](#test-steps-13)
-    - [Case 15 - DNAT entry](#case-15---dnat-entry)
-      - [Test steps](#test-steps-14)
-    - [Case 16 - Read only attribute midifications with the default value](#case-16---read-only-attribute-midifications-with-the-default-value)
+    - [Case 13 - ACL table](#case-13---acl-table)
       - [Test objective](#test-objective-13)
+      - [Test steps](#test-steps-13)
+    - [Case 14 - SNAT entry](#case-14---snat-entry)
+      - [Test steps](#test-steps-14)
+    - [Case 15 - DNAT entry](#case-15---dnat-entry)
       - [Test steps](#test-steps-15)
-    - [Case 17 - Vlan state counter](#case-17---vlan-state-counter)
+    - [Case 16 - Read only attribute midifications with the default value](#case-16---read-only-attribute-midifications-with-the-default-value)
       - [Test objective](#test-objective-14)
       - [Test steps](#test-steps-16)
-    - [Case 18 - RIF status counter](#case-18---rif-status-counter)
+    - [Case 17 - Vlan state counter](#case-17---vlan-state-counter)
       - [Test objective](#test-objective-15)
       - [Test steps](#test-steps-17)
-    - [Case 19 - VXLAN](#case-19---vxlan)
+    - [Case 18 - RIF status counter](#case-18---rif-status-counter)
       - [Test objective](#test-objective-16)
       - [Test steps](#test-steps-18)
+    - [Case 19 - VXLAN](#case-19---vxlan)
+      - [Test objective](#test-objective-17)
+      - [Test steps](#test-steps-19)
   - [Features Test cases in warm reboot scenarios](#features-test-cases-in-warm-reboot-scenarios)
     - [L3 Next hop](#l3-next-hop)
     - [L3 route](#l3-route)
@@ -131,14 +134,17 @@ Test the basic warm boot function, read and write file from the configured dump 
 6. Start switch in warm mode
 7. Packet forwarding check, result same as step 3
 
-### Case 2 - Sanity test for warm boot - failed path, ?expected behivor?
+### Case 2 - Sanity test for warm boot - failed path, error code and restart interval
 #### Test objective
 Test the basic warm boot function, error happened when cannot read configured dump file.
+
 #### Test steps
 1. Start saiserver and switch
 2. Config vlan port and fib
 3. Packet forwarding check
 4. Shutdown switch in warm mode
+5. start saiserver with warm mode after kernel start
+6. check the error code and SAI_SWITCH_ATTR_MIN_PLANNED_RESTART_INTERVAL
 
 ### Case 3 - switch OID consistence
 #### Test objective
@@ -147,6 +153,18 @@ Check switch OID and basic switch attribtues keep the same during warmboot
 1. init switch, record the switch oid and atrts
 2. warm reboot
 3. check the oid and attr are the same
+
+### Case 3 - switch mac learning disable
+#### Test objective
+Check switch mac learning disable 
+#### Test steps
+1. start switch
+2. config vlan, flooding and mac learning confguration
+3. warm reboot and disable the mac learning, simulate syncd restart process 
+4. send packet on differernt port
+5. check the fib after warmboot
+
+
 ### Case 4 - IPv4 entry
 #### Test objective
 Check the squence, content and the amount of the entry are the same.
