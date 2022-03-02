@@ -941,5 +941,5 @@ def cleanup_config(duthost):
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
     logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
     logger.info('Convergence Test Completed')
