@@ -18,8 +18,8 @@ PREFIXES_V6_INIT  = "fc01:20::/64"
 PREFIXES_V4_DUMMY = "10.30.0.0/16"
 PREFIXES_V6_DUMMY = "fc01:30::/64"
 
-PREFIXES_V4_RE    = "ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V4 seq \d+ permit {}"
-PREFIXES_V6_RE    = "ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V6 seq \d+ permit {}"
+PREFIXES_V4_RE    = "ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
+PREFIXES_V6_RE    = "ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -43,7 +43,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
 def bgp_prefix_test_setup(duthost):
     """ Clean up bgp prefix config before test
     """
-    cmds = 'sonic-db-cli CONFIG_DB del "BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0"'
+    cmds = 'sonic-db-cli CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'],
         "bgp prefix test setup failed."
@@ -52,15 +52,24 @@ def bgp_prefix_test_setup(duthost):
 def show_bgp_running_config(duthost):
     return duthost.shell("show runningconfiguration bgp")['stdout']
 
-def bgp_prefix_tc1_add_config(duthost):
+def bgp_prefix_tc1_add_config(duthost, community, community_table):
     """ Test to add prefix config
+
+    Sample output of runningconfiguration bgp after config
+    Without community id:
+    ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V4 seq 30 permit 10.20.0.0/16 le 32
+    ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V6 seq 40 permit fc02:20::/64 le 128
+
+    With community id as '1010:1010':
+    ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4 seq 30 permit 10.20.0.0/16 le 32
+    ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V6 seq 40 permit fc02:20::/64 le 128
     """
     json_patch = [
         {
             "op": "add",
             "path": "/BGP_ALLOWED_PREFIXES",
             "value": {
-                "DEPLOYMENT_ID|0": {
+                "DEPLOYMENT_ID|0{}".format(community_table): {
                     "prefixes_v4": [
                         PREFIXES_V4_INIT
                     ],
@@ -80,17 +89,17 @@ def bgp_prefix_tc1_add_config(duthost):
         expect_op_success(duthost, output)
 
         bgp_config = show_bgp_running_config(duthost)
-        pytest_assert(re.search(PREFIXES_V4_RE.format(PREFIXES_V4_INIT), bgp_config),
+        pytest_assert(re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_INIT), bgp_config),
             "Failed to add bgp prefix v4 config."
         )
-        pytest_assert(re.search(PREFIXES_V6_RE.format(PREFIXES_V6_INIT), bgp_config),
+        pytest_assert(re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_INIT), bgp_config),
             "Failed to add bgp prefix v6 config."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def bgp_prefix_tc1_xfail(duthost):
+def bgp_prefix_tc1_xfail(duthost, community_table):
     """ Test input with invalid prefixes
     """
     xfail_input = [
@@ -105,7 +114,7 @@ def bgp_prefix_tc1_xfail(duthost):
                 "op": op,
                 "path": "/BGP_ALLOWED_PREFIXES",
                 "value": {
-                    "DEPLOYMENT_ID|0": {
+                    "DEPLOYMENT_ID|0{}".format(community_table): {
                         "prefixes_v4": [
                             prefixes_v4
                         ],
@@ -127,18 +136,18 @@ def bgp_prefix_tc1_xfail(duthost):
         finally:
             delete_tmpfile(duthost, tmpfile)
 
-def bgp_prefix_tc1_replace(duthost):
+def bgp_prefix_tc1_replace(duthost, community, community_table):
     """ Test to replace prefixes
     """
     json_patch = [
         {
             "op": "replace",
-            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0/prefixes_v6/0",
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
             "value": PREFIXES_V6_DUMMY
         },
         {
             "op": "replace",
-            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0/prefixes_v4/0",
+            "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
             "value": PREFIXES_V4_DUMMY
         }
     ]
@@ -152,20 +161,20 @@ def bgp_prefix_tc1_replace(duthost):
 
         bgp_config = show_bgp_running_config(duthost)
         pytest_assert(
-            not re.search(PREFIXES_V4_RE.format(PREFIXES_V4_INIT), bgp_config) and
-            re.search(PREFIXES_V4_RE.format(PREFIXES_V4_DUMMY), bgp_config),
+            not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_INIT), bgp_config) and
+            re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config),
             "Failed to replace bgp prefix v4 config."
         )
         pytest_assert(
-            not re.search(PREFIXES_V6_RE.format(PREFIXES_V6_INIT), bgp_config) and
-            re.search(PREFIXES_V6_RE.format(PREFIXES_V6_DUMMY), bgp_config),
+            not re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_INIT), bgp_config) and
+            re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config),
             "Failed to replace bgp prefix v6 config."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def bgp_prefix_tc1_remove(duthost):
+def bgp_prefix_tc1_remove(duthost, community):
     """ Test to remove prefix config
     """
     json_patch = [
@@ -184,22 +193,29 @@ def bgp_prefix_tc1_remove(duthost):
 
         bgp_config = show_bgp_running_config(duthost)
         pytest_assert(
-            not re.search(PREFIXES_V4_RE.format(PREFIXES_V4_DUMMY), bgp_config),
+            not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config),
             "Failed to remove bgp prefix v4 config."
         )
         pytest_assert(
-            not re.search(PREFIXES_V6_RE.format(PREFIXES_V6_DUMMY), bgp_config),
+            not re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config),
             "Failed to remove bgp prefix v6 config."
         )
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_bgp_prefix_tc1_suite(duthost):
-    """  Test suite for bgp prefix for v4 and v6
+@pytest.mark.parametrize("commnunity", ["empty", "1010:1010"])
+def test_bgp_prefix_tc1_suite(duthost, community):
+    """ Test suite for bgp prefix for v4 and v6 w/ and w/o community ID
+
+    Sample CONFIG_DB entry:
+    BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0
+    BGP_ALLOWED_PREFIXES|DEPLOYMENT_ID|0|1010:1010
     """
+    community_table = "" if community == "empty" else "|" + community
+
     bgp_prefix_test_setup(duthost)
-    bgp_prefix_tc1_add_config(duthost)
-    bgp_prefix_tc1_xfail(duthost)
-    bgp_prefix_tc1_replace(duthost)
-    bgp_prefix_tc1_remove(duthost)
+    bgp_prefix_tc1_add_config(duthost, community, community_table)
+    bgp_prefix_tc1_xfail(duthost, community_table)
+    bgp_prefix_tc1_replace(duthost, community, community_table)
+    bgp_prefix_tc1_remove(duthost, community)
