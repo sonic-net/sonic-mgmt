@@ -3,6 +3,7 @@ import json
 import logging
 import tempfile
 import re
+import allure
 
 from datetime import datetime
 
@@ -28,6 +29,7 @@ FIB_INFO_FILE_DST = '/root/fib_info.txt'
 VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
+T0_VLAN = "1000"
 IP_VERSIONS_LIST = ["ipv4", "ipv6"]
 OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
 TABLE_NAME = "pbh_table"
@@ -42,10 +44,16 @@ V4_ETHER_TYPE = "0x0800"
 V6_ETHER_TYPE = "0x86dd"
 VXLAN_IP_PROTOCOL = "0x11"
 NVGRE_IP_PROTOCOL = "0x2f"
+GRE_KEY = "0x2500"
+NVGRE_TNI = 0x25
+GRE_MASK = "0xffffff00"
 VXLAN_L4_DST_PORT = "0x3412"
 VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
+NVGRE_GRE_KEY_OPTION = " --gre-key {}/{}".format(GRE_KEY, GRE_MASK)
 ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
 DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
+ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
+                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
                         " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
@@ -182,6 +190,59 @@ def vlan_ptf_ports(config_facts, tbinfo, duthost):
 
 
 @pytest.fixture(scope='module')
+def lag_port_map(duthost, config_facts, vlan_ptf_ports, tbinfo):
+    '''
+    Create lag-port map for vlan ptf ports
+    '''
+    portchannels = config_facts.get('PORTCHANNEL', {}).keys()
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    port_list_idx = 0
+    lag_port_map = {}
+    port_key_list = list(mg_facts['minigraph_ptf_indices'].keys())
+    port_val_list = list(mg_facts['minigraph_ptf_indices'].values())
+
+    for portchannel_idx in range(1, 10000):  # Max len of PortChannel index can be '9999'
+        lag_port = 'PortChannel{}'.format(portchannel_idx)
+
+        if lag_port not in portchannels:
+            port_idx_value = vlan_ptf_ports[port_list_idx]
+            position = port_val_list.index(port_idx_value)
+            port_name = port_key_list[position]
+            lag_port_map[lag_port] = port_name
+            port_list_idx += 1
+
+        if len(lag_port_map) == len(vlan_ptf_ports):
+            break
+
+    return lag_port_map
+
+
+@pytest.fixture(scope='module')
+def lag_ip_map(lag_port_map):
+    index = 1
+    base_ipv4_addr = '100.0.{}.1/31'
+    base_ipv6_addr = 'fc00:{}::1/126'
+    lag_ip_map = {}
+
+    for lag_port, _ in lag_port_map.items():
+        ipv4_addr = base_ipv4_addr.format(index)
+        ipv6_addr = base_ipv6_addr.format(index)
+        lag_ip_map[lag_port] = {'ipv4': ipv4_addr, 'ipv6': ipv6_addr}
+        index += 1
+
+    return lag_ip_map
+
+
+@pytest.fixture(scope='module')
+def config_lag_ports(duthost, lag_port_map, lag_ip_map):
+    add_lag_config(duthost, lag_port_map, lag_ip_map)
+
+    yield
+
+    remove_lag_config(duthost, lag_port_map, lag_ip_map)
+
+
+@pytest.fixture(scope='module')
 def router_mac(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.facts['router_mac']
@@ -215,7 +276,22 @@ def inner_ipver(request):
 
 
 @pytest.fixture(scope="module")
+def config_pbh_table_lag(duthost, lag_port_map):
+    logging.info("Create PBH table: {}".format(TABLE_NAME))
+    test_intfs_str = ",".join(lag_port_map.keys())
+
+    duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
+                                             test_intfs_str,
+                                             TABLE_DESCRIPTION))
+
+    yield
+
+    duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
+
+
+@pytest.fixture(scope="module")
 def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
+    logging.info("Create PBH table: {}".format(TABLE_NAME))
     test_intfs_str = get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo)
 
     duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
@@ -239,6 +315,7 @@ def get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo):
 
 @pytest.fixture(scope="module")
 def config_hash_fields(duthost):
+    logging.info("Create PBH hash-fields")
     for hash_field, hash_field_params_dict in HASH_FIELD_CONFIG.items():
         cmd = get_hash_field_add_cmd(hash_field, hash_field_params_dict)
         duthost.command(cmd)
@@ -260,6 +337,7 @@ def get_hash_field_add_cmd(hash_field_name, hash_field_params_dict):
 
 @pytest.fixture(scope="module")
 def config_hash(duthost):
+    logging.info("Create PBH hash: {}".format(HASH_NAME))
     duthost.command(ADD_PBH_HASH_CMD.format(HASH_NAME, PBH_HASH_FIELD_LIST))
 
     yield
@@ -291,6 +369,7 @@ def config_ipv6_rules(duthost, inner_ipver):
 
 
 def config_vxlan_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipver):
+    logging.info("Create PBH rule: {}".format(VXLAN_RULE_NAME.format(outer_ipver, inner_ipver)))
     inner_ether_type = V4_ETHER_TYPE if inner_ipver == "ipv4" else V6_ETHER_TYPE
     duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option + VXLAN_L4_DST_PORT_OPTION)
                     .format(TABLE_NAME,
@@ -305,8 +384,9 @@ def config_vxlan_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipv
 
 
 def config_nvgre_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipver):
+    logging.info("Create PBH rule: {}".format(NVGRE_RULE_NAME.format(outer_ipver, inner_ipver)))
     inner_ether_type = V4_ETHER_TYPE if inner_ipver == "ipv4" else V6_ETHER_TYPE
-    duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option)
+    duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option + NVGRE_GRE_KEY_OPTION)
                     .format(TABLE_NAME,
                             NVGRE_RULE_NAME.format(outer_ipver, inner_ipver),
                             NVGRE_RULE_PRIO,
@@ -341,16 +421,40 @@ def get_src_dst_ip_range(ipver):
 
 
 def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys):
-    symmetric_multiplier = 2 if symmetric_hashing else 1
-    exp_port_multiplier = 4  # num of POs in t0 topology
-    hash_keys_multiplier = len(hash_keys)
-    # for hash key "ip-proto", the traffic sends always in one way
-    exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
-                    + (balancing_test_times * exp_port_multiplier))
-    pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
-    for outer_encap_format in OUTER_ENCAP_FORMATS:
-        regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)
-        current_count = re.search(regex, pbh_statistic_output).group(1)
-        assert current_count == exp_count,\
-            "PBH counters are different from expected for {}, outer ipver {}, inner ipver {}. Expected: {}, " \
-            "Current: {}".format(outer_encap_format, outer_ipver, inner_ipver, exp_count, current_count)
+    logging.info('Verify PBH counters')
+    with allure.step('Verify PBH counters'):
+        symmetric_multiplier = 2 if symmetric_hashing else 1
+        exp_port_multiplier = 4  # num of POs in t0 topology
+        hash_keys_multiplier = len(hash_keys)
+        # for hash key "ip-proto", the traffic sends always in one way
+        exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
+                        + (balancing_test_times * exp_port_multiplier))
+        pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
+        for outer_encap_format in OUTER_ENCAP_FORMATS:
+            regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)
+            current_count = re.search(regex, pbh_statistic_output).group(1)
+            assert current_count == exp_count,\
+                "PBH counters are different from expected for {}, outer ipver {}, inner ipver {}. Expected: {}, " \
+                "Current: {}".format(outer_encap_format, outer_ipver, inner_ipver, exp_count, current_count)
+
+
+def add_lag_config(duthost, lag_port_map, lag_ip_map):
+    logging.info('Add LAG configuration')
+    with allure.step('Add LAG configuration'):
+        for lag_port, port_name in lag_port_map.items():
+            duthost.shell('sudo config vlan member del {} {}'.format(T0_VLAN, port_name))
+            duthost.shell('sudo config portchannel add {} --fallback enable'.format(lag_port))
+            duthost.shell('sudo config portchannel member add {} {}'.format(lag_port, port_name))
+            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv4']))
+            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv6']))
+
+
+def remove_lag_config(duthost, lag_port_map, lag_ip_map):
+    logging.info('Remove LAG configuration')
+    with allure.step('Remove LAG configuration'):
+        for lag_port, port_name in lag_port_map.items():
+            duthost.shell('config interface ip remove {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv4']))
+            duthost.shell('config interface ip remove {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv6']))
+            duthost.shell('sudo config portchannel member del {} {}'.format(lag_port, port_name))
+            duthost.shell('sudo config portchannel del {}'.format(lag_port))
+            duthost.shell('sudo config vlan member add {} {} --untagged'.format(T0_VLAN, port_name))
