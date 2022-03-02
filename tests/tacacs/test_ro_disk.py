@@ -172,10 +172,6 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
 
     finally:
-        # Ensure file is removed.
-        #
-        duthost.shell("rm -f /etc/rsyslog.d/000-ro_disk.conf") 
-
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "find {} -ls".format(MOUNT_DIR))
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
 
