@@ -34,8 +34,8 @@ def test_memory_exhaustion(duthosts, enum_frontend_dut_hostname, localhost):
                              delay=10,
                              timeout=120,
                              module_ignore_errors=True)
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not shutdown'.format(hostname))
+    pytest_assert(not res.is_failed and 'Timeout' not in res.get('msg'),
+                  'DUT {} did not shutdown'.format(hostname))
 
     logging.info('waiting for ssh to startup on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
@@ -45,8 +45,8 @@ def test_memory_exhaustion(duthosts, enum_frontend_dut_hostname, localhost):
                              delay=10,
                              timeout=120,
                              module_ignore_errors=True)
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not startup'.format(hostname))
+    pytest_assert(not res.is_failed and 'Timeout' not in res.get('msg'),
+                  'DUT {} did not startup'.format(hostname))
 
     # Wait until all critical processes are healthy.
     wait_critical_processes(duthost)
