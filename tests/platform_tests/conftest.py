@@ -20,7 +20,8 @@ FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
-    "Arista-7060CX-32S-Q32"
+    "Arista-7060CX-32S-Q32",
+    "Arista-7060CX-32S-D48C8"
 ]
 
 
@@ -52,7 +53,7 @@ def xcvr_skip_list(duthosts):
             out = dut.command("cat {}".format(f_path))
             hwsku_info = json.loads(out["stdout"])
             for int_n in hwsku_info['interfaces']:
-                if hwsku_info['interfaces'][int_n]['port_type'] == "RJ45":
+                if hwsku_info['interfaces'][int_n].get('port_type') == "RJ45":
                     intf_skip_list[dut.hostname].append(int_n)
 
         except Exception:
@@ -269,7 +270,15 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                 state_name = state.split("|")[0].strip()
                 reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
                 if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
-                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=reboot_time)
+                    if "FDB_EVENT_OTHER_MAC_EXPIRY" in state_name or "FDB_EVENT_SCAPY_MAC_EXPIRY" in state_name:
+                        fdb_aging_disable_start = result.get("time_span", {}).get("FDB_AGING_DISABLE", {})\
+                            .get("timestamp", {}).get("Start")
+                        if not fdb_aging_disable_start:
+                            break
+                        first_after_offset = fdb_aging_disable_start
+                    else:
+                        first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
+                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=first_after_offset)
                     offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, sai_redis_state_times, first_after_offset=reboot_time)
@@ -378,14 +387,16 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
 
-    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-    if 'SONiC-OS-201811' in current_os_version:
+    base_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    if 'SONiC-OS-201811' in base_os_version:
         bgpd_log = "/var/log/quagga/bgpd.log"
     else:
         bgpd_log = "/var/log/frr/bgpd.log"
 
     hwsku = duthost.facts["hwsku"]
-    if hwsku in SMALL_DISK_SKUS:
+    log_filesystem = duthost.shell("df -h | grep '/var/log'")['stdout']
+    logs_in_tmpfs = True if log_filesystem and "tmpfs" in log_filesystem else False
+    if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
         # For small disk devices, /var/log in mounted in tmpfs.
         # Hence, after reboot the preboot logs are lost.
         # For log_analyzer to work, it needs logs from the shutdown path
@@ -411,7 +422,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         return marker
 
     def post_reboot_analysis(marker, reboot_oper=None, log_dir=None):
-        if hwsku in SMALL_DISK_SKUS:
+        if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                     "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -423,11 +434,18 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path), module_ignore_errors=True)
 
         # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
-        current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-        if 'SONiC-OS-201811' in current_os_version:
+        target_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        upgrade_out_201811 = "SONiC-OS-201811" in base_os_version and "SONiC-OS-201811" not in target_os_version
+        if 'SONiC-OS-201811' in target_os_version:
             bgpd_log = "/var/log/quagga/bgpd.log"
         else:
             bgpd_log = "/var/log/frr/bgpd.log"
+        if upgrade_out_201811 and not logs_in_tmpfs:
+            # if upgrade from 201811 to future branch is done there are two cases:
+            # 1. Small disk devices: previous quagga logs don't exist anymore, handled in restore_backup.
+            # 2. Other devices: prev quagga log to be copied to a common place, for ansible extract to work:
+            duthost.shell("cp {} {}".format(
+                "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log.99"), module_ignore_errors=True)
         additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''}
         loganalyzer.additional_files = list(additional_files.keys())
         loganalyzer.additional_start_str = list(additional_files.values())
