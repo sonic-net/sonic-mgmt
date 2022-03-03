@@ -35,6 +35,5 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
         pytest.skip('Generic patch updater does not support multiasic')
 
     log_info("sys.version={}".format(sys.version))
-    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'],
-            hack_apply=True)
+    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'])
 
