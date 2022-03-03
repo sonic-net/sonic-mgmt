@@ -29,6 +29,7 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+
     def check_macsec_enabled():
         for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
             if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
@@ -50,6 +51,7 @@ def profile_name():
 @pytest.fixture(scope="module")
 def default_priority():
     return 64
+
 
 @pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
@@ -89,6 +91,7 @@ def send_sci(request):
 @pytest.fixture(scope="module")
 def downstream_links(duthost, tbinfo, nbrhosts):
     links = collections.defaultdict(dict)
+
     def filter(interface, neighbor, mg_facts, tbinfo):
         if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
             port = mg_facts["minigraph_neighbors"][interface]["port"]
@@ -104,6 +107,7 @@ def downstream_links(duthost, tbinfo, nbrhosts):
 @pytest.fixture(scope="module")
 def upstream_links(duthost, tbinfo, nbrhosts):
     links = collections.defaultdict(dict)
+
     def filter(interface, neighbor, mg_facts, tbinfo):
         if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
             for item in mg_facts["minigraph_bgp"]:
@@ -140,4 +144,3 @@ def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
     logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
-

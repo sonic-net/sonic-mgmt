@@ -314,4 +314,3 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
     for packet in received_packets:
         fail_message += "\n{}\n".format(packet.show(dump=True))
     pytest.fail(fail_message)
-

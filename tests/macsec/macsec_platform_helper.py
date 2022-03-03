@@ -122,4 +122,3 @@ def find_portchannel_from_member(port_name, portchannel_list):
         if port_name in v["members"]:
             return v
     return None
-

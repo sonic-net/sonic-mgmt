@@ -1,6 +1,7 @@
 from tests.common.utilities import wait_until
 from macsec_helper import *
 
+
 def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
     macsec_profile = {
         "priority": priority,

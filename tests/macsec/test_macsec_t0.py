@@ -153,9 +153,10 @@ class TestFaultHandling():
         # Flap > 6 seconds but < 90 seconds
         nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
             nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
-            duthost, port_name, nbr["host"], nbr["port"])
+                duthost, port_name, nbr["host"], nbr["port"])
             assert dut_egress_sa_table_new
             assert dut_ingress_sa_table_new
             assert dut_egress_sa_table_orig != dut_egress_sa_table_new
