@@ -1349,6 +1349,23 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms29-t2-8800-2
+  group-name: vms29-3
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: vms29-3
+  ptf_ip: 10.64.246.247/23
+  ptf_ipv6:
+  server: server_29
+  vm_base: VM29080
+  dut:
+    - str2-8800-lc1-2
+    - str2-8800-lc2-2
+    - str2-8800-sup-2
+  inv_name: str2
+  auto_recover: 'True'
+  comment: abdosi
+
 - conf-name: vms29-t2-7250-1
   group-name: vms29-2
   topo: t2_2lc_min_ports-masic
