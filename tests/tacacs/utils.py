@@ -1,6 +1,5 @@
 import crypt
 import logging
-import os
 import re
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -95,7 +94,7 @@ def fix_ld_path_in_config(duthost, ptfhost):
         Fix ld path in tacacs config
     """
     ld_symbolic_link_path = get_ld_path(duthost)
-    if os.path.isfile(ld_symbolic_link_path):
+    if not ld_symbolic_link_path:
         fix_symbolic_link_in_config(duthost, ptfhost, ld_symbolic_link_path, "/lib/arch-linux-abi/ld-linux-arch.so")
 
 def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
