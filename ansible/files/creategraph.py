@@ -2,10 +2,19 @@
 
 import csv
 import sys
-import os
+import os, re, json
 import argparse
 from lxml import etree
+from collections import OrderedDict
+try:
+    from ansible.module_utils.port_utils import get_port_alias_to_name_map
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from module_utils.port_utils import get_port_alias_to_name_map
 
+ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', 'speed']
 DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
 DEFAULT_LINKCSV = 'sonic_lab_links.csv'
 DEFAULT_CONSOLECSV = 'sonic_lab_console_links.csv'
@@ -23,8 +32,9 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment. 
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None, names=None):
         #TODO:make generated xml file name as parameters in the future to make it more flexible
+        self.names = []
         self.devices = []
         self.links =  []
         self.consoles =  []
@@ -33,6 +43,7 @@ class LabGraph(object):
         self.linkcsv = link_csvfile
         self.conscsv = cons_csvfile
         self.pducsv = pdu_csvfile
+        self.names = names
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
         self.one_xmlfile = graph_xmlfile
@@ -69,11 +80,16 @@ class LabGraph(object):
         with open(self.linkcsv) as csv_file:
             csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
             links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+            i = 0
             for link in csv_links:
                 attrs = {}
                 for key in link:
                     if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
                         attrs[key]=link[key].decode('utf-8')
+                    if key.lower() == 'startport' and link['StartDevice'] == 'sonicdut':
+                        attrs[key]='Ethernet'+str(self.names[i])
+                        i = i + 1
+                print(attrs)
                 etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
                 self.links.append(link)
  
@@ -165,6 +181,93 @@ def get_file_names(args):
 
     return device, links, console, pdu
 
+def get_portmap(filename="./port_config.ini"):
+    port_alias_to_name_map = {}
+    objects = []
+    names = []
+    with open(filename) as f:
+        lines = f.readlines()
+    print(len(lines))
+    alias_index = -1
+    lanes_index = -1
+    speed_index = -1
+    role_index = -1
+    asic_name_index = -1
+    index_index = -1
+    counter = 0
+    while len(lines) != 0:
+        line = lines.pop(0)
+        counter = counter + 1
+        if counter > 33:
+            break
+        if re.match('^#', line):
+            title=re.sub('#', '', line.strip().lower()).split()
+            for text in title:
+                if text in ALLOWED_HEADER:
+                    index = title.index(text)
+                    if 'index' in text:
+                        index_index = index
+                    if 'alias' in text:
+                        alias_index = index
+                    if 'lanes' in text:
+                        lanes_index = index
+                    if 'speed' in text:
+                        speed_index = index
+                    if 'role' in text:
+                        role_index = index
+                    if 'asic_port_name' in text:
+                        asic_name_index = index
+        else:
+            single_objects = {}
+            #added support to parse recycle port
+            if re.match('^Ethernet', line) or re.match('^Inband', line):
+                mapping = line.split()
+                name = mapping[0]
+                names.append(name)
+                single_objects["name"] = name
+                if (lanes_index != -1) and (len(mapping) > lanes_index):
+                    lanes = mapping[lanes_index]
+                    single_objects["lanes"] = lanes
+                else:
+                    lanes = ''
+                    single_objects["lanes"] = lanes
+                if (index_index != -1) and (len(mapping) > index_index):
+                    single_objects["index"] = mapping[index_index]
+            
+                if (role_index != -1) and (len(mapping) > role_index):
+                    role = mapping[role_index]
+                    single_objects["role"] = role
+                else:
+                    role = 'Ext'
+                    single_objects["role"] = role
+                if alias_index != -1 and len(mapping) > alias_index:
+                    alias = mapping[alias_index]
+                    single_objects["alias"] = alias
+                else:
+                    alias = name
+                    single_objects["alias"] = alias
+                port_alias_to_name_map[alias] = name
+                if role == 'Ext':
+                    if (speed_index != -1) and (len(mapping) > speed_index):
+                        single_objects["speed"] = mapping[speed_index]
+                    if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                        asicifname = mapping[asic_name_index]
+                        single_objects["asic_port_name"] = mapping[asic_name_index]
+                if (asic_name_index != -1) and (len(mapping) > asic_name_index):
+                    asicifname = mapping[asic_name_index]
+                    single_objects["asic_port_name"] = mapping[asic_name_index]
+            objects.append(single_objects)
+    
+    # Physical ports names from port_config.ini
+    with open("./physical_ports_dut.json", "w") as outfile:
+        json.dump(names, outfile)
+
+    # Create json version of ini file
+    with open("./port_config.json", "w") as outfile:
+        json.dump(objects, outfile)
+
+    return port_alias_to_name_map
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -174,10 +277,28 @@ def main():
     parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
     parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
+    parser.add_argument("-u", "--hwsku", help="hwsku of DUT")
+    parser.add_argument("-q", "--port_config", help="path to port_config.ini if hwsku is not known")
     args = parser.parse_args()
-
+    if args.hwsku == None and args.port_config == None :
+        print("Error: either provie hwsku or path to port_config.ini file")
+        exit()
+    if args.port_config != None:
+        port_alias_to_name_map = get_portmap(args.port_config)
+    if args.hwsku != None:
+        (port_alias_to_name_map, _) = get_port_alias_to_name_map(args.hwsku)
+    names = []
+    for _, name in port_alias_to_name_map.items():
+        names.append(name)
+    for i in range(len(names)):
+        names[i] = names[i][8:]
+        names[i] = int(names[i])
+    names.sort()
+    # Create json file of port_alias_to_name_map
+    with open("./port_alias_to_name_map.json", "w") as outfile:
+        json.dump(port_alias_to_name_map, outfile)
     device, links, console, pdu = get_file_names(args)
-    mygraph = LabGraph(device, links, console, pdu, args.output)
+    mygraph = LabGraph(device, links, console, pdu, args.output, names )
 
     mygraph.read_devices()
     mygraph.read_links()
