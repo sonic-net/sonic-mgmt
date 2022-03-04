@@ -165,16 +165,13 @@ class TestFaultHandling():
         assert wait_until(12, 1, 0, check_new_mka_session)
 
         # Flap > 90 seconds
-        pc = find_portchannel_from_member(
-            port_name, get_portchannel(duthost))
-        assert pc["status"] == "Up"
+        find_portchannel_from_member(
+            port_name, get_portchannel(duthost))["status"] == "Up"
         nbr["host"].shell("ifconfig {} down && sleep {}".format(
             nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Dw")
         nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
-        pc = find_portchannel_from_member(
-            port_name, get_portchannel(duthost))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
