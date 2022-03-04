@@ -15,6 +15,10 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+MOUNT_DIR = "/run/mount"
+LOG_DIR = os.path.join(MOUNT_DIR, "log")
+DATA_DIR = "logs/tacacs"
+
 
 def check_disk_ro(duthost):
     try:
@@ -41,25 +45,32 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
-def do_reboot(duthost, localhost, dutip, rw_user, rw_pass):
+def do_reboot(duthost, localhost, dutip="", rw_user="", rw_pass=""):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
     #
     wait_time = 20
     retries = 3
+    rebooted = False
+
     for i in range(retries):
         # Regular reboot command would not work, as it would try to
         # collect show tech, which will fail in RO state.
         #
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
         try:
+            if dutip:
+                chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
+            else:
+                duthost.shell("/sbin/reboot")
+
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
+            rebooted = True
             break
         except RunAnsibleModuleFail as e:
             logger.error("DUT did not go down, exception: {} attempt:{}/{}".
                     format(repr(e), i, retries))
 
-    assert i<3, "Failed to reboot"
+    assert rebooted, "Failed to reboot"
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
     assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
@@ -78,6 +89,16 @@ def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: complete: setup tacacs_creds')
 
 
+def do_check_clean_state(duthost):
+    for i in [ "upper", "work", "log" ]:
+        res = duthost.shell("ls -l {}".format(os.path.join(MOUNT_DIR,i)), module_ignore_errors=True)
+        if res["rc"] == 0:
+            # Log current state in-depth
+            duthost.shell("find {} -ls".format(MOUNT_DIR), module_ignore_errors=True)
+            return False
+    return True
+
+
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         tacacs_creds, check_tacacs):
     """test tacacs rw user
@@ -93,32 +114,48 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     rw_user = tacacs_creds['tacacs_rw_user']
     rw_pass = tacacs_creds['tacacs_rw_user_passwd']
 
-    res = duthost.shell("ls -l /run/mount/*", module_ignore_errors=True)
-    if res["rc"] == 0:
+    if not do_check_clean_state(duthost):
         # System has some partial state left behind from last run.
         # reboot to clear it
         #
         logger.info("PRETEST: reboot {} to restore system state".
                 format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
-
+        do_reboot(duthost, localhost)
+        assert do_check_clean_state(duthost), "state not good even after reboot"
         do_setup_tacacs(ptfhost, duthost, tacacs_creds)
 
+    # just check it out that ro user could indeed login
+    ret = chk_ssh_remote_run(localhost, dutip, ro_user, ro_pass, "ls")
+    assert ret, "Failed pre-test ssh login as ro user"
+
+    logger.debug("Delete ro user to simulate new login in RO state.")
+    duthost.shell("sudo deluser --remove-home {}".format(ro_user))
+    logger.info("del user {} done".format(ro_user))
+
     res = duthost.shell("ls -l /home/{}".format(ro_user), module_ignore_errors=True)
-    if  res["rc"] == 0:
-        logger.debug("ro user pre-exists; deleting")
-        try:
-            duthost.shell("sudo deluser --remove-home {}".format(ro_user),
-                    module_ignore_errors=True)
-        finally:
-            # If any failure, it implies user not valid, which is good enough.
-            logger.info("del user {} done".format(ro_user))
+    assert  res["rc"] != 0, "Failed to remove ro user dir"
+
+    # Ensure rw user can get in, as we need this to be able to reboot
+    ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
+    assert ret, "Failed to ssh as rw user"
 
     try:
-        # Ensure rw user can get in, as we need this to be able to reboot
-        ret = chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls")
+        # Redirect logs to tmpfs
+        #
+        duthost.shell("sudo mkdir {}".format(LOG_DIR))
+        
+        conf_path = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "000-ro_disk.conf")
+        duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
-        assert ret, "Failed to ssh as rw user"
+        res = duthost.shell("systemctl restart rsyslog")
+        assert res["rc"] == 0, "failed to restart rsyslog"
+
+        # Pause 2 seconds to ensure the new .conf is read in by rsyslogd
+        time.sleep(2)
+
+        # Remove file, so the reboot at the end of test will revert this logs redirect.
+        duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf") 
 
         # Set disk in RO state
         simulate_ro(duthost)
@@ -135,8 +172,18 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                 ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
 
     finally:
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "ls -alrt /run/mount/")
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "find {} -ls".format(MOUNT_DIR))
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
+
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "find /home -ls")
+        duthost.fetch(src="/etc/passwd", dest=DATA_DIR)
+
+        # Fetch log files
+        duthost.fetch(src=os.path.join(LOG_DIR, "auth.log"), dest=DATA_DIR,
+                fail_on_missing=False)
+        duthost.fetch(src=os.path.join(LOG_DIR, "syslog"), dest=DATA_DIR,
+                fail_on_missing=False)
+
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
