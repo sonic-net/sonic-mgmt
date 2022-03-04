@@ -94,6 +94,8 @@ all:
           ansible_host: 10.64.246.244
         vms29-2:
           ansible_host: 10.64.246.245
+        vms29-3:
+          ansible_host: 10.64.246.247
 
     pdu:
       hosts:
@@ -298,7 +300,8 @@ sonic:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_sup:
-    sonic_cisco_lc_100G:
+    sonic_cisco_lc_100G: 
+    sonic_cisco_lc_400G:
     sonic_cisco_sup:
     sonic_nokia_7215:
     sonic_cisco_8102:
@@ -1002,6 +1005,29 @@ sonic_cisco_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.147.98
 
+sonic_cisco_lc_400G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 3
+    frontend_asics: [0,1,2]
+  hosts:
+    str2-8800-lc1-2:
+      hwsku: 88-LC0-36FH-MO
+      sonic_hwsku: 88-LC0-36FH-MO
+      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
+      ansible_host: 10.3.147.176
+    str2-8800-lc2-2:
+      hwsku: 88-LC0-36FH-MO
+      sonic_hwsku: 88-LC0-36FH-MO
+      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 10.3.147.177
+
 sonic_nokia_lc_400G:
   vars:
     max_cores: 48
@@ -1080,6 +1106,12 @@ sonic_cisco_sup:
       ansible_host: 10.3.147.95
       hwsku: 8800-RP-O
       num_asics: 16
+      asic_name: Q100
+    str2-8800-sup-2:
+      ansible_host: 10.3.147.175
+      hwsku: 8800-RP-O
+      num_asics: 16
+      asic_name: Q200
 
 sonic_nokia_sup:
   vars:

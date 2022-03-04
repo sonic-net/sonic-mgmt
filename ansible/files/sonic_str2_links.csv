@@ -53,7 +53,7 @@ str2-7260cx3-acs-root02,Ethernet23/1,str2-7260cx3-acs-fan-34,Ethernet64/1,100000
 str2-7260cx3-acs-root02,Ethernet28/1,str2-7260cx3-acs-fan-23,Ethernet64/1,100000,"1906-1965",Trunk
 str2-7260cx3-acs-root02,Ethernet32/1,str2-7260cx3-acs-fan-35,Ethernet64/1,100000,"1966-1999,2035-2036",Trunk
 str2-7260cx3-acs-root02,Ethernet59/1,str2-7215-acs-4,Ethernet48,10000,"1262-1309",Trunk
-str2-7260cx3-acs-root02,Ethernet65,str2-z9332f-02,Ethernet256,10000,"2400-2411",Trunk
+str2-7260cx3-acs-root02,Ethernet65,str2-z9332f-02,Ethernet256,10000,"2400-2423",Trunk
 str2-7060-spy-3,Ethernet0,str2-dx010-acs-2,etp1,100000,201,Access
 str2-7060-spy-3,Ethernet4,str2-dx010-acs-2,etp2,100000,202,Access
 str2-7060-spy-3,Ethernet8,str2-dx010-acs-2,etp3,100000,203,Access
@@ -2650,6 +2650,18 @@ str2-7250-lc2-1,Ethernet6,str2-z9332f-02,Ethernet224,400000,2408,Access
 str2-7250-lc2-1,Ethernet24,str2-z9332f-02,Ethernet232,400000,2409,Access
 str2-7250-lc2-1,Ethernet25,str2-z9332f-02,Ethernet240,400000,2410,Access
 str2-7250-lc2-1,Ethernet26,str2-z9332f-02,Ethernet248,400000,2411,Access
+str2-8800-lc1-2,Ethernet4,str2-z9332f-02,Ethernet0,400000,2412,Access
+str2-8800-lc1-2,Ethernet5,str2-z9332f-02,Ethernet8,400000,2413,Access
+str2-8800-lc1-2,Ethernet8,str2-z9332f-02,Ethernet16,400000,2414,Access
+str2-8800-lc1-2,Ethernet23,str2-z9332f-02,Ethernet24,400000,2415,Access
+str2-8800-lc1-2,Ethernet26,str2-z9332f-02,Ethernet32,400000,2416,Access
+str2-8800-lc1-2,Ethernet27,str2-z9332f-02,Ethernet40,400000,2417,Access
+str2-8800-lc2-2,Ethernet2,str2-z9332f-02,Ethernet48,400000,2418,Access
+str2-8800-lc2-2,Ethernet3,str2-z9332f-02,Ethernet56,400000,2419,Access
+str2-8800-lc2-2,Ethernet6,str2-z9332f-02,Ethernet64,400000,2420,Access
+str2-8800-lc2-2,Ethernet24,str2-z9332f-02,Ethernet72,400000,2421,Access
+str2-8800-lc2-2,Ethernet25,str2-z9332f-02,Ethernet80,400000,2422,Access
+str2-8800-lc2-2,Ethernet26,str2-z9332f-02,Ethernet88,400000,2423,Access
 str2-a7280cr3-4,Ethernet0,str2-7260cx3-acs-fan-17,Ethernet49/1,100000,2037,Access
 str2-a7280cr3-4,Ethernet4,str2-7260cx3-acs-fan-17,Ethernet50/1,100000,2038,Access
 str2-a7280cr3-4,Ethernet8,str2-7260cx3-acs-fan-30,Ethernet1/1,100000,2039,Access
