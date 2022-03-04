@@ -683,7 +683,7 @@ def generate_scale_rules(duthost, ip_type):
     # duthost.command to active ssh connection.
     # In this way, we can active ssh connection and wait as long as we want.
 
-    # For multi-asic, it has to wait enough long
+    # It has to wait cacl rules to be effective.
     wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
