@@ -225,11 +225,10 @@ def check_reboot_cause(dut, reboot_cause_expected):
     return reboot_cause_got == reboot_cause_expected
 
 
-def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
+def sync_reboot_history_queue_with_dut(dut):
     """
     @summary: Sync DUT and internal history queues
     @param dut: The AnsibleHost object of DUT.
-    @param latest_reboot_type: most recent reboot type 
     """
 
     global REBOOT_TYPE_HISTOYR_QUEUE
@@ -268,6 +267,7 @@ def sync_reboot_history_queue_with_dut(dut, latest_reboot_type):
     # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
+        logging.warn("Unable to sync reboot history queue")
         return
 
     # If the reboot cause history is received from DUT,

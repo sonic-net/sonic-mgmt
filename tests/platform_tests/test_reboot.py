@@ -57,7 +57,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     """
 
     logging.info("Sync reboot cause history queue with DUT reboot cause history queue")
-    sync_reboot_history_queue_with_dut(dut, reboot_type)
+    sync_reboot_history_queue_with_dut(dut)
 
     logging.info("Run %s reboot on DUT" % reboot_type)
     reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
