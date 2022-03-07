@@ -128,8 +128,8 @@ def bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
             "Failed to update bgp speaker src address."
         )
         pytest_assert(
-            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, ip_range), bgp_config) and
-            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, ip_rangev6), bgp_config),
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(ip_range, BGPSPEAKER_V4), bgp_config) and
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(ip_rangev6, BGPSPEAKER_V6), bgp_config),
             "Failed to add bgp speaker ip range."
         )
 
@@ -161,8 +161,8 @@ def bgp_speaker_tc1_add_dummy_ip_range(duthost):
 
         bgp_config = show_bgp_running_config(duthost)
         pytest_assert(
-            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, DUMMY_IP_RANGE_V4), bgp_config) and
-            re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, DUMMY_IP_RANGE_V6), bgp_config),
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(DUMMY_IP_RANGE_V4, BGPSPEAKER_V4), bgp_config) and
+            re.search(BGPSPEAKER_IP_RANGE_RE.format(DUMMY_IP_RANGE_V6, BGPSPEAKER_V6), bgp_config),
             "Failed to add bgp speaker dummy ip range."
         )
 
@@ -192,8 +192,8 @@ def bgp_speaker_tc1_rm_dummy_ip_range(duthost):
 
         bgp_config = show_bgp_running_config(duthost)
         pytest_assert(
-            not re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V4, DUMMY_IP_RANGE_V4), bgp_config) and
-            not re.search(BGPSPEAKER_IP_RANGE_RE.format(BGPSPEAKER_V6, DUMMY_IP_RANGE_V6), bgp_config),
+            not re.search(BGPSPEAKER_IP_RANGE_RE.format(DUMMY_IP_RANGE_V4, BGPSPEAKER_V4), bgp_config) and
+            not re.search(BGPSPEAKER_IP_RANGE_RE.format(DUMMY_IP_RANGE_V6, BGPSPEAKER_V6), bgp_config),
             "Failed to remove bgp speaker dummy ip range."
         )
 
