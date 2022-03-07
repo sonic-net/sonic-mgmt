@@ -2,11 +2,11 @@ import pytest
 import logging
 import ipaddress
 import collections
-from multiprocessing.pool import ThreadPool
 
 import natsort
 
 from tests.common.utilities import wait_until
+from macsec_platform_helper import *
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +26,10 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_macsec)
 
 
-def global_cmd(duthost, nbrhosts, cmd):
-    pool = ThreadPool(1 + len(nbrhosts))
-    pool.apply_async(duthost.command, args=(cmd,))
-    for nbr in nbrhosts.values():
-        pool.apply_async(nbr["host"].command, args=(cmd, ))
-    pool.close()
-    pool.join()
-
-
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+
     def check_macsec_enabled():
         for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
             if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
@@ -59,6 +51,7 @@ def profile_name():
 @pytest.fixture(scope="module")
 def default_priority():
     return 64
+
 
 @pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
@@ -95,15 +88,10 @@ def send_sci(request):
     return request.param
 
 
-def find_links(duthost, tbinfo, filter):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        filter(interface, neighbor, mg_facts, tbinfo)
-
-
 @pytest.fixture(scope="module")
 def downstream_links(duthost, tbinfo, nbrhosts):
     links = collections.defaultdict(dict)
+
     def filter(interface, neighbor, mg_facts, tbinfo):
         if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
             port = mg_facts["minigraph_neighbors"][interface]["port"]
@@ -119,6 +107,7 @@ def downstream_links(duthost, tbinfo, nbrhosts):
 @pytest.fixture(scope="module")
 def upstream_links(duthost, tbinfo, nbrhosts):
     links = collections.defaultdict(dict)
+
     def filter(interface, neighbor, mg_facts, tbinfo):
         if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
             for item in mg_facts["minigraph_bgp"]:
@@ -133,22 +122,6 @@ def upstream_links(duthost, tbinfo, nbrhosts):
                 "ipv4_addr": ipv4_addr,
                 "port": port
             }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
-def find_links_from_nbr(duthost, tbinfo, nbrhosts):
-    links = collections.defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if neighbor["name"] not in nbrhosts.keys():
-            return
-        port = mg_facts["minigraph_neighbors"][interface]["port"]
-        links[interface] = {
-            "name": neighbor["name"],
-            "host": nbrhosts[neighbor["name"]]["host"],
-            "port": port
-        }
     find_links(duthost, tbinfo, filter)
     return links
 
@@ -171,4 +144,3 @@ def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
     logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
-
