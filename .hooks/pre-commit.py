@@ -11,12 +11,12 @@ def main():
                 continue
             for line in file_contents:
                 if re.match('^[a-zA-Z]', line):
-                    conditions.append(line.split()[0].split(":")[0])
-            sorted_conditions = conditions
+                    conditions.append(line.strip().rstrip(":"))
+            sorted_conditions = conditions[:]
             sorted_conditions.sort()
             if conditions != sorted_conditions:
-                sys.exit(0)
-    sys.exit(-1)
+                sys.exit(-1)
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
