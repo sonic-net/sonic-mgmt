@@ -8,7 +8,7 @@ ToR to the active ToR
 import pytest
 import logging
 import random
-import re
+import time
 import contextlib
 from threading import Thread
 from ptf import testutils
@@ -43,7 +43,7 @@ def validate_neighbor_entry_exist(duthost, neighbor_addr):
     """
     command = "ip neighbor show %s" % neighbor_addr
     output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
-    if not output:
+    if not output or "REACHABLE" not in output[0]:
         return False
     return True
 
@@ -119,7 +119,8 @@ def test_tunnel_memory_leak(
     @contextlib.contextmanager
     def prepare_services(ptfhost):
         """
-        Temporarily stop garp service, start arp and icmp service.
+        Temporarily start arp and icmp service. Make sure to stop garp service,
+        otherwise, it will add neighbor entry back automatically.
         It has to stop garp_service for triggering tunnel_packet_handler.
         It has to start arp and icmp service for receiving packets at server side. 
         """
@@ -127,7 +128,6 @@ def test_tunnel_memory_leak(
         ptfhost.shell("supervisorctl start arp_responder")
         ptfhost.shell("supervisorctl start icmp_responder")
         yield
-        ptfhost.shell("supervisorctl start garp_service")
         ptfhost.shell("supervisorctl stop arp_responder")
         ptfhost.shell("supervisorctl stop icmp_responder")
 	
@@ -151,9 +151,10 @@ def test_tunnel_memory_leak(
     ptf_t1_intf = random.choice(get_t1_ptf_ports(lower_tor_host, tbinfo))
 
     all_servers_ips = mux_cable_server_ip(upper_tor_host)
-    # Get the original memeory percent before test.
-    check_memory_leak(upper_tor_host)
+
     with prepare_services(ptfhost):
+        # Get the original memeory percent before test
+        check_memory_leak(upper_tor_host)
         for iface, server_ips in all_servers_ips.items():
             server_ipv4 = server_ips["server_ipv4"].split("/")[0]
             logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
@@ -170,14 +171,17 @@ def test_tunnel_memory_leak(
                 testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
                 logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
                             .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
-
+                # Check memory usage for every operation, used for debugging if test failed
+                check_memory_leak(upper_tor_host)
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
 
-                check_result = check_memory_leak(upper_tor_host)
-                pytest_assert(check_result == False, "Test failed because there is memory leak on {}".format(upper_tor_host.hostname))
-
             pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
                         "Received {} expected packets for server {}, drop more than 50%."
                         .format(len(server_traffic_monitor.matched_packets), server_ipv4))
+        # sleep 10s to wait memory usage stable, check if there is memory leak
+        time.sleep(10)
+        check_result = check_memory_leak(upper_tor_host)
+        pytest_assert(check_result == False, "Test failed because there is memory leak on {}"
+                    .format(upper_tor_host.hostname))
