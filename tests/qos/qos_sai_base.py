@@ -1232,7 +1232,7 @@ class QosSaiBase(QosBase):
         duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.command("counterpoll watermark enable")
-        dut_asic.command("sleep 20")
+        dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
 
 

@@ -27,11 +27,17 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 #####            decap            #####
 #######################################
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
+  skip:
+    reason: "Not supported on broadcom after 201911 release and mellanox all releases"
+    conditions:
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox'])"
+
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
-    reason: "Not supported on backend"
+    reason: "Not supported on backend and broadcom before 202012 release"
     conditions:
-      - "topo_name in ['t1-backend', 't0-backend']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 #######################################
 #####         dhcp_relay          #####
@@ -123,6 +129,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####         pfc_asym            #####
+#######################################
+pfc_asym/test_pfc_asym.py:
+  skip:
+    reason: 'pfc_asym test is only supported on Mellanox platform'
+    conditions:
+      - "asic_type not in ['mellanox']"
+
+#######################################
 #####         pfcwd               #####
 #######################################
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
@@ -155,7 +170,7 @@ qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo"
     conditions:
-      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+      - "asic_type in ['barefoot'] and topo_name in ['t1']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
   xfail:
@@ -254,3 +269,18 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           VxLAN             #####
+#######################################
+vxlan/test_vxlan_ecmp.py:
+  skip:
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
+  skip:
+    reason: "This test can only run on 4600c and 8102"
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
