@@ -2624,9 +2624,10 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     xon_value = 0
     headroom_size = 0
     speed_overhead = 0
+    pipeline_latency = PIPELINE_LATENCY
 
     if is_8lane:
-        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
+        pipeline_latency = PIPELINE_LATENCY * 2 - 1024
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
@@ -2652,7 +2653,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
     xoff_value = math.ceil(xoff_value / 1024) * 1024
-    xon_value = PIPELINE_LATENCY
+    xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:
